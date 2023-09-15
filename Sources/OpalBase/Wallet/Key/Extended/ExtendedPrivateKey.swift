@@ -10,7 +10,7 @@ struct ExtendedPrivateKey: PrivateKey, Extendable, CustomStringConvertible {
     let network: BitcoinCash.Network
     let data: Data
     
-    let precedent: (key: Data?, chainCode: Data?, fingerprint: Data?)
+    let precedent: (key: Data, chainCode: Data, fingerprint: Data)?
     
     let chainCode: Data
     let depth: UInt8
@@ -18,9 +18,7 @@ struct ExtendedPrivateKey: PrivateKey, Extendable, CustomStringConvertible {
     
     init(from exsitingSeed: Data? = nil,
          key secretKey: Data,
-         precedentPrivateKey: Data? = nil,
-         precedentChainCode: Data? = nil,
-         precedentFingerprint: Data? = nil,
+         precedent: (key: Data, chainCode: Data, fingerprint: Data)?,
          depth: UInt8 = 0,
          index: UInt32 = 0,
          algorithm: Cryptography.Algorithm,
@@ -29,7 +27,7 @@ struct ExtendedPrivateKey: PrivateKey, Extendable, CustomStringConvertible {
         self.algorithm = algorithm
         self.network = network
         
-        self.precedent = (key: precedentPrivateKey, chainCode: precedentChainCode, fingerprint: precedentFingerprint)
+        self.precedent = precedent
         self.depth = depth
         self.index = index
         
@@ -38,32 +36,23 @@ struct ExtendedPrivateKey: PrivateKey, Extendable, CustomStringConvertible {
         let extendedKey: Data = Cryptography.pbkdf2.getHMACSHA512(for: seed, sing: symmetricKey)
         let isRoot: Bool = (depth == 0)
         
-        if let chainCode = self.precedent.chainCode {
-            self.chainCode = chainCode
-        } else {
-            self.chainCode = extendedKey[32..<64]
-        }
-        
-        //print("\(extendedKey[0..<32].hexadecimal) / \(extendedKey[32..<64].hexadecimal)")
-        //print(self.chainCode.hexadecimal)
-        //print("     \(isRoot), \(depth), \(index), \(String(data: secretKey, encoding: .utf8) ?? secretKey.hexadecimal)")
-        
         switch isRoot {
         case true: // Root Extended Private Key
             self.data = extendedKey[0..<32]
+            self.chainCode = extendedKey[32..<64]
             
         case false: // Child Extended Private Key
-            let precedentPrivateKeyInteger: BigUInt = .init(precedentPrivateKey!)
+            let precedentPrivateKeyInteger: BigUInt = .init(precedent!.key)
             let hashed32BytesInteger: BigUInt = .init(extendedKey[0..<32])
             let orderOfTheCurve: BigUInt = .init(Data([255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 254, 186, 174, 220, 230, 175, 72, 160, 59, 191, 210, 94, 140, 208, 54, 65, 65]))
             
             var calculationResult = ((precedentPrivateKeyInteger + hashed32BytesInteger) % orderOfTheCurve).serialize()
-            while calculationResult.count != 32 {
+            while calculationResult.count < 32 {
                 calculationResult = Data([0]) + calculationResult
             }
             
             self.data = calculationResult
-            
+            self.chainCode = precedent!.chainCode
         }
     }
     
@@ -89,11 +78,15 @@ struct ExtendedPrivateKey: PrivateKey, Extendable, CustomStringConvertible {
         let seed: Data = (index.isHardened ? (Data([0]) + self.data) : self.publicKey.compressed) + index.number.data.reversed()
         let key: Data = self.chainCode
         
+        let newSymmetricKey = Cryptography.pbkdf2.getSymmetryKey(from: self.chainCode)
+        let newExtendedKey: Data = Cryptography.pbkdf2.getHMACSHA512(for: seed, sing: newSymmetricKey)
+        let newChainCode = newExtendedKey[32..<64]
+        
         let divergedKey = ExtendedPrivateKey(from: seed,
                                              key: key,
-                                             precedentPrivateKey: self.data,
-                                             precedentChainCode: self.chainCode,
-                                             precedentFingerprint: self.publicKey.hash160[0..<4],
+                                             precedent: (key: self.data,
+                                                         chainCode: newChainCode,
+                                                         fingerprint: self.publicKey.hash160[0..<4]),
                                              depth: depth,
                                              index: index.number,
                                              algorithm: self.algorithm,

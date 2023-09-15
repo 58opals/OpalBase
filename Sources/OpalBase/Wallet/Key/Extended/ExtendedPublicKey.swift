@@ -14,14 +14,14 @@ struct ExtendedPublicKey: PublicKey, Extendable, CustomStringConvertible {
     let x963: Data
     let hash160: Data
     
-    let precedent: (key: Data?, chainCode: Data?, fingerprint: Data?)
+    let precedent: (key: Data, chainCode: Data, fingerprint: Data)?
     
     let chainCode: Data
     let depth: UInt8
     
     init(from basicPublicKey: BasicPublicKey,
          on network: BitcoinCash.Network = .mainnet,
-         precedentFingerprint: Data?,
+         //precedentFingerprint: Data?,
          chainCode: Data,
          depth: UInt8) {
         self.algorithm = basicPublicKey.algorithm
@@ -35,7 +35,7 @@ struct ExtendedPublicKey: PublicKey, Extendable, CustomStringConvertible {
         self.x963 = basicPublicKey.x963
         self.hash160 = basicPublicKey.hash160
         
-        self.precedent = (key: nil, chainCode: nil, fingerprint: precedentFingerprint)
+        self.precedent = nil
         
         self.chainCode = chainCode
         self.depth = depth

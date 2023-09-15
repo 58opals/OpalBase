@@ -15,41 +15,21 @@ struct DerivationPath: CustomStringConvertible {
     }
     
     var description: String {
-        "m/\(purpose)/\(coinType.derivationPathIndex)/"
-        // account/usage/index"
+        "[m/\(purpose)/\(coinType.derivationPathIndex)/{account}/{usage}/{index}]"
     }
 }
 
 extension DerivationPath {
     func generatePrivateKey(account: Account, usage: Usage, index: Index) -> ExtendedPrivateKey {
-        root.diverge(to: purpose.index, depth: 1)
-            .diverge(to: coinType.derivationPathIndex, depth: 2)
-            .diverge(to: account.index, depth: 3)
-            .diverge(to: usage.index, depth: 4)
+        root.diverge(to: purpose.index, depth: purpose.depth)
+            .diverge(to: coinType.derivationPathIndex, depth: coinType.derivationPathDepth)
+            .diverge(to: account.index, depth: account.depth)
+            .diverge(to: usage.index, depth: usage.depth)
             .diverge(to: index, depth: 5)
     }
 }
 
 extension DerivationPath {
-    struct Index: CustomStringConvertible {
-        static let hardenedBranchStartingIndex: UInt32 = 2_147_483_648
-        
-        let representNumber: UInt32
-        let number: UInt32
-        
-        init(_ index: UInt32, hardened: Bool = false) {
-            guard !(!(index<Index.hardenedBranchStartingIndex) && !hardened) else { fatalError("Index is larger than \(Index.hardenedBranchStartingIndex.description) so this should be hardened.") }
-            self.representNumber = index
-            self.number = index + (hardened ? Index.hardenedBranchStartingIndex : 0)
-        }
-        
-        var isHardened: Bool { !(number < Index.hardenedBranchStartingIndex) }
-        
-        var description: String {
-            return (number - (isHardened ? Index.hardenedBranchStartingIndex : 0)).description + (isHardened ? "h" : "")
-        }
-    }
-    
     enum Purpose: CustomStringConvertible {
         case bip44, bip49, bip84
         
@@ -84,7 +64,7 @@ extension DerivationPath {
         }
         
         var depth: UInt8 { 3 }
-        var description: String { "\(index.representNumber.description)'" }
+        var description: String { "\(index.representNumber.description)h" }
     }
     
     enum Usage: CustomStringConvertible {
@@ -100,6 +80,25 @@ extension DerivationPath {
         var index: Index { .init(representNumber, hardened: false) }
         var depth: UInt8 { 4 }
         var description: String { "\(representNumber.description)" }
+    }
+    
+    struct Index: CustomStringConvertible {
+        static let hardenedBranchStartingIndex: UInt32 = 2_147_483_648
+        
+        let representNumber: UInt32
+        let number: UInt32
+        
+        init(_ index: UInt32, hardened: Bool = false) {
+            guard !(!(index<Index.hardenedBranchStartingIndex) && !hardened) else { fatalError("Index is larger than \(Index.hardenedBranchStartingIndex.description) so this should be hardened.") }
+            self.representNumber = index
+            self.number = index + (hardened ? Index.hardenedBranchStartingIndex : 0)
+        }
+        
+        var isHardened: Bool { !(number < Index.hardenedBranchStartingIndex) }
+        
+        var description: String {
+            return (number - (isHardened ? Index.hardenedBranchStartingIndex : 0)).description + (isHardened ? "h" : "")
+        }
     }
 }
 

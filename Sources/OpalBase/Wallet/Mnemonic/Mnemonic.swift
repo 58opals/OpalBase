@@ -2,8 +2,6 @@
 
 import Foundation
 
-import Foundation
-
 struct Mnemonic {
     let words: [String]
     
@@ -61,6 +59,7 @@ extension Mnemonic {
                               algorithm: Cryptography.Algorithm) -> ExtendedPrivateKey {
         return .init(from: createSeed(with: passPhrase),
                      key: key,
+                     precedent: nil,
                      algorithm: algorithm)
     }
 }

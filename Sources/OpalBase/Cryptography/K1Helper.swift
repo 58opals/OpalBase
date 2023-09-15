@@ -60,7 +60,7 @@ struct K1Helper {
                                                 hash160: hash160)
             
             return ExtendedPublicKey(from: basicPublicKey,
-                                     precedentFingerprint: extendedPrivateKey.precedent.fingerprint,
+                                     //precedentFingerprint: extendedPrivateKey.precedent.fingerprint,
                                      chainCode: extendedPrivateKey.chainCode,
                                      depth: extendedPrivateKey.depth)
         case .schnorr:
@@ -79,7 +79,7 @@ struct K1Helper {
                                                 x963: publicKey.derRepresentation,
                                                 hash160: hash160)
             return ExtendedPublicKey(from: basicPublicKey,
-                                     precedentFingerprint: extendedPrivateKey.precedent.fingerprint,
+                                     //precedentFingerprint: extendedPrivateKey.precedent.fingerprint,
                                      chainCode: extendedPrivateKey.chainCode,
                                      depth: extendedPrivateKey.depth)
         }
@@ -101,4 +101,59 @@ struct K1Helper {
 
         return validation
     }
+    
+    //
+    //
+    //
+    //
+    //    static func getPublicKey(from privateKey: PrivateKey,
+    //                             using algorithm: Cryptography.Algorithm) throws -> PublicKey {
+    //        switch algorithm {
+    //        case .ecdsa:
+    //            return PublicKey(data: try K1.ECDSA.PrivateKey(rawRepresentation: privateKey.data).publicKey.rawRepresentation,
+    //                             algorithm: algorithm)
+    //        case .schnorr:
+    //            return PublicKey(data: try K1.Schnorr.PrivateKey(rawRepresentation: privateKey.data).publicKey.rawRepresentation,
+    //                             algorithm: algorithm)
+    //        }
+    //    }
+    //
+    //    static func convertRepresentation(of publicKey: PublicKey,
+    //                                      to representation: PublicKey.Representation,
+    //                                      using algorithm: Cryptography.Algorithm) throws -> Data {
+    //
+    //        switch representation {
+    //        case .raw:
+    //            switch algorithm {
+    //            case .ecdsa: return try K1.ECDSA.PublicKey(rawRepresentation: publicKey.data).rawRepresentation
+    //            case .schnorr: return try K1.Schnorr.PublicKey(rawRepresentation: publicKey.data).rawRepresentation
+    //            }
+    //        case .compressed:
+    //            switch algorithm {
+    //            case .ecdsa: return try K1.ECDSA.PublicKey(rawRepresentation: publicKey.data).compressedRepresentation
+    //            case .schnorr: return try K1.Schnorr.PublicKey(rawRepresentation: publicKey.data).compressedRepresentation
+    //            }
+    //        case .der:
+    //            switch algorithm {
+    //            case .ecdsa: return try K1.ECDSA.PublicKey(rawRepresentation: publicKey.data).derRepresentation
+    //            case .schnorr: return try K1.Schnorr.PublicKey(rawRepresentation: publicKey.data).derRepresentation
+    //            }
+    //        case .pem:
+    //            switch algorithm {
+    //            case .ecdsa: return try K1.ECDSA.PublicKey(rawRepresentation: publicKey.data).pemRepresentation.data(using: .utf8)!
+    //            case .schnorr: return try K1.Schnorr.PublicKey(rawRepresentation: publicKey.data).pemRepresentation.data(using: .utf8)!
+    //            }
+    //        case .x963:
+    //            switch algorithm {
+    //            case .ecdsa: return try K1.ECDSA.PublicKey(rawRepresentation: publicKey.data).x963Representation
+    //            case .schnorr: return try K1.Schnorr.PublicKey(rawRepresentation: publicKey.data).x963Representation
+    //            }
+    //        }
+    //    }
+    //}
+    //
+    //extension K1Helper {
+    //    enum K1HelperError: Error {
+    //        case failToConverPEM
+    //    }
 }
