@@ -7,31 +7,44 @@ struct Base32: BaseCodable {
     
     func encode(_ data: Data) -> String {
         let encodedBytes = Array(data.convertTo5Bit(pad: true))
-        var result = ""
-        
+        var encodedString = ""
         for byte in encodedBytes {
-            result += String(alphabets[String.Index(utf16Offset: Int(byte), in: alphabets)])
+            encodedString += String(alphabets[String.Index.init(utf16Offset: Int(byte), in: alphabets)])
         }
         
-        return result
+        return encodedString
     }
     
     func encode(_ number: Int) -> String {
-        var result = ""
-        var carry = number
-        while carry > 0 {
-            result += String(alphabets[String.Index(utf16Offset: carry%baseNumber, in: alphabets)])
-            carry = carry/baseNumber
+        var encodedNumberString = ""
+        var remainingValue = number
+        while remainingValue > 0 {
+            encodedNumberString += String(alphabets[String.Index.init(utf16Offset: remainingValue%baseNumber, in: alphabets)])
+            remainingValue = remainingValue/baseNumber
         }
         
-        while result.count < 8 {
-            result += alphabets.prefix(1)
+        while encodedNumberString.count < 8 {
+            encodedNumberString += alphabets.prefix(1)
         }
         
-        return String(result.reversed())
+        return String(encodedNumberString.reversed())
     }
     
     func decode(_ string: String) -> Data {
-        fatalError()
+        var decodedData = Data()
+        var bitAccumulator = 0
+        var bits = 0
+        for character in string {
+            guard let index = alphabets.firstIndex(of: character) else { fatalError() }
+            let offset = alphabets.distance(from: alphabets.startIndex, to: index)
+            bitAccumulator = (bitAccumulator << 5) | offset
+            bits += 5
+            while bits >= 8 {
+                bits -= 8
+                decodedData.append(UInt8((bitAccumulator >> bits) & 0xFF))
+            }
+        }
+        
+        return decodedData
     }
 }
