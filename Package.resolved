@@ -1,0 +1,42 @@
+{
+  "originHash" : "5c5c7c2180fad67cd1ff4e5750a143f69447bc887a6a05b986ecaebb0af3acc4",
+  "pins" : [
+    {
+      "identity" : "bigint",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/attaswift/BigInt.git",
+      "state" : {
+        "revision" : "793a7fac0bfc318e85994bf6900652e827aef33e",
+        "version" : "5.4.1"
+      }
+    },
+    {
+      "identity" : "cryptoswift",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/krzyzanowskim/CryptoSwift.git",
+      "state" : {
+        "revision" : "c9c3df6ab812de32bae61fc0cd1bf6d45170ebf0",
+        "version" : "1.8.2"
+      }
+    },
+    {
+      "identity" : "swift-secp256k1",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/21-DOT-DEV/swift-secp256k1.git",
+      "state" : {
+        "revision" : "9683e8e311c76d8114cd308b697dad2f9fc58fed",
+        "version" : "0.17.0"
+      }
+    },
+    {
+      "identity" : "swiftfulcrum",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/58opals/SwiftFulcrum.git",
+      "state" : {
+        "branch" : "develop",
+        "revision" : "0e714cddbdc5ef3bd1ce83edfb1e8de40a975b01"
+      }
+    }
+  ],
+  "version" : 3
+}
