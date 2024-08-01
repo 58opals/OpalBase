@@ -13,7 +13,7 @@ struct Account {
 }
 
 extension Account {
-    func createTransaction(from: CashAddress, to: CashAddress, value: Satoshi) async throws -> Transaction {
+    func createTransaction(from: Address, to: Address, value: Satoshi) async throws -> Transaction {
         // Fetch UTXOs for the sender address
         let utxos = try await fetchUTXOs(for: from)
         

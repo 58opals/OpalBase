@@ -3,11 +3,11 @@ import Foundation
 extension Address {
     struct Book {
         private var extendedKey: PrivateKey.Extended
-        private var receivingAddresses = [CashAddress]()
-        private var usedReceivingAddresses = Set<CashAddress>()
-        private var changeAddresses = [CashAddress]()
-        private var usedChangeAddresses = Set<CashAddress>()
-        private var addressToPrivateKey = [CashAddress: PrivateKey]()
+        private var receivingAddresses = [Address]()
+        private var usedReceivingAddresses = Set<Address>()
+        private var changeAddresses = [Address]()
+        private var usedChangeAddresses = Set<Address>()
+        private var addressToPrivateKey = [Address: PrivateKey]()
         private var gapLimit = 20
         
         private let maxIndex = UInt32.max
@@ -43,20 +43,20 @@ extension Address.Book {
 }
 
 extension Address.Book {
-    func getPrivateKey(for address: CashAddress) throws -> PrivateKey {
+    func getPrivateKey(for address: Address) throws -> PrivateKey {
         guard let privateKey = addressToPrivateKey[address] else { throw Error.privateKeyNotFound }
         return privateKey
     }
     
-    func getUsedReceivingAddresses() -> Set<CashAddress> {
+    func getUsedReceivingAddresses() -> Set<Address> {
         return usedReceivingAddresses
     }
     
-    func getUsedChangeAddresses() -> Set<CashAddress> {
+    func getUsedChangeAddresses() -> Set<Address> {
         return usedChangeAddresses
     }
     
-    mutating func getNextReceivingAddress() throws -> CashAddress {
+    mutating func getNextReceivingAddress() throws -> Address {
         guard receivingAddresses.count < maxIndex else { throw Error.indexOutOfBounds }
         if receivingAddresses.isEmpty || usedReceivingAddresses.count == receivingAddresses.count {
             try generateReceivingAddresses(gapLimit)
@@ -71,7 +71,7 @@ extension Address.Book {
         }
     }
     
-    mutating func getNextChangeAddress() throws -> CashAddress {
+    mutating func getNextChangeAddress() throws -> Address {
         guard changeAddresses.count < maxIndex else { throw Error.indexOutOfBounds }
         if changeAddresses.isEmpty || usedChangeAddresses.count == usedChangeAddresses.count {
             try generateChangeAddresses(gapLimit)
@@ -88,7 +88,7 @@ extension Address.Book {
 }
 
 extension Address.Book {
-    mutating func markAddressAsUsed(_ address: CashAddress) throws {
+    mutating func markAddressAsUsed(_ address: Address) throws {
         if receivingAddresses.contains(address) {
             usedReceivingAddresses.insert(address)
             try generateAddressesIfNeeded(for: .receiving)
@@ -101,7 +101,7 @@ extension Address.Book {
         
     }
     
-    func isAddressUsed(_ address: CashAddress, usage: DerivationPath.Usage) -> Bool {
+    func isAddressUsed(_ address: Address, usage: DerivationPath.Usage) -> Bool {
         switch usage {
         case .receiving:
             return usedReceivingAddresses.contains(address)
@@ -146,7 +146,7 @@ extension Address.Book {
         }
     }
     
-    private mutating func generateAddress(at index: UInt32, usage: DerivationPath.Usage) throws -> (CashAddress, PrivateKey) {
+    private mutating func generateAddress(at index: UInt32, usage: DerivationPath.Usage) throws -> (Address, PrivateKey) {
         let childKey = try extendedKey
             .deriveChildPrivateKey(at: usage.index)
             .deriveChildPrivateKey(at: index)
@@ -154,7 +154,7 @@ extension Address.Book {
         let privateKey = try PrivateKey(data: childKey.privateKey)
         let publicKey = try PublicKey(privateKey: privateKey)
         let publicKeyHash = PublicKey.Hash(publicKey: publicKey)
-        let address = try CashAddress(.p2pkh(hash: publicKeyHash))
+        let address = try Address(.p2pkh(hash: publicKeyHash))
         
         return (address, privateKey)
     }

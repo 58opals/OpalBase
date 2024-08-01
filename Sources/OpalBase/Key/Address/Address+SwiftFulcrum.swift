@@ -2,7 +2,7 @@ import Foundation
 import BigInt
 import SwiftFulcrum
 
-extension CashAddress {
+extension Address {
     static func fetchBalance(for address: String, includeUnconfirmed: Bool = true, awaitSeconds: Double? = nil) async throws -> Satoshi {
         var fulcrum = try SwiftFulcrum()
         var balance: Satoshi = try Satoshi(0)

@@ -13,7 +13,7 @@ extension Account {
         return totalBalance
     }
     
-    func fetchUTXOs(for address: CashAddress) async throws -> [Transaction.Output.Unspent] {
+    func fetchUTXOs(for address: Address) async throws -> [Transaction.Output.Unspent] {
         var utxos: [Transaction.Output.Unspent] = []
         
         let transactionHashes = try await address.fetchTransactionHistory()
@@ -21,7 +21,7 @@ extension Account {
             let transaction = try await Transaction.fetchTransactionDetails(for: transactionHash)
             for (index, output) in transaction.outputs.enumerated() {
                 let decodedScript = try Script.decode(scriptPubKey: output.lockingScript)
-                let decodedCashAddress = try CashAddress(decodedScript)
+                let decodedCashAddress = try Address(decodedScript)
                 let isOutputHasBeenSentToThisAddress = (decodedCashAddress == address)
                 if isOutputHasBeenSentToThisAddress {
                     for input in transaction.inputs {
@@ -42,7 +42,7 @@ extension Account {
         return utxos
     }
     
-    func send(_ value: Satoshi, from address: CashAddress, to recipient: CashAddress) async throws -> Bool {
+    func send(_ value: Satoshi, from address: Address, to recipient: Address) async throws -> Bool {
         let transaction = try await createTransaction(from: address, to: recipient, value: value)
         
         return try await transaction.broadcast()
