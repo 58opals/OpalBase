@@ -77,7 +77,7 @@ extension DerivationPath {
         }
     }
 
-    enum Usage {
+    enum Usage: CaseIterable {
         case receiving
         case change
         

@@ -5,5 +5,6 @@ extension Address.Book {
         case indexOutOfBounds
         case privateKeyNotFound
         case addressIsNotFoundInAddressBook
+        case addressIsDuplicated
     }
 }
