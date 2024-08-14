@@ -7,7 +7,7 @@ extension PrivateKey.Extended {
         
         init(seed: Data, stringKey: String = "Bitcoin seed") throws {
             guard let key = stringKey.data(using: .utf8) else { fatalError() }
-            let hmac = HMACSHA512.hash(data: seed, key: key)
+            let hmac = HMACSHA512.hash(seed, key: key)
             let privateKeyData = Data(hmac.prefix(32))
             let chainCodeData = Data(hmac.suffix(32))
             

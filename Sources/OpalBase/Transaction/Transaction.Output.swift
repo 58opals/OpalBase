@@ -16,11 +16,21 @@ extension Transaction {
             self.lockingScript = lockingScript
         }
         
+        /// Initializes a Transaction.Output instance.
+        /// - Parameters:
+        ///   - value: The number of satoshis to be transferred.
+        ///   - address: The address of output's recipient.
+        init(value: UInt64, address: Address) {
+            self.value = value
+            self.lockingScript = address.lockingScript.data
+            self.lockingScriptLength = CompactSize(value: UInt64(lockingScript.count))
+        }
+        
         /// Encodes the Transaction.Output into Data.
         /// - Returns: The encoded data.
         func encode() -> Data {
             var data = Data()
-            data.append(contentsOf: withUnsafeBytes(of: value.littleEndian, Array.init))
+            data.append(value.littleEndianData)
             data.append(lockingScriptLength.encode())
             data.append(lockingScript)
             return data
@@ -46,5 +56,15 @@ extension Transaction {
             
             return (output, index - data.startIndex)
         }
+    }
+}
+
+extension Transaction.Output: CustomStringConvertible {
+    var description: String {
+        """
+        Transaction Output:
+            Value: \(value)
+            Locking Script: \(lockingScript.hexadecimalString)
+        """
     }
 }

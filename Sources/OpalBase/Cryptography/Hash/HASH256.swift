@@ -2,8 +2,8 @@ import Foundation
 
 struct HASH256 {
     static func hash(_ data: Data) -> Data {
-        let firstHash = SHA256.hash(data: data)
-        let secondHash = SHA256.hash(data: firstHash)
+        let firstHash = SHA256.hash(data)
+        let secondHash = SHA256.hash(firstHash)
         return secondHash
     }
     

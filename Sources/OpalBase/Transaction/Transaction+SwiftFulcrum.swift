@@ -1,123 +1,232 @@
 import Foundation
+import Combine
 import SwiftFulcrum
 
 extension Transaction {
-    func broadcast(awaitSeconds: Double? = nil) async throws -> Bool {
-        var fulcrum = try SwiftFulcrum()
-        let rawTransaction = self.encode().hexadecimalString
-        var success = Bool()
+    func broadcast(using fulcrum: Fulcrum) async throws -> Data {
+        let (id, publisher) = try await fulcrum.submit(
+            method: .blockchain(.transaction(
+                .broadcast(rawTransaction: self.encode().hexadecimalString)
+            )),
+            responseType: Response.JSONRPC.Generic<Response.JSONRPC.Result.Blockchain.Transaction.Broadcast>.self
+        )
         
-        await fulcrum.submitRequest(
-            .blockchain(.transaction(.broadcast(rawTransaction))),
-            resultType: Response.Result.Blockchain.Transaction.Broadcast.self
-        ) { result in
-            do {
-                switch result {
-                case .success(let broadcastResponse):
-                    success = broadcastResponse.success
-                case .failure(let error):
-                    throw error
-                }
-            } catch {
-                print(error.localizedDescription)
-            }
+        let broadcastedTransaction = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Data, Swift.Error>) in
+            let subscription = publisher
+                .sink(
+                    receiveCompletion: { completion in
+                        switch completion {
+                        case .finished:
+                            return//print("\(id): broadcasting a raw transaction request completed.")
+                        case .failure(let error):
+                            continuation.resume(throwing: error)
+                        }
+                    },
+                    receiveValue: { response in
+                        continuation.resume(returning: response)
+                    })
+            
+            fulcrum.subscriptionHub.add(subscription, for: id)
         }
         
-        if let awaitSeconds = awaitSeconds {
-            try await Task.sleep(nanoseconds: UInt64(1_000_000_000 * awaitSeconds))
-        }
-        
-        return success
-    }
-    
-    static func estimateFee(awaitSeconds: Double? = nil) async throws -> Satoshi {
-        var fulcrum = try SwiftFulcrum()
-        var satoshi = try Satoshi(0)
-        
-        await fulcrum.submitRequest(
-            .blockchain(.estimateFee(6)),
-            resultType: Response.Result.Blockchain.EstimateFee.self
-        ) { result in
-            do {
-                switch result {
-                case .success(let feeResponse):
-                    satoshi = try Satoshi(bch: feeResponse.fee)
-                case .failure(let error):
-                    throw error
-                }
-            } catch {
-                fatalError(error.localizedDescription)
-            }
-        }
-        
-        if let awaitSeconds = awaitSeconds {
-            try await Task.sleep(nanoseconds: UInt64(1_000_000_000 * awaitSeconds))
-        }
-        
-        return satoshi
+        return broadcastedTransaction
     }
 }
 
 extension Transaction {
-    struct Past {
-        let transaction: Transaction
-        let blockHash: Data
-        let blocktime: UInt32
-        let confirmations: UInt
-        let transactionHash: Data
-        let locktime: UInt32
-        let size: UInt32
-        let time: UInt32
-        let transactionID: Data
-        let version: UInt32
-        let inputs: [Input]
-        let outputs: [Output]
-    }
-    
-    static func fetchTransactionDetails(for transactionHash: Data) async throws -> Transaction.Past {
-        var fulcrum = try SwiftFulcrum()
-        var pastTransaction: Transaction.Past?
+    static func estimateFee(numberOfBlocks: Int,
+                            using fulcrum: Fulcrum) async throws -> Satoshi {
+        let (id, publisher) = try await fulcrum.submit(
+            method: .blockchain(
+                .estimateFee(numberOfBlocks: numberOfBlocks)
+            ),
+            responseType: Response.JSONRPC.Generic<Response.JSONRPC.Result.Blockchain.EstimateFee>.self
+        )
         
-        await fulcrum.submitRequest(
-            .blockchain(.transaction(.get(transactionHash.hexadecimalString, true))),
-            resultType: Response.Result.Blockchain.Transaction.Get.self
-        ) { result in
-            do {
-                switch result {
-                case .success(let details):
-                    let transaction = Transaction(version: .init(details.version),
-                                                  inputs: details.inputs.map { Input(previousTransactionHash: Data(hex: $0.transactionID),
-                                                                                     previousTransactionIndex: .init($0.indexNumberOfPreviousTransactionOutput),
-                                                                                     unlockingScript: Data(hex: $0.scriptSig.hex),
-                                                                                     sequence: .init($0.sequence)) },
-                                                  outputs: details.outputs.map { Output(value: try! Satoshi(bch: $0.value).value,
-                                                                                        lockingScript: .init(hex: $0.scriptPubKey.hex)) },
-                                                  lockTime: .init(details.locktime))
-                    
-                    pastTransaction = Past(transaction: transaction,
-                                           blockHash: Data(hex: details.blockHash),
-                                           blocktime: .init(details.blocktime),
-                                           confirmations: details.confirmations,
-                                           transactionHash: Data(hex: details.transactionID),
-                                           locktime: transaction.lockTime,
-                                           size: .init(details.size),
-                                           time: .init(details.time),
-                                           transactionID: Data(hex: details.transactionID),
-                                           version: transaction.version,
-                                           inputs: transaction.inputs,
-                                           outputs: transaction.outputs)
-                    
-                    
-                case .failure(let error):
-                    throw error
-                }
-            } catch {
-                fatalError(error.localizedDescription)
-            }
+        let fee = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Satoshi, Swift.Error>) in
+            let subscription = publisher
+                .sink(
+                    receiveCompletion: { completion in
+                        switch completion {
+                        case .finished:
+                            return//print("\(id): getting estimate fee for \(numberOfBlocks) block(s) request completed.")
+                        case .failure(let error):
+                            continuation.resume(throwing: error)
+                        }
+                    },
+                    receiveValue: { response in
+                        do {
+                            let satoshi = try Satoshi(bch: response)
+                            continuation.resume(returning: satoshi)
+                        } catch {
+                            continuation.resume(throwing: error)
+                        }
+                    })
+            
+            fulcrum.subscriptionHub.add(subscription, for: id)
         }
         
-        guard let transaction = pastTransaction else { throw Error.cannotCreateTransaction }
+        return fee
+    }
+    
+    static func relayFee(using fulcrum: Fulcrum) async throws -> Satoshi {
+        let (id, publisher) = try await fulcrum.submit(
+            method: .blockchain(
+                .relayFee
+            ),
+            responseType: Response.JSONRPC.Generic<Response.JSONRPC.Result.Blockchain.RelayFee>.self
+        )
+        
+        let fee = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Satoshi, Swift.Error>) in
+            let subscription = publisher
+                .sink(
+                    receiveCompletion: { completion in
+                        switch completion {
+                        case .finished:
+                            return//print("\(id): getting relay fee request completed.")
+                        case .failure(let error):
+                            continuation.resume(throwing: error)
+                        }
+                    },
+                    receiveValue: { response in
+                        do {
+                            let satoshi = try Satoshi(bch: response)
+                            continuation.resume(returning: satoshi)
+                        } catch {
+                            continuation.resume(throwing: error)
+                        }
+                    })
+            
+            fulcrum.subscriptionHub.add(subscription, for: id)
+        }
+        
+        return fee
+    }
+}
+
+extension Transaction {
+    static func fetchRawData(for transactionHash: Data,
+                             using fulcrum: Fulcrum) async throws -> Data {
+        let (id, publisher) = try await fulcrum.submit(
+            method: .blockchain(.transaction(
+                .get(transactionHash: transactionHash.hexadecimalString,
+                     verbose: true)
+            )),
+            responseType: Response.JSONRPC.Generic<Response.JSONRPC.Result.Blockchain.Transaction.Get>.self
+        )
+        
+        let transaction = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Data, Swift.Error>) in
+            let subscription = publisher
+                .sink(
+                    receiveCompletion: { completion in
+                        switch completion {
+                        case .finished:
+                            return//print("\(id): fetching a raw transaction data of \(transactionHash.hexadecimalString) request completed.")
+                        case .failure(let error):
+                            continuation.resume(throwing: error)
+                        }
+                    },
+                    receiveValue: { response in
+                        let data = Data(hex: response.hex)
+                        continuation.resume(returning: data)
+                    })
+            
+            fulcrum.subscriptionHub.add(subscription, for: id)
+        }
         
         return transaction
+    }
+    
+    static func fetchTransaction(for transactionHash: Data,
+                                 using fulcrum: Fulcrum) async throws -> Transaction {
+        let (id, publisher) = try await fulcrum.submit(
+            method: .blockchain(.transaction(
+                .get(transactionHash: transactionHash.hexadecimalString,
+                     verbose: true))),
+            responseType: Response.JSONRPC.Generic<Response.JSONRPC.Result.Blockchain.Transaction.Get>.self
+        )
+        
+        let transaction = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Transaction, Swift.Error>) in
+            let subscription = publisher
+                .sink(
+                    receiveCompletion: { completion in
+                        switch completion {
+                        case .finished:
+                            return//print("\(id): fetching transaction information of \(transactionHash.hexadecimalString) request completed.")
+                        case .failure(let error):
+                            continuation.resume(throwing: error)
+                        }
+                    },
+                    receiveValue: { response in
+                        do {
+                            let transaction = Transaction(version: UInt32(response.version),
+                                                          inputs: response.vin.map { Input(previousTransactionHash: .init(dataFromRPC: Data(hex: $0.txid)),
+                                                                                           previousTransactionOutputIndex: UInt32($0.vout),
+                                                                                           unlockingScript: Data(hex: $0.scriptSig.hex),
+                                                                                           sequence: UInt32($0.sequence)) },
+                                                          outputs: try response.vout.map { Output(value: try Satoshi(bch: $0.value).uint64,
+                                                                                                  lockingScript: Data(hex: $0.scriptPubKey.hex)) },
+                                                          lockTime: UInt32(response.locktime))
+                            continuation.resume(returning: transaction)
+                        } catch {
+                            continuation.resume(throwing: error)
+                        }
+                    })
+            fulcrum.subscriptionHub.add(subscription, for: id)
+        }
+        
+        return transaction
+    }
+    
+    static func fetchFullTransaction(for transactionHash: Data,
+                                     using fulcrum: Fulcrum) async throws -> Transaction.Detailed {
+        let (id, publisher) = try await fulcrum.submit(
+            method: .blockchain(.transaction(
+                .get(transactionHash: transactionHash.hexadecimalString,
+                     verbose: true)
+            )),
+            responseType: Response.JSONRPC.Generic<Response.JSONRPC.Result.Blockchain.Transaction.Get>.self
+        )
+        
+        let fullTransaction = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Transaction.Detailed, Swift.Error>) in
+            let subscription = publisher
+                .sink(
+                    receiveCompletion: { completion in
+                        switch completion {
+                        case .finished:
+                            return//print("\(id): fetching full transaction detilas of \(transactionHash.hexadecimalString) request completed.")
+                        case .failure(let error):
+                            continuation.resume(throwing: error)
+                        }
+                    },
+                    receiveValue: { response in
+                        let isUnconfirmed = (response.blockhash == nil) && (response.blocktime == nil) && (response.confirmations == nil) && (response.time == nil)
+                        
+                        do {
+                            let transaction = Transaction(version: UInt32(response.version),
+                                                          inputs: response.vin.map { Input(previousTransactionHash: .init(dataFromRPC: Data(hex: $0.txid)),
+                                                                                           previousTransactionOutputIndex: UInt32($0.vout),
+                                                                                           unlockingScript: Data(hex: $0.scriptSig.hex),
+                                                                                           sequence: UInt32($0.sequence)) },
+                                                          outputs: try response.vout.map { Output(value: try Satoshi(bch: $0.value).uint64,
+                                                                                                  lockingScript: Data(hex: $0.scriptPubKey.hex)) },
+                                                          lockTime: UInt32(response.locktime))
+                            let detailedTransaction = Transaction.Detailed(transaction: transaction,
+                                                                           blockHash: isUnconfirmed ? nil : Data(hex: response.blockhash!),
+                                                                           blockTime: isUnconfirmed ? nil : UInt32(response.blocktime!),
+                                                                           confirmations: isUnconfirmed ? nil : UInt32(response.confirmations!),
+                                                                           hash: Data(hex: response.hash),
+                                                                           hex: Data(hex: response.hex),
+                                                                           size: UInt32(response.size),
+                                                                           time: isUnconfirmed ? nil : UInt32(response.time!))
+                            continuation.resume(returning: detailedTransaction)
+                        } catch {
+                            continuation.resume(throwing: error)
+                        }
+                    })
+            fulcrum.subscriptionHub.add(subscription, for: id)
+        }
+        
+        return fullTransaction
     }
 }

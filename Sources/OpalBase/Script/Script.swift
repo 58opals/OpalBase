@@ -48,84 +48,79 @@ enum Script {
 }
 
 extension Script {
-    static func decode(scriptPubKey: Data) throws -> Script {
+    static func decode(lockingScript: Data) throws -> Script {
         var index = 0
         
         func readByte() -> UInt8? {
-            guard index < scriptPubKey.count else { return nil }
-            let byte = scriptPubKey[index]
-            index += 1
-            return byte
+            guard index < lockingScript.count else { return nil }
+            defer { index += 1 }
+            return lockingScript[index]
         }
         
         func readData(length: Int) -> Data? {
-            guard index + length <= scriptPubKey.count else { return nil }
-            let data = scriptPubKey.subdata(in: index..<index+length)
-            index += length
-            return data
+            guard index + length <= lockingScript.count else { return nil }
+            defer { index += length }
+            return lockingScript.subdata(in: index..<index+length)
         }
         
-        while index < scriptPubKey.count {
+        while index < lockingScript.count {
             guard let opcode = readByte() else { break }
             
             switch opcode {
             case OP._DUP.rawValue:
-                guard let byte2 = readByte(),
-                      let byte3 = readByte(),
-                      let byte4 = readByte(),
-                      let byte5 = readByte(),
-                      byte2 == OP._HASH160.rawValue,
-                      byte3 == OP._PUSHBYTES_20.rawValue,
+                guard readByte() == OP._HASH160.rawValue,
+                      readByte() == OP._PUSHBYTES_20.rawValue,
                       let hash = readData(length: 20),
-                      byte4 == OP._EQUALVERIFY.rawValue,
-                      byte5 == OP._CHECKSIG.rawValue else { break }
-                let publicKey = try PublicKey(compressedData: hash)
-                let publicKeyHash = PublicKey.Hash(publicKey: publicKey)
+                      readByte() == OP._EQUALVERIFY.rawValue,
+                      readByte() == OP._CHECKSIG.rawValue else {
+                    throw Error.invalidP2PKHScript
+                }
+                let publicKeyHash = PublicKey.Hash(hash)
                 return .p2pkh(hash: publicKeyHash)
                 
             case OP._PUSHBYTES_33.rawValue:
                 guard let publicKeyData = readData(length: 33),
-                      let byte2 = readByte(),
-                      byte2 == OP._CHECKSIG.rawValue else { break }
+                      readByte() == OP._CHECKSIG.rawValue else {
+                    throw Error.invalidP2PKScript
+                }
                 let publicKey = try PublicKey(compressedData: publicKeyData)
                 return .p2pk(publicKey: publicKey)
                 
             case OP._HASH160.rawValue:
-                guard let byte2 = readByte(),
-                      byte2 == OP._PUSHBYTES_20.rawValue,
+                guard readByte() == OP._PUSHBYTES_20.rawValue,
                       let scriptHash = readData(length: 20),
-                      let byte3 = readByte(),
-                      byte3 == OP._EQUAL.rawValue else { break }
+                      readByte() == OP._EQUAL.rawValue else {
+                    throw Error.invalidP2SHScript
+                }
                 return .p2sh(scriptHash: scriptHash)
                 
             case OP._1.rawValue...OP._16.rawValue:
                 let numberOfRequiredSignatures = Int(opcode - OP._1.rawValue) + 1
                 var publicKeys: [PublicKey] = []
-                while index < scriptPubKey.count {
-                    guard let byte = readByte(),
-                          byte == OP._PUSHBYTES_33.rawValue,
-                          let publicKeyData = readData(length: 33) else { break }
+                
+                while index < lockingScript.count {
+                    guard let nextOpcode = readByte(),
+                          nextOpcode == OP._PUSHBYTES_33.rawValue,
+                          let publicKeyData = readData(length: 33) else {
+                        throw Error.invalidP2MSScript
+                    }
                     let publicKey = try PublicKey(compressedData: publicKeyData)
                     publicKeys.append(publicKey)
                 }
-                if let lastByte = scriptPubKey.last,
-                   lastByte == OP._CHECKMULTISIG.rawValue,
-                   publicKeys.count > 0 {
-                    return .p2ms(numberOfRequiredSignatures: numberOfRequiredSignatures, publicKeys: publicKeys)
+                
+                guard let lastOpcode = lockingScript.last,
+                      lastOpcode == OP._CHECKMULTISIG.rawValue,
+                      publicKeys.count > 0 else {
+                    throw Error.invalidP2MSScript
                 }
+                
+                return .p2ms(numberOfRequiredSignatures: numberOfRequiredSignatures, publicKeys: publicKeys)
                 
             default:
                 break
             }
         }
         
-        // If no known pattern matches
         throw Error.cannotDecodeScript
-    }
-}
-
-extension Script {
-    enum Error: Swift.Error {
-        case cannotDecodeScript
     }
 }

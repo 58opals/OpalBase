@@ -42,7 +42,7 @@ extension Mnemonic {
             let checksumBits = bitString.suffix(checksumLength)
             
             let entropyData = String(entropyBits).convertBitToData()
-            let calculatedChecksum = SHA256.hash(data: entropyData).convertToBitString().prefix(checksumLength)
+            let calculatedChecksum = SHA256.hash(entropyData).convertToBitString().prefix(checksumLength)
             
             if checksumBits != calculatedChecksum {
                 throw Error.invalidChecksum

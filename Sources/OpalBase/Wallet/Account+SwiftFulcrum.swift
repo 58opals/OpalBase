@@ -2,50 +2,35 @@ import Foundation
 import SwiftFulcrum
 
 extension Account {
-    func calculateBalance() async throws -> Satoshi {
-        var totalBalance: Satoshi = try Satoshi(0)
-        let receivingAddresses = addressBook.getUsedReceivingAddresses()
-        
-        for address in receivingAddresses {
-            let balance = try await address.fetchBalance()
-            totalBalance = try totalBalance + balance
-        }
-        return totalBalance
+    mutating func calculateBalance() async throws -> Satoshi {
+        return try await addressBook.getBalance()
     }
     
-    func fetchUTXOs(for address: Address) async throws -> [Transaction.Output.Unspent] {
-        var utxos: [Transaction.Output.Unspent] = []
+    mutating func send(_ sendings: [(value: Satoshi, address: Address)]) async throws -> Data {
+        let accountBalance = try await calculateBalance()
+        let spendingValue = sendings.map{ $0.value.uint64 }.reduce(0, +)
+        guard spendingValue < accountBalance.uint64 else { throw Transaction.Error.insufficientFunds(required: spendingValue) }
         
-        let transactionHashes = try await address.fetchTransactionHistory()
-        for transactionHash in transactionHashes {
-            let transaction = try await Transaction.fetchTransactionDetails(for: transactionHash)
-            for (index, output) in transaction.outputs.enumerated() {
-                let decodedScript = try Script.decode(scriptPubKey: output.lockingScript)
-                let decodedCashAddress = try Address(decodedScript)
-                let isOutputHasBeenSentToThisAddress = (decodedCashAddress == address)
-                if isOutputHasBeenSentToThisAddress {
-                    for input in transaction.inputs {
-                        let isSomeInputReferTheReceivedOutput = (input.previousTransactionHash == transactionHash && input.previousTransactionOutputIndex == index)
-                        let isOutputSpent = isSomeInputReferTheReceivedOutput
-                        if !isOutputSpent {
-                            let utxo = Transaction.Output.Unspent(transactionHash: transactionHash,
-                                                                  outputIndex: .init(index),
-                                                                  amount: output.value,
-                                                                  lockingScript: output.lockingScript)
-                            utxos.append(utxo)
-                        }
-                    }
-                }
-            }
-        }
+        let utxos = try addressBook.selectUTXOs(targetAmount: Satoshi(spendingValue))
+        let spendableValue = utxos.map { $0.value }.reduce(0, +)
         
-        return utxos
-    }
-    
-    func send(_ value: Satoshi, from address: Address, to recipient: Address) async throws -> Bool {
-        let transaction = try await createTransaction(from: address, to: recipient, value: value)
+        let privateKeyPairs = try addressBook.getPrivateKeys(for: utxos)
         
-        return try await transaction.broadcast()
+        let changeAddress = try await addressBook.getNextAddress(for: .change)
+        let remainingValue = spendableValue - spendingValue
+        
+        let transaction = try Transaction.createTransaction(version: 2,
+                                                            utxoPrivateKeyPairs: privateKeyPairs,
+                                                            recipientOutputs: sendings.map { Transaction.Output(value: $0.value.uint64, address: $0.address) },
+                                                            changeOutput: Transaction.Output(value: remainingValue, address: changeAddress),
+                                                            feePerByte: Transaction.defaultFeeRate)
+        
+        let transactionHashFromFulcrum = try await transaction.broadcast(using: fulcrum)
+        guard !transactionHashFromFulcrum.isEmpty else { throw Transaction.Error.cannotBroadcastTransaction }
+        let manuallyGeneratedTransactionHash = Transaction.Hash(naturalOrder: HASH256.hash(transaction.encode()))
+        
+        addressBook.handleOutgoingTransaction(transaction)
+        
+        return manuallyGeneratedTransactionHash.naturalOrder
     }
 }
-

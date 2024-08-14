@@ -15,14 +15,18 @@ struct PublicKey {
 
 extension PublicKey {
     private var hash: Data {
-        let sha256 = SHA256.hash(data: compressedData)
-        let ripemd160 = RIPEMD160.hash(data: sha256)
+        let sha256 = SHA256.hash(compressedData)
+        let ripemd160 = RIPEMD160.hash(sha256)
         let hash = ripemd160
         return hash
     }
     
     struct Hash {
         let data: Data
+        
+        init(_ data: Data) {
+            self.data = data
+        }
         
         init(publicKey: PublicKey) {
             self.data = publicKey.hash

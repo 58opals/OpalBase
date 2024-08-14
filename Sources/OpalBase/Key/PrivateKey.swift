@@ -28,8 +28,4 @@ struct PrivateKey {
     }
 }
 
-extension PrivateKey: Equatable {
-    static func ==(lhs: PrivateKey, rhs: PrivateKey) -> Bool {
-        return lhs.rawData == rhs.rawData
-    }
-}
+extension PrivateKey: Hashable {}

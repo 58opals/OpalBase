@@ -10,7 +10,7 @@ struct Base32 {
     ]
     private static let baseNumber: Int = characters.count
     
-    static func encode(_ data: Data, interpretedAs5Bit: Bool = true) -> String {
+    static func encode(_ data: Data, interpretedAs5Bit: Bool) -> String {
         var result = ""
         switch interpretedAs5Bit {
         case true:
@@ -28,26 +28,28 @@ struct Base32 {
         return result
     }
     
-    static func decode(_ base32: String) -> Data? {
-        var total: BigUInt = 0
-        
-        for character in base32 {
-            guard let characterIndex = characters.firstIndex(of: character) else { return nil }
-            
-            let value = BigUInt(characters.distance(from: characters.startIndex, to: characterIndex))
-            total = total * BigUInt(baseNumber) + value
-        }
-        
-        var bytes = [UInt8]()
-        while total > 0 {
-            let byte = UInt8(total & 0xff)
-            bytes.insert(byte, at: 0)
-            total >>= 8
-        }
-        
-        let leadingOnes = base32.prefix { $0 == characters.first! }.count
-        bytes.insert(contentsOf: Array(repeating: 0, count: leadingOnes), at: 0)
-        
-        return Data(bytes)
-    }
+    static func decode(_ string: String, interpretedAs5Bit: Bool) throws -> Data {
+         var data = Data()
+         switch interpretedAs5Bit {
+         case true:
+             for char in string {
+                 if let index = characters.firstIndex(of: char) {
+                     data.append(UInt8(index))
+                 } else {
+                     throw Error.invalidCharacterFound
+                 }
+             }
+         case false:
+             var value = BigUInt(0)
+             for char in string {
+                 if let index = characters.firstIndex(of: char) {
+                     value = value * BigUInt(baseNumber) + BigUInt(index)
+                 } else {
+                     throw Error.invalidCharacterFound
+                 }
+             }
+             data = value.serialize()
+         }
+         return data
+     }
 }

@@ -8,6 +8,14 @@ extension Data {
     func convertToBitString() -> String {
         return self.map { String($0, radix: 2).padLeft(to: 8) }.joined()
     }
+    
+    var reversedData: Data {
+        var reversedData = Data()
+        for byte in self {
+            reversedData.insert(byte, at: 0)
+        }
+        return reversedData
+    }
 }
 
 extension Data {
@@ -23,3 +31,4 @@ extension Data {
         return (T(littleEndian: value), newIndex)
     }
 }
+

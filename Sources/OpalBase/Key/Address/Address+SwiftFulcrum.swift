@@ -1,120 +1,166 @@
 import Foundation
 import BigInt
+import Combine
 import SwiftFulcrum
 
 extension Address {
-    static func fetchBalance(for address: String, includeUnconfirmed: Bool = true, awaitSeconds: Double? = nil) async throws -> Satoshi {
-        var fulcrum = try SwiftFulcrum()
-        var balance: Satoshi = try Satoshi(0)
-        
-        print("Starting request to fetch balance from \(address)")
-        
-        await fulcrum.submitRequest(
-            .blockchain(.address(.getBalance(address, nil))),
-            resultType: Response.Result.Blockchain.Address.GetBalance.self
-        ) { result in
-            print("Request completed, processing result")
-            do {
-                switch result {
-                case .success(let balanceResponse):
-                    print("Balance response received: \(balanceResponse)")
-                    let calculatedBalance = UInt64(BigInt(balanceResponse.confirmed) + (includeUnconfirmed ? BigInt(balanceResponse.unconfirmed) : 0))
-                    balance = try Satoshi(calculatedBalance)
-                    print("Calculated balance: \(balance)")
-                case .failure(let error):
-                    print("Error received: \(error.localizedDescription)")
-                    throw error
-                }
-            } catch {
-                print("Caught error: \(error.localizedDescription)")
-            }
-        }
-        
-        if let awaitSeconds = awaitSeconds {
-            try await Task.sleep(nanoseconds: UInt64(1_000_000_000 * awaitSeconds))
-        }
-        
-        print("Returning balance: \(balance)")
-        return balance
+    func fetchBalance(includeUnconfirmed: Bool = true,
+                      using fulcrum: Fulcrum) async throws -> Satoshi {
+        return try await Address.fetchBalance(for: self.string, includeUnconfirmed: includeUnconfirmed, using: fulcrum)
     }
     
-    func fetchBalance(includeUnconfirmed: Bool = true) async throws -> Satoshi {
-        var fulcrum = try SwiftFulcrum()
-        var balance: Satoshi = try Satoshi(0)
-        
-        await fulcrum.submitRequest(
-            .blockchain(.address(.getBalance(self.string, nil))),
-            resultType: Response.Result.Blockchain.Address.GetBalance.self
-        ) { result in
-            do {
-                switch result {
-                case .success(let balanceResponse):
-                    let calculatedBalance = UInt64(BigInt(balanceResponse.confirmed) + (includeUnconfirmed ? BigInt(balanceResponse.unconfirmed) : 0))
-                    balance = try Satoshi(calculatedBalance)
-                case .failure(let error):
-                    throw error
-                }
-            } catch {
-                fatalError(error.localizedDescription)
-            }
-        }
-        
-        return balance
+    func fetchUnspentTransactionOutputs(fulcrum: Fulcrum) async throws -> [Transaction.Output.Unspent] {
+        return try await Address.fetchUnspentTransactionOutputs(in: self, using: fulcrum)
     }
     
-    func fetchTransactionHistory(awaitSeconds: Double? = nil) async throws -> [Data] {
-        var fulcrum = try SwiftFulcrum()
-        var transactionHashes = [Data]()
+    func fetchTransactionHistory(fromHeight: UInt? = nil,
+                                 toHeight: UInt? = nil,
+                                 includeUnconfirmed: Bool = true,
+                                 fulcrum: Fulcrum) async throws -> [Transaction.Simple] {
+        return try await Address.fetchTransactionHistory(for: self, fromHeight: fromHeight, toHeight: toHeight, includeUnconfirmed: includeUnconfirmed, using: fulcrum)
+    }
+    
+    func subscribe(fulcrum: inout Fulcrum) async throws -> (requestedID: UUID,
+                                                            publisher: CurrentValueSubject<Response.JSONRPC.Result.Blockchain.Address.Subscribe?, Swift.Error>) {
+        return try await Address.subscribeToActivities(of: self, using: &fulcrum)
+    }
+}
+
+extension Address {
+    static func fetchBalance(for address: String,
+                             includeUnconfirmed: Bool = true,
+                             using fulcrum: Fulcrum) async throws -> Satoshi {
+        let (id, publisher) = try await fulcrum.submit(
+            method: .blockchain(.address(.getBalance(address: address, tokenFilter: nil))),
+            responseType: Response.JSONRPC.Generic<Response.JSONRPC.Result.Blockchain.Address.GetBalance>.self
+        )
         
-        await fulcrum.submitRequest(
-            .blockchain(.address(.getHistory(self.string, 0, nil, true))),
-            resultType: Response.Result.Blockchain.Address.GetHistory.self
-        ) { result in
-            do {
-                switch result {
-                case .success(let historyResponse):
-                    for transaction in historyResponse.transactions {
-                        let hash = Data(hex: transaction.transactionHash)
-                        let _ = transaction.height
-                        let _ = transaction.fee
-                        
-                        transactionHashes.append(hash)
+        let balance = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<UInt64, Swift.Error>) in
+            let subscription = publisher
+                .sink(
+                    receiveCompletion: { completion in
+                        switch completion {
+                        case .finished:
+                            return//print("\(id): fetching balance of \(address) request completed.")
+                        case .failure(let error):
+                            continuation.resume(throwing: error)
+                        }
+                    },
+                    receiveValue: { response in
+                        let totalBalance = UInt64(BigInt(response.confirmed) + BigInt(includeUnconfirmed ? response.unconfirmed : 0))
+                        continuation.resume(returning: totalBalance)
                     }
-                case .failure(let error):
-                    throw error
-                }
-            } catch {
-                fatalError(error.localizedDescription)
-            }
+                )
+            
+            fulcrum.subscriptionHub.add(subscription, for: id)
         }
         
-        if let awaitSeconds = awaitSeconds {
-            try await Task.sleep(nanoseconds: UInt64(1_000_000_000 * awaitSeconds))
-        }
-        
-        return transactionHashes
+        return try Satoshi(balance)
     }
     
-    func subscribeToActivities() async throws {
-        var fulcrum = try SwiftFulcrum()
+    static func fetchUnspentTransactionOutputs(in address: Address,
+                                               using fulcrum: Fulcrum) async throws -> [Transaction.Output.Unspent] {
+        let (id, publisher) = try await fulcrum.submit(
+            method: .blockchain(.address(
+                .listUnspent(address: address.string,
+                             tokenFilter: nil)
+            )),
+            responseType: Response.JSONRPC.Generic<Response.JSONRPC.Result.Blockchain.Address.ListUnspent>.self
+        )
         
-        await fulcrum.submitSubscription(
-            .blockchain(.address(.subscribe(self.string))),
-            notificationType: Response.Result.Blockchain.Address.SubscribeNotification.self
-        ) { result in
-            do {
-                switch result {
-                case .success(let notification):
-                    print(notification.subscriptionIdentifier)
-                    if let status = notification.status {
-                        print("New transaction status: \(status)")
+        let utxos = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Response.JSONRPC.Result.Blockchain.Address.ListUnspent, Swift.Error>) in
+            let subscription = publisher
+                .sink(
+                    receiveCompletion: { completion in
+                        switch completion {
+                        case .finished:
+                            return//print("\(id): fetching utxos in \(address) request completed.")
+                        case .failure(let error):
+                            continuation.resume(throwing: error)
+                        }
+                    },
+                    receiveValue: { response in
+                        continuation.resume(returning: response)
                     }
-                case .failure(let error):
-                    throw error
-                }
-            } catch {
-                fatalError(error.localizedDescription)
-            }
+                )
+            
+            fulcrum.subscriptionHub.add(subscription, for: id)
         }
+        
+        var unspentTransactionOutputs: [Transaction.Output.Unspent] = .init()
+        
+        for utxo in utxos {
+            let transactionHashFromRPC = Data(hex: utxo.tx_hash)
+            let transactionHash = Transaction.Hash(reverseOrder: transactionHashFromRPC)
+            let outputIndex = UInt32(utxo.tx_pos)
+            let amount = utxo.value
+            
+            let fullTransaction = try await Transaction.fetchFullTransaction(for: transactionHash.externallyUsedFormat,
+                                                                             using: fulcrum)
+            
+            let lockingScript = fullTransaction.transaction.outputs[Int(outputIndex)].lockingScript
+            unspentTransactionOutputs.append(.init(value: amount,
+                                                   lockingScript: lockingScript,
+                                                   previousTransactionHash: transactionHash,
+                                                   previousTransactionOutputIndex: outputIndex))
+        }
+        
+        return unspentTransactionOutputs
+    }
+    
+    static func fetchTransactionHistory(for address: Address,
+                                        fromHeight: UInt? = nil,
+                                        toHeight: UInt? = nil,
+                                        includeUnconfirmed: Bool = true,
+                                        using fulcrum: Fulcrum) async throws -> [Transaction.Simple] {
+        let (id, publisher) = try await fulcrum.submit(
+            method: .blockchain(.address(
+                .getHistory(address: address.string,
+                            fromHeight: fromHeight,
+                            toHeight: toHeight,
+                            includeUnconfirmed: includeUnconfirmed)
+            )),
+            responseType: Response.JSONRPC.Generic<Response.JSONRPC.Result.Blockchain.Address.GetHistory>.self
+        )
+        
+        let history = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<[Response.JSONRPC.Result.Blockchain.Address.GetHistoryItem], Swift.Error>) in
+            let subscription = publisher
+                .sink(
+                    receiveCompletion: { completion in
+                        switch completion {
+                        case .finished:
+                            return//print("\(id): getting history of \(address) request completed.")
+                        case .failure(let error):
+                            continuation.resume(throwing: error)
+                        }
+                    },
+                    receiveValue: { response in
+                        continuation.resume(returning: response)
+                    }
+                )
+            
+            fulcrum.subscriptionHub.add(subscription, for: id)
+        }
+        
+        let transactions = history.map { historyItem in
+            return Transaction.Simple(transactionHash: .init(dataFromRPC: Data(hex: historyItem.tx_hash)),
+                                      height: UInt32(historyItem.height),
+                                      fee: { if let fee = historyItem.fee { return UInt64?(.init(fee)) } else { return nil } }())
+        }
+        
+        return transactions
+    }
+    
+    static func subscribeToActivities(of address: Address,
+                                      using fulcrum: inout Fulcrum) async throws -> (requestedID: UUID,
+                                                                               publisher: CurrentValueSubject<Response.JSONRPC.Result.Blockchain.Address.Subscribe?, Swift.Error>) {
+        let (id, publisher) = try await fulcrum.submit(
+            method: .blockchain(.address(
+                .subscribe(address: address.string)
+            )),
+            notificationType: Response.JSONRPC.Generic<Response.JSONRPC.Result.Blockchain.Address.Subscribe>.self
+        )
+        
+        return (id, publisher)
     }
 }

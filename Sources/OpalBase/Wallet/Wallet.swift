@@ -12,7 +12,9 @@ struct Wallet {
         self.coinType = coinType
         self.accounts = []
     }
-    
+}
+ 
+extension Wallet {
     mutating func addAccount(index: UInt32) async throws {
         let rootKey = try PrivateKey.Extended.Root(seed: mnemonic.seed)
         let extendedKey = try PrivateKey.Extended(rootKey: rootKey)
@@ -27,5 +29,16 @@ struct Wallet {
     func getAccount(index: Int) -> Account? {
         guard index < accounts.count else { return nil }
         return accounts[index]
+    }
+}
+
+extension Wallet {
+    func getBalance() throws -> Satoshi {
+        var totalBalance: Satoshi = try Satoshi(0)
+        for account in accounts {
+            let balance = try account.addressBook.getBalanceFromCache()
+            totalBalance = try totalBalance + balance
+        }
+        return totalBalance
     }
 }

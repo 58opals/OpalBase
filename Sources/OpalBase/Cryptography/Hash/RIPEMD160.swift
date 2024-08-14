@@ -13,7 +13,7 @@ struct RIPEMD160 {
 }
 
 extension RIPEMD160 {
-    static func hash(data: Data) -> Data {
+    static func hash(_ data: Data) -> Data {
         var ripemd = Self()
         ripemd.update(data: data)
         return ripemd.finalize()

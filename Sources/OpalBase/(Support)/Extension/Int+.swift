@@ -1,6 +1,11 @@
 import Foundation
 
-extension UInt32 {
+extension FixedWidthInteger {
+    var data: Data {
+        var value = self
+        return withUnsafeBytes(of: &value) { Data($0) }
+    }
+    
     var littleEndianData: Data {
         var littleEndian = self.littleEndian
         return Data(bytes: &littleEndian, count: MemoryLayout.size(ofValue: littleEndian))
@@ -12,9 +17,3 @@ extension UInt32 {
     }
 }
 
-extension UInt64 {
-    var data: Data {
-        var value = self
-        return withUnsafeBytes(of: &value) { Data($0) }
-    }
-}

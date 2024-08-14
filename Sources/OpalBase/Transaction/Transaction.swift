@@ -24,7 +24,7 @@ struct Transaction {
     func encode() -> Data {
         var data = Data()
         
-        data.append(contentsOf: withUnsafeBytes(of: version.littleEndian, Array.init))
+        data.append(version.littleEndianData)
         
         data.append(CompactSize(value: UInt64(inputs.count)).encode())
         inputs.forEach { data.append($0.encode()) }
@@ -32,7 +32,7 @@ struct Transaction {
         data.append(CompactSize(value: UInt64(outputs.count)).encode())
         outputs.forEach { data.append($0.encode()) }
         
-        data.append(contentsOf: withUnsafeBytes(of: lockTime.littleEndian, Array.init))
+        data.append(lockTime.littleEndianData)
         
         return data
     }
@@ -71,5 +71,41 @@ struct Transaction {
         let transaction = Transaction(version: version, inputs: inputs, outputs: outputs, lockTime: lockTime)
         
         return (transaction, index)
+    }
+}
+
+extension Transaction {
+    struct Simple {
+        let transactionHash: Transaction.Hash
+        let height: UInt32
+        let fee: UInt64?
+    }
+    
+    struct Detailed {
+        let transaction: Transaction
+        
+        let blockHash: Data?
+        let blockTime: UInt32?
+        let confirmations: UInt32?
+        let hash: Data
+        let hex: Data
+        let size: UInt32
+        let time: UInt32?
+    }
+}
+
+extension Transaction : CustomStringConvertible {
+    var description: String {
+        """
+        Transaction (version: \(version), locktime: \(lockTime)):
+            Inputs: \(inputs)
+            Outputs: \(outputs)
+        """
+    }
+}
+
+extension Transaction.Simple: CustomStringConvertible {
+    var description: String {
+        "Simplified Transaction: \(self.transactionHash.naturalOrder.hexadecimalString) at \(self.height)" + ((fee != nil) ? " with \(fee!.description) fee" : "")
     }
 }

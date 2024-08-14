@@ -1,12 +1,13 @@
 import Foundation
 
 extension Wallet {
-    func calculateTotalBalance() async throws -> Satoshi {
-        var totalBalance: Satoshi = try Satoshi(0)
-        for account in accounts {
-            let balance = try await account.calculateBalance()
-            totalBalance = try totalBalance + balance
+    func calculateBalance() throws -> Satoshi {
+        var totalBalance: UInt64 = 0
+        
+        for account in self.accounts {
+            totalBalance += try account.getBalanceFromCache().uint64
         }
-        return totalBalance
+        
+        return try Satoshi(totalBalance)
     }
 }

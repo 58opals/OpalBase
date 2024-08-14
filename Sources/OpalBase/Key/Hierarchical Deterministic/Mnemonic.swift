@@ -31,7 +31,7 @@ struct Mnemonic {
     }
     
     static func generateMnemonicWords(from entropy: Data) throws -> [String] {
-        let sha256 = SHA256.hash(data: entropy)
+        let sha256 = SHA256.hash(entropy)
         let checksumLength = (entropy.count * 8) / 32
         let checksumBits = sha256.prefix(1).convertToBitString().prefix(checksumLength)
         let entropyWithChecksumBits = entropy.convertToBitString() + checksumBits

@@ -58,7 +58,7 @@ extension PrivateKey.Extended {
         }
         data.append(index.bigEndianData)
         
-        let hmac = HMACSHA512.hash(data: data, key: chainCode)
+        let hmac = HMACSHA512.hash(data, key: chainCode)
         let leftHMACPart = Data(hmac.prefix(32))
         let rightHMACPart = Data(hmac.suffix(32))
         
@@ -68,7 +68,7 @@ extension PrivateKey.Extended {
         let paddedChildPrivateKey = (childPrivateKey.count < 32) ? (Data(repeating: 0, count: 32 - childPrivateKey.count) + childPrivateKey) : childPrivateKey
         let childChainCode = rightHMACPart
         let childDepth = depth + 1
-        let childParentFingerprint = Data(HASH160.hash(data: parentPublicKey).prefix(4))
+        let childParentFingerprint = Data(HASH160.hash(parentPublicKey).prefix(4))
         let childNumber = index
         
         return .init(privateKey: paddedChildPrivateKey, chainCode: childChainCode, depth: childDepth, parentFingerprint: childParentFingerprint, childNumber: childNumber)
