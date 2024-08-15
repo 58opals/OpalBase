@@ -90,7 +90,7 @@ extension Address {
         var unspentTransactionOutputs: [Transaction.Output.Unspent] = .init()
         
         for utxo in utxos {
-            let transactionHashFromRPC = Data(hex: utxo.tx_hash)
+            let transactionHashFromRPC = try Data(hexString: utxo.tx_hash)
             let transactionHash = Transaction.Hash(reverseOrder: transactionHashFromRPC)
             let outputIndex = UInt32(utxo.tx_pos)
             let amount = utxo.value
@@ -142,8 +142,8 @@ extension Address {
             fulcrum.subscriptionHub.add(subscription, for: id)
         }
         
-        let transactions = history.map { historyItem in
-            return Transaction.Simple(transactionHash: .init(dataFromRPC: Data(hex: historyItem.tx_hash)),
+        let transactions = try history.map { historyItem in
+            return Transaction.Simple(transactionHash: .init(dataFromRPC: try .init(hexString: historyItem.tx_hash)),
                                       height: UInt32(historyItem.height),
                                       fee: { if let fee = historyItem.fee { return UInt64?(.init(fee)) } else { return nil } }())
         }

@@ -39,5 +39,9 @@ extension AccountTests {
     func testSendTransaction() async throws {
         let receivingAddress = try Address("qrtlrv292x9dz5a24wg6a2a7pntu8am7hyyjjwy0hk")
         let transactionHash = try await account.send([(value: .init(565), address: receivingAddress)])
+        
+        print("The new transaction \(transactionHash.reversedData.hexadecimalString) is successfully created.")
+        
+        XCTAssertEqual(transactionHash.count, 32)
     }
 }

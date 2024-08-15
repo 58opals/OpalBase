@@ -127,8 +127,12 @@ extension Transaction {
                         }
                     },
                     receiveValue: { response in
-                        let data = Data(hex: response.hex)
-                        continuation.resume(returning: data)
+                        do {
+                            let data = try Data(hexString: response.hex)
+                            continuation.resume(returning: data)
+                        } catch {
+                            continuation.resume(throwing: error)
+                        }
                     })
             
             fulcrum.subscriptionHub.add(subscription, for: id)
@@ -160,12 +164,12 @@ extension Transaction {
                     receiveValue: { response in
                         do {
                             let transaction = Transaction(version: UInt32(response.version),
-                                                          inputs: response.vin.map { Input(previousTransactionHash: .init(dataFromRPC: Data(hex: $0.txid)),
-                                                                                           previousTransactionOutputIndex: UInt32($0.vout),
-                                                                                           unlockingScript: Data(hex: $0.scriptSig.hex),
-                                                                                           sequence: UInt32($0.sequence)) },
+                                                          inputs: try response.vin.map { Input(previousTransactionHash: .init(dataFromRPC: try Data(hexString: $0.txid)),
+                                                                                               previousTransactionOutputIndex: UInt32($0.vout),
+                                                                                               unlockingScript: try Data(hexString: $0.scriptSig.hex),
+                                                                                               sequence: UInt32($0.sequence)) },
                                                           outputs: try response.vout.map { Output(value: try Satoshi(bch: $0.value).uint64,
-                                                                                                  lockingScript: Data(hex: $0.scriptPubKey.hex)) },
+                                                                                                  lockingScript: try Data(hexString: $0.scriptPubKey.hex)) },
                                                           lockTime: UInt32(response.locktime))
                             continuation.resume(returning: transaction)
                         } catch {
@@ -204,19 +208,19 @@ extension Transaction {
                         
                         do {
                             let transaction = Transaction(version: UInt32(response.version),
-                                                          inputs: response.vin.map { Input(previousTransactionHash: .init(dataFromRPC: Data(hex: $0.txid)),
-                                                                                           previousTransactionOutputIndex: UInt32($0.vout),
-                                                                                           unlockingScript: Data(hex: $0.scriptSig.hex),
-                                                                                           sequence: UInt32($0.sequence)) },
+                                                          inputs: try response.vin.map { Input(previousTransactionHash: .init(dataFromRPC: try Data(hexString: $0.txid)),
+                                                                                               previousTransactionOutputIndex: UInt32($0.vout),
+                                                                                               unlockingScript: try Data(hexString: $0.scriptSig.hex),
+                                                                                               sequence: UInt32($0.sequence)) },
                                                           outputs: try response.vout.map { Output(value: try Satoshi(bch: $0.value).uint64,
-                                                                                                  lockingScript: Data(hex: $0.scriptPubKey.hex)) },
+                                                                                                  lockingScript: try Data(hexString: $0.scriptPubKey.hex)) },
                                                           lockTime: UInt32(response.locktime))
                             let detailedTransaction = Transaction.Detailed(transaction: transaction,
-                                                                           blockHash: isUnconfirmed ? nil : Data(hex: response.blockhash!),
+                                                                           blockHash: isUnconfirmed ? nil : try Data(hexString: response.blockhash!),
                                                                            blockTime: isUnconfirmed ? nil : UInt32(response.blocktime!),
                                                                            confirmations: isUnconfirmed ? nil : UInt32(response.confirmations!),
-                                                                           hash: Data(hex: response.hash),
-                                                                           hex: Data(hex: response.hex),
+                                                                           hash: try Data(hexString: response.hash),
+                                                                           hex: try Data(hexString: response.hex),
                                                                            size: UInt32(response.size),
                                                                            time: isUnconfirmed ? nil : UInt32(response.time!))
                             continuation.resume(returning: detailedTransaction)

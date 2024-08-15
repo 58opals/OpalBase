@@ -17,7 +17,6 @@ let package = Package(
             targets: ["OpalBase"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/krzyzanowskim/CryptoSwift.git", from: "1.8.2"),
         .package(url: "https://github.com/attaswift/BigInt.git", from: "5.4.1"),
         .package(url: "https://github.com/21-DOT-DEV/swift-secp256k1.git", from: "0.17.0"),
         .package(url: "https://github.com/58opals/SwiftFulcrum.git", branch: "develop")
@@ -25,7 +24,6 @@ let package = Package(
     targets: [
         .target(name: "OpalBase",
                 dependencies: [
-                    .product(name: "CryptoSwift", package: "CryptoSwift"),
                     .product(name: "BigInt", package: "BigInt"),
                     .product(name: "secp256k1", package: "swift-secp256k1"),
                     .product(name: "SwiftFulcrum", package: "SwiftFulcrum")

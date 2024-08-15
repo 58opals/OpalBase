@@ -71,6 +71,9 @@ extension AddressTests {
         let address = try Address(script: .p2pkh(hash: .init(publicKey: .init(privateKey: .init(wif: "Ky613uSeVQDEM89amKquEr6rZ1Xb7Mr3YDbbmyBT2zyppGChS9nU")))))
         let history = try await address.fetchTransactionHistory(fulcrum: fulcrum)
         
+        XCTAssertEqual(address.string, "bitcoincash:qqe89pk7gjzxqedcsykmaa5wc8dt8zp57q5nuylgjw")
+        XCTAssertEqual(history.count, 9)
+        
         expectation.fulfill()
         
         await fulfillment(of: [expectation], timeout: 10.0)

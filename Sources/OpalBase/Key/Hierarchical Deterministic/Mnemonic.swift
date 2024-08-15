@@ -54,11 +54,11 @@ struct Mnemonic {
     static func generateSeed(from mnemonicWords: [String], passphrase: String = "") throws -> Data {
         let words = mnemonicWords.joined(separator: " ")
         
-        let password = words
-        let salt = ("mnemonic" + passphrase)
+        let password = Data(words.utf8).bytes
+        let salt = Data(("mnemonic" + passphrase).utf8).bytes
         let iterations = 2048
         let keyLength = 64
         
-        return try PBKDF2.hash(password: password, salt: salt, iterations: iterations, keyLength: keyLength)
+        return try PBKDF2(password: password, saltBytes: salt, iterationCount: iterations, derivedKeyLength: keyLength).deriveKey()
     }
 }
