@@ -2,12 +2,13 @@
 
 ## Introduction
 
-**Opal Base** is a cutting-edge, open-source Swift library designed to empower developers within the Apple ecosystem to seamlessly integrate Bitcoin Cash (BCH) transactions into their applications. Leveraging modern Swift features, Opal Base offers a robust, efficient, and secure solution for handling BCH transactions, staying true to the vision of Satoshi Nakamoto's original white paper on a peer-to-peer electronic cash system. Notably, Opal Base supports the BIP-39 standard for mnemonic seed address generation, enhancing security and usability for end-users.s
+**Opal Base** is a cutting-edge, open-source Swift library designed to empower developers within the Apple ecosystem to seamlessly integrate Bitcoin Cash (BCH) transactions into their applications. Leveraging modern Swift features, Opal Base offers a robust, efficient, and secure solution for handling BCH transactions, staying true to the vision of Satoshi Nakamoto's original white paper on a peer-to-peer electronic cash system. Opal Base supports the BIP-39 standard for mnemonic seed address generation and integrates the powerful SwiftFulcrum framework, providing advanced capabilities for interacting with the Bitcoin Cash network.
 
 ## Features
 
 - **Seamless Integration**: Easy to incorporate into any iOS, iPadOS, macOS, watchOS, and visionOS project.
 - **Modern Swift Practices**: Utilizes the latest in Swift technology, including Protocols, Generics, Concurrency (async/await), and Error Handling.
+- **Advanced Network Interaction**: Integrates SwiftFulcrum to interact with the Bitcoin Cash network, enabling real-time transaction monitoring and balance updates.
 - **Efficient Transactions**: Optimized for fast, cheap, and reliable peer-to-peer transactions, embracing the core advantages of Bitcoin Cash.
 - **Security First**: Built with the highest security standards to ensure safe and secure transactions for users. Includes BIP-39 standard support for mnemonic seed address generation, enabling users to recover their wallets with a human-readable phrase in any other wallet.
 - **Open Source**: Encourages community collaboration and improvement, fully available for review and contributions.
@@ -37,7 +38,21 @@ import OpalBase
 This example demonstrates how to generate a new wallet using a BIP-39 mnemonic seed, providing an easy and secure way for users to manage their BCH transactions.
 
 ```swift
+let mnemonic = try Mnemonic(words: [
+    "kitchen", "stadium", "depth", "camp", "opera", "keen", "power", "cinnamon", "unfair", "west", "panda", "popular", "source", "category", "truth", "dial", "panel", "garden", "above", "top", "glue", "kidney", "effort", "rubber"
+])
+let wallet = Wallet(mnemonic: mnemonic)
+try await wallet.addAccount(index: 0)
+let account = wallet.getAccount(index: 0)
+```
 
+### Checking Balance
+
+To check the balance of an account:
+
+```swift
+let balance = try await account.calculateBalance()
+print("Account balance: \(balance)")
 ```
 
 ### Creating a New Transaction
@@ -45,7 +60,13 @@ This example demonstrates how to generate a new wallet using a BIP-39 mnemonic s
 Here's a quick example to create and send a BCH transaction:
 
 ```swift
-
+let recipientAddress = try Address("qrtlrv292x9dz5a24wg6a2a7pntu8am7hyyjjwy0hk")
+let transactionHash = try await account.send(
+    [
+        (value: .init(565), recipientAddress: recipientAddress)
+    ]
+)
+print("Transaction successfully sent with hash: \(transactionHash)")
 ```
 
 ## Contributing

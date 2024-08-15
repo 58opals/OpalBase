@@ -6,7 +6,7 @@ extension Account {
         return try await addressBook.getBalance()
     }
     
-    mutating func send(_ sendings: [(value: Satoshi, address: Address)]) async throws -> Data {
+    mutating func send(_ sendings: [(value: Satoshi, recipientAddress: Address)]) async throws -> Data {
         let accountBalance = try await calculateBalance()
         let spendingValue = sendings.map{ $0.value.uint64 }.reduce(0, +)
         guard spendingValue < accountBalance.uint64 else { throw Transaction.Error.insufficientFunds(required: spendingValue) }
@@ -21,7 +21,7 @@ extension Account {
         
         let transaction = try Transaction.createTransaction(version: 2,
                                                             utxoPrivateKeyPairs: privateKeyPairs,
-                                                            recipientOutputs: sendings.map { Transaction.Output(value: $0.value.uint64, address: $0.address) },
+                                                            recipientOutputs: sendings.map { Transaction.Output(value: $0.value.uint64, address: $0.recipientAddress) },
                                                             changeOutput: Transaction.Output(value: remainingValue, address: changeAddress),
                                                             feePerByte: Transaction.defaultFeeRate)
         
