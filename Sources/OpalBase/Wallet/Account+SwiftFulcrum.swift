@@ -3,7 +3,13 @@ import SwiftFulcrum
 
 extension Account {
     mutating func calculateBalance() async throws -> Satoshi {
-        return try await addressBook.getBalance()
+        var totalBalance: UInt64 = 0
+        
+        for address in (addressBook.receivingEntries + addressBook.changeEntries).map({ $0.address }) {
+            totalBalance += try await addressBook.getBalance(for: address, updateCacheBalance: true).uint64
+        }
+        
+        return try Satoshi(totalBalance)
     }
     
     mutating func send(_ sendings: [(value: Satoshi, recipientAddress: Address)]) async throws -> Data {
@@ -14,9 +20,11 @@ extension Account {
         let utxos = try addressBook.selectUTXOs(targetAmount: Satoshi(spendingValue))
         let spendableValue = utxos.map { $0.value }.reduce(0, +)
         
+        
+        
         let privateKeyPairs = try addressBook.getPrivateKeys(for: utxos)
         
-        let changeAddress = try await addressBook.getNextAddress(for: .change)
+        let changeAddress = try await addressBook.getNextEntry(for: .change).address
         let remainingValue = spendableValue - spendingValue
         
         let transaction = try Transaction.createTransaction(version: 2,

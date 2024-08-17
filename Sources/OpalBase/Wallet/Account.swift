@@ -2,18 +2,33 @@ import Foundation
 import SwiftFulcrum
 
 struct Account {
-    let extendedKey: PrivateKey.Extended
-    let accountIndex: UInt32
-    var addressBook: Address.Book
     let fulcrum: Fulcrum
     
-    init(extendedKey: PrivateKey.Extended, accountIndex: UInt32) async throws {
-        let fulcrum = try Fulcrum()
+    private let rootExtendedKey: PrivateKey.Extended
+    
+    private let purpose: DerivationPath.Purpose
+    private let coinType: DerivationPath.CoinType
+    private let account: DerivationPath.Account
+    
+    var addressBook: Address.Book
+    
+    init(fulcrumServerURL: String? = nil,
+         rootExtendedKey: PrivateKey.Extended,
+         purpose: DerivationPath.Purpose,
+         coinType: DerivationPath.CoinType,
+         account: DerivationPath.Account) async throws {
+        self.fulcrum = try Fulcrum(url: fulcrumServerURL)
         
-        self.extendedKey = extendedKey
-        self.accountIndex = accountIndex
-        self.addressBook = try await Address.Book(extendedKey: extendedKey, fulcrum: fulcrum)
-        self.fulcrum = fulcrum
+        self.rootExtendedKey = rootExtendedKey
+        self.purpose = purpose
+        self.coinType = coinType
+        self.account = account
+        
+        self.addressBook = try await Address.Book(rootExtendedKey: rootExtendedKey,
+                                                  purpose: purpose,
+                                                  coinType: coinType,
+                                                  account: account,
+                                                  fulcrum: fulcrum)
     }
 }
 

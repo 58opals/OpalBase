@@ -17,3 +17,14 @@ extension FixedWidthInteger {
     }
 }
 
+extension UInt32 {
+    func harden() throws -> UInt32 {
+        guard self < 0x80000000 else { throw DerivationPath.Error.indexTooLargeForHardening }
+        return self | 0x80000000
+    }
+    
+    func unharden() throws -> UInt32 {
+        guard self >= 0x80000000 else { throw DerivationPath.Error.indexTooSmallForUnhardening }
+        return self & ~0x80000000
+    }
+}

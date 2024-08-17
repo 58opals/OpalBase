@@ -42,7 +42,7 @@ extension PrivateKey.Extended: CustomDebugStringConvertible {
 }
 
 extension PrivateKey.Extended {
-    func deriveChildPrivateKey(at index: UInt32) throws -> PrivateKey.Extended {
+    private func deriveChildPrivateKey(at index: UInt32) throws -> PrivateKey.Extended {
         let parentPrivateKey = self.privateKey
         let parentPublicKey = try PublicKey(privateKey: .init(data: privateKey)).compressedData
         
@@ -77,11 +77,11 @@ extension PrivateKey.Extended {
     func deriveChild(at path: DerivationPath) throws -> PrivateKey.Extended {
         var extendedKey = self
         
-        let indices = [
-            path.purpose.index,
-            path.coinType.index,
-            path.account.index,
-            path.usage.index,
+        let indices = try [
+            path.purpose.hardenedIndex,
+            path.coinType.hardenedIndex,
+            path.account.getHardenedIndex(),
+            path.usage.unhardenedIndex,
             path.index
         ]
         

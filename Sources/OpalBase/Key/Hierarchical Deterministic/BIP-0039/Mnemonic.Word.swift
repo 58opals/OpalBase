@@ -31,7 +31,6 @@ extension Mnemonic {
                 }
             }
             
-            
             let bitString = words.map { word -> String in
                 guard let index = wordList.firstIndex(of: word) else { fatalError() }
                 return String(index, radix: 2).padLeft(to: 11)

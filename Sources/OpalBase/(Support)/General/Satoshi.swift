@@ -23,7 +23,7 @@ struct Satoshi {
     }
 }
 
-extension Satoshi: Equatable, Comparable {
+extension Satoshi: Hashable {
     static func + (lhs: Satoshi, rhs: Satoshi) throws -> Satoshi {
         let result = lhs.uint64 + rhs.uint64
         guard result <= Satoshi.maximumSatoshi else { throw Error.exceedsMaximumAmount }

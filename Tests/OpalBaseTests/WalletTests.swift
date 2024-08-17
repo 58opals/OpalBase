@@ -19,30 +19,23 @@ final class WalletTests: XCTestCase {
 }
  
 extension WalletTests {
-    func testWalletInitialization() throws {
-        XCTAssertEqual(wallet.purpose, .bip44, "Wallet purpose should be bip44 by default.")
-        XCTAssertEqual(wallet.coinType, .bitcoinCash, "Wallet coin type should be bitcoinCash by default.")
-        XCTAssertEqual(wallet.accounts.count, 0, "Wallet should have no accounts initially.")
-    }
-    
     func testAddAccount() async throws {
-        try await wallet.addAccount(index: 0)
+        try await wallet.addAccount(unhardenedIndex: 0)
         
         XCTAssertEqual(wallet.accounts.count, 1, "Wallet should have one account after adding an account.")
-        XCTAssertNotNil(wallet.getAccount(index: 0), "Account at index 0 should not be nil.")
+        XCTAssertNotNil(try wallet.getAccount(unhardenedIndex: 0), "Account at index 0 should not be nil.")
     }
     
     func testGetAccount() async throws {
-        try await wallet.addAccount(index: 0)
-        let account = wallet.getAccount(index: 0)
+        try await wallet.addAccount(unhardenedIndex: 0)
+        let account = try wallet.getAccount(unhardenedIndex: 0)
         
         XCTAssertNotNil(account, "Account should be retrievable by index.")
-        XCTAssertEqual(account?.accountIndex, 0, "Account index should match the one used to create it.")
     }
     
     func testCalculateTotalBalance() async throws {
-        try await wallet.addAccount(index: 0)
-        try await wallet.addAccount(index: 1)
+        try await wallet.addAccount(unhardenedIndex: 0)
+        try await wallet.addAccount(unhardenedIndex: 1)
         
         let totalBalance = try wallet.getBalance()
         

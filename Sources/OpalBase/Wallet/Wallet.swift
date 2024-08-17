@@ -2,11 +2,15 @@ import Foundation
 
 struct Wallet {
     let mnemonic: Mnemonic
-    let purpose: DerivationPath.Purpose
-    let coinType: DerivationPath.CoinType
+    
+    private let purpose: DerivationPath.Purpose
+    private let coinType: DerivationPath.CoinType
+    
     private(set) var accounts: [Account]
     
-    init(mnemonic: Mnemonic, purpose: DerivationPath.Purpose = .bip44, coinType: DerivationPath.CoinType = .bitcoinCash) {
+    init(mnemonic: Mnemonic,
+         purpose: DerivationPath.Purpose = .bip44,
+         coinType: DerivationPath.CoinType = .bitcoinCash) {
         self.mnemonic = mnemonic
         self.purpose = purpose
         self.coinType = coinType
@@ -15,20 +19,27 @@ struct Wallet {
 }
  
 extension Wallet {
-    mutating func addAccount(index: UInt32) async throws {
-        let rootKey = try PrivateKey.Extended.Root(seed: mnemonic.seed)
-        let extendedKey = try PrivateKey.Extended(rootKey: rootKey)
-            .deriveChildPrivateKey(at: purpose.index)
-            .deriveChildPrivateKey(at: coinType.index)
-            .deriveChildPrivateKey(at: index | 0x80000000)
+    mutating func addAccount(unhardenedIndex: UInt32, fulcrumServerURL: String? = nil) async throws {
+        let derivationPathAccount = DerivationPath.Account(unhardenedIndex: unhardenedIndex)
         
-        let account = try await Account(extendedKey: extendedKey, accountIndex: index)
+        let rootExtendedKey = PrivateKey.Extended(rootKey: try .init(seed: mnemonic.seed))
+        let account = try await Account(fulcrumServerURL: fulcrumServerURL,
+                                        rootExtendedKey: rootExtendedKey,
+                                        purpose: purpose,
+                                        coinType: coinType,
+                                        account: derivationPathAccount)
         self.accounts.append(account)
     }
     
-    func getAccount(index: Int) -> Account? {
-        guard index < accounts.count else { return nil }
-        return accounts[index]
+    func getAccount(unhardenedIndex: Int) throws -> Account {
+        guard unhardenedIndex < accounts.count else { throw Error.cannotGetAccount(index: unhardenedIndex) }
+        return accounts[unhardenedIndex]
+    }
+}
+
+extension Wallet {
+    enum Error: Swift.Error {
+        case cannotGetAccount(index: Int)
     }
 }
 

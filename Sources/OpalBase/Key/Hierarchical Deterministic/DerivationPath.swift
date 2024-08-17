@@ -7,7 +7,11 @@ struct DerivationPath {
     let usage: Usage
     let index: UInt32
     
-    init(purpose: Purpose = .bip44, coinType: CoinType = .bitcoinCash, account: Account = .init(index: 0), usage: Usage, index: UInt32) {
+    init(purpose: Purpose = .bip44,
+         coinType: CoinType = .bitcoinCash,
+         account: Account,
+         usage: Usage,
+         index: UInt32) throws {
         self.purpose = purpose
         self.coinType = coinType
         self.account = account
@@ -16,7 +20,12 @@ struct DerivationPath {
     }
     
     var path: String {
-        return "m/\(purpose.index & ~0x80000000)'/\(coinType.index & ~0x80000000)'/\(account.index & ~0x80000000)'/\(usage.index)/\(index)"
+        do {
+            return try "m/\(purpose.hardenedIndex.unharden())'/\(coinType.hardenedIndex.unharden())'/\(account.unhardenedIndex.harden())'/\(usage.unhardenedIndex)/\(index)"
+        } catch {
+            print("The error \(error) occured during unhardening one of the indice of \(purpose.hardenedIndex), \(coinType.hardenedIndex), or \(account.unhardenedIndex).")
+            return "‼ PATH without hardening: m/\(purpose.hardenedIndex)/\(coinType.hardenedIndex)/\(account.unhardenedIndex)/\(usage.unhardenedIndex)/\(index)"
+        }
     }
 }
 
@@ -28,7 +37,7 @@ extension DerivationPath: Hashable {
 
 extension DerivationPath.Account: Hashable {
     static func == (lhs: DerivationPath.Account, rhs: DerivationPath.Account) -> Bool {
-        lhs.index == rhs.index
+        lhs.unhardenedIndex == rhs.unhardenedIndex
     }
 }
 
@@ -42,10 +51,11 @@ extension DerivationPath {
     enum Purpose {
         case bip44
         
-        var index: UInt32 {
+        var hardenedIndex: UInt32 {
             switch self {
             case .bip44:
-                44 | 0x80000000
+                do { return try UInt32(44).harden() }
+                catch { fatalError("The index number 44 failed to be hardened.") }
             }
         }
     }
@@ -54,26 +64,33 @@ extension DerivationPath {
         case bitcoin
         case bitcoinCash
         
-        var index: UInt32 {
+        var hardenedIndex: UInt32 {
             switch self {
             case .bitcoin:
-                0 | 0x80000000
+                do { return try UInt32(0).harden() }
+                catch { fatalError("The index number 0 failed to be hardened.") }
             case .bitcoinCash:
-                145 | 0x80000000
+                do { return try UInt32(145).harden() }
+                catch { fatalError("The index number 145 failed to be hardened.") }
             }
         }
     }
 
     struct Account {
-        private(set) var index: UInt32
+        private(set) var unhardenedIndex: UInt32
         
-        init(index: UInt32) {
-            self.index = index | 0x80000000
+        init(unhardenedIndex: UInt32) {
+            self.unhardenedIndex = unhardenedIndex
         }
         
-        mutating func increase() {
-            let currentIndex = index & ~0x80000000
-            self.index = (currentIndex + 1) | 0x80000000
+        func getHardenedIndex() throws -> UInt32 {
+            return try self.unhardenedIndex.harden()
+        }
+        
+        mutating func increase() throws {
+            let currentIndex = unhardenedIndex
+            guard currentIndex < 0x7FFFFFFF else { throw Error.indexOverflow }
+            self.unhardenedIndex = try (currentIndex + 1).harden()
         }
     }
 
@@ -81,7 +98,7 @@ extension DerivationPath {
         case receiving
         case change
         
-        var index: UInt32 {
+        var unhardenedIndex: UInt32 {
             switch self {
             case .receiving:
                 0

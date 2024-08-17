@@ -10,9 +10,9 @@ final class AccountTests: XCTestCase {
         let mnemonic = try Mnemonic()
         
         var wallet = Wallet(mnemonic: mnemonic)
-        try await wallet.addAccount(index: 0)
+        try await wallet.addAccount(unhardenedIndex: 0)
         
-        self.account = wallet.getAccount(index: 0)
+        self.account = try wallet.getAccount(unhardenedIndex: 0)
     }
     
     override func tearDown() {
@@ -23,9 +23,6 @@ final class AccountTests: XCTestCase {
 
 extension AccountTests {
     func testAccountInitialization() async throws {
-        let accountIndex: UInt32 = 0
-        
-        XCTAssertEqual(account.accountIndex, accountIndex, "Account index should match the initialized value.")
         XCTAssertNotNil(account.addressBook, "Address book should be initialized.")
         XCTAssertNotNil(account.fulcrum, "Fulcrum instance should be initialized.")
     }
@@ -37,7 +34,7 @@ extension AccountTests {
     }
 
     func testSendTransaction() async throws {
-        let recipientAddress = try Address("qrtlrv292x9dz5a24wg6a2a7pntu8am7hyyjjwy0hk")
+        let recipientAddress = try Address("bitcoincash:qrsrz5mzve6kyr6ne6lgsvlgxvs3hqm6huxhd8gqwj")
         let transactionHash = try await account.send(
             [
                 (value: .init(565), recipientAddress: recipientAddress)
