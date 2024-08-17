@@ -19,7 +19,7 @@ let package = Package(
     dependencies: [
         .package(url: "https://github.com/attaswift/BigInt.git", from: "5.4.1"),
         .package(url: "https://github.com/21-DOT-DEV/swift-secp256k1.git", from: "0.17.0"),
-        .package(url: "https://github.com/58opals/SwiftFulcrum.git", branch: "develop")
+        .package(url: "https://github.com/58opals/SwiftFulcrum.git", from: "0.1.1")
     ],
     targets: [
         .target(name: "OpalBase",
