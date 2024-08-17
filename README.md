@@ -42,8 +42,17 @@ let mnemonic = try Mnemonic(words: [
     "kitchen", "stadium", "depth", "camp", "opera", "keen", "power", "cinnamon", "unfair", "west", "panda", "popular", "source", "category", "truth", "dial", "panel", "garden", "above", "top", "glue", "kidney", "effort", "rubber"
 ])
 let wallet = Wallet(mnemonic: mnemonic)
-try await wallet.addAccount(index: 0)
-let account = wallet.getAccount(index: 0)
+try await wallet.addAccount(unhardenedIndex: 0)
+let account = try wallet.getAccount(unhardenedIndex: 0)
+```
+
+### Generating and Using an Address in the Account
+
+After creating an account, you can generate and use an address for transactions.
+
+```swift
+let nextReceivingAddress = try await account.addressBook.getNextEntry(for: .receiving).address
+print("Next receiving address: \(nextReceivingAddress)")
 ```
 
 ### Checking Balance
