@@ -1,11 +1,11 @@
 import Foundation
 
 extension PrivateKey.Extended {
-    struct Root {
+    public struct Root {
         let privateKey: Data
         let chainCode: Data
         
-        init(seed: Data, stringKey: String = "Bitcoin seed") throws {
+        public init(seed: Data, stringKey: String = "Bitcoin seed") throws {
             guard let key = stringKey.data(using: .utf8) else { fatalError() }
             let hmac = HMACSHA512.hash(seed, key: key)
             let privateKeyData = Data(hmac.prefix(32))

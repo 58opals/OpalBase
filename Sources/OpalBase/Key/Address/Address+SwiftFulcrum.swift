@@ -153,7 +153,7 @@ extension Address {
     
     static func subscribeToActivities(of address: Address,
                                       using fulcrum: inout Fulcrum) async throws -> (requestedID: UUID,
-                                                                               publisher: CurrentValueSubject<Response.JSONRPC.Result.Blockchain.Address.Subscribe?, Swift.Error>) {
+                                                                                     publisher: CurrentValueSubject<Response.JSONRPC.Result.Blockchain.Address.Subscribe?, Swift.Error>) {
         let (id, publisher) = try await fulcrum.submit(
             method: .blockchain(.address(
                 .subscribe(address: address.string)

@@ -2,7 +2,7 @@ import Foundation
 import SwiftFulcrum
 
 extension Address {
-    struct Book {
+    public struct Book {
         private let rootExtendedKey: PrivateKey.Extended
         private let purpose: DerivationPath.Purpose
         private let coinType: DerivationPath.CoinType
@@ -10,30 +10,29 @@ extension Address {
         
         private var derivationPathToAddress = [DerivationPath: Address]()
         
-        var receivingEntries = [Entry]()
-        var changeEntries = [Entry]()
+        public var receivingEntries = [Entry]()
+        public var changeEntries = [Entry]()
         
-        var utxos = Set<Transaction.Output.Unspent>()
+        public var utxos = Set<Transaction.Output.Unspent>()
         
-        var fulcrum: Fulcrum
-        
-        let gapLimit = 20
+        let gapLimit: Int
         let maxIndex = UInt32.max
         
-        init(rootExtendedKey: PrivateKey.Extended,
-             purpose: DerivationPath.Purpose,
-             coinType: DerivationPath.CoinType,
-             account: DerivationPath.Account,
-             fulcrum: Fulcrum) async throws {
+        public init(rootExtendedKey: PrivateKey.Extended,
+                    purpose: DerivationPath.Purpose,
+                    coinType: DerivationPath.CoinType,
+                    account: DerivationPath.Account,
+                    gapLimit: Int = 20,
+                    fulcrum: Fulcrum) async throws {
             self.rootExtendedKey = rootExtendedKey
             self.purpose = purpose
             self.coinType = coinType
             self.account = account
             
-            self.fulcrum = fulcrum
+            self.gapLimit = gapLimit
             
-            try await initializeEntries()
-            try await refreshUTXOSet()
+            try await initializeEntries(fulcrum: fulcrum)
+            try await refreshUTXOSet(fulcrum: fulcrum)
         }
     }
 }

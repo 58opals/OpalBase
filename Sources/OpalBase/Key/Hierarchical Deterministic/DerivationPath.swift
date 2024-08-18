@@ -1,6 +1,6 @@
 import Foundation
 
-struct DerivationPath {
+public struct DerivationPath {
     let purpose: Purpose
     let coinType: CoinType
     var account: Account
@@ -19,7 +19,7 @@ struct DerivationPath {
         self.index = index
     }
     
-    var path: String {
+    public var path: String {
         do {
             return try "m/\(purpose.hardenedIndex.unharden())'/\(coinType.hardenedIndex.unharden())'/\(account.unhardenedIndex.harden())'/\(usage.unhardenedIndex)/\(index)"
         } catch {
@@ -30,25 +30,25 @@ struct DerivationPath {
 }
 
 extension DerivationPath: Hashable {
-    static func == (lhs: DerivationPath, rhs: DerivationPath) -> Bool {
+    public static func == (lhs: DerivationPath, rhs: DerivationPath) -> Bool {
         lhs.path == rhs.path
     }
 }
 
 extension DerivationPath.Account: Hashable {
-    static func == (lhs: DerivationPath.Account, rhs: DerivationPath.Account) -> Bool {
+    public static func == (lhs: DerivationPath.Account, rhs: DerivationPath.Account) -> Bool {
         lhs.unhardenedIndex == rhs.unhardenedIndex
     }
 }
 
 extension DerivationPath: CustomDebugStringConvertible {
-    var debugDescription: String {
+    public var debugDescription: String {
         return path
     }
 }
 
 extension DerivationPath {
-    enum Purpose {
+    public enum Purpose {
         case bip44
         
         var hardenedIndex: UInt32 {
@@ -59,8 +59,8 @@ extension DerivationPath {
             }
         }
     }
-
-    enum CoinType {
+    
+    public enum CoinType {
         case bitcoin
         case bitcoinCash
         
@@ -75,8 +75,8 @@ extension DerivationPath {
             }
         }
     }
-
-    struct Account {
+    
+    public struct Account {
         private(set) var unhardenedIndex: UInt32
         
         init(unhardenedIndex: UInt32) {
@@ -93,8 +93,8 @@ extension DerivationPath {
             self.unhardenedIndex = try (currentIndex + 1).harden()
         }
     }
-
-    enum Usage: CaseIterable {
+    
+    public enum Usage: CaseIterable {
         case receiving
         case change
         

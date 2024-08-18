@@ -34,7 +34,7 @@ extension AccountTests {
     }
 
     func testSendTransaction() async throws {
-        let recipientAddress = try Address("bitcoincash:qrsrz5mzve6kyr6ne6lgsvlgxvs3hqm6huxhd8gqwj")
+        let recipientAddress = try Address("bitcoincash:qr4yz562852sglpmjmxvktrph5syts064yjadyqvc8")
         let transactionHash = try await account.send(
             [
                 (value: .init(565), recipientAddress: recipientAddress)

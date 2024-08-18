@@ -1,7 +1,7 @@
 import Foundation
 
 extension Transaction.Output {
-    struct Unspent {
+    public struct Unspent {
         let previousTransactionHash: Transaction.Hash
         let previousTransactionOutputIndex: UInt32
         let value: UInt64
@@ -26,7 +26,7 @@ extension Transaction.Output {
 extension Transaction.Output.Unspent: Hashable {}
 
 extension Transaction.Output.Unspent: CustomStringConvertible {
-    var description: String {
+    public var description: String {
         """
         Unspent Transaction Output:
             Previous Transaction Hash: \(previousTransactionHash.naturalOrder.hexadecimalString) (↔︎: \(previousTransactionHash.reverseOrder.hexadecimalString))

@@ -1,7 +1,7 @@
 import Foundation
 
 extension Address {
-    enum Error: Swift.Error {
+    public enum Error: Swift.Error {
         case invalidCharacter(Character)
         case invalidCashAddressFormat
         case invalidChecksum

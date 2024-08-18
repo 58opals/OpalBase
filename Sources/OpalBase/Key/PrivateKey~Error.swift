@@ -1,7 +1,7 @@
 import Foundation
 
 extension PrivateKey {
-    enum Error: Swift.Error {
+    public enum Error: Swift.Error {
         case randomBytesGenerationFailed
         case outOfBounds
         case invalidHexFormat

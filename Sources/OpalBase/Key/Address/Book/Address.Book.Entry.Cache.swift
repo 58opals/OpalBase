@@ -1,4 +1,5 @@
 import Foundation
+import SwiftFulcrum
 
 extension Address.Book.Entry {
     struct Cache {
@@ -13,7 +14,7 @@ extension Address.Book.Entry {
 extension Address.Book.Entry.Cache: Hashable {}
 
 extension Address.Book {
-    mutating func updateCache(in entries: [Entry]) async throws {
+    public mutating func updateCache(in entries: [Entry], fulcrum: Fulcrum) async throws {
         for entry in entries where !entry.cache.isValid {
             let address = entry.address
             let latestBalance = try await address.fetchBalance(using: fulcrum)
@@ -21,8 +22,8 @@ extension Address.Book {
         }
     }
     
-    mutating func updateCache(for address: Address,
-                              with balance: Satoshi) throws {
+    public mutating func updateCache(for address: Address,
+                                     with balance: Satoshi) throws {
         guard let existingEntry = findEntry(for: address) else { throw Error.entryNotFound }
         
         let newCache = Entry.Cache(balance: balance,

@@ -1,6 +1,6 @@
 import Foundation
 
-struct Transaction {
+public struct Transaction {
     let version: UInt32
     let inputs: [Input]
     let outputs: [Output]
@@ -75,13 +75,13 @@ struct Transaction {
 }
 
 extension Transaction {
-    struct Simple {
+    public struct Simple {
         let transactionHash: Transaction.Hash
         let height: UInt32
         let fee: UInt64?
     }
     
-    struct Detailed {
+    public struct Detailed {
         let transaction: Transaction
         
         let blockHash: Data?
@@ -95,7 +95,7 @@ extension Transaction {
 }
 
 extension Transaction : CustomStringConvertible {
-    var description: String {
+    public var description: String {
         """
         Transaction (version: \(version), locktime: \(lockTime)):
             Inputs: \(inputs)
@@ -105,7 +105,7 @@ extension Transaction : CustomStringConvertible {
 }
 
 extension Transaction.Simple: CustomStringConvertible {
-    var description: String {
+    public var description: String {
         "Simplified Transaction: \(self.transactionHash.naturalOrder.hexadecimalString) at \(self.height)" + ((fee != nil) ? " with \(fee!.description) fee" : "")
     }
 }

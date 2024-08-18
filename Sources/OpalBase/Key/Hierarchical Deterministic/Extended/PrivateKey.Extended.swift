@@ -2,14 +2,14 @@ import Foundation
 import BigInt
 
 extension PrivateKey {
-    struct Extended {
+    public struct Extended {
         let privateKey: Data
         let chainCode: Data
         let depth: UInt8
         let parentFingerprint: Data
         let childNumber: UInt32
         
-        init(rootKey: PrivateKey.Extended.Root) {
+        public init(rootKey: PrivateKey.Extended.Root) {
             self.privateKey = rootKey.privateKey
             self.chainCode = rootKey.chainCode
             self.depth = 0
@@ -28,7 +28,7 @@ extension PrivateKey {
 }
 
 extension PrivateKey.Extended: CustomDebugStringConvertible {
-    var debugDescription: String {
+    public var debugDescription: String {
         return """
         ExtendedPrivateKey(
             privateKey: \(privateKey.hexadecimalString),

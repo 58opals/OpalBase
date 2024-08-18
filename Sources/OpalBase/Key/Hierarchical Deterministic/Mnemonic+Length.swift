@@ -1,7 +1,7 @@
 import Foundation
 
 extension Mnemonic {
-    enum Length {
+    public enum Length {
         case short
         case long
         

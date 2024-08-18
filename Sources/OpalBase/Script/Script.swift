@@ -1,6 +1,6 @@
 import Foundation
 
-enum Script {
+public enum Script {
     case p2pk(publicKey: PublicKey)
     case p2pkh(hash: PublicKey.Hash)
     case p2ms(numberOfRequiredSignatures: Int, publicKeys: [PublicKey])

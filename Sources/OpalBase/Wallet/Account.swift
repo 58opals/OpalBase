@@ -1,7 +1,7 @@
 import Foundation
 import SwiftFulcrum
 
-struct Account {
+public struct Account {
     let fulcrum: Fulcrum
     
     private let rootExtendedKey: PrivateKey.Extended
@@ -10,13 +10,13 @@ struct Account {
     private let coinType: DerivationPath.CoinType
     private let account: DerivationPath.Account
     
-    var addressBook: Address.Book
+    public var addressBook: Address.Book
     
-    init(fulcrumServerURL: String? = nil,
-         rootExtendedKey: PrivateKey.Extended,
-         purpose: DerivationPath.Purpose,
-         coinType: DerivationPath.CoinType,
-         account: DerivationPath.Account) async throws {
+    public init(fulcrumServerURL: String? = nil,
+                rootExtendedKey: PrivateKey.Extended,
+                purpose: DerivationPath.Purpose,
+                coinType: DerivationPath.CoinType,
+                account: DerivationPath.Account) async throws {
         self.fulcrum = try Fulcrum(url: fulcrumServerURL)
         
         self.rootExtendedKey = rootExtendedKey
@@ -33,7 +33,7 @@ struct Account {
 }
 
 extension Account {
-    func getBalanceFromCache() throws -> Satoshi {
+    public func getBalanceFromCache() throws -> Satoshi {
         return try addressBook.getBalanceFromCache()
     }
 }

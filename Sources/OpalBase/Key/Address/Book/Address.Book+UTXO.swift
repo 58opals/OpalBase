@@ -1,4 +1,5 @@
 import Foundation
+import SwiftFulcrum
 
 extension Address.Book {
     mutating func addUTXO(_ utxo: Transaction.Output.Unspent) {
@@ -25,8 +26,8 @@ extension Address.Book {
         return utxos
     }
     
-    func selectUTXOs(targetAmount: Satoshi,
-                     feePerByte: UInt64 = 1) throws -> [Transaction.Output.Unspent] {
+    public func selectUTXOs(targetAmount: Satoshi,
+                            feePerByte: UInt64 = 1) throws -> [Transaction.Output.Unspent] {
         var selectedUTXOs: [Transaction.Output.Unspent] = []
         var totalAmount: UInt64 = 0
         let sortedUTXOs = utxos.sorted { $0.value > $1.value }
@@ -46,7 +47,7 @@ extension Address.Book {
         throw Error.insufficientFunds
     }
     
-    mutating func refreshUTXOSet() async throws {
+    public mutating func refreshUTXOSet(fulcrum: Fulcrum) async throws {
         var updatedUTXOs = [Transaction.Output.Unspent]()
         
         for entry in (receivingEntries + changeEntries) {

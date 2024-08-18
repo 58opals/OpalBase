@@ -1,10 +1,10 @@
 import Foundation
 
-struct Mnemonic {
-    let words: [String]
-    let seed: Data
+public struct Mnemonic {
+    public let words: [String]
+    public let seed: Data
     
-    init(length: Length = .long) throws {
+    public init(length: Length = .long) throws {
         let entropy = try Mnemonic.generateEntropy(numberOfBits: length.numberOfBits)
         let mnemonicWords = try Mnemonic.generateMnemonicWords(from: entropy)
         let seed = try Mnemonic.generateSeed(from: mnemonicWords)
@@ -13,7 +13,7 @@ struct Mnemonic {
         self.seed = seed
     }
     
-    init(words: [String]) throws {
+    public init(words: [String]) throws {
         guard try Word.validateMnemonicWords(words) else { throw Error.invalidMnemonicWords }
         
         self.words = words

@@ -1,7 +1,8 @@
 import Foundation
+import SwiftFulcrum
 
 extension Address.Book {
-    struct Entry {
+    public struct Entry {
         let derivationPath: DerivationPath
         let address: Address
         var isUsed: Bool
@@ -13,17 +14,19 @@ extension Address.Book.Entry: Hashable {}
 
 // MARK: - Get
 extension Address.Book {
-    func findEntry(for address: Address) -> Entry? {
+    public func findEntry(for address: Address) -> Entry? {
         let allEntries = receivingEntries + changeEntries
         let entry = allEntries.first(where: { $0.address == address })
         return entry
     }
     
-    private func getEntries(of usage: DerivationPath.Usage) -> [Entry] {
-        switch usage {
-        case .receiving: return receivingEntries
-        case .change: return changeEntries
-        }
+    public mutating func getNextEntry(for usage: DerivationPath.Usage, fulcrum: Fulcrum) async throws -> Entry {
+        try await generateEntriesIfNeeded(for: usage, fulcrum: fulcrum)
+        
+        let entries = getEntries(of: usage)
+        guard let nextEntry = entries.first(where: { !$0.isUsed }) else { throw Error.entryNotFound }
+        
+        return nextEntry
     }
     
     private func getUsedEntries(for usage: DerivationPath.Usage) -> Set<Entry> {
@@ -32,53 +35,58 @@ extension Address.Book {
         return Set<Entry>(usedEntries)
     }
     
-    mutating func getNextEntry(for usage: DerivationPath.Usage) async throws -> Entry {
-        try await generateEntriesIfNeeded(for: usage)
-        
-        let entries = getEntries(of: usage)
-        guard let nextEntry = entries.first(where: { !$0.isUsed }) else { throw Error.entryNotFound }
-        
-        return nextEntry
+    private func getEntries(of usage: DerivationPath.Usage) -> [Entry] {
+        switch usage {
+        case .receiving: return receivingEntries
+        case .change: return changeEntries
+        }
     }
 }
 
 // MARK: - Set
 extension Address.Book {
-    mutating func initializeEntries() async throws {
+    mutating func initializeEntries(fulcrum: Fulcrum) async throws {
         try await generateEntries(for: .receiving,
                                   isUsed: false,
                                   fetchBalance: true,
-                                  numberOfNewEntries: gapLimit)
+                                  numberOfNewEntries: gapLimit,
+                                  fulcrum: fulcrum)
         try await generateEntries(for: .change,
                                   isUsed: false,
                                   fetchBalance: true,
-                                  numberOfNewEntries: gapLimit)
+                                  numberOfNewEntries: gapLimit,
+                                  fulcrum: fulcrum)
     }
 }
 
 extension Address.Book {
-    mutating func generateEntriesIfNeeded(for usage: DerivationPath.Usage) async throws {
+    mutating func generateEntriesIfNeeded(for usage: DerivationPath.Usage, fulcrum: Fulcrum) async throws {
         let entries = getEntries(of: usage)
         let usedEntries = getUsedEntries(for: usage)
         
         let numberOfRemainingUnusedEntries = entries.count - usedEntries.count
         if numberOfRemainingUnusedEntries <= gapLimit {
-            try await generateEntries(for: usage, numberOfNewEntries: gapLimit)
+            try await generateEntries(for: usage, numberOfNewEntries: gapLimit, fulcrum: fulcrum)
         }
     }
     
-    mutating func generateEntries(for usage: DerivationPath.Usage, isUsed: Bool = false, fetchBalance: Bool = true, numberOfNewEntries: Int) async throws {
+    mutating func generateEntries(for usage: DerivationPath.Usage,
+                                  isUsed: Bool = false,
+                                  fetchBalance: Bool = true,
+                                  numberOfNewEntries: Int,
+                                  fulcrum: Fulcrum) async throws {
         let entries = getEntries(of: usage)
         
         for index in (entries.count) ..< (entries.count + numberOfNewEntries) {
-            try await generateEntry(for: usage, at: UInt32(index), isUsed: isUsed, fetchBalance: fetchBalance)
+            try await generateEntry(for: usage, at: UInt32(index), isUsed: isUsed, fetchBalance: fetchBalance, fulcrum: fulcrum)
         }
     }
     
     private mutating func generateEntry(for usage: DerivationPath.Usage,
                                         at index: UInt32,
                                         isUsed: Bool = false,
-                                        fetchBalance: Bool = true) async throws {
+                                        fetchBalance: Bool = true,
+                                        fulcrum: Fulcrum) async throws {
         let address = try generateAddress(at: index, for: usage)
         let balance = try fetchBalance ? await address.fetchBalance(using: fulcrum) : .init(0)
         
@@ -105,7 +113,7 @@ extension Address.Book {
         return entry.isUsed
     }
     
-    mutating func mark(address: Address, isUsed: Bool) async throws {
+    mutating func mark(address: Address, isUsed: Bool, fulcrum: Fulcrum) async throws {
         let numberOfReceivingAddresses = receivingEntries.filter { $0.address == address }.count
         let numberOfChangeAddresses = changeEntries.filter { $0.address == address }.count
         
@@ -127,15 +135,15 @@ extension Address.Book {
             changeEntries[index].isUsed = isUsed
         }
         
-        try await generateEntriesIfNeeded(for: usage)
+        try await generateEntriesIfNeeded(for: usage, fulcrum: fulcrum)
     }
     
-    mutating func refreshUsedStatus() async throws {
-        try await refreshUsedStatus(for: .receiving)
-        try await refreshUsedStatus(for: .change)
+    public mutating func refreshUsedStatus(fulcrum: Fulcrum) async throws {
+        try await refreshUsedStatus(for: .receiving, fulcrum: fulcrum)
+        try await refreshUsedStatus(for: .change, fulcrum: fulcrum)
     }
     
-    mutating func refreshUsedStatus(for usage: DerivationPath.Usage) async throws {
+    mutating func refreshUsedStatus(for usage: DerivationPath.Usage, fulcrum: Fulcrum) async throws {
         let entries = getEntries(of: usage)
         for (index, entry) in entries.enumerated() {
             let transactionHistory = try await entry.address.fetchUnspentTransactionOutputs(fulcrum: fulcrum)

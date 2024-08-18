@@ -1,7 +1,7 @@
 import Foundation
 
 extension Script {
-    enum Error: Swift.Error {
+    public enum Error: Swift.Error {
         case cannotDecodeScript
         
         case invalidP2PKScript

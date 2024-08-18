@@ -2,17 +2,17 @@ import Foundation
 import SwiftFulcrum
 
 extension Account {
-    mutating func calculateBalance() async throws -> Satoshi {
+    public mutating func calculateBalance() async throws -> Satoshi {
         var totalBalance: UInt64 = 0
         
         for address in (addressBook.receivingEntries + addressBook.changeEntries).map({ $0.address }) {
-            totalBalance += try await addressBook.getBalance(for: address, updateCacheBalance: true).uint64
+            totalBalance += try await addressBook.getBalance(for: address, updateCacheBalance: true, fulcrum: fulcrum).uint64
         }
         
         return try Satoshi(totalBalance)
     }
     
-    mutating func send(_ sendings: [(value: Satoshi, recipientAddress: Address)]) async throws -> Data {
+    public mutating func send(_ sendings: [(value: Satoshi, recipientAddress: Address)]) async throws -> Data {
         let accountBalance = try await calculateBalance()
         let spendingValue = sendings.map{ $0.value.uint64 }.reduce(0, +)
         guard spendingValue < accountBalance.uint64 else { throw Transaction.Error.insufficientFunds(required: spendingValue) }
@@ -20,11 +20,9 @@ extension Account {
         let utxos = try addressBook.selectUTXOs(targetAmount: Satoshi(spendingValue))
         let spendableValue = utxos.map { $0.value }.reduce(0, +)
         
-        
-        
         let privateKeyPairs = try addressBook.getPrivateKeys(for: utxos)
         
-        let changeAddress = try await addressBook.getNextEntry(for: .change).address
+        let changeAddress = try await addressBook.getNextEntry(for: .change, fulcrum: fulcrum).address
         let remainingValue = spendableValue - spendingValue
         
         let transaction = try Transaction.createTransaction(version: 2,

@@ -1,7 +1,7 @@
 import Foundation
 
 extension Address.Book {
-    enum Error: Swift.Error {
+    public enum Error: Swift.Error {
         case indexOutOfBounds
         
         case privateKeyNotFound

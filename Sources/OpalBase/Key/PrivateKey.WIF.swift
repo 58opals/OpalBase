@@ -11,7 +11,7 @@ extension PrivateKey {
         return Base58.encode(wifData)
     }
     
-    init(wif: String) throws {
+    public init(wif: String) throws {
         guard let decoded = Base58.decode(wif) else { throw Error.cannotDecodeWIF }
         switch decoded.count {
         case 37:

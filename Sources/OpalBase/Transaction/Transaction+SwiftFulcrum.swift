@@ -141,8 +141,8 @@ extension Transaction {
         return transaction
     }
     
-    static func fetchTransaction(for transactionHash: Data,
-                                 using fulcrum: Fulcrum) async throws -> Transaction {
+    public static func fetchTransaction(for transactionHash: Data,
+                                        using fulcrum: Fulcrum) async throws -> Transaction {
         let (id, publisher) = try await fulcrum.submit(
             method: .blockchain(.transaction(
                 .get(transactionHash: transactionHash.hexadecimalString,
@@ -182,8 +182,8 @@ extension Transaction {
         return transaction
     }
     
-    static func fetchFullTransaction(for transactionHash: Data,
-                                     using fulcrum: Fulcrum) async throws -> Transaction.Detailed {
+    public static func fetchFullTransaction(for transactionHash: Data,
+                                            using fulcrum: Fulcrum) async throws -> Transaction.Detailed {
         let (id, publisher) = try await fulcrum.submit(
             method: .blockchain(.transaction(
                 .get(transactionHash: transactionHash.hexadecimalString,

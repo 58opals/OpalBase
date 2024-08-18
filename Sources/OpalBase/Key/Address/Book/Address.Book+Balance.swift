@@ -1,13 +1,14 @@
 import Foundation
+import SwiftFulcrum
 
 extension Address.Book {
-    func getBalanceFromCache() throws -> Satoshi {
+    public func getBalanceFromCache() throws -> Satoshi {
         let allEntries = receivingEntries + changeEntries
         let totalBalance = allEntries.map { $0.cache.balance.uint64 }.reduce(0, +)
         return try Satoshi(totalBalance)
     }
     
-    mutating func getBalance(for address: Address, updateCacheBalance: Bool = false) async throws -> Satoshi {
+    mutating func getBalance(for address: Address, updateCacheBalance: Bool = false, fulcrum: Fulcrum) async throws -> Satoshi {
         guard let entry = findEntry(for: address) else { throw Error.entryNotFound }
         if updateCacheBalance, !entry.cache.isValid {
             let newBalance = try await address.fetchBalance(using: fulcrum)

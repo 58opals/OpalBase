@@ -1,21 +1,19 @@
 import Foundation
 
-struct Address {
-    let prefix: String
-    let string: String
-    let lockingScript: Script
+public struct Address {
+    public let prefix: String = "bitcoincash"
+    public let string: String
+    public let lockingScript: Script
     
-    init(_ string: String) throws {
-        let prefix: String
+    public init(_ string: String) throws {
         let encodedPayload: String
         
         if string.contains(":") {
             let splitComponents = string.split(separator: ":")
             guard splitComponents.count == 2 else { throw Error.invalidCashAddressFormat }
-            prefix = String(splitComponents[0])
+            guard String(splitComponents[0]) == self.prefix else { throw Error.invalidCashAddressFormat }
             encodedPayload = String(splitComponents[1])
         } else {
-            prefix = "bitcoincash"
             encodedPayload = string
         }
         
@@ -38,16 +36,14 @@ struct Address {
             throw Error.unsupportedVersionByte(versionByte)
         }
         
-        self.prefix = prefix
         self.string = string
     }
     
-    init(script: Script) throws {
+    public init(script: Script) throws {
         self.lockingScript = script
         
         switch script {
         case .p2pkh(let hash):
-            self.prefix = "bitcoincash"
             let versionByte = Data([0x00])
             let payload = versionByte + hash.data
             let payload5BitValues = Address.payloadTo5BitValues(payload: payload)
@@ -95,7 +91,7 @@ extension Address {
     
     static func fiveBitValuesToData(fiveBitValues: [UInt8]) -> Data {
         var bitString = ""
-
+        
         for value in fiveBitValues {
             let binaryString = String(value, radix: 2)
             let paddedBinaryString = String(repeating: "0", count: 5 - binaryString.count) + binaryString
@@ -105,7 +101,7 @@ extension Address {
         let usefulBits = (fiveBitValues.count * 5 / 8) * 8
         
         bitString = String(bitString.prefix(usefulBits))
-
+        
         var data = Data()
         var index = bitString.startIndex
         while index < bitString.endIndex {
@@ -140,7 +136,7 @@ extension Address {
 }
 
 extension Address: Hashable {
-    static func == (lhs: Address, rhs: Address) -> Bool {
+    public static func == (lhs: Address, rhs: Address) -> Bool {
         lhs.string == rhs.string
     }
     
@@ -150,7 +146,7 @@ extension Address: Hashable {
 }
 
 extension Address: CustomStringConvertible {
-    var description: String {
-        string
+    public var description: String {
+        return string
     }
 }

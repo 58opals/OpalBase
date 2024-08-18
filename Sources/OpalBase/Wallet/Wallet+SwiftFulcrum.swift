@@ -1,7 +1,7 @@
 import Foundation
 
 extension Wallet {
-    func calculateBalance() throws -> Satoshi {
+    public func calculateBalance() throws -> Satoshi {
         var totalBalance: UInt64 = 0
         
         for account in self.accounts {

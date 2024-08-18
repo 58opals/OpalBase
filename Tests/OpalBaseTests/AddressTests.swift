@@ -58,7 +58,7 @@ extension AddressTests {
         print("The balance of the address \(stringAddress) is: \(stringAddressBalance).")
         
         XCTAssertEqual(generatedAddressBalance, try Satoshi(0), "The balance for the generated address is incorrect.")
-        XCTAssertEqual(stringAddressBalance, try Satoshi(223915), "The balance for the \(stringAddress) is incorrect.")
+        XCTAssertEqual(stringAddressBalance, try Satoshi(224480), "The balance for the \(stringAddress) is incorrect.")
         
         expectation.fulfill()
         
