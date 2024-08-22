@@ -79,7 +79,7 @@ extension DerivationPath {
     public struct Account {
         private(set) var unhardenedIndex: UInt32
         
-        init(unhardenedIndex: UInt32) {
+        public init(unhardenedIndex: UInt32) {
             self.unhardenedIndex = unhardenedIndex
         }
         
