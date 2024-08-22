@@ -31,9 +31,9 @@ extension Wallet {
         self.accounts.append(account)
     }
     
-    public func getAccount(unhardenedIndex: Int) throws -> Account {
-        guard unhardenedIndex < accounts.count else { throw Error.cannotGetAccount(index: unhardenedIndex) }
-        return accounts[unhardenedIndex]
+    public func getAccount(unhardenedIndex: UInt32) throws -> Account {
+        guard Int(unhardenedIndex) < accounts.count else { throw Error.cannotGetAccount(index: unhardenedIndex) }
+        return accounts[Int(unhardenedIndex)]
     }
 }
 
