@@ -37,3 +37,16 @@ extension Account {
         return try addressBook.getBalanceFromCache()
     }
 }
+
+#if DEBUG
+extension Account {
+    public init(unhardenedAccountIndex: UInt32) {
+        self.fulcrum = try! .init()
+        self.rootExtendedKey = .init(rootKey: try! .init(seed: (0...100).randomElement()!.data))
+        self.purpose = .bip44
+        self.coinType = .bitcoinCash
+        self.account = .init(unhardenedIndex: unhardenedAccountIndex)
+        self.addressBook = Address.Book(unhardenedAccountIndex: unhardenedAccountIndex)
+    }
+}
+#endif

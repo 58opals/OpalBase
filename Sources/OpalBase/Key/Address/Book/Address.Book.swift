@@ -96,3 +96,15 @@ extension Address.Book {
         }
     }
 }
+
+#if DEBUG
+extension Address.Book {
+    public init(unhardenedAccountIndex: UInt32) {
+        self.rootExtendedKey = .init(rootKey: try! .init(seed: (0...100).randomElement()!.data))
+        self.purpose = .bip44
+        self.coinType = .bitcoinCash
+        self.account = .init(unhardenedIndex: unhardenedAccountIndex)
+        self.gapLimit = 20
+    }
+}
+#endif
