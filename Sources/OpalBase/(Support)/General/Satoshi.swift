@@ -8,6 +8,10 @@ public struct Satoshi {
     static let maximumBCH: UInt64 = 21_000_000
     static let maximumSatoshi: UInt64 = Satoshi.maximumBCH * Satoshi.perBCH
     
+    public init() {
+        self.uint64 = 0
+    }
+    
     public init(_ value: UInt64) throws {
         guard value <= Satoshi.maximumSatoshi else { throw Error.exceedsMaximumAmount }
         self.uint64 = value
