@@ -29,24 +29,6 @@ public struct DerivationPath {
     }
 }
 
-extension DerivationPath: Hashable {
-    public static func == (lhs: DerivationPath, rhs: DerivationPath) -> Bool {
-        lhs.path == rhs.path
-    }
-}
-
-extension DerivationPath.Account: Hashable {
-    public static func == (lhs: DerivationPath.Account, rhs: DerivationPath.Account) -> Bool {
-        lhs.unhardenedIndex == rhs.unhardenedIndex
-    }
-}
-
-extension DerivationPath: CustomDebugStringConvertible {
-    public var debugDescription: String {
-        return path
-    }
-}
-
 extension DerivationPath {
     public enum Purpose {
         case bip44
@@ -94,7 +76,7 @@ extension DerivationPath {
         }
     }
     
-    public enum Usage: CaseIterable {
+    public enum Usage {
         case receiving
         case change
         
@@ -108,3 +90,69 @@ extension DerivationPath {
         }
     }
 }
+
+extension DerivationPath: Hashable {
+    public static func == (lhs: DerivationPath, rhs: DerivationPath) -> Bool {
+        lhs.path == rhs.path
+    }
+}
+
+extension DerivationPath.Purpose: Hashable {
+    public static func == (lhs: DerivationPath.Purpose, rhs: DerivationPath.Purpose) -> Bool {
+        lhs.hardenedIndex == rhs.hardenedIndex
+    }
+}
+
+extension DerivationPath.CoinType: Hashable {
+    public static func == (lhs: DerivationPath.CoinType, rhs: DerivationPath.CoinType) -> Bool {
+        lhs.hardenedIndex == rhs.hardenedIndex
+    }
+}
+
+extension DerivationPath.Account: Hashable {
+    public static func == (lhs: DerivationPath.Account, rhs: DerivationPath.Account) -> Bool {
+        lhs.unhardenedIndex == rhs.unhardenedIndex
+    }
+}
+
+extension DerivationPath.Usage: Hashable {
+    public static func == (lhs: DerivationPath.Usage, rhs: DerivationPath.Usage) -> Bool {
+        lhs.unhardenedIndex == rhs.unhardenedIndex
+    }
+}
+
+extension DerivationPath: CustomDebugStringConvertible {
+    public var debugDescription: String {
+        return path
+    }
+}
+
+extension DerivationPath.Purpose: CustomStringConvertible {
+    public var description: String {
+        return "\(hardenedIndex)'"
+    }
+}
+
+extension DerivationPath.CoinType: CustomStringConvertible {
+    public var description: String {
+        return "\(hardenedIndex)'"
+    }
+}
+
+extension DerivationPath.Account: CustomStringConvertible {
+    public var description: String {
+        if let hardenedIndex = try? getHardenedIndex() {
+            return "\(hardenedIndex)'"
+        } else {
+            return "\(unhardenedIndex)"
+        }
+    }
+}
+
+extension DerivationPath.Usage: CustomStringConvertible {
+    public var description: String {
+        return "\(unhardenedIndex)'"
+    }
+}
+
+extension DerivationPath.Usage: CaseIterable {}
