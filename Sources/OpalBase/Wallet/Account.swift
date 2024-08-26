@@ -33,6 +33,12 @@ public struct Account {
 }
 
 extension Account {
+    public func getDerivationPath() -> (DerivationPath.Purpose, DerivationPath.CoinType, DerivationPath.Account) {
+        return (purpose, coinType, account)
+    }
+}
+
+extension Account {
     public func getBalanceFromCache() throws -> Satoshi {
         return try addressBook.getBalanceFromCache()
     }
