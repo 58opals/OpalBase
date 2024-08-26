@@ -33,6 +33,13 @@ extension DerivationPath {
     public enum Purpose {
         case bip44
         
+        var unhardenedIndex: UInt32 {
+            switch self {
+            case .bip44:
+                return UInt32(44)
+            }
+        }
+        
         var hardenedIndex: UInt32 {
             switch self {
             case .bip44:
@@ -45,6 +52,15 @@ extension DerivationPath {
     public enum CoinType {
         case bitcoin
         case bitcoinCash
+        
+        var unhardenedIndex: UInt32 {
+            switch self {
+            case .bitcoin:
+                return UInt32(0)
+            case .bitcoinCash:
+                return UInt32(145)
+            }
+        }
         
         var hardenedIndex: UInt32 {
             switch self {
@@ -129,23 +145,19 @@ extension DerivationPath: CustomDebugStringConvertible {
 
 extension DerivationPath.Purpose: CustomStringConvertible {
     public var description: String {
-        return "\(hardenedIndex)'"
+        return "\(unhardenedIndex)'"
     }
 }
 
 extension DerivationPath.CoinType: CustomStringConvertible {
     public var description: String {
-        return "\(hardenedIndex)'"
+        return "\(unhardenedIndex)'"
     }
 }
 
 extension DerivationPath.Account: CustomStringConvertible {
     public var description: String {
-        if let hardenedIndex = try? getHardenedIndex() {
-            return "\(hardenedIndex)'"
-        } else {
-            return "\(unhardenedIndex)"
-        }
+        return "\(unhardenedIndex)'"
     }
 }
 
