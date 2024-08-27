@@ -35,6 +35,10 @@ extension Wallet {
         guard Int(unhardenedIndex) < accounts.count else { throw Error.cannotGetAccount(index: unhardenedIndex) }
         return accounts[Int(unhardenedIndex)]
     }
+    
+    public func getDerivationPath() -> (purpose: DerivationPath.Purpose, coinType: DerivationPath.CoinType) {
+        return (self.purpose, self.coinType)
+    }
 }
 
 extension Wallet {
