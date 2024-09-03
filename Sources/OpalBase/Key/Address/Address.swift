@@ -1,17 +1,18 @@
 import Foundation
 
 public struct Address {
-    public let prefix: String = "bitcoincash"
+    public static let prefix: String = "bitcoincash"
+    public static let separator: String = ":"
     public let string: String
     public let lockingScript: Script
     
     public init(_ string: String) throws {
         let encodedPayload: String
         
-        if string.contains(":") {
-            let splitComponents = string.split(separator: ":")
+        if string.contains(Address.separator) {
+            let splitComponents = string.split(separator: Address.separator)
             guard splitComponents.count == 2 else { throw Error.invalidCashAddressFormat }
-            guard String(splitComponents[0]) == self.prefix else { throw Error.invalidCashAddressFormat }
+            guard String(splitComponents[0]) == Address.prefix else { throw Error.invalidCashAddressFormat }
             encodedPayload = String(splitComponents[1])
         } else {
             encodedPayload = string
@@ -48,9 +49,9 @@ public struct Address {
             let versionByte = Data([0x00])
             let payload = versionByte + hash.data
             let payload5BitValues = Address.payloadTo5BitValues(payload: payload)
-            let checksum = try Address.generateChecksum(prefix: prefix, payload5BitValues: payload5BitValues)
+            let checksum = try Address.generateChecksum(prefix: Address.prefix, payload5BitValues: payload5BitValues)
             let combined = payload5BitValues + checksum
-            self.string = prefix + ":" + Base32.encode(Data(combined), interpretedAs5Bit: true)
+            self.string = Address.prefix + Address.separator + Base32.encode(Data(combined), interpretedAs5Bit: true)
             
         default:
             throw Address.Legacy.Error.invalidScriptType
@@ -139,8 +140,8 @@ extension Address {
 extension Address {
     public static func filterBase32(from string: String) -> String {
         let cleanedString: String
-        if string.hasPrefix("bitcoincash:") {
-            cleanedString = String(string.dropFirst("bitcoincash:".count))
+        if string.hasPrefix(Address.prefix + Address.separator) {
+            cleanedString = String(string.dropFirst((Address.prefix + Address.separator).count))
         } else {
             cleanedString = string
         }

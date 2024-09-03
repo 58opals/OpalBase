@@ -26,12 +26,12 @@ extension AddressTests {
         let cashAddressWithPrefix = "bitcoincash:qpumqqygwcnt999fz3gp5nxjy66ckg6esvls5sszem"
         let addressWithPrefix = try Address(cashAddressWithPrefix)
         XCTAssertEqual(addressWithPrefix.string, cashAddressWithPrefix, "Address string with prefix did not match expected output.")
-        XCTAssertEqual(addressWithPrefix.prefix, "bitcoincash", "Address prefix did not match expected value.")
+        XCTAssertEqual(Address.prefix, "bitcoincash", "Address prefix did not match expected value.")
 
         let cashAddressWithoutPrefix = "qpumqqygwcnt999fz3gp5nxjy66ckg6esvls5sszem"
         let addressWithoutPrefix = try Address(cashAddressWithoutPrefix)
         XCTAssertEqual(addressWithoutPrefix.string, cashAddressWithoutPrefix, "Address string without prefix did not match expected output.")
-        XCTAssertEqual(addressWithoutPrefix.prefix, "bitcoincash", "Default address prefix did not match expected value.")
+        XCTAssertEqual(Address.prefix, "bitcoincash", "Default address prefix did not match expected value.")
 
         let invalidCashAddressWithPrefix = "bitcoincash:invalidaddress"
         XCTAssertThrowsError(try Address(invalidCashAddressWithPrefix), "Expected an error for invalid Cash Address format") { error in
