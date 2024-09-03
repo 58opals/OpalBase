@@ -136,6 +136,20 @@ extension Address {
     }
 }
 
+extension Address {
+    public static func filterBase32(from string: String) -> String {
+        let cleanedString: String
+        if string.hasPrefix("bitcoincash:") {
+            cleanedString = String(string.dropFirst("bitcoincash:".count))
+        } else {
+            cleanedString = string
+        }
+        
+        let filteredString = cleanedString.filter { Base32.characters.contains($0) }
+        return filteredString
+    }
+}
+
 extension Address: Hashable {
     public static func == (lhs: Address, rhs: Address) -> Bool {
         lhs.string == rhs.string
