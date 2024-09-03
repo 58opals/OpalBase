@@ -22,6 +22,7 @@ public struct Address {
         let payload5BitValuesWithChecksum = decodedData
         let payload5BitValues = payload5BitValuesWithChecksum.dropLast(8)
         let payload = Address.fiveBitValuesToData(fiveBitValues: payload5BitValues.bytes)
+        guard !payload.isEmpty else { throw Error.invalidPayloadLength }
         let versionByte = payload[0]
         let hashData = payload[1...]
         
