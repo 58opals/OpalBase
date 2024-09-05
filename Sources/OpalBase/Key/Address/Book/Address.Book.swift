@@ -97,6 +97,25 @@ extension Address.Book {
     }
 }
 
+extension Address.Book {
+    public static func generateDummyAddressBook(unhardenedAccountIndex: UInt32 = .max) -> Address.Book? {
+        Address.Book(unhardenedAccountIndex: unhardenedAccountIndex)
+    }
+    
+    private init?(unhardenedAccountIndex: UInt32) {
+        do {
+            self.rootExtendedKey = .init(rootKey: try .init(seed: .init([0x00])))
+            self.purpose = .bip44
+            self.coinType = .bitcoinCash
+            self.account = .init(unhardenedIndex: unhardenedAccountIndex)
+            self.gapLimit = 0
+        } catch {
+            print("Dummy address book initialization failed: \(error.localizedDescription)")
+            return nil
+        }
+    }
+}
+
 /*
 #if DEBUG
 extension Address.Book {

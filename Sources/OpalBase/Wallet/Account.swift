@@ -46,6 +46,27 @@ extension Account {
     }
 }
 
+extension Account {
+    public static func generateDummyAccount(unhardenedAccountIndex: UInt32 = .max) -> Account? {
+        Account(unhardenedAccountIndex: unhardenedAccountIndex)
+    }
+    
+    private init?(unhardenedAccountIndex: UInt32) {
+        do {
+            guard let dummyAddressBook = Address.Book.generateDummyAddressBook() else { return nil }
+            self.fulcrum = try .init()
+            self.rootExtendedKey = .init(rootKey: try .init(seed: .init([0x00])))
+            self.purpose = .bip44
+            self.coinType = .bitcoinCash
+            self.account = .init(unhardenedIndex: unhardenedAccountIndex)
+            self.addressBook = dummyAddressBook
+        } catch {
+            print("Dummy account initialization failed: \(error.localizedDescription)")
+            return nil
+        }
+    }
+}
+
 /*
 #if DEBUG
 extension Account {
