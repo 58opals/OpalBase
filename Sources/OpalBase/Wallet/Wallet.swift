@@ -19,7 +19,7 @@ public struct Wallet {
 }
 
 extension Wallet {
-    public mutating func addAccount(unhardenedIndex: UInt32, fulcrumServerURL: String? = nil) async throws {
+    public mutating func addAccount(unhardenedIndex: UInt32, fetchBalance: Bool = true, fulcrumServerURL: String? = nil) async throws {
         let derivationPathAccount = DerivationPath.Account(unhardenedIndex: unhardenedIndex)
         
         let rootExtendedKey = PrivateKey.Extended(rootKey: try .init(seed: mnemonic.seed))
@@ -27,7 +27,8 @@ extension Wallet {
                                         rootExtendedKey: rootExtendedKey,
                                         purpose: purpose,
                                         coinType: coinType,
-                                        account: derivationPathAccount)
+                                        account: derivationPathAccount,
+                                        fetchBalance: fetchBalance)
         self.accounts.append(account)
     }
     

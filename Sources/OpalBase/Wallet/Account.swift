@@ -16,7 +16,8 @@ public struct Account {
                 rootExtendedKey: PrivateKey.Extended,
                 purpose: DerivationPath.Purpose,
                 coinType: DerivationPath.CoinType,
-                account: DerivationPath.Account) async throws {
+                account: DerivationPath.Account,
+                fetchBalance: Bool = true) async throws {
         self.fulcrum = try Fulcrum(url: fulcrumServerURL)
         
         self.rootExtendedKey = rootExtendedKey
@@ -28,6 +29,7 @@ public struct Account {
                                                   purpose: purpose,
                                                   coinType: coinType,
                                                   account: account,
+                                                  fetchBalance: fetchBalance,
                                                   fulcrum: fulcrum)
     }
 }
@@ -44,6 +46,7 @@ extension Account {
     }
 }
 
+/*
 #if DEBUG
 extension Account {
     public init(unhardenedAccountIndex: UInt32) {
@@ -56,3 +59,4 @@ extension Account {
     }
 }
 #endif
+*/

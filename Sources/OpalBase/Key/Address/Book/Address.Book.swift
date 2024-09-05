@@ -23,6 +23,7 @@ extension Address {
                     coinType: DerivationPath.CoinType,
                     account: DerivationPath.Account,
                     gapLimit: Int = 20,
+                    fetchBalance: Bool = true,
                     fulcrum: Fulcrum) async throws {
             self.rootExtendedKey = rootExtendedKey
             self.purpose = purpose
@@ -31,8 +32,7 @@ extension Address {
             
             self.gapLimit = gapLimit
             
-            try await initializeEntries(fulcrum: fulcrum)
-            try await refreshUTXOSet(fulcrum: fulcrum)
+            try await initializeEntries(fetchBalance: fetchBalance, fulcrum: fulcrum)
         }
     }
 }
@@ -97,6 +97,7 @@ extension Address.Book {
     }
 }
 
+/*
 #if DEBUG
 extension Address.Book {
     public init(unhardenedAccountIndex: UInt32) {
@@ -108,3 +109,4 @@ extension Address.Book {
     }
 }
 #endif
+*/
