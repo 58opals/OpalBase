@@ -27,8 +27,8 @@ extension Address.Book {
 
 // MARK: - Get
 extension Address.Book {
-    public mutating func getNextEntry(for usage: DerivationPath.Usage, fulcrum: Fulcrum) async throws -> Entry {
-        try await generateEntriesIfNeeded(for: usage, fulcrum: fulcrum)
+    public mutating func getNextEntry(for usage: DerivationPath.Usage, fetchBalance: Bool = true, fulcrum: Fulcrum) async throws -> Entry {
+        try await generateEntriesIfNeeded(for: usage, fetchBalance: fetchBalance, fulcrum: fulcrum)
         
         let entries = getEntries(of: usage)
         guard let nextEntry = entries.first(where: { !$0.isUsed }) else { throw Error.entryNotFound }
