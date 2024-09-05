@@ -10,16 +10,23 @@ extension Address.Book {
     }
 }
 
-extension Address.Book.Entry: Hashable {}
+extension Address.Book {
+    mutating func initializeEntries(fetchBalance: Bool = true, fulcrum: Fulcrum) async throws {
+        try await generateEntries(for: .receiving,
+                                  isUsed: false,
+                                  fetchBalance: fetchBalance,
+                                  numberOfNewEntries: gapLimit,
+                                  fulcrum: fulcrum)
+        try await generateEntries(for: .change,
+                                  isUsed: false,
+                                  fetchBalance: fetchBalance,
+                                  numberOfNewEntries: gapLimit,
+                                  fulcrum: fulcrum)
+    }
+}
 
 // MARK: - Get
 extension Address.Book {
-    public func findEntry(for address: Address) -> Entry? {
-        let allEntries = receivingEntries + changeEntries
-        let entry = allEntries.first(where: { $0.address == address })
-        return entry
-    }
-    
     public mutating func getNextEntry(for usage: DerivationPath.Usage, fulcrum: Fulcrum) async throws -> Entry {
         try await generateEntriesIfNeeded(for: usage, fulcrum: fulcrum)
         
@@ -43,30 +50,24 @@ extension Address.Book {
     }
 }
 
-// MARK: - Set
+// MARK: - Find
 extension Address.Book {
-    mutating func initializeEntries(fulcrum: Fulcrum) async throws {
-        try await generateEntries(for: .receiving,
-                                  isUsed: false,
-                                  fetchBalance: true,
-                                  numberOfNewEntries: gapLimit,
-                                  fulcrum: fulcrum)
-        try await generateEntries(for: .change,
-                                  isUsed: false,
-                                  fetchBalance: true,
-                                  numberOfNewEntries: gapLimit,
-                                  fulcrum: fulcrum)
+    public func findEntry(for address: Address) -> Entry? {
+        let allEntries = receivingEntries + changeEntries
+        let entry = allEntries.first(where: { $0.address == address })
+        return entry
     }
 }
 
+// MARK: - Generate
 extension Address.Book {
-    mutating func generateEntriesIfNeeded(for usage: DerivationPath.Usage, fulcrum: Fulcrum) async throws {
+    mutating func generateEntriesIfNeeded(for usage: DerivationPath.Usage, fetchBalance: Bool = true, fulcrum: Fulcrum) async throws {
         let entries = getEntries(of: usage)
         let usedEntries = getUsedEntries(for: usage)
         
         let numberOfRemainingUnusedEntries = entries.count - usedEntries.count
         if numberOfRemainingUnusedEntries <= gapLimit {
-            try await generateEntries(for: usage, numberOfNewEntries: gapLimit, fulcrum: fulcrum)
+            try await generateEntries(for: usage, fetchBalance: fetchBalance, numberOfNewEntries: gapLimit, fulcrum: fulcrum)
         }
     }
     
@@ -137,7 +138,10 @@ extension Address.Book {
         
         try await generateEntriesIfNeeded(for: usage, fulcrum: fulcrum)
     }
-    
+}
+
+// MARK: - Refresh
+extension Address.Book {
     public mutating func refreshUsedStatus(fulcrum: Fulcrum) async throws {
         try await refreshUsedStatus(for: .receiving, fulcrum: fulcrum)
         try await refreshUsedStatus(for: .change, fulcrum: fulcrum)
@@ -156,3 +160,6 @@ extension Address.Book {
         }
     }
 }
+
+// MARK: -
+extension Address.Book.Entry: Hashable {}

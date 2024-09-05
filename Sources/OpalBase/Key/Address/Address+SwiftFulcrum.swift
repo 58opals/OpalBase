@@ -4,8 +4,8 @@ import Combine
 import SwiftFulcrum
 
 extension Address {
-    func fetchBalance(includeUnconfirmed: Bool = true,
-                      using fulcrum: Fulcrum) async throws -> Satoshi {
+    public func fetchBalance(includeUnconfirmed: Bool = true,
+                             using fulcrum: Fulcrum) async throws -> Satoshi {
         return try await Address.fetchBalance(for: self.string, includeUnconfirmed: includeUnconfirmed, using: fulcrum)
     }
     
@@ -13,15 +13,15 @@ extension Address {
         return try await Address.fetchUnspentTransactionOutputs(in: self, using: fulcrum)
     }
     
-    func fetchTransactionHistory(fromHeight: UInt? = nil,
-                                 toHeight: UInt? = nil,
-                                 includeUnconfirmed: Bool = true,
-                                 fulcrum: Fulcrum) async throws -> [Transaction.Simple] {
+    public func fetchTransactionHistory(fromHeight: UInt? = nil,
+                                        toHeight: UInt? = nil,
+                                        includeUnconfirmed: Bool = true,
+                                        fulcrum: Fulcrum) async throws -> [Transaction.Simple] {
         return try await Address.fetchTransactionHistory(for: self, fromHeight: fromHeight, toHeight: toHeight, includeUnconfirmed: includeUnconfirmed, using: fulcrum)
     }
     
-    func subscribe(fulcrum: inout Fulcrum) async throws -> (requestedID: UUID,
-                                                            publisher: CurrentValueSubject<Response.JSONRPC.Result.Blockchain.Address.Subscribe?, Swift.Error>) {
+    public func subscribe(fulcrum: inout Fulcrum) async throws -> (requestedID: UUID,
+                                                                   publisher: CurrentValueSubject<Response.JSONRPC.Result.Blockchain.Address.Subscribe?, Swift.Error>) {
         return try await Address.subscribeToActivities(of: self, using: &fulcrum)
     }
 }
