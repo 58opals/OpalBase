@@ -6,7 +6,7 @@ extension Account {
         var totalBalance: UInt64 = 0
         
         for address in (addressBook.receivingEntries + addressBook.changeEntries).map({ $0.address }) {
-            totalBalance += try await addressBook.getBalance(for: address, updateCacheBalance: true, fulcrum: fulcrum).uint64
+            totalBalance += try await addressBook.getBalanceFromBlockchain(address: address, fulcrum: fulcrum).uint64
         }
         
         return try Satoshi(totalBalance)
@@ -22,7 +22,7 @@ extension Account {
         
         let privateKeyPairs = try addressBook.getPrivateKeys(for: utxos)
         
-        let changeAddress = try await addressBook.getNextEntry(for: .change, fulcrum: fulcrum).address
+        let changeAddress = try addressBook.getNextEntry(for: .change).address
         let remainingValue = spendableValue - spendingValue
         
         let transaction = try Transaction.createTransaction(version: 2,

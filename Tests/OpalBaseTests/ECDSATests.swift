@@ -1,47 +1,52 @@
-import XCTest
+import Testing
+import Foundation
 @testable import OpalBase
 
-final class ECDSATests: XCTestCase {
-    func testPublicKeyGeneration() throws {
+@Suite("ECDSA Tests")
+struct ECDSATests {}
+
+extension ECDSATests {
+    @Test func testPublicKeyGeneration() throws {
         let privateKey = try PrivateKey(data: Data(repeating: 0x01, count: 32))
         let publicKey = try PublicKey(privateKey: privateKey)
         let publicKeyFromECDSA = try ECDSA.getPublicKey(from: privateKey.rawData)
         
-        XCTAssertNotNil(publicKey)
-        XCTAssertEqual(publicKey.compressedData, publicKeyFromECDSA.dataRepresentation)
-        XCTAssertEqual(publicKey.compressedData.count, 33)
-        XCTAssertEqual(publicKeyFromECDSA.dataRepresentation.count, 33)
+        #expect(publicKey != nil, "Public key generation failed.")
+        #expect(publicKey.compressedData == publicKeyFromECDSA.dataRepresentation, "Public key data mismatch.")
+        #expect(publicKey.compressedData.count == 33, "Compressed public key should be 33 bytes.")
+        #expect(publicKeyFromECDSA.dataRepresentation.count == 33, "Public key from ECDSA should be 33 bytes.")
     }
     
-    func testECDSASignatureAndVerification() throws {
+    @Test func testECDSASignatureAndVerification() throws {
         let privateKey = try PrivateKey(data: Data(repeating: 0x01, count: 32))
         let publicKey = try PublicKey(privateKey: privateKey)
         
         let message = "Hello, world!".data(using: .utf8)!
         
         let derSignature = try ECDSA.sign(message: message, with: privateKey.rawData, in: .ecdsa(.der))
-        XCTAssertNotNil(derSignature)
+        #expect(derSignature != nil, "DER signature generation failed.")
         
         let publicKeyFromECDSA = try ECDSA.getPublicKey(from: privateKey.rawData)
-        XCTAssertEqual(publicKey.compressedData, publicKeyFromECDSA.dataRepresentation)
-        let isDerSignatureValid = try ECDSA.verify(signature: derSignature, message: message, publicKey: publicKey, format: .ecdsa(.der))
-        XCTAssertTrue(isDerSignatureValid)
+        #expect(publicKey.compressedData == publicKeyFromECDSA.dataRepresentation, "Public key data mismatch.")
+        
+        let isDERSignatureValid = try ECDSA.verify(signature: derSignature, message: message, publicKey: publicKey, format: .ecdsa(.der))
+        #expect(isDERSignatureValid, "DER signature verification failed.")
     }
     
-    func testSchnorrSignatureAndVerification() throws {
+    @Test func testSchnorrSignatureAndVerification() throws {
         let privateKey = try PrivateKey(data: Data(repeating: 0x01, count: 32))
         let publicKey = try PublicKey(privateKey: privateKey)
         
         let message = "Hello, world!".data(using: .utf8)!
         
         let schnorrSignature = try ECDSA.sign(message: message, with: privateKey.rawData, in: .schnorr)
-        XCTAssertNotNil(schnorrSignature)
+        #expect(schnorrSignature != nil, "Schnorr signature generation failed.")
         
         let isSchnorrSignatureValid = try ECDSA.verify(signature: schnorrSignature, message: message, publicKey: publicKey, format: .schnorr)
-        XCTAssertTrue(isSchnorrSignatureValid)
+        #expect(isSchnorrSignatureValid, "Schnorr signature verification failed.")
     }
     
-    func testInvalidSignatureVerification() throws {
+    @Test func testInvalidSignatureVerification() throws {
         let privateKey = try PrivateKey(data: Data(repeating: 0x01, count: 32))
         let publicKey = try PublicKey(privateKey: privateKey)
         
@@ -50,16 +55,14 @@ final class ECDSATests: XCTestCase {
         
         // DER Signature
         let derSignature = try ECDSA.sign(message: message, with: privateKey.rawData, in: .ecdsa(.der))
-        
         // Verify against a different message
         let isInvalidDerSignatureValid = try ECDSA.verify(signature: derSignature, message: anotherMessage, publicKey: publicKey, format: .ecdsa(.der))
-        XCTAssertFalse(isInvalidDerSignatureValid)
+        #expect(!isInvalidDerSignatureValid, "DER signature verification should fail with a different message.")
         
         // Schnorr Signature
         let schnorrSignature = try ECDSA.sign(message: message, with: privateKey.rawData, in: .schnorr)
-        
         // Verify against a different message
         let isInvalidSchnorrSignatureValid = try ECDSA.verify(signature: schnorrSignature, message: anotherMessage, publicKey: publicKey, format: .schnorr)
-        XCTAssertFalse(isInvalidSchnorrSignatureValid)
+        #expect(!isInvalidSchnorrSignatureValid, "Schnorr signature verification should fail with a different message.")
     }
 }

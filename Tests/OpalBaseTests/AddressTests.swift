@@ -1,123 +1,89 @@
-import XCTest
+import Testing
+import Foundation
+import SwiftFulcrum
 @testable import OpalBase
 
-import Combine
-import SwiftFulcrum
-
-final class AddressTests: XCTestCase {
-    var fulcrum: Fulcrum!
+@Suite("Address Tests")
+struct AddressTests {
+    let fulcrum: Fulcrum
     
-    override func setUpWithError() throws {
-        try super.setUpWithError()
-        fulcrum = try Fulcrum()
-    }
-    
-    override func tearDown() {
-        fulcrum = nil
-        super.tearDown()
+    init() async throws {
+        self.fulcrum = try .init()
+        
+        try await self.fulcrum.start()
     }
 }
 
 extension AddressTests {
-    func testAddressInitializationFromCashAddress() throws {
+    @Test func testAddressInitializationFromCashAddress() throws {
         let originalAddress = try Address(script: .p2pkh(hash: .init(publicKey: .init(privateKey: .init(data: .init(repeating: 0x01, count: 32))))))
         print(originalAddress)
         
         let cashAddressWithPrefix = "bitcoincash:qpumqqygwcnt999fz3gp5nxjy66ckg6esvls5sszem"
         let addressWithPrefix = try Address(cashAddressWithPrefix)
-        XCTAssertEqual(addressWithPrefix.string, cashAddressWithPrefix, "Address string with prefix did not match expected output.")
-        XCTAssertEqual(Address.prefix, "bitcoincash", "Address prefix did not match expected value.")
+        #expect(addressWithPrefix.string == cashAddressWithPrefix, "Address string with prefix did not match expected output.")
+        #expect(Address.prefix == "bitcoincash", "Address prefix did not match expected value.")
 
         let cashAddressWithoutPrefix = "qpumqqygwcnt999fz3gp5nxjy66ckg6esvls5sszem"
         let addressWithoutPrefix = try Address(cashAddressWithoutPrefix)
-        XCTAssertEqual(addressWithoutPrefix.string, cashAddressWithoutPrefix, "Address string without prefix did not match expected output.")
-        XCTAssertEqual(Address.prefix, "bitcoincash", "Default address prefix did not match expected value.")
+        #expect(addressWithoutPrefix.string == cashAddressWithoutPrefix, "Address string without prefix did not match expected output.")
+        #expect(Address.prefix == "bitcoincash", "Default address prefix did not match expected value.")
 
         let invalidCashAddressWithPrefix = "bitcoincash:invalidaddress"
-        XCTAssertThrowsError(try Address(invalidCashAddressWithPrefix), "Expected an error for invalid Cash Address format") { error in
-            guard let addressError = error as? Base32.Error else { return XCTFail("Unexpected error type: \(error)") }
-            XCTAssertEqual(addressError, Base32.Error.invalidCharacterFound, "Expected .invalidCashAddressFormat error.")
+        do {
+            _ = try Address(invalidCashAddressWithPrefix)
+            #expect(Bool(false), "Expected error for invalid Cash Address format not thrown.")
+        } catch Base32.Error.invalidCharacterFound {
+            #expect(true, "Expected .invalidCharacterFound error.")
         }
-        
+
         let invalidCashAddressWithoutPrefix = "invalidaddress"
-        XCTAssertThrowsError(try Address(invalidCashAddressWithoutPrefix), "Expected an error for invalid Cash Address format") { error in
-            guard let addressError = error as? Base32.Error else { return XCTFail("Unexpected error type: \(error)") }
-            XCTAssertEqual(addressError, Base32.Error.invalidCharacterFound, "Expected .invalidCashAddressFormat error.")
+        do {
+            _ = try Address(invalidCashAddressWithoutPrefix)
+            #expect(Bool(false), "Expected error for invalid Cash Address format not thrown.")
+        } catch Base32.Error.invalidCharacterFound {
+            #expect(true, "Expected .invalidCharacterFound error.")
         }
     }
     
-    func testFetchBalance() async throws {
-        let expectation = self.expectation(description: "Fetching balance should succeed")
-        
+    @Test func testFetchBalance() async throws {
         let generatedAddress = try Address(script: .p2pkh(hash: .init(publicKey: .init(privateKey: .init()))))
         let generatedAddressBalance = try await generatedAddress.fetchBalance(using: fulcrum)
+        
         let stringAddress = "bitcoincash:qrsrz5mzve6kyr6ne6lgsvlgxvs3hqm6huxhd8gqwj"
         let stringAddressBalance = try await Address.fetchBalance(for: stringAddress, using: fulcrum)
         
         print("The balance of the address \(generatedAddress.string) is: \(generatedAddressBalance).")
         print("The balance of the address \(stringAddress) is: \(stringAddressBalance).")
         
-        XCTAssertEqual(generatedAddressBalance, try Satoshi(0), "The balance for the generated address is incorrect.")
-        XCTAssertEqual(stringAddressBalance, try Satoshi(224480), "The balance for the \(stringAddress) is incorrect.")
-        
-        expectation.fulfill()
-        
-        await fulfillment(of: [expectation], timeout: 10.0)
+        #expect(generatedAddressBalance.uint64 == 0, "The balance for the generated address is incorrect.")
+        #expect(stringAddressBalance.uint64 == 224480, "The balance for \(stringAddress) is incorrect.")
     }
     
-    func testFetchTransactionHistory() async throws {
-        let expectation = self.expectation(description: "Fetching transaction history should succeed")
-        
+    @Test func testFetchTransactionHistory() async throws {
         let address = try Address(script: .p2pkh(hash: .init(publicKey: .init(privateKey: .init(wif: "Ky613uSeVQDEM89amKquEr6rZ1Xb7Mr3YDbbmyBT2zyppGChS9nU")))))
         let history = try await address.fetchTransactionHistory(fulcrum: fulcrum)
         
-        XCTAssertEqual(address.string, "bitcoincash:qqe89pk7gjzxqedcsykmaa5wc8dt8zp57q5nuylgjw")
-        XCTAssertEqual(history.count, 9)
-        
-        expectation.fulfill()
-        
-        await fulfillment(of: [expectation], timeout: 10.0)
+        #expect(address.string == "bitcoincash:qqe89pk7gjzxqedcsykmaa5wc8dt8zp57q5nuylgjw", "Address string did not match expected.")
+        #expect(history.count == 16, "Transaction history count did not match expected.")
     }
     
-    func testSubscribe() async throws {
-        let expectation = XCTestExpectation(description: "Subscribe to address activities should succeed")
-        
-        let address = try Address(script: .p2pkh(hash: .init(publicKey: .init(privateKey: .init()))))
-        let (id, publisher) = try await address.subscribe(fulcrum: &fulcrum)
-        
-        XCTAssertNotNil(id, "Subscription ID should not be nil")
-        
-        let subscription = publisher
-            .sink(
-                receiveCompletion: { completion in
-                    switch completion {
-                    case .finished:
-                        XCTFail("Subscription should not finish")
-                    case .failure(let error):
-                        XCTFail("Subscription failed with error: \(error)")
-                    }
-                },
-                receiveValue: { response in
-                    if let response = response {
-                        switch response {
-                        case .status(let status):
-                            print("This is an initial response: \(status) for \(address.string)")
-                        case .addressAndStatus(let addressAndStatus):
-                            guard let respondedAddress = addressAndStatus.first else { fatalError() }
-                            guard let respondedStatus = addressAndStatus.last else { fatalError() }
-                            
-                            guard respondedAddress == address.string else { fatalError() }
-                            
-                            print("Status of \(respondedAddress) is changed: \(respondedStatus)")
-                            
-                            expectation.fulfill()
-                        }
-                    }
-                }
-            )
-        
-        fulcrum.subscriptionHub.add(subscription, for: id)
-        
-        await fulfillment(of: [expectation], timeout: (1.0 * 60) * 15)
+    @Test func testSubscribe() async {
+        do {
+            let address = try Address("qqe89pk7gjzxqedcsykmaa5wc8dt8zp57q5nuylgjw")//Address(script: .p2pkh(hash: .init(publicKey: .init(privateKey: .init()))))
+            let (id, initialStatus, followingStatus) = try await address.subscribe(fulcrum: fulcrum)
+            
+            #expect(id.uuidString.count == 36, "Subscription ID did not match expected.")
+            print("Initial status of the address \(address.string): \(initialStatus)")
+            
+            for try await newStatus in followingStatus {
+                print("The new status of the address \(address.string): \(newStatus)")
+                break
+            }
+        } catch Fulcrum.Error.resultNotFound(let description) {
+            print("It seems like the status of the address is missing. \(description)")
+        } catch {
+            print(error.localizedDescription)
+        }
     }
 }

@@ -5,47 +5,74 @@ extension Address.Book {
     public struct Entry {
         let derivationPath: DerivationPath
         public let address: Address
-        var isUsed: Bool
+        public var isUsed: Bool
         var cache: Cache
+        
+        init(derivationPath: DerivationPath, address: Address, isUsed: Bool, cache: Cache = .init()) {
+            self.derivationPath = derivationPath
+            self.address = address
+            self.isUsed = isUsed
+            self.cache = cache
+        }
     }
 }
 
+// MARK: - Initialize
 extension Address.Book {
-    mutating func initializeEntries(fetchBalance: Bool = true, fulcrum: Fulcrum) async throws {
-        try await generateEntries(for: .receiving,
-                                  isUsed: false,
-                                  fetchBalance: fetchBalance,
-                                  numberOfNewEntries: gapLimit,
-                                  fulcrum: fulcrum)
-        try await generateEntries(for: .change,
-                                  isUsed: false,
-                                  fetchBalance: fetchBalance,
-                                  numberOfNewEntries: gapLimit,
-                                  fulcrum: fulcrum)
+    mutating func initializeEntries() throws {
+        try generateEntries(for: .receiving,
+                            numberOfNewEntries: gapLimit,
+                            isUsed: false)
+        try generateEntries(for: .change,
+                            numberOfNewEntries: gapLimit,
+                            isUsed: false)
     }
 }
 
-// MARK: - Get
+// MARK: - Generate
 extension Address.Book {
-    public mutating func getNextEntry(for usage: DerivationPath.Usage, fetchBalance: Bool = true, fulcrum: Fulcrum) async throws -> Entry {
-        try await generateEntriesIfNeeded(for: usage, fetchBalance: fetchBalance, fulcrum: fulcrum)
-        
+    mutating func generateEntriesIfNeeded(for usage: DerivationPath.Usage) throws {
         let entries = getEntries(of: usage)
-        guard let nextEntry = entries.first(where: { !$0.isUsed }) else { throw Error.entryNotFound }
+        let usedEntries = getUsedEntries(for: usage)
         
-        return nextEntry
+        let numberOfRemainingUnusedEntries = entries.count - usedEntries.count
+        if numberOfRemainingUnusedEntries <= gapLimit {
+            try generateEntries(for: usage,
+                                numberOfNewEntries: gapLimit,
+                                isUsed: false)
+        }
     }
     
-    private func getUsedEntries(for usage: DerivationPath.Usage) -> Set<Entry> {
+    public mutating func generateEntries(for usage: DerivationPath.Usage,
+                         numberOfNewEntries: Int,
+                         isUsed: Bool) throws {
         let entries = getEntries(of: usage)
-        let usedEntries = entries.filter { $0.isUsed }
-        return Set<Entry>(usedEntries)
+        let numberOfExistingEntries = entries.count
+        
+        for index in numberOfExistingEntries ..< numberOfExistingEntries + numberOfNewEntries {
+            try generateEntry(for: usage,
+                              at: UInt32(index),
+                              isUsed: isUsed)
+        }
     }
     
-    private func getEntries(of usage: DerivationPath.Usage) -> [Entry] {
+    mutating func generateEntry(for usage: DerivationPath.Usage,
+                       at index: UInt32,
+                       isUsed: Bool) throws {
+        let address = try generateAddress(at: index, for: usage)
+        let derivationPath = try createDerivationPath(usage: usage,
+                                                      index: UInt32(index))
+        let newEntry = Entry(derivationPath: derivationPath,
+                             address: address,
+                             isUsed: isUsed)
+        
         switch usage {
-        case .receiving: return receivingEntries
-        case .change: return changeEntries
+        case .receiving:
+            if receivingEntries.count <= index { receivingEntries.append(newEntry) }
+            else { receivingEntries[Int(index)] = newEntry }
+        case .change:
+            if changeEntries.count <= index { changeEntries.append(newEntry) }
+            else { changeEntries[Int(index)] = newEntry }
         }
     }
 }
@@ -59,62 +86,39 @@ extension Address.Book {
     }
 }
 
-// MARK: - Generate
+// MARK: - Get
 extension Address.Book {
-    mutating func generateEntriesIfNeeded(for usage: DerivationPath.Usage, fetchBalance: Bool = true, fulcrum: Fulcrum) async throws {
-        let entries = getEntries(of: usage)
-        let usedEntries = getUsedEntries(for: usage)
+    public mutating func getNextEntry(for usage: DerivationPath.Usage, fetchBalance: Bool = true) throws -> Entry {
+        try generateEntriesIfNeeded(for: usage)
         
-        let numberOfRemainingUnusedEntries = entries.count - usedEntries.count
-        if numberOfRemainingUnusedEntries <= gapLimit {
-            try await generateEntries(for: usage, fetchBalance: fetchBalance, numberOfNewEntries: gapLimit, fulcrum: fulcrum)
-        }
+        let entries = getEntries(of: usage)
+        guard let nextEntry = entries.first(where: { !$0.isUsed }) else { throw Error.entryNotFound }
+        
+        return nextEntry
     }
     
-    mutating func generateEntries(for usage: DerivationPath.Usage,
-                                  isUsed: Bool = false,
-                                  fetchBalance: Bool = true,
-                                  numberOfNewEntries: Int,
-                                  fulcrum: Fulcrum) async throws {
-        let entries = getEntries(of: usage)
-        
-        for index in (entries.count) ..< (entries.count + numberOfNewEntries) {
-            try await generateEntry(for: usage, at: UInt32(index), isUsed: isUsed, fetchBalance: fetchBalance, fulcrum: fulcrum)
-        }
-    }
-    
-    private mutating func generateEntry(for usage: DerivationPath.Usage,
-                                        at index: UInt32,
-                                        isUsed: Bool = false,
-                                        fetchBalance: Bool = true,
-                                        fulcrum: Fulcrum) async throws {
-        let address = try generateAddress(at: index, for: usage)
-        let balance = try fetchBalance ? await address.fetchBalance(using: fulcrum) : .init(0)
-        
-        let newEntry = try Entry(derivationPath: createDerivationPath(usage: usage, index: index),
-                                 address: address,
-                                 isUsed: isUsed,
-                                 cache: .init(balance: balance))
-        
+    private func getEntries(of usage: DerivationPath.Usage) -> [Entry] {
         switch usage {
-        case .receiving:
-            if receivingEntries.count <= index { receivingEntries.append(newEntry) }
-            else { receivingEntries[Int(index)] = newEntry }
-        case .change:
-            if changeEntries.count <= index { changeEntries.append(newEntry) }
-            else { changeEntries[Int(index)] = newEntry }
+        case .receiving: return receivingEntries
+        case .change: return changeEntries
         }
+    }
+    
+    private func getUsedEntries(for usage: DerivationPath.Usage) -> Set<Entry> {
+        let entries = getEntries(of: usage)
+        let usedEntries = entries.filter { $0.isUsed }
+        return Set<Entry>(usedEntries)
     }
 }
 
 // MARK: - Mark
 extension Address.Book {
-    func isUsed(address: Address) throws -> Bool {
+    public func isUsed(address: Address) throws -> Bool {
         guard let entry = findEntry(for: address) else { throw Error.addressNotFound }
         return entry.isUsed
     }
     
-    mutating func mark(address: Address, isUsed: Bool, fulcrum: Fulcrum) async throws {
+    public mutating func mark(address: Address, isUsed: Bool) throws {
         let numberOfReceivingAddresses = receivingEntries.filter { $0.address == address }.count
         let numberOfChangeAddresses = changeEntries.filter { $0.address == address }.count
         
@@ -136,9 +140,11 @@ extension Address.Book {
             changeEntries[index].isUsed = isUsed
         }
         
-        try await generateEntriesIfNeeded(for: usage, fulcrum: fulcrum)
+        try generateEntriesIfNeeded(for: usage)
     }
 }
+
+
 
 // MARK: - Refresh
 extension Address.Book {
@@ -149,12 +155,21 @@ extension Address.Book {
     
     mutating func refreshUsedStatus(for usage: DerivationPath.Usage, fulcrum: Fulcrum) async throws {
         let entries = getEntries(of: usage)
-        for (index, entry) in entries.enumerated() {
-            let transactionHistory = try await entry.address.fetchUnspentTransactionOutputs(fulcrum: fulcrum)
-            if !transactionHistory.isEmpty {
-                switch usage {
-                case .receiving: receivingEntries[index].isUsed = true
-                case .change: changeEntries[index].isUsed = true
+        
+        for entry in entries {
+            if entry.isUsed { continue }
+            
+            if let cacheBalance = entry.cache.balance {
+                if cacheBalance.uint64 > 0 {
+                    let unspentTransactionOutputs = try await entry.address.fetchUnspentTransactionOutputs(fulcrum: fulcrum)
+                    if !unspentTransactionOutputs.isEmpty {
+                        try mark(address: entry.address, isUsed: true)
+                    }
+                } else if cacheBalance.uint64 == 0 {
+                    let transactionHistory = try await entry.address.fetchTransactionHistory(fulcrum: fulcrum)
+                    if !transactionHistory.isEmpty {
+                        try mark(address: entry.address, isUsed: true)
+                    }
                 }
             }
         }

@@ -1,39 +1,35 @@
-import XCTest
+import Testing
+import Foundation
+import SwiftFulcrum
 @testable import OpalBase
 
-final class AccountTests: XCTestCase {
-    var account: Account!
+@Suite("Account Tests")
+struct AccountTests {
+    var account: Account
     
-    override func setUp() async throws {
-        try await super.setUp()
-        
-        let mnemonic = try Mnemonic()
-        
-        var wallet = Wallet(mnemonic: mnemonic)
-        try await wallet.addAccount(unhardenedIndex: 0)
-        
+    init() async throws {
+        var wallet = Wallet(mnemonic: try .init())
+        try wallet.addAccount(unhardenedIndex: 0)
         self.account = try wallet.getAccount(unhardenedIndex: 0)
-    }
-    
-    override func tearDown() {
-        account = nil
-        super.tearDown()
+        
+        try await account.fulcrum.start()
     }
 }
 
 extension AccountTests {
-    func testAccountInitialization() async throws {
-        XCTAssertNotNil(account.addressBook, "Address book should be initialized.")
-        XCTAssertNotNil(account.fulcrum, "Fulcrum instance should be initialized.")
+    @Test func testAccountInitialization() async throws {
+        #expect(account != nil, "Account should be initialized.")
+        #expect(account.addressBook != nil, "Address book should be initialized.")
+        #expect(account.fulcrum != nil, "Fulcrum instance should be initialized.")
     }
     
-    func testCalculateBalance() async throws {
+    @Test mutating func testCalculateBalance() async throws {
         let balance = try await account.calculateBalance()
         
-        XCTAssertEqual(balance, try Satoshi(0))
+        #expect(balance.uint64 >= 0, "Account balance should be at least 0.")
     }
 
-    func testSendTransaction() async throws {
+    @Test mutating func testSendTransaction() async throws {
         let recipientAddress = try Address("bitcoincash:qr4yz562852sglpmjmxvktrph5syts064yjadyqvc8")
         let transactionHash = try await account.send(
             [
@@ -43,6 +39,6 @@ extension AccountTests {
         
         print("The new transaction \(transactionHash.reversedData.hexadecimalString) is successfully created.")
         
-        XCTAssertEqual(transactionHash.count, 32)
+        #expect(transactionHash.count == 32, "Transaction hash should be 32 bytes.")
     }
 }

@@ -1,6 +1,5 @@
 import Foundation
 import BigInt
-import Combine
 import SwiftFulcrum
 
 extension Address {
@@ -20,9 +19,46 @@ extension Address {
         return try await Address.fetchTransactionHistory(for: self, fromHeight: fromHeight, toHeight: toHeight, includeUnconfirmed: includeUnconfirmed, using: fulcrum)
     }
     
-    public func subscribe(fulcrum: inout Fulcrum) async throws -> (requestedID: UUID,
-                                                                   publisher: CurrentValueSubject<Response.JSONRPC.Result.Blockchain.Address.Subscribe?, Swift.Error>) {
-        return try await Address.subscribeToActivities(of: self, using: &fulcrum)
+    public func subscribe(fulcrum: Fulcrum) async throws -> (requestedID: UUID,
+                                                             initialStatus: String,
+                                                             followingStatus: AsyncThrowingMapSequence<AsyncStream<Response.JSONRPC.Result.Blockchain.Address.Subscribe?>, String>) {
+        let (id, result, notifications) = try await Address.subscribeToActivities(of: self, using: fulcrum)
+        
+        var initialStatus: String
+        var followingStatus: AsyncThrowingMapSequence<AsyncStream<Response.JSONRPC.Result.Blockchain.Address.Subscribe?>, String>
+        
+        switch result {
+        case .status(let status):
+            initialStatus = status
+            followingStatus = notifications.map { notification in
+                switch notification {
+                case .status(let status):
+                    return status
+                case .addressAndStatus(let addressAndStatus):
+                    guard let address = addressAndStatus[0] else { throw Fulcrum.Error.resultNotFound(description: "Address is missing.") }
+                    if let status = addressAndStatus[1] {
+                        return status
+                    } else {
+                        throw Fulcrum.Error.resultNotFound(description: "Status of the address \(address) not found.")
+                    }
+                case .none:
+                    throw Fulcrum.Error.resultNotFound(description: "Result of the address not found.")
+                }
+            }
+        case .addressAndStatus(let addressAndStatus):
+            guard let address = addressAndStatus[0] else { throw Fulcrum.Error.resultNotFound(description: "Address is missing.") }
+            guard address == self.string else { throw Fulcrum.Error.custom(description: "Address \(address) does not match \(self.string).") }
+            if let status = addressAndStatus[1] {
+                initialStatus = status
+            } else {
+                throw Fulcrum.Error.resultNotFound(description: "Status of the address \(address) not found.")
+            }
+            fatalError()
+        case .none:
+            throw Fulcrum.Error.resultNotFound(description: "Result of the address \(self.string) not found.")
+        }
+        
+        return (id, initialStatus, followingStatus)
     }
 }
 
@@ -30,29 +66,23 @@ extension Address {
     static func fetchBalance(for address: String,
                              includeUnconfirmed: Bool = true,
                              using fulcrum: Fulcrum) async throws -> Satoshi {
-        let (id, publisher) = try await fulcrum.submit(
-            method: .blockchain(.address(.getBalance(address: address, tokenFilter: nil))),
-            responseType: Response.JSONRPC.Generic<Response.JSONRPC.Result.Blockchain.Address.GetBalance>.self
+        let (id, result) = try await fulcrum.submit(
+            method:
+                Method
+                .blockchain(.address(.getBalance(address: address, tokenFilter: nil))),
+            responseType:
+                Response.JSONRPC.Generic<Response.JSONRPC.Result.Blockchain.Address.GetBalance>.self
         )
         
-        let balance = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<UInt64, Swift.Error>) in
-            let subscription = publisher
-                .sink(
-                    receiveCompletion: { completion in
-                        switch completion {
-                        case .finished:
-                            return//print("\(id): fetching balance of \(address) request completed.")
-                        case .failure(let error):
-                            continuation.resume(throwing: error)
-                        }
-                    },
-                    receiveValue: { response in
-                        let totalBalance = UInt64(BigInt(response.confirmed) + BigInt(includeUnconfirmed ? response.unconfirmed : 0))
-                        continuation.resume(returning: totalBalance)
-                    }
-                )
+        assert(UUID(uuidString: id.uuidString) != nil, "Invalid UUID: \(id.uuidString)")
+        
+        var balance = UInt64(0)
+        if includeUnconfirmed {
+            let confirmedBalance = Int64(result.confirmed)
+            let unconfirmedBalance = result.unconfirmed
+            let calculatedBalance = confirmedBalance + unconfirmedBalance
             
-            fulcrum.subscriptionHub.add(subscription, for: id)
+            balance = UInt64(calculatedBalance)
         }
         
         return try Satoshi(balance)
@@ -60,32 +90,17 @@ extension Address {
     
     static func fetchUnspentTransactionOutputs(in address: Address,
                                                using fulcrum: Fulcrum) async throws -> [Transaction.Output.Unspent] {
-        let (id, publisher) = try await fulcrum.submit(
-            method: .blockchain(.address(
-                .listUnspent(address: address.string,
-                             tokenFilter: nil)
-            )),
-            responseType: Response.JSONRPC.Generic<Response.JSONRPC.Result.Blockchain.Address.ListUnspent>.self
+        let (id, result) = try await fulcrum.submit(
+            method:
+                Method
+                .blockchain(.address(.listUnspent(address: address.string, tokenFilter: nil))),
+            responseType:
+                Response.JSONRPC.Generic<Response.JSONRPC.Result.Blockchain.Address.ListUnspent>.self
         )
         
-        let utxos = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Response.JSONRPC.Result.Blockchain.Address.ListUnspent, Swift.Error>) in
-            let subscription = publisher
-                .sink(
-                    receiveCompletion: { completion in
-                        switch completion {
-                        case .finished:
-                            return//print("\(id): fetching utxos in \(address) request completed.")
-                        case .failure(let error):
-                            continuation.resume(throwing: error)
-                        }
-                    },
-                    receiveValue: { response in
-                        continuation.resume(returning: response)
-                    }
-                )
-            
-            fulcrum.subscriptionHub.add(subscription, for: id)
-        }
+        assert(UUID(uuidString: id.uuidString) != nil, "Invalid UUID: \(id.uuidString)")
+        
+        let utxos = result
         
         var unspentTransactionOutputs: [Transaction.Output.Unspent] = .init()
         
@@ -113,38 +128,21 @@ extension Address {
                                         toHeight: UInt? = nil,
                                         includeUnconfirmed: Bool = true,
                                         using fulcrum: Fulcrum) async throws -> [Transaction.Simple] {
-        let (id, publisher) = try await fulcrum.submit(
-            method: .blockchain(.address(
-                .getHistory(address: address.string,
-                            fromHeight: fromHeight,
-                            toHeight: toHeight,
-                            includeUnconfirmed: includeUnconfirmed)
-            )),
-            responseType: Response.JSONRPC.Generic<Response.JSONRPC.Result.Blockchain.Address.GetHistory>.self
+        
+        let (id, result) = try await fulcrum.submit(
+            method:
+                Method
+                .blockchain(.address(.getHistory(address: address.string, fromHeight: fromHeight, toHeight: toHeight, includeUnconfirmed: includeUnconfirmed))),
+            responseType:
+                Response.JSONRPC.Generic<Response.JSONRPC.Result.Blockchain.Address.GetHistory>.self
         )
         
-        let history = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<[Response.JSONRPC.Result.Blockchain.Address.GetHistoryItem], Swift.Error>) in
-            let subscription = publisher
-                .sink(
-                    receiveCompletion: { completion in
-                        switch completion {
-                        case .finished:
-                            return//print("\(id): getting history of \(address) request completed.")
-                        case .failure(let error):
-                            continuation.resume(throwing: error)
-                        }
-                    },
-                    receiveValue: { response in
-                        continuation.resume(returning: response)
-                    }
-                )
-            
-            fulcrum.subscriptionHub.add(subscription, for: id)
-        }
+        assert(UUID(uuidString: id.uuidString) != nil, "Invalid UUID: \(id.uuidString)")
         
+        let history = result
         let transactions = try history.map { historyItem in
             return Transaction.Simple(transactionHash: .init(dataFromRPC: try .init(hexString: historyItem.tx_hash)),
-                                      height: UInt32(historyItem.height),
+                                      height: (historyItem.height <= 0) ? nil : UInt32(historyItem.height),
                                       fee: { if let fee = historyItem.fee { return UInt64?(.init(fee)) } else { return nil } }())
         }
         
@@ -152,15 +150,17 @@ extension Address {
     }
     
     static func subscribeToActivities(of address: Address,
-                                      using fulcrum: inout Fulcrum) async throws -> (requestedID: UUID,
-                                                                                     publisher: CurrentValueSubject<Response.JSONRPC.Result.Blockchain.Address.Subscribe?, Swift.Error>) {
-        let (id, publisher) = try await fulcrum.submit(
-            method: .blockchain(.address(
-                .subscribe(address: address.string)
-            )),
-            notificationType: Response.JSONRPC.Generic<Response.JSONRPC.Result.Blockchain.Address.Subscribe>.self
+                                      using fulcrum: Fulcrum) async throws -> (requestedID: UUID,
+                                                                                     result: Response.JSONRPC.Result.Blockchain.Address.Subscribe?,
+                                                                                     notifications: AsyncStream<Response.JSONRPC.Result.Blockchain.Address.Subscribe?>) {
+        let (id, result, notifications) = try await fulcrum.submit(
+            method:
+                Method
+                .blockchain(.address(.subscribe(address: address.string))),
+            notificationType:
+                Response.JSONRPC.Generic<Response.JSONRPC.Result.Blockchain.Address.Subscribe>.self
         )
         
-        return (id, publisher)
+        return (id, result, notifications)
     }
 }

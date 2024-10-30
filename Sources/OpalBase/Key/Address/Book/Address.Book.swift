@@ -8,23 +8,21 @@ extension Address {
         private let coinType: DerivationPath.CoinType
         private let account: DerivationPath.Account
         
-        private var derivationPathToAddress = [DerivationPath: Address]()
+        private var derivationPathToAddress: [DerivationPath: Address] = .init()
         
-        public var receivingEntries = [Entry]()
-        public var changeEntries = [Entry]()
+        var receivingEntries: [Entry] = .init()
+        var changeEntries: [Entry] = .init()
         
-        public var utxos = Set<Transaction.Output.Unspent>()
+        var utxos: Set<Transaction.Output.Unspent> = .init()
         
         let gapLimit: Int
         let maxIndex = UInt32.max
         
-        public init(rootExtendedKey: PrivateKey.Extended,
-                    purpose: DerivationPath.Purpose,
-                    coinType: DerivationPath.CoinType,
-                    account: DerivationPath.Account,
-                    gapLimit: Int = 20,
-                    fetchBalance: Bool = true,
-                    fulcrum: Fulcrum) async throws {
+        init(rootExtendedKey: PrivateKey.Extended,
+             purpose: DerivationPath.Purpose,
+             coinType: DerivationPath.CoinType,
+             account: DerivationPath.Account,
+             gapLimit: Int = 20) throws {
             self.rootExtendedKey = rootExtendedKey
             self.purpose = purpose
             self.coinType = coinType
@@ -32,7 +30,7 @@ extension Address {
             
             self.gapLimit = gapLimit
             
-            try await initializeEntries(fetchBalance: fetchBalance, fulcrum: fulcrum)
+            try initializeEntries()
         }
     }
 }
@@ -115,17 +113,3 @@ extension Address.Book {
         }
     }
 }
-
-/*
-#if DEBUG
-extension Address.Book {
-    public init(unhardenedAccountIndex: UInt32) {
-        self.rootExtendedKey = .init(rootKey: try! .init(seed: (0...100).randomElement()!.data))
-        self.purpose = .bip44
-        self.coinType = .bitcoinCash
-        self.account = .init(unhardenedIndex: unhardenedAccountIndex)
-        self.gapLimit = 20
-    }
-}
-#endif
-*/

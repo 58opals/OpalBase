@@ -1,8 +1,12 @@
-import XCTest
+import Testing
+import Foundation
 @testable import OpalBase
 
-final class OpalBaseTests: XCTestCase {
-    func testPrinting() {
-        print("Hello, Bitcoin Cash!")
+@Suite("Opal Base Tests")
+struct OpalBaseTests {}
+
+extension OpalBaseTests {
+    @Test func testPrint() {
+        print("Hello, Bitcoin Cash.")
     }
 }

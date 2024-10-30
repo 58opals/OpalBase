@@ -13,5 +13,8 @@ extension Address.Book {
         case entryDuplicated
         
         case insufficientFunds
+        
+        case cacheInvalid
+        case cacheUpdateFailed
     }
 }

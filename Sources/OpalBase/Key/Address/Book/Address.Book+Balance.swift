@@ -2,20 +2,23 @@ import Foundation
 import SwiftFulcrum
 
 extension Address.Book {
-    public func getBalanceFromCache() throws -> Satoshi {
+    // MARK: - Cache
+    public func getTotalBalanceFromCache() throws -> Satoshi {
         let allEntries = receivingEntries + changeEntries
-        let totalBalance = allEntries.map { $0.cache.balance.uint64 }.reduce(0, +)
+        let allBalances = allEntries.map { $0.cache.balance }
+        let totalBalance = allBalances.map({$0?.uint64 ?? 0}).reduce(0, +)
         return try Satoshi(totalBalance)
     }
     
-    mutating func getBalance(for address: Address, updateCacheBalance: Bool = false, fulcrum: Fulcrum) async throws -> Satoshi {
+    public func getBalanceFromCache(address: Address) throws -> Satoshi? {
         guard let entry = findEntry(for: address) else { throw Error.entryNotFound }
-        if updateCacheBalance, !entry.cache.isValid {
-            let newBalance = try await address.fetchBalance(using: fulcrum)
-            try updateCache(for: address, with: newBalance)
-            return newBalance
-        } else {
-            return entry.cache.balance
-        }
+        return entry.cache.balance
+    }
+    
+    // MARK: - Blockchain
+    public mutating func getBalanceFromBlockchain(address: Address, fulcrum: Fulcrum) async throws -> Satoshi {
+        let newBalance = try await address.fetchBalance(using: fulcrum)
+        try updateCache(for: address, with: newBalance)
+        return newBalance
     }
 }

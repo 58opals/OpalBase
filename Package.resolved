@@ -1,5 +1,5 @@
 {
-  "originHash" : "5ec2b54aa3733f7e3daa3be684ec3b466c582a06dc513b7c3e26d4976d337581",
+  "originHash" : "a696ec39b51e60b5346a67318cd7147fefaeaa30f4737b392fdd80a67ddfcc86",
   "pins" : [
     {
       "identity" : "bigint",
@@ -15,8 +15,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/21-DOT-DEV/swift-secp256k1.git",
       "state" : {
-        "revision" : "9683e8e311c76d8114cd308b697dad2f9fc58fed",
-        "version" : "0.17.0"
+        "revision" : "57ce9af6db14e0114af631ace25231a9d0ccccbd",
+        "version" : "0.18.0"
       }
     },
     {
@@ -24,8 +24,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/58opals/SwiftFulcrum.git",
       "state" : {
-        "revision" : "5c8246837ff9473f3922176ac694973a52b537c1",
-        "version" : "0.2.1"
+        "revision" : "5cf0026e1a093feecb8531653e738c2adfc68ae9",
+        "version" : "0.2.2"
       }
     }
   ],
