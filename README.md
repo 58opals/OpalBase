@@ -2,14 +2,16 @@
 
 ## Introduction
 
-**Opal Base** is a cutting-edge, open-source Swift library designed to empower developers within the Apple ecosystem to seamlessly integrate Bitcoin Cash (BCH) transactions into their applications. Leveraging modern Swift features, Opal Base offers a robust, efficient, and secure solution for handling BCH transactions, staying true to the vision of Satoshi Nakamoto's original white paper on a peer-to-peer electronic cash system. Opal Base supports the BIP-39 standard for mnemonic seed address generation and integrates the powerful SwiftFulcrum framework, providing advanced capabilities for interacting with the Bitcoin Cash network.
+**Opal Base** is an open-source Swift library designed to help developers within the Apple ecosystem seamlessly integrate Bitcoin Cash (BCH) transactions into their applications. Leveraging modern Swift features, Opal Base offers a robust, efficient, and secure solution for handling BCH transactions. It also stays true to the vision of Satoshi Nakamoto's original white paper on a peer-to-peer electronic cash system. Opal Base supports the BIP-39 standard for mnemonic seed address generation. It also integrates the powerful SwiftFulcrum framework, providing advanced capabilities for interacting with the Bitcoin Cash network.
 
 ## Features
 
 - **Seamless Integration**: Easy to incorporate into any iOS, iPadOS, macOS, watchOS, and visionOS project.
 - **Modern Swift Practices**: Utilizes the latest in Swift technology, including Protocols, Generics, Concurrency (async/await), and Error Handling.
-- **Advanced Network Interaction**: Integrates SwiftFulcrum to interact with the Bitcoin Cash network, enabling real-time transaction monitoring and balance updates.
+- **Advanced Network Interaction**: Integrates SwiftFulcrum to interact with the Bitcoin Cash network, enabling real-time transaction monitoring, balance updates, and blockchain interactions.
 - **Efficient Transactions**: Optimized for fast, cheap, and reliable peer-to-peer transactions, embracing the core advantages of Bitcoin Cash.
+- **Caching Mechanism**: Supports caching of balance data to improve efficiency when recalculating balances, reducing redundant network requests.
+- **UTXO Management**: Built-in functions to manage Unspent Transaction Outputs (UTXOs), including selection for transactions and updates.
 - **Security First**: Built with the highest security standards to ensure safe and secure transactions for users. Includes BIP-39 standard support for mnemonic seed address generation, enabling users to recover their wallets with a human-readable phrase in any other wallet.
 - **Open Source**: Encourages community collaboration and improvement, fully available for review and contributions.
 
@@ -55,13 +57,16 @@ let nextReceivingAddress = try await account.addressBook.getNextEntry(for: .rece
 print("Next receiving address: \(nextReceivingAddress)")
 ```
 
-### Checking Balance
+### Checking Balance from Cache or Blockchain
 
-To check the balance of an account:
+To check the balance of an account, you can use the cached balance or update it from the blockchain.
 
 ```swift
-let balance = try await account.calculateBalance()
-print("Account balance: \(balance)")
+let cachedBalance = try await account.getBalanceFromCache()
+print("Cached account balance: \(cachedBalance)")
+
+let blockchainBalance = try await account.calculateBalance()
+print("Blockchain account balance: \(blockchainBalance)")
 ```
 
 ### Creating a New Transaction
@@ -76,6 +81,14 @@ let transactionHash = try await account.send(
     ]
 )
 print("Transaction successfully sent with hash: \(transactionHash)")
+```
+
+### Refreshing UTXO Set
+
+To refresh the UTXO set for an account:
+
+```swift
+try await account.addressBook.refreshUTXOSet(fulcrum: account.fulcrum)
 ```
 
 ## Contributing
