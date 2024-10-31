@@ -11,34 +11,8 @@ extension Address.Book.Entry {
     }
 }
 
-extension Address.Book.Entry {
-    mutating func getBalance(using fulcrum: Fulcrum) async throws -> Satoshi {
-        if cache.isValid, let cacheBalance = cache.balance {
-            return cacheBalance
-        } else {
-            try await fetchBalance(using: fulcrum)
-            guard cache.isValid else { throw Address.Book.Error.cacheInvalid }
-            guard let fetchedBalance = cache.balance else { throw Address.Book.Error.cacheUpdateFailed }
-            return fetchedBalance
-        }
-    }
-}
-
 extension Address.Book {
-    public mutating func updateCache(using fulcrum: Fulcrum) async throws {
-        try await updateCache(in: receivingEntries, fulcrum: fulcrum)
-        try await updateCache(in: changeEntries, fulcrum: fulcrum)
-    }
-    
-    mutating func updateCache(in entries: [Entry], fulcrum: Fulcrum) async throws {
-        for entry in entries where !entry.cache.isValid {
-            let address = entry.address
-            let latestBalance = try await address.fetchBalance(using: fulcrum)
-            try updateCache(for: address, with: latestBalance)
-        }
-    }
-    
-    mutating func updateCache(for address: Address,
+    func updateCache(for address: Address,
                               with balance: Satoshi) throws {
         guard let existingEntry = findEntry(for: address) else { throw Error.entryNotFound }
         

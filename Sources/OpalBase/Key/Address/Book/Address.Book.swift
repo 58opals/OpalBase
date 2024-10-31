@@ -2,7 +2,7 @@ import Foundation
 import SwiftFulcrum
 
 extension Address {
-    public struct Book {
+    public actor Book {
         private let rootExtendedKey: PrivateKey.Extended
         private let purpose: DerivationPath.Purpose
         private let coinType: DerivationPath.CoinType
@@ -13,6 +13,8 @@ extension Address {
         var receivingEntries: [Entry] = .init()
         var changeEntries: [Entry] = .init()
         
+        var addressToEntry: [Address: Entry] = .init()
+        
         var utxos: Set<Transaction.Output.Unspent> = .init()
         
         let gapLimit: Int
@@ -22,7 +24,7 @@ extension Address {
              purpose: DerivationPath.Purpose,
              coinType: DerivationPath.CoinType,
              account: DerivationPath.Account,
-             gapLimit: Int = 20) throws {
+             gapLimit: Int = 20) async throws {
             self.rootExtendedKey = rootExtendedKey
             self.purpose = purpose
             self.coinType = coinType
@@ -31,6 +33,10 @@ extension Address {
             self.gapLimit = gapLimit
             
             try initializeEntries()
+            
+            for entry in receivingEntries + changeEntries {
+                addressToEntry[entry.address] = entry
+            }
         }
     }
 }
@@ -68,7 +74,7 @@ extension Address.Book {
 
 // MARK: - Transaction
 extension Address.Book {
-    mutating func handleIncomingTransaction(_ detailedTransaction: Transaction.Detailed) throws {
+    func handleIncomingTransaction(_ detailedTransaction: Transaction.Detailed) throws {
         for (index, output) in detailedTransaction.transaction.outputs.enumerated() {
             let lockingScript = output.lockingScript
             let address = try Address(script: .decode(lockingScript: lockingScript))
@@ -82,7 +88,7 @@ extension Address.Book {
         }
     }
     
-    mutating func handleOutgoingTransaction(_ transaction: Transaction) {
+    func handleOutgoingTransaction(_ transaction: Transaction) {
         for input in transaction.inputs {
             if let utxo = utxos.first(
                 where: {
@@ -95,12 +101,14 @@ extension Address.Book {
     }
 }
 
+/*
+#if DEBUG
 extension Address.Book {
-    public static func generateDummyAddressBook(unhardenedAccountIndex: UInt32 = .max) -> Address.Book? {
+    internal static func generateDummyAddressBook(unhardenedAccountIndex: UInt32 = .max) -> Address.Book? {
         Address.Book(unhardenedAccountIndex: unhardenedAccountIndex)
     }
     
-    private init?(unhardenedAccountIndex: UInt32) {
+    internal init?(unhardenedAccountIndex: UInt32) {
         do {
             self.rootExtendedKey = .init(rootKey: try .init(seed: .init([0x00])))
             self.purpose = .bip44
@@ -113,3 +121,5 @@ extension Address.Book {
         }
     }
 }
+#endif
+*/

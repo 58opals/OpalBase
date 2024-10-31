@@ -16,7 +16,7 @@ public struct Account {
          rootExtendedKey: PrivateKey.Extended,
          purpose: DerivationPath.Purpose,
          coinType: DerivationPath.CoinType,
-         account: DerivationPath.Account) throws {
+         account: DerivationPath.Account) async throws {
         self.fulcrum = try Fulcrum(url: fulcrumServerURL)
         
         self.rootExtendedKey = rootExtendedKey
@@ -24,10 +24,10 @@ public struct Account {
         self.coinType = coinType
         self.account = account
         
-        self.addressBook = try Address.Book(rootExtendedKey: rootExtendedKey,
-                                            purpose: purpose,
-                                            coinType: coinType,
-                                            account: account)
+        self.addressBook = try await Address.Book(rootExtendedKey: rootExtendedKey,
+                                                  purpose: purpose,
+                                                  coinType: coinType,
+                                                  account: account)
     }
 }
 
@@ -38,17 +38,19 @@ extension Account {
 }
 
 extension Account {
-    public func getBalanceFromCache() throws -> Satoshi {
-        return try addressBook.getTotalBalanceFromCache()
+    public func getBalanceFromCache() async throws -> Satoshi {
+        return try await addressBook.getTotalBalanceFromCache()
     }
 }
 
+/*
+#if DEBUG
 extension Account {
-    public static func generateDummyAccount(unhardenedAccountIndex: UInt32 = .max) -> Account? {
+    internal static func generateDummyAccount(unhardenedAccountIndex: UInt32 = .max) -> Account? {
         Account(unhardenedAccountIndex: unhardenedAccountIndex)
     }
     
-    private init?(unhardenedAccountIndex: UInt32) {
+    internal init?(unhardenedAccountIndex: UInt32) {
         do {
             guard let dummyAddressBook = Address.Book.generateDummyAddressBook() else { return nil }
             self.fulcrum = try .init()
@@ -63,3 +65,5 @@ extension Account {
         }
     }
 }
+#endif
+*/

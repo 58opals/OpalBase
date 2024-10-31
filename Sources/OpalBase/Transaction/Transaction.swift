@@ -94,7 +94,9 @@ extension Transaction {
     }
 }
 
-extension Transaction : CustomStringConvertible {
+extension Transaction.Simple: Sendable {}
+
+extension Transaction: CustomStringConvertible {
     public var description: String {
         """
         Transaction (version: \(version), locktime: \(lockTime)):

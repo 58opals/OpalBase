@@ -132,30 +132,35 @@ extension DerivationPath: Hashable {
         lhs.path == rhs.path
     }
 }
+extension DerivationPath: Sendable {}
 
 extension DerivationPath.Purpose: Hashable {
     public static func == (lhs: DerivationPath.Purpose, rhs: DerivationPath.Purpose) -> Bool {
         lhs.hardenedIndex == rhs.hardenedIndex
     }
 }
+extension DerivationPath.Purpose: Sendable {}
 
 extension DerivationPath.CoinType: Hashable {
     public static func == (lhs: DerivationPath.CoinType, rhs: DerivationPath.CoinType) -> Bool {
         lhs.hardenedIndex == rhs.hardenedIndex
     }
 }
+extension DerivationPath.CoinType: Sendable {}
 
 extension DerivationPath.Account: Hashable {
     public static func == (lhs: DerivationPath.Account, rhs: DerivationPath.Account) -> Bool {
         lhs.unhardenedIndex == rhs.unhardenedIndex
     }
 }
+extension DerivationPath.Account: Sendable {}
 
 extension DerivationPath.Usage: Hashable {
     public static func == (lhs: DerivationPath.Usage, rhs: DerivationPath.Usage) -> Bool {
         lhs.unhardenedIndex == rhs.unhardenedIndex
     }
 }
+extension DerivationPath.Usage: Sendable {}
 
 extension DerivationPath: CustomDebugStringConvertible {
     public var debugDescription: String {

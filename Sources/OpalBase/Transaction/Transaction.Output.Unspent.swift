@@ -24,6 +24,7 @@ extension Transaction.Output {
 }
 
 extension Transaction.Output.Unspent: Hashable {}
+extension Transaction.Output.Unspent: Sendable {}
 
 extension Transaction.Output.Unspent: CustomStringConvertible {
     public var description: String {

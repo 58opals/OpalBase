@@ -29,3 +29,4 @@ public struct PrivateKey {
 }
 
 extension PrivateKey: Hashable {}
+extension PrivateKey: Sendable {}

@@ -124,3 +124,16 @@ extension Script {
         throw Error.cannotDecodeScript
     }
 }
+
+
+extension Script: Hashable {
+    public static func == (lhs: Script, rhs: Script) -> Bool {
+        lhs.data == rhs.data
+    }
+    
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(self.data)
+    }
+}
+
+extension Script: Sendable {}

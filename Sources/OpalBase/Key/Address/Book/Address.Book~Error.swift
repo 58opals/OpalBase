@@ -8,9 +8,9 @@ extension Address.Book {
         case addressNotFound
         case entryNotFound
         
-        case privateKeyDuplicated
-        case addressDuplicated
-        case entryDuplicated
+        case privateKeyDuplicated(PrivateKey)
+        case addressDuplicated(Address)
+        case entryDuplicated(Address.Book.Entry)
         
         case insufficientFunds
         

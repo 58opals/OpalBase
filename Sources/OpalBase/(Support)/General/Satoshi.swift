@@ -24,6 +24,8 @@ public struct Satoshi {
     }
 }
 
+extension Satoshi: Sendable {}
+
 extension Satoshi: Hashable {
     public static func + (lhs: Satoshi, rhs: Satoshi) throws -> Satoshi {
         let result = lhs.uint64 + rhs.uint64

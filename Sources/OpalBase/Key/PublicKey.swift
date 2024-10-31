@@ -33,3 +33,6 @@ extension PublicKey {
         }
     }
 }
+
+extension PublicKey: Sendable {}
+extension PublicKey.Hash: Sendable {}

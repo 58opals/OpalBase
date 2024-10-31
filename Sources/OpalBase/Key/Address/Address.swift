@@ -153,13 +153,15 @@ extension Address {
 
 extension Address: Hashable {
     public static func == (lhs: Address, rhs: Address) -> Bool {
-        lhs.string == rhs.string
+        lhs.lockingScript == rhs.lockingScript
     }
     
     public func hash(into hasher: inout Hasher) {
-        hasher.combine(self.string)
+        hasher.combine(self.lockingScript)
     }
 }
+
+extension Address: Sendable {}
 
 extension Address: CustomStringConvertible {
     public var description: String {

@@ -5,7 +5,7 @@ extension Account {
     public mutating func calculateBalance() async throws -> Satoshi {
         var totalBalance: UInt64 = 0
         
-        for address in (addressBook.receivingEntries + addressBook.changeEntries).map({ $0.address }) {
+        for address in await (addressBook.receivingEntries + addressBook.changeEntries).map({ $0.address }) {
             totalBalance += try await addressBook.getBalanceFromBlockchain(address: address, fulcrum: fulcrum).uint64
         }
         
@@ -17,12 +17,12 @@ extension Account {
         let spendingValue = sendings.map{ $0.value.uint64 }.reduce(0, +)
         guard spendingValue < accountBalance.uint64 else { throw Transaction.Error.insufficientFunds(required: spendingValue) }
         
-        let utxos = try addressBook.selectUTXOs(targetAmount: Satoshi(spendingValue))
+        let utxos = try await addressBook.selectUTXOs(targetAmount: Satoshi(spendingValue))
         let spendableValue = utxos.map { $0.value }.reduce(0, +)
         
-        let privateKeyPairs = try addressBook.getPrivateKeys(for: utxos)
+        let privateKeyPairs = try await addressBook.getPrivateKeys(for: utxos)
         
-        let changeAddress = try addressBook.getNextEntry(for: .change).address
+        let changeAddress = try await addressBook.getNextEntry(for: .change).address
         let remainingValue = spendableValue - spendingValue
         
         let transaction = try Transaction.createTransaction(version: 2,
@@ -35,7 +35,7 @@ extension Account {
         guard !transactionHashFromFulcrum.isEmpty else { throw Transaction.Error.cannotBroadcastTransaction }
         let manuallyGeneratedTransactionHash = Transaction.Hash(naturalOrder: HASH256.hash(transaction.encode()))
         
-        addressBook.handleOutgoingTransaction(transaction)
+        await addressBook.handleOutgoingTransaction(transaction)
         
         return manuallyGeneratedTransactionHash.naturalOrder
     }
