@@ -35,9 +35,9 @@ extension Wallet: Hashable {
     }
     
     public static func == (lhs: Wallet, rhs: Wallet) -> Bool {
-        lhs.mnemonic == rhs.mnemonic
-        && lhs.purpose == rhs.purpose
-        && lhs.coinType == rhs.coinType
+        lhs.mnemonic == rhs.mnemonic &&
+        lhs.purpose == rhs.purpose &&
+        lhs.coinType == rhs.coinType
     }
 }
 

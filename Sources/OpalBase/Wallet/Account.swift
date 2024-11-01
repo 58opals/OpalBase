@@ -32,7 +32,30 @@ public struct Account {
 }
 
 extension Account: Identifiable {
-    public var id: UInt32 { self.account.getUnhardenedIndex() }
+    public var id: Int {
+        var hasher = Hasher()
+        hasher.combine(rootExtendedKey)
+        hasher.combine(purpose)
+        hasher.combine(coinType)
+        hasher.combine(account)
+        return hasher.finalize()
+    }
+}
+
+extension Account: Hashable {
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(rootExtendedKey)
+        hasher.combine(purpose)
+        hasher.combine(coinType)
+        hasher.combine(account)
+    }
+
+    public static func == (lhs: Account, rhs: Account) -> Bool {
+        lhs.rootExtendedKey == rhs.rootExtendedKey &&
+        lhs.purpose == rhs.purpose &&
+        lhs.coinType == rhs.coinType &&
+        lhs.account == rhs.account
+    }
 }
 
 extension Account {

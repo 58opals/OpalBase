@@ -27,6 +27,16 @@ extension PrivateKey {
     }
 }
 
+extension PrivateKey.Extended: Hashable {
+    public static func == (lhs: PrivateKey.Extended, rhs: PrivateKey.Extended) -> Bool {
+        lhs.privateKey == rhs.privateKey &&
+        lhs.chainCode == rhs.chainCode &&
+        lhs.depth == rhs.depth &&
+        lhs.parentFingerprint == rhs.parentFingerprint &&
+        lhs.childNumber == rhs.childNumber
+    }
+}
+
 extension PrivateKey.Extended: CustomDebugStringConvertible {
     public var debugDescription: String {
         return """
