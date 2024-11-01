@@ -8,13 +8,16 @@ struct AddressBookTests {
     let fulcrum: Fulcrum
     var addressBook: Address.Book
     let rootExtendedKey: PrivateKey.Extended
-    let purpose: DerivationPath.Purpose = .bip44
-    let coinType: DerivationPath.CoinType = .bitcoinCash
-    let account = DerivationPath.Account(unhardenedIndex: 0)
+    let purpose: DerivationPath.Purpose
+    let coinType: DerivationPath.CoinType
+    let account: DerivationPath.Account
     
     init() async throws {
         self.fulcrum = try .init()
         self.rootExtendedKey = .init(rootKey: try .init(seed: .init([0x00])))
+        self.purpose = .bip44
+        self.coinType = .bitcoinCash
+        self.account = try .init(rawIndexInteger: 0)
         self.addressBook = try await .init(rootExtendedKey: rootExtendedKey,
                                            purpose: purpose,
                                            coinType: coinType,
@@ -165,7 +168,6 @@ extension AddressBookTests {
     }
     
     @Test mutating func testMaxGapLimitEnforcement() async throws {
-        let usage: DerivationPath.Usage = .receiving
         let initialGapLimit = await addressBook.gapLimit
         let usedAddressesCount = initialGapLimit
         

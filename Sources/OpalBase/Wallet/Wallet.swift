@@ -17,9 +17,33 @@ public struct Wallet {
     }
 }
 
+extension Wallet: Identifiable {
+    public var id: Int {
+        var hasher = Hasher()
+        hasher.combine(mnemonic)
+        hasher.combine(purpose)
+        hasher.combine(coinType)
+        return hasher.finalize()
+    }
+}
+
+extension Wallet: Hashable {
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(mnemonic)
+        hasher.combine(purpose)
+        hasher.combine(coinType)
+    }
+    
+    public static func == (lhs: Wallet, rhs: Wallet) -> Bool {
+        lhs.mnemonic == rhs.mnemonic
+        && lhs.purpose == rhs.purpose
+        && lhs.coinType == rhs.coinType
+    }
+}
+
 extension Wallet {
     public mutating func addAccount(unhardenedIndex: UInt32, fulcrumServerURL: String? = nil) async throws {
-        let derivationPathAccount = DerivationPath.Account(unhardenedIndex: unhardenedIndex)
+        let derivationPathAccount = try DerivationPath.Account(rawIndexInteger: unhardenedIndex)
         
         let rootExtendedKey = PrivateKey.Extended(rootKey: try .init(seed: mnemonic.seed))
         let account = try await Account(fulcrumServerURL: fulcrumServerURL,
@@ -64,4 +88,3 @@ extension Wallet {
         return try Satoshi(totalBalance)
     }
 }
-

@@ -31,6 +31,10 @@ public struct Account {
     }
 }
 
+extension Account: Identifiable {
+    public var id: UInt32 { self.account.getUnhardenedIndex() }
+}
+
 extension Account {
     public func getDerivationPath() -> (DerivationPath.Purpose, DerivationPath.CoinType, DerivationPath.Account) {
         return (purpose, coinType, account)
@@ -41,10 +45,6 @@ extension Account {
     public func getBalanceFromCache() async throws -> Satoshi {
         return try await addressBook.getTotalBalanceFromCache()
     }
-}
-
-extension Account: Identifiable {
-    public var id: UInt32 { self.account.getUnhardenedIndex() }
 }
 
 /*

@@ -62,3 +62,10 @@ public struct Mnemonic {
         return try PBKDF2(password: password, saltBytes: salt, iterationCount: iterations, derivedKeyLength: keyLength).deriveKey()
     }
 }
+
+extension Mnemonic: Hashable {
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(self.words)
+        hasher.combine(self.seed)
+    }
+}
