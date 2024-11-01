@@ -59,8 +59,16 @@ extension Account: Hashable {
 }
 
 extension Account {
-    public func getDerivationPath() -> (DerivationPath.Purpose, DerivationPath.CoinType, DerivationPath.Account) {
-        return (purpose, coinType, account)
+    public func getRawIndex() -> UInt32 {
+        return self.account.unhardenedIndex
+    }
+    
+    public func getUnhardenedIndex() -> UInt32 {
+        return self.account.getUnhardenedIndex()
+    }
+    
+    public func getHardenedIndex() throws -> UInt32 {
+        return try self.account.getHardenedIndex()
     }
 }
 
