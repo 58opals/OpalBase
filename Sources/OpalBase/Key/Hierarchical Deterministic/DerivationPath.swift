@@ -97,8 +97,17 @@ extension DerivationPath {
     public struct Account {
         private(set) var unhardenedIndex: UInt32
         
-        public init(unhardenedIndex: UInt32) {
+        public init(rawIndexInteger: UInt32) throws {
+            guard rawIndexInteger < 0x80000000 else { throw Error.indexOverflow }
+            self.init(unhardenedIndex: rawIndexInteger)
+        }
+        
+        private init(unhardenedIndex: UInt32) {
             self.unhardenedIndex = unhardenedIndex
+        }
+        
+        func getUnhardenedIndex() -> UInt32 {
+            return unhardenedIndex
         }
         
         func getHardenedIndex() throws -> UInt32 {

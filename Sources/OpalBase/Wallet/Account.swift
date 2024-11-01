@@ -43,27 +43,27 @@ extension Account {
     }
 }
 
+extension Account: Identifiable {
+    public var id: UInt32 { self.account.getUnhardenedIndex() }
+}
+
 /*
-#if DEBUG
 extension Account {
-    internal static func generateDummyAccount(unhardenedAccountIndex: UInt32 = .max) -> Account? {
-        Account(unhardenedAccountIndex: unhardenedAccountIndex)
-    }
-    
-    internal init?(unhardenedAccountIndex: UInt32) {
+    static func generateDummyAccount() async -> Account? {
         do {
-            guard let dummyAddressBook = Address.Book.generateDummyAddressBook() else { return nil }
-            self.fulcrum = try .init()
-            self.rootExtendedKey = .init(rootKey: try .init(seed: .init([0x00])))
-            self.purpose = .bip44
-            self.coinType = .bitcoinCash
-            self.account = .init(unhardenedIndex: unhardenedAccountIndex)
-            self.addressBook = dummyAddressBook
+            let rootExtendedKey = PrivateKey.Extended(rootKey: try .init(seed: .init([0x00])))
+            let purpose = DerivationPath.Purpose.bip44
+            let coinType = DerivationPath.CoinType.bitcoinCash
+            let account = DerivationPath.Account(unhardenedIndex: .max)
+            
+            return try await .init(rootExtendedKey: rootExtendedKey,
+                                   purpose: purpose,
+                                   coinType: coinType,
+                                   account: account)
         } catch {
-            print("Dummy account initialization failed: \(error.localizedDescription)")
+            print("Failable initialization failed: \(error.localizedDescription)")
             return nil
         }
     }
 }
-#endif
 */

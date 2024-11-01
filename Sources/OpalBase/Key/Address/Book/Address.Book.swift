@@ -102,24 +102,23 @@ extension Address.Book {
 }
 
 /*
-#if DEBUG
 extension Address.Book {
-    internal static func generateDummyAddressBook(unhardenedAccountIndex: UInt32 = .max) -> Address.Book? {
-        Address.Book(unhardenedAccountIndex: unhardenedAccountIndex)
-    }
-    
-    internal init?(unhardenedAccountIndex: UInt32) {
+    static func generateDummyAddressBook() async -> Address.Book? {
         do {
-            self.rootExtendedKey = .init(rootKey: try .init(seed: .init([0x00])))
-            self.purpose = .bip44
-            self.coinType = .bitcoinCash
-            self.account = .init(unhardenedIndex: unhardenedAccountIndex)
-            self.gapLimit = 0
+            let rootExtendedKey = PrivateKey.Extended(rootKey: try .init(seed: .init([0x00])))
+            let purpose = DerivationPath.Purpose.bip44
+            let coinType = DerivationPath.CoinType.bitcoinCash
+            let account = DerivationPath.Account(unhardenedIndex: .max)
+            let gapLimit = Int(0)
+            return try await .init(rootExtendedKey: rootExtendedKey,
+                                   purpose: purpose,
+                                   coinType: coinType,
+                                   account: account,
+                                   gapLimit: gapLimit)
         } catch {
-            print("Dummy address book initialization failed: \(error.localizedDescription)")
+            print("Failable initialization failed: \(error.localizedDescription)")
             return nil
         }
     }
 }
-#endif
 */
