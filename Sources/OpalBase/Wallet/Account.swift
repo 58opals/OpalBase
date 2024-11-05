@@ -49,7 +49,7 @@ extension Account: Hashable {
         hasher.combine(coinType)
         hasher.combine(account)
     }
-
+    
     public static func == (lhs: Account, rhs: Account) -> Bool {
         lhs.rootExtendedKey == rhs.rootExtendedKey &&
         lhs.purpose == rhs.purpose &&
@@ -57,6 +57,8 @@ extension Account: Hashable {
         lhs.account == rhs.account
     }
 }
+
+extension Account: Sendable {}
 
 extension Account {
     public func getRawIndex() -> UInt32 {
@@ -77,24 +79,3 @@ extension Account {
         return try await addressBook.getTotalBalanceFromCache()
     }
 }
-
-/*
-extension Account {
-    static func generateDummyAccount() async -> Account? {
-        do {
-            let rootExtendedKey = PrivateKey.Extended(rootKey: try .init(seed: .init([0x00])))
-            let purpose = DerivationPath.Purpose.bip44
-            let coinType = DerivationPath.CoinType.bitcoinCash
-            let account = DerivationPath.Account(unhardenedIndex: .max)
-            
-            return try await .init(rootExtendedKey: rootExtendedKey,
-                                   purpose: purpose,
-                                   coinType: coinType,
-                                   account: account)
-        } catch {
-            print("Failable initialization failed: \(error.localizedDescription)")
-            return nil
-        }
-    }
-}
-*/

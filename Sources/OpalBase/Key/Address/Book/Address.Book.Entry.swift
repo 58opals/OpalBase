@@ -134,8 +134,6 @@ extension Address.Book {
         guard var entry = findEntry(for: address) else { throw Error.addressNotFound }
         entry.isUsed = isUsed
         
-        addressToEntry[address] = entry
-        
         switch entry.derivationPath.usage {
         case .receiving:
             guard let index = receivingEntries.firstIndex(where: { $0.address == address }) else { throw Error.addressNotFound }
@@ -144,6 +142,8 @@ extension Address.Book {
             guard let index = changeEntries.firstIndex(where: { $0.address == address }) else { throw Error.addressNotFound }
             changeEntries[index].isUsed = isUsed
         }
+        
+        addressToEntry[address] = entry
         
         try generateEntriesIfNeeded(for: entry.derivationPath.usage)
     }

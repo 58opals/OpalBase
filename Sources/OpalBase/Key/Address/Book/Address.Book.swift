@@ -100,25 +100,3 @@ extension Address.Book {
         }
     }
 }
-
-/*
-extension Address.Book {
-    static func generateDummyAddressBook() async -> Address.Book? {
-        do {
-            let rootExtendedKey = PrivateKey.Extended(rootKey: try .init(seed: .init([0x00])))
-            let purpose = DerivationPath.Purpose.bip44
-            let coinType = DerivationPath.CoinType.bitcoinCash
-            let account = DerivationPath.Account(unhardenedIndex: .max)
-            let gapLimit = Int(0)
-            return try await .init(rootExtendedKey: rootExtendedKey,
-                                   purpose: purpose,
-                                   coinType: coinType,
-                                   account: account,
-                                   gapLimit: gapLimit)
-        } catch {
-            print("Failable initialization failed: \(error.localizedDescription)")
-            return nil
-        }
-    }
-}
-*/

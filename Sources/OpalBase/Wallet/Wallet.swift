@@ -41,16 +41,18 @@ extension Wallet: Hashable {
     }
 }
 
+extension Wallet: Sendable {}
+
 extension Wallet {
     public mutating func addAccount(unhardenedIndex: UInt32, fulcrumServerURL: String? = nil) async throws {
         let derivationPathAccount = try DerivationPath.Account(rawIndexInteger: unhardenedIndex)
         
         let rootExtendedKey = PrivateKey.Extended(rootKey: try .init(seed: mnemonic.seed))
         let account = try await Account(fulcrumServerURL: fulcrumServerURL,
-                                  rootExtendedKey: rootExtendedKey,
-                                  purpose: purpose,
-                                  coinType: coinType,
-                                  account: derivationPathAccount)
+                                        rootExtendedKey: rootExtendedKey,
+                                        purpose: purpose,
+                                        coinType: coinType,
+                                        account: derivationPathAccount)
         self.accounts.append(account)
     }
 }

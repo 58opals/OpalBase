@@ -13,10 +13,10 @@ extension Address.Book.Entry {
 
 extension Address.Book {
     func updateCache(for address: Address,
-                              with balance: Satoshi) throws {
+                     with balance: Satoshi) throws {
         guard let existingEntry = findEntry(for: address) else { throw Error.entryNotFound }
         
-        let newCache = Entry.Cache(balance: balance)
+        let newCache = Entry.Cache(balance: balance, lastUpdated: .now)
         let newEntry = Entry(derivationPath: existingEntry.derivationPath,
                              address: address,
                              isUsed: existingEntry.isUsed,
@@ -30,6 +30,8 @@ extension Address.Book {
             guard let index = changeEntries.firstIndex(where: { $0.address == address }) else { throw Error.entryNotFound }
             changeEntries[index] = newEntry
         }
+        
+        addressToEntry[address] = newEntry
     }
 }
 

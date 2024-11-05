@@ -69,3 +69,5 @@ extension Mnemonic: Hashable {
         hasher.combine(self.seed)
     }
 }
+
+extension Mnemonic: Sendable {}

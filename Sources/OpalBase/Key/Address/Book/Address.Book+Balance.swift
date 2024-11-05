@@ -10,6 +10,7 @@ extension Address.Book {
     
     public func getBalanceFromCache(address: Address) throws -> Satoshi? {
         guard let entry = findEntry(for: address) else { throw Error.entryNotFound }
+        
         return entry.cache.balance
     }
 }
