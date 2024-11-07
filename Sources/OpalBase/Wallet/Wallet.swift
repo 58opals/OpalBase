@@ -1,10 +1,12 @@
 import Foundation
 
-public struct Wallet {
+public actor Wallet: Identifiable {
     public let mnemonic: Mnemonic
     
     private let purpose: DerivationPath.Purpose
     private let coinType: DerivationPath.CoinType
+    
+    public let id: Data
     
     private(set) var accounts: [Account] = .init()
     
@@ -14,37 +16,24 @@ public struct Wallet {
         self.mnemonic = mnemonic
         self.purpose = purpose
         self.coinType = coinType
+        
+        var hashInput: Data = .init()
+        hashInput.append(mnemonic.seed)
+        hashInput.append(purpose.hardenedIndex.data)
+        hashInput.append(coinType.hardenedIndex.data)
+        let sha256Hash = SHA256.hash(hashInput)
+        self.id = sha256Hash
     }
 }
 
-extension Wallet: Identifiable {
-    public var id: Int {
-        var hasher = Hasher()
-        hasher.combine(mnemonic)
-        hasher.combine(purpose)
-        hasher.combine(coinType)
-        return hasher.finalize()
-    }
-}
-
-extension Wallet: Hashable {
-    public func hash(into hasher: inout Hasher) {
-        hasher.combine(mnemonic)
-        hasher.combine(purpose)
-        hasher.combine(coinType)
-    }
-    
+extension Wallet: Equatable {
     public static func == (lhs: Wallet, rhs: Wallet) -> Bool {
-        lhs.mnemonic == rhs.mnemonic &&
-        lhs.purpose == rhs.purpose &&
-        lhs.coinType == rhs.coinType
+        lhs.id == rhs.id
     }
 }
-
-extension Wallet: Sendable {}
 
 extension Wallet {
-    public mutating func addAccount(unhardenedIndex: UInt32, fulcrumServerURL: String? = nil) async throws {
+    public func addAccount(unhardenedIndex: UInt32, fulcrumServerURL: String? = nil) async throws {
         let derivationPathAccount = try DerivationPath.Account(rawIndexInteger: unhardenedIndex)
         
         let rootExtendedKey = PrivateKey.Extended(rootKey: try .init(seed: mnemonic.seed))
@@ -79,7 +68,7 @@ extension Wallet {
         return totalBalance
     }
     
-    public mutating func calculateBalance() async throws -> Satoshi {
+    public func calculateBalance() async throws -> Satoshi {
         var totalBalance: UInt64 = 0
         
         for accountIndex in 0..<self.accounts.count {

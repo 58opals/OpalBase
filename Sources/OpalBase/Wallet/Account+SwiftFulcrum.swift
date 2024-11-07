@@ -2,7 +2,7 @@ import Foundation
 import SwiftFulcrum
 
 extension Account {
-    public mutating func calculateBalance() async throws -> Satoshi {
+    public func calculateBalance() async throws -> Satoshi {
         var totalBalance: UInt64 = 0
         
         for address in await (addressBook.receivingEntries + addressBook.changeEntries).map({ $0.address }) {
@@ -12,7 +12,7 @@ extension Account {
         return try Satoshi(totalBalance)
     }
     
-    public mutating func send(_ sendings: [(value: Satoshi, recipientAddress: Address)]) async throws -> Data {
+    public func send(_ sendings: [(value: Satoshi, recipientAddress: Address)]) async throws -> Data {
         let accountBalance = try await calculateBalance()
         let spendingValue = sendings.map{ $0.value.uint64 }.reduce(0, +)
         guard spendingValue < accountBalance.uint64 else { throw Transaction.Error.insufficientFunds(required: spendingValue) }

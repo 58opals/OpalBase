@@ -8,21 +8,48 @@ struct AccountTests {
     var account: Account
     
     init() async throws {
-        var wallet = Wallet(mnemonic: try .init())
+        let wallet = Wallet(mnemonic: try .init())
         try await wallet.addAccount(unhardenedIndex: 0)
-        self.account = try wallet.getAccount(unhardenedIndex: 0)
+        self.account = try await wallet.getAccount(unhardenedIndex: 0)
         
         try await account.fulcrum.start()
     }
 }
 
 extension AccountTests {
+    @Test func testAccountIdentification() async throws {
+        let mnemonic1 = try Mnemonic(words: ["then", "sword", "assault", "bench", "truck", "have", "later", "whisper", "circle", "double", "umbrella", "author"])
+        let _ = try Mnemonic(words: ["board", "horn", "balcony", "supply", "throw", "water", "attract", "cannon", "action", "surround", "observe", "trade"])
+        
+        let wallet1 = Wallet(mnemonic: mnemonic1)
+        let wallet2 = Wallet(mnemonic: mnemonic1)
+        
+        let wallet1ID = await wallet1.id
+        let wallet2ID = await wallet2.id
+        
+        #expect(wallet1 == wallet2, "Wallets should have the same ID.")
+        #expect(wallet1ID == wallet2ID, "Wallets should have the same ID.")
+        
+        try await wallet1.addAccount(unhardenedIndex: 0)
+        try await wallet2.addAccount(unhardenedIndex: 0)
+        
+        let account0FromWallet1 = try await wallet1.getAccount(unhardenedIndex: 0)
+        let account0FromWallet2 = try await wallet2.getAccount(unhardenedIndex: 0)
+        
+        let account0FromWallet1ID = await account0FromWallet1.id
+        let account0FromWallet2ID = await account0FromWallet2.id
+        
+        #expect(account0FromWallet1 == account0FromWallet2, "Accounts should have the same ID.")
+        #expect(account0FromWallet1ID == account0FromWallet2ID, "Accounts should have the same ID.")
+    }
+}
+
+extension AccountTests {
     @Test func testAccountInitialization() async throws {
         #expect(account != nil, "Account should be initialized.")
-        #expect(account.addressBook != nil, "Address book should be initialized.")
-        #expect(account.fulcrum != nil, "Fulcrum instance should be initialized.")
         
-        print(account)
+        await print(account.id.hexadecimalString)
+        await print(account.addressBook)
     }
     
     @Test mutating func testCalculateBalance() async throws {

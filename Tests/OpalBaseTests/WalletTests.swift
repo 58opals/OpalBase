@@ -13,22 +13,37 @@ struct WalletTests {
 }
 
 extension WalletTests {
-    @Test mutating func testAddAccount() async throws {
-        try await wallet.addAccount(unhardenedIndex: 0)
-        let account = try wallet.getAccount(unhardenedIndex: 0)
+    @Test func testWalletIdentification() async throws {
+        let mnemonic1 = try Mnemonic(words: ["then", "sword", "assault", "bench", "truck", "have", "later", "whisper", "circle", "double", "umbrella", "author"])
+        let _ = try Mnemonic(words: ["board", "horn", "balcony", "supply", "throw", "water", "attract", "cannon", "action", "surround", "observe", "trade"])
         
-        #expect(wallet.accounts.count == 1, "Wallet should have one account after adding an account.")
+        let wallet1 = Wallet(mnemonic: mnemonic1)
+        let wallet2 = Wallet(mnemonic: mnemonic1)
+        let wallet1ID = await wallet1.id
+        let wallet2ID = await wallet2.id
+        
+        #expect(wallet1 == wallet2, "Wallets should have the same ID.")
+        #expect(wallet1ID == wallet2ID, "Wallets should have the same ID.")
+    }
+}
+
+extension WalletTests {
+    @Test func testAddAccount() async throws {
+        try await wallet.addAccount(unhardenedIndex: 0)
+        let account = try await wallet.getAccount(unhardenedIndex: 0)
+        
+        #expect(await wallet.accounts.count == 1, "Wallet should have one account after adding an account.")
         #expect(account != nil, "Account at index 0 should not be nil.")
     }
     
-    @Test mutating func testGetAccount() async throws {
+    @Test func testGetAccount() async throws {
         try await wallet.addAccount(unhardenedIndex: 0)
-        let account = try wallet.getAccount(unhardenedIndex: 0)
+        let account = try await wallet.getAccount(unhardenedIndex: 0)
         
         #expect(account != nil, "Account should be retrievable by index.")
     }
     
-    @Test mutating func testCalculateTotalBalance() async throws {
+    @Test func testCalculateTotalBalance() async throws {
         try await wallet.addAccount(unhardenedIndex: 0)
         try await wallet.addAccount(unhardenedIndex: 1)
         
