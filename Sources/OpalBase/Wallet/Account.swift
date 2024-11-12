@@ -2,7 +2,7 @@ import Foundation
 import SwiftFulcrum
 
 public actor Account: Identifiable {
-    let fulcrum: Fulcrum
+    public let fulcrum: Fulcrum
     
     private let rootExtendedKey: PrivateKey.Extended
     
