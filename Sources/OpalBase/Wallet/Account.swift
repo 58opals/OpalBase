@@ -62,6 +62,14 @@ extension Account {
 }
 
 extension Account {
+    public func getDerivationPath() -> (purpose: DerivationPath.Purpose,
+                                        coinType: DerivationPath.CoinType,
+                                        account: DerivationPath.Account) {
+        return (self.purpose, self.coinType, self.account)
+    }
+}
+
+extension Account {
     public func getBalanceFromCache() async throws -> Satoshi {
         return try await addressBook.getTotalBalanceFromCache()
     }
