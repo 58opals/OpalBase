@@ -63,6 +63,8 @@ extension Transaction {
     }
 }
 
+extension Transaction.Input: Sendable {}
+
 extension Transaction.Input: CustomStringConvertible {
     public var description: String {
         """

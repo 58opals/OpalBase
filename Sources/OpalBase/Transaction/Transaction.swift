@@ -1,5 +1,12 @@
 import Foundation
 
+/// A Bitcoin Cash transaction containing version, inputs, outputs, and lock time.
+///
+/// - Parameters:
+///   - version: The transaction version.
+///   - inputs: The transaction inputs.
+///   - outputs: The transaction outputs.
+///   - lockTime: The transaction lock time.
 public struct Transaction {
     let version: UInt32
     let inputs: [Input]
@@ -39,8 +46,8 @@ public struct Transaction {
     
     /// Decodes a Transaction instance from Data.
     /// - Parameter data: The data to decode from.
-    /// - Throws: `CompactSize.Error` if decoding fails.
     /// - Returns: A tuple containing the decoded Transaction and the number of bytes read.
+    /// - Throws: `CompactSize.Error` if decoding fails.
     static func decode(from data: Data) throws -> (transaction: Transaction, bytesRead: Int) {
         var index = data.startIndex
         
@@ -75,12 +82,29 @@ public struct Transaction {
 }
 
 extension Transaction {
+    /// A simplified representation of a transaction.
+    ///
+    /// - Parameters:
+    ///   - transactionHash: The transaction hash.
+    ///   - height: The block height if confirmed.
+    ///   - fee: The transaction fee.
     public struct Simple {
         let transactionHash: Transaction.Hash
         let height: UInt32?
         let fee: UInt64?
     }
     
+    /// A detailed representation of a transaction.
+    ///
+    /// - Parameters:
+    ///   - transaction: The full transaction.
+    ///   - blockHash: The block hash if confirmed.
+    ///   - blockTime: The block time if confirmed.
+    ///   - confirmations: The number of confirmations.
+    ///   - hash: The transaction hash.
+    ///   - hex: The raw transaction data in hex.
+    ///   - size: The transaction size in bytes.
+    ///   - time: The transaction time if available.
     public struct Detailed {
         let transaction: Transaction
         
@@ -94,7 +118,9 @@ extension Transaction {
     }
 }
 
+extension Transaction: Sendable {}
 extension Transaction.Simple: Sendable {}
+extension Transaction.Detailed: Sendable {}
 
 extension Transaction: CustomStringConvertible {
     public var description: String {

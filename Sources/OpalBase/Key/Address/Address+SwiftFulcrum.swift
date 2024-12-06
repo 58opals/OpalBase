@@ -12,11 +12,19 @@ extension Address {
         return try await Address.fetchUnspentTransactionOutputs(in: self, using: fulcrum)
     }
     
-    public func fetchTransactionHistory(fromHeight: UInt? = nil,
+    public func fetchSimpleTransactionHistory(fromHeight: UInt? = nil,
                                         toHeight: UInt? = nil,
                                         includeUnconfirmed: Bool = true,
                                         fulcrum: Fulcrum) async throws -> [Transaction.Simple] {
-        return try await Address.fetchTransactionHistory(for: self, fromHeight: fromHeight, toHeight: toHeight, includeUnconfirmed: includeUnconfirmed, using: fulcrum)
+        return try await Address.fetchSimpleTransactionHistory(for: self,
+                                                         fromHeight: fromHeight,
+                                                         toHeight: toHeight,
+                                                         includeUnconfirmed: includeUnconfirmed,
+                                                         using: fulcrum)
+    }
+    
+    public func fetchFullTransactionHistory() {
+        
     }
     
     public func subscribe(fulcrum: Fulcrum) async throws -> (requestedID: UUID,
@@ -123,7 +131,7 @@ extension Address {
         return unspentTransactionOutputs
     }
     
-    static func fetchTransactionHistory(for address: Address,
+    static func fetchSimpleTransactionHistory(for address: Address,
                                         fromHeight: UInt? = nil,
                                         toHeight: UInt? = nil,
                                         includeUnconfirmed: Bool = true,
