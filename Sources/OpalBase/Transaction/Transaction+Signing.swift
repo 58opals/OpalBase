@@ -83,7 +83,8 @@ extension Transaction {
         case .none(_):
             transactionOutputsHash = Data(repeating: 0x00, count: 32)
         case .single(_):
-            if outputs.endIndex - 1 > index {
+            //if outputs.endIndex - 1 > index {
+            if index < outputs.count {
                 let outputWithTheSameIndexAsTheInputBeingSigned = outputs[index].encode()
                 transactionOutputsHash = HASH256.hash(outputWithTheSameIndexAsTheInputBeingSigned)
             } else {
