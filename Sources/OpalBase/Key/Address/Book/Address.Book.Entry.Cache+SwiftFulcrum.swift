@@ -2,7 +2,7 @@ import Foundation
 import SwiftFulcrum
 
 extension Address.Book {
-    public func updateCache(using fulcrum: Fulcrum) async throws {
+    func updateCache(using fulcrum: Fulcrum) async throws {
         try await updateCache(in: receivingEntries, fulcrum: fulcrum)
         try await updateCache(in: changeEntries, fulcrum: fulcrum)
     }

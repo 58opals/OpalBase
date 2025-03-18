@@ -8,23 +8,30 @@ extension Address {
         return try await Address.fetchBalance(for: self.string, includeUnconfirmed: includeUnconfirmed, using: fulcrum)
     }
     
-    func fetchUnspentTransactionOutputs(fulcrum: Fulcrum) async throws -> [Transaction.Output.Unspent] {
+    public func fetchUnspentTransactionOutputs(fulcrum: Fulcrum) async throws -> [Transaction.Output.Unspent] {
         return try await Address.fetchUnspentTransactionOutputs(in: self, using: fulcrum)
     }
     
     public func fetchSimpleTransactionHistory(fromHeight: UInt? = nil,
-                                        toHeight: UInt? = nil,
-                                        includeUnconfirmed: Bool = true,
-                                        fulcrum: Fulcrum) async throws -> [Transaction.Simple] {
+                                              toHeight: UInt? = nil,
+                                              includeUnconfirmed: Bool = true,
+                                              fulcrum: Fulcrum) async throws -> [Transaction.Simple] {
         return try await Address.fetchSimpleTransactionHistory(for: self,
-                                                         fromHeight: fromHeight,
-                                                         toHeight: toHeight,
-                                                         includeUnconfirmed: includeUnconfirmed,
-                                                         using: fulcrum)
+                                                               fromHeight: fromHeight,
+                                                               toHeight: toHeight,
+                                                               includeUnconfirmed: includeUnconfirmed,
+                                                               using: fulcrum)
     }
     
-    public func fetchFullTransactionHistory() {
-        
+    public func fetchFullTransactionHistory(fromHeight: UInt? = nil,
+                                            toHeight: UInt? = nil,
+                                            includeUnconfirmed: Bool = true,
+                                            fulcrum: Fulcrum) async throws -> [Transaction.Detailed] {
+        return try await Address.fetchFullTransactionHistory(for: self,
+                                                             fromHeight: fromHeight,
+                                                             toHeight: toHeight,
+                                                             includeUnconfirmed: includeUnconfirmed,
+                                                             using: fulcrum)
     }
     
     public func subscribe(fulcrum: Fulcrum) async throws -> (requestedID: UUID,
@@ -132,10 +139,10 @@ extension Address {
     }
     
     static func fetchSimpleTransactionHistory(for address: Address,
-                                        fromHeight: UInt? = nil,
-                                        toHeight: UInt? = nil,
-                                        includeUnconfirmed: Bool = true,
-                                        using fulcrum: Fulcrum) async throws -> [Transaction.Simple] {
+                                              fromHeight: UInt? = nil,
+                                              toHeight: UInt? = nil,
+                                              includeUnconfirmed: Bool = true,
+                                              using fulcrum: Fulcrum) async throws -> [Transaction.Simple] {
         
         let (id, result) = try await fulcrum.submit(
             method:
@@ -157,10 +164,46 @@ extension Address {
         return transactions
     }
     
+    static func fetchFullTransactionHistory(for address: Address,
+                                            fromHeight: UInt? = nil,
+                                            toHeight: UInt? = nil,
+                                            includeUnconfirmed: Bool = true,
+                                            using fulcrum: Fulcrum) async throws -> [Transaction.Detailed] {
+        
+        let simpleTransactions = try await self.fetchSimpleTransactionHistory(for: address,
+                                                                              fromHeight: fromHeight,
+                                                                              toHeight: toHeight,
+                                                                              includeUnconfirmed: includeUnconfirmed,
+                                                                              using: fulcrum)
+        
+        return try await withThrowingTaskGroup(of: Transaction.Detailed.self) { group in
+            for simpleTransaction in simpleTransactions {
+                group.addTask {
+                    let (_, result) = try await fulcrum.submit(
+                        method:
+                            Method
+                            .blockchain(.transaction(.get(transactionHash: simpleTransaction.transactionHash.bigEndian.hexadecimalString, verbose: true))),
+                        responseType:
+                            Response.JSONRPC.Generic<Response.JSONRPC.Result.Blockchain.Transaction.Get>.self
+                    )
+                    
+                    return try Transaction.Detailed(from: result)
+                }
+            }
+            
+            var detailedTransactions = [Transaction.Detailed]()
+            for try await transaction in group {
+                detailedTransactions.append(transaction)
+            }
+            
+            return detailedTransactions
+        }
+    }
+    
     static func subscribeToActivities(of address: Address,
                                       using fulcrum: Fulcrum) async throws -> (requestedID: UUID,
-                                                                                     result: Response.JSONRPC.Result.Blockchain.Address.Subscribe?,
-                                                                                     notifications: AsyncStream<Response.JSONRPC.Result.Blockchain.Address.Subscribe?>) {
+                                                                               result: Response.JSONRPC.Result.Blockchain.Address.Subscribe?,
+                                                                               notifications: AsyncStream<Response.JSONRPC.Result.Blockchain.Address.Subscribe?>) {
         let (id, result, notifications) = try await fulcrum.submit(
             method:
                 Method

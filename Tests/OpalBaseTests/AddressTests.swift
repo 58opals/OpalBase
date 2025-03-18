@@ -85,9 +85,21 @@ extension AddressTests {
         #expect(stringAddressBalance.uint64 == 224480, "The balance for \(stringAddress) is incorrect.")
     }
     
-    @Test func testFetchTransactionHistory() async throws {
+    @Test func testFetchSimpleTransactionHistory() async throws {
         let address = try Address(script: .p2pkh(hash: .init(publicKey: .init(privateKey: .init(wif: "Ky613uSeVQDEM89amKquEr6rZ1Xb7Mr3YDbbmyBT2zyppGChS9nU")))))
-        let history = try await address.fetchTransactionHistory(fulcrum: fulcrum)
+        let history = try await address.fetchSimpleTransactionHistory(fulcrum: fulcrum)
+        
+        print(history)
+        
+        #expect(address.string == "bitcoincash:qqe89pk7gjzxqedcsykmaa5wc8dt8zp57q5nuylgjw", "Address string did not match expected.")
+        #expect(history.count == 16, "Transaction history count did not match expected.")
+    }
+    
+    @Test func testFetchFullTransactionHistory() async throws {
+        let address = try Address(script: .p2pkh(hash: .init(publicKey: .init(privateKey: .init(wif: "Ky613uSeVQDEM89amKquEr6rZ1Xb7Mr3YDbbmyBT2zyppGChS9nU")))))
+        let history = try await address.fetchFullTransactionHistory(fulcrum: fulcrum)
+        
+        print(history)
         
         #expect(address.string == "bitcoincash:qqe89pk7gjzxqedcsykmaa5wc8dt8zp57q5nuylgjw", "Address string did not match expected.")
         #expect(history.count == 16, "Transaction history count did not match expected.")

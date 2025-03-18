@@ -2,6 +2,81 @@ import Foundation
 import Combine
 import SwiftFulcrum
 
+extension Transaction.Detailed {
+    init(from response: Response.JSONRPC.Result.Blockchain.Transaction.Get) throws {
+        let transactionDetailsFromRPC = response
+        
+        let versionFromRPC = UInt32(transactionDetailsFromRPC.version)
+        let inputsFromRPC = try transactionDetailsFromRPC.vin.map { input in
+            let previousTransactionHashData = try Data(hexString: input.txid)
+            let previousTransactionHash = Transaction.Hash(dataFromRPC: previousTransactionHashData)
+            let previousTransactionOutputIndex = UInt32(input.vout)
+            let unlockingScript = try Data(hexString: input.scriptSig.hex)
+            let sequence = UInt32(input.sequence)
+            
+            return Transaction.Input(previousTransactionHash: previousTransactionHash,
+                                     previousTransactionOutputIndex: previousTransactionOutputIndex,
+                                     unlockingScript: unlockingScript,
+                                     sequence: sequence)
+        }
+        let outputsFromRPC = try transactionDetailsFromRPC.vout.map { output in
+            let value = UInt64((output.value * 100_000_000))
+            let lockingScript = try Data(hexString: output.scriptPubKey.hex)
+            
+            return Transaction.Output(value: value,
+                                      lockingScript: lockingScript)
+        }
+        let locktimeFromRPC = UInt32(transactionDetailsFromRPC.locktime)
+        let transactionFromRPC = Transaction(version: versionFromRPC,
+                                      inputs: inputsFromRPC,
+                                      outputs: outputsFromRPC,
+                                      lockTime: locktimeFromRPC)
+        
+        let blockHashFromRPC: Data? = {
+            do {
+                guard let string = transactionDetailsFromRPC.blockhash else { return nil }
+                let data = try Data(hexString: string)
+                return data
+            } catch {
+                return nil
+            }
+        }()
+        
+        let blockTimeFromRPC: UInt32? = {
+            guard let uint = transactionDetailsFromRPC.blocktime else { return nil }
+            let uint32 = UInt32(uint)
+            return uint32
+        }()
+        
+        let confirmationsFromRPC: UInt32? = {
+            guard let uint = transactionDetailsFromRPC.confirmations else { return nil }
+            let uint32 = UInt32(uint)
+            return uint32
+        }()
+        
+        let hashFromRPC = try Data(hexString: transactionDetailsFromRPC.hash)
+        
+        let hexFromRPC = try Data(hexString: transactionDetailsFromRPC.hex)
+        
+        let sizeFromRPC = UInt32(transactionDetailsFromRPC.size)
+        
+        let timeFromRPC: UInt32? = {
+            guard let uint = transactionDetailsFromRPC.time else { return nil }
+            let uint32 = UInt32(uint)
+            return uint32
+        }()
+        
+        self.init(transaction: transactionFromRPC,
+                  blockHash: blockHashFromRPC,
+                  blockTime: blockTimeFromRPC,
+                  confirmations: confirmationsFromRPC,
+                  hash: hashFromRPC,
+                  raw: hexFromRPC,
+                  size: sizeFromRPC,
+                  time: timeFromRPC)
+    }
+}
+
 extension Transaction {
     func broadcast(using fulcrum: Fulcrum) async throws -> Data {
         let (id, result) = try await fulcrum.submit(
@@ -127,7 +202,7 @@ extension Transaction {
                                                        blockTime: isUnconfirmed ? nil : UInt32(result.blocktime!),
                                                        confirmations: isUnconfirmed ? nil : UInt32(result.confirmations!),
                                                        hash: try Data(hexString: result.hash),
-                                                       hex: try Data(hexString: result.hex),
+                                                       raw: try Data(hexString: result.hex),
                                                        size: UInt32(result.size),
                                                        time: isUnconfirmed ? nil : UInt32(result.time!))
         

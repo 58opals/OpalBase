@@ -23,7 +23,7 @@ public struct PrivateKey {
     
     public init(data: Data) throws {
         let bigUIntValue = BigUInt(data)
-        guard bigUIntValue <= maximumValue || bigUIntValue >= minimumValue else { throw Error.outOfBounds }
+        guard bigUIntValue >= minimumValue && bigUIntValue <= maximumValue else { throw Error.outOfBounds }
         self.rawData = data
     }
 }

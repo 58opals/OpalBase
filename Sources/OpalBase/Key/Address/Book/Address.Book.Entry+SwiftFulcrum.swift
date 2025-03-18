@@ -62,6 +62,35 @@ extension Address.Book.Entry {
 }
 
 extension Address.Book {
+    public func fetchDetailedTransactions(for usage: DerivationPath.Usage,
+                                          fromHeight: UInt? = nil,
+                                          toHeight: UInt? = nil,
+                                          includeUnconfirmed: Bool = true,
+                                          using fulcrum: Fulcrum) async throws -> [Transaction.Detailed] {
+        let entries = getEntries(of: usage)
+        var allDetailedTransactions: [Transaction.Detailed] = []
+        allDetailedTransactions.reserveCapacity(entries.count * 10)
+        
+        try await withThrowingTaskGroup(of: [Transaction.Detailed].self) { group in
+            for entry in entries {
+                group.addTask {
+                    try await entry.fetchFullTransactions(fromHeight: fromHeight,
+                                                          toHeight: toHeight,
+                                                          includeUnconfirmed: includeUnconfirmed,
+                                                          fulcrum: fulcrum)
+                }
+            }
+            
+            for try await detailedList in group {
+                allDetailedTransactions.append(contentsOf: detailedList)
+            }
+        }
+        
+        return allDetailedTransactions
+    }
+}
+
+extension Address.Book {
     public func refreshUsedStatus(fulcrum: Fulcrum) async throws {
         try await refreshUsedStatus(for: .receiving, fulcrum: fulcrum)
         try await refreshUsedStatus(for: .change, fulcrum: fulcrum)
@@ -87,5 +116,43 @@ extension Address.Book {
                 }
             }
         }
+    }
+}
+
+extension Address.Book {
+    public func updateAddressUsageStatus(using fulcrum: Fulcrum) async throws {
+        try await withThrowingTaskGroup(of: Void.self) { group in
+            group.addTask { try await self.updateAddressUsageStatus(for: .receiving, using: fulcrum) }
+            group.addTask { try await self.updateAddressUsageStatus(for: .change, using: fulcrum) }
+            try await group.waitForAll()
+        }
+    }
+    
+    private func updateAddressUsageStatus(for usage: DerivationPath.Usage, using fulcrum: Fulcrum) async throws {
+        let entries = getEntries(of: usage)
+        
+        try await withThrowingTaskGroup(of: (Address, Bool).self) { group in
+            for entry in entries where !entry.isUsed {
+                group.addTask {
+                    let isActuallyUsed = try await self.checkIfUsed(entry: entry, using: fulcrum)
+                    return (entry.address, isActuallyUsed)
+                }
+            }
+            
+            for try await (address, isUsed) in group {
+                if isUsed { try self.mark(address: address, isUsed: true) }
+            }
+        }
+    }
+    
+    private func checkIfUsed(entry: Entry, using fulcrum: Fulcrum) async throws -> Bool {
+        if let cacheBalance = entry.cache.balance, cacheBalance.uint64 > 0 {
+            let utxos = try await entry.address.fetchUnspentTransactionOutputs(fulcrum: fulcrum)
+            if !utxos.isEmpty { return true }
+        } else {
+            let txHistory = try await entry.address.fetchSimpleTransactionHistory(fulcrum: fulcrum)
+            if !txHistory.isEmpty { return true }
+        }
+        return false
     }
 }

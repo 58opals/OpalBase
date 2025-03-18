@@ -112,7 +112,7 @@ extension Transaction {
         let blockTime: UInt32?
         let confirmations: UInt32?
         let hash: Data
-        let hex: Data
+        let raw: Data
         let size: UInt32
         let time: UInt32?
     }
