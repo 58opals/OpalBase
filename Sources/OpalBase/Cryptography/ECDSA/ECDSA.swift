@@ -1,14 +1,16 @@
+// ECDSA.swift
+
 import Foundation
 import BigInt
-import secp256k1
+import P256K
 
 struct ECDSA {
     static let numberOfPointsOnTheCurveWeCanHit = BigUInt("115792089237316195423570985008687907852837564279074904382605163141518161494337")
 }
 
 extension ECDSA {
-    static func getPublicKey(from privateKey: Data) throws -> secp256k1.Signing.PublicKey {
-        let secp256k1PrivateKey = try secp256k1.Signing.PrivateKey(dataRepresentation: privateKey)
+    static func getPublicKey(from privateKey: Data) throws -> P256K.Signing.PublicKey {
+        let secp256k1PrivateKey = try P256K.Signing.PrivateKey(dataRepresentation: privateKey)
         return secp256k1PrivateKey.publicKey
     }
 }
@@ -30,7 +32,7 @@ extension ECDSA {
     static func sign(message: Data, with privateKey: Data, in format: SignatureFormat) throws -> Data {
         switch format {
         case .ecdsa(let ecdsa):
-            let ecdsaPrivateKey = try secp256k1.Signing.PrivateKey(dataRepresentation: privateKey)
+            let ecdsaPrivateKey = try P256K.Signing.PrivateKey(dataRepresentation: privateKey)
             switch ecdsa {
             case .raw:
                 let signature = try ecdsaPrivateKey.signature(for: message)
@@ -44,7 +46,7 @@ extension ECDSA {
             }
             
         case .schnorr:
-            let schnorrPrivateKey = try secp256k1.Schnorr.PrivateKey(dataRepresentation: privateKey)
+            let schnorrPrivateKey = try P256K.Schnorr.PrivateKey(dataRepresentation: privateKey)
             let schnorrSignature = try schnorrPrivateKey.signature(for: message)
             return schnorrSignature.dataRepresentation
         }
@@ -60,22 +62,22 @@ extension ECDSA {
         
         switch format {
         case .ecdsa(let ecdsa):
-            let ecdsaPublicKey = try secp256k1.Signing.PublicKey(dataRepresentation: compressedPublicKey, format: .compressed)
+            let ecdsaPublicKey = try P256K.Signing.PublicKey(dataRepresentation: compressedPublicKey, format: .compressed)
             switch ecdsa {
             case .raw:
-                let ecdsaSignature = try secp256k1.Signing.ECDSASignature(dataRepresentation: signature)
+                let ecdsaSignature = try P256K.Signing.ECDSASignature(dataRepresentation: signature)
                 return ecdsaPublicKey.isValidSignature(ecdsaSignature, for: message)
             case .compact:
-                let ecdsaSignature = try secp256k1.Signing.ECDSASignature(compactRepresentation: signature)
+                let ecdsaSignature = try P256K.Signing.ECDSASignature(compactRepresentation: signature)
                 return ecdsaPublicKey.isValidSignature(ecdsaSignature, for: message)
             case .der:
-                let ecdsaSignature = try secp256k1.Signing.ECDSASignature(derRepresentation: signature)
+                let ecdsaSignature = try P256K.Signing.ECDSASignature(derRepresentation: signature)
                 return ecdsaPublicKey.isValidSignature(ecdsaSignature, for: message)
             }
         case .schnorr:
             let xCoordinate = compressedPublicKey[1..<33]
-            let schnorrPublicKey = secp256k1.Schnorr.XonlyKey(dataRepresentation: xCoordinate)
-            let schnorrSignature = try secp256k1.Schnorr.SchnorrSignature(dataRepresentation: signature)
+            let schnorrPublicKey = P256K.Schnorr.XonlyKey(dataRepresentation: xCoordinate)
+            let schnorrSignature = try P256K.Schnorr.SchnorrSignature(dataRepresentation: signature)
             return schnorrPublicKey.isValidSignature(schnorrSignature, for: message)
         }
     }

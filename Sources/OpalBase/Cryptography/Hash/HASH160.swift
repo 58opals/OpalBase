@@ -1,3 +1,5 @@
+// HASH160.swift
+
 import Foundation
 
 struct HASH160 {

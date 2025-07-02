@@ -1,3 +1,5 @@
+// CompactSize.swift
+
 import Foundation
 
 enum CompactSize {

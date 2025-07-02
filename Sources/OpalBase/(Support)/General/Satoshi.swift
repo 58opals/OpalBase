@@ -1,3 +1,5 @@
+// Satoshi.swift
+
 import Foundation
 
 public struct Satoshi {

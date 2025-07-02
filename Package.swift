@@ -18,14 +18,14 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/attaswift/BigInt.git", from: "5.4.1"),
-        .package(url: "https://github.com/21-DOT-DEV/swift-secp256k1.git", from: "0.17.0"),
+        .package(url: "https://github.com/21-DOT-DEV/swift-secp256k1.git", from: "0.20.0"),
         .package(url: "https://github.com/58opals/SwiftFulcrum.git", from: "0.2.0")
     ],
     targets: [
         .target(name: "OpalBase",
                 dependencies: [
                     .product(name: "BigInt", package: "BigInt"),
-                    .product(name: "secp256k1", package: "swift-secp256k1"),
+                    .product(name: "P256K", package: "swift-secp256k1"),
                     .product(name: "SwiftFulcrum", package: "SwiftFulcrum")
                 ],
                 resources: [

@@ -1,3 +1,5 @@
+// Wallet.swift
+
 import Foundation
 
 public actor Wallet: Identifiable {

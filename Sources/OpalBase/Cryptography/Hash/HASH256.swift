@@ -1,3 +1,5 @@
+// HASH256.swift
+
 import Foundation
 
 struct HASH256 {

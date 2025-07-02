@@ -117,8 +117,9 @@ extension AddressTests {
                 print("The new status of the address \(address.string): \(newStatus)")
                 break
             }
-        } catch Fulcrum.Error.resultNotFound(let description) {
-            print("It seems like the status of the address is missing. \(description)")
+        } catch Fulcrum.Error.client(.emptyResponse(let id)) {
+            if let id { print("Subscription ID: \(id)") }
+            print("It seems like the status of the address is missing.")
         } catch {
             print(error.localizedDescription)
         }

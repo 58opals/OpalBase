@@ -1,3 +1,5 @@
+// Transaction.swift
+
 import Foundation
 
 /// A Bitcoin Cash transaction containing version, inputs, outputs, and lock time.

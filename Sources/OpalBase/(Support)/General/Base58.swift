@@ -1,3 +1,5 @@
+// Base58.swift
+
 import Foundation
 import BigInt
 

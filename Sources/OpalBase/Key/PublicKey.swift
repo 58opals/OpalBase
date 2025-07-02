@@ -1,3 +1,5 @@
+// PublicKey.swift
+
 import Foundation
 
 public struct PublicKey {
