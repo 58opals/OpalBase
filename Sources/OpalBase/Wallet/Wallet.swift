@@ -15,10 +15,9 @@ public actor Wallet: Identifiable {
     
     public init(mnemonic: Mnemonic,
                 purpose: DerivationPath.Purpose = .bip44,
-                coinType: DerivationPath.CoinType = .bitcoinCash,
-                passphrase: String? = nil) {
+                coinType: DerivationPath.CoinType = .bitcoinCash) {
         self.mnemonic = mnemonic
-        self.passphrase = passphrase ?? mnemonic.passphrase
+        self.passphrase = mnemonic.passphrase
         self.purpose = purpose
         self.coinType = coinType
         
