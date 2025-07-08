@@ -7,18 +7,18 @@ import SwiftFulcrum
 struct AddressBookTests {
     let fulcrum: Fulcrum
     var addressBook: Address.Book
-    let rootExtendedKey: PrivateKey.Extended
+    let rootExtendedPrivateKey: PrivateKey.Extended
     let purpose: DerivationPath.Purpose
     let coinType: DerivationPath.CoinType
     let account: DerivationPath.Account
     
     init() async throws {
         self.fulcrum = try .init()
-        self.rootExtendedKey = .init(rootKey: try .init(seed: .init([0x00])))
+        self.rootExtendedPrivateKey = .init(rootKey: try .init(seed: .init([0x00])))
         self.purpose = .bip44
         self.coinType = .bitcoinCash
         self.account = try .init(rawIndexInteger: 0)
-        self.addressBook = try await .init(rootExtendedKey: rootExtendedKey,
+        self.addressBook = try await .init(rootExtendedPrivateKey: rootExtendedPrivateKey,
                                            purpose: purpose,
                                            coinType: coinType,
                                            account: account,
@@ -30,7 +30,6 @@ struct AddressBookTests {
 
 extension AddressBookTests {
     @Test func testAddressBookInitialization() async throws {
-        #expect(addressBook != nil, "Address.Book should be initialized.")
         #expect(await addressBook.gapLimit == 20, "Gap limit should be set correctly.")
         #expect(await addressBook.receivingEntries.count == 20, "There should be 20 receiving entries initialized.")
         #expect(await addressBook.changeEntries.count == 20, "There should be 20 change entries initialized.")
@@ -59,8 +58,6 @@ extension AddressBookTests {
         
         let balance = try await addressBook.getBalanceFromBlockchain(address: entry.address, fulcrum: fulcrum)
         print(balance)
-        
-        #expect(balance != nil, "Balance should be fetched from the blockchain.")
     }
     
     @Test mutating func testCacheUpdate() async throws {

@@ -4,6 +4,7 @@ import Foundation
 
 public actor Wallet: Identifiable {
     public let mnemonic: Mnemonic
+    public let passphrase: String
     
     private let purpose: DerivationPath.Purpose
     private let coinType: DerivationPath.CoinType
@@ -14,8 +15,10 @@ public actor Wallet: Identifiable {
     
     public init(mnemonic: Mnemonic,
                 purpose: DerivationPath.Purpose = .bip44,
-                coinType: DerivationPath.CoinType = .bitcoinCash) {
+                coinType: DerivationPath.CoinType = .bitcoinCash,
+                passphrase: String? = nil) {
         self.mnemonic = mnemonic
+        self.passphrase = passphrase ?? mnemonic.passphrase
         self.purpose = purpose
         self.coinType = coinType
         
@@ -40,7 +43,7 @@ extension Wallet {
         
         let rootExtendedKey = PrivateKey.Extended(rootKey: try .init(seed: mnemonic.seed))
         let account = try await Account(fulcrumServerURL: fulcrumServerURL,
-                                        rootExtendedKey: rootExtendedKey,
+                                        rootExtendedPrivateKey: rootExtendedKey,
                                         purpose: purpose,
                                         coinType: coinType,
                                         account: derivationPathAccount)

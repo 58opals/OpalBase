@@ -46,8 +46,6 @@ extension AccountTests {
 
 extension AccountTests {
     @Test func testAccountInitialization() async throws {
-        #expect(account != nil, "Account should be initialized.")
-        
         await print(account.id.hexadecimalString)
         await print(account.addressBook)
     }

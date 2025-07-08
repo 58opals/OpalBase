@@ -5,21 +5,24 @@ import Foundation
 public struct Mnemonic {
     public let words: [String]
     public let seed: Data
+    public let passphrase: String
     
-    public init(length: Length = .long) throws {
+    public init(length: Length = .long, passphrase: String = "") throws {
         let entropy = try Mnemonic.generateEntropy(numberOfBits: length.numberOfBits)
         let mnemonicWords = try Mnemonic.generateMnemonicWords(from: entropy)
-        let seed = try Mnemonic.generateSeed(from: mnemonicWords)
+        let seed = try Mnemonic.generateSeed(from: mnemonicWords, passphrase: passphrase)
         
         self.words = mnemonicWords
         self.seed = seed
+        self.passphrase = passphrase
     }
     
-    public init(words: [String]) throws {
+    public init(words: [String], passphrase: String = "") throws {
         guard try Word.validateMnemonicWords(words) else { throw Error.invalidMnemonicWords }
         
         self.words = words
-        self.seed = try Mnemonic.generateSeed(from: words)
+        self.seed = try Mnemonic.generateSeed(from: words, passphrase: passphrase)
+        self.passphrase = passphrase
     }
     
     static func generateEntropy(numberOfBits: Int) throws -> Data {
@@ -69,6 +72,7 @@ extension Mnemonic: Hashable {
     public func hash(into hasher: inout Hasher) {
         hasher.combine(self.words)
         hasher.combine(self.seed)
+        hasher.combine(self.passphrase)
     }
 }
 

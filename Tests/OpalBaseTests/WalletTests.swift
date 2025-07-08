@@ -31,16 +31,16 @@ extension WalletTests {
     @Test func testAddAccount() async throws {
         try await wallet.addAccount(unhardenedIndex: 0)
         let account = try await wallet.getAccount(unhardenedIndex: 0)
+        await print(account.id.hexadecimalString)
         
         #expect(await wallet.accounts.count == 1, "Wallet should have one account after adding an account.")
-        #expect(account != nil, "Account at index 0 should not be nil.")
     }
     
     @Test func testGetAccount() async throws {
         try await wallet.addAccount(unhardenedIndex: 0)
         let account = try await wallet.getAccount(unhardenedIndex: 0)
         
-        #expect(account != nil, "Account should be retrievable by index.")
+        await print(account.id.hexadecimalString)
     }
     
     @Test func testCalculateTotalBalance() async throws {

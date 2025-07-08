@@ -5,7 +5,8 @@ import SwiftFulcrum
 
 extension Address {
     public actor Book {
-        private let rootExtendedKey: PrivateKey.Extended
+        private let rootExtendedPrivateKey: PrivateKey.Extended?
+        private let rootExtendedPublicKey: PublicKey.Extended
         private let purpose: DerivationPath.Purpose
         private let coinType: DerivationPath.CoinType
         private let account: DerivationPath.Account
@@ -22,12 +23,22 @@ extension Address {
         let gapLimit: Int
         let maxIndex = UInt32.max
         
-        init(rootExtendedKey: PrivateKey.Extended,
+        init(rootExtendedPrivateKey: PrivateKey.Extended? = nil,
+             rootExtendedPublicKey: PublicKey.Extended? = nil,
              purpose: DerivationPath.Purpose,
              coinType: DerivationPath.CoinType,
              account: DerivationPath.Account,
              gapLimit: Int = 20) async throws {
-            self.rootExtendedKey = rootExtendedKey
+            self.rootExtendedPrivateKey = rootExtendedPrivateKey
+            
+            if let extendedPrivateKey = rootExtendedPrivateKey {
+                self.rootExtendedPublicKey = try .init(extendedPrivateKey: extendedPrivateKey)
+            } else if let extendedPublicKey = rootExtendedPublicKey {
+                self.rootExtendedPublicKey = extendedPublicKey
+            } else {
+                throw Error.privateKeyNotFound
+            }
+            
             self.purpose = purpose
             self.coinType = coinType
             self.account = account
@@ -40,6 +51,8 @@ extension Address {
                 addressToEntry[entry.address] = entry
             }
         }
+        
+        
     }
 }
 
@@ -54,20 +67,19 @@ extension Address.Book {
         return derivationPath
     }
     
-    func generateAddress(at index: UInt32,
-                         for usage: DerivationPath.Usage) throws -> Address {
-        let privateKey = try generatePrivateKey(at: index, for: usage)
-        let publicKey = try PublicKey(privateKey: privateKey)
+    func generateAddress(at index: UInt32, for usage: DerivationPath.Usage) throws -> Address {
+        let derivationPath = try createDerivationPath(usage: usage, index: index)
+        let publicKey = try PublicKey(compressedData: rootExtendedPublicKey.deriveChild(at: derivationPath).publicKey)
         let address = try Address(script: .p2pkh(hash: .init(publicKey: publicKey)))
         
         return address
     }
     
-    func generatePrivateKey(at index: UInt32,
-                            for usage: DerivationPath.Usage) throws -> PrivateKey {
+    func generatePrivateKey(at index: UInt32, for usage: DerivationPath.Usage) throws -> PrivateKey {
+        guard let extendedPrivateKey = rootExtendedPrivateKey else { throw Error.privateKeyNotFound }
+        
         let derivationPath = try createDerivationPath(usage: usage, index: index)
-        let childKey = try rootExtendedKey.deriveChild(at: derivationPath)
-        let privateKey = try PrivateKey(data: childKey.privateKey)
+        let privateKey = try PrivateKey(data: extendedPrivateKey.deriveChild(at: derivationPath).privateKey)
         
         return privateKey
     }

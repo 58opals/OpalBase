@@ -11,7 +11,6 @@ extension ECDSATests {
         let publicKey = try PublicKey(privateKey: privateKey)
         let publicKeyFromECDSA = try ECDSA.getPublicKey(from: privateKey.rawData)
         
-        #expect(publicKey != nil, "Public key generation failed.")
         #expect(publicKey.compressedData == publicKeyFromECDSA.dataRepresentation, "Public key data mismatch.")
         #expect(publicKey.compressedData.count == 33, "Compressed public key should be 33 bytes.")
         #expect(publicKeyFromECDSA.dataRepresentation.count == 33, "Public key from ECDSA should be 33 bytes.")
@@ -24,7 +23,6 @@ extension ECDSATests {
         let message = "Hello, world!".data(using: .utf8)!
         
         let derSignature = try ECDSA.sign(message: message, with: privateKey.rawData, in: .ecdsa(.der))
-        #expect(derSignature != nil, "DER signature generation failed.")
         
         let publicKeyFromECDSA = try ECDSA.getPublicKey(from: privateKey.rawData)
         #expect(publicKey.compressedData == publicKeyFromECDSA.dataRepresentation, "Public key data mismatch.")
@@ -40,7 +38,6 @@ extension ECDSATests {
         let message = "Hello, world!".data(using: .utf8)!
         
         let schnorrSignature = try ECDSA.sign(message: message, with: privateKey.rawData, in: .schnorr)
-        #expect(schnorrSignature != nil, "Schnorr signature generation failed.")
         
         let isSchnorrSignatureValid = try ECDSA.verify(signature: schnorrSignature, message: message, publicKey: publicKey, format: .schnorr)
         #expect(isSchnorrSignatureValid, "Schnorr signature verification failed.")

@@ -6,12 +6,23 @@ import P256K
 
 struct ECDSA {
     static let numberOfPointsOnTheCurveWeCanHit = BigUInt("115792089237316195423570985008687907852837564279074904382605163141518161494337")
+    
+    static func add(to compressedPublicKey: Data, tweak: Data) throws -> Data {
+        let secp256k1PublicKey = try ECDSA.getPublicKey(from: compressedPublicKey, in: .compressed)
+        let pointAdded = try secp256k1PublicKey.add(Array<UInt8>(tweak), format: .compressed)
+        return pointAdded.dataRepresentation
+    }
 }
 
 extension ECDSA {
     static func getPublicKey(from privateKey: Data) throws -> P256K.Signing.PublicKey {
         let secp256k1PrivateKey = try P256K.Signing.PrivateKey(dataRepresentation: privateKey)
         return secp256k1PrivateKey.publicKey
+    }
+    
+    static func getPublicKey(from publicKey: Data, in format: P256K.Format = .compressed) throws -> P256K.Signing.PublicKey {
+        let secp256k1PublicKey = try P256K.Signing.PublicKey(dataRepresentation: publicKey, format: format)
+        return secp256k1PublicKey
     }
 }
 

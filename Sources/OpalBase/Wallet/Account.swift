@@ -6,7 +6,7 @@ import SwiftFulcrum
 public actor Account: Identifiable {
     public let fulcrum: Fulcrum
     
-    private let rootExtendedKey: PrivateKey.Extended
+    private let rootExtendedPrivateKey: PrivateKey.Extended
     
     let purpose: DerivationPath.Purpose
     let coinType: DerivationPath.CoinType
@@ -17,26 +17,26 @@ public actor Account: Identifiable {
     public var addressBook: Address.Book
     
     init(fulcrumServerURL: String? = nil,
-         rootExtendedKey: PrivateKey.Extended,
+         rootExtendedPrivateKey: PrivateKey.Extended,
          purpose: DerivationPath.Purpose,
          coinType: DerivationPath.CoinType,
          account: DerivationPath.Account) async throws {
         self.fulcrum = try Fulcrum(url: fulcrumServerURL)
         
-        self.rootExtendedKey = rootExtendedKey
+        self.rootExtendedPrivateKey = rootExtendedPrivateKey
         self.purpose = purpose
         self.coinType = coinType
         self.account = account
         
         var hashInput: Data = .init()
-        hashInput.append(rootExtendedKey.serialize())
+        hashInput.append(rootExtendedPrivateKey.serialize())
         hashInput.append(purpose.hardenedIndex.data)
         hashInput.append(coinType.hardenedIndex.data)
         hashInput.append(try account.getHardenedIndex().data)
         let sha256Hash = SHA256.hash(hashInput)
         self.id = sha256Hash
         
-        self.addressBook = try await Address.Book(rootExtendedKey: rootExtendedKey,
+        self.addressBook = try await Address.Book(rootExtendedPrivateKey: rootExtendedPrivateKey,
                                                   purpose: purpose,
                                                   coinType: coinType,
                                                   account: account)

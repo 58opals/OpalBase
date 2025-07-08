@@ -76,7 +76,7 @@ extension AddressTests {
         let generatedAddressBalance = try await generatedAddress.fetchBalance(using: fulcrum)
         
         let stringAddress = "bitcoincash:qrsrz5mzve6kyr6ne6lgsvlgxvs3hqm6huxhd8gqwj"
-        let stringAddressBalance = try await Address.fetchBalance(for: stringAddress, using: fulcrum)
+        let stringAddressBalance = try await Address.fetchBalance(for: .init(stringAddress), using: fulcrum)
         
         print("The balance of the address \(generatedAddress.string) is: \(generatedAddressBalance).")
         print("The balance of the address \(stringAddress) is: \(stringAddressBalance).")
@@ -90,6 +90,7 @@ extension AddressTests {
         let history = try await address.fetchSimpleTransactionHistory(fulcrum: fulcrum)
         
         print(history)
+        print(history.count)
         
         #expect(address.string == "bitcoincash:qqe89pk7gjzxqedcsykmaa5wc8dt8zp57q5nuylgjw", "Address string did not match expected.")
         #expect(history.count == 16, "Transaction history count did not match expected.")
@@ -100,6 +101,7 @@ extension AddressTests {
         let history = try await address.fetchFullTransactionHistory(fulcrum: fulcrum)
         
         print(history)
+        print(history.count)
         
         #expect(address.string == "bitcoincash:qqe89pk7gjzxqedcsykmaa5wc8dt8zp57q5nuylgjw", "Address string did not match expected.")
         #expect(history.count == 16, "Transaction history count did not match expected.")
@@ -108,15 +110,18 @@ extension AddressTests {
     @Test func testSubscribe() async {
         do {
             let address = try Address("qqe89pk7gjzxqedcsykmaa5wc8dt8zp57q5nuylgjw")//Address(script: .p2pkh(hash: .init(publicKey: .init(privateKey: .init()))))
-            let (id, initialStatus, followingStatus) = try await address.subscribe(fulcrum: fulcrum)
+            let (requestID, subscriptionID, initialStatus, followingStatus, cancel) = try await address.subscribe(fulcrum: fulcrum)
             
-            #expect(id.uuidString.count == 36, "Subscription ID did not match expected.")
+            #expect(requestID.uuidString.count == 36, "Subscription ID did not match expected.")
+            print(subscriptionID)
             print("Initial status of the address \(address.string): \(initialStatus)")
             
             for try await newStatus in followingStatus {
                 print("The new status of the address \(address.string): \(newStatus)")
                 break
             }
+            
+            await cancel()
         } catch Fulcrum.Error.client(.emptyResponse(let id)) {
             if let id { print("Subscription ID: \(id)") }
             print("It seems like the status of the address is missing.")

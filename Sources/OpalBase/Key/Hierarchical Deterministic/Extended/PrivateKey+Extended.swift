@@ -9,22 +9,36 @@ extension PrivateKey {
         let chainCode: Data
         let depth: UInt8
         let parentFingerprint: Data
-        let childNumber: UInt32
+        let childIndexNumber: UInt32
         
         public init(rootKey: PrivateKey.Extended.Root) {
             self.privateKey = rootKey.privateKey
             self.chainCode = rootKey.chainCode
             self.depth = 0
             self.parentFingerprint = Data(repeating: 0, count: 4)
-            self.childNumber = 0
+            self.childIndexNumber = 0
         }
         
-        private init(privateKey: Data, chainCode: Data, depth: UInt8, parentFingerprint: Data, childNumber: UInt32) {
+        private init(privateKey: Data, chainCode: Data, depth: UInt8, parentFingerprint: Data, childIndexNumber: UInt32) {
             self.privateKey = privateKey
             self.chainCode = chainCode
             self.depth = depth
             self.parentFingerprint = parentFingerprint
-            self.childNumber = childNumber
+            self.childIndexNumber = childIndexNumber
+        }
+        
+        public init(xprv: String) throws {
+            guard let data = Base58.decode(xprv) else { throw Error.invalidFormat }
+            guard data.count == 82 else { throw Error.invalidLength }
+            let version = UInt32(bigEndian: data[0..<4].withUnsafeBytes { $0.load(as: UInt32.self) })
+            guard version == 0x0488ade4 else { throw Error.invalidVersion } // xprv main‑net
+            self.depth = data[4]
+            self.parentFingerprint = Data(data[5..<9])
+            self.childIndexNumber = UInt32(bigEndian: data[9..<13].withUnsafeBytes { $0.load(as: UInt32.self) })
+            self.chainCode = Data(data[13..<45])
+            
+            guard data[45] == 0 else { throw Error.invalidKeyPrefix }
+            self.privateKey = Data(data[46..<78])
         }
     }
 }
@@ -35,19 +49,19 @@ extension PrivateKey.Extended: Hashable {
         lhs.chainCode == rhs.chainCode &&
         lhs.depth == rhs.depth &&
         lhs.parentFingerprint == rhs.parentFingerprint &&
-        lhs.childNumber == rhs.childNumber
+        lhs.childIndexNumber == rhs.childIndexNumber
     }
 }
 
 extension PrivateKey.Extended: CustomDebugStringConvertible {
     public var debugDescription: String {
-        return """
+        """
         ExtendedPrivateKey(
             privateKey: \(privateKey.hexadecimalString),
             chainCode: \(chainCode.hexadecimalString),
             depth: \(depth),
             parentFingerprint: \(parentFingerprint.hexadecimalString),
-            childNumber: \(childNumber)
+            childIndexNumber: \(childIndexNumber)
         )
         """
     }
@@ -68,6 +82,7 @@ extension PrivateKey.Extended {
             data.append(Data([0x00]))
             data.append(parentPrivateKey)
         }
+        
         data.append(index.bigEndianData)
         
         let hmac = HMACSHA512.hash(data, key: chainCode)
@@ -81,9 +96,9 @@ extension PrivateKey.Extended {
         let childChainCode = rightHMACPart
         let childDepth = depth + 1
         let childParentFingerprint = Data(HASH160.hash(parentPublicKey).prefix(4))
-        let childNumber = index
+        let childIndexNumber = index
         
-        return .init(privateKey: paddedChildPrivateKey, chainCode: childChainCode, depth: childDepth, parentFingerprint: childParentFingerprint, childNumber: childNumber)
+        return .init(privateKey: paddedChildPrivateKey, chainCode: childChainCode, depth: childDepth, parentFingerprint: childParentFingerprint, childIndexNumber: childIndexNumber)
     }
     
     func deriveChild(at path: DerivationPath) throws -> PrivateKey.Extended {
@@ -106,17 +121,39 @@ extension PrivateKey.Extended {
 }
 
 extension PrivateKey.Extended {
+    func getExtendedPublicKey() throws -> PublicKey.Extended { try .init(extendedPrivateKey: self) }
+    
+    func deriveChild(at path: DerivationPath) throws -> PublicKey.Extended {
+        var extendedKey = self
+        
+        let indices = try [
+            path.purpose.hardenedIndex,
+            path.coinType.hardenedIndex,
+            path.account.getHardenedIndex(),
+            path.usage.unhardenedIndex,
+            path.index
+        ]
+        
+        for index in indices {
+            extendedKey = try extendedKey.deriveChildPrivateKey(at: index)
+        }
+        
+        return try .init(extendedPrivateKey: extendedKey)
+    }
+}
+
+extension PrivateKey.Extended {
     public var address: String {
         return Base58.encode(serialize())
     }
     
     func serialize() -> Data {
         var data = Data()
-        let version = UInt32(0x0488ade4.littleEndian)
+        let version = UInt32(0x0488ade4.littleEndian) // xprv
         data.append(version.bigEndianData)
         data.append(Data([self.depth]))
         data.append(self.parentFingerprint)
-        data.append(self.childNumber.bigEndianData)
+        data.append(self.childIndexNumber.bigEndianData)
         data.append(self.chainCode)
         data.append(Data([0x00]) + self.privateKey)
         let checksum = HASH256.hash(data).prefix(4)
