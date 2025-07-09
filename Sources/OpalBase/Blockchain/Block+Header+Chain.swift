@@ -27,10 +27,15 @@ extension Block.Header.Chain {
     public var latestHeight: UInt32 { tipHeight }
     
     public func append(_ header: Block.Header, height: UInt32) throws {
-        let expectedPreviousBlockHash = tipHash
-        guard header.previousBlockHash == expectedPreviousBlockHash else { throw Error.doesNotConnect(height: height) }
-        
         let headerHash = try verify(header)
+        
+        if headers.isEmpty && (height == checkpointHeight) {
+            guard headerHash == checkpointHash else { throw Error.doesNotConnect(height: height) }
+        } else {
+            let expectedPreviousBlockHash = tipHash
+            guard header.previousBlockHash == expectedPreviousBlockHash else { throw Error.doesNotConnect(height: height) }
+        }
+        
         headers[height] = header
         hashes[height] = headerHash
         tipHeight = height
