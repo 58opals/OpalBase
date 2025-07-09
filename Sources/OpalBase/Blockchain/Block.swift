@@ -2,7 +2,7 @@
 
 import Foundation
 
-struct Block {
+public struct Block {
     let header: Header
     let transactions: [Transaction]
     
