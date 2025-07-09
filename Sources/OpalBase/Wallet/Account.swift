@@ -16,6 +16,8 @@ public actor Account: Identifiable {
     
     public var addressBook: Address.Book
     
+    private var requestQueue: [() async throws -> Void] = .init()
+    
     init(fulcrumServerURLs: [String] = [],
          rootExtendedPrivateKey: PrivateKey.Extended,
          purpose: DerivationPath.Purpose,
@@ -40,6 +42,11 @@ public actor Account: Identifiable {
                                                   purpose: purpose,
                                                   coinType: coinType,
                                                   account: account)
+        
+        Task { [weak self] in
+            guard let self else { return }
+            await monitorNetworkStatus()
+        }
     }
 }
 
@@ -74,5 +81,31 @@ extension Account {
 extension Account {
     public func getBalanceFromCache() async throws -> Satoshi {
         return try await addressBook.getTotalBalanceFromCache()
+    }
+}
+
+extension Account {
+    func enqueueRequest(_ request: @escaping () async throws -> Void) {
+        requestQueue.append(request)
+    }
+    
+    public func processQueuedRequests() async {
+        while !requestQueue.isEmpty {
+            let request = requestQueue.removeFirst()
+            do { try await request() } catch { /* handle/log error if needed */ }
+        }
+    }
+    
+    public func observeNetworkStatus() -> AsyncStream<Wallet.Network.Status> {
+        fulcrumPool.observeStatus()
+    }
+    
+    private func monitorNetworkStatus() async {
+        for await status in fulcrumPool.observeStatus() {
+            if status == .online {
+                await processQueuedRequests()
+                await addressBook.processQueuedRequests()
+            }
+        }
     }
 }

@@ -33,12 +33,33 @@ extension Account {
                                                             changeOutput: Transaction.Output(value: remainingValue, address: changeAddress),
                                                             feePerByte: Transaction.defaultFeeRate)
         
-        let transactionHashFromFulcrum = try await transaction.broadcast(using: fulcrumPool.getFulcrum())
-        guard !transactionHashFromFulcrum.isEmpty else { throw Transaction.Error.cannotBroadcastTransaction }
+        let broadcastRequest = { [self] in
+            let fulcrum = try await fulcrumPool.getFulcrum()
+            let response = try await transaction.broadcast(using: fulcrum)
+            guard !response.isEmpty else { throw Transaction.Error.cannotBroadcastTransaction }
+        }
+        
+        if await fulcrumPool.currentStatus == .online {
+            do { try await broadcastRequest() }
+            catch { enqueueRequest(broadcastRequest) }
+        } else {
+            enqueueRequest(broadcastRequest)
+        }
+        
         let manuallyGeneratedTransactionHash = Transaction.Hash(naturalOrder: HASH256.hash(transaction.encode()))
         
         await addressBook.handleOutgoingTransaction(transaction)
         
         return manuallyGeneratedTransactionHash.naturalOrder
+    }
+    
+    public func refreshUTXOSet() async {
+        let request = { [self] in
+            let fulcrum = try await self.fulcrumPool.getFulcrum()
+            try await self.addressBook.refreshUTXOSet(fulcrum: fulcrum)
+        }
+        
+        do { try await request() }
+        catch { enqueueRequest(request) }
     }
 }

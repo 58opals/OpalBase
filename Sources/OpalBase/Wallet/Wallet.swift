@@ -51,6 +51,18 @@ extension Wallet {
 }
 
 extension Wallet {
+    public func observeNetworkStatus(forAccount index: UInt32) async throws -> AsyncStream<Network.Status> {
+        let account = try getAccount(unhardenedIndex: index)
+        return await account.observeNetworkStatus()
+    }
+
+    public func processQueuedRequests(forAccount index: UInt32) async throws {
+        let account = try getAccount(unhardenedIndex: index)
+        await account.processQueuedRequests()
+    }
+}
+
+extension Wallet {
     public func getDerivationPath() -> (purpose: DerivationPath.Purpose, coinType: DerivationPath.CoinType) {
         return (self.purpose, self.coinType)
     }

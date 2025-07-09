@@ -7,7 +7,7 @@ extension Address.Book {
         requestQueue.append(request)
     }
     
-    func processQueuedRequests() async {
+    public func processQueuedRequests() async {
         while !requestQueue.isEmpty {
             let request = requestQueue.removeFirst()
             do { try await request() } catch { /* handle/log error if needed */ }
