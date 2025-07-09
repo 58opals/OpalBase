@@ -96,12 +96,12 @@ extension Account {
         }
     }
     
-    public func observeNetworkStatus() -> AsyncStream<Wallet.Network.Status> {
-        fulcrumPool.observeStatus()
+    public func observeNetworkStatus() async -> AsyncStream<Wallet.Network.Status> {
+        await fulcrumPool.observeStatus()
     }
     
     private func monitorNetworkStatus() async {
-        for await status in fulcrumPool.observeStatus() {
+        for await status in await fulcrumPool.observeStatus() {
             if status == .online {
                 await processQueuedRequests()
                 await addressBook.processQueuedRequests()
