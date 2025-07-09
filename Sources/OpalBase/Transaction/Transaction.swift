@@ -53,7 +53,7 @@ public struct Transaction {
     static func decode(from data: Data) throws -> (transaction: Transaction, bytesRead: Int) {
         var index = data.startIndex
         
-        let (version, newIndex1): (UInt32, Data.Index) = data.extractValue(from: index)
+        let (version, newIndex1): (UInt32, Data.Index) = try data.extractValue(from: index)
         index = newIndex1
         
         let (inputsCount, inputsCountSize) = try CompactSize.decode(from: data[index...])
@@ -74,7 +74,7 @@ public struct Transaction {
             return output
         }
         
-        let (lockTime, newIndex2): (UInt32, Data.Index) = data.extractValue(from: index)
+        let (lockTime, newIndex2): (UInt32, Data.Index) = try data.extractValue(from: index)
         index = newIndex2
         
         let transaction = Transaction(version: version, inputs: inputs, outputs: outputs, lockTime: lockTime)

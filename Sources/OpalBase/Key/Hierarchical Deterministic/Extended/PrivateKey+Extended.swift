@@ -104,10 +104,10 @@ extension PrivateKey.Extended {
     func deriveChild(at path: DerivationPath) throws -> PrivateKey.Extended {
         var extendedKey = self
         
-        let indices = try [
+        let indices = [
             path.purpose.hardenedIndex,
             path.coinType.hardenedIndex,
-            path.account.getHardenedIndex(),
+            try path.account.getHardenedIndex(),
             path.usage.unhardenedIndex,
             path.index
         ]
@@ -123,13 +123,13 @@ extension PrivateKey.Extended {
 extension PrivateKey.Extended {
     func getExtendedPublicKey() throws -> PublicKey.Extended { try .init(extendedPrivateKey: self) }
     
-    func deriveChild(at path: DerivationPath) throws -> PublicKey.Extended {
+    func deriveChildPublicKey(at path: DerivationPath) throws -> PublicKey.Extended {
         var extendedKey = self
         
-        let indices = try [
+        let indices = [
             path.purpose.hardenedIndex,
             path.coinType.hardenedIndex,
-            path.account.getHardenedIndex(),
+            try path.account.getHardenedIndex(),
             path.usage.unhardenedIndex,
             path.index
         ]

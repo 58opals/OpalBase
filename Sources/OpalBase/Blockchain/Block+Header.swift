@@ -24,17 +24,17 @@ extension Block {
         
         static func decode(from data: Data) throws -> (blockHeader: Header, bytesRead: Int) {
             var index = data.startIndex
-            let (version, newIndex1): (Int32, Data.Index) = data.extractValue(from: index)
+            let (version, newIndex1): (Int32, Data.Index) = try data.extractValue(from: index)
             index = newIndex1
             let previousBlockHash = data[index..<index + 32]
             index += 32
             let merkleRoot = data[index..<index + 32]
             index += 32
-            let (time, newIndex2): (UInt32, Data.Index) = data.extractValue(from: index)
+            let (time, newIndex2): (UInt32, Data.Index) = try data.extractValue(from: index)
             index = newIndex2
-            let (bits, newIndex3): (UInt32, Data.Index) = data.extractValue(from: index)
+            let (bits, newIndex3): (UInt32, Data.Index) = try data.extractValue(from: index)
             index = newIndex3
-            let (nonce, newIndex4): (UInt32, Data.Index) = data.extractValue(from: index)
+            let (nonce, newIndex4): (UInt32, Data.Index) = try data.extractValue(from: index)
             index = newIndex4
             let blockHeader = Header(version: version, previousBlockHash: previousBlockHash, merkleRoot: merkleRoot, time: time, bits: bits, nonce: nonce)
             return (blockHeader, index - data.startIndex)

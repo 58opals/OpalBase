@@ -15,7 +15,7 @@ extension ScriptTests {
         case .p2pkh(let hash):
             #expect(hash.data == data, "Decoded P2PKH hash does not match expected data.")
         default:
-            fatalError("Failed to decode P2PKH script as expected.")
+            #expect(Bool(false), "Failed to decode P2PKH script as expected.")
         }
     }
 }

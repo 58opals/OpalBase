@@ -53,4 +53,19 @@ extension TransactionTests {
         // Use #expect to check if the generated preimage matches the expected one
         #expect(preimage == expectedPreimage, "The generated preimage does not match the expected preimage.")
     }
+    
+    @Test func testUnsupportedSignatureFormatError() throws {
+        let txHash = Transaction.Hash(naturalOrder: Data(repeating: 0x00, count: 32))
+        let lockingScript = Data()
+        let utxo = Transaction.Output.Unspent(value: 1000, lockingScript: lockingScript, previousTransactionHash: txHash, previousTransactionOutputIndex: 0)
+        let privateKey = try PrivateKey(data: Data(repeating: 0x01, count: 32))
+        let changeOutput = Transaction.Output(value: 1000, lockingScript: lockingScript)
+        
+        do {
+            _ = try Transaction.createTransaction(utxoPrivateKeyPairs: [utxo: privateKey], recipientOutputs: [], changeOutput: changeOutput, signatureFormat: .schnorr)
+            #expect(Bool(false), "Expected unsupportedSignatureFormat error")
+        } catch Transaction.Error.unsupportedSignatureFormat {
+            #expect(true, "Caught unsupportedSignatureFormat error")
+        }
+    }
 }

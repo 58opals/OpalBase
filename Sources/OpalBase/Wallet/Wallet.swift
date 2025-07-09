@@ -37,12 +37,12 @@ extension Wallet: Equatable {
 }
 
 extension Wallet {
-    public func addAccount(unhardenedIndex: UInt32, fulcrumServerURL: String? = nil) async throws {
+    public func addAccount(unhardenedIndex: UInt32, fulcrumServerURLs: [String] = []) async throws {
         let derivationPathAccount = try DerivationPath.Account(rawIndexInteger: unhardenedIndex)
         
-        let rootExtendedKey = PrivateKey.Extended(rootKey: try .init(seed: mnemonic.seed))
-        let account = try await Account(fulcrumServerURL: fulcrumServerURL,
-                                        rootExtendedPrivateKey: rootExtendedKey,
+        let rootExtendedPrivateKey = PrivateKey.Extended(rootKey: try .init(seed: mnemonic.seed))
+        let account = try await Account(fulcrumServerURLs: fulcrumServerURLs,
+                                        rootExtendedPrivateKey: rootExtendedPrivateKey,
                                         purpose: purpose,
                                         coinType: coinType,
                                         account: derivationPathAccount)

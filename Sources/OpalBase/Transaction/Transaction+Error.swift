@@ -9,6 +9,7 @@ extension Transaction {
         case cannotCreateTransaction
         case cannotBroadcastTransaction
         case unsupportedHashType
+        case unsupportedSignatureFormat
         case outputValueIsLessThanTheDustLimit
     }
 }

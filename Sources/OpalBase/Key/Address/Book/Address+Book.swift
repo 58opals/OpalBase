@@ -20,6 +20,8 @@ extension Address {
         
         var utxos: Set<Transaction.Output.Unspent> = .init()
         
+        var requestQueue: [() async throws -> Void] = .init()
+        
         let gapLimit: Int
         let maxIndex = UInt32.max
         

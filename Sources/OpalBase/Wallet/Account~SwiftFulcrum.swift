@@ -8,7 +8,7 @@ extension Account {
         var totalBalance: UInt64 = 0
         
         for address in await (addressBook.receivingEntries + addressBook.changeEntries).map({ $0.address }) {
-            totalBalance += try await addressBook.getBalanceFromBlockchain(address: address, fulcrum: fulcrum).uint64
+            totalBalance += try await addressBook.getBalanceFromBlockchain(address: address, fulcrum: fulcrumPool.getFulcrum()).uint64
         }
         
         return try Satoshi(totalBalance)
@@ -33,7 +33,7 @@ extension Account {
                                                             changeOutput: Transaction.Output(value: remainingValue, address: changeAddress),
                                                             feePerByte: Transaction.defaultFeeRate)
         
-        let transactionHashFromFulcrum = try await transaction.broadcast(using: fulcrum)
+        let transactionHashFromFulcrum = try await transaction.broadcast(using: fulcrumPool.getFulcrum())
         guard !transactionHashFromFulcrum.isEmpty else { throw Transaction.Error.cannotBroadcastTransaction }
         let manuallyGeneratedTransactionHash = Transaction.Hash(naturalOrder: HASH256.hash(transaction.encode()))
         

@@ -13,5 +13,6 @@ extension PrivateKey {
         case invalidVersion
         case invalidChecksum
         case invalidKeyPrefix
+        case invalidStringKey
     }
 }

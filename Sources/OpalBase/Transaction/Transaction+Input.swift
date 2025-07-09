@@ -46,7 +46,7 @@ extension Transaction {
             let previousTransactionHash = data[index..<index + 32]
             index += 32
             
-            let (previousTransactionIndex, newIndex1): (UInt32, Data.Index) = data.extractValue(from: index)
+            let (previousTransactionIndex, newIndex1): (UInt32, Data.Index) = try data.extractValue(from: index)
             index = newIndex1
             
             let (unlockingScriptLength, unlockingScriptLengthSize) = try CompactSize.decode(from: data[index...])
@@ -55,7 +55,7 @@ extension Transaction {
             let unlockingScript = data[index..<index + Int(unlockingScriptLength.value)]
             index += unlockingScript.count
             
-            let (sequence, newIndex2): (UInt32, Data.Index) = data.extractValue(from: index)
+            let (sequence, newIndex2): (UInt32, Data.Index) = try data.extractValue(from: index)
             index = newIndex2
             
             let input = Input(previousTransactionHash: .init(naturalOrder: previousTransactionHash), previousTransactionOutputIndex: previousTransactionIndex, unlockingScript: unlockingScript, sequence: sequence)

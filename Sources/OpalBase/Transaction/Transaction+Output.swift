@@ -45,7 +45,7 @@ extension Transaction {
         static func decode(from data: Data) throws -> (output: Output, bytesRead: Int) {
             var index = data.startIndex
             
-            let (value, newIndex1): (UInt64, Data.Index) = data.extractValue(from: index)
+            let (value, newIndex1): (UInt64, Data.Index) = try data.extractValue(from: index)
             index = newIndex1
             
             let (lockingScriptLength, lockingScriptLengthSize) = try CompactSize.decode(from: data[index...])

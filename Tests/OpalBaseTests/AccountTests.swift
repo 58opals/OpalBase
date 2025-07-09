@@ -12,7 +12,7 @@ struct AccountTests {
         try await wallet.addAccount(unhardenedIndex: 0)
         self.account = try await wallet.getAccount(unhardenedIndex: 0)
         
-        try await account.fulcrum.start()
+        try await account.fulcrumPool.getFulcrum().start()
     }
 }
 

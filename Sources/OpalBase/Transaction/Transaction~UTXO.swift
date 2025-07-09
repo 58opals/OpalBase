@@ -58,7 +58,8 @@ extension Transaction {
                 case .der: Data([UInt8(hashType.value)])
                 default: throw Error.unsupportedHashType
                 }
-            case .schnorr: fatalError()
+            case .schnorr:
+                throw Error.unsupportedSignatureFormat
             }
             
             let signatureWithHashType = signature + appendedHashType

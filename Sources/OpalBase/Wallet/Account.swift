@@ -4,7 +4,7 @@ import Foundation
 import SwiftFulcrum
 
 public actor Account: Identifiable {
-    public let fulcrum: Fulcrum
+    public let fulcrumPool: Wallet.Network.FulcrumPool
     
     private let rootExtendedPrivateKey: PrivateKey.Extended
     
@@ -16,12 +16,12 @@ public actor Account: Identifiable {
     
     public var addressBook: Address.Book
     
-    init(fulcrumServerURL: String? = nil,
+    init(fulcrumServerURLs: [String] = [],
          rootExtendedPrivateKey: PrivateKey.Extended,
          purpose: DerivationPath.Purpose,
          coinType: DerivationPath.CoinType,
          account: DerivationPath.Account) async throws {
-        self.fulcrum = try Fulcrum(url: fulcrumServerURL)
+        self.fulcrumPool = try .init(urls: fulcrumServerURLs)
         
         self.rootExtendedPrivateKey = rootExtendedPrivateKey
         self.purpose = purpose
