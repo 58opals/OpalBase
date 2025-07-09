@@ -68,8 +68,6 @@ extension PublicKey.Extended: CustomDebugStringConvertible {
 extension PublicKey.Extended {
     private func deriveChildPublicKey(at index: UInt32) throws -> PublicKey.Extended {
         let hardened = (index >= 0x80000000)
-        print(index)
-        print(index.data.hexadecimalString)
         guard !hardened else { throw PublicKey.Error.hardenedDerivation }
         
         var data = Data()

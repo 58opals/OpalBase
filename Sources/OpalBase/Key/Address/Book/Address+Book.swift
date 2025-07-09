@@ -71,7 +71,15 @@ extension Address.Book {
     
     func generateAddress(at index: UInt32, for usage: DerivationPath.Usage) throws -> Address {
         let derivationPath = try createDerivationPath(usage: usage, index: index)
-        let publicKey = try PublicKey(compressedData: rootExtendedPublicKey.deriveChild(at: derivationPath).publicKey)
+        
+        let derivedPublicKey: PublicKey.Extended
+        if let extendedPrivateKey = rootExtendedPrivateKey {
+            derivedPublicKey = try extendedPrivateKey.deriveChildPublicKey(at: derivationPath)
+        } else {
+            derivedPublicKey = try rootExtendedPublicKey.deriveChild(at: derivationPath)
+        }
+        
+        let publicKey = try PublicKey(compressedData: derivedPublicKey.publicKey)
         let address = try Address(script: .p2pkh(hash: .init(publicKey: publicKey)))
         
         return address

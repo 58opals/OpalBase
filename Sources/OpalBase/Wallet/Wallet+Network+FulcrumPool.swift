@@ -9,6 +9,7 @@ extension Wallet.Network {
             let fulcrum: Fulcrum
             var failureCount: Int = 0
             var nextRetry: Date = .distantPast
+            var status: Wallet.Network.Status = .offline
         }
         
         private var servers: [Server]
@@ -18,7 +19,6 @@ extension Wallet.Network {
         public init(urls: [String] = [], maxBackoff: TimeInterval = 64) throws {
             if urls.isEmpty {
                 self.servers = [.init(fulcrum: try .init())]
-                print(servers)
             } else {
                 self.servers = try urls.map { url in
                         .init(fulcrum: try .init(url: url))
@@ -34,12 +34,17 @@ extension Wallet.Network {
                 var server = servers[currentIndex]
                 if Date() >= server.nextRetry {
                     do {
-                        try await server.fulcrum.start()
+                        if server.status != .online {
+                            try await server.fulcrum.start()
+                            server.status = .online
+                        }
                         server.failureCount = 0
                         server.nextRetry = .distantPast
                         servers[currentIndex] = server
                         return server.fulcrum
                     } catch {
+                        server.status = .offline
+                        servers[currentIndex] = server
                         markFailure(at: currentIndex)
                     }
                 }
