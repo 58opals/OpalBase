@@ -90,6 +90,8 @@ extension Address {
         
         assert(UUID(uuidString: id.uuidString) != nil, "Invalid UUID: \(id.uuidString)")
         
+        
+        
         let history = result.transactions
         let transactions = try history.map { historyItem in
             return Transaction.Simple(transactionHash: .init(dataFromRPC: try .init(hexString: historyItem.transactionHash)),
