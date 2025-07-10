@@ -175,4 +175,47 @@ extension AddressBookTests {
         
         #expect(await addressBook.receivingEntries.count == 20 + 20, "Gap limit enforcement should generate additional entries to maintain the gap.")
     }
+    
+    @Test mutating func testScanForUsedAddressesBeyondGap() async throws {
+        try await addressBook.generateEntries(for: .receiving, numberOfNewEntries: 10, isUsed: false)
+        
+        let targetEntry = await addressBook.receivingEntries[21]
+        try await addressBook.updateCache(for: targetEntry.address, with: try Satoshi(100))
+        
+        try await addressBook.scanForUsedAddresses(using: fulcrum)
+        
+        let usedEntries = await addressBook.getUsedEntries(for: .receiving)
+        let isDiscovered = usedEntries.contains { $0.address == targetEntry.address }
+        
+        #expect(isDiscovered, "Scanning should mark addresses beyond the default gap as used when activity is detected.")
+    }
+}
+
+extension AddressBookTests {
+    private func makeDummyDetailedTransaction(hashByte: UInt8, time: UInt32) -> Transaction.Detailed {
+        let input = Transaction.Input(previousTransactionHash: .init(naturalOrder: Data(repeating: 0, count: 32)),
+                                      previousTransactionOutputIndex: 0,
+                                      unlockingScript: Data())
+        let output = Transaction.Output(value: 0, lockingScript: Data())
+        let tx = Transaction(version: 1, inputs: [input], outputs: [output], lockTime: 0)
+        return Transaction.Detailed(transaction: tx,
+                                    blockHash: nil,
+                                    blockTime: time,
+                                    confirmations: nil,
+                                    hash: Data(repeating: hashByte, count: 32),
+                                    raw: Data(),
+                                    size: 0,
+                                    time: time)
+    }
+    
+    @Test func testCombineHistoriesDedupAndOrdering() async throws {
+        let tx1 = makeDummyDetailedTransaction(hashByte: 1, time: 100)
+        let tx2 = makeDummyDetailedTransaction(hashByte: 2, time: 50)
+        let tx3 = makeDummyDetailedTransaction(hashByte: 3, time: 150)
+        
+        let combined = Address.Book.combineHistories(receiving: [tx1, tx3], change: [tx2, tx1])
+        
+        let expectedOrder = [tx2.hash, tx1.hash, tx3.hash]
+        #expect(combined.map { $0.hash } == expectedOrder, "Transactions should be deduplicated and ordered by time ascending.")
+    }
 }

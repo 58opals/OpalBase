@@ -64,6 +64,22 @@ extension Address.Book.Entry {
 }
 
 extension Address.Book {
+    static func combineHistories(receiving: [Transaction.Detailed], change: [Transaction.Detailed]) -> [Transaction.Detailed] {
+        var uniqueTransactions: [Data: Transaction.Detailed] = .init()
+        for transaction in receiving { uniqueTransactions[transaction.hash] = transaction }
+        for transaction in change { uniqueTransactions[transaction.hash] = transaction }
+        
+        var mergedTransactions = Array(uniqueTransactions.values)
+        mergedTransactions.sort {
+            let lhsTime = ($0.blockTime ?? $0.time ?? UInt32.max)
+            let rhsTime = ($1.blockTime ?? $1.time ?? UInt32.max)
+            if lhsTime == rhsTime { return $0.hash.lexicographicallyPrecedes($1.hash) }
+            return lhsTime < rhsTime
+        }
+        
+        return mergedTransactions
+    }
+    
     public func fetchDetailedTransactions(for usage: DerivationPath.Usage,
                                           fromHeight: UInt? = nil,
                                           toHeight: UInt? = nil,
@@ -89,6 +105,25 @@ extension Address.Book {
         }
         
         return allDetailedTransactions
+    }
+    
+    public func fetchCombinedHistory(fromHeight: UInt? = nil,
+                                     toHeight: UInt? = nil,
+                                     includeUnconfirmed: Bool = true,
+                                     using fulcrum: Fulcrum) async throws -> [Transaction.Detailed] {
+        async let receivingTransactions = fetchDetailedTransactions(for: .receiving,
+                                                                    fromHeight: fromHeight,
+                                                                    toHeight: toHeight,
+                                                                    includeUnconfirmed: includeUnconfirmed,
+                                                                    using: fulcrum)
+        async let changeTransactions = fetchDetailedTransactions(for: .change,
+                                                                    fromHeight: fromHeight,
+                                                                    toHeight: toHeight,
+                                                                    includeUnconfirmed: includeUnconfirmed,
+                                                                    using: fulcrum)
+        let (receivingTransactionHistory, changeTransactionHistory) = try await (receivingTransactions, changeTransactions)
+        
+        return Address.Book.combineHistories(receiving: receivingTransactionHistory, change: changeTransactionHistory)
     }
 }
 
@@ -148,13 +183,31 @@ extension Address.Book {
     }
     
     private func checkIfUsed(entry: Entry, using fulcrum: Fulcrum) async throws -> Bool {
-        if let cacheBalance = entry.cache.balance, cacheBalance.uint64 > 0 {
-            let utxos = try await entry.address.fetchUnspentTransactionOutputs(fulcrum: fulcrum)
-            if !utxos.isEmpty { return true }
-        } else {
-            let txHistory = try await entry.address.fetchSimpleTransactionHistory(fulcrum: fulcrum)
-            if !txHistory.isEmpty { return true }
-        }
+        if let cacheBalance = entry.cache.balance, cacheBalance.uint64 > 0 { return true }
+        
+        let utxos = try await entry.address.fetchUnspentTransactionOutputs(fulcrum: fulcrum)
+        if !utxos.isEmpty { return true }
+        
+        let txHistory = try await entry.address.fetchSimpleTransactionHistory(fulcrum: fulcrum)
+        if !txHistory.isEmpty { return true }
+        
         return false
+    }
+}
+
+extension Address.Book {
+    private func countUsedEntries() -> Int {
+        getUsedEntries(for: .receiving).count + getUsedEntries(for: .change).count
+    }
+    
+    public func scanForUsedAddresses(using fulcrum: Fulcrum) async throws {
+        var previousUsedCount = countUsedEntries()
+        
+        repeat {
+            try await updateAddressUsageStatus(using: fulcrum)
+            let currentUsedCount = countUsedEntries()
+            if currentUsedCount == previousUsedCount { break }
+            previousUsedCount = currentUsedCount
+        } while true
     }
 }

@@ -67,11 +67,11 @@ extension Block.Header.Chain {
             let response = try await fulcrum.submit(method: .blockchain(.block(.header(height: .init(height), checkpointHeight: nil))),
                                                     responseType: Response.Result.Blockchain.Block.Header.self)
             guard case .single(let id, let result) = response else { break }
-            print("Synced block \(id)")
+            await Log.shared.log("Synced block \(id)")
             
             let headerData = try Data(hexString: result.hex)
             let (header, bytes) = try Block.Header.decode(from: headerData)
-            print("\(bytes) bytes for \(header.encode().hexadecimalString)")
+            await Log.shared.log("\(bytes) bytes for \(header.encode().hexadecimalString)")
             
             guard header.previousBlockHash == previousBlockHash else { throw Error.doesNotConnect(height: height) }
             let headerHash = try verify(header)
