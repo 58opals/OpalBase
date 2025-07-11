@@ -142,12 +142,16 @@ extension DerivationPath {
     }
 }
 
+// MARK: -
+
 extension DerivationPath: Hashable {
     public static func == (lhs: DerivationPath, rhs: DerivationPath) -> Bool {
         lhs.path == rhs.path
     }
 }
 extension DerivationPath: Sendable {}
+
+// MARK: -
 
 extension DerivationPath.Purpose: Hashable {
     public static func == (lhs: DerivationPath.Purpose, rhs: DerivationPath.Purpose) -> Bool {
@@ -156,12 +160,16 @@ extension DerivationPath.Purpose: Hashable {
 }
 extension DerivationPath.Purpose: Sendable {}
 
+// MARK: -
+
 extension DerivationPath.CoinType: Hashable {
     public static func == (lhs: DerivationPath.CoinType, rhs: DerivationPath.CoinType) -> Bool {
         lhs.hardenedIndex == rhs.hardenedIndex
     }
 }
 extension DerivationPath.CoinType: Sendable {}
+
+// MARK: -
 
 extension DerivationPath.Account: Hashable {
     public static func == (lhs: DerivationPath.Account, rhs: DerivationPath.Account) -> Bool {
@@ -170,12 +178,36 @@ extension DerivationPath.Account: Hashable {
 }
 extension DerivationPath.Account: Sendable {}
 
+// MARK: -
+
 extension DerivationPath.Usage: Hashable {
     public static func == (lhs: DerivationPath.Usage, rhs: DerivationPath.Usage) -> Bool {
         lhs.unhardenedIndex == rhs.unhardenedIndex
     }
 }
 extension DerivationPath.Usage: Sendable {}
+
+extension DerivationPath.Usage: Codable {
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        let value = try container.decode(String.self)
+        switch value {
+        case "receiving": self = .receiving
+        case "change": self = .change
+        default: throw DecodingError.dataCorruptedError(in: container, debugDescription: "Invalid usage value")
+        }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        switch self {
+        case .receiving: try container.encode("receiving")
+        case .change: try container.encode("change")
+        }
+    }
+}
+
+// MARK: -
 
 extension DerivationPath: CustomDebugStringConvertible {
     public var debugDescription: String {
@@ -206,5 +238,7 @@ extension DerivationPath.Usage: CustomStringConvertible {
         return "\(unhardenedIndex)"
     }
 }
+
+// MARK: -
 
 extension DerivationPath.Usage: CaseIterable {}

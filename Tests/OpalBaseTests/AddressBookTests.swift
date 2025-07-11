@@ -1,5 +1,6 @@
 import Testing
 import Foundation
+import CryptoKit
 import SwiftFulcrum
 @testable import OpalBase
 
@@ -272,5 +273,39 @@ extension AddressBookTests {
         
         await addressBook.stopSubscription()
         #expect(await flag.value, "Notification hook should run for new address")
+    }
+}
+
+extension AddressBookTests {
+    @Test mutating func testSnapshotSaveLoad() async throws {
+        let key = SymmetricKey(size: .bits256)
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+
+        let entry = await addressBook.receivingEntries[0]
+        try await addressBook.updateCache(for: entry.address, with: try Satoshi(123))
+        try await addressBook.mark(address: entry.address, isUsed: true)
+
+        let dummyOutput = Transaction.Output(value: 50, lockingScript: Script.p2pkh(hash: .init(publicKey: try .init(compressedData: .init(repeating: 0x02, count: 33)))).data)
+        let dummyUTXO = Transaction.Output.Unspent(output: dummyOutput,
+                                                   previousTransactionHash: Transaction.Hash(naturalOrder: Data(repeating: 0, count: 32)),
+                                                   previousTransactionOutputIndex: 0)
+        await addressBook.addUTXO(dummyUTXO)
+
+        try await addressBook.saveSnapshot(to: url, using: key)
+
+        let newBook = try await Address.Book(rootExtendedPrivateKey: rootExtendedPrivateKey,
+                                             purpose: purpose,
+                                             coinType: coinType,
+                                             account: account,
+                                             gapLimit: 20,
+                                             cacheValidityDuration: 5)
+        try await newBook.loadSnapshot(from: url, using: key)
+
+        let restoredEntry = await newBook.findEntry(for: entry.address)
+        let restoredBalance = try await newBook.getBalanceFromCache(address: entry.address)
+        
+        #expect(restoredEntry?.isUsed == true, "Used flag should restore")
+        #expect(restoredBalance?.uint64 == 123, "Balance should restore")
+        #expect(await newBook.utxos.contains(dummyUTXO), "UTXO should restore")
     }
 }

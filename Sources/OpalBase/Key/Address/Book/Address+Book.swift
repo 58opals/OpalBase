@@ -11,7 +11,7 @@ extension Address {
         private let coinType: DerivationPath.CoinType
         private let account: DerivationPath.Account
         
-        private var derivationPathToAddress: [DerivationPath: Address] = .init()
+        var derivationPathToAddress: [DerivationPath: Address] = .init()
         
         var receivingEntries: [Entry] = .init()
         var changeEntries: [Entry] = .init()
