@@ -14,12 +14,22 @@ extension Account {
         return try Satoshi(totalBalance)
     }
     
-    public func send(_ sendings: [(value: Satoshi, recipientAddress: Address)]) async throws -> Data {
+    public func send(_ sendings: [(value: Satoshi, recipientAddress: Address)],
+                     feePerByte: UInt64? = nil,
+                     allowDustDonation: Bool = false,
+                     strategy: Address.Book.CoinSelection = .greedyLargestFirst) async throws -> Data {
         let accountBalance = try await calculateBalance()
         let spendingValue = sendings.map{ $0.value.uint64 }.reduce(0, +)
         guard spendingValue < accountBalance.uint64 else { throw Transaction.Error.insufficientFunds(required: spendingValue) }
         
-        let utxos = try await addressBook.selectUTXOs(targetAmount: Satoshi(spendingValue))
+        var feeRate: UInt64
+        if let feePerByte = feePerByte {
+            feeRate = feePerByte
+        } else {
+            feeRate = try await feeEstimation.getRecommendedFeeRate()
+        }
+        
+        let utxos = try await addressBook.selectUTXOs(targetAmount: Satoshi(spendingValue), feePerByte: feeRate, strategy: strategy)
         let spendableValue = utxos.map { $0.value }.reduce(0, +)
         
         let privateKeyPairs = try await addressBook.getPrivateKeys(for: utxos)
@@ -31,7 +41,8 @@ extension Account {
                                                             utxoPrivateKeyPairs: privateKeyPairs,
                                                             recipientOutputs: sendings.map { Transaction.Output(value: $0.value.uint64, address: $0.recipientAddress) },
                                                             changeOutput: Transaction.Output(value: remainingValue, address: changeAddress),
-                                                            feePerByte: Transaction.defaultFeeRate)
+                                                            feePerByte: feeRate,
+                                                            allowDustDonation: allowDustDonation)
         
         let broadcastRequest = { [self] in
             let fulcrum = try await fulcrumPool.getFulcrum()

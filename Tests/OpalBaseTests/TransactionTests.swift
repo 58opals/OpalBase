@@ -68,4 +68,38 @@ extension TransactionTests {
             #expect(true, "Caught unsupportedSignatureFormat error")
         }
     }
+    
+    @Test func testDustDonationPaths() throws {
+        let txHash = Transaction.Hash(naturalOrder: Data(repeating: 0x00, count: 32))
+        let lockingScript = Data()
+        let utxo = Transaction.Output.Unspent(value: 1300,
+                                              lockingScript: lockingScript,
+                                              previousTransactionHash: txHash,
+                                              previousTransactionOutputIndex: 0)
+        let privateKey = try PrivateKey(data: Data(repeating: 0x01, count: 32))
+        let recipient = Transaction.Output(value: 600, lockingScript: lockingScript)
+        let changeOutput = Transaction.Output(value: 700, lockingScript: lockingScript)
+        
+        do {
+            _ = try Transaction.createTransaction(utxoPrivateKeyPairs: [utxo: privateKey],
+                                                  recipientOutputs: [recipient],
+                                                  changeOutput: changeOutput,
+                                                  allowDustDonation: false)
+            #expect(Bool(false), "Expected outputValueIsLessThanTheDustLimit error")
+        } catch Transaction.Error.outputValueIsLessThanTheDustLimit {
+            #expect(true, "Caught outputValueIsLessThanTheDustLimit error")
+        } catch {
+            #expect(Bool(false), "Unexpected error: \(error)")
+        }
+        
+        do {
+            let tx = try Transaction.createTransaction(utxoPrivateKeyPairs: [utxo: privateKey],
+                                                       recipientOutputs: [recipient],
+                                                       changeOutput: changeOutput,
+                                                       allowDustDonation: true)
+            #expect(tx.outputs.count == 1, "Change output should be dropped when donating dust")
+        } catch {
+            #expect(Bool(false), "Unexpected error: \(error)")
+        }
+    }
 }

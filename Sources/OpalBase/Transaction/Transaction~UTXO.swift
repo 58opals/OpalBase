@@ -13,7 +13,8 @@ extension Transaction {
                                   signatureFormat: ECDSA.SignatureFormat = .ecdsa(.der),
                                   feePerByte: UInt64 = 1,
                                   sequence: UInt32 = 0xFFFFFFFF,
-                                  lockTime: UInt32 = 0) throws -> Transaction {
+                                  lockTime: UInt32 = 0,
+                                  allowDustDonation: Bool = false) throws -> Transaction {
         var inputs: [Input] = []
         
         let utxos = utxoPrivateKeyPairs.keys
@@ -32,10 +33,19 @@ extension Transaction {
         guard oldChangeAmount >= estimatedFee else { throw Error.insufficientFunds(required: oldChangeAmount) }
         
         let newChangeAmount = oldChangeAmount - estimatedFee
-        let newChangeOutput = Output(value: newChangeAmount, lockingScript: changeOutput.lockingScript)
-        let combinedOutputs = (recipientOutputs + [newChangeOutput]).filter { $0.value > 0 }
+        
+        var outputs = recipientOutputs
+        if newChangeAmount > 0 {
+            if newChangeAmount < Transaction.dustLimit {
+                guard allowDustDonation else { throw Error.outputValueIsLessThanTheDustLimit }
+            } else {
+                outputs.append(.init(value: newChangeAmount, lockingScript: changeOutput.lockingScript))
+            }
+        }
+        
+        let combinedOutputs = outputs.filter { $0.value > 0 }
         guard !combinedOutputs.isEmpty else { throw Error.insufficientFunds(required: combinedOutputs.map{$0.value}.reduce(0, +)) }
-        guard !combinedOutputs.contains(where: {$0.value < Transaction.dustLimit}) else { throw Error.outputValueIsLessThanTheDustLimit }
+        guard !combinedOutputs.contains(where: { $0.value < Transaction.dustLimit }) else { throw Error.outputValueIsLessThanTheDustLimit }
         
         let temporaryTransactionWithFee = Transaction(version: version, inputs: inputs, outputs: combinedOutputs, lockTime: lockTime)
         

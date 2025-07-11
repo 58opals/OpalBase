@@ -61,7 +61,7 @@ extension Block.Header.Chain {
     }
     
     public func sync(from startHeight: UInt32? = nil, using fulcrum: Fulcrum) async throws {
-        var height = startHeight ?? tipHeight + 1
+        var height = startHeight ?? tipHeight &+ 1
         var previousBlockHash = tipHash
         while true {
             let response = try await fulcrum.submit(method: .blockchain(.block(.header(height: .init(height), checkpointHeight: nil))),
@@ -80,7 +80,7 @@ extension Block.Header.Chain {
             previousBlockHash = headerHash
             tipHeight = height
             tipHash = headerHash
-            height += 1
+            height &+= 1
         }
     }
 }
