@@ -101,7 +101,7 @@ extension Address.Book {
         
         if let key {
             let sealed = try AES.GCM.seal(data, using: key)
-            guard let combined = sealed.combined else { return }
+            guard let combined = sealed.combined else { throw Snapshot.Error.missingCombinedData }
             output = combined
         } else {
             output = data
