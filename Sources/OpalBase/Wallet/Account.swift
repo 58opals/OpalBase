@@ -5,7 +5,7 @@ import SwiftFulcrum
 
 public actor Account: Identifiable {
     public let fulcrumPool: Wallet.Network.FulcrumPool
-    public let feeEstimation: Wallet.Network.FeeRate
+    public let feeRate: Wallet.Network.FeeRate
     
     private let rootExtendedPrivateKey: PrivateKey.Extended
     
@@ -25,7 +25,7 @@ public actor Account: Identifiable {
          coinType: DerivationPath.CoinType,
          account: DerivationPath.Account) async throws {
         self.fulcrumPool = try .init(urls: fulcrumServerURLs)
-        self.feeEstimation = .init(fulcrumPool: self.fulcrumPool)
+        self.feeRate = .init(fulcrumPool: self.fulcrumPool)
         
         self.rootExtendedPrivateKey = rootExtendedPrivateKey
         self.purpose = purpose

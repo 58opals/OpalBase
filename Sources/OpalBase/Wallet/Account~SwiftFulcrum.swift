@@ -22,14 +22,14 @@ extension Account {
         let spendingValue = sendings.map{ $0.value.uint64 }.reduce(0, +)
         guard spendingValue < accountBalance.uint64 else { throw Transaction.Error.insufficientFunds(required: spendingValue) }
         
-        var feeRate: UInt64
+        var selectedFeeRate: UInt64
         if let feePerByte = feePerByte {
-            feeRate = feePerByte
+            selectedFeeRate = feePerByte
         } else {
-            feeRate = try await feeEstimation.getRecommendedFeeRate()
+            selectedFeeRate = try await feeRate.getRecommendedFeeRate()
         }
         
-        let utxos = try await addressBook.selectUTXOs(targetAmount: Satoshi(spendingValue), feePerByte: feeRate, strategy: strategy)
+        let utxos = try await addressBook.selectUTXOs(targetAmount: Satoshi(spendingValue), feePerByte: selectedFeeRate, strategy: strategy)
         let spendableValue = utxos.map { $0.value }.reduce(0, +)
         
         let privateKeyPairs = try await addressBook.getPrivateKeys(for: utxos)
@@ -41,7 +41,7 @@ extension Account {
                                                             utxoPrivateKeyPairs: privateKeyPairs,
                                                             recipientOutputs: sendings.map { Transaction.Output(value: $0.value.uint64, address: $0.recipientAddress) },
                                                             changeOutput: Transaction.Output(value: remainingValue, address: changeAddress),
-                                                            feePerByte: feeRate,
+                                                            feePerByte: selectedFeeRate,
                                                             allowDustDonation: allowDustDonation)
         
         let broadcastRequest = { [self] in
