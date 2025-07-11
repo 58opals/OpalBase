@@ -88,6 +88,7 @@ extension Address.Book {
         }
         
         addressToEntry[address] = newEntry
+        notifyNewEntry(newEntry)
     }
 }
 

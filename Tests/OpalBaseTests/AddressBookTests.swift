@@ -161,10 +161,10 @@ extension AddressBookTests {
     @Test mutating func testUpdateCacheValidityDuration() async throws {
         let original = await addressBook.cacheValidityDuration
         #expect(original == 5, "Initial cache validity duration should match initializer.")
-
+        
         await addressBook.updateCacheValidityDuration(10)
         #expect(await addressBook.cacheValidityDuration == 10, "Cache validity duration should update.")
-
+        
         let entry = await addressBook.receivingEntries[0]
         #expect(entry.cache.validityDuration == 10, "Existing entries should reflect new duration.")
     }
@@ -237,6 +237,11 @@ private actor Flag {
     func mark() { value = true }
 }
 
+private actor Counter {
+    private(set) var count: Int = 0
+    func increment() { count += 1 }
+}
+
 extension AddressBookTests {
     @Test mutating func testHandleNotificationHook() async throws {
         let flag = Flag()
@@ -248,5 +253,24 @@ extension AddressBookTests {
         
         await addressBook.stopSubscription()
         #expect(await flag.value, "Notification hook should be executed")
+    }
+    
+    @Test func testAutoSubscribeNewAddress() async throws {
+        let flag = Flag()
+        
+        await addressBook.startSubscription(using: fulcrum) { await flag.mark() }
+        
+        try await addressBook.generateEntries(for: .receiving, numberOfNewEntries: 1, isUsed: false)
+        try await Task.sleep(nanoseconds: 100_000_000) // allow subscription setup
+        
+        if let subscription = await addressBook.currentSubscription {
+            let expected = await addressBook.receivingEntries.count + addressBook.changeEntries.count
+            
+            #expect(await subscription.activeSubscriptionCount == expected, "New address should be subscribed")
+            await subscription.handleNotification(fulcrum: fulcrum)
+        }
+        
+        await addressBook.stopSubscription()
+        #expect(await flag.value, "Notification hook should run for new address")
     }
 }

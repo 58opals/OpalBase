@@ -27,6 +27,7 @@ extension Address {
         
         var subscription: Subscription?
         var requestQueue: [() async throws -> Void] = .init()
+        var entryContinuations: [AsyncStream<Entry>.Continuation] = .init()
         
         init(rootExtendedPrivateKey: PrivateKey.Extended? = nil,
              rootExtendedPublicKey: PublicKey.Extended? = nil,
@@ -59,8 +60,6 @@ extension Address {
                 addressToEntry[entry.address] = entry
             }
         }
-        
-        
     }
 }
 
@@ -143,6 +142,22 @@ extension Address.Book {
         for index in changeEntries.indices {
             changeEntries[index].cache.validityDuration = newDuration
             addressToEntry[changeEntries[index].address] = changeEntries[index]
+        }
+    }
+}
+
+extension Address.Book {
+    private func addEntryContinuation(_ continuation: AsyncStream<Entry>.Continuation) {
+        entryContinuations.append(continuation)
+    }
+
+    func notifyNewEntry(_ entry: Entry) {
+        for continuation in entryContinuations { continuation.yield(entry) }
+    }
+
+    func observeNewEntries() -> AsyncStream<Entry> {
+        AsyncStream { continuation in
+            addEntryContinuation(continuation)
         }
     }
 }

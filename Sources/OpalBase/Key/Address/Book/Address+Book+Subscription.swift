@@ -9,7 +9,13 @@ extension Address.Book {
         private var isRunning: Bool = false
         private var cancelClosures: [() async -> Void] = .init()
         private var task: Task<Void, Never>?
+        private var newEntriesTask: Task<Void, Never>?
+        private var debounceTask: Task<Void, Never>?
+        private let debounceDuration: UInt64 = 100_000_000 // 100ms
+        private var subscriptionCount: Int = 0
         private let notificationHook: (@Sendable () async -> Void)?
+        
+        var activeSubscriptionCount: Int { subscriptionCount }
         
         init(book: Address.Book, notificationHook: (@Sendable () async -> Void)? = nil) {
             self.book = book
@@ -22,24 +28,21 @@ extension Address.Book.Subscription {
     public func start(fulcrum: Fulcrum) async {
         guard !isRunning else { return }
         isRunning = true
-        task = Task {
-            await withTaskGroup { group in
-                let entries = await book.receivingEntries + book.changeEntries
-                for entry in entries {
-                    group.addTask { [weak self] in
-                        guard let self else { return }
-                        do {
-                            let (_, _, _, stream, cancel) = try await entry.address.subscribe(fulcrum: fulcrum)
-                            await storeCancel(cancel)
-                            for try await _ in stream where await self.isRunning {
-                                await self.handleNotification(fulcrum: fulcrum)
-                            }
-                        } catch {
-                            // Ignore individual subscription failures
-                        }
-                    }
+        
+        setNewEntriesTask(
+            Task { [weak self] in
+                guard let self else { return }
+                for await entry in await book.observeNewEntries() {
+                    guard await self.isRunning else { break }
+                    await self.startSubscription(for: entry, fulcrum: fulcrum)
                 }
             }
+        )
+        
+        task = Task { [weak self] in
+            guard let self else { return }
+            let entries = await self.book.receivingEntries + self.book.changeEntries
+            for entry in entries { await self.startSubscription(for: entry, fulcrum: fulcrum) }
         }
     }
     
@@ -47,8 +50,13 @@ extension Address.Book.Subscription {
         isRunning = false
         for cancel in cancelClosures { await cancel() }
         cancelClosures.removeAll()
+        subscriptionCount = 0
         task?.cancel()
         task = nil
+        newEntriesTask?.cancel()
+        newEntriesTask = nil
+        debounceTask?.cancel()
+        debounceTask = nil
     }
 }
 
@@ -56,7 +64,47 @@ extension Address.Book.Subscription {
     private func storeCancel(_ cancel: @escaping () async -> Void) async {
         cancelClosures.append(cancel)
     }
+    
+    private func setNewEntriesTask(_ task: Task<Void, Never>) {
+        newEntriesTask = task
+    }
+    
+    private func startSubscription(for entry: Address.Book.Entry, fulcrum: Fulcrum) async {
+        subscriptionCount += 1
+        
+        Task { [weak self] in
+            guard let self else { return }
+            do {
+                let (_, _, _, stream, cancel) = try await entry.address.subscribe(fulcrum: fulcrum)
+                await storeCancel(cancel)
+                for try await _ in stream where await self.isRunning {
+                    await self.handleNotification(fulcrum: fulcrum)
+                }
+            } catch {
+                // Ignore individual subscription failures
+            }
+        }
+    }
 
+    private func scheduleNotification(fulcrum: Fulcrum) async {
+        debounceTask?.cancel()
+        debounceTask = Task { [weak self] in
+            guard let self else { return }
+            try? await Task.sleep(nanoseconds: self.debounceDuration)
+            await self.handleNotification(fulcrum: fulcrum)
+            await self.clearDebounce()
+        }
+    }
+    
+    private func clearDebounce() {
+        debounceTask?.cancel()
+        debounceTask = nil
+    }
+    
+    func triggerDebouncedNotification(for fulcrum: Fulcrum) async {
+        await scheduleNotification(fulcrum: fulcrum)
+    }
+    
     func handleNotification(fulcrum: Fulcrum) async {
         do {
             try await book.refreshUTXOSet(fulcrum: fulcrum)
