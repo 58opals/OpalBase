@@ -25,6 +25,7 @@ extension Address {
         
         var cacheValidityDuration: TimeInterval
         
+        var subscription: Subscription?
         var requestQueue: [() async throws -> Void] = .init()
         
         init(rootExtendedPrivateKey: PrivateKey.Extended? = nil,

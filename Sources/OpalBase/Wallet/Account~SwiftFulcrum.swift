@@ -73,4 +73,18 @@ extension Account {
         do { try await request() }
         catch { enqueueRequest(request) }
     }
+    
+    public func startAddressMonitoring() async {
+        let request = { [self] in
+            let fulcrum = try await fulcrumPool.getFulcrum()
+            await addressBook.startSubscription(using: fulcrum)
+        }
+        
+        do { try await request() }
+        catch { enqueueRequest(request) }
+    }
+    
+    public func stopAddressMonitoring() async {
+        await addressBook.stopSubscription()
+    }
 }

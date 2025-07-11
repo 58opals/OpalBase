@@ -231,3 +231,22 @@ extension AddressBookTests {
         #expect(combined.map { $0.hash } == expectedOrder, "Transactions should be deduplicated and ordered by time ascending.")
     }
 }
+
+private actor Flag {
+    private(set) var value: Bool = false
+    func mark() { value = true }
+}
+
+extension AddressBookTests {
+    @Test mutating func testHandleNotificationHook() async throws {
+        let flag = Flag()
+        
+        await addressBook.startSubscription(using: fulcrum) { await flag.mark() }
+        if let subscription = await addressBook.currentSubscription {
+            await subscription.handleNotification(fulcrum: fulcrum)
+        }
+        
+        await addressBook.stopSubscription()
+        #expect(await flag.value, "Notification hook should be executed")
+    }
+}
