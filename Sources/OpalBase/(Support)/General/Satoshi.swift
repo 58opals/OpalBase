@@ -20,7 +20,7 @@ public struct Satoshi {
     }
     
     public init(bch: Double) throws {
-        let satoshi = UInt64(bch * Double(Satoshi.perBCH))
+        let satoshi = UInt64((bch * Double(Satoshi.perBCH)).rounded())
         guard satoshi <= Satoshi.maximumSatoshi else { throw Error.exceedsMaximumAmount }
         self.uint64 = satoshi
     }

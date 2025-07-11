@@ -16,20 +16,20 @@ extension Account {
 }
 
 extension Account.Outbox {
-    func save(_ transactionData: Data) async throws {
+    func save(transactionData: Data) async throws {
         let hash = HASH256.hash(transactionData)
         let url = folderURL.appendingPathComponent(hash.hexadecimalString)
         try transactionData.write(to: url)
     }
     
-    func remove(hash: Data) async {
-        let url = folderURL.appendingPathComponent(hash.hexadecimalString)
+    func remove(transactionHashData: Data) async {
+        let url = folderURL.appendingPathComponent(transactionHashData.hexadecimalString)
         try? fileManager.removeItem(at: url)
     }
 }
-    
+
 extension Account.Outbox {
-    public func retry(using fulcrum: Fulcrum) async {
+    public func retryPendingTransactions(using fulcrum: Fulcrum) async {
         guard let urls = try? fileManager.contentsOfDirectory(at: folderURL, includingPropertiesForKeys: nil) else { return }
         for url in urls {
             do {
@@ -44,7 +44,7 @@ extension Account.Outbox {
         }
     }
     
-    public func purge() async {
+    public func purgeTransactions() async {
         guard let urls = try? fileManager.contentsOfDirectory(at: folderURL, includingPropertiesForKeys: nil) else { return }
         for url in urls { try? fileManager.removeItem(at: url) }
     }
@@ -53,10 +53,10 @@ extension Account.Outbox {
 extension Account {
     public func retryOutbox() async {
         guard let fulcrum = try? await fulcrumPool.getFulcrum() else { return }
-        await outbox.retry(using: fulcrum)
+        await outbox.retryPendingTransactions(using: fulcrum)
     }
-
+    
     public func purgeOutbox() async {
-        await outbox.purge()
+        await outbox.purgeTransactions()
     }
 }

@@ -17,14 +17,14 @@ struct OutboxTests {
 extension OutboxTests {
     @Test mutating func testPersistenceOnFailureAndPurge() async throws {
         let tx = Data([0xde, 0xad, 0xbe, 0xef])
-        try await outbox.save(tx)
+        try await outbox.save(transactionData: tx)
         #expect((try? FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil))?.count == 1, "Transaction should be stored")
 
         let badFulcrum = try Fulcrum(url: "wss://invalid.example.com")
-        await outbox.retry(using: badFulcrum)
+        await outbox.retryPendingTransactions(using: badFulcrum)
         #expect((try? FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil))?.count == 1, "Failed retry should keep file")
 
-        await outbox.purge()
+        await outbox.purgeTransactions()
         #expect((try? FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil))?.isEmpty ?? false, "Purge should clear files")
     }
 }
@@ -50,7 +50,7 @@ struct AccountOutboxAPITests {
 extension AccountOutboxAPITests {
     @Test mutating func testRetryAndPurgeViaAccount() async throws {
         let tx = Data([0xca, 0xfe])
-        try await account.outbox.save(tx)
+        try await account.outbox.save(transactionData: tx)
 
         await account.retryOutbox()
         #expect((try? FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil))?.count == 1, "Failed retry should keep file")

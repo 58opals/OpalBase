@@ -45,13 +45,13 @@ extension Account {
                                                             allowDustDonation: allowDustDonation)
         
         let transactionData = transaction.encode()
-        try await outbox.save(transactionData)
+        try await outbox.save(transactionData: transactionData)
         
         let broadcastRequest = { [self] in
             let fulcrum = try await fulcrumPool.getFulcrum()
             let response = try await transaction.broadcast(using: fulcrum)
             guard !response.isEmpty else { throw Transaction.Error.cannotBroadcastTransaction }
-            await outbox.remove(hash: HASH256.hash(transactionData))
+            await outbox.remove(transactionHashData: HASH256.hash(transactionData))
         }
         
         if await fulcrumPool.currentStatus == .online {

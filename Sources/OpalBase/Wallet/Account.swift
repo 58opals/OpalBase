@@ -114,7 +114,7 @@ extension Account {
                 await addressBook.processQueuedRequests()
                 
                 if let fulcrum = try? await fulcrumPool.getFulcrum() {
-                    await outbox.retry(using: fulcrum)
+                    await outbox.retryPendingTransactions(using: fulcrum)
                 }
             }
         }
