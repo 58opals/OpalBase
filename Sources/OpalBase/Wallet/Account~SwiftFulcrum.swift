@@ -44,10 +44,14 @@ extension Account {
                                                             feePerByte: selectedFeeRate,
                                                             allowDustDonation: allowDustDonation)
         
+        let transactionData = transaction.encode()
+        try await outbox.save(transactionData)
+        
         let broadcastRequest = { [self] in
             let fulcrum = try await fulcrumPool.getFulcrum()
             let response = try await transaction.broadcast(using: fulcrum)
             guard !response.isEmpty else { throw Transaction.Error.cannotBroadcastTransaction }
+            await outbox.remove(hash: HASH256.hash(transactionData))
         }
         
         if await fulcrumPool.currentStatus == .online {
@@ -57,7 +61,7 @@ extension Account {
             enqueueRequest(broadcastRequest)
         }
         
-        let manuallyGeneratedTransactionHash = Transaction.Hash(naturalOrder: HASH256.hash(transaction.encode()))
+        let manuallyGeneratedTransactionHash = Transaction.Hash(naturalOrder: HASH256.hash(transactionData))
         
         await addressBook.handleOutgoingTransaction(transaction)
         

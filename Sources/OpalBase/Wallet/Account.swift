@@ -16,6 +16,7 @@ public actor Account: Identifiable {
     public let id: Data
     
     public var addressBook: Address.Book
+    let outbox: Outbox
     
     private var requestQueue: [() async throws -> Void] = .init()
     
@@ -23,7 +24,8 @@ public actor Account: Identifiable {
          rootExtendedPrivateKey: PrivateKey.Extended,
          purpose: DerivationPath.Purpose,
          coinType: DerivationPath.CoinType,
-         account: DerivationPath.Account) async throws {
+         account: DerivationPath.Account,
+         outboxPath: URL? = nil) async throws {
         self.fulcrumPool = try .init(urls: fulcrumServerURLs)
         self.feeRate = .init(fulcrumPool: self.fulcrumPool)
         
@@ -44,6 +46,9 @@ public actor Account: Identifiable {
                                                   purpose: purpose,
                                                   coinType: coinType,
                                                   account: account)
+        
+        let folderURL = outboxPath ?? FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0].appendingPathComponent("accountOutbox")
+        self.outbox = try .init(folderURL: folderURL)
         
         Task { [weak self] in
             guard let self else { return }
@@ -107,6 +112,10 @@ extension Account {
             if status == .online {
                 await processQueuedRequests()
                 await addressBook.processQueuedRequests()
+                
+                if let fulcrum = try? await fulcrumPool.getFulcrum() {
+                    await outbox.retry(using: fulcrum)
+                }
             }
         }
     }
