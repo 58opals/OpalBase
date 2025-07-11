@@ -13,7 +13,10 @@ extension Address {
         return try await Address.fetchUnspentTransactionOutputs(in: self, using: fulcrum)
     }
     
-    public func fetchSimpleTransactionHistory(fromHeight: UInt? = nil, toHeight: UInt? = nil, includeUnconfirmed: Bool = true, fulcrum: Fulcrum) async throws -> [Transaction.Simple] {
+    public func fetchSimpleTransactionHistory(fromHeight: UInt? = nil,
+                                              toHeight: UInt? = nil,
+                                              includeUnconfirmed: Bool = true,
+                                              fulcrum: Fulcrum) async throws -> [Transaction.Simple] {
         return try await Address.fetchSimpleTransactionHistory(for: self,
                                                                fromHeight: fromHeight,
                                                                toHeight: toHeight,
@@ -21,12 +24,45 @@ extension Address {
                                                                using: fulcrum)
     }
     
-    public func fetchFullTransactionHistory(fromHeight: UInt? = nil, toHeight: UInt? = nil, includeUnconfirmed: Bool = true, fulcrum: Fulcrum) async throws -> [Transaction.Detailed] {
+    public func fetchSimpleTransactionHistoryPage(fromHeight: UInt? = nil,
+                                                  window: UInt,
+                                                  includeUnconfirmed: Bool = true,
+                                                  fulcrum: Fulcrum) async throws -> Address.Book.Page<Transaction.Simple> {
+        let startHeight = fromHeight ?? 0
+        let endHeight = (window == 0) ? nil : ((startHeight &+ window) &- 1)
+        let transactions = try await self.fetchSimpleTransactionHistory(fromHeight: startHeight,
+                                                                        toHeight: endHeight,
+                                                                        includeUnconfirmed: includeUnconfirmed,
+                                                                        fulcrum: fulcrum)
+        let nextHeight = endHeight.map { $0 &+ 1 }
+        
+        return .init(transactions: transactions, nextFromHeight: nextHeight)
+    }
+    
+    public func fetchFullTransactionHistory(fromHeight: UInt? = nil,
+                                            toHeight: UInt? = nil,
+                                            includeUnconfirmed: Bool = true,
+                                            fulcrum: Fulcrum) async throws -> [Transaction.Detailed] {
         return try await Address.fetchFullTransactionHistory(for: self,
                                                              fromHeight: fromHeight,
                                                              toHeight: toHeight,
                                                              includeUnconfirmed: includeUnconfirmed,
                                                              using: fulcrum)
+    }
+    
+    public func fetchFullTransactionHistoryPage(fromHeight: UInt? = nil,
+                                                window: UInt,
+                                                includeUnconfirmed: Bool = true,
+                                                fulcrum: Fulcrum) async throws -> Address.Book.Page<Transaction.Detailed> {
+        let startHeight = fromHeight ?? 0
+        let endHeight = (window == 0) ? nil : ((startHeight &+ window) &- 1)
+        let transactions = try await self.fetchFullTransactionHistory(fromHeight: startHeight,
+                                                                        toHeight: endHeight,
+                                                                        includeUnconfirmed: includeUnconfirmed,
+                                                                        fulcrum: fulcrum)
+        let nextHeight = endHeight.map { $0 &+ 1 }
+        
+        return .init(transactions: transactions, nextFromHeight: nextHeight)
     }
     
     public func subscribe(fulcrum: Fulcrum) async throws -> (requestedID: UUID,
@@ -83,14 +119,19 @@ extension Address {
         return unspentTransactionOutputs
     }
     
-    static func fetchSimpleTransactionHistory(for address: Address, fromHeight: UInt? = nil, toHeight: UInt? = nil, includeUnconfirmed: Bool = true, using fulcrum: Fulcrum) async throws -> [Transaction.Simple] {
-        let response = try await fulcrum.submit(method: .blockchain(.address(.getHistory(address: address.string, fromHeight: fromHeight, toHeight: toHeight, includeUnconfirmed: includeUnconfirmed))),
+    static func fetchSimpleTransactionHistory(for address: Address,
+                                              fromHeight: UInt? = nil,
+                                              toHeight: UInt? = nil,
+                                              includeUnconfirmed: Bool = true,
+                                              using fulcrum: Fulcrum) async throws -> [Transaction.Simple] {
+        let response = try await fulcrum.submit(method: .blockchain(.address(.getHistory(address: address.string,
+                                                                                         fromHeight: fromHeight,
+                                                                                         toHeight: toHeight,
+                                                                                         includeUnconfirmed: includeUnconfirmed))),
                                                 responseType: Response.Result.Blockchain.Address.GetHistory.self)
         guard case .single(let id, let result) = response else { throw Fulcrum.Error.coding(.decode(nil)) }
         
         assert(UUID(uuidString: id.uuidString) != nil, "Invalid UUID: \(id.uuidString)")
-        
-        
         
         let history = result.transactions
         let transactions = try history.map { historyItem in
@@ -113,7 +154,7 @@ extension Address {
             for simpleTransaction in simpleTransactions {
                 group.addTask {
                     let response = try await fulcrum.submit(method: .blockchain(.transaction(.get(transactionHash: simpleTransaction.transactionHash.externallyUsedFormat.hexadecimalString, verbose: true))),
-                                             responseType: Response.Result.Blockchain.Transaction.Get.self)
+                                                            responseType: Response.Result.Blockchain.Transaction.Get.self)
                     guard case .single(let id, let result) = response else { throw Fulcrum.Error.coding(.decode(nil)) }
                     
                     assert(UUID(uuidString: id.uuidString) != nil, "Invalid UUID: \(id.uuidString)")

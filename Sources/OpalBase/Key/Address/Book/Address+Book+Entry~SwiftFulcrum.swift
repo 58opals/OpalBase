@@ -125,6 +125,21 @@ extension Address.Book {
         
         return Address.Book.combineHistories(receiving: receivingTransactionHistory, change: changeTransactionHistory)
     }
+    
+    public func fetchCombinedHistoryPage(fromHeight: UInt? = nil,
+                                         window: UInt,
+                                         includeUnconfirmed: Bool = true,
+                                         using fulcrum: Fulcrum) async throws -> Address.Book.Page<Transaction.Detailed> {
+        let startHeight = fromHeight ?? 0
+        let endHeight = (window == 0) ? nil : ((startHeight &+ window) &- 1)
+        let transactions = try await self.fetchCombinedHistory(fromHeight: startHeight,
+                                                               toHeight: endHeight,
+                                                               includeUnconfirmed: includeUnconfirmed,
+                                                               using: fulcrum)
+        let nextHeight = endHeight.map { $0 &+ 1 }
+        
+        return .init(transactions: transactions, nextFromHeight: nextHeight)
+    }
 }
 
 extension Address.Book {

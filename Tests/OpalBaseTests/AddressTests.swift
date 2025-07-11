@@ -107,6 +107,34 @@ extension AddressTests {
         #expect(history.count == 16, "Transaction history count did not match expected.")
     }
     
+    @Test func testFetchSimpleTransactionHistoryPage() async throws {
+        let address = try Address(script: .p2pkh(hash: .init(publicKey: .init(privateKey: .init(wif: "Ky613uSeVQDEM89amKquEr6rZ1Xb7Mr3YDbbmyBT2zyppGChS9nU")))))
+        let page = try await address.fetchSimpleTransactionHistoryPage(window: 5, fulcrum: fulcrum)
+        
+        print(page.transactions)
+        print(page.transactions.count)
+        if let nextFromHeight = page.nextFromHeight {
+            print("Next from height: \(nextFromHeight)")
+        }
+        
+        #expect(address.string == "bitcoincash:qqe89pk7gjzxqedcsykmaa5wc8dt8zp57q5nuylgjw", "Address string did not match expected.")
+        #expect(page.transactions.count == 16, "Transaction history count did not match expected.")
+    }
+    
+    @Test func testFetchFullTransactionHistoryPage() async throws {
+        let address = try Address(script: .p2pkh(hash: .init(publicKey: .init(privateKey: .init(wif: "Ky613uSeVQDEM89amKquEr6rZ1Xb7Mr3YDbbmyBT2zyppGChS9nU")))))
+        let page = try await address.fetchFullTransactionHistoryPage(window: 5, fulcrum: fulcrum)
+        
+        print(page.transactions)
+        print(page.transactions.count)
+        if let nextFromHeight = page.nextFromHeight {
+            print("Next from height: \(nextFromHeight)")
+        }
+        
+        #expect(address.string == "bitcoincash:qqe89pk7gjzxqedcsykmaa5wc8dt8zp57q5nuylgjw", "Address string did not match expected.")
+        #expect(page.transactions.count == 16, "Transaction history count did not match expected.")
+    }
+    
     @Test func testSubscribe() async {
         do {
             let address = try Address("qqe89pk7gjzxqedcsykmaa5wc8dt8zp57q5nuylgjw")//Address(script: .p2pkh(hash: .init(publicKey: .init(privateKey: .init()))))
