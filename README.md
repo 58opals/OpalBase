@@ -6,14 +6,13 @@
 
 ## Features
 
-- **Seamless Integration**: Easy to incorporate into any iOS, iPadOS, macOS, watchOS, and visionOS project.
-- **Modern Swift Practices**: Utilizes the latest in Swift technology, including Protocols, Generics, Concurrency (async/await), and Error Handling.
-- **Advanced Network Interaction**: Integrates SwiftFulcrum to interact with the Bitcoin Cash network, enabling real-time transaction monitoring, balance updates, and blockchain interactions.
-- **Efficient Transactions**: Optimized for fast, cheap, and reliable peer-to-peer transactions, embracing the core advantages of Bitcoin Cash.
-- **Caching Mechanism**: Supports caching of balance data to improve efficiency when recalculating balances, reducing redundant network requests.
-- **UTXO Management**: Built-in functions to manage Unspent Transaction Outputs (UTXOs), including selection for transactions and updates.
-- **Security First**: Built with the highest security standards to ensure safe and secure transactions for users. Includes BIP-39 standard support for mnemonic seed address generation, enabling users to recover their wallets with a human-readable phrase in any other wallet.
-- **Open Source**: Encourages community collaboration and improvement, fully available for review and contributions.
+- **Cross-Platform Support**: Ready for iOS, iPadOS, macOS, watchOS, and visionOS apps.
+- **BIP‑39 Wallets**: Generate and restore wallets from mnemonic phrases.
+- **SwiftFulcrum Integration**: `async`/`await` APIs for live blockchain data, broadcasts, and subscriptions.
+- **Balance Caching**: Quickly read cached balances and update them on demand.
+- **Transaction & UTXO Management**: Create transactions, select UTXOs, and refresh sets as needed.
+- **Transaction History**: Fetch simple or detailed transaction lists for any address.
+- **Open Source**: Community driven and open to contributions.
 
 ## Installation
 
@@ -46,6 +45,8 @@ let mnemonic = try Mnemonic(words: [
 let wallet = Wallet(mnemonic: mnemonic)
 try await wallet.addAccount(unhardenedIndex: 0)
 let account = try wallet.getAccount(unhardenedIndex: 0)
+try await account.addressBook.refreshBalances(using: account.fulcrum)
+let history = try await account.addressBook.fetchDetailedTransactions(for: .receiving, using: account.fulcrum)
 ```
 
 ### Generating and Using an Address in the Account
@@ -81,6 +82,24 @@ let transactionHash = try await account.send(
     ]
 )
 print("Transaction successfully sent with hash: \(transactionHash)")
+```
+
+### Fetching Transaction History
+
+Retrieve detailed transaction information for your receiving addresses:
+
+```swift
+let history = try await account.addressBook.fetchDetailedTransactions(
+    for: .receiving,
+    using: account.fulcrum
+)
+print("Found \(history.count) transactions")
+```
+
+### Updating Address Usage Status
+
+```swift
+try await account.addressBook.updateAddressUsageStatus(using: account.fulcrum)
 ```
 
 ### Refreshing UTXO Set
