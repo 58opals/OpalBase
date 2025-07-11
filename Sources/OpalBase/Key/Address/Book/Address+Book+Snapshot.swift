@@ -92,19 +92,36 @@ extension Address.Book {
             }
         }
     }
-    
-    func saveSnapshot(to url: URL, using key: SymmetricKey) throws {
+}
+
+extension Address.Book {
+    public func saveSnapshot(to url: URL, using key: SymmetricKey? = nil) throws {
         let data = try JSONEncoder().encode(snapshot())
-        let sealed = try AES.GCM.seal(data, using: key)
-        guard let combined = sealed.combined else { return }
-        try combined.write(to: url)
+        let output: Data
+        
+        if let key {
+            let sealed = try AES.GCM.seal(data, using: key)
+            guard let combined = sealed.combined else { return }
+            output = combined
+        } else {
+            output = data
+        }
+        
+        try output.write(to: url)
     }
     
-    func loadSnapshot(from url: URL, using key: SymmetricKey) throws {
+    public func loadSnapshot(from url: URL, using key: SymmetricKey? = nil) throws {
         let data = try Data(contentsOf: url)
-        let sealed = try AES.GCM.SealedBox(combined: data)
-        let decrypted = try AES.GCM.open(sealed, using: key)
-        let snap = try JSONDecoder().decode(Snapshot.self, from: decrypted)
+        let input: Data
+        
+        if let key {
+            let sealed = try AES.GCM.SealedBox(combined: data)
+            input = try AES.GCM.open(sealed, using: key)
+        } else {
+            input = data
+        }
+        
+        let snap = try JSONDecoder().decode(Snapshot.self, from: input)
         try applySnapshot(snap)
     }
 }
