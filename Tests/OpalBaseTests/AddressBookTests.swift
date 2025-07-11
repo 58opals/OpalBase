@@ -22,7 +22,8 @@ struct AddressBookTests {
                                            purpose: purpose,
                                            coinType: coinType,
                                            account: account,
-                                           gapLimit: 20)
+                                           gapLimit: 20,
+                                           cacheValidityDuration: 5)
         
         try await self.fulcrum.start()
     }
@@ -155,6 +156,17 @@ extension AddressBookTests {
         
         let balance2 = try await addressBook.getBalanceFromCache(address: address)
         #expect(balance2?.uint64 == 400_000, "Updated cached balance should be 400,000 satoshis.")
+    }
+    
+    @Test mutating func testUpdateCacheValidityDuration() async throws {
+        let original = await addressBook.cacheValidityDuration
+        #expect(original == 5, "Initial cache validity duration should match initializer.")
+
+        await addressBook.updateCacheValidityDuration(10)
+        #expect(await addressBook.cacheValidityDuration == 10, "Cache validity duration should update.")
+
+        let entry = await addressBook.receivingEntries[0]
+        #expect(entry.cache.validityDuration == 10, "Existing entries should reflect new duration.")
     }
     
     @Test mutating func testFindEntryForNonExistentAddress() async throws {

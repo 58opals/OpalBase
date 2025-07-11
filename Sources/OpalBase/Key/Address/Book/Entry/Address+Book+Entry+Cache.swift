@@ -7,7 +7,7 @@ extension Address.Book.Entry {
     struct Cache {
         var balance: Satoshi?
         var lastUpdated: Date?
-        let validityDuration: TimeInterval = 60 * 10
+        var validityDuration: TimeInterval = 10 * 60
         
         var isValid: Bool { if let lastUpdated { return (Date().timeIntervalSince(lastUpdated) < validityDuration) } else { return false } }
     }
@@ -18,7 +18,9 @@ extension Address.Book {
                      with balance: Satoshi) throws {
         guard let existingEntry = findEntry(for: address) else { throw Error.entryNotFound }
         
-        let newCache = Entry.Cache(balance: balance, lastUpdated: .now)
+        let newCache = Entry.Cache(balance: balance,
+                                   lastUpdated: .now,
+                                   validityDuration: cacheValidityDuration)
         let newEntry = Entry(derivationPath: existingEntry.derivationPath,
                              address: address,
                              isUsed: existingEntry.isUsed,

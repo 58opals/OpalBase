@@ -79,7 +79,8 @@ extension Address.Book {
         
         let newEntry = Entry(derivationPath: derivationPath,
                              address: address,
-                             isUsed: isUsed)
+                             isUsed: isUsed,
+                             cache: .init(validityDuration: cacheValidityDuration))
         
         switch usage {
         case .receiving: receivingEntries.append(newEntry)

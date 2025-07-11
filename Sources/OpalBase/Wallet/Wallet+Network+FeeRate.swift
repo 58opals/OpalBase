@@ -22,7 +22,7 @@ extension Wallet.Network {
             return max(estimated.uint64, relay.uint64)
         }
         
-        public func getRecommendedFeeRate(for tier: Tier) async throws -> UInt64 {
+        public func getRecommendedFeeRate(for tier: Tier = .fast) async throws -> UInt64 {
             if let cached = cachedRates[tier], cached.isValid(for: cacheThreshold) {
                 return cached.value
             }

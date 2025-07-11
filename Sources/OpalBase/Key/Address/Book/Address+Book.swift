@@ -23,6 +23,8 @@ extension Address {
         let gapLimit: Int
         let maxIndex = UInt32.max
         
+        var cacheValidityDuration: TimeInterval
+        
         var requestQueue: [() async throws -> Void] = .init()
         
         init(rootExtendedPrivateKey: PrivateKey.Extended? = nil,
@@ -30,7 +32,8 @@ extension Address {
              purpose: DerivationPath.Purpose,
              coinType: DerivationPath.CoinType,
              account: DerivationPath.Account,
-             gapLimit: Int = 20) async throws {
+             gapLimit: Int = 20,
+             cacheValidityDuration: TimeInterval = 10 * 60) async throws {
             self.rootExtendedPrivateKey = rootExtendedPrivateKey
             
             if let extendedPrivateKey = rootExtendedPrivateKey {
@@ -46,6 +49,8 @@ extension Address {
             self.account = account
             
             self.gapLimit = gapLimit
+            
+            self.cacheValidityDuration = cacheValidityDuration
             
             try initializeEntries()
             
@@ -121,6 +126,22 @@ extension Address.Book {
             ) {
                 removeUTXO(utxo)
             }
+        }
+    }
+}
+
+extension Address.Book {
+    public func updateCacheValidityDuration(_ newDuration: TimeInterval) {
+        cacheValidityDuration = newDuration
+        
+        for index in receivingEntries.indices {
+            receivingEntries[index].cache.validityDuration = newDuration
+            addressToEntry[receivingEntries[index].address] = receivingEntries[index]
+        }
+        
+        for index in changeEntries.indices {
+            changeEntries[index].cache.validityDuration = newDuration
+            addressToEntry[changeEntries[index].address] = changeEntries[index]
         }
     }
 }
