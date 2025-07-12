@@ -2,7 +2,7 @@
 
 import Foundation
 
-public struct DerivationPath {
+struct DerivationPath {
     let purpose: Purpose
     let coinType: CoinType
     var account: Account
@@ -21,7 +21,7 @@ public struct DerivationPath {
         self.index = index
     }
     
-    public var path: String {
+    var path: String {
         do {
             return try "m/\(purpose.hardenedIndex.unharden())'/\(coinType.hardenedIndex.unharden())'/\(account.unhardenedIndex.harden())'/\(usage.unhardenedIndex)/\(index)"
         } catch {
@@ -34,10 +34,10 @@ public struct DerivationPath {
 }
 
 extension DerivationPath {
-    public enum Purpose {
+    enum Purpose {
         case bip44
         
-        public init?(hardenedIndex: UInt32) {
+        init?(hardenedIndex: UInt32) {
             switch hardenedIndex {
             case 44:
                 self = .bip44
@@ -62,11 +62,11 @@ extension DerivationPath {
         }
     }
     
-    public enum CoinType {
+    enum CoinType {
         case bitcoin
         case bitcoinCash
         
-        public init?(hardenedIndex: UInt32) {
+        init?(hardenedIndex: UInt32) {
             switch hardenedIndex {
             case 0:
                 self = .bitcoin
@@ -98,10 +98,10 @@ extension DerivationPath {
         }
     }
     
-    public struct Account {
+    struct Account {
         private(set) var unhardenedIndex: UInt32
         
-        public init(rawIndexInteger: UInt32) throws {
+        init(rawIndexInteger: UInt32) throws {
             guard rawIndexInteger < 0x80000000 else { throw Error.indexOverflow }
             self.init(unhardenedIndex: rawIndexInteger)
         }
@@ -127,7 +127,7 @@ extension DerivationPath {
         }
     }
     
-    public enum Usage {
+    enum Usage {
         case receiving
         case change
         
@@ -145,7 +145,7 @@ extension DerivationPath {
 // MARK: -
 
 extension DerivationPath: Hashable {
-    public static func == (lhs: DerivationPath, rhs: DerivationPath) -> Bool {
+    static func == (lhs: DerivationPath, rhs: DerivationPath) -> Bool {
         lhs.path == rhs.path
     }
 }
@@ -154,7 +154,7 @@ extension DerivationPath: Sendable {}
 // MARK: -
 
 extension DerivationPath.Purpose: Hashable {
-    public static func == (lhs: DerivationPath.Purpose, rhs: DerivationPath.Purpose) -> Bool {
+    static func == (lhs: DerivationPath.Purpose, rhs: DerivationPath.Purpose) -> Bool {
         lhs.hardenedIndex == rhs.hardenedIndex
     }
 }
@@ -163,7 +163,7 @@ extension DerivationPath.Purpose: Sendable {}
 // MARK: -
 
 extension DerivationPath.CoinType: Hashable {
-    public static func == (lhs: DerivationPath.CoinType, rhs: DerivationPath.CoinType) -> Bool {
+    static func == (lhs: DerivationPath.CoinType, rhs: DerivationPath.CoinType) -> Bool {
         lhs.hardenedIndex == rhs.hardenedIndex
     }
 }
@@ -172,7 +172,7 @@ extension DerivationPath.CoinType: Sendable {}
 // MARK: -
 
 extension DerivationPath.Account: Hashable {
-    public static func == (lhs: DerivationPath.Account, rhs: DerivationPath.Account) -> Bool {
+    static func == (lhs: DerivationPath.Account, rhs: DerivationPath.Account) -> Bool {
         lhs.unhardenedIndex == rhs.unhardenedIndex
     }
 }
@@ -181,14 +181,14 @@ extension DerivationPath.Account: Sendable {}
 // MARK: -
 
 extension DerivationPath.Usage: Hashable {
-    public static func == (lhs: DerivationPath.Usage, rhs: DerivationPath.Usage) -> Bool {
+    static func == (lhs: DerivationPath.Usage, rhs: DerivationPath.Usage) -> Bool {
         lhs.unhardenedIndex == rhs.unhardenedIndex
     }
 }
 extension DerivationPath.Usage: Sendable {}
 
 extension DerivationPath.Usage: Codable {
-    public init(from decoder: Decoder) throws {
+    init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
         let value = try container.decode(String.self)
         switch value {
@@ -198,7 +198,7 @@ extension DerivationPath.Usage: Codable {
         }
     }
 
-    public func encode(to encoder: Encoder) throws {
+    func encode(to encoder: Encoder) throws {
         var container = encoder.singleValueContainer()
         switch self {
         case .receiving: try container.encode("receiving")
@@ -210,31 +210,31 @@ extension DerivationPath.Usage: Codable {
 // MARK: -
 
 extension DerivationPath: CustomDebugStringConvertible {
-    public var debugDescription: String {
+    var debugDescription: String {
         return path
     }
 }
 
 extension DerivationPath.Purpose: CustomStringConvertible {
-    public var description: String {
+    var description: String {
         return "\(unhardenedIndex)'"
     }
 }
 
 extension DerivationPath.CoinType: CustomStringConvertible {
-    public var description: String {
+    var description: String {
         return "\(unhardenedIndex)'"
     }
 }
 
 extension DerivationPath.Account: CustomStringConvertible {
-    public var description: String {
+    var description: String {
         return "\(unhardenedIndex)'"
     }
 }
 
 extension DerivationPath.Usage: CustomStringConvertible {
-    public var description: String {
+    var description: String {
         return "\(unhardenedIndex)"
     }
 }

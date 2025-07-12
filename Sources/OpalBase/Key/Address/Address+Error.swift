@@ -3,7 +3,7 @@
 import Foundation
 
 extension Address {
-    public enum Error: Swift.Error {
+    enum Error: Swift.Error {
         case invalidCharacter(Character)
         case invalidCashAddressFormat
         case invalidChecksum

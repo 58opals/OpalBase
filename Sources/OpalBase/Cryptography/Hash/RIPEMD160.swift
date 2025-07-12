@@ -7,7 +7,7 @@ struct RIPEMD160 {
     private var messageBuffer: Data
     private var processedBytesCount: Int64 // Total number of bytes processed.
 
-    public init() {
+    init() {
         hashState = (0x67452301, 0xefcdab89, 0x98badcfe, 0x10325476, 0xc3d2e1f0)
         messageBuffer = Data()
         processedBytesCount = 0
@@ -56,7 +56,7 @@ extension RIPEMD160 {
         processedBytesCount += Int64(data.count)
     }
 
-    public mutating func finalize() -> Data {
+    mutating func finalize() -> Data {
         var words = [UInt32](repeating: 0, count: 16)
         // Append the bit m_n == 1
         messageBuffer.append(0x80)

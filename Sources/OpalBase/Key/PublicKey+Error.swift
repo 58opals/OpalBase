@@ -3,7 +3,7 @@
 import Foundation
 
 extension PublicKey {
-    public enum Error: Swift.Error {
+    enum Error: Swift.Error {
         case invalidFormat
         case invalidLength
         case invalidVersion

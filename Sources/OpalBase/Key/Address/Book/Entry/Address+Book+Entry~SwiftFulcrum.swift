@@ -80,7 +80,7 @@ extension Address.Book {
         return mergedTransactions
     }
     
-    public func fetchDetailedTransactions(for usage: DerivationPath.Usage,
+    func fetchDetailedTransactions(for usage: DerivationPath.Usage,
                                           fromHeight: UInt? = nil,
                                           toHeight: UInt? = nil,
                                           includeUnconfirmed: Bool = true,
@@ -107,7 +107,7 @@ extension Address.Book {
         return allDetailedTransactions
     }
     
-    public func fetchCombinedHistory(fromHeight: UInt? = nil,
+    func fetchCombinedHistory(fromHeight: UInt? = nil,
                                      toHeight: UInt? = nil,
                                      includeUnconfirmed: Bool = true,
                                      using fulcrum: Fulcrum) async throws -> [Transaction.Detailed] {
@@ -126,7 +126,7 @@ extension Address.Book {
         return Address.Book.combineHistories(receiving: receivingTransactionHistory, change: changeTransactionHistory)
     }
     
-    public func fetchCombinedHistoryPage(fromHeight: UInt? = nil,
+    func fetchCombinedHistoryPage(fromHeight: UInt? = nil,
                                          window: UInt,
                                          includeUnconfirmed: Bool = true,
                                          using fulcrum: Fulcrum) async throws -> Address.Book.Page<Transaction.Detailed> {
@@ -143,7 +143,7 @@ extension Address.Book {
 }
 
 extension Address.Book {
-    public func refreshUsedStatus(fulcrum: Fulcrum) async throws {
+    func refreshUsedStatus(fulcrum: Fulcrum) async throws {
         try await refreshUsedStatus(for: .receiving, fulcrum: fulcrum)
         try await refreshUsedStatus(for: .change, fulcrum: fulcrum)
     }
@@ -172,7 +172,7 @@ extension Address.Book {
 }
 
 extension Address.Book {
-    public func updateAddressUsageStatus(using fulcrum: Fulcrum) async throws {
+    func updateAddressUsageStatus(using fulcrum: Fulcrum) async throws {
         try await withThrowingTaskGroup(of: Void.self) { group in
             group.addTask { try await self.updateAddressUsageStatus(for: .receiving, using: fulcrum) }
             group.addTask { try await self.updateAddressUsageStatus(for: .change, using: fulcrum) }
@@ -215,7 +215,7 @@ extension Address.Book {
         getUsedEntries(for: .receiving).count + getUsedEntries(for: .change).count
     }
     
-    public func scanForUsedAddresses(using fulcrum: Fulcrum) async throws {
+    func scanForUsedAddresses(using fulcrum: Fulcrum) async throws {
         var previousUsedCount = countUsedEntries()
         
         repeat {

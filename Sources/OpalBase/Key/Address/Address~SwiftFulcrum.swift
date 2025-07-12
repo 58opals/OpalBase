@@ -5,15 +5,15 @@ import BigInt
 import SwiftFulcrum
 
 extension Address {
-    public func fetchBalance(includeUnconfirmed: Bool = true, using fulcrum: Fulcrum) async throws -> Satoshi {
+    func fetchBalance(includeUnconfirmed: Bool = true, using fulcrum: Fulcrum) async throws -> Satoshi {
         return try await Address.fetchBalance(for: self, includeUnconfirmed: includeUnconfirmed, using: fulcrum)
     }
     
-    public func fetchUnspentTransactionOutputs(fulcrum: Fulcrum) async throws -> [Transaction.Output.Unspent] {
+    func fetchUnspentTransactionOutputs(fulcrum: Fulcrum) async throws -> [Transaction.Output.Unspent] {
         return try await Address.fetchUnspentTransactionOutputs(in: self, using: fulcrum)
     }
     
-    public func fetchSimpleTransactionHistory(fromHeight: UInt? = nil,
+    func fetchSimpleTransactionHistory(fromHeight: UInt? = nil,
                                               toHeight: UInt? = nil,
                                               includeUnconfirmed: Bool = true,
                                               fulcrum: Fulcrum) async throws -> [Transaction.Simple] {
@@ -24,7 +24,7 @@ extension Address {
                                                                using: fulcrum)
     }
     
-    public func fetchSimpleTransactionHistoryPage(fromHeight: UInt? = nil,
+    func fetchSimpleTransactionHistoryPage(fromHeight: UInt? = nil,
                                                   window: UInt,
                                                   includeUnconfirmed: Bool = true,
                                                   fulcrum: Fulcrum) async throws -> Address.Book.Page<Transaction.Simple> {
@@ -39,7 +39,7 @@ extension Address {
         return .init(transactions: transactions, nextFromHeight: nextHeight)
     }
     
-    public func fetchFullTransactionHistory(fromHeight: UInt? = nil,
+    func fetchFullTransactionHistory(fromHeight: UInt? = nil,
                                             toHeight: UInt? = nil,
                                             includeUnconfirmed: Bool = true,
                                             fulcrum: Fulcrum) async throws -> [Transaction.Detailed] {
@@ -50,7 +50,7 @@ extension Address {
                                                              using: fulcrum)
     }
     
-    public func fetchFullTransactionHistoryPage(fromHeight: UInt? = nil,
+    func fetchFullTransactionHistoryPage(fromHeight: UInt? = nil,
                                                 window: UInt,
                                                 includeUnconfirmed: Bool = true,
                                                 fulcrum: Fulcrum) async throws -> Address.Book.Page<Transaction.Detailed> {
@@ -65,7 +65,7 @@ extension Address {
         return .init(transactions: transactions, nextFromHeight: nextHeight)
     }
     
-    public func subscribe(fulcrum: Fulcrum) async throws -> (requestedID: UUID,
+    func subscribe(fulcrum: Fulcrum) async throws -> (requestedID: UUID,
                                                              subscriptionID: String,
                                                              initialStatus: String,
                                                              followingStatus: AsyncThrowingStream<Response.Result.Blockchain.Address.SubscribeNotification, Swift.Error>,

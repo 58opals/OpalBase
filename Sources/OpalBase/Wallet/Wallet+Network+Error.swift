@@ -1,7 +1,7 @@
 // Wallet+Network+Error.swift
 
 extension Wallet.Network {
-    public enum Error: Swift.Error {
+    enum Error: Swift.Error {
         case noHealthyServer
     }
 }

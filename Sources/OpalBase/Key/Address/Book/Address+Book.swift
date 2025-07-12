@@ -4,7 +4,7 @@ import Foundation
 import SwiftFulcrum
 
 extension Address {
-    public actor Book {
+    actor Book {
         private let rootExtendedPrivateKey: PrivateKey.Extended?
         private let rootExtendedPublicKey: PublicKey.Extended
         private let purpose: DerivationPath.Purpose
@@ -131,7 +131,7 @@ extension Address.Book {
 }
 
 extension Address.Book {
-    public func updateCacheValidityDuration(_ newDuration: TimeInterval) {
+    func updateCacheValidityDuration(_ newDuration: TimeInterval) {
         cacheValidityDuration = newDuration
         
         for index in receivingEntries.indices {

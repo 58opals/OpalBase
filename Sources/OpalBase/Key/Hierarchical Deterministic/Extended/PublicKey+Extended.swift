@@ -4,14 +4,14 @@ import Foundation
 import BigInt
 
 extension PublicKey {
-    public struct Extended {
+    struct Extended {
         let publicKey: Data
         let chainCode: Data
         let depth: UInt8
         let parentFingerprint: Data
         let childIndexNumber: UInt32
         
-        public init(publicKey: Data, chainCode: Data, depth: UInt8, parentFingerprint: Data, childIndexNumber: UInt32) {
+        init(publicKey: Data, chainCode: Data, depth: UInt8, parentFingerprint: Data, childIndexNumber: UInt32) {
             self.publicKey = publicKey
             self.chainCode = chainCode
             self.depth = depth
@@ -19,7 +19,7 @@ extension PublicKey {
             self.childIndexNumber = childIndexNumber
         }
         
-        public init(xpub: String) throws {
+        init(xpub: String) throws {
             guard let data = Base58.decode(xpub) else { throw Error.invalidFormat }
             guard data.count == 82 else { throw Error.invalidLength }
             let version = UInt32(bigEndian: data[0..<4].withUnsafeBytes { $0.load(as: UInt32.self) })
@@ -31,7 +31,7 @@ extension PublicKey {
             self.publicKey = Data(data[45..<78])
         }
         
-        public init(extendedPrivateKey: PrivateKey.Extended) throws {
+        init(extendedPrivateKey: PrivateKey.Extended) throws {
             self.publicKey = try PublicKey(privateKey: .init(data: extendedPrivateKey.privateKey)).compressedData
             self.chainCode = extendedPrivateKey.chainCode
             self.depth = extendedPrivateKey.depth
@@ -42,7 +42,7 @@ extension PublicKey {
 }
 
 extension PublicKey.Extended: Hashable {
-    public static func == (lhs: PublicKey.Extended, rhs: PublicKey.Extended) -> Bool {
+    static func == (lhs: PublicKey.Extended, rhs: PublicKey.Extended) -> Bool {
         lhs.publicKey == rhs.publicKey &&
         lhs.chainCode == rhs.chainCode &&
         lhs.depth == rhs.depth &&
@@ -52,7 +52,7 @@ extension PublicKey.Extended: Hashable {
 }
 
 extension PublicKey.Extended: CustomDebugStringConvertible {
-    public var debugDescription: String {
+    var debugDescription: String {
         """
         ExtendedPublicKey(
             publicKey: \(publicKey.hexadecimalString),
@@ -111,7 +111,7 @@ extension PublicKey.Extended {
 }
 
 extension PublicKey.Extended {
-    public var address: String {
+    var address: String {
         Base58.encode(serialize())
     }
     

@@ -3,17 +3,17 @@
 import Foundation
 
 extension Wallet.Network {
-    public actor FeeRate {
+    actor FeeRate {
         private let fulcrumPool: Wallet.Network.FulcrumPool
         private let cacheThreshold: TimeInterval
         private var cachedRates: [Tier: CachedRate] = .init()
         
-        public init(fulcrumPool: Wallet.Network.FulcrumPool, cacheThreshold: TimeInterval = 10 * 60) {
+        init(fulcrumPool: Wallet.Network.FulcrumPool, cacheThreshold: TimeInterval = 10 * 60) {
             self.fulcrumPool = fulcrumPool
             self.cacheThreshold = cacheThreshold
         }
         
-        public func fetchFeeRate(for tier: Tier) async throws -> UInt64 {
+        func fetchFeeRate(for tier: Tier) async throws -> UInt64 {
             let fulcrum = try await fulcrumPool.getFulcrum()
             
             let estimated = try await Transaction.estimateFee(numberOfBlocks: tier.targetBlocks, using: fulcrum)
@@ -22,7 +22,7 @@ extension Wallet.Network {
             return max(estimated.uint64, relay.uint64)
         }
         
-        public func getRecommendedFeeRate(for tier: Tier = .fast) async throws -> UInt64 {
+        func getRecommendedFeeRate(for tier: Tier = .fast) async throws -> UInt64 {
             if let cached = cachedRates[tier], cached.isValid(for: cacheThreshold) {
                 return cached.value
             }
@@ -35,7 +35,7 @@ extension Wallet.Network {
 }
 
 extension Wallet.Network.FeeRate {
-    public enum Tier: Sendable {
+    enum Tier: Sendable {
         case slow
         case normal
         case fast

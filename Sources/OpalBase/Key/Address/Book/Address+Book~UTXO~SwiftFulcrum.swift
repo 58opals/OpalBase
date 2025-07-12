@@ -4,7 +4,7 @@ import Foundation
 import SwiftFulcrum
 
 extension Address.Book {
-    public func refreshUTXOSet(fulcrum: Fulcrum) async throws {
+    func refreshUTXOSet(fulcrum: Fulcrum) async throws {
         var updatedUTXOs = [Transaction.Output.Unspent]()
         
         for entry in (receivingEntries + changeEntries) {

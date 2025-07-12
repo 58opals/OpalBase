@@ -23,7 +23,7 @@ extension PublicKey {
         return hash
     }
     
-    public struct Hash {
+    struct Hash {
         let data: Data
         
         init(_ data: Data) {

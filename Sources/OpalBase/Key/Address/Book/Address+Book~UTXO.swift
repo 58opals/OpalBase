@@ -29,7 +29,7 @@ extension Address.Book {
 }
 
 extension Address.Book {
-    public func selectUTXOs(targetAmount: Satoshi,
+    func selectUTXOs(targetAmount: Satoshi,
                             feePerByte: UInt64 = 1,
                             strategy: CoinSelection = .greedyLargestFirst) throws -> [Transaction.Output.Unspent] {
         switch strategy {
