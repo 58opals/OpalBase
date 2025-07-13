@@ -6,12 +6,12 @@ public actor Wallet: Identifiable {
     public let mnemonic: Mnemonic
     public let passphrase: String
     
-    private let purpose: DerivationPath.Purpose
-    private let coinType: DerivationPath.CoinType
+    let purpose: DerivationPath.Purpose
+    let coinType: DerivationPath.CoinType
     
     public let id: Data
     
-    private(set) var accounts: [Account] = .init()
+    var accounts: [Account] = .init()
     
     public init(mnemonic: Mnemonic,
                 purpose: DerivationPath.Purpose = .bip44,

@@ -4,7 +4,7 @@ import Foundation
 import SwiftFulcrum
 
 extension Address {
-    actor Book {
+    public actor Book {
         private let rootExtendedPrivateKey: PrivateKey.Extended?
         private let rootExtendedPublicKey: PublicKey.Extended
         private let purpose: DerivationPath.Purpose

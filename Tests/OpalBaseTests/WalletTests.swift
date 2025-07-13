@@ -1,5 +1,6 @@
 import Testing
 import Foundation
+import CryptoKit
 import SwiftFulcrum
 @testable import OpalBase
 
@@ -50,5 +51,54 @@ extension WalletTests {
         let totalBalance = try await wallet.getBalance()
         
         #expect(totalBalance.uint64 == 0, "Total balance should be 0 satoshis for a new wallet.")
+    }
+}
+
+extension WalletTests {
+    @Test mutating func testSnapshotSaveLoad() async throws {
+        try await wallet.addAccount(unhardenedIndex: 0)
+
+        let account = try await wallet.getAccount(unhardenedIndex: 0)
+        let entry = await account.addressBook.receivingEntries[0]
+        try await account.addressBook.updateCache(for: entry.address, with: try Satoshi(123))
+        try await account.addressBook.mark(address: entry.address, isUsed: true)
+
+        let key = SymmetricKey(size: .bits256)
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+
+        try await wallet.saveSnapshot(to: url, using: key)
+
+        let newWallet = await Wallet(mnemonic: wallet.mnemonic)
+        try await newWallet.loadSnapshot(from: url, using: key)
+
+        let restoredAccount = try await newWallet.getAccount(unhardenedIndex: 0)
+        let restoredEntry = await restoredAccount.addressBook.findEntry(for: entry.address)
+        let restoredBalance = try await restoredAccount.addressBook.getBalanceFromCache(address: entry.address)
+
+        #expect(restoredEntry?.isUsed == true, "Used flag should restore")
+        #expect(restoredBalance?.uint64 == 123, "Balance should restore")
+    }
+
+    @Test mutating func testSnapshotSaveLoadWithoutKey() async throws {
+        try await wallet.addAccount(unhardenedIndex: 0)
+
+        let account = try await wallet.getAccount(unhardenedIndex: 0)
+        let entry = await account.addressBook.receivingEntries[0]
+        try await account.addressBook.updateCache(for: entry.address, with: try Satoshi(123))
+        try await account.addressBook.mark(address: entry.address, isUsed: true)
+
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+
+        try await wallet.saveSnapshot(to: url)
+
+        let newWallet = await Wallet(mnemonic: wallet.mnemonic)
+        try await newWallet.loadSnapshot(from: url)
+
+        let restoredAccount = try await newWallet.getAccount(unhardenedIndex: 0)
+        let restoredEntry = await restoredAccount.addressBook.findEntry(for: entry.address)
+        let restoredBalance = try await restoredAccount.addressBook.getBalanceFromCache(address: entry.address)
+
+        #expect(restoredEntry?.isUsed == true, "Used flag should restore")
+        #expect(restoredBalance?.uint64 == 123, "Balance should restore")
     }
 }

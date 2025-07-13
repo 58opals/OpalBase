@@ -27,7 +27,7 @@ extension Address.Book {
 }
 
 extension Address.Book {
-    func snapshot() -> Snapshot {
+    func getSnapshot() -> Snapshot {
         let receiving = receivingEntries.map { entry in
             Snapshot.Entry(usage: entry.derivationPath.usage,
                            index: entry.derivationPath.index,
@@ -96,7 +96,7 @@ extension Address.Book {
 
 extension Address.Book {
     func saveSnapshot(to url: URL, using key: SymmetricKey? = nil) throws {
-        let data = try JSONEncoder().encode(snapshot())
+        let data = try JSONEncoder().encode(getSnapshot())
         let output: Data
         
         if let key {

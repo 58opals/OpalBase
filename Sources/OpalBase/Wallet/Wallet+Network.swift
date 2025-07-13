@@ -1,5 +1,5 @@
 // Wallet+Network.swift
 
 extension Wallet {
-    struct Network {}
+    public struct Network {}
 }

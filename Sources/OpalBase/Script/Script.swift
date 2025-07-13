@@ -2,7 +2,7 @@
 
 import Foundation
 
-enum Script {
+public enum Script {
     case p2pk(publicKey: PublicKey)
     case p2pkh(hash: PublicKey.Hash)
     case p2ms(numberOfRequiredSignatures: Int, publicKeys: [PublicKey])
@@ -129,11 +129,11 @@ extension Script {
 
 
 extension Script: Hashable {
-    static func == (lhs: Script, rhs: Script) -> Bool {
+    public static func == (lhs: Script, rhs: Script) -> Bool {
         lhs.data == rhs.data
     }
     
-    func hash(into hasher: inout Hasher) {
+    public func hash(into hasher: inout Hasher) {
         hasher.combine(self.data)
     }
 }

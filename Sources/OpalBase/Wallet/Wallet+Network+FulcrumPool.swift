@@ -4,7 +4,7 @@ import Foundation
 import SwiftFulcrum
 
 extension Wallet.Network {
-    actor FulcrumPool {
+    public actor FulcrumPool {
         struct Server {
             let fulcrum: Fulcrum
             var failureCount: Int = 0

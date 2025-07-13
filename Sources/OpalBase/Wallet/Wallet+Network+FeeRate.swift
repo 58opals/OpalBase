@@ -3,7 +3,7 @@
 import Foundation
 
 extension Wallet.Network {
-    actor FeeRate {
+    public actor FeeRate {
         private let fulcrumPool: Wallet.Network.FulcrumPool
         private let cacheThreshold: TimeInterval
         private var cachedRates: [Tier: CachedRate] = .init()
