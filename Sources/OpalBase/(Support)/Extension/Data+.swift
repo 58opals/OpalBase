@@ -74,3 +74,13 @@ extension Data {
     }
 }
 
+extension Array<Data> {
+    func generateID() -> Data {
+        var hashInput: Data = .init()
+        for input in self {
+            hashInput.append(input)
+        }
+        let sha256Hash = SHA256.hash(hashInput)
+        return sha256Hash
+    }
+}

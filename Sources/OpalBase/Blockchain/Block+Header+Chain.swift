@@ -5,7 +5,7 @@ import BigInt
 import SwiftFulcrum
 
 extension Block.Header {
-    public actor Chain {
+    actor Chain {
         private let checkpointHeight: UInt32
         private let checkpointHash: Data
         
@@ -14,7 +14,7 @@ extension Block.Header {
         private var tipHeight: UInt32
         private var tipHash: Data
         
-        public init(checkpointHeight: UInt32, checkpointHash: Data) {
+        init(checkpointHeight: UInt32, checkpointHash: Data) {
             self.checkpointHeight = checkpointHeight
             self.checkpointHash = checkpointHash
             self.tipHeight = checkpointHeight
@@ -24,9 +24,9 @@ extension Block.Header {
 }
 
 extension Block.Header.Chain {
-    public var latestHeight: UInt32 { tipHeight }
+    var latestHeight: UInt32 { tipHeight }
     
-    public func append(_ header: Block.Header, height: UInt32) throws {
+    func append(_ header: Block.Header, height: UInt32) throws {
         let headerHash = try verify(header)
         
         if headers.isEmpty && (height == checkpointHeight) {
@@ -42,7 +42,7 @@ extension Block.Header.Chain {
         tipHash = headerHash
     }
     
-    public func verifyTransaction(hash: Data, merkleProof: [Data], index: Int, height: UInt32) -> Bool {
+    func verifyTransaction(hash: Data, merkleProof: [Data], index: Int, height: UInt32) -> Bool {
         guard let header = headers[height] else { return false }
         
         var currentHash = hash
@@ -60,7 +60,7 @@ extension Block.Header.Chain {
         return currentHash == header.merkleRoot
     }
     
-    public func sync(from startHeight: UInt32? = nil, using fulcrum: Fulcrum) async throws {
+    func sync(from startHeight: UInt32? = nil, using fulcrum: Fulcrum) async throws {
         var height = startHeight ?? tipHeight &+ 1
         var previousBlockHash = tipHash
         while true {

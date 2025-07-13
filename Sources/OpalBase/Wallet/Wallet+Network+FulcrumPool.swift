@@ -20,7 +20,7 @@ extension Wallet.Network {
         private var status: Wallet.Network.Status = .offline
         var statusContinuations: [AsyncStream<Wallet.Network.Status>.Continuation] = .init()
         
-        public init(urls: [String] = [], maxBackoff: TimeInterval = 64) throws {
+        init(urls: [String] = [], maxBackoff: TimeInterval = 64) throws {
             if urls.isEmpty {
                 self.servers = [.init(fulcrum: try .init())]
             } else {
@@ -36,14 +36,14 @@ extension Wallet.Network {
 }
 
 extension Wallet.Network.FulcrumPool {
-    public var currentStatus: Wallet.Network.Status { status }
+    var currentStatus: Wallet.Network.Status { status }
     
     private func addContinuation(_ continuation: AsyncStream<Wallet.Network.Status>.Continuation) {
         statusContinuations.append(continuation)
         continuation.yield(status)
     }
     
-    public func observeStatus() -> AsyncStream<Wallet.Network.Status> {
+    func observeStatus() -> AsyncStream<Wallet.Network.Status> {
         AsyncStream { continuation in
             Task { self.addContinuation(continuation) }
         }
@@ -102,7 +102,7 @@ extension Wallet.Network.FulcrumPool {
         updateStatus(.offline)
     }
     
-    public func reportFailure() {
+    func reportFailure() {
         markFailure(at: currentIndex)
         updateStatus(.connecting)
     }

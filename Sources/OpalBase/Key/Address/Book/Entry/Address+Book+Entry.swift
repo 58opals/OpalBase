@@ -6,8 +6,8 @@ import SwiftFulcrum
 extension Address.Book {
     public struct Entry {
         let derivationPath: DerivationPath
-        public let address: Address
-        public var isUsed: Bool
+        let address: Address
+        var isUsed: Bool
         var cache: Cache
         
         init(derivationPath: DerivationPath, address: Address, isUsed: Bool, cache: Cache = .init()) {
@@ -45,9 +45,9 @@ extension Address.Book {
         }
     }
     
-    public func generateEntries(for usage: DerivationPath.Usage,
-                                numberOfNewEntries: Int,
-                                isUsed: Bool) throws {
+    func generateEntries(for usage: DerivationPath.Usage,
+                         numberOfNewEntries: Int,
+                         isUsed: Bool) throws {
         let entries = getEntries(of: usage)
         let numberOfExistingEntries = entries.count
         
@@ -94,7 +94,7 @@ extension Address.Book {
 
 // MARK: - Find
 extension Address.Book {
-    public func findEntry(for address: Address) -> Entry? {
+    func findEntry(for address: Address) -> Entry? {
         //let allEntries = receivingEntries + changeEntries
         //let entry = allEntries.first(where: { $0.address == address })
         //return entry
@@ -129,12 +129,12 @@ extension Address.Book {
 
 // MARK: - Mark
 extension Address.Book {
-    public func isUsed(address: Address) throws -> Bool {
+    func isUsed(address: Address) throws -> Bool {
         guard let entry = findEntry(for: address) else { throw Error.addressNotFound }
         return entry.isUsed
     }
     
-    public func mark(address: Address, isUsed: Bool) throws {
+    func mark(address: Address, isUsed: Bool) throws {
         guard var entry = findEntry(for: address) else { throw Error.addressNotFound }
         entry.isUsed = isUsed
         

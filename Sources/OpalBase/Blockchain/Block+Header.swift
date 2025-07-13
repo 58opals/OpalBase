@@ -3,7 +3,7 @@
 import Foundation
 
 extension Block {
-    public struct Header {
+    struct Header {
         let version: Int32
         let previousBlockHash: Data
         let merkleRoot: Data

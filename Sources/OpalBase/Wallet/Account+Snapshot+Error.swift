@@ -1,8 +1,8 @@
-// Address+Book+Snapshot+Error.swift
+// Account+Snapshot+Error.swift
 
 import Foundation
 
-extension Address.Book.Snapshot {
+extension Account.Snapshot {
     enum Error: Swift.Error {
         case missingCombinedData
     }

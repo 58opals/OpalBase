@@ -90,7 +90,7 @@ extension Transaction {
     ///   - transactionHash: The transaction hash.
     ///   - height: The block height if confirmed.
     ///   - fee: The transaction fee.
-    public struct Simple {
+    struct Simple {
         let transactionHash: Transaction.Hash
         let height: UInt32?
         let fee: UInt64?
@@ -135,7 +135,7 @@ extension Transaction: CustomStringConvertible {
 }
 
 extension Transaction.Simple: CustomStringConvertible {
-    public var description: String {
+    var description: String {
         "Simplified Transaction: \(self.transactionHash.naturalOrder.hexadecimalString)" + ((self.height != nil) ? " at \(self.height!)" : "(unconfirmed)") + ((self.fee != nil) ? " with \(self.fee!.description) fee" : "")
     }
 }

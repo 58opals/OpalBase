@@ -37,7 +37,7 @@ extension DerivationPath {
     public enum Purpose {
         case bip44
         
-        public init?(hardenedIndex: UInt32) {
+        init?(hardenedIndex: UInt32) {
             switch hardenedIndex {
             case 44:
                 self = .bip44
@@ -66,7 +66,7 @@ extension DerivationPath {
         case bitcoin
         case bitcoinCash
         
-        public init?(hardenedIndex: UInt32) {
+        init?(hardenedIndex: UInt32) {
             switch hardenedIndex {
             case 0:
                 self = .bitcoin
@@ -101,7 +101,7 @@ extension DerivationPath {
     public struct Account {
         private(set) var unhardenedIndex: UInt32
         
-        public init(rawIndexInteger: UInt32) throws {
+        init(rawIndexInteger: UInt32) throws {
             guard rawIndexInteger < 0x80000000 else { throw Error.indexOverflow }
             self.init(unhardenedIndex: rawIndexInteger)
         }
@@ -142,7 +142,7 @@ extension DerivationPath {
     }
 }
 
-// MARK: -
+// MARK: - DerivationPath
 
 extension DerivationPath: Hashable {
     public static func == (lhs: DerivationPath, rhs: DerivationPath) -> Bool {
@@ -151,34 +151,78 @@ extension DerivationPath: Hashable {
 }
 extension DerivationPath: Sendable {}
 
-// MARK: -
+// MARK: - DerivationPath.Purpose
 
 extension DerivationPath.Purpose: Hashable {
     public static func == (lhs: DerivationPath.Purpose, rhs: DerivationPath.Purpose) -> Bool {
         lhs.hardenedIndex == rhs.hardenedIndex
     }
 }
+
+extension DerivationPath.Purpose: Codable {
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        let index = try container.decode(UInt32.self)
+        guard let purpose = DerivationPath.Purpose(hardenedIndex: index) else { throw DecodingError.dataCorruptedError(in: container, debugDescription: "Invalid purpose index") }
+        self = purpose
+    }
+    
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(unhardenedIndex)
+    }
+}
+
 extension DerivationPath.Purpose: Sendable {}
 
-// MARK: -
+// MARK: - DerivationPath.CoinType
 
 extension DerivationPath.CoinType: Hashable {
     public static func == (lhs: DerivationPath.CoinType, rhs: DerivationPath.CoinType) -> Bool {
         lhs.hardenedIndex == rhs.hardenedIndex
     }
 }
+
+extension DerivationPath.CoinType: Codable {
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        let index = try container.decode(UInt32.self)
+        guard let coin = DerivationPath.CoinType(hardenedIndex: index) else { throw DecodingError.dataCorruptedError(in: container, debugDescription: "Invalid coin type index") }
+        self = coin
+    }
+    
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(unhardenedIndex)
+    }
+}
+
 extension DerivationPath.CoinType: Sendable {}
 
-// MARK: -
+// MARK: - DerivationPath.Account
 
 extension DerivationPath.Account: Hashable {
     public static func == (lhs: DerivationPath.Account, rhs: DerivationPath.Account) -> Bool {
         lhs.unhardenedIndex == rhs.unhardenedIndex
     }
 }
+
+extension DerivationPath.Account: Codable {
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        let index = try container.decode(UInt32.self)
+        self = try DerivationPath.Account(rawIndexInteger: index)
+    }
+    
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(unhardenedIndex)
+    }
+}
+
 extension DerivationPath.Account: Sendable {}
 
-// MARK: -
+// MARK: - DerivationPath.Usage
 
 extension DerivationPath.Usage: Hashable {
     public static func == (lhs: DerivationPath.Usage, rhs: DerivationPath.Usage) -> Bool {
@@ -210,33 +254,23 @@ extension DerivationPath.Usage: Codable {
 // MARK: -
 
 extension DerivationPath: CustomDebugStringConvertible {
-    public var debugDescription: String {
-        return path
-    }
+    public var debugDescription: String { return path }
 }
 
 extension DerivationPath.Purpose: CustomStringConvertible {
-    public var description: String {
-        return "\(unhardenedIndex)'"
-    }
+    public var description: String { return "\(unhardenedIndex)'" }
 }
 
 extension DerivationPath.CoinType: CustomStringConvertible {
-    public var description: String {
-        return "\(unhardenedIndex)'"
-    }
+    public var description: String { return "\(unhardenedIndex)'" }
 }
 
 extension DerivationPath.Account: CustomStringConvertible {
-    public var description: String {
-        return "\(unhardenedIndex)'"
-    }
+    public var description: String { return "\(unhardenedIndex)'" }
 }
 
 extension DerivationPath.Usage: CustomStringConvertible {
-    public var description: String {
-        return "\(unhardenedIndex)"
-    }
+    public var description: String { return "\(unhardenedIndex)" }
 }
 
 // MARK: -

@@ -113,7 +113,7 @@ extension Transaction {
         return try Data(hexString: rawHex)
     }
     
-    public static func fetchTransaction(for transactionHash: Data, using fulcrum: Fulcrum) async throws -> Transaction {
+    static func fetchTransaction(for transactionHash: Data, using fulcrum: Fulcrum) async throws -> Transaction {
         let response = try await fulcrum.submit(method: .blockchain(.transaction(.get(transactionHash: transactionHash.hexadecimalString, verbose: true))),
                                                 responseType: Response.Result.Blockchain.Transaction.Get.self)
         guard case .single(let id, let result) = response else { throw Fulcrum.Error.coding(.decode(nil))  }
@@ -123,7 +123,7 @@ extension Transaction {
         return try Transaction.Detailed(from: result).transaction
     }
     
-    public static func fetchFullTransaction(for transactionHash: Data, using fulcrum: Fulcrum) async throws -> Transaction.Detailed {
+    static func fetchFullTransaction(for transactionHash: Data, using fulcrum: Fulcrum) async throws -> Transaction.Detailed {
         let response = try await fulcrum.submit(method: .blockchain(.transaction(.get(transactionHash: transactionHash.hexadecimalString, verbose: false))),
                                                 responseType: Response.Result.Blockchain.Transaction.Get.self)
         guard case .single(let id, let result) = response else { throw Fulcrum.Error.coding(.decode(nil))  }

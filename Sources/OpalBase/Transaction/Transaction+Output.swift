@@ -3,7 +3,7 @@
 import Foundation
 
 extension Transaction {
-    public struct Output {
+    struct Output {
         let value: UInt64
         let lockingScriptLength: CompactSize
         let lockingScript: Data
@@ -64,7 +64,7 @@ extension Transaction {
 extension Transaction.Output: Sendable {}
 
 extension Transaction.Output: CustomStringConvertible {
-    public var description: String {
+    var description: String {
         """
         Transaction Output:
             Value: \(value)

@@ -3,7 +3,7 @@
 import Foundation
 
 extension Transaction {
-    public struct Input {
+    struct Input {
         let previousTransactionHash: Transaction.Hash
         let previousTransactionOutputIndex: UInt32
         let unlockingScriptLength: CompactSize
@@ -68,7 +68,7 @@ extension Transaction {
 extension Transaction.Input: Sendable {}
 
 extension Transaction.Input: CustomStringConvertible {
-    public var description: String {
+    var description: String {
         """
         Transaction Input (sequence: \(sequence)):
             Previous Transaction Hash: \(previousTransactionHash.naturalOrder.hexadecimalString) (↔︎: \(previousTransactionHash.reverseOrder.hexadecimalString))

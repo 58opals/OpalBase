@@ -117,10 +117,10 @@ extension Address.Book {
                                                                     includeUnconfirmed: includeUnconfirmed,
                                                                     using: fulcrum)
         async let changeTransactions = fetchDetailedTransactions(for: .change,
-                                                                    fromHeight: fromHeight,
-                                                                    toHeight: toHeight,
-                                                                    includeUnconfirmed: includeUnconfirmed,
-                                                                    using: fulcrum)
+                                                                 fromHeight: fromHeight,
+                                                                 toHeight: toHeight,
+                                                                 includeUnconfirmed: includeUnconfirmed,
+                                                                 using: fulcrum)
         let (receivingTransactionHistory, changeTransactionHistory) = try await (receivingTransactions, changeTransactions)
         
         return Address.Book.combineHistories(receiving: receivingTransactionHistory, change: changeTransactionHistory)
@@ -143,7 +143,7 @@ extension Address.Book {
 }
 
 extension Address.Book {
-    public func refreshUsedStatus(fulcrum: Fulcrum) async throws {
+    func refreshUsedStatus(fulcrum: Fulcrum) async throws {
         try await refreshUsedStatus(for: .receiving, fulcrum: fulcrum)
         try await refreshUsedStatus(for: .change, fulcrum: fulcrum)
     }
@@ -215,7 +215,7 @@ extension Address.Book {
         getUsedEntries(for: .receiving).count + getUsedEntries(for: .change).count
     }
     
-    public func scanForUsedAddresses(using fulcrum: Fulcrum) async throws {
+    func scanForUsedAddresses(using fulcrum: Fulcrum) async throws {
         var previousUsedCount = countUsedEntries()
         
         repeat {

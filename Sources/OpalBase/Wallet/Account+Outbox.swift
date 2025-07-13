@@ -4,7 +4,7 @@ import Foundation
 import SwiftFulcrum
 
 extension Account {
-    public actor Outbox {
+    actor Outbox {
         private let folderURL: URL
         private let fileManager = FileManager.default
         
@@ -29,7 +29,7 @@ extension Account.Outbox {
 }
 
 extension Account.Outbox {
-    public func retryPendingTransactions(using fulcrum: Fulcrum) async {
+    func retryPendingTransactions(using fulcrum: Fulcrum) async {
         guard let urls = try? fileManager.contentsOfDirectory(at: folderURL, includingPropertiesForKeys: nil) else { return }
         for url in urls {
             do {
@@ -44,19 +44,19 @@ extension Account.Outbox {
         }
     }
     
-    public func purgeTransactions() async {
+    func purgeTransactions() async {
         guard let urls = try? fileManager.contentsOfDirectory(at: folderURL, includingPropertiesForKeys: nil) else { return }
         for url in urls { try? fileManager.removeItem(at: url) }
     }
 }
 
 extension Account {
-    public func retryOutbox() async {
+    func retryOutbox() async {
         guard let fulcrum = try? await fulcrumPool.getFulcrum() else { return }
         await outbox.retryPendingTransactions(using: fulcrum)
     }
     
-    public func purgeOutbox() async {
+    func purgeOutbox() async {
         await outbox.purgeTransactions()
     }
 }

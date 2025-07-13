@@ -1,3 +1,7 @@
+![Swift 6.0](https://img.shields.io/badge/swift-6.0-orange)
+![SPM](https://img.shields.io/badge/Package%20Manager-SPM-informational)
+![Platforms](https://img.shields.io/badge/platforms-iOS%20|%20macOS%20|%20watchOS%20|%20tvOS%20|%20visionOS-blue)
+
 # Opal Base
 
 ## Introduction
@@ -45,8 +49,9 @@ let mnemonic = try Mnemonic(words: [
 let wallet = Wallet(mnemonic: mnemonic)
 try await wallet.addAccount(unhardenedIndex: 0)
 let account = try wallet.getAccount(unhardenedIndex: 0)
-try await account.addressBook.refreshBalances(using: account.fulcrum)
-let history = try await account.addressBook.fetchDetailedTransactions(for: .receiving, using: account.fulcrum)
+let fulcrum = try await account.fulcrumPool.getFulcrum()
+try await account.addressBook.refreshBalances(using: fulcrum)
+let history = try await account.addressBook.fetchDetailedTransactions(for: .receiving, using: fulcrum)
 ```
 
 ### Generating and Using an Address in the Account
@@ -89,9 +94,10 @@ print("Transaction successfully sent with hash: \(transactionHash)")
 Retrieve detailed transaction information for your receiving addresses:
 
 ```swift
+let fulcrum = try await account.fulcrumPool.getFulcrum()
 let history = try await account.addressBook.fetchDetailedTransactions(
     for: .receiving,
-    using: account.fulcrum
+    using: fulcrum
 )
 print("Found \(history.count) transactions")
 ```
@@ -99,7 +105,8 @@ print("Found \(history.count) transactions")
 ### Updating Address Usage Status
 
 ```swift
-try await account.addressBook.updateAddressUsageStatus(using: account.fulcrum)
+let fulcrum = try await account.fulcrumPool.getFulcrum()
+try await account.addressBook.updateAddressUsageStatus(using: fulcrum)
 ```
 
 ### Refreshing UTXO Set
@@ -107,7 +114,8 @@ try await account.addressBook.updateAddressUsageStatus(using: account.fulcrum)
 To refresh the UTXO set for an account:
 
 ```swift
-try await account.addressBook.refreshUTXOSet(fulcrum: account.fulcrum)
+let fulcrum = try await account.fulcrumPool.getFulcrum()
+try await account.addressBook.refreshUTXOSet(fulcrum: fulcrum)
 ```
 
 ## Contributing

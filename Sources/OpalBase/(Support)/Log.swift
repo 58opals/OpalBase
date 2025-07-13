@@ -2,11 +2,11 @@
 
 import Foundation
 
-public actor Log {
-    public static let shared = Log()
-    public var isEnabled: Bool = false
+actor Log {
+    static let shared = Log()
+    var isEnabled: Bool = false
     
-    public func log(_ message: @autoclosure () -> String) {
+    func log(_ message: @autoclosure () -> String) {
         guard isEnabled else { return }
         print(message())
     }

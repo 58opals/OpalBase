@@ -4,14 +4,14 @@ import Foundation
 import BigInt
 
 extension PrivateKey {
-    public struct Extended {
+    struct Extended {
         let privateKey: Data
         let chainCode: Data
         let depth: UInt8
         let parentFingerprint: Data
         let childIndexNumber: UInt32
         
-        public init(rootKey: PrivateKey.Extended.Root) {
+        init(rootKey: PrivateKey.Extended.Root) {
             self.privateKey = rootKey.privateKey
             self.chainCode = rootKey.chainCode
             self.depth = 0
@@ -27,7 +27,7 @@ extension PrivateKey {
             self.childIndexNumber = childIndexNumber
         }
         
-        public init(xprv: String) throws {
+        init(xprv: String) throws {
             guard let data = Base58.decode(xprv) else { throw Error.invalidFormat }
             guard data.count == 82 else { throw Error.invalidLength }
             let version = UInt32(bigEndian: data[0..<4].withUnsafeBytes { $0.load(as: UInt32.self) })
@@ -44,7 +44,7 @@ extension PrivateKey {
 }
 
 extension PrivateKey.Extended: Hashable {
-    public static func == (lhs: PrivateKey.Extended, rhs: PrivateKey.Extended) -> Bool {
+    static func == (lhs: PrivateKey.Extended, rhs: PrivateKey.Extended) -> Bool {
         lhs.privateKey == rhs.privateKey &&
         lhs.chainCode == rhs.chainCode &&
         lhs.depth == rhs.depth &&
@@ -54,7 +54,7 @@ extension PrivateKey.Extended: Hashable {
 }
 
 extension PrivateKey.Extended: CustomDebugStringConvertible {
-    public var debugDescription: String {
+    var debugDescription: String {
         """
         ExtendedPrivateKey(
             privateKey: \(privateKey.hexadecimalString),
@@ -143,7 +143,7 @@ extension PrivateKey.Extended {
 }
 
 extension PrivateKey.Extended {
-    public var address: String {
+    var address: String {
         return Base58.encode(serialize())
     }
     

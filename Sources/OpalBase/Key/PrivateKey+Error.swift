@@ -3,7 +3,7 @@
 import Foundation
 
 extension PrivateKey {
-    public enum Error: Swift.Error {
+    enum Error: Swift.Error {
         case randomBytesGenerationFailed
         case outOfBounds
         case cannotDecodeWIF

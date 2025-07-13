@@ -8,7 +8,7 @@ extension Address.Book {
         try await refreshBalances(in: receivingEntries, fulcrum: fulcrum)
         try await refreshBalances(in: changeEntries, fulcrum: fulcrum)
     }
-
+    
     private func refreshBalances(in entries: [Entry], fulcrum: Fulcrum) async throws {
         let staleEntries = entries.filter { !$0.cache.isValid }
         
@@ -28,7 +28,7 @@ extension Address.Book {
 }
 
 extension Address.Book {
-    public func getBalanceFromBlockchain(address: Address, fulcrum: Fulcrum) async throws -> Satoshi {
+    func getBalanceFromBlockchain(address: Address, fulcrum: Fulcrum) async throws -> Satoshi {
         let newBalance = try await address.fetchBalance(using: fulcrum)
         try updateCache(for: address, with: newBalance)
         return newBalance

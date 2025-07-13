@@ -4,7 +4,7 @@ import Foundation
 import SwiftFulcrum
 
 extension Address.Book {
-    public actor Subscription {
+    actor Subscription {
         private let book: Address.Book
         private var isRunning: Bool = false
         private var cancelClosures: [() async -> Void] = .init()
@@ -25,7 +25,7 @@ extension Address.Book {
 }
 
 extension Address.Book.Subscription {
-    public func start(fulcrum: Fulcrum) async {
+    func start(fulcrum: Fulcrum) async {
         guard !isRunning else { return }
         isRunning = true
         
@@ -46,7 +46,7 @@ extension Address.Book.Subscription {
         }
     }
     
-    public func stop() async {
+    func stop() async {
         isRunning = false
         for cancel in cancelClosures { await cancel() }
         cancelClosures.removeAll()
@@ -122,13 +122,13 @@ extension Address.Book.Subscription: Sendable {}
 extension Address.Book {
     var currentSubscription: Subscription? { self.subscription }
     
-    public func startSubscription(using fulcrum: Fulcrum, notificationHook: (@Sendable () async -> Void)? = nil) async {
+    func startSubscription(using fulcrum: Fulcrum, notificationHook: (@Sendable () async -> Void)? = nil) async {
         let subscription = Subscription(book: self, notificationHook: notificationHook)
         self.subscription = subscription
         await subscription.start(fulcrum: fulcrum)
     }
     
-    public func stopSubscription() async {
+    func stopSubscription() async {
         if let subscription = subscription {
             await subscription.stop()
             self.subscription = nil

@@ -131,7 +131,7 @@ extension Address.Book {
 }
 
 extension Address.Book {
-    public func updateCacheValidityDuration(_ newDuration: TimeInterval) {
+    func updateCacheValidityDuration(_ newDuration: TimeInterval) {
         cacheValidityDuration = newDuration
         
         for index in receivingEntries.indices {
