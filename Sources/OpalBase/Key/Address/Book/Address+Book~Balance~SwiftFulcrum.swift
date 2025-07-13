@@ -4,11 +4,11 @@ import Foundation
 import SwiftFulcrum
 
 extension Address.Book {
-    func refreshBalances(using fulcrum: Fulcrum) async throws {
+    public func refreshBalances(using fulcrum: Fulcrum) async throws {
         try await refreshBalances(in: receivingEntries, fulcrum: fulcrum)
         try await refreshBalances(in: changeEntries, fulcrum: fulcrum)
     }
-
+    
     private func refreshBalances(in entries: [Entry], fulcrum: Fulcrum) async throws {
         let staleEntries = entries.filter { !$0.cache.isValid }
         

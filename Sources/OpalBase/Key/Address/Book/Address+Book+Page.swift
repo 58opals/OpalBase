@@ -3,7 +3,7 @@
 import Foundation
 
 extension Address.Book {
-    struct Page<Item> {
+    public struct Page<Item> {
         let transactions: [Item]
         let nextFromHeight: UInt?
     }

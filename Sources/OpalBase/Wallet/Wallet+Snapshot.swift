@@ -16,7 +16,7 @@ extension Wallet {
 extension Wallet.Snapshot: Sendable {}
 
 extension Wallet {
-    func getSnapshot() async -> Snapshot {
+    public func getSnapshot() async -> Snapshot {
         var accountSnaps: [Account.Snapshot] = .init()
         for account in accounts {
             let snap = await account.getSnapshot()
@@ -29,7 +29,7 @@ extension Wallet {
                         accounts: accountSnaps)
     }
     
-    func saveSnapshot(to url: URL, using key: SymmetricKey? = nil) async throws {
+    public func saveSnapshot(to url: URL, using key: SymmetricKey? = nil) async throws {
         let data = try JSONEncoder().encode(await getSnapshot())
         let output: Data
         if let key {
@@ -42,7 +42,7 @@ extension Wallet {
         try output.write(to: url)
     }
     
-    func loadSnapshot(from url: URL, using key: SymmetricKey? = nil) async throws {
+    public func loadSnapshot(from url: URL, using key: SymmetricKey? = nil) async throws {
         let data = try Data(contentsOf: url)
         let input: Data
         if let key {

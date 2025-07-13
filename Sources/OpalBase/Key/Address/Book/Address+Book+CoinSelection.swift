@@ -3,7 +3,7 @@
 import Foundation
 
 extension Address.Book {
-    enum CoinSelection: Sendable {
+    public enum CoinSelection: Sendable {
         case greedyLargestFirst
         case branchAndBound
         case sweepAll

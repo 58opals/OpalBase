@@ -4,7 +4,7 @@ import Foundation
 import SwiftFulcrum
 
 extension Account {
-    func calculateBalance() async throws -> Satoshi {
+    public func calculateBalance() async throws -> Satoshi {
         var totalBalance: UInt64 = 0
         
         for address in await (addressBook.receivingEntries + addressBook.changeEntries).map({ $0.address }) {
@@ -14,7 +14,7 @@ extension Account {
         return try Satoshi(totalBalance)
     }
     
-    func send(_ sendings: [(value: Satoshi, recipientAddress: Address)],
+    public func send(_ sendings: [(value: Satoshi, recipientAddress: Address)],
                      feePerByte: UInt64? = nil,
                      allowDustDonation: Bool = false,
                      strategy: Address.Book.CoinSelection = .greedyLargestFirst) async throws -> Data {
@@ -68,7 +68,7 @@ extension Account {
         return manuallyGeneratedTransactionHash.naturalOrder
     }
     
-    func refreshUTXOSet() async {
+    public func refreshUTXOSet() async {
         let request = { [self] in
             let fulcrum = try await self.fulcrumPool.getFulcrum()
             try await self.addressBook.refreshUTXOSet(fulcrum: fulcrum)
@@ -78,7 +78,7 @@ extension Account {
         catch { enqueueRequest(request) }
     }
     
-    func startAddressMonitoring() async {
+    public func startAddressMonitoring() async {
         let request = { [self] in
             let fulcrum = try await fulcrumPool.getFulcrum()
             await addressBook.startSubscription(using: fulcrum)
@@ -88,7 +88,7 @@ extension Account {
         catch { enqueueRequest(request) }
     }
     
-    func stopAddressMonitoring() async {
+    public func stopAddressMonitoring() async {
         await addressBook.stopSubscription()
     }
 }

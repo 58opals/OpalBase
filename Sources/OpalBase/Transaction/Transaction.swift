@@ -107,7 +107,7 @@ extension Transaction {
     ///   - hex: The raw transaction data in hex.
     ///   - size: The transaction size in bytes.
     ///   - time: The transaction time if available.
-    struct Detailed {
+    public struct Detailed {
         let transaction: Transaction
         
         let blockHash: Data?

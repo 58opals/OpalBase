@@ -4,7 +4,7 @@ import Foundation
 import CryptoKit
 
 extension Account {
-    struct Snapshot: Codable {
+    public struct Snapshot: Codable {
         var purpose: DerivationPath.Purpose
         var coinType: DerivationPath.CoinType
         var account: UInt32
@@ -12,8 +12,10 @@ extension Account {
     }
 }
 
+extension Account.Snapshot: Sendable {}
+
 extension Account {
-    func getSnapshot() async -> Snapshot {
+    public func getSnapshot() async -> Snapshot {
         let bookSnap = await addressBook.getSnapshot()
         return Snapshot(purpose: purpose,
                         coinType: coinType,
@@ -21,11 +23,11 @@ extension Account {
                         addressBook: bookSnap)
     }
     
-    func applySnapshot(_ snapshot: Snapshot) async throws {
+    public func applySnapshot(_ snapshot: Snapshot) async throws {
         try await addressBook.applySnapshot(snapshot.addressBook)
     }
     
-    func saveSnapshot(to url: URL, using key: SymmetricKey? = nil) async throws {
+    public func saveSnapshot(to url: URL, using key: SymmetricKey? = nil) async throws {
         let data = try JSONEncoder().encode(await getSnapshot())
         let output: Data
         if let key {
@@ -38,7 +40,7 @@ extension Account {
         try output.write(to: url)
     }
     
-    func loadSnapshot(from url: URL, using key: SymmetricKey? = nil) async throws {
+    public func loadSnapshot(from url: URL, using key: SymmetricKey? = nil) async throws {
         let data = try Data(contentsOf: url)
         let input: Data
         if let key {

@@ -4,7 +4,7 @@ import Foundation
 import CryptoKit
 
 extension Address.Book {
-    struct Snapshot: Codable {
+    public struct Snapshot: Codable {
         struct Entry: Codable {
             let usage: DerivationPath.Usage
             let index: UInt32
@@ -26,8 +26,10 @@ extension Address.Book {
     }
 }
 
+extension Address.Book.Snapshot: Sendable {}
+
 extension Address.Book {
-    func getSnapshot() -> Snapshot {
+    public func getSnapshot() -> Snapshot {
         let receiving = receivingEntries.map { entry in
             Snapshot.Entry(usage: entry.derivationPath.usage,
                            index: entry.derivationPath.index,
@@ -53,7 +55,7 @@ extension Address.Book {
         return Snapshot(receivingEntries: receiving, changeEntries: change, utxos: utxoSnaps)
     }
     
-    func applySnapshot(_ snapshot: Snapshot) throws {
+    public func applySnapshot(_ snapshot: Snapshot) throws {
         try apply(entrySnapshots: snapshot.receivingEntries, usage: .receiving)
         try apply(entrySnapshots: snapshot.changeEntries, usage: .change)
         
@@ -95,7 +97,7 @@ extension Address.Book {
 }
 
 extension Address.Book {
-    func saveSnapshot(to url: URL, using key: SymmetricKey? = nil) throws {
+    public func saveSnapshot(to url: URL, using key: SymmetricKey? = nil) throws {
         let data = try JSONEncoder().encode(getSnapshot())
         let output: Data
         
@@ -110,7 +112,7 @@ extension Address.Book {
         try output.write(to: url)
     }
     
-    func loadSnapshot(from url: URL, using key: SymmetricKey? = nil) throws {
+    public func loadSnapshot(from url: URL, using key: SymmetricKey? = nil) throws {
         let data = try Data(contentsOf: url)
         let input: Data
         

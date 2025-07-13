@@ -4,7 +4,7 @@ import Foundation
 import SwiftFulcrum
 
 extension Address.Book {
-    struct Entry {
+    public struct Entry {
         let derivationPath: DerivationPath
         let address: Address
         var isUsed: Bool
@@ -46,8 +46,8 @@ extension Address.Book {
     }
     
     func generateEntries(for usage: DerivationPath.Usage,
-                                numberOfNewEntries: Int,
-                                isUsed: Bool) throws {
+                         numberOfNewEntries: Int,
+                         isUsed: Bool) throws {
         let entries = getEntries(of: usage)
         let numberOfExistingEntries = entries.count
         
@@ -104,7 +104,7 @@ extension Address.Book {
 
 // MARK: - Get
 extension Address.Book {
-    func getNextEntry(for usage: DerivationPath.Usage, fetchBalance: Bool = true) throws -> Entry {
+    public func getNextEntry(for usage: DerivationPath.Usage, fetchBalance: Bool = true) throws -> Entry {
         try generateEntriesIfNeeded(for: usage)
         
         let entries = getEntries(of: usage)

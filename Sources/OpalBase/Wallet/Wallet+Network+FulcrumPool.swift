@@ -57,7 +57,7 @@ extension Wallet.Network.FulcrumPool {
 }
 
 extension Wallet.Network.FulcrumPool {
-    func getFulcrum() async throws -> Fulcrum {
+    public func getFulcrum() async throws -> Fulcrum {
         updateStatus(.connecting)
         
         var attempts: Int = 0

@@ -80,7 +80,7 @@ extension Address.Book {
         return mergedTransactions
     }
     
-    func fetchDetailedTransactions(for usage: DerivationPath.Usage,
+    public func fetchDetailedTransactions(for usage: DerivationPath.Usage,
                                           fromHeight: UInt? = nil,
                                           toHeight: UInt? = nil,
                                           includeUnconfirmed: Bool = true,
@@ -107,7 +107,7 @@ extension Address.Book {
         return allDetailedTransactions
     }
     
-    func fetchCombinedHistory(fromHeight: UInt? = nil,
+    public func fetchCombinedHistory(fromHeight: UInt? = nil,
                                      toHeight: UInt? = nil,
                                      includeUnconfirmed: Bool = true,
                                      using fulcrum: Fulcrum) async throws -> [Transaction.Detailed] {
@@ -117,16 +117,16 @@ extension Address.Book {
                                                                     includeUnconfirmed: includeUnconfirmed,
                                                                     using: fulcrum)
         async let changeTransactions = fetchDetailedTransactions(for: .change,
-                                                                    fromHeight: fromHeight,
-                                                                    toHeight: toHeight,
-                                                                    includeUnconfirmed: includeUnconfirmed,
-                                                                    using: fulcrum)
+                                                                 fromHeight: fromHeight,
+                                                                 toHeight: toHeight,
+                                                                 includeUnconfirmed: includeUnconfirmed,
+                                                                 using: fulcrum)
         let (receivingTransactionHistory, changeTransactionHistory) = try await (receivingTransactions, changeTransactions)
         
         return Address.Book.combineHistories(receiving: receivingTransactionHistory, change: changeTransactionHistory)
     }
     
-    func fetchCombinedHistoryPage(fromHeight: UInt? = nil,
+    public func fetchCombinedHistoryPage(fromHeight: UInt? = nil,
                                          window: UInt,
                                          includeUnconfirmed: Bool = true,
                                          using fulcrum: Fulcrum) async throws -> Address.Book.Page<Transaction.Detailed> {
@@ -172,7 +172,7 @@ extension Address.Book {
 }
 
 extension Address.Book {
-    func updateAddressUsageStatus(using fulcrum: Fulcrum) async throws {
+    public func updateAddressUsageStatus(using fulcrum: Fulcrum) async throws {
         try await withThrowingTaskGroup(of: Void.self) { group in
             group.addTask { try await self.updateAddressUsageStatus(for: .receiving, using: fulcrum) }
             group.addTask { try await self.updateAddressUsageStatus(for: .change, using: fulcrum) }
