@@ -4,7 +4,7 @@ import Foundation
 import CryptoKit
 
 extension Wallet {
-    struct Snapshot: Codable {
+    public struct Snapshot: Codable {
         var words: [String]
         var passphrase: String
         var purpose: DerivationPath.Purpose
@@ -13,9 +13,11 @@ extension Wallet {
     }
 }
 
+extension Wallet.Snapshot: Sendable {}
+
 extension Wallet {
     func getSnapshot() async -> Snapshot {
-        var accountSnaps: [Account.Snapshot] = []
+        var accountSnaps: [Account.Snapshot] = .init()
         for account in accounts {
             let snap = await account.getSnapshot()
             accountSnaps.append(snap)

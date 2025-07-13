@@ -57,48 +57,66 @@ extension WalletTests {
 extension WalletTests {
     @Test mutating func testSnapshotSaveLoad() async throws {
         try await wallet.addAccount(unhardenedIndex: 0)
-
+        
         let account = try await wallet.getAccount(unhardenedIndex: 0)
         let entry = await account.addressBook.receivingEntries[0]
         try await account.addressBook.updateCache(for: entry.address, with: try Satoshi(123))
         try await account.addressBook.mark(address: entry.address, isUsed: true)
-
+        
         let key = SymmetricKey(size: .bits256)
         let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
-
+        
         try await wallet.saveSnapshot(to: url, using: key)
-
+        
         let newWallet = await Wallet(mnemonic: wallet.mnemonic)
         try await newWallet.loadSnapshot(from: url, using: key)
-
+        
         let restoredAccount = try await newWallet.getAccount(unhardenedIndex: 0)
         let restoredEntry = await restoredAccount.addressBook.findEntry(for: entry.address)
         let restoredBalance = try await restoredAccount.addressBook.getBalanceFromCache(address: entry.address)
-
+        
         #expect(restoredEntry?.isUsed == true, "Used flag should restore")
         #expect(restoredBalance?.uint64 == 123, "Balance should restore")
     }
-
+    
     @Test mutating func testSnapshotSaveLoadWithoutKey() async throws {
         try await wallet.addAccount(unhardenedIndex: 0)
-
+        
         let account = try await wallet.getAccount(unhardenedIndex: 0)
         let entry = await account.addressBook.receivingEntries[0]
         try await account.addressBook.updateCache(for: entry.address, with: try Satoshi(123))
         try await account.addressBook.mark(address: entry.address, isUsed: true)
-
+        
         let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
-
+        
         try await wallet.saveSnapshot(to: url)
-
+        
         let newWallet = await Wallet(mnemonic: wallet.mnemonic)
         try await newWallet.loadSnapshot(from: url)
-
+        
         let restoredAccount = try await newWallet.getAccount(unhardenedIndex: 0)
         let restoredEntry = await restoredAccount.addressBook.findEntry(for: entry.address)
         let restoredBalance = try await restoredAccount.addressBook.getBalanceFromCache(address: entry.address)
-
+        
         #expect(restoredEntry?.isUsed == true, "Used flag should restore")
         #expect(restoredBalance?.uint64 == 123, "Balance should restore")
+    }
+    
+    @Test func testSnapshotRoundTrip() async throws {
+        try await wallet.addAccount(unhardenedIndex: 0)
+        try await wallet.addAccount(unhardenedIndex: 1)
+        
+        let snap = await wallet.getSnapshot()
+        let restoredWallet = try await Wallet(from: snap)
+        let numberOfAccounts = await wallet.accounts.count
+        
+        #expect(await restoredWallet.id == wallet.id, "Wallet ID should persist")
+        #expect(await restoredWallet.accounts.count == numberOfAccounts, "Account count should match")
+        
+        for index in 0 ..< numberOfAccounts {
+            let original = await wallet.accounts[index]
+            let recovered = await restoredWallet.accounts[index]
+            #expect(await original.id == recovered.id, "Account IDs should match")
+        }
     }
 }

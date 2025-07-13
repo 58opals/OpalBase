@@ -162,14 +162,14 @@ extension DerivationPath.Purpose: Hashable {
 extension DerivationPath.Purpose: Codable {
     public init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
-        let hardened = try container.decode(UInt32.self)
-        guard let purpose = DerivationPath.Purpose(hardenedIndex: hardened) else { throw DecodingError.dataCorruptedError(in: container, debugDescription: "Invalid purpose index") }
+        let index = try container.decode(UInt32.self)
+        guard let purpose = DerivationPath.Purpose(hardenedIndex: index) else { throw DecodingError.dataCorruptedError(in: container, debugDescription: "Invalid purpose index") }
         self = purpose
     }
     
     public func encode(to encoder: Encoder) throws {
         var container = encoder.singleValueContainer()
-        try container.encode(hardenedIndex)
+        try container.encode(unhardenedIndex)
     }
 }
 
@@ -186,14 +186,14 @@ extension DerivationPath.CoinType: Hashable {
 extension DerivationPath.CoinType: Codable {
     public init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
-        let hardened = try container.decode(UInt32.self)
-        guard let coin = DerivationPath.CoinType(hardenedIndex: hardened) else { throw DecodingError.dataCorruptedError(in: container, debugDescription: "Invalid coin type index") }
+        let index = try container.decode(UInt32.self)
+        guard let coin = DerivationPath.CoinType(hardenedIndex: index) else { throw DecodingError.dataCorruptedError(in: container, debugDescription: "Invalid coin type index") }
         self = coin
     }
     
     public func encode(to encoder: Encoder) throws {
         var container = encoder.singleValueContainer()
-        try container.encode(hardenedIndex)
+        try container.encode(unhardenedIndex)
     }
 }
 

@@ -34,13 +34,7 @@ public actor Account: Identifiable {
         self.coinType = coinType
         self.account = account
         
-        var hashInput: Data = .init()
-        hashInput.append(rootExtendedPrivateKey.serialize())
-        hashInput.append(purpose.hardenedIndex.data)
-        hashInput.append(coinType.hardenedIndex.data)
-        hashInput.append(try account.getHardenedIndex().data)
-        let sha256Hash = SHA256.hash(hashInput)
-        self.id = sha256Hash
+        self.id = try [self.rootExtendedPrivateKey.serialize(), self.purpose.hardenedIndex.data, self.coinType.hardenedIndex.data, self.account.getHardenedIndex().data].generateID()
         
         self.addressBook = try await Address.Book(rootExtendedPrivateKey: rootExtendedPrivateKey,
                                                   purpose: purpose,
@@ -54,6 +48,31 @@ public actor Account: Identifiable {
             guard let self else { return }
             await monitorNetworkStatus()
         }
+    }
+    
+    init(from snapshot: Account.Snapshot,
+         fulcrumServerURLs: [String] = [],
+         rootExtendedPrivateKey: PrivateKey.Extended,
+         purpose: DerivationPath.Purpose,
+         coinType: DerivationPath.CoinType,
+         outboxPath: URL? = nil) async throws {
+        let account = try await Self.init(fulcrumServerURLs: fulcrumServerURLs,
+                                          rootExtendedPrivateKey: rootExtendedPrivateKey,
+                                          purpose: purpose,
+                                          coinType: coinType,
+                                          account: try .init(rawIndexInteger: snapshot.account),
+                                          outboxPath: outboxPath)
+        self.fulcrumPool = account.fulcrumPool
+        self.feeRate = account.feeRate
+        self.rootExtendedPrivateKey = account.rootExtendedPrivateKey
+        self.purpose = account.purpose
+        self.coinType = account.coinType
+        self.account = account.account
+        self.id = account.id
+        self.addressBook = await account.addressBook
+        self.outbox = account.outbox
+        
+        try await self.addressBook.applySnapshot(snapshot.addressBook)
     }
 }
 

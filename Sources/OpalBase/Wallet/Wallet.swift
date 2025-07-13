@@ -4,7 +4,6 @@ import Foundation
 
 public actor Wallet: Identifiable {
     public let mnemonic: Mnemonic
-    public let passphrase: String
     
     let purpose: DerivationPath.Purpose
     let coinType: DerivationPath.CoinType
@@ -13,20 +12,40 @@ public actor Wallet: Identifiable {
     
     var accounts: [Account] = .init()
     
+    private func generateID(from inputs: [Data]) -> Data {
+        var hashInput: Data = .init()
+        for input in inputs {
+            hashInput.append(input)
+        }
+        let sha256Hash = SHA256.hash(hashInput)
+        return sha256Hash
+    }
+    
     public init(mnemonic: Mnemonic,
                 purpose: DerivationPath.Purpose = .bip44,
                 coinType: DerivationPath.CoinType = .bitcoinCash) {
         self.mnemonic = mnemonic
-        self.passphrase = mnemonic.passphrase
         self.purpose = purpose
         self.coinType = coinType
         
-        var hashInput: Data = .init()
-        hashInput.append(mnemonic.seed)
-        hashInput.append(purpose.hardenedIndex.data)
-        hashInput.append(coinType.hardenedIndex.data)
-        let sha256Hash = SHA256.hash(hashInput)
-        self.id = sha256Hash
+        self.id = [self.mnemonic.seed, self.purpose.hardenedIndex.data, self.coinType.hardenedIndex.data].generateID()
+    }
+    
+    public init(from snapshot: Wallet.Snapshot) async throws {
+        self.mnemonic = try Mnemonic(words: snapshot.words, passphrase: snapshot.passphrase)
+        self.purpose = snapshot.purpose
+        self.coinType = snapshot.coinType
+        
+        let rootExtendedPrivateKey = PrivateKey.Extended(rootKey: try .init(seed: self.mnemonic.seed))
+        for accountSnap in snapshot.accounts {
+            let account = try await Account(from: accountSnap,
+                                            rootExtendedPrivateKey: rootExtendedPrivateKey,
+                                            purpose: snapshot.purpose,
+                                            coinType: snapshot.coinType)
+            self.accounts.append(account)
+        }
+        
+        self.id = [self.mnemonic.seed, self.purpose.hardenedIndex.data, self.coinType.hardenedIndex.data].generateID()
     }
 }
 
