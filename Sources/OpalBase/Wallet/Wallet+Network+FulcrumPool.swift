@@ -36,7 +36,7 @@ extension Wallet.Network {
 }
 
 extension Wallet.Network.FulcrumPool {
-    var currentStatus: Wallet.Network.Status { status }
+    public var currentStatus: Wallet.Network.Status { status }
     
     private func addContinuation(_ continuation: AsyncStream<Wallet.Network.Status>.Continuation) {
         statusContinuations.append(continuation)
