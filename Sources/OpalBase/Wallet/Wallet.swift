@@ -70,6 +70,13 @@ extension Wallet {
 }
 
 extension Wallet {
+    public var numberOfAccounts: Int { self.accounts.count }
+    public func setAccounts(_ accounts: [Account]) {
+        self.accounts = accounts
+    }
+}
+
+extension Wallet {
     public func observeNetworkStatus(forAccount index: UInt32) async throws -> AsyncStream<Network.Status> {
         let account = try getAccount(unhardenedIndex: index)
         return await account.observeNetworkStatus()
