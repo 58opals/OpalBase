@@ -226,3 +226,13 @@ extension Address.Book {
         } while true
     }
 }
+
+extension Address.Book.Entry {
+    public func subscribe(fulcrum: Fulcrum) async throws -> (requestedID: UUID,
+                                                             subscriptionID: String,
+                                                             initialStatus: String,
+                                                             followingStatus: AsyncThrowingStream<Response.Result.Blockchain.Address.SubscribeNotification, Swift.Error>,
+                                                             cancel: () async -> Void) {
+        return try await self.address.subscribe(fulcrum: fulcrum)
+    }
+}
