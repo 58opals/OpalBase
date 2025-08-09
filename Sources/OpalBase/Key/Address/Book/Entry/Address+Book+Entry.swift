@@ -6,7 +6,7 @@ import SwiftFulcrum
 extension Address.Book {
     public struct Entry {
         let derivationPath: DerivationPath
-        let address: Address
+        public let address: Address
         var isUsed: Bool
         var cache: Cache
         
