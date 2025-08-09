@@ -113,14 +113,14 @@ extension Address.Book {
         return nextEntry
     }
     
-    func getEntries(of usage: DerivationPath.Usage) -> [Entry] {
+    public func getEntries(of usage: DerivationPath.Usage) -> [Entry] {
         switch usage {
         case .receiving: return receivingEntries
         case .change: return changeEntries
         }
     }
     
-    func getUsedEntries(for usage: DerivationPath.Usage) -> Set<Entry> {
+    public func getUsedEntries(for usage: DerivationPath.Usage) -> Set<Entry> {
         let entries = getEntries(of: usage)
         let usedEntries = entries.filter { $0.isUsed }
         return Set<Entry>(usedEntries)
