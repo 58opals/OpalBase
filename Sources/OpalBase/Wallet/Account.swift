@@ -19,10 +19,6 @@ public actor Account: Identifiable {
     let outbox: Outbox
     
     let addressMonitor: Monitor
-    let balanceStream: AsyncThrowingStream<UInt64, Swift.Error>
-    var balanceStreamContinuation: AsyncThrowingStream<UInt64, Swift.Error>.Continuation?
-    
-    public var balanceUpdates: AsyncThrowingStream<UInt64, Swift.Error> { balanceStream }
     
     private var requestQueue: [() async throws -> Void] = .init()
     
@@ -51,9 +47,6 @@ public actor Account: Identifiable {
         self.outbox = try .init(folderURL: folderURL)
         
         self.addressMonitor = .init()
-        var continuation: AsyncThrowingStream<UInt64, Swift.Error>.Continuation?
-        self.balanceStream = AsyncThrowingStream {  continuation = $0 }
-        self.balanceStreamContinuation = continuation
         
         Task { [weak self] in
             guard let self else { return }
@@ -82,11 +75,7 @@ public actor Account: Identifiable {
         self.id = account.id
         self.addressBook = await account.addressBook
         self.outbox = account.outbox
-        
         self.addressMonitor = .init()
-        var continuation: AsyncThrowingStream<UInt64, Swift.Error>.Continuation?
-        self.balanceStream = AsyncThrowingStream {  continuation = $0 }
-        self.balanceStreamContinuation = continuation
         
         try await self.addressBook.applySnapshot(snapshot.addressBook)
     }

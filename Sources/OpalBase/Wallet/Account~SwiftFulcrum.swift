@@ -78,25 +78,30 @@ extension Account {
         catch { enqueueRequest(request) }
     }
     
-    public func startAddressMonitoring() async throws {
+    public func monitorBalances() async throws -> AsyncThrowingStream<Satoshi, Swift.Error> {
         let addresses = await (addressBook.receivingEntries + addressBook.changeEntries).map { $0.address }
-        guard !addresses.isEmpty else { return }
-        
+        guard !addresses.isEmpty else { throw Account.Monitor.Error.emptyAddresses }
+
         do {
             let fulcrum = try await fulcrumPool.getFulcrum()
             let stream = try await addressMonitor.start(for: addresses, using: fulcrum)
             
-            Task { [weak self] in
-                guard let self else { return }
-                let continuation = await self.balanceStreamContinuation
-                do {
-                    for try await _ in stream {
-                        await self.refreshUTXOSet()
-                        let balance = try await self.calculateBalance()
-                        continuation?.yield(balance.uint64)
+            return AsyncThrowingStream { continuation in
+                Task { [weak self] in
+                    guard let self else { return }
+                    do {
+                        for try await _ in stream {
+                            await self.refreshUTXOSet()
+                            let balance = try await self.calculateBalance()
+                            continuation.yield(balance)
+                        }
+                        continuation.finish()
+                    } catch {
+                        continuation.finish(throwing: error)
                     }
-                } catch {
-                    continuation?.finish(throwing: error)
+                    continuation.onTermination { _ in
+                        Task { [weak self] in await self?.addressMonitor.stop() }
+                    }
                 }
             }
         } catch {
@@ -104,8 +109,7 @@ extension Account {
         }
     }
     
-    public func stopAddressMonitoring() async {
+    public func stopBalanceMonitoring() async {
         await addressMonitor.stop()
-        balanceStreamContinuation?.finish()
     }
 }

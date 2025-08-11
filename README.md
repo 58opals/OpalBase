@@ -117,6 +117,16 @@ To refresh the UTXO set for an account:
 let fulcrum = try await account.fulcrumPool.getFulcrum()
 try await account.addressBook.refreshUTXOSet(fulcrum: fulcrum)
 ```
+### Monitoring Balance Updates
+
+Receive live account balance updates by observing the monitoring stream:
+
+```swift
+let updates = try await account.monitorBalances()
+for try await balance in updates {
+    print("Latest balance: \(balance)")
+}
+```
 
 ## Contributing
 
