@@ -7,7 +7,7 @@ extension Address.Book {
     actor Subscription {
         private let book: Address.Book
         private var isRunning: Bool = false
-        private var cancelClosures: [() async -> Void] = .init()
+        private var cancelHandlers: [@Sendable () async -> Void] = .init()
         private var task: Task<Void, Never>?
         private var newEntriesTask: Task<Void, Never>?
         private var debounceTask: Task<Void, Never>?
@@ -48,8 +48,8 @@ extension Address.Book.Subscription {
     
     func stop() async {
         isRunning = false
-        for cancel in cancelClosures { await cancel() }
-        cancelClosures.removeAll()
+        for cancel in cancelHandlers { await cancel() }
+        cancelHandlers.removeAll()
         subscriptionCount = 0
         task?.cancel()
         task = nil
@@ -61,8 +61,8 @@ extension Address.Book.Subscription {
 }
 
 extension Address.Book.Subscription {
-    private func storeCancel(_ cancel: @escaping () async -> Void) async {
-        cancelClosures.append(cancel)
+    private func storeCancel(_ cancel: @escaping @Sendable () async -> Void) async {
+        cancelHandlers.append(cancel)
     }
     
     private func setNewEntriesTask(_ task: Task<Void, Never>) {

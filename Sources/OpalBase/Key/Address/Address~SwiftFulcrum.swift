@@ -66,10 +66,10 @@ extension Address {
     }
     
     func subscribe(fulcrum: Fulcrum) async throws -> (requestedID: UUID,
-                                                             subscriptionID: String,
-                                                             initialStatus: String,
-                                                             followingStatus: AsyncThrowingStream<Response.Result.Blockchain.Address.SubscribeNotification, Swift.Error>,
-                                                             cancel: () async -> Void) {
+                                                      subscriptionID: String,
+                                                      initialStatus: String,
+                                                      followingStatus: AsyncThrowingStream<Response.Result.Blockchain.Address.SubscribeNotification, Swift.Error>,
+                                                      cancel: @Sendable () async -> Void) {
         let (id, result, notifications, cancel) = try await Address.subscribeToActivities(of: self, using: fulcrum)
         
         let requestedID = id
@@ -177,7 +177,7 @@ extension Address {
     static func subscribeToActivities(of address: Address, using fulcrum: Fulcrum) async throws -> (requestedID: UUID,
                                                                                                     result: Response.Result.Blockchain.Address.SubscribeNotification,
                                                                                                     notifications: AsyncThrowingStream<Response.Result.Blockchain.Address.SubscribeNotification, Swift.Error>,
-                                                                                                    cancel: () async -> Void) {
+                                                                                                    cancel: @Sendable () async -> Void) {
         let response = try await fulcrum.submit(method: .blockchain(.address(.subscribe(address: address.string))),
                                                 notificationType: Response.Result.Blockchain.Address.SubscribeNotification.self)
         guard case .stream(let id, let initialResponse, let updates, let cancel) = response else { throw Fulcrum.Error.coding(.decode(nil)) }

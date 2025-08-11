@@ -78,17 +78,34 @@ extension Account {
         catch { enqueueRequest(request) }
     }
     
-    public func startAddressMonitoring() async {
-        let request = { [self] in
-            let fulcrum = try await fulcrumPool.getFulcrum()
-            await addressBook.startSubscription(using: fulcrum)
-        }
+    public func startAddressMonitoring() async throws {
+        let addresses = await (addressBook.receivingEntries + addressBook.changeEntries).map { $0.address }
+        guard !addresses.isEmpty else { return }
         
-        do { try await request() }
-        catch { enqueueRequest(request) }
+        do {
+            let fulcrum = try await fulcrumPool.getFulcrum()
+            let stream = try await addressMonitor.start(for: addresses, using: fulcrum)
+            
+            Task { [weak self] in
+                guard let self else { return }
+                let continuation = await self.balanceStreamContinuation
+                do {
+                    for try await _ in stream {
+                        await self.refreshUTXOSet()
+                        let balance = try await self.calculateBalance()
+                        continuation?.yield(balance.uint64)
+                    }
+                } catch {
+                    continuation?.finish(throwing: error)
+                }
+            }
+        } catch {
+            throw Account.Monitor.Error.monitoringFailed(error)
+        }
     }
     
     public func stopAddressMonitoring() async {
-        await addressBook.stopSubscription()
+        await addressMonitor.stop()
+        balanceStreamContinuation?.finish()
     }
 }
