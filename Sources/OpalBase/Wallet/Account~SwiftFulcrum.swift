@@ -99,7 +99,8 @@ extension Account {
                     } catch {
                         continuation.finish(throwing: error)
                     }
-                    continuation.onTermination { _ in
+                    
+                    continuation.onTermination = { _ in
                         Task { [weak self] in await self?.addressMonitor.stop() }
                     }
                 }
