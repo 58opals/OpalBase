@@ -133,13 +133,18 @@ extension Account {
     
     private func monitorNetworkStatus() async {
         for await status in await fulcrumPool.observeStatus() {
-            if status == .online {
+            switch status {
+            case .online:
                 await processQueuedRequests()
                 await addressBook.processQueuedRequests()
                 
                 if let fulcrum = try? await fulcrumPool.getFulcrum() {
+                    await addressBook.startSubscription(using: fulcrum)
                     await outbox.retryPendingTransactions(using: fulcrum)
                 }
+                
+            case .connecting, .offline:
+                await addressBook.stopSubscription()
             }
         }
     }
