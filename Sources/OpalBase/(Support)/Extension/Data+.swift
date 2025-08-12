@@ -3,7 +3,7 @@
 import Foundation
 
 extension Data {
-    init(hexString: String) throws {
+    public init(hexString: String) throws {
         var byteArray = [UInt8]()
         byteArray.reserveCapacity(hexString.unicodeScalars.lazy.underestimatedCount)
         
