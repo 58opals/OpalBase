@@ -58,7 +58,31 @@ extension AccountTests {
         
         print(balance)
     }
-
+    
+    @Test mutating func testParallelBalancePerformance() async throws {
+        func sequentialBalance() async throws -> Satoshi {
+            var total: UInt64 = 0
+            let addresses = await (account.addressBook.receivingEntries + account.addressBook.changeEntries).map(\.address)
+            let fulcrum = try await account.fulcrumPool.getFulcrum()
+            for address in addresses {
+                total += try await account.addressBook.getBalanceFromBlockchain(address: address, fulcrum: fulcrum).uint64
+            }
+            return try Satoshi(total)
+        }
+        
+        let clock = ContinuousClock()
+        let seqStart = clock.now
+        let seqBalance = try await sequentialBalance()
+        let sequentialDuration = seqStart.duration(to: clock.now)
+        
+        let parStart = clock.now
+        let parallelBalance = try await account.calculateBalance()
+        let parallelDuration = parStart.duration(to: clock.now)
+        
+        #expect(seqBalance == parallelBalance, "Parallel and sequential balances should match.")
+        #expect(parallelDuration < sequentialDuration, "Parallel computation should be faster.")
+    }
+    
     @Test mutating func testSendTransaction() async {
         do {
             let recipientAddress = try Address("bitcoincash:qr4yz562852sglpmjmxvktrph5syts064yjadyqvc8")

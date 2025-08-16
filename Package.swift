@@ -18,7 +18,7 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/attaswift/BigInt.git", from: "5.4.1"),
-        .package(url: "https://github.com/58opals/SwiftFulcrum.git", from: "0.2.0"),
+        .package(url: "https://github.com/58opals/SwiftFulcrum.git", from: "0.3.0"),
         .package(url: "https://github.com/21-DOT-DEV/swift-secp256k1.git", from: "0.20.0")
     ],
     targets: [

@@ -5,13 +5,24 @@ import SwiftFulcrum
 
 extension Account {
     public func calculateBalance() async throws -> Satoshi {
-        var totalBalance: UInt64 = 0
+        let addresses = await (addressBook.receivingEntries + addressBook.changeEntries).map { $0.address }
+        guard !addresses.isEmpty else { return try Satoshi(0) }
         
-        for address in await (addressBook.receivingEntries + addressBook.changeEntries).map({ $0.address }) {
-            totalBalance += try await addressBook.getBalanceFromBlockchain(address: address, fulcrum: fulcrumPool.getFulcrum()).uint64
+        let fulcrum = try await fulcrumPool.getFulcrum()
+        let total = try await withThrowingTaskGroup(of: UInt64.self) { group in
+            for address in addresses {
+                group.addTask {
+                    let balance = try await self.addressBook.getBalanceFromBlockchain(address: address, fulcrum: fulcrum)
+                    return balance.uint64
+                }
+            }
+            
+            var aggregate: UInt64 = 0
+            for try await partial in group { aggregate += partial }
+            return aggregate
         }
         
-        return try Satoshi(totalBalance)
+        return try Satoshi(total)
     }
     
     public func send(_ sendings: [(value: Satoshi, recipientAddress: Address)],
