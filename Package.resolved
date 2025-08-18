@@ -24,8 +24,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/58opals/SwiftFulcrum.git",
       "state" : {
-        "revision" : "fd0aa468b172d2e3601467994785affc010016c9",
-        "version" : "0.3.2"
+        "revision" : "3906f725f9f68267b3cee94a3e4728a2d84ccc74",
+        "version" : "0.3.3"
       }
     }
   ],

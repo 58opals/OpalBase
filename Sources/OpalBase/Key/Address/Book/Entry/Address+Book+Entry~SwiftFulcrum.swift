@@ -85,128 +85,158 @@ extension Address.Book {
                                           toHeight: UInt? = nil,
                                           includeUnconfirmed: Bool = true,
                                           using fulcrum: Fulcrum) async throws -> [Transaction.Detailed] {
-        let entries = getEntries(of: usage)
-        var allDetailedTransactions: [Transaction.Detailed] = []
-        allDetailedTransactions.reserveCapacity(entries.count * 10)
-        
-        try await withThrowingTaskGroup(of: [Transaction.Detailed].self) { group in
-            for entry in entries {
-                group.addTask {
-                    try await entry.fetchFullTransactions(fromHeight: fromHeight,
-                                                          toHeight: toHeight,
-                                                          includeUnconfirmed: includeUnconfirmed,
-                                                          fulcrum: fulcrum)
+        let operation = { [self] () async throws -> [Transaction.Detailed] in
+            let entries = getEntries(of: usage)
+            var allDetailedTransactions: [Transaction.Detailed] = []
+            allDetailedTransactions.reserveCapacity(entries.count * 10)
+            
+            try await withThrowingTaskGroup(of: [Transaction.Detailed].self) { group in
+                for entry in entries {
+                    group.addTask {
+                        try await entry.fetchFullTransactions(fromHeight: fromHeight,
+                                                              toHeight: toHeight,
+                                                              includeUnconfirmed: includeUnconfirmed,
+                                                              fulcrum: fulcrum)
+                    }
+                }
+                
+                for try await detailedList in group {
+                    allDetailedTransactions.append(contentsOf: detailedList)
                 }
             }
             
-            for try await detailedList in group {
-                allDetailedTransactions.append(contentsOf: detailedList)
-            }
+            return allDetailedTransactions
         }
         
-        return allDetailedTransactions
+        return try await executeOrEnqueue(operation)
     }
     
     public func fetchCombinedHistory(fromHeight: UInt? = nil,
                                      toHeight: UInt? = nil,
                                      includeUnconfirmed: Bool = true,
                                      using fulcrum: Fulcrum) async throws -> [Transaction.Detailed] {
-        async let receivingTransactions = fetchDetailedTransactions(for: .receiving,
-                                                                    fromHeight: fromHeight,
-                                                                    toHeight: toHeight,
-                                                                    includeUnconfirmed: includeUnconfirmed,
-                                                                    using: fulcrum)
-        async let changeTransactions = fetchDetailedTransactions(for: .change,
-                                                                 fromHeight: fromHeight,
-                                                                 toHeight: toHeight,
-                                                                 includeUnconfirmed: includeUnconfirmed,
-                                                                 using: fulcrum)
-        let (receivingTransactionHistory, changeTransactionHistory) = try await (receivingTransactions, changeTransactions)
+        let operation = { [self] () async throws -> [Transaction.Detailed] in
+            async let receivingTransactions = fetchDetailedTransactions(for: .receiving,
+                                                                        fromHeight: fromHeight,
+                                                                        toHeight: toHeight,
+                                                                        includeUnconfirmed: includeUnconfirmed,
+                                                                        using: fulcrum)
+            async let changeTransactions = fetchDetailedTransactions(for: .change,
+                                                                     fromHeight: fromHeight,
+                                                                     toHeight: toHeight,
+                                                                     includeUnconfirmed: includeUnconfirmed,
+                                                                     using: fulcrum)
+            let (receivingTransactionHistory, changeTransactionHistory) = try await (receivingTransactions, changeTransactions)
+            
+            return Address.Book.combineHistories(receiving: receivingTransactionHistory, change: changeTransactionHistory)
+        }
         
-        return Address.Book.combineHistories(receiving: receivingTransactionHistory, change: changeTransactionHistory)
+        return try await executeOrEnqueue(operation)
     }
     
     public func fetchCombinedHistoryPage(fromHeight: UInt? = nil,
                                          window: UInt,
                                          includeUnconfirmed: Bool = true,
                                          using fulcrum: Fulcrum) async throws -> Address.Book.Page<Transaction.Detailed> {
-        let startHeight = fromHeight ?? 0
-        let endHeight = (window == 0) ? nil : ((startHeight &+ window) &- 1)
-        let transactions = try await self.fetchCombinedHistory(fromHeight: startHeight,
-                                                               toHeight: endHeight,
-                                                               includeUnconfirmed: includeUnconfirmed,
-                                                               using: fulcrum)
-        let nextHeight = endHeight.map { $0 &+ 1 }
+        let operation = { [self] () async throws -> Address.Book.Page<Transaction.Detailed> in
+            let startHeight = fromHeight ?? 0
+            let endHeight = (window == 0) ? nil : ((startHeight &+ window) &- 1)
+            let transactions = try await self.fetchCombinedHistory(fromHeight: startHeight,
+                                                                   toHeight: endHeight,
+                                                                   includeUnconfirmed: includeUnconfirmed,
+                                                                   using: fulcrum)
+            let nextHeight = endHeight.map { $0 &+ 1 }
+            
+            return .init(transactions: transactions, nextFromHeight: nextHeight)
+        }
         
-        return .init(transactions: transactions, nextFromHeight: nextHeight)
+        return try await executeOrEnqueue(operation)
     }
 }
 
 extension Address.Book {
     func refreshUsedStatus(fulcrum: Fulcrum) async throws {
-        try await refreshUsedStatus(for: .receiving, fulcrum: fulcrum)
-        try await refreshUsedStatus(for: .change, fulcrum: fulcrum)
+        let operation = { [self] in
+            try await refreshUsedStatus(for: .receiving, fulcrum: fulcrum)
+            try await refreshUsedStatus(for: .change, fulcrum: fulcrum)
+        }
+        
+        try await executeOrEnqueue(operation)
     }
     
     func refreshUsedStatus(for usage: DerivationPath.Usage, fulcrum: Fulcrum) async throws {
-        let entries = getEntries(of: usage)
-        
-        for entry in entries {
-            if entry.isUsed { continue }
+        let operation = { [self] in
+            let entries = getEntries(of: usage)
             
-            if let cacheBalance = entry.cache.balance {
-                if cacheBalance.uint64 > 0 {
-                    let unspentTransactionOutputs = try await entry.address.fetchUnspentTransactionOutputs(fulcrum: fulcrum)
-                    if !unspentTransactionOutputs.isEmpty {
-                        try mark(address: entry.address, isUsed: true)
-                    }
-                } else if cacheBalance.uint64 == 0 {
-                    let transactionHistory = try await entry.address.fetchSimpleTransactionHistory(fulcrum: fulcrum)
-                    if !transactionHistory.isEmpty {
-                        try mark(address: entry.address, isUsed: true)
+            for entry in entries {
+                if entry.isUsed { continue }
+                
+                if let cacheBalance = entry.cache.balance {
+                    if cacheBalance.uint64 > 0 {
+                        let utxos = try await entry.address.fetchUnspentTransactionOutputs(fulcrum: fulcrum)
+                        if !utxos.isEmpty {
+                            try mark(address: entry.address, isUsed: true)
+                        }
+                    } else if cacheBalance.uint64 == 0 {
+                        let transactionHistory = try await entry.address.fetchSimpleTransactionHistory(fulcrum: fulcrum)
+                        if !transactionHistory.isEmpty {
+                            try mark(address: entry.address, isUsed: true)
+                        }
                     }
                 }
             }
         }
+        
+        try await executeOrEnqueue(operation)
     }
 }
 
 extension Address.Book {
     public func updateAddressUsageStatus(using fulcrum: Fulcrum) async throws {
-        try await withThrowingTaskGroup(of: Void.self) { group in
-            group.addTask { try await self.updateAddressUsageStatus(for: .receiving, using: fulcrum) }
-            group.addTask { try await self.updateAddressUsageStatus(for: .change, using: fulcrum) }
-            try await group.waitForAll()
+        let operation = { [self] in
+            try await withThrowingTaskGroup(of: Void.self) { group in
+                group.addTask { try await self.updateAddressUsageStatus(for: .receiving, using: fulcrum) }
+                group.addTask { try await self.updateAddressUsageStatus(for: .change, using: fulcrum) }
+                try await group.waitForAll()
+            }
         }
+        
+        try await executeOrEnqueue(operation)
     }
     
     private func updateAddressUsageStatus(for usage: DerivationPath.Usage, using fulcrum: Fulcrum) async throws {
-        let entries = getEntries(of: usage)
-        
-        try await withThrowingTaskGroup(of: (Address, Bool).self) { group in
-            for entry in entries where !entry.isUsed {
-                group.addTask {
-                    let isActuallyUsed = try await self.checkIfUsed(entry: entry, using: fulcrum)
-                    return (entry.address, isActuallyUsed)
+        let operation = { [self] in
+            let entries = getEntries(of: usage)
+            
+            try await withThrowingTaskGroup(of: (Address, Bool).self) { group in
+                for entry in entries where !entry.isUsed {
+                    group.addTask {
+                        let isActuallyUsed = try await self.checkIfUsed(entry: entry, using: fulcrum)
+                        return (entry.address, isActuallyUsed)
+                    }
+                }
+                
+                for try await (address, isUsed) in group {
+                    if isUsed { try self.mark(address: address, isUsed: true) }
                 }
             }
-            
-            for try await (address, isUsed) in group {
-                if isUsed { try self.mark(address: address, isUsed: true) }
-            }
         }
+        
+        try await executeOrEnqueue(operation)
     }
     
     private func checkIfUsed(entry: Entry, using fulcrum: Fulcrum) async throws -> Bool {
-        if let cacheBalance = entry.cache.balance, cacheBalance.uint64 > 0 { return true }
+        let operation = { () async throws -> Bool in
+            if let cacheBalance = entry.cache.balance, cacheBalance.uint64 > 0 { return true }
+            
+            let utxos = try await entry.address.fetchUnspentTransactionOutputs(fulcrum: fulcrum)
+            if !utxos.isEmpty { return true }
+            
+            let txHistory = try await entry.address.fetchSimpleTransactionHistory(fulcrum: fulcrum)
+            return !txHistory.isEmpty
+        }
         
-        let utxos = try await entry.address.fetchUnspentTransactionOutputs(fulcrum: fulcrum)
-        if !utxos.isEmpty { return true }
-        
-        let txHistory = try await entry.address.fetchSimpleTransactionHistory(fulcrum: fulcrum)
-        if !txHistory.isEmpty { return true }
-        
-        return false
+        return try await executeOrEnqueue(operation)
     }
 }
 
@@ -216,14 +246,18 @@ extension Address.Book {
     }
     
     func scanForUsedAddresses(using fulcrum: Fulcrum) async throws {
-        var previousUsedCount = countUsedEntries()
+        let operation = { [self] in
+            var previousUsedCount = countUsedEntries()
+            
+            repeat {
+                try await updateAddressUsageStatus(using: fulcrum)
+                let currentUsedCount = countUsedEntries()
+                if currentUsedCount == previousUsedCount { break }
+                previousUsedCount = currentUsedCount
+            } while true
+        }
         
-        repeat {
-            try await updateAddressUsageStatus(using: fulcrum)
-            let currentUsedCount = countUsedEntries()
-            if currentUsedCount == previousUsedCount { break }
-            previousUsedCount = currentUsedCount
-        } while true
+        try await executeOrEnqueue(operation)
     }
 }
 
