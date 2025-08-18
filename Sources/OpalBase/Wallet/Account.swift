@@ -28,7 +28,7 @@ public actor Account: Identifiable {
          coinType: DerivationPath.CoinType,
          account: DerivationPath.Account,
          outboxPath: URL? = nil) async throws {
-        self.fulcrumPool = try .init(urls: fulcrumServerURLs)
+        self.fulcrumPool = try await .init(urls: fulcrumServerURLs)
         self.feeRate = .init(fulcrumPool: self.fulcrumPool)
         
         self.rootExtendedPrivateKey = rootExtendedPrivateKey

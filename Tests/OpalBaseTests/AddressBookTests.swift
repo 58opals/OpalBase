@@ -14,7 +14,7 @@ struct AddressBookTests {
     let account: DerivationPath.Account
     
     init() async throws {
-        self.fulcrum = try .init()
+        self.fulcrum = try await .init()
         self.rootExtendedPrivateKey = .init(rootKey: try .init(seed: .init([0x00])))
         self.purpose = .bip44
         self.coinType = .bitcoinCash

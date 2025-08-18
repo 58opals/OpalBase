@@ -20,17 +20,23 @@ extension Wallet.Network {
         private var status: Wallet.Network.Status = .offline
         var statusContinuations: [AsyncStream<Wallet.Network.Status>.Continuation] = .init()
         
-        init(urls: [String] = [], maxBackoff: TimeInterval = 64) throws {
-            if urls.isEmpty {
-                self.servers = [.init(fulcrum: try .init())]
-            } else {
-                self.servers = try urls.map { url in
-                        .init(fulcrum: try .init(url: url))
-                }
-            }
-            
+        init(urls: [String] = [], maxBackoff: TimeInterval = 64) async throws {
+            self.servers = []
             self.maxBackoff = maxBackoff
             self.status = .offline
+            
+            if urls.isEmpty {
+                let fulcrum = try await Fulcrum()
+                self.servers = [.init(fulcrum: fulcrum)]
+            } else {
+                var builtServers: [Server] = []
+                builtServers.reserveCapacity(urls.count)
+                for url in urls {
+                    let fulcrum = try await Fulcrum(url: url)
+                    builtServers.append(.init(fulcrum: fulcrum))
+                }
+                self.servers = builtServers
+            }
         }
     }
 }

@@ -8,7 +8,7 @@ struct AddressTests {
     let fulcrum: Fulcrum
     
     init() async throws {
-        self.fulcrum = try .init()
+        self.fulcrum = try await .init()
         
         try await self.fulcrum.start()
     }
