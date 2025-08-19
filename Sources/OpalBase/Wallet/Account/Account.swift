@@ -20,6 +20,7 @@ public actor Account: Identifiable {
     
     let addressMonitor: Monitor
     
+    private var networkMonitorTask: Task<Void, Never>?
     private var requestQueue: [() async throws -> Void] = .init()
     
     init(fulcrumServerURLs: [String] = [],
@@ -47,10 +48,9 @@ public actor Account: Identifiable {
         self.outbox = try .init(folderURL: folderURL)
         
         self.addressMonitor = .init()
-        
-        Task { [weak self] in
+        self.networkMonitorTask = Task { [weak self] in
             guard let self else { return }
-            await monitorNetworkStatus()
+            await self.monitorNetworkStatus()
         }
     }
     
@@ -78,6 +78,15 @@ public actor Account: Identifiable {
         self.addressMonitor = .init()
         
         try await self.addressBook.applySnapshot(snapshot.addressBook)
+        
+        self.networkMonitorTask = Task { [weak self] in
+            guard let self else { return }
+            await self.monitorNetworkStatus()
+        }
+    }
+    
+    deinit {
+        networkMonitorTask?.cancel()
     }
 }
 
@@ -125,6 +134,11 @@ extension Account {
             let request = requestQueue.removeFirst()
             do { try await request() } catch { /* handle/log error if needed */ }
         }
+    }
+    
+    public func stopNetworkMonitor() {
+        networkMonitorTask?.cancel()
+        networkMonitorTask = nil
     }
     
     public func observeNetworkStatus() async -> AsyncStream<Wallet.Network.Status> {
