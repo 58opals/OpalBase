@@ -9,3 +9,9 @@ extension Account.Monitor {
         case emptyAddresses
     }
 }
+
+extension Account.Monitor.Error: Equatable {
+    public static func == (lhs: Account.Monitor.Error, rhs: Account.Monitor.Error) -> Bool {
+        lhs.localizedDescription == rhs.localizedDescription
+    }
+}
