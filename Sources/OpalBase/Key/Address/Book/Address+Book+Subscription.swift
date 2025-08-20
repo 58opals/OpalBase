@@ -9,6 +9,7 @@ extension Address.Book {
         private var isRunning: Bool = false
         private var cancelHandlers: [@Sendable () async -> Void] = .init()
         private var task: Task<Void, Never>?
+        private var subscriptionTasks: [Task<Void, Never>] = .init()
         private var newEntriesTask: Task<Void, Never>?
         private var debounceTask: Task<Void, Never>?
         private let debounceDuration: UInt64 = 100_000_000 // 100ms
@@ -34,7 +35,9 @@ extension Address.Book.Subscription {
                 guard let self else { return }
                 for await entry in await book.observeNewEntries() {
                     guard await self.isRunning else { break }
-                    await self.startSubscription(for: entry, fulcrum: fulcrum)
+                    let task = await self.startSubscription(for: entry, fulcrum: fulcrum)
+                    
+                    await self.storeSubscriptionTask(task)
                 }
             }
         )
@@ -42,7 +45,10 @@ extension Address.Book.Subscription {
         task = Task { [weak self] in
             guard let self else { return }
             let entries = await self.book.receivingEntries + self.book.changeEntries
-            for entry in entries { await self.startSubscription(for: entry, fulcrum: fulcrum) }
+            for entry in entries {
+                let task = await self.startSubscription(for: entry, fulcrum: fulcrum)
+                await self.storeSubscriptionTask(task)
+            }
         }
     }
     
@@ -50,9 +56,11 @@ extension Address.Book.Subscription {
         isRunning = false
         for cancel in cancelHandlers { await cancel() }
         cancelHandlers.removeAll()
-        subscriptionCount = 0
         task?.cancel()
         task = nil
+        for task in subscriptionTasks { task.cancel() }
+        subscriptionTasks.removeAll()
+        subscriptionCount = 0
         newEntriesTask?.cancel()
         newEntriesTask = nil
         debounceTask?.cancel()
@@ -69,10 +77,14 @@ extension Address.Book.Subscription {
         newEntriesTask = task
     }
     
-    private func startSubscription(for entry: Address.Book.Entry, fulcrum: Fulcrum) async {
+    private func storeSubscriptionTask(_ task: Task<Void, Never>) async {
+        subscriptionTasks.append(task)
+    }
+    
+    private func startSubscription(for entry: Address.Book.Entry, fulcrum: Fulcrum) async -> Task<Void, Never> {
         subscriptionCount += 1
         
-        Task { [weak self] in
+        let task = Task { [weak self] in
             guard let self else { return }
             do {
                 let (_, _, _, stream, cancel) = try await entry.address.subscribe(fulcrum: fulcrum)
@@ -84,8 +96,10 @@ extension Address.Book.Subscription {
                 // Ignore individual subscription failures
             }
         }
+        
+        return task
     }
-
+    
     private func scheduleNotification(fulcrum: Fulcrum) async {
         debounceTask?.cancel()
         debounceTask = Task { [weak self] in
