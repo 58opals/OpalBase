@@ -148,13 +148,13 @@ extension Address.Book {
 
 extension Address.Book {
     private func addEntryContinuation(_ continuation: AsyncStream<Entry>.Continuation) -> UUID {
-        let id = UUID()
-        entryContinuations[id] = continuation
-        return id
+        let identifier = UUID()
+        entryContinuations[identifier] = continuation
+        return identifier
     }
     
-    private func removeEntryContinuation(_ id: UUID) {
-        entryContinuations.removeValue(forKey: id)
+    private func removeEntryContinuation(_ identifier: UUID) {
+        entryContinuations.removeValue(forKey: identifier)
     }
     
     func notifyNewEntry(_ entry: Entry) {
@@ -163,10 +163,10 @@ extension Address.Book {
     
     func observeNewEntries() -> AsyncStream<Entry> {
         AsyncStream { continuation in
-            let id = addEntryContinuation(continuation)
-            continuation.onTermination = { [weak self] _ in
-                guard let self else { return }
-                Task { await self.removeEntryContinuation(id) }
+            let identifier = addEntryContinuation(continuation)
+            continuation.onTermination = { [weak self] termination in
+                guard let self, case .cancelled = termination else { return }
+                Task { await self.removeEntryContinuation(identifier) }
             }
         }
     }
