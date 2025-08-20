@@ -18,7 +18,7 @@ extension Wallet.Network {
         private let maxBackoff: TimeInterval
         
         private var status: Wallet.Network.Status = .offline
-        var statusContinuations: [AsyncStream<Wallet.Network.Status>.Continuation] = .init()
+        private var statusContinuations: [UUID: AsyncStream<Wallet.Network.Status>.Continuation] = .init()
         
         init(urls: [String] = [], maxBackoff: TimeInterval = 64) async throws {
             self.servers = []
@@ -45,8 +45,17 @@ extension Wallet.Network.FulcrumPool {
     public var currentStatus: Wallet.Network.Status { status }
     
     private func addContinuation(_ continuation: AsyncStream<Wallet.Network.Status>.Continuation) {
-        statusContinuations.append(continuation)
+        let identifier = UUID()
+        continuation.onTermination = { @Sendable _ in
+            Task { await self.removeContinuation(for: identifier) }
+        }
+        statusContinuations[identifier] = continuation
+        
         continuation.yield(status)
+    }
+    
+    private func removeContinuation(for identifier: UUID) {
+        statusContinuations.removeValue(forKey: identifier)
     }
     
     func observeStatus() -> AsyncStream<Wallet.Network.Status> {
@@ -58,7 +67,7 @@ extension Wallet.Network.FulcrumPool {
     private func updateStatus(_ newStatus: Wallet.Network.Status) {
         guard newStatus != status else { return }
         status = newStatus
-        for continuation in statusContinuations { continuation.yield(newStatus) }
+        for continuation in statusContinuations.values { continuation.yield(newStatus) }
     }
 }
 
