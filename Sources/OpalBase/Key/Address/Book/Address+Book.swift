@@ -27,7 +27,7 @@ extension Address {
         
         var subscription: Subscription?
         var requestQueue: [() async throws -> Void] = .init()
-        var entryContinuations: [AsyncStream<Entry>.Continuation] = .init()
+        var entryContinuations: [UUID: AsyncStream<Entry>.Continuation] = .init()
         
         init(rootExtendedPrivateKey: PrivateKey.Extended? = nil,
              rootExtendedPublicKey: PublicKey.Extended? = nil,
@@ -147,17 +147,27 @@ extension Address.Book {
 }
 
 extension Address.Book {
-    private func addEntryContinuation(_ continuation: AsyncStream<Entry>.Continuation) {
-        entryContinuations.append(continuation)
+    private func addEntryContinuation(_ continuation: AsyncStream<Entry>.Continuation) -> UUID {
+        let id = UUID()
+        entryContinuations[id] = continuation
+        return id
     }
-
+    
+    private func removeEntryContinuation(_ id: UUID) {
+        entryContinuations.removeValue(forKey: id)
+    }
+    
     func notifyNewEntry(_ entry: Entry) {
-        for continuation in entryContinuations { continuation.yield(entry) }
+        for continuation in entryContinuations.values { continuation.yield(entry) }
     }
-
+    
     func observeNewEntries() -> AsyncStream<Entry> {
         AsyncStream { continuation in
-            addEntryContinuation(continuation)
+            let id = addEntryContinuation(continuation)
+            continuation.onTermination = { [weak self] _ in
+                guard let self else { return }
+                Task { await self.removeEntryContinuation(id) }
+            }
         }
     }
 }
