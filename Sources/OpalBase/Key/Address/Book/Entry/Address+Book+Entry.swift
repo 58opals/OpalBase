@@ -82,6 +82,8 @@ extension Address.Book {
                              isUsed: isUsed,
                              cache: .init(validityDuration: cacheValidityDuration))
         
+        derivationPathToAddress[derivationPath] = address
+        
         switch usage {
         case .receiving: receivingEntries.append(newEntry)
         case .change: changeEntries.append(newEntry)

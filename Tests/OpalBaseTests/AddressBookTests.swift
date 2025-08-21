@@ -144,6 +144,34 @@ extension AddressBookTests {
         #expect(await !addressBook.utxos.contains(dummyUTXO), "UTXO should be removed from the address book.")
     }
     
+    @Test mutating func testHandleIncomingTransactionDetectsOwnedAddress() async throws {
+        await addressBook.clearUTXOs()
+        
+        let entry = await addressBook.receivingEntries[0]
+        let output = Transaction.Output(value: 50, lockingScript: entry.address.lockingScript.data)
+        let input = Transaction.Input(previousTransactionHash: .init(naturalOrder: Data(repeating: 0x01, count: 32)),
+                                      previousTransactionOutputIndex: 0,
+                                      unlockingScript: Data())
+        let tx = Transaction(version: 1, inputs: [input], outputs: [output], lockTime: 0)
+        let hash = Data(repeating: 0x02, count: 32)
+        let detailed = Transaction.Detailed(transaction: tx,
+                                            blockHash: nil,
+                                            blockTime: 0,
+                                            confirmations: nil,
+                                            hash: hash,
+                                            raw: Data(),
+                                            size: 0,
+                                            time: 0)
+        
+        let expectedUTXO = Transaction.Output.Unspent(output: output,
+                                                      previousTransactionHash: .init(naturalOrder: hash),
+                                                      previousTransactionOutputIndex: 0)
+        
+        try await addressBook.handleIncomingTransaction(detailed)
+        
+        #expect(await addressBook.utxos.contains(expectedUTXO), "Incoming transaction to owned address should register as UTXO.")
+    }
+    
     @Test mutating func testCacheInvalidationOnManualUpdate() async throws {
         let address = await addressBook.receivingEntries[1].address
         try await addressBook.updateCache(for: address, with: try Satoshi(300_000))
@@ -280,19 +308,19 @@ extension AddressBookTests {
     @Test mutating func testSnapshotSaveLoad() async throws {
         let key = SymmetricKey(size: .bits256)
         let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
-
+        
         let entry = await addressBook.receivingEntries[0]
         try await addressBook.updateCache(for: entry.address, with: try Satoshi(123))
         try await addressBook.mark(address: entry.address, isUsed: true)
-
+        
         let dummyOutput = Transaction.Output(value: 50, lockingScript: Script.p2pkh(hash: .init(publicKey: try .init(compressedData: .init(repeating: 0x02, count: 33)))).data)
         let dummyUTXO = Transaction.Output.Unspent(output: dummyOutput,
                                                    previousTransactionHash: Transaction.Hash(naturalOrder: Data(repeating: 0, count: 32)),
                                                    previousTransactionOutputIndex: 0)
         await addressBook.addUTXO(dummyUTXO)
-
+        
         try await addressBook.saveSnapshot(to: url, using: key)
-
+        
         let newBook = try await Address.Book(rootExtendedPrivateKey: rootExtendedPrivateKey,
                                              purpose: purpose,
                                              coinType: coinType,
@@ -300,7 +328,7 @@ extension AddressBookTests {
                                              gapLimit: 20,
                                              cacheValidityDuration: 5)
         try await newBook.loadSnapshot(from: url, using: key)
-
+        
         let restoredEntry = await newBook.findEntry(for: entry.address)
         let restoredBalance = try await newBook.getBalanceFromCache(address: entry.address)
         
@@ -311,20 +339,20 @@ extension AddressBookTests {
     
     @Test mutating func testSnapshotSaveLoadWithoutKey() async throws {
         let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
-
+        
         let entry = await addressBook.receivingEntries[0]
         try await addressBook.updateCache(for: entry.address, with: try Satoshi(123))
         try await addressBook.mark(address: entry.address, isUsed: true)
-
+        
         let dummyOutput = Transaction.Output(value: 50,
                                              lockingScript: Script.p2pkh(hash: .init(publicKey: try .init(compressedData: .init(repeating: 0x02, count: 33)))).data)
         let dummyUTXO = Transaction.Output.Unspent(output: dummyOutput,
                                                    previousTransactionHash: Transaction.Hash(naturalOrder: Data(repeating: 0, count: 32)),
                                                    previousTransactionOutputIndex: 0)
         await addressBook.addUTXO(dummyUTXO)
-
+        
         try await addressBook.saveSnapshot(to: url)
-
+        
         let newBook = try await Address.Book(rootExtendedPrivateKey: rootExtendedPrivateKey,
                                              purpose: purpose,
                                              coinType: coinType,
@@ -332,10 +360,10 @@ extension AddressBookTests {
                                              gapLimit: 20,
                                              cacheValidityDuration: 5)
         try await newBook.loadSnapshot(from: url)
-
+        
         let restoredEntry = await newBook.findEntry(for: entry.address)
         let restoredBalance = try await newBook.getBalanceFromCache(address: entry.address)
-
+        
         #expect(restoredEntry?.isUsed == true, "Used flag should restore")
         #expect(restoredBalance?.uint64 == 123, "Balance should restore")
         #expect(await newBook.utxos.contains(dummyUTXO), "UTXO should restore")

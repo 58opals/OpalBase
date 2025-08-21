@@ -58,6 +58,7 @@ extension Address {
             
             for entry in receivingEntries + changeEntries {
                 addressToEntry[entry.address] = entry
+                derivationPathToAddress[entry.derivationPath] = entry.address
             }
         }
     }
