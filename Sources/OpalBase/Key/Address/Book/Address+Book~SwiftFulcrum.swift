@@ -3,7 +3,7 @@
 import Foundation
 
 extension Address.Book {
-    func enqueueRequest(_ request: @escaping () async throws -> Void) {
+    func enqueueRequest(_ request: @escaping @Sendable () async throws -> Void) {
         requestQueue.append(request)
     }
     
@@ -14,7 +14,7 @@ extension Address.Book {
         }
     }
     
-    func executeOrEnqueue(_ operation: @escaping () async throws -> Void) async throws {
+    func executeOrEnqueue(_ operation: @escaping @Sendable () async throws -> Void) async throws {
         do { try await operation() }
         catch {
             enqueueRequest(operation)
@@ -22,7 +22,7 @@ extension Address.Book {
         }
     }
     
-    func executeOrEnqueue<T: Sendable>(_ operation: @escaping () async throws -> T) async throws -> T {
+    func executeOrEnqueue<T: Sendable>(_ operation: @escaping @Sendable () async throws -> T) async throws -> T {
         do { return try await operation() }
         catch {
             enqueueRequest { _ = try await operation() }

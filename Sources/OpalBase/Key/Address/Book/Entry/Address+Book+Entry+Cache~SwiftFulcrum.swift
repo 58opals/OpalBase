@@ -5,7 +5,7 @@ import SwiftFulcrum
 
 extension Address.Book {
     func updateCache(using fulcrum: Fulcrum) async throws {
-        let operation = { [self] in
+        let operation: @Sendable () async throws -> Void = { [self] in
             try await updateCache(in: receivingEntries, fulcrum: fulcrum)
             try await updateCache(in: changeEntries, fulcrum: fulcrum)
         }
@@ -14,11 +14,11 @@ extension Address.Book {
     }
     
     func updateCache(in entries: [Entry], fulcrum: Fulcrum) async throws {
-        let operation = { [self] in
+        let operation: @Sendable () async throws -> Void = { [self] in
             for entry in entries where !entry.cache.isValid {
                 let address = entry.address
                 let latestBalance = try await address.fetchBalance(using: fulcrum)
-                try updateCache(for: address, with: latestBalance)
+                try await updateCache(for: address, with: latestBalance)
             }
         }
         

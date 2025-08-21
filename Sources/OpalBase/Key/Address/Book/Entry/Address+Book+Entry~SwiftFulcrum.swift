@@ -85,8 +85,8 @@ extension Address.Book {
                                           toHeight: UInt? = nil,
                                           includeUnconfirmed: Bool = true,
                                           using fulcrum: Fulcrum) async throws -> [Transaction.Detailed] {
-        let operation = { [self] () async throws -> [Transaction.Detailed] in
-            let entries = getEntries(of: usage)
+        let operation: @Sendable () async throws -> [Transaction.Detailed] = { [self] in
+            let entries = await getEntries(of: usage)
             var allDetailedTransactions: [Transaction.Detailed] = []
             allDetailedTransactions.reserveCapacity(entries.count * 10)
             
@@ -115,7 +115,7 @@ extension Address.Book {
                                      toHeight: UInt? = nil,
                                      includeUnconfirmed: Bool = true,
                                      using fulcrum: Fulcrum) async throws -> [Transaction.Detailed] {
-        let operation = { [self] () async throws -> [Transaction.Detailed] in
+        let operation: @Sendable () async throws -> [Transaction.Detailed] = { [self] in
             async let receivingTransactions = fetchDetailedTransactions(for: .receiving,
                                                                         fromHeight: fromHeight,
                                                                         toHeight: toHeight,
@@ -138,7 +138,7 @@ extension Address.Book {
                                          window: UInt,
                                          includeUnconfirmed: Bool = true,
                                          using fulcrum: Fulcrum) async throws -> Address.Book.Page<Transaction.Detailed> {
-        let operation = { [self] () async throws -> Address.Book.Page<Transaction.Detailed> in
+        let operation: @Sendable () async throws -> Address.Book.Page<Transaction.Detailed> = { [self] in
             let startHeight = fromHeight ?? 0
             let endHeight = (window == 0) ? nil : ((startHeight &+ window) &- 1)
             let transactions = try await self.fetchCombinedHistory(fromHeight: startHeight,
@@ -156,7 +156,7 @@ extension Address.Book {
 
 extension Address.Book {
     func refreshUsedStatus(fulcrum: Fulcrum) async throws {
-        let operation = { [self] in
+        let operation: @Sendable () async throws -> Void = { [self] in
             try await refreshUsedStatus(for: .receiving, fulcrum: fulcrum)
             try await refreshUsedStatus(for: .change, fulcrum: fulcrum)
         }
@@ -165,8 +165,8 @@ extension Address.Book {
     }
     
     func refreshUsedStatus(for usage: DerivationPath.Usage, fulcrum: Fulcrum) async throws {
-        let operation = { [self] in
-            let entries = getEntries(of: usage)
+        let operation: @Sendable () async throws -> Void = { [self] in
+            let entries = await getEntries(of: usage)
             
             for entry in entries {
                 if entry.isUsed { continue }
@@ -175,12 +175,12 @@ extension Address.Book {
                     if cacheBalance.uint64 > 0 {
                         let utxos = try await entry.address.fetchUnspentTransactionOutputs(fulcrum: fulcrum)
                         if !utxos.isEmpty {
-                            try mark(address: entry.address, isUsed: true)
+                            try await mark(address: entry.address, isUsed: true)
                         }
                     } else if cacheBalance.uint64 == 0 {
                         let transactionHistory = try await entry.address.fetchSimpleTransactionHistory(fulcrum: fulcrum)
                         if !transactionHistory.isEmpty {
-                            try mark(address: entry.address, isUsed: true)
+                            try await mark(address: entry.address, isUsed: true)
                         }
                     }
                 }
@@ -193,7 +193,7 @@ extension Address.Book {
 
 extension Address.Book {
     public func updateAddressUsageStatus(using fulcrum: Fulcrum) async throws {
-        let operation = { [self] in
+        let operation: @Sendable () async throws -> Void = { [self] in
             try await withThrowingTaskGroup(of: Void.self) { group in
                 group.addTask { try await self.updateAddressUsageStatus(for: .receiving, using: fulcrum) }
                 group.addTask { try await self.updateAddressUsageStatus(for: .change, using: fulcrum) }
@@ -205,8 +205,8 @@ extension Address.Book {
     }
     
     private func updateAddressUsageStatus(for usage: DerivationPath.Usage, using fulcrum: Fulcrum) async throws {
-        let operation = { [self] in
-            let entries = getEntries(of: usage)
+        let operation: @Sendable () async throws -> Void = { [self] in
+            let entries = await getEntries(of: usage)
             
             try await withThrowingTaskGroup(of: (Address, Bool).self) { group in
                 for entry in entries where !entry.isUsed {
@@ -217,7 +217,7 @@ extension Address.Book {
                 }
                 
                 for try await (address, isUsed) in group {
-                    if isUsed { try self.mark(address: address, isUsed: true) }
+                    if isUsed { try await self.mark(address: address, isUsed: true) }
                 }
             }
         }
@@ -226,7 +226,7 @@ extension Address.Book {
     }
     
     private func checkIfUsed(entry: Entry, using fulcrum: Fulcrum) async throws -> Bool {
-        let operation = { () async throws -> Bool in
+        let operation: @Sendable () async throws -> Bool = {
             if let cacheBalance = entry.cache.balance, cacheBalance.uint64 > 0 { return true }
             
             let utxos = try await entry.address.fetchUnspentTransactionOutputs(fulcrum: fulcrum)
@@ -246,12 +246,12 @@ extension Address.Book {
     }
     
     func scanForUsedAddresses(using fulcrum: Fulcrum) async throws {
-        let operation = { [self] in
-            var previousUsedCount = countUsedEntries()
+        let operation: @Sendable () async throws -> Void = { [self] in
+            var previousUsedCount = await countUsedEntries()
             
             repeat {
                 try await updateAddressUsageStatus(using: fulcrum)
-                let currentUsedCount = countUsedEntries()
+                let currentUsedCount = await countUsedEntries()
                 if currentUsedCount == previousUsedCount { break }
                 previousUsedCount = currentUsedCount
             } while true

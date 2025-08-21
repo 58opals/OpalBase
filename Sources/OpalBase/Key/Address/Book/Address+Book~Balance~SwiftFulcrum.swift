@@ -5,7 +5,7 @@ import SwiftFulcrum
 
 extension Address.Book {
     public func refreshBalances(using fulcrum: Fulcrum) async throws {
-        let operation = { [self] in
+        let operation: @Sendable () async throws -> Void = { [self] in
             try await refreshBalances(in: receivingEntries, fulcrum: fulcrum)
             try await refreshBalances(in: changeEntries, fulcrum: fulcrum)
         }
@@ -14,7 +14,7 @@ extension Address.Book {
     }
     
     private func refreshBalances(in entries: [Entry], fulcrum: Fulcrum) async throws {
-        let operation = { [self] in
+        let operation: @Sendable () async throws -> Void = { [self] in
             let staleEntries = entries.filter { !$0.cache.isValid }
             
             try await withThrowingTaskGroup(of: (Address, Satoshi).self) { group in
@@ -26,7 +26,7 @@ extension Address.Book {
                 }
                 
                 for try await (address, balance) in group {
-                    try updateCache(for: address, with: balance)
+                    try await updateCache(for: address, with: balance)
                 }
             }
         }
@@ -37,9 +37,9 @@ extension Address.Book {
 
 extension Address.Book {
     func getBalanceFromBlockchain(address: Address, fulcrum: Fulcrum) async throws -> Satoshi {
-        let operation = { [self] () async throws -> Satoshi in
+        let operation: @Sendable () async throws -> Satoshi = { [self] in
             let newBalance = try await address.fetchBalance(using: fulcrum)
-            try updateCache(for: address, with: newBalance)
+            try await updateCache(for: address, with: newBalance)
             return newBalance
         }
         

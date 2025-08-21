@@ -5,8 +5,8 @@ import SwiftFulcrum
 
 extension Address.Book {
     public func refreshUTXOSet(fulcrum: Fulcrum) async throws {
-        let operation = { [self] () async throws -> Void in
-            let entries = receivingEntries + changeEntries
+        let operation: @Sendable () async throws -> Void = { [self] in
+            let entries = await receivingEntries + changeEntries
             
             let updatedUTXOs = try await withThrowingTaskGroup(of: [Transaction.Output.Unspent].self) { group in
                 for entry in entries {
@@ -28,8 +28,8 @@ extension Address.Book {
                 return collected
             }
             
-            clearUTXOs()
-            addUTXOs(updatedUTXOs)
+            await clearUTXOs()
+            await addUTXOs(updatedUTXOs)
         }
         
         try await executeOrEnqueue(operation)

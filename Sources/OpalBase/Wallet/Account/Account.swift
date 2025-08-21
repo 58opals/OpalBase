@@ -21,7 +21,7 @@ public actor Account: Identifiable {
     let addressMonitor: Monitor
     
     private var networkMonitorTask: Task<Void, Never>?
-    private var requestQueue: [() async throws -> Void] = .init()
+    private var requestQueue: [@Sendable () async throws -> Void] = .init()
     
     init(fulcrumServerURLs: [String] = [],
          rootExtendedPrivateKey: PrivateKey.Extended,
@@ -125,7 +125,7 @@ extension Account {
 }
 
 extension Account {
-    func enqueueRequest(_ request: @escaping () async throws -> Void) {
+    func enqueueRequest(_ request: @escaping @Sendable () async throws -> Void) {
         requestQueue.append(request)
     }
     

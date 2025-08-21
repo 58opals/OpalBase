@@ -58,7 +58,7 @@ extension Account {
         let transactionData = transaction.encode()
         try await outbox.save(transactionData: transactionData)
         
-        let broadcastRequest = { [self] in
+        let broadcastRequest: @Sendable () async throws -> Void = { [self] in
             let fulcrum = try await fulcrumPool.getFulcrum()
             let response = try await transaction.broadcast(using: fulcrum)
             guard !response.isEmpty else { throw Transaction.Error.cannotBroadcastTransaction }
@@ -80,7 +80,7 @@ extension Account {
     }
     
     public func refreshUTXOSet() async {
-        let request = { [self] in
+        let request: @Sendable () async throws -> Void = { [self] in
             let fulcrum = try await self.fulcrumPool.getFulcrum()
             try await self.addressBook.refreshUTXOSet(fulcrum: fulcrum)
         }
