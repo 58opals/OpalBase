@@ -111,13 +111,19 @@ extension Wallet {
     }
     
     public func calculateBalance() async throws -> Satoshi {
-        var totalBalance: UInt64 = 0
-        
-        for accountIndex in 0..<self.accounts.count {
-            let balanceFromBlockchain = try await self.accounts[accountIndex].calculateBalance().uint64
-            totalBalance += balanceFromBlockchain
+        try await withThrowingTaskGroup(of: UInt64.self, returning: Satoshi.self) { group in
+            for account in accounts {
+                group.addTask {
+                    try await account.calculateBalance().uint64
+                }
+            }
+            
+            var aggregate: UInt64 = 0
+            for try await partial in group {
+                aggregate += partial
+            }
+            
+            return try Satoshi(aggregate)
         }
-        
-        return try Satoshi(totalBalance)
     }
 }
