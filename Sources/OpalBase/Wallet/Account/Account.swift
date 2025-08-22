@@ -130,9 +130,13 @@ extension Account {
     }
     
     public func processQueuedRequests() async {
-        while !requestQueue.isEmpty {
-            let request = requestQueue.removeFirst()
-            do { try await request() } catch { /* handle/log error if needed */ }
+        guard !requestQueue.isEmpty else { return }
+        
+        let currentRequests = requestQueue
+        requestQueue.removeAll()
+        for request in currentRequests {
+            do { try await request() }
+            catch { requestQueue.append(request) }
         }
     }
     
