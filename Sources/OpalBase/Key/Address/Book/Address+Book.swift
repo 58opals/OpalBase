@@ -165,8 +165,8 @@ extension Address.Book {
     func observeNewEntries() -> AsyncStream<Entry> {
         AsyncStream { continuation in
             let identifier = addEntryContinuation(continuation)
-            continuation.onTermination = { [weak self] termination in
-                guard let self, case .cancelled = termination else { return }
+            continuation.onTermination = { [weak self] _ in
+                guard let self else { return }
                 Task { await self.removeEntryContinuation(identifier) }
             }
         }
