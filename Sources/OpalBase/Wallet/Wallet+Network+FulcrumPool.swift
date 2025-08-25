@@ -124,4 +124,29 @@ extension Wallet.Network.FulcrumPool {
         
         Task { do { _ = try await self.getFulcrum() } catch {} }
     }
+    
+    public func reconnect() async throws -> Fulcrum {
+        updateStatus(.connecting)
+        
+        var server = servers[currentIndex]
+        server.failureCount = 0
+        server.nextRetry = .distantPast
+        server.status = .offline
+        servers[currentIndex] = server
+        
+        do {
+            await server.fulcrum.stop()
+            try await server.fulcrum.start()
+            server.status = .online
+            servers[currentIndex] = server
+            updateStatus(.online)
+            return server.fulcrum
+        } catch {
+            server.status = .offline
+            servers[currentIndex] = server
+            updateStatus(.offline)
+            markFailure(at: currentIndex)
+            throw Wallet.Network.Error.connectionFailed(error)
+        }
+    }
 }
