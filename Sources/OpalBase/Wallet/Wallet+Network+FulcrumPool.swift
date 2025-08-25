@@ -119,6 +119,9 @@ extension Wallet.Network.FulcrumPool {
     
     public func reportFailure() {
         markFailure(at: currentIndex)
+        currentIndex = (currentIndex + 1) % servers.count
         updateStatus(.connecting)
+        
+        Task { do { _ = try await self.getFulcrum() } catch {} }
     }
 }
