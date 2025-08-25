@@ -122,7 +122,14 @@ extension Wallet.Network.FulcrumPool {
         currentIndex = (currentIndex + 1) % servers.count
         updateStatus(.connecting)
         
-        Task { do { _ = try await self.getFulcrum() } catch {} }
+        Task {
+            do {
+                _ = try await self.getFulcrum()
+            } catch {
+                updateStatus(.offline)
+                throw Wallet.Network.Error.connectionFailed(error)
+            }
+        }
     }
     
     public func reconnect() async throws -> Fulcrum {
