@@ -117,7 +117,7 @@ extension Wallet.Network.FulcrumPool {
         updateStatus(.offline)
     }
     
-    func reportFailure() {
+    public func reportFailure() {
         markFailure(at: currentIndex)
         updateStatus(.connecting)
     }
