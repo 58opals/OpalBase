@@ -23,4 +23,12 @@ struct FulcrumPoolTests {
         #expect(final == .online)
         #expect(await pool.currentStatus == .online)
     }
+    
+    @Test func testPoolThrowsWhenNoServerResponds() async throws {
+        let pool = try await Wallet.Network.FulcrumPool(urls: ["wss://invalid.example.invalid:50004"])
+        
+        await #expect(throws: Wallet.Network.Error.noHealthyServer) {
+            _ = try await pool.getFulcrum()
+        }
+    }
 }

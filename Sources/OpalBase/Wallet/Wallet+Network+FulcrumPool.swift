@@ -29,13 +29,18 @@ extension Wallet.Network {
                 let fulcrum = try await Fulcrum()
                 self.servers = [.init(fulcrum: fulcrum)]
             } else {
-                var builtServers: [Server] = []
-                builtServers.reserveCapacity(urls.count)
-                for url in urls {
-                    let fulcrum = try await Fulcrum(url: url)
-                    builtServers.append(.init(fulcrum: fulcrum))
+                self.servers = try await withThrowingTaskGroup(of: Server.self) { group in
+                    for url in urls {
+                        group.addTask {
+                            let fulcrum = try await Fulcrum(url: url)
+                            return Server(fulcrum: fulcrum)
+                        }
+                    }
+                    
+                    var builtServers: [Server] = []
+                    for try await server in group { builtServers.append(server) }
+                    return builtServers
                 }
-                self.servers = builtServers
             }
         }
     }
@@ -83,6 +88,7 @@ extension Wallet.Network.FulcrumPool {
                     if server.status != .online {
                         updateStatus(.connecting)
                         try await server.fulcrum.start()
+                        _ = try await server.fulcrum.submit(method: .blockchain(.headers(.getTip)), responseType: Response.Result.Blockchain.Headers.GetTip.self)
                         server.status = .online
                         updateStatus(.online)
                     }
@@ -93,6 +99,7 @@ extension Wallet.Network.FulcrumPool {
                     updateStatus(.online)
                     return server.fulcrum
                 } catch {
+                    await server.fulcrum.stop()
                     server.status = .offline
                     servers[currentIndex] = server
                     updateStatus(.offline)
