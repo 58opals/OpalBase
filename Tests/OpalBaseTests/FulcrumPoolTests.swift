@@ -13,10 +13,10 @@ struct FulcrumPoolTests {
         let initial = await iterator.next()
         #expect(initial == .offline)
         
-        let task = Task { try await pool.reconnect() }
+        async let reconnection = pool.reconnect()
 
         let connecting = await iterator.next()
-        _ = try await task.value
+        _ = try await reconnection
         let final = await iterator.next()
 
         #expect(connecting == .connecting)
