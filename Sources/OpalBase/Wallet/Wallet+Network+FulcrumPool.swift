@@ -133,17 +133,28 @@ extension Wallet.Network.FulcrumPool {
     }
     
     public func reconnect() async throws {
-        var server = servers[currentIndex]
+        updateStatus(.connecting)
         
+        guard servers.indices.contains(currentIndex) else {
+            updateStatus(.offline)
+            throw Wallet.Network.Error.noHealthyServer
+        }
+        
+        var server = servers[currentIndex]
         if server.status == .online { await server.fulcrum.stop() }
         
-        server.failureCount = 0
-        server.nextRetry = .distantPast
-        server.status = .offline
-        servers[currentIndex] = server
-        
-        updateStatus(.offline)
-        
-        _ = try await getFulcrum()
+        do {
+            try await server.fulcrum.start()
+            server.failureCount = 0
+            server.nextRetry = .distantPast
+            server.status = .online
+            servers[currentIndex] = server
+            
+            updateStatus(.online)
+        } catch {
+            markFailure(at: currentIndex)
+            currentIndex = (currentIndex + 1) % servers.count
+            throw error
+        }
     }
 }
