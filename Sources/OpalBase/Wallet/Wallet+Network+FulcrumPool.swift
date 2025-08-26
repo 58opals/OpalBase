@@ -88,7 +88,7 @@ extension Wallet.Network.FulcrumPool {
                     if server.status != .online {
                         updateStatus(.connecting)
                         try await server.fulcrum.start()
-                        _ = try await server.fulcrum.submit(method: .blockchain(.headers(.getTip)), responseType: Response.Result.Blockchain.Headers.GetTip.self)
+                        try await ping(server.fulcrum)
                         server.status = .online
                         updateStatus(.online)
                     }
@@ -113,6 +113,10 @@ extension Wallet.Network.FulcrumPool {
         
         updateStatus(.offline)
         throw Wallet.Network.Error.noHealthyServer
+    }
+    
+    private func ping(_ fulcrum: Fulcrum) async throws {
+        _ = try await fulcrum.submit(method: .blockchain(.headers(.getTip)), responseType: Response.Result.Blockchain.Headers.GetTip.self)
     }
     
     private func markFailure(at index: Int) {
