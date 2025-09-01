@@ -1,4 +1,4 @@
-// ServerPool.swift
+// Network+ServerPool.swift
 
 import Foundation
 

@@ -1,4 +1,4 @@
-// NetworkCoordinator.swift
+// Network+Coordinator.swift
 
 import Foundation
 
