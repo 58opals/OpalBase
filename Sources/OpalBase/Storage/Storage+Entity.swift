@@ -11,7 +11,7 @@ import SwiftData
 
 extension Storage.Entity {
     @Model
-    public final class Header: Sendable {
+    public final class Header {
         @Attribute(.unique) public var height: UInt32
         public var version: Int32
         public var previousBlockHash: Data
@@ -42,7 +42,7 @@ extension Storage.Entity {
     }
     
     @Model
-    public final class UTXO: Sendable {
+    public final class UTXO {
         @Attribute(.unique) public var key: String // "\(transactionHash.hex):\(outputIndex)"
         public var transactionHash: Data
         public var outputIndex: UInt32
@@ -65,7 +65,7 @@ extension Storage.Entity {
     }
     
     @Model
-    public final class Transaction: Sendable {
+    public final class Transaction {
         @Attribute(.unique) public var hash: Data
         public var raw: Data
         public var height: UInt32?
@@ -86,7 +86,7 @@ extension Storage.Entity {
     }
     
     @Model
-    public final class Account: Sendable {
+    public final class Account {
         @Attribute(.unique) public var id: String // "\(purpose)-\(coinType)-\(index)"
         public var purpose: UInt32 // 44 for BIP44
         public var coinType: UInt32 // 145 for BCH
@@ -103,7 +103,7 @@ extension Storage.Entity {
     }
     
     @Model
-    public final class Fee: Sendable {
+    public final class Fee {
         public enum Tier: String, Codable, CaseIterable { case slow, normal, fast }
         @Attribute(.unique) public var tier: String
         public var satsPerByte: UInt64
@@ -117,7 +117,7 @@ extension Storage.Entity {
     }
     
     @Model
-    public final class ServerHealth: Sendable {
+    public final class ServerHealth {
         @Attribute(.unique) public var url: String
         public var latencyMs: Double?
         public var status: String // healthy | degraded | unhealthy
@@ -142,7 +142,7 @@ extension Storage.Entity {
     }
     
     @Model
-    public final class Subscription: Sendable {
+    public final class Subscription {
         @Attribute(.unique) public var address: String
         public var isActive: Bool
         public var lastStatus: String?
