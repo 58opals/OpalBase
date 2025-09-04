@@ -3,7 +3,7 @@
 import Foundation
 
 extension Transaction {
-    static let defaultFeeRate = UInt64(1)
+    public static let defaultFeeRate = UInt64(1)
     static var dustLimit: UInt64 { 546 }
     
     static func createTransaction(version: UInt32 = 2,

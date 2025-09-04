@@ -16,7 +16,7 @@ extension Storage {
 import SwiftData
 
 extension Storage {
-    enum Configuration: Sendable {
+    public enum Configuration: Sendable {
         case disk(appGroup: String? = nil, filename: String = "opal.sqlite")
         case memory
 
@@ -59,7 +59,7 @@ extension Storage {
 }
 
 extension Storage {
-    actor Facade {
+    public actor Facade {
         public let container: ModelContainer
 
         public let headers: Repository.Headers
