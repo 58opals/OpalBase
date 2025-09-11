@@ -97,9 +97,6 @@ extension Address.Book {
 // MARK: - Find
 extension Address.Book {
     func findEntry(for address: Address) -> Entry? {
-        //let allEntries = receivingEntries + changeEntries
-        //let entry = allEntries.first(where: { $0.address == address })
-        //return entry
         return addressToEntry[address]
     }
 }

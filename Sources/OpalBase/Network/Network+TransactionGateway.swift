@@ -60,3 +60,20 @@ extension Network.TransactionGateway.Error: Equatable {
         lhs.localizedDescription == rhs.localizedDescription
     }
 }
+
+// MARK: - SwiftFulcrum
+import SwiftFulcrum
+
+extension Network.TransactionGateway {
+    public struct FulcrumClient: Client {
+        private let fulcrum: SwiftFulcrum.Fulcrum
+        public init(fulcrum: SwiftFulcrum.Fulcrum) { self.fulcrum = fulcrum }
+        public func currentMempool() async throws -> Set<Transaction.Hash> { [] }
+        public func broadcast(_ tx: Transaction) async throws {
+            _ = try await tx.broadcast(using: fulcrum)
+        }
+        public func fetch(_ hash: Transaction.Hash) async throws -> Transaction? {
+            try? await Transaction.fetchTransaction(for: hash.originalData, using: fulcrum)
+        }
+    }
+}

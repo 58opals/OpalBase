@@ -119,9 +119,6 @@ extension DerivationPath {
         }
         
         mutating func increase() throws {
-            //let currentIndex = unhardenedIndex
-            //guard currentIndex < 0x7FFFFFFF else { throw Error.indexOverflow }
-            //self.unhardenedIndex = try (currentIndex + 1).harden()
             guard unhardenedIndex < 0x7FFFFFFF else { throw Error.indexOverflow }
             unhardenedIndex += 1
         }

@@ -123,7 +123,7 @@ extension Account {
                         guard let self else { return }
                         for await entry in newEntryStream {
                             do {
-                                let (_, _, _, stream, cancel) = try await entry.address.subscribe(fulcrum: fulcrum)
+                                let (_, _, stream, cancel) = try await entry.address.subscribe(fulcrum: fulcrum)
                                 await self.addressMonitor.storeCancel(cancel)
                                 
                                 let voidStream = AsyncThrowingStream<Void, Swift.Error> { innerContinuation in

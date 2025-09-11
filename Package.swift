@@ -1,15 +1,15 @@
-// swift-tools-version: 6.0
+// swift-tools-version: 6.2
 
 import PackageDescription
 
 let package = Package(
     name: "OpalBase",
     platforms: [
-        .macOS(.v15),
-        .iOS(.v18),
-        .watchOS(.v11),
-        .tvOS(.v18),
-        .visionOS(.v2)
+        .macOS(.v26),
+        .iOS(.v26),
+        .watchOS(.v26),
+        .tvOS(.v26),
+        .visionOS(.v26)
     ],
     products: [
         .library(
@@ -17,9 +17,9 @@ let package = Package(
             targets: ["OpalBase"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/attaswift/BigInt.git", from: "5.4.1"),
-        .package(url: "https://github.com/58opals/SwiftFulcrum.git", from: "0.3.0"),
-        .package(url: "https://github.com/21-DOT-DEV/swift-secp256k1.git", from: "0.20.0")
+        .package(url: "https://github.com/attaswift/BigInt.git", from: "5.7.0"),
+        .package(url: "https://github.com/58opals/SwiftFulcrum.git", from: "0.4.0"),
+        .package(url: "https://github.com/21-DOT-DEV/swift-secp256k1.git", from: "0.21.0")
     ],
     targets: [
         .target(name: "OpalBase",

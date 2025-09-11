@@ -59,8 +59,8 @@ public struct Mnemonic {
     static func generateSeed(from mnemonicWords: [String], passphrase: String = "") throws -> Data {
         let words = mnemonicWords.joined(separator: " ")
         
-        let password = Data(words.utf8).bytes
-        let salt = Data(("mnemonic" + passphrase).utf8).bytes
+        let password = Array(Data(words.utf8).bytes)
+        let salt = Array(Data(("mnemonic" + passphrase).utf8).bytes)
         let iterations = 2048
         let keyLength = 64
         

@@ -11,7 +11,7 @@ extension Account.Monitor {
         let streams = try await withThrowingTaskGroup(of: AsyncThrowingStream<Response.Result.Blockchain.Address.SubscribeNotification, Swift.Error>.self) { group in
             for address in addresses {
                 group.addTask {
-                    let (_, _, _, stream, cancel) = try await address.subscribe(fulcrum: fulcrum)
+                    let (_, _, stream, cancel) = try await address.subscribe(fulcrum: fulcrum)
                     await self.storeCancel(cancel)
                     return stream
                 }

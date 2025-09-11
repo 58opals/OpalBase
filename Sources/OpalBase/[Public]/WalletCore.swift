@@ -20,15 +20,12 @@ public actor WalletCore {
         }
     }
     
-    private let chainClient: ChainClient
     private let repositories: Storage.Facade
     private let gateway: Network.TransactionGateway
     private var isSynced = false
     
-    public init(chainClient: ChainClient,
-                storage: Storage.Facade,
+    public init(storage: Storage.Facade,
                 transactionGateway: Network.TransactionGateway) {
-        self.chainClient = chainClient
         self.repositories = storage
         self.gateway = transactionGateway
     }
@@ -36,7 +33,6 @@ public actor WalletCore {
     public func sync() async throws {
         guard !isSynced else { return }
         do {
-            try await chainClient.connect()
             try await gateway.refreshMempool()
             isSynced = true
         } catch {

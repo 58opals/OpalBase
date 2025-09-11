@@ -87,7 +87,7 @@ extension Address.Book.Subscription {
         let task = Task { [weak self] in
             guard let self else { return }
             do {
-                let (_, _, _, stream, cancel) = try await entry.address.subscribe(fulcrum: fulcrum)
+                let (_, _, stream, cancel) = try await entry.address.subscribe(fulcrum: fulcrum)
                 await storeCancel(cancel)
                 for try await _ in stream where await self.isRunning {
                     await self.handleNotification(fulcrum: fulcrum)

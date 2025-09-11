@@ -1,12 +1,10 @@
 // Transaction~SwiftFulcrum.swift
 
 import Foundation
-import Combine
 import SwiftFulcrum
 
 extension Transaction.Detailed {
     init(from result: Response.Result.Blockchain.Transaction.Get) throws {
-        //let transactionDetailsFromRPC = response
         let transactionDetails = result
         
         let versionFromResult = UInt32(transactionDetails.version)
@@ -102,7 +100,7 @@ extension Transaction {
 
 extension Transaction {
     static func fetchRawData(for transactionHash: Data, using fulcrum: Fulcrum) async throws -> Data {
-        let response = try await fulcrum.submit(method: .blockchain(.transaction(.get(transactionHash: transactionHash.hexadecimalString, verbose: false))),
+        let response = try await fulcrum.submit(method: .blockchain(.transaction(.get(transactionHash: transactionHash.hexadecimalString, verbose: true))),
                                                 responseType: Response.Result.Blockchain.Transaction.Get.self)
         guard case .single(let id, let result) = response else { throw Fulcrum.Error.coding(.decode(nil))  }
         
@@ -124,7 +122,7 @@ extension Transaction {
     }
     
     static func fetchFullTransaction(for transactionHash: Data, using fulcrum: Fulcrum) async throws -> Transaction.Detailed {
-        let response = try await fulcrum.submit(method: .blockchain(.transaction(.get(transactionHash: transactionHash.hexadecimalString, verbose: false))),
+        let response = try await fulcrum.submit(method: .blockchain(.transaction(.get(transactionHash: transactionHash.hexadecimalString, verbose: true))),
                                                 responseType: Response.Result.Blockchain.Transaction.Get.self)
         guard case .single(let id, let result) = response else { throw Fulcrum.Error.coding(.decode(nil))  }
         

@@ -66,19 +66,17 @@ extension Address {
     }
     
     func subscribe(fulcrum: Fulcrum) async throws -> (requestedID: UUID,
-                                                      subscriptionID: String,
                                                       initialStatus: String,
                                                       followingStatus: AsyncThrowingStream<Response.Result.Blockchain.Address.SubscribeNotification, Swift.Error>,
                                                       cancel: @Sendable () async -> Void) {
         let (id, result, notifications, cancel) = try await Address.subscribeToActivities(of: self, using: fulcrum)
         
         let requestedID = id
-        let subscriptionID = result.subscriptionIdentifier
         let initialStatus = result.status ?? ""
         let followingStatus = notifications
         let cancelSubscription = cancel
         
-        return (requestedID, subscriptionID, initialStatus, followingStatus, cancelSubscription)
+        return (requestedID, initialStatus, followingStatus, cancelSubscription)
     }
 }
 
@@ -90,7 +88,14 @@ extension Address {
         
         assert(UUID(uuidString: id.uuidString) != nil, "Invalid UUID: \(id.uuidString)")
         
-        let balance = result.confirmed + UInt64((includeUnconfirmed ? result.unconfirmed : 0))
+        let delta = includeUnconfirmed ? result.unconfirmed : 0
+        let balance: UInt64
+        if delta >= 0 {
+            balance = result.confirmed &+ UInt64(delta)
+        } else {
+            let decrease = UInt64(-delta)
+            balance = result.confirmed > decrease ? (result.confirmed - decrease) : 0
+        }
         
         return try Satoshi(balance)
     }
@@ -175,11 +180,15 @@ extension Address {
     }
     
     static func subscribeToActivities(of address: Address, using fulcrum: Fulcrum) async throws -> (requestedID: UUID,
-                                                                                                    result: Response.Result.Blockchain.Address.SubscribeNotification,
+                                                                                                    result: Response.Result.Blockchain.Address.Subscribe,
                                                                                                     notifications: AsyncThrowingStream<Response.Result.Blockchain.Address.SubscribeNotification, Swift.Error>,
                                                                                                     cancel: @Sendable () async -> Void) {
-        let response = try await fulcrum.submit(method: .blockchain(.address(.subscribe(address: address.string))),
-                                                notificationType: Response.Result.Blockchain.Address.SubscribeNotification.self)
+        let response: Fulcrum.RPCResponse<
+            Response.Result.Blockchain.Address.Subscribe,
+            Response.Result.Blockchain.Address.SubscribeNotification
+        > = try await fulcrum.submit(
+            method: .blockchain(.address(.subscribe(address: address.string)))
+        )
         guard case .stream(let id, let initialResponse, let updates, let cancel) = response else { throw Fulcrum.Error.coding(.decode(nil)) }
         
         return (id, initialResponse, updates, cancel)

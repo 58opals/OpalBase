@@ -1,5 +1,5 @@
 {
-  "originHash" : "634c5296a1e7984d0837c06eb2fc8148842a27ae03136615236f708d6869dddf",
+  "originHash" : "ec6ccf745b1af33c92acb1ff35142c9cf2e29b5a30d3bc077c657bf799d849cb",
   "pins" : [
     {
       "identity" : "bigint",
@@ -24,8 +24,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/58opals/SwiftFulcrum.git",
       "state" : {
-        "revision" : "3906f725f9f68267b3cee94a3e4728a2d84ccc74",
-        "version" : "0.3.3"
+        "revision" : "46657150980d9e334eda2b75ca6f7fa70b477864",
+        "version" : "0.4.0"
       }
     }
   ],
