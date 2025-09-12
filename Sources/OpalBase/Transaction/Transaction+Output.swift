@@ -4,15 +4,15 @@ import Foundation
 
 extension Transaction {
     public struct Output {
-        let value: UInt64
+        public let value: UInt64
         let lockingScriptLength: CompactSize
-        let lockingScript: Data
+        public let lockingScript: Data
         
         /// Initializes a Transaction.Output instance.
         /// - Parameters:
         ///   - value: The number of satoshis to be transferred.
         ///   - lockingScript: The contents of the locking script.
-        init(value: UInt64, lockingScript: Data) {
+        public init(value: UInt64, lockingScript: Data) {
             self.value = value
             self.lockingScriptLength = CompactSize(value: UInt64(lockingScript.count))
             self.lockingScript = lockingScript
@@ -22,7 +22,7 @@ extension Transaction {
         /// - Parameters:
         ///   - value: The number of satoshis to be transferred.
         ///   - address: The address of output's recipient.
-        init(value: UInt64, address: Address) {
+        public init(value: UInt64, address: Address) {
             self.value = value
             self.lockingScript = address.lockingScript.data
             self.lockingScriptLength = CompactSize(value: UInt64(lockingScript.count))
@@ -30,7 +30,7 @@ extension Transaction {
         
         /// Encodes the Transaction.Output into Data.
         /// - Returns: The encoded data.
-        func encode() -> Data {
+        public func encode() -> Data {
             var data = Data()
             data.append(value.littleEndianData)
             data.append(lockingScriptLength.encode())

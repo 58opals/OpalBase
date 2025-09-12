@@ -2,8 +2,8 @@
 
 import Foundation
 
-public extension Storage {
-    enum Repository {}
+extension Storage {
+    public enum Repository {}
 }
 
 extension Storage.Repository {
@@ -29,8 +29,8 @@ extension Storage.Repository {
 import SwiftData
 
 // Headers
-public extension Storage.Repository {
-    actor Headers {
+extension Storage.Repository {
+    public actor Headers {
         private let container: ModelContainer
         private let tipCache = TTLCache<String, Storage.Row.Header>(defaultTTL: 600)
         public init(container: ModelContainer) { self.container = container }
@@ -95,8 +95,8 @@ public extension Storage.Repository {
 
 
 // UTXOs
-public extension Storage.Repository {
-    actor UTXOs {
+extension Storage.Repository {
+    public actor UTXOs {
         private let container: ModelContainer
         private let cache = TTLCache<String, [Storage.Row.UTXO]>(defaultTTL: 300)
         public init(container: ModelContainer) { self.container = container }
@@ -159,8 +159,8 @@ public extension Storage.Repository {
 }
 
 // Transactions
-public extension Storage.Repository {
-    actor Transactions {
+extension Storage.Repository {
+    public actor Transactions {
         private let container: ModelContainer
         private let recentCache = TTLCache<String, [Storage.Row.Transaction]>(defaultTTL: 300)
         public init(container: ModelContainer) { self.container = container }
@@ -195,8 +195,8 @@ public extension Storage.Repository {
 
 
 // Accounts
-public extension Storage.Repository {
-    actor Accounts {
+extension Storage.Repository {
+    public actor Accounts {
         private let container: ModelContainer
         
         public init(container: ModelContainer) { self.container = container }
@@ -231,8 +231,8 @@ public extension Storage.Repository {
 }
 
 // Fees
-public extension Storage.Repository {
-    actor Fees {
+extension Storage.Repository {
+    public actor Fees {
         private let container: ModelContainer
         private let cache = TTLCache<String, UInt64>(defaultTTL: 600)
         
@@ -272,8 +272,8 @@ public extension Storage.Repository {
 }
 
 // ServerHealth
-public extension Storage.Repository {
-    actor ServerHealth {
+extension Storage.Repository {
+    public actor ServerHealth {
         private let container: ModelContainer
         private let cache = TTLCache<String, Storage.Row.ServerHealth>(defaultTTL: 300)
         
@@ -340,8 +340,8 @@ public extension Storage.Repository {
 }
 
 // Subscriptions
-public extension Storage.Repository {
-    actor Subscriptions {
+extension Storage.Repository {
+    public actor Subscriptions {
         private let container: ModelContainer
         private let cache = TTLCache<String, Storage.Row.Subscription>(defaultTTL: 600)
         

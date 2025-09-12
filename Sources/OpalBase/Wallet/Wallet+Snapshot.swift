@@ -5,11 +5,29 @@ import CryptoKit
 
 extension Wallet {
     public struct Snapshot: Codable {
-        var words: [String]
-        var passphrase: String
-        var purpose: DerivationPath.Purpose
-        var coinType: DerivationPath.CoinType
-        var accounts: [Account.Snapshot]
+        public let words: [String]
+        public let passphrase: String
+        public let purpose: DerivationPath.Purpose
+        public let coinType: DerivationPath.CoinType
+        public let accounts: [Account.Snapshot]
+        
+        public init(words: [String],
+                    passphrase: String,
+                    purpose: DerivationPath.Purpose,
+                    coinType: DerivationPath.CoinType,
+                    accounts: [Account.Snapshot]) {
+            self.words = words
+            self.passphrase = passphrase
+            self.purpose = purpose
+            self.coinType = coinType
+            self.accounts = accounts
+        }
+    }
+}
+
+extension Wallet.Snapshot {
+    enum Error: Swift.Error {
+        case missingCombinedData
     }
 }
 

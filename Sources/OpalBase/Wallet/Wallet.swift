@@ -49,6 +49,12 @@ public actor Wallet: Identifiable {
     }
 }
 
+extension Wallet {
+    public enum Error: Swift.Error {
+        case cannotGetAccount(index: UInt32)
+    }
+}
+
 extension Wallet: Equatable {
     public static func == (lhs: Wallet, rhs: Wallet) -> Bool {
         lhs.id == rhs.id

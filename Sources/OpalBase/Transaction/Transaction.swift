@@ -10,10 +10,10 @@ import Foundation
 ///   - outputs: The transaction outputs.
 ///   - lockTime: The transaction lock time.
 public struct Transaction {
-    let version: UInt32
-    let inputs: [Input]
-    let outputs: [Output]
-    let lockTime: UInt32
+    public let version: UInt32
+    public let inputs: [Input]
+    public let outputs: [Output]
+    public let lockTime: UInt32
     
     /// Initializes a Transaction instance.
     /// - Parameters:
@@ -30,7 +30,7 @@ public struct Transaction {
     
     /// Encodes the Transaction into Data.
     /// - Returns: The encoded data.
-    func encode() -> Data {
+    public func encode() -> Data {
         var data = Data()
         
         data.append(version.littleEndianData)
@@ -50,7 +50,7 @@ public struct Transaction {
     /// - Parameter data: The data to decode from.
     /// - Returns: A tuple containing the decoded Transaction and the number of bytes read.
     /// - Throws: `CompactSize.Error` if decoding fails.
-    static func decode(from data: Data) throws -> (transaction: Transaction, bytesRead: Int) {
+    public static func decode(from data: Data) throws -> (transaction: Transaction, bytesRead: Int) {
         var index = data.startIndex
         
         let (version, newIndex1): (UInt32, Data.Index) = try data.extractValue(from: index)
@@ -91,9 +91,9 @@ extension Transaction {
     ///   - height: The block height if confirmed.
     ///   - fee: The transaction fee.
     struct Simple {
-        let transactionHash: Transaction.Hash
-        let height: UInt32?
-        let fee: UInt64?
+        public let transactionHash: Transaction.Hash
+        public let height: UInt32?
+        public let fee: UInt64?
     }
     
     /// A detailed representation of a transaction.
@@ -108,15 +108,15 @@ extension Transaction {
     ///   - size: The transaction size in bytes.
     ///   - time: The transaction time if available.
     public struct Detailed {
-        let transaction: Transaction
+        public let transaction: Transaction
         
-        let blockHash: Data?
-        let blockTime: UInt32?
-        let confirmations: UInt32?
-        let hash: Data
-        let raw: Data
-        let size: UInt32
-        let time: UInt32?
+        public let blockHash: Data?
+        public let blockTime: UInt32?
+        public let confirmations: UInt32?
+        public let hash: Data
+        public let raw: Data
+        public let size: UInt32
+        public let time: UInt32?
     }
 }
 
