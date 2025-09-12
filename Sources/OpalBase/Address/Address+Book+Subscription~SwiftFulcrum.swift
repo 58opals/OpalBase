@@ -1,4 +1,4 @@
-// Address+Book+Subscription.swift
+// Address+Book+Subscription~SwiftFulcrum.swift
 
 import Foundation
 import SwiftFulcrum

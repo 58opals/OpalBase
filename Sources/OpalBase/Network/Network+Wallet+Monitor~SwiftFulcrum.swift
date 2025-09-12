@@ -1,14 +1,14 @@
-// Wallet+Monitor~SwiftFulcrum.swift
+// Network+Wallet+Monitor~SwiftFulcrum.swift
 
 import Foundation
 
-extension Wallet {
+extension Network.Wallet.Monitor {
     public func monitorBalances() async throws -> AsyncThrowingStream<Satoshi, Swift.Error> {
-        guard !accounts.isEmpty else { throw Monitor.Error.emptyAccounts }
+        guard await !wallet.accounts.isEmpty else { throw Network.Wallet.Monitor.Error.emptyAccounts }
 
         do {
             let streams = try await withThrowingTaskGroup(of: AsyncThrowingStream<Satoshi, Swift.Error>.self) { group in
-                for account in accounts {
+                for account in await wallet.accounts {
                     group.addTask {
                         try await account.monitorBalances()
                     }
@@ -24,11 +24,11 @@ extension Wallet {
                     Task {
                         do {
                             for try await _ in stream {
-                                let total = try await self.getBalance()
+                                let total = try await wallet.getBalance()
                                 continuation.yield(total)
                             }
                         } catch {
-                            continuation.finish(throwing: Monitor.Error.monitoringFailed(error))
+                            continuation.finish(throwing: Network.Wallet.Monitor.Error.monitoringFailed(error))
                         }
                     }
                 }
@@ -38,12 +38,12 @@ extension Wallet {
                 }
             }
         } catch {
-            throw Monitor.Error.monitoringFailed(error)
+            throw Network.Wallet.Monitor.Error.monitoringFailed(error)
         }
     }
 
     public func stopBalanceMonitoring() async {
-        for account in accounts {
+        for account in await wallet.accounts {
             await account.stopBalanceMonitoring()
         }
     }

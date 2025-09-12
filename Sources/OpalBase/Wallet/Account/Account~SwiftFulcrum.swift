@@ -161,3 +161,27 @@ extension Account {
         await addressMonitor.stop()
     }
 }
+
+extension Account {
+    public func observeNetworkStatus() async -> AsyncStream<Network.Wallet.Status> {
+        await fulcrumPool.observeStatus()
+    }
+    
+    func monitorNetworkStatus() async {
+        for await status in await fulcrumPool.observeStatus() {
+            switch status {
+            case .online:
+                await processQueuedRequests()
+                await addressBook.processQueuedRequests()
+                
+                if let fulcrum = try? await fulcrumPool.getFulcrum() {
+                    await addressBook.startSubscription(using: fulcrum)
+                    await outbox.retryPendingTransactions(using: fulcrum)
+                }
+                
+            case .connecting, .offline:
+                await addressBook.stopSubscription()
+            }
+        }
+    }
+}

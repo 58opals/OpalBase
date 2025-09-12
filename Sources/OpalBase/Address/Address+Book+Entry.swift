@@ -1,7 +1,6 @@
 // Address+Book+Entry.swift
 
 import Foundation
-import SwiftFulcrum
 
 extension Address.Book {
     public struct Entry {

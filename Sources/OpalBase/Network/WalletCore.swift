@@ -21,13 +21,13 @@ public actor WalletCore {
     }
     
     private let repositories: Storage.Facade
-    private let gateway: Network.TransactionGateway
+    private let gateway: Network.Gateway
     private var isSynced = false
     
     public init(storage: Storage.Facade,
-                transactionGateway: Network.TransactionGateway) {
+                gateway: Network.Gateway) {
         self.repositories = storage
-        self.gateway = transactionGateway
+        self.gateway = gateway
     }
     
     public func sync() async throws {

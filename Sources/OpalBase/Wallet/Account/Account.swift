@@ -1,11 +1,10 @@
 // Account.swift
 
 import Foundation
-import SwiftFulcrum
 
 public actor Account: Identifiable {
-    public let fulcrumPool: Wallet.Network.FulcrumPool
-    public let feeRate: Wallet.Network.FeeRate
+    public let fulcrumPool: Network.Wallet.FulcrumPool
+    public let feeRate: Network.Wallet.FeeRate
     
     private let rootExtendedPrivateKey: PrivateKey.Extended
     
@@ -149,27 +148,5 @@ extension Account {
     public func stopNetworkMonitor() {
         networkMonitorTask?.cancel()
         networkMonitorTask = nil
-    }
-    
-    public func observeNetworkStatus() async -> AsyncStream<Wallet.Network.Status> {
-        await fulcrumPool.observeStatus()
-    }
-    
-    private func monitorNetworkStatus() async {
-        for await status in await fulcrumPool.observeStatus() {
-            switch status {
-            case .online:
-                await processQueuedRequests()
-                await addressBook.processQueuedRequests()
-                
-                if let fulcrum = try? await fulcrumPool.getFulcrum() {
-                    await addressBook.startSubscription(using: fulcrum)
-                    await outbox.retryPendingTransactions(using: fulcrum)
-                }
-                
-            case .connecting, .offline:
-                await addressBook.stopSubscription()
-            }
-        }
     }
 }

@@ -1,15 +1,9 @@
-// Network+TransactionGateway.swift
+// Network+Gateway.swift
 
 import Foundation
 
 extension Network {
-    public actor TransactionGateway {
-        public protocol Client: Sendable {
-            func currentMempool() async throws -> Set<Transaction.Hash>
-            func broadcast(_ transaction: Transaction) async throws
-            func fetch(_ hash: Transaction.Hash) async throws -> Transaction?
-        }
-        
+    public actor Gateway {
         private let client: Client
         private var mempool: Set<Transaction.Hash> = []
         
@@ -48,15 +42,15 @@ extension Network {
     }
 }
 
-extension Network.TransactionGateway {
+extension Network.Gateway {
     public enum Error: Swift.Error, Sendable {
         case broadcastFailed(Swift.Error)
         case mempoolFetchFailed(Swift.Error)
     }
 }
 
-extension Network.TransactionGateway.Error: Equatable {
-    public static func == (lhs: Network.TransactionGateway.Error, rhs: Network.TransactionGateway.Error) -> Bool {
+extension Network.Gateway.Error: Equatable {
+    public static func == (lhs: Network.Gateway.Error, rhs: Network.Gateway.Error) -> Bool {
         lhs.localizedDescription == rhs.localizedDescription
     }
 }
@@ -64,7 +58,7 @@ extension Network.TransactionGateway.Error: Equatable {
 // MARK: - SwiftFulcrum
 import SwiftFulcrum
 
-extension Network.TransactionGateway {
+extension Network.Gateway {
     public struct FulcrumClient: Client {
         private let fulcrum: SwiftFulcrum.Fulcrum
         public init(fulcrum: SwiftFulcrum.Fulcrum) { self.fulcrum = fulcrum }

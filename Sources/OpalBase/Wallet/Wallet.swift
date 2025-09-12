@@ -83,7 +83,7 @@ extension Wallet {
 }
 
 extension Wallet {
-    public func observeNetworkStatus(forAccount index: UInt32) async throws -> AsyncStream<Network.Status> {
+    public func observeNetworkStatus(forAccount index: UInt32) async throws -> AsyncStream<Network.Wallet.Status> {
         let account = try getAccount(unhardenedIndex: index)
         return await account.observeNetworkStatus()
     }

@@ -24,7 +24,7 @@ public struct Address {
         
         let payload5BitValuesWithChecksum = decodedData
         let payload5BitValues = payload5BitValuesWithChecksum.dropLast(8)
-        let payload = Address.fiveBitValuesToData(fiveBitValues: payload5BitValues.bytes)
+        let payload = Address.convertFiveBitValuesToData(fiveBitValues: payload5BitValues.bytes)
         guard !payload.isEmpty else { throw Error.invalidPayloadLength }
         let versionByte = payload[0]
         let hashData = payload[1...]
@@ -50,7 +50,7 @@ public struct Address {
         case .p2pkh(let hash):
             let versionByte = Data([0x00])
             let payload = versionByte + hash.data
-            let payload5BitValues = Address.payloadTo5BitValues(payload: payload)
+            let payload5BitValues = Address.convertPayloadToFiveBitValues(payload: payload)
             let checksum = try Address.generateChecksum(prefix: Address.prefix, payload5BitValues: payload5BitValues)
             let combined = payload5BitValues + checksum
             self.string = Address.prefix + Address.separator + Base32.encode(Data(combined), interpretedAs5Bit: true)
@@ -62,7 +62,7 @@ public struct Address {
 }
 
 extension Address {
-    private static func prefixTo5BitValues(prefix: String) throws -> [UInt8] {
+    private static func convertPrefixToFiveBitValues(prefix: String) throws -> [UInt8] {
         var values = [UInt8]()
         for character in prefix {
             guard let asciiValue = character.asciiValue else { throw Error.invalidCharacter(character) }
@@ -72,7 +72,7 @@ extension Address {
         return values
     }
     
-    private static func payloadTo5BitValues(payload: Data) -> [UInt8] {
+    private static func convertPayloadToFiveBitValues(payload: Data) -> [UInt8] {
         var values = [UInt8]()
         
         var bitString = payload.convertToBitString()
@@ -93,7 +93,7 @@ extension Address {
         return values
     }
     
-    static func fiveBitValuesToData(fiveBitValues: [UInt8]) -> Data {
+    static func convertFiveBitValuesToData(fiveBitValues: [UInt8]) -> Data {
         var bitString = ""
         
         for value in fiveBitValues {
@@ -123,7 +123,7 @@ extension Address {
     }
     
     private static func generateChecksum(prefix: String, payload5BitValues: [UInt8]) throws -> [UInt8] {
-        var values = try Address.prefixTo5BitValues(prefix: prefix) + [0x00]
+        var values = try Address.convertPrefixToFiveBitValues(prefix: prefix) + [0x00]
         values += payload5BitValues
         let templateForChecksum: [UInt8] = [0, 0, 0, 0, 0, 0, 0, 0]
         values += templateForChecksum

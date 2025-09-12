@@ -1,14 +1,14 @@
-// Wallet+Network+FeeRate.swift
+// Network+Wallet+FeeRate.swift
 
 import Foundation
 
-extension Wallet.Network {
+extension Network.Wallet {
     public actor FeeRate {
-        private let fulcrumPool: Wallet.Network.FulcrumPool
+        private let fulcrumPool: Network.Wallet.FulcrumPool
         private let cacheThreshold: TimeInterval
         private var cachedRates: [Tier: CachedRate] = .init()
         
-        public init(fulcrumPool: Wallet.Network.FulcrumPool, cacheThreshold: TimeInterval = 10 * 60) {
+        public init(fulcrumPool: Network.Wallet.FulcrumPool, cacheThreshold: TimeInterval = 10 * 60) {
             self.fulcrumPool = fulcrumPool
             self.cacheThreshold = cacheThreshold
         }
@@ -34,7 +34,7 @@ extension Wallet.Network {
     }
 }
 
-extension Wallet.Network.FeeRate {
+extension Network.Wallet.FeeRate {
     enum Tier: Sendable {
         case slow
         case normal

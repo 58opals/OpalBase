@@ -1,6 +1,6 @@
-// Wallet+Network+Status.swift
+// Network+Wallet+Status.swift
 
-extension Wallet.Network {
+extension Network.Wallet {
     public enum Status: Sendable {
         case offline
         case connecting

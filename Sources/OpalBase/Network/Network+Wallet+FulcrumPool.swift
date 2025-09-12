@@ -1,24 +1,24 @@
-// Wallet+Network+FulcrumPool.swift
+// Network+Wallet+FulcrumPool.swift
 
 import Foundation
 import SwiftFulcrum
 
-extension Wallet.Network {
+extension Network.Wallet {
     public actor FulcrumPool {
         struct Server {
             let fulcrum: Fulcrum
             var failureCount: Int = 0
             var nextRetry: Date = .distantPast
             
-            var status: Wallet.Network.Status = .offline
+            var status: Network.Wallet.Status = .offline
         }
         
         private var servers: [Server]
         private var currentIndex: Int = 0
         private let maxBackoff: TimeInterval
         
-        private var status: Wallet.Network.Status = .offline
-        private var statusContinuations: [UUID: AsyncStream<Wallet.Network.Status>.Continuation] = .init()
+        private var status: Network.Wallet.Status = .offline
+        private var statusContinuations: [UUID: AsyncStream<Network.Wallet.Status>.Continuation] = .init()
         
         public init(urls: [String] = [], maxBackoff: TimeInterval = 64) async throws {
             self.servers = []
@@ -46,10 +46,10 @@ extension Wallet.Network {
     }
 }
 
-extension Wallet.Network.FulcrumPool {
-    public var currentStatus: Wallet.Network.Status { status }
+extension Network.Wallet.FulcrumPool {
+    public var currentStatus: Network.Wallet.Status { status }
     
-    private func addContinuation(_ continuation: AsyncStream<Wallet.Network.Status>.Continuation) {
+    private func addContinuation(_ continuation: AsyncStream<Network.Wallet.Status>.Continuation) {
         let identifier = UUID()
         continuation.onTermination = { @Sendable _ in
             Task { await self.removeContinuation(for: identifier) }
@@ -63,20 +63,20 @@ extension Wallet.Network.FulcrumPool {
         statusContinuations.removeValue(forKey: identifier)
     }
     
-    func observeStatus() -> AsyncStream<Wallet.Network.Status> {
+    func observeStatus() -> AsyncStream<Network.Wallet.Status> {
         AsyncStream { continuation in
             Task { self.addContinuation(continuation) }
         }
     }
     
-    private func updateStatus(_ newStatus: Wallet.Network.Status) {
+    private func updateStatus(_ newStatus: Network.Wallet.Status) {
         guard newStatus != status else { return }
         status = newStatus
         for continuation in statusContinuations.values { continuation.yield(newStatus) }
     }
 }
 
-extension Wallet.Network.FulcrumPool {
+extension Network.Wallet.FulcrumPool {
     public func getFulcrum() async throws -> Fulcrum {
         updateStatus(.connecting)
         
@@ -112,7 +112,7 @@ extension Wallet.Network.FulcrumPool {
         }
         
         updateStatus(.offline)
-        throw Wallet.Network.Error.noHealthyServer
+        throw Network.Wallet.Error.noHealthyServer
     }
     
     private func ping(_ fulcrum: Fulcrum) async throws {
@@ -138,7 +138,7 @@ extension Wallet.Network.FulcrumPool {
                 _ = try await self.getFulcrum()
             } catch {
                 updateStatus(.offline)
-                throw Wallet.Network.Error.connectionFailed(error)
+                throw Network.Wallet.Error.connectionFailed(error)
             }
         }
     }
@@ -148,7 +148,7 @@ extension Wallet.Network.FulcrumPool {
         
         guard servers.indices.contains(currentIndex) else {
             updateStatus(.offline)
-            throw Wallet.Network.Error.noHealthyServer
+            throw Network.Wallet.Error.noHealthyServer
         }
         
         var server = servers[currentIndex]
