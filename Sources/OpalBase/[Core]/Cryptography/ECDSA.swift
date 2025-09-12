@@ -15,6 +15,13 @@ struct ECDSA {
 }
 
 extension ECDSA {
+    enum Error: Swift.Error {
+        case invalidCompressedPublicKeyLength
+        case invalidCompressedPublicKeyPrefix
+    }
+}
+
+extension ECDSA {
     static func getPublicKey(from privateKey: Data) throws -> P256K.Signing.PublicKey {
         let secp256k1PrivateKey = try P256K.Signing.PrivateKey(dataRepresentation: privateKey)
         return secp256k1PrivateKey.publicKey

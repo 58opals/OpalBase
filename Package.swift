@@ -29,8 +29,8 @@ let package = Package(
                     .product(name: "P256K", package: "swift-secp256k1")
                 ],
                 resources: [
-                    .process("Resource/BIP-0039/English.txt"),
-                    .process("Resource/BIP-0039/Korean.txt")
+                    .process("(Resource)/BIP-0039/English.txt"),
+                    .process("(Resource)/BIP-0039/Korean.txt")
                 ]
                ),
         .testTarget(
