@@ -12,7 +12,7 @@ extension ScriptTests {
         let decodedScript = try Script.decode(lockingScript: lockingScript)
         
         switch decodedScript {
-        case .p2pkh(let hash):
+        case .p2pkh_OPCHECKSIG(let hash):
             #expect(hash.data == data, "Decoded P2PKH hash does not match expected data.")
         default:
             #expect(Bool(false), "Failed to decode P2PKH script as expected.")

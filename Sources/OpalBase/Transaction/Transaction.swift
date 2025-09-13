@@ -120,6 +120,18 @@ extension Transaction {
     }
 }
 
+extension Transaction {
+    public enum Error: Swift.Error {
+        case insufficientFunds(required: UInt64)
+        case accountNotFound
+        case cannotCreateTransaction
+        case cannotBroadcastTransaction
+        case unsupportedHashType
+        case unsupportedSignatureFormat
+        case outputValueIsLessThanTheDustLimit
+    }
+}
+
 extension Transaction: Sendable {}
 extension Transaction.Simple: Sendable {}
 extension Transaction.Detailed: Sendable {}

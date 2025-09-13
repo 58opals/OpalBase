@@ -157,7 +157,7 @@ extension Address {
                         let script = detailed.transaction.outputs[Int(need.outputIndex)].lockingScript
                         unspentTransactionOutputs.append(.init(value: need.value,
                                                                lockingScript: script,
-                                                               previousTransactionHash: .init(dataFromRPC: need.transactionHash.originalData),
+                                                               previousTransactionHash: need.transactionHash,
                                                                previousTransactionOutputIndex: need.outputIndex))
                     }
                 }

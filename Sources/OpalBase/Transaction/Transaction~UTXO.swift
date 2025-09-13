@@ -14,16 +14,19 @@ extension Transaction {
                       feePerByte: UInt64 = 1,
                       sequence: UInt32 = 0xFFFFFFFF,
                       lockTime: UInt32 = 0,
-                      allowDustDonation: Bool = false) throws -> Transaction {
-        var inputs: [Input] = []
+                      allowDustDonation: Bool = false,
+                      unlockers: [Transaction.Output.Unspent: Unlocker] = .init()) throws -> Transaction {
+        let orderedUTXOs = utxoPrivateKeyPairs.keys.sorted {
+            $0.previousTransactionOutputIndex < $1.previousTransactionOutputIndex
+        }
         
-        let utxos = utxoPrivateKeyPairs.keys
-        for utxo in utxos {
-            let temporaryInput = Input(previousTransactionHash: utxo.previousTransactionHash,
-                                       previousTransactionOutputIndex: utxo.previousTransactionOutputIndex,
-                                       unlockingScript: Data(),
-                                       sequence: sequence)
-            inputs.append(temporaryInput)
+        let inputs = orderedUTXOs.map { utxo in
+            let unlocker = unlockers[utxo] ?? .p2pkh_CheckSig()
+            let placeholder = unlocker.placeholderUnlockingScript(signatureFormat: signatureFormat)
+            return Input(previousTransactionHash: utxo.previousTransactionHash,
+                         previousTransactionOutputIndex: utxo.previousTransactionOutputIndex,
+                         unlockingScript: placeholder,
+                         sequence: sequence)
         }
         
         let temporaryTransactionWithoutFee = Transaction(version: version, inputs: inputs, outputs: recipientOutputs + [changeOutput], lockTime: lockTime)
@@ -50,37 +53,43 @@ extension Transaction {
         let temporaryTransactionWithFee = Transaction(version: version, inputs: inputs, outputs: combinedOutputs, lockTime: lockTime)
         
         var transaction = temporaryTransactionWithFee
-        for (index, pair) in utxoPrivateKeyPairs.enumerated() {
-            let utxo = pair.key
-            let privateKey = pair.value
-            let outputBeingSpent = Output(value: utxo.value, lockingScript: utxo.lockingScript)
+        for (index, utxo) in orderedUTXOs.enumerated() {
+            guard let privateKey = utxoPrivateKeyPairs[utxo] else { throw Error.cannotCreateTransaction }
+            let publicKey = try PublicKey(privateKey: privateKey)
+            let mode = unlockers[utxo] ?? .p2pkh_CheckSig()
             
-            let hashType = HashType.all(anyoneCanPay: false)
-            let signature = try temporaryTransactionWithFee.signInput(privateKey: privateKey.rawData,
-                                                                      index: index,
-                                                                      hashType: hashType,
-                                                                      outputBeingSpent: outputBeingSpent,
-                                                                      format: signatureFormat)
-            
-            let appendedHashType = switch signatureFormat {
-            case .ecdsa(let ecdsa):
-                switch ecdsa {
-                case .der: Data([UInt8(hashType.value)])
-                default: throw Error.unsupportedHashType
-                }
-            case .schnorr:
-                throw Error.unsupportedSignatureFormat
+            switch mode {
+            case .p2pkh_CheckSig(let hashType):
+                let outputBeingSpent = Output(value: utxo.value, lockingScript: utxo.lockingScript)
+                let preimage = temporaryTransactionWithFee.generatePreimage(for: index,
+                                                                            hashType: hashType,
+                                                                            outputBeingSpent: outputBeingSpent)
+                
+                let message = SHA256.hash(preimage)
+                // MARK: ↑ We hash the preimage "ONCE" here.
+                /// The signer `(P256K.Signing.PrivateKey.signature(for:))` applies SHA256 again internally.
+                /// Final digest signed = double‑SHA256(preimage).
+                
+                let signature = try ECDSA.sign(message: message,
+                                               with: privateKey.rawData,
+                                               in: signatureFormat)
+                let signatureWithType = signature + Data([UInt8(hashType.value)])
+                let unlockingScript = Data.push(signatureWithType) + Data.push(publicKey.compressedData)
+                
+                transaction = transaction.injectUnlockingScript(unlockingScript, inputIndex: index)
+            case .p2pkh_CheckDataSig(let message):
+                let message = message
+                // MARK: ↑ We DO NOT hash the message here.
+                /// The signer `(P256K.Signing.PrivateKey.signature(for:))` applies SHA256 once internally.
+                /// Final digest signed = single‑SHA256(preimage).
+                
+                let signature = try ECDSA.sign(message: message,
+                                               with: privateKey.rawData,
+                                               in: signatureFormat)
+                let unlockingSignature = Data.push(signature) + Data.push(message) + Data.push(publicKey.compressedData)
+                
+                transaction = transaction.injectUnlockingScript(unlockingSignature, inputIndex: index)
             }
-            
-            let signatureWithHashType = signature + appendedHashType
-            let sizeOfSignatureWithHashType = CompactSize(value: .init(signatureWithHashType.count)).encode()
-            
-            let compressedPublicKeyData = try PublicKey(privateKey: privateKey).compressedData
-            let sizeOfPublicKey = CompactSize(value: .init(compressedPublicKeyData.count)).encode()
-            
-            let unlockingScript = sizeOfSignatureWithHashType + signatureWithHashType + sizeOfPublicKey + compressedPublicKeyData
-            
-            transaction = transaction.injectUnlockingScript(unlockingScript, inputIndex: index)
         }
         
         return transaction

@@ -70,7 +70,7 @@ struct CryptoVectorsTests {
         )
         
         let decoded = try Script.decode(lockingScript: scriptData)
-        #expect(decoded == .p2pkh(hash: PublicKey.Hash(h160)))
+        #expect(decoded == .p2pkh_OPCHECKSIG(hash: PublicKey.Hash(h160)))
         
         // Re-encode and compare bytes
         #expect(decoded.data == scriptData)
@@ -95,20 +95,18 @@ struct CryptoVectorsTests {
     
     @Test("HASH160 known vectors: empty string, specific pubkey")
     func hash160_vectors() throws {
-        // Empty message HASH160 (well-known): b472a266d0bd89c13706a4132ccfb16f7c3b9fcb
+        // Empty message
         #expect(HASH160.hash(Data()).hexadecimalString == "b472a266d0bd89c13706a4132ccfb16f7c3b9fcb")
-        
-        // Uncompressed pubkey example (docs.rs vector)
-        let pubkey = try hex("04" +
-                             "a34d0f2c31b6e0a383a6d83d27a2fa2ad2a2b3a0b8c9b4cbef3dd3a6b1a1a0b5" + // dummy 32 bytes
-                             "b1e0d0a9f9d8c7b6a5a4a3a2a1b0c0d0e0f1f2f3f4f5f6f7f8f9fafbfcfdfeff"   // dummy 32 bytes
+
+        // Uncompressed pubkey from bitcoin_hashes test vector
+        let pubkey = try hex(
+            "04a149d76c5de27a2ddbfaa1246c4adcd2b6f7aa2954c2e25303f55154caad91" +
+            "52e4f7e4b85df169c18a3c697fbb2dc4ecef94ac55fe8164ccf982a138691a5519"
         )
-        // The exact pubkey used in that test hashes to da0b3452b06fe341626ad0949c183fbda5676826.
-        // For robustness, compute on our own chosen input and compare against a known value:
-        // Replace 'pubkey' above with the exact vector input when you add it to the repo.
         let expected = "da0b3452b06fe341626ad0949c183fbda5676826"
-        // Only run this assertion if the pubkey matches the documented vector length 65 bytes.
-        if pubkey.count == 65 { #expect(HASH160.hash(pubkey).hexadecimalString == expected) }
+
+        #expect(pubkey.count == 65)
+        #expect(HASH160.hash(pubkey).hexadecimalString == expected)
     }
     
     // MARK: - BCH Sighash (preimage properties)
@@ -124,7 +122,7 @@ struct CryptoVectorsTests {
             sequence: 0xFFFFFFFF
         )
         let pkHash = try hex("da0b3452b06fe341626ad0949c183fbda5676826")
-        let outScript = Script.p2pkh(hash: PublicKey.Hash(pkHash)).data
+        let outScript = Script.p2pkh_OPCHECKSIG(hash: PublicKey.Hash(pkHash)).data
         let output = Transaction.Output(value: 1_000, lockingScript: outScript)
         
         let tx = Transaction(version: 2, inputs: [input], outputs: [output], lockTime: 0)

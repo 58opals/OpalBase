@@ -137,6 +137,7 @@ extension Address.Book {
     var currentSubscription: Subscription? { self.subscription }
     
     func startSubscription(using fulcrum: Fulcrum, notificationHook: (@Sendable () async -> Void)? = nil) async {
+        if self.subscription != nil { return }
         let subscription = Subscription(book: self, notificationHook: notificationHook)
         self.subscription = subscription
         await subscription.start(fulcrum: fulcrum)

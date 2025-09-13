@@ -91,3 +91,18 @@ extension Array<Data> {
         return sha256Hash
     }
 }
+
+extension Data {
+    static func push(_ buffer: Data) -> Data {
+        switch buffer.count {
+        case 0...75:
+            return Data([UInt8(buffer.count)]) + buffer
+        case 76...255:
+            return Data([OP._PUSHDATA1.rawValue, UInt8(buffer.count)]) + buffer
+        case 256...65535:
+            return Data([OP._PUSHDATA2.rawValue]) + UInt16(buffer.count).littleEndianData + buffer
+        default:
+            return Data([OP._PUSHDATA4.rawValue]) + UInt32(buffer.count).littleEndianData + buffer
+        }
+    }
+}

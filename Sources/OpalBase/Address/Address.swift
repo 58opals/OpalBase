@@ -33,7 +33,7 @@ public struct Address {
         case 0x00: // P2PKH
             guard hashData.count == 20 else { throw Error.invalidPayloadLength }
             let hash = PublicKey.Hash(hashData)
-            let script = Script.p2pkh(hash: hash)
+            let script = Script.p2pkh_OPCHECKSIG(hash: hash)
             self.lockingScript = script
             
         default:
@@ -47,7 +47,7 @@ public struct Address {
         self.lockingScript = script
         
         switch script {
-        case .p2pkh(let hash):
+        case .p2pkh_OPCHECKSIG(let hash):
             let versionByte = Data([0x00])
             let payload = versionByte + hash.data
             let payload5BitValues = Address.convertPayloadToFiveBitValues(payload: payload)

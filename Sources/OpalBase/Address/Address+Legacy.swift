@@ -8,7 +8,7 @@ extension Address {
         
         init(_ script: Script) throws {
             switch script {
-            case .p2pkh(let hash):
+            case .p2pkh_OPCHECKSIG(let hash):
                 let prefix = Data([0x00])
                 let hash160 = hash.data
                 let data = prefix + hash160

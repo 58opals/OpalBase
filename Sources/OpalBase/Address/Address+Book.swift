@@ -118,7 +118,7 @@ extension Address.Book {
         }
         
         let publicKey = try PublicKey(compressedData: derivedPublicKey.publicKey)
-        let address = try Address(script: .p2pkh(hash: .init(publicKey: publicKey)))
+        let address = try Address(script: .p2pkh_OPCHECKSIG(hash: .init(publicKey: publicKey)))
         
         return address
     }

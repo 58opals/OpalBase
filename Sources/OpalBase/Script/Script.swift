@@ -4,7 +4,8 @@ import Foundation
 
 public enum Script {
     case p2pk(publicKey: PublicKey)
-    case p2pkh(hash: PublicKey.Hash)
+    case p2pkh_OPCHECKSIG(hash: PublicKey.Hash)
+    case p2pkh_OPCHECKDATASIG(hash: PublicKey.Hash)
     case p2ms(numberOfRequiredSignatures: Int, publicKeys: [PublicKey])
     case p2sh(scriptHash: Data)
     
@@ -17,7 +18,7 @@ public enum Script {
             data.append(OP._CHECKSIG.data)
             return data
             
-        case .p2pkh(let hash):
+        case .p2pkh_OPCHECKSIG(let hash):
             var data = Data()
             data.append(OP._DUP.data)
             data.append(OP._HASH160.data)
@@ -25,6 +26,16 @@ public enum Script {
             data.append(hash.data)
             data.append(OP._EQUALVERIFY.data)
             data.append(OP._CHECKSIG.data)
+            return data
+            
+        case .p2pkh_OPCHECKDATASIG(let hash):
+            var data = Data()
+            data.append(OP._DUP.data)
+            data.append(OP._HASH160.data)
+            data.append(OP._PUSHBYTES_20.data)
+            data.append(hash.data)
+            data.append(OP._EQUALVERIFY.data)
+            data.append(OP._CHECKDATASIG.data)
             return data
             
         case .p2ms(let numberOfRequiredSignatures, let publicKeys):
@@ -46,6 +57,17 @@ public enum Script {
             data.append(OP._EQUAL.data)
             return data
         }
+    }
+}
+
+extension Script {
+    enum Error: Swift.Error {
+        case cannotDecodeScript
+        
+        case invalidP2PKScript
+        case invalidP2PKHScript
+        case invalidP2SHScript
+        case invalidP2MSScript
     }
 }
 
@@ -78,7 +100,7 @@ extension Script {
                     throw Error.invalidP2PKHScript
                 }
                 let publicKeyHash = PublicKey.Hash(hash)
-                return .p2pkh(hash: publicKeyHash)
+                return .p2pkh_OPCHECKSIG(hash: publicKeyHash)
                 
             case OP._PUSHBYTES_33.rawValue:
                 guard let publicKeyData = readData(length: 33),
@@ -130,7 +152,7 @@ extension Script {
 extension Script {
     var isDerivableFromAddress: Bool {
         switch self {
-        case .p2pkh, .p2sh: true
+        case .p2pkh_OPCHECKSIG, .p2pkh_OPCHECKDATASIG, .p2sh: true
         case .p2pk, .p2ms: false
         }
     }

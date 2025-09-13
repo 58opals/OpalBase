@@ -41,7 +41,7 @@ struct AddressTests {
 
 extension AddressTests {
     @Test func testAddressInitializationFromCashAddress() throws {
-        let originalAddress = try Address(script: .p2pkh(hash: .init(publicKey: .init(privateKey: .init(data: .init(repeating: 0x01, count: 32))))))
+        let originalAddress = try Address(script: .p2pkh_OPCHECKSIG(hash: .init(publicKey: .init(privateKey: .init(data: .init(repeating: 0x01, count: 32))))))
         print(originalAddress)
         
         let cashAddressWithPrefix = "bitcoincash:qpumqqygwcnt999fz3gp5nxjy66ckg6esvls5sszem"
@@ -72,7 +72,7 @@ extension AddressTests {
     }
     
     @Test func testFetchBalance() async throws {
-        let generatedAddress = try Address(script: .p2pkh(hash: .init(publicKey: .init(privateKey: .init()))))
+        let generatedAddress = try Address(script: .p2pkh_OPCHECKSIG(hash: .init(publicKey: .init(privateKey: .init()))))
         let generatedAddressBalance = try await generatedAddress.fetchBalance(using: fulcrum)
         
         let stringAddress = "bitcoincash:qrsrz5mzve6kyr6ne6lgsvlgxvs3hqm6huxhd8gqwj"
@@ -86,7 +86,7 @@ extension AddressTests {
     }
     
     @Test func testFetchSimpleTransactionHistory() async throws {
-        let address = try Address(script: .p2pkh(hash: .init(publicKey: .init(privateKey: .init(wif: "Ky613uSeVQDEM89amKquEr6rZ1Xb7Mr3YDbbmyBT2zyppGChS9nU")))))
+        let address = try Address(script: .p2pkh_OPCHECKSIG(hash: .init(publicKey: .init(privateKey: .init(wif: "Ky613uSeVQDEM89amKquEr6rZ1Xb7Mr3YDbbmyBT2zyppGChS9nU")))))
         let history = try await address.fetchSimpleTransactionHistory(fulcrum: fulcrum)
         
         print(history)
@@ -97,7 +97,7 @@ extension AddressTests {
     }
     
     @Test func testFetchFullTransactionHistory() async throws {
-        let address = try Address(script: .p2pkh(hash: .init(publicKey: .init(privateKey: .init(wif: "Ky613uSeVQDEM89amKquEr6rZ1Xb7Mr3YDbbmyBT2zyppGChS9nU")))))
+        let address = try Address(script: .p2pkh_OPCHECKSIG(hash: .init(publicKey: .init(privateKey: .init(wif: "Ky613uSeVQDEM89amKquEr6rZ1Xb7Mr3YDbbmyBT2zyppGChS9nU")))))
         let history = try await address.fetchFullTransactionHistory(fulcrum: fulcrum)
         
         print(history)
@@ -108,7 +108,7 @@ extension AddressTests {
     }
     
     @Test func testFetchSimpleTransactionHistoryPage() async throws {
-        let address = try Address(script: .p2pkh(hash: .init(publicKey: .init(privateKey: .init(wif: "Ky613uSeVQDEM89amKquEr6rZ1Xb7Mr3YDbbmyBT2zyppGChS9nU")))))
+        let address = try Address(script: .p2pkh_OPCHECKSIG(hash: .init(publicKey: .init(privateKey: .init(wif: "Ky613uSeVQDEM89amKquEr6rZ1Xb7Mr3YDbbmyBT2zyppGChS9nU")))))
         let page = try await address.fetchSimpleTransactionHistoryPage(window: 5, fulcrum: fulcrum)
         
         print(page.transactions)
@@ -122,7 +122,7 @@ extension AddressTests {
     }
     
     @Test func testFetchFullTransactionHistoryPage() async throws {
-        let address = try Address(script: .p2pkh(hash: .init(publicKey: .init(privateKey: .init(wif: "Ky613uSeVQDEM89amKquEr6rZ1Xb7Mr3YDbbmyBT2zyppGChS9nU")))))
+        let address = try Address(script: .p2pkh_OPCHECKSIG(hash: .init(publicKey: .init(privateKey: .init(wif: "Ky613uSeVQDEM89amKquEr6rZ1Xb7Mr3YDbbmyBT2zyppGChS9nU")))))
         let page = try await address.fetchFullTransactionHistoryPage(window: 5, fulcrum: fulcrum)
         
         print(page.transactions)

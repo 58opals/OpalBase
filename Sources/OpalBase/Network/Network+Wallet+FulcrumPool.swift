@@ -78,8 +78,6 @@ extension Network.Wallet.FulcrumPool {
 
 extension Network.Wallet.FulcrumPool {
     public func acquireFulcrum() async throws -> Fulcrum {
-        updateStatus(.connecting)
-        
         var attempts: Int = 0
         while attempts < servers.count {
             var server = servers[currentIndex]
@@ -90,19 +88,19 @@ extension Network.Wallet.FulcrumPool {
                         try await server.fulcrum.start()
                         try await ping(server.fulcrum)
                         server.status = .online
-                        updateStatus(.online)
                     }
+                    
                     server.failureCount = 0
                     server.nextRetry = .distantPast
                     servers[currentIndex] = server
                     
-                    updateStatus(.online)
+                    if status != .online { updateStatus(.online)}
                     return server.fulcrum
                 } catch {
                     await server.fulcrum.stop()
                     server.status = .offline
                     servers[currentIndex] = server
-                    updateStatus(.offline)
+                    if status != .offline { updateStatus(.offline)}
                     markFailure(at: currentIndex)
                 }
             }
@@ -111,7 +109,7 @@ extension Network.Wallet.FulcrumPool {
             attempts += 1
         }
         
-        updateStatus(.offline)
+        if status != .offline { updateStatus(.offline)}
         throw Network.Wallet.Error.noHealthyServer
     }
     
@@ -128,41 +126,42 @@ extension Network.Wallet.FulcrumPool {
         updateStatus(.offline)
     }
     
-    public func reportFailure() {
+    public func reportFailure() async throws {
         markFailure(at: currentIndex)
         currentIndex = (currentIndex + 1) % servers.count
-        updateStatus(.connecting)
         
-        Task {
-            do {
-                _ = try await self.acquireFulcrum()
-            } catch {
-                updateStatus(.offline)
-                throw Network.Wallet.Error.connectionFailed(error)
-            }
+        do {
+            _ = try await self.acquireFulcrum()
+        } catch {
+            throw error
         }
     }
     
     public func reconnect() async throws -> Fulcrum{
         updateStatus(.connecting)
-        
         guard servers.indices.contains(currentIndex) else {
             updateStatus(.offline)
             throw Network.Wallet.Error.noHealthyServer
         }
         
         var server = servers[currentIndex]
-        
-        server.failureCount = 0
-        server.nextRetry = .distantPast
-        server.status = .offline
-        servers[currentIndex] = server
-        
         await server.fulcrum.stop()
-        server.status = .online
-        servers[currentIndex] = server
         
-        updateStatus(.online)
-        return server.fulcrum
+        do {
+            try await server.fulcrum.start()
+            try await ping(server.fulcrum)
+            server.failureCount = 0
+            server.nextRetry = .distantPast
+            server.status = .online
+            servers[currentIndex] = server
+            updateStatus(.online)
+            return server.fulcrum
+        } catch {
+            server.status = .offline
+            servers[currentIndex] = server
+            markFailure(at: currentIndex)
+            updateStatus(.offline)
+            throw Network.Wallet.Error.connectionFailed(error)
+        }
     }
 }

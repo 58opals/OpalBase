@@ -104,7 +104,7 @@ extension AddressBookTests {
     }
     
     @Test mutating func testMarkNonExistentAddressAsUsed() async throws {
-        let fakeAddress = try Address(script: .p2pkh(hash: .init(publicKey: try .init(compressedData: .init(repeating: 0x02, count: 33)))))
+        let fakeAddress = try Address(script: .p2pkh_OPCHECKSIG(hash: .init(publicKey: try .init(compressedData: .init(repeating: 0x02, count: 33)))))
         
         do {
             try await addressBook.mark(address: fakeAddress, isUsed: true)
@@ -130,7 +130,7 @@ extension AddressBookTests {
     
     @Test mutating func testUTXOAdditionAndRemoval() async throws {
         // Create a dummy unspent transaction output (UTXO)
-        let dummyOutput = Transaction.Output(value: 100_000, lockingScript: Script.p2pkh(hash: .init(publicKey: try .init(compressedData: .init(repeating: 0x02, count: 33)))).data)
+        let dummyOutput = Transaction.Output(value: 100_000, lockingScript: Script.p2pkh_OPCHECKSIG(hash: .init(publicKey: try .init(compressedData: .init(repeating: 0x02, count: 33)))).data)
         let dummyUTXO = Transaction.Output.Unspent(output: dummyOutput,
                                                    previousTransactionHash: Transaction.Hash(naturalOrder: Data(repeating: 0x00, count: 32)),
                                                    previousTransactionOutputIndex: 0)
@@ -199,7 +199,7 @@ extension AddressBookTests {
     }
     
     @Test mutating func testFindEntryForNonExistentAddress() async throws {
-        let fakeAddress = try Address(script: .p2pkh(hash: .init(publicKey: try .init(compressedData: .init(repeating: 0x02, count: 33)))))
+        let fakeAddress = try Address(script: .p2pkh_OPCHECKSIG(hash: .init(publicKey: try .init(compressedData: .init(repeating: 0x02, count: 33)))))
         let entry = await addressBook.findEntry(for: fakeAddress)
         
         #expect(entry == nil, "Finding a non-existent address should return nil.")
@@ -313,7 +313,7 @@ extension AddressBookTests {
         try await addressBook.updateCache(for: entry.address, with: try Satoshi(123))
         try await addressBook.mark(address: entry.address, isUsed: true)
         
-        let dummyOutput = Transaction.Output(value: 50, lockingScript: Script.p2pkh(hash: .init(publicKey: try .init(compressedData: .init(repeating: 0x02, count: 33)))).data)
+        let dummyOutput = Transaction.Output(value: 50, lockingScript: Script.p2pkh_OPCHECKSIG(hash: .init(publicKey: try .init(compressedData: .init(repeating: 0x02, count: 33)))).data)
         let dummyUTXO = Transaction.Output.Unspent(output: dummyOutput,
                                                    previousTransactionHash: Transaction.Hash(naturalOrder: Data(repeating: 0, count: 32)),
                                                    previousTransactionOutputIndex: 0)
@@ -345,7 +345,7 @@ extension AddressBookTests {
         try await addressBook.mark(address: entry.address, isUsed: true)
         
         let dummyOutput = Transaction.Output(value: 50,
-                                             lockingScript: Script.p2pkh(hash: .init(publicKey: try .init(compressedData: .init(repeating: 0x02, count: 33)))).data)
+                                             lockingScript: Script.p2pkh_OPCHECKSIG(hash: .init(publicKey: try .init(compressedData: .init(repeating: 0x02, count: 33)))).data)
         let dummyUTXO = Transaction.Output.Unspent(output: dummyOutput,
                                                    previousTransactionHash: Transaction.Hash(naturalOrder: Data(repeating: 0, count: 32)),
                                                    previousTransactionOutputIndex: 0)
