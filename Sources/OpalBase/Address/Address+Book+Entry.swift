@@ -33,8 +33,8 @@ extension Address.Book {
 // MARK: - Generate
 extension Address.Book {
     func generateEntriesIfNeeded(for usage: DerivationPath.Usage) throws {
-        let entries = getEntries(of: usage)
-        let usedEntries = getUsedEntries(for: usage)
+        let entries = listEntries(for: usage)
+        let usedEntries = listUsedEntries(for: usage)
         
         let numberOfRemainingUnusedEntries = entries.count - usedEntries.count
         if numberOfRemainingUnusedEntries < gapLimit {
@@ -47,7 +47,7 @@ extension Address.Book {
     func generateEntries(for usage: DerivationPath.Usage,
                          numberOfNewEntries: Int,
                          isUsed: Bool) throws {
-        let entries = getEntries(of: usage)
+        let entries = listEntries(for: usage)
         let numberOfExistingEntries = entries.count
         
         for _ in numberOfExistingEntries ..< numberOfExistingEntries + numberOfNewEntries {
@@ -102,24 +102,24 @@ extension Address.Book {
 
 // MARK: - Get
 extension Address.Book {
-    public func getNextEntry(for usage: DerivationPath.Usage, fetchBalance: Bool = true) throws -> Entry {
+    public func selectNextEntry(for usage: DerivationPath.Usage, fetchBalance: Bool = true) throws -> Entry {
         try generateEntriesIfNeeded(for: usage)
         
-        let entries = getEntries(of: usage)
+        let entries = listEntries(for: usage)
         guard let nextEntry = entries.first(where: { !$0.isUsed }) else { throw Error.entryNotFound }
         
         return nextEntry
     }
     
-    public func getEntries(of usage: DerivationPath.Usage) -> [Entry] {
+    public func listEntries(for usage: DerivationPath.Usage) -> [Entry] {
         switch usage {
         case .receiving: return receivingEntries
         case .change: return changeEntries
         }
     }
     
-    public func getUsedEntries(for usage: DerivationPath.Usage) -> Set<Entry> {
-        let entries = getEntries(of: usage)
+    public func listUsedEntries(for usage: DerivationPath.Usage) -> Set<Entry> {
+        let entries = listEntries(for: usage)
         let usedEntries = entries.filter { $0.isUsed }
         return Set<Entry>(usedEntries)
     }

@@ -24,7 +24,7 @@ extension Network.Wallet.Monitor {
                     Task {
                         do {
                             for try await _ in stream {
-                                let total = try await wallet.getBalance()
+                                let total = try await wallet.calculateCachedBalance()
                                 continuation.yield(total)
                             }
                         } catch {

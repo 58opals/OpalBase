@@ -11,7 +11,7 @@ import SwiftData
 
 extension Storage.Entity {
     @Model
-    public final class Header {
+    public final class HeaderModel {
         @Attribute(.unique) public var height: UInt32
         public var version: Int32
         public var previousBlockHash: Data
@@ -42,7 +42,7 @@ extension Storage.Entity {
     }
     
     @Model
-    public final class UTXO {
+    public final class UTXOModel {
         @Attribute(.unique) public var key: String // "\(transactionHash.hex):\(outputIndex)"
         public var transactionHash: Data
         public var outputIndex: UInt32
@@ -50,22 +50,22 @@ extension Storage.Entity {
         public var lockingScript: Data
         public var accountIndex: UInt32 // BIP44 account index
         
-        public init(transactionHash: Data, outputIndex: UInt32, value: UInt64, lockingScript: Data, accountIndex: UInt32) {
-            self.transactionHash = transactionHash
+        public init(transactionHash: Transaction.Hash, outputIndex: UInt32, value: UInt64, lockingScript: Data, accountIndex: UInt32) {
+            self.transactionHash = transactionHash.naturalOrder
             self.outputIndex = outputIndex
             self.value = value
             self.lockingScript = lockingScript
             self.accountIndex = accountIndex
-            self.key = UTXO.makeKey(transactionHash: transactionHash, outputIndex: outputIndex)
+            self.key = UTXOModel.makeKey(transactionHash: transactionHash, outputIndex: outputIndex)
         }
         
-        public static func makeKey(transactionHash: Data, outputIndex: UInt32) -> String {
-            transactionHash.map { String(format: "%02x", $0) }.joined() + ":" + String(outputIndex)
+        public static func makeKey(transactionHash: Transaction.Hash, outputIndex: UInt32) -> String {
+            transactionHash.naturalOrder.map { String(format: "%02x", $0) }.joined() + ":" + String(outputIndex)
         }
     }
     
     @Model
-    public final class Transaction {
+    public final class TransactionModel {
         @Attribute(.unique) public var hash: Data
         public var raw: Data
         public var height: UInt32?
@@ -86,7 +86,7 @@ extension Storage.Entity {
     }
     
     @Model
-    public final class Account {
+    public final class AccountModel {
         @Attribute(.unique) public var id: String // "\(purpose)-\(coinType)-\(index)"
         public var purpose: UInt32 // 44 for BIP44
         public var coinType: UInt32 // 145 for BCH
@@ -103,7 +103,7 @@ extension Storage.Entity {
     }
     
     @Model
-    public final class Fee {
+    public final class FeeModel {
         public enum Tier: String, Codable, CaseIterable { case slow, normal, fast }
         @Attribute(.unique) public var tier: String
         public var satsPerByte: UInt64
@@ -117,7 +117,7 @@ extension Storage.Entity {
     }
     
     @Model
-    public final class ServerHealth {
+    public final class ServerHealthModel {
         @Attribute(.unique) public var url: String
         public var latencyMs: Double?
         public var status: String // healthy | degraded | unhealthy
@@ -142,7 +142,7 @@ extension Storage.Entity {
     }
     
     @Model
-    public final class Subscription {
+    public final class SubscriptionModel {
         @Attribute(.unique) public var address: String
         public var isActive: Bool
         public var lastStatus: String?

@@ -108,7 +108,7 @@ extension Address.Book {
     
     private func apply(entrySnapshots: [Snapshot.Entry], usage: DerivationPath.Usage) throws {
         for snap in entrySnapshots {
-            while getEntries(of: usage).count <= snap.index {
+            while listEntries(for: usage).count <= snap.index {
                 try generateEntry(for: usage, isUsed: false)
             }
             

@@ -14,7 +14,7 @@ extension Network.Wallet {
         }
         
         func fetchFeeRate(for tier: Tier) async throws -> UInt64 {
-            let fulcrum = try await fulcrumPool.getFulcrum()
+            let fulcrum = try await fulcrumPool.acquireFulcrum()
             
             let estimated = try await Transaction.estimateFee(numberOfBlocks: tier.targetBlocks, using: fulcrum)
             let relay = try await Transaction.relayFee(using: fulcrum)
@@ -22,7 +22,7 @@ extension Network.Wallet {
             return max(estimated.uint64, relay.uint64)
         }
         
-        func getRecommendedFeeRate(for tier: Tier = .fast) async throws -> UInt64 {
+        func fetchRecommendedFeeRate(for tier: Tier = .fast) async throws -> UInt64 {
             if let cached = cachedRates[tier], cached.isValid(for: cacheThreshold) {
                 return cached.value
             }

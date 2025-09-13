@@ -6,7 +6,6 @@ extension Network {
     public enum Wallet {}
 }
 
-
 extension Network.Wallet {
     public enum Error: Swift.Error {
         case noHealthyServer
@@ -17,6 +16,13 @@ extension Network.Wallet {
 
 extension Network.Wallet.Error: Equatable {
     public static func == (lhs: Network.Wallet.Error, rhs: Network.Wallet.Error) -> Bool {
-        lhs.localizedDescription == rhs.localizedDescription
+        switch (lhs, rhs) {
+        case (.noHealthyServer, .noHealthyServer),
+            (.connectionFailed, .connectionFailed),
+            (.pingFailed, .pingFailed):
+            return true
+        default:
+            return false
+        }
     }
 }

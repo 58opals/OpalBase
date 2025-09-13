@@ -138,14 +138,13 @@ extension AddressTests {
     @Test func testSubscribe() async {
         do {
             let address = try Address("qqe89pk7gjzxqedcsykmaa5wc8dt8zp57q5nuylgjw")//Address(script: .p2pkh(hash: .init(publicKey: .init(privateKey: .init()))))
-            let (requestID, subscriptionID, initialStatus, followingStatus, cancel) = try await address.subscribe(fulcrum: fulcrum)
+            let (requestID, initialStatus, updates, cancel) = try await address.subscribe(fulcrum: fulcrum)
             
-            #expect(requestID.uuidString.count == 36, "Subscription ID did not match expected.")
-            print(subscriptionID)
+            print("RequestID: \(requestID.uuidString)")
             print("Initial status of the address \(address.string): \(initialStatus)")
             
-            for try await newStatus in followingStatus {
-                print("The new status of the address \(address.string): \(newStatus)")
+            for try await update in updates {
+                print("The new status of the address \(address.string): \(update)")
                 break
             }
             

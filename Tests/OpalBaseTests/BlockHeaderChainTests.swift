@@ -51,7 +51,7 @@ extension BlockHeaderChainTests {
         let chain = Block.Header.Chain(checkpointHeight: 0, checkpointHash: genesisHash)
         try await chain.append(header, height: 0)
         let transactionHash = header.merkleRoot
-        let verified = await chain.verifyTransaction(hash: transactionHash, merkleProof: [], index: 0, height: 0)
+        let verified = await chain.verifyTransaction(hash: .init(dataFromRPC: transactionHash), merkleProof: [], index: 0, height: 0)
         #expect(verified, "Transaction should be included in genesis block")
     }
 }

@@ -37,9 +37,9 @@ extension Storage.Repository {
         
         public func tip() async throws -> Storage.Row.Header? {
             if let cached = await tipCache.get("tip") { return cached }
-            let found: Storage.Entity.Header? = try Storage.Facade.withContext(container) { ctx in
-                var desc = FetchDescriptor<Storage.Entity.Header>(predicate: nil,
-                                                                  sortBy: [SortDescriptor(\.height, order: .reverse)])
+            let found: Storage.Entity.HeaderModel? = try Storage.Facade.withContext(container) { ctx in
+                var desc = FetchDescriptor<Storage.Entity.HeaderModel>(predicate: nil,
+                                                                       sortBy: [SortDescriptor(\.height, order: .reverse)])
                 desc.fetchLimit = 1
                 return try ctx.fetch(desc).first
             }
@@ -49,7 +49,7 @@ extension Storage.Repository {
         
         public func byHeight(_ height: UInt32) throws -> Storage.Row.Header? {
             try Storage.Facade.withContext(container) { ctx in
-                let p = #Predicate<Storage.Entity.Header> { $0.height == height }
+                let p = #Predicate<Storage.Entity.HeaderModel> { $0.height == height }
                 return try ctx.fetch(FetchDescriptor(predicate: p)).first?.row
             }
         }
@@ -57,7 +57,7 @@ extension Storage.Repository {
         public func upsertRange(_ entries: [(height: UInt32, header: Block.Header, hash: Data)]) async throws {
             try Storage.Facade.withContext(container) { ctx in
                 for (height, header, hash) in entries {            // destructure tuple
-                    let p = #Predicate<Storage.Entity.Header> { $0.height == height }
+                    let p = #Predicate<Storage.Entity.HeaderModel> { $0.height == height }
                     if let existing = try ctx.fetch(FetchDescriptor(predicate: p)).first {
                         existing.version = header.version
                         existing.previousBlockHash = header.previousBlockHash
@@ -67,14 +67,14 @@ extension Storage.Repository {
                         existing.nonce = header.nonce
                         existing.hash = hash
                     } else {
-                        ctx.insert(Storage.Entity.Header(height: height,
-                                                         version: header.version,
-                                                         previousBlockHash: header.previousBlockHash,
-                                                         merkleRoot: header.merkleRoot,
-                                                         time: header.time,
-                                                         bits: header.bits,
-                                                         nonce: header.nonce,
-                                                         hash: hash))
+                        ctx.insert(Storage.Entity.HeaderModel(height: height,
+                                                              version: header.version,
+                                                              previousBlockHash: header.previousBlockHash,
+                                                              merkleRoot: header.merkleRoot,
+                                                              time: header.time,
+                                                              bits: header.bits,
+                                                              nonce: header.nonce,
+                                                              hash: hash))
                     }
                 }
             }
@@ -83,9 +83,9 @@ extension Storage.Repository {
         
         
         public func withHeader<T: Sendable>(height: UInt32,
-                                            _ body: (Storage.Entity.Header) throws -> T) rethrows -> T? {
+                                            _ body: (Storage.Entity.HeaderModel) throws -> T) rethrows -> T? {
             try Storage.Facade.withContext(container) { ctx in
-                let p = #Predicate<Storage.Entity.Header> { $0.height == height }
+                let p = #Predicate<Storage.Entity.HeaderModel> { $0.height == height }
                 guard let m = try ctx.fetch(FetchDescriptor(predicate: p)).first else { return nil }
                 return try body(m)
             }
@@ -105,7 +105,7 @@ extension Storage.Repository {
             let key = "a:\(index)"
             if let cached = await cache.get(key) { return cached }
             let rows: [Storage.Row.UTXO] = try Storage.Facade.withContext(container) { ctx in
-                let p = #Predicate<Storage.Entity.UTXO> { $0.accountIndex == index }
+                let p = #Predicate<Storage.Entity.UTXOModel> { $0.accountIndex == index }
                 return try ctx.fetch(FetchDescriptor(predicate: p)).map(\.row)
             }
             await cache.set(key, rows)
@@ -114,15 +114,15 @@ extension Storage.Repository {
         
         public func upsertAll(_ index: UInt32, utxos: [Transaction.Output.Unspent]) async throws {
             try Storage.Facade.withContext(container) { ctx in
-                let p = #Predicate<Storage.Entity.UTXO> { $0.accountIndex == index }
-                try ctx.delete(model: Storage.Entity.UTXO.self, where: p)
+                let p = #Predicate<Storage.Entity.UTXOModel> { $0.accountIndex == index }
+                try ctx.delete(model: Storage.Entity.UTXOModel.self, where: p)
                 
                 for u in utxos {
-                    let m = Storage.Entity.UTXO(transactionHash: u.previousTransactionHash.naturalOrder,
-                                                outputIndex: u.previousTransactionOutputIndex,
-                                                value: u.value,
-                                                lockingScript: u.lockingScript,
-                                                accountIndex: index)
+                    let m = Storage.Entity.UTXOModel(transactionHash: u.previousTransactionHash,
+                                                     outputIndex: u.previousTransactionOutputIndex,
+                                                     value: u.value,
+                                                     lockingScript: u.lockingScript,
+                                                     accountIndex: index)
                     ctx.insert(m)
                 }
             }
@@ -133,11 +133,11 @@ extension Storage.Repository {
             let affected: Set<UInt32> = try Storage.Facade.withContext(container) { ctx in
                 var a = Set<UInt32>()
                 for u in outs {
-                    let key = Storage.Entity.UTXO.makeKey(
-                        transactionHash: u.previousTransactionHash.naturalOrder,
+                    let key = Storage.Entity.UTXOModel.makeKey(
+                        transactionHash: u.previousTransactionHash,
                         outputIndex: u.previousTransactionOutputIndex
                     )
-                    let p = #Predicate<Storage.Entity.UTXO> { $0.key == key }
+                    let p = #Predicate<Storage.Entity.UTXOModel> { $0.key == key }
                     if let utxo = try ctx.fetch(FetchDescriptor(predicate: p)).first {
                         a.insert(utxo.accountIndex)
                         ctx.delete(utxo)
@@ -150,8 +150,8 @@ extension Storage.Repository {
         
         public func clear(_ index: UInt32) async throws {
             try Storage.Facade.withContext(container) { ctx in
-                let p = #Predicate<Storage.Entity.UTXO> { $0.accountIndex == index }
-                try ctx.delete(model: Storage.Entity.UTXO.self, where: p)
+                let p = #Predicate<Storage.Entity.UTXOModel> { $0.accountIndex == index }
+                try ctx.delete(model: Storage.Entity.UTXOModel.self, where: p)
             }
             await cache.invalidate("a:\(index)")
         }
@@ -165,16 +165,17 @@ extension Storage.Repository {
         private let recentCache = TTLCache<String, [Storage.Row.Transaction]>(defaultTTL: 300)
         public init(container: ModelContainer) { self.container = container }
         
-        public func byHash(_ hash: Data) throws -> Storage.Row.Transaction? {
+        public func byHash(_ hash: Transaction.Hash) throws -> Storage.Row.Transaction? {
             try Storage.Facade.withContext(container) { ctx in
-                let p = #Predicate<Storage.Entity.Transaction> { $0.hash == hash }
+                let hashData = hash.naturalOrder
+                let p = #Predicate<Storage.Entity.TransactionModel> { $0.hash == hashData }
                 return try ctx.fetch(FetchDescriptor(predicate: p)).first?.row
             }
         }
         
         public func pending() throws -> [Storage.Row.Transaction] {
             try Storage.Facade.withContext(container) { ctx in
-                let p = #Predicate<Storage.Entity.Transaction> { $0.isPending == true }
+                let p = #Predicate<Storage.Entity.TransactionModel> { $0.isPending == true }
                 return try ctx.fetch(FetchDescriptor(predicate: p)).map(\.row)
             }
         }
@@ -182,8 +183,8 @@ extension Storage.Repository {
         public func recent(limit: Int = 50) async throws -> [Storage.Row.Transaction] {
             if let cached = await recentCache.get("recent:\(limit)") { return cached }
             let r: [Storage.Row.Transaction] = try Storage.Facade.withContext(container) { ctx in
-                var d = FetchDescriptor<Storage.Entity.Transaction>(predicate: nil,
-                                                                    sortBy: [SortDescriptor(\.time, order: .reverse)])
+                var d = FetchDescriptor<Storage.Entity.TransactionModel>(predicate: nil,
+                                                                         sortBy: [SortDescriptor(\.time, order: .reverse)])
                 d.fetchLimit = limit
                 return try ctx.fetch(d).map(\.row)
             }
@@ -204,27 +205,27 @@ extension Storage.Repository {
         public func upsert(purpose: UInt32, coinType: UInt32, index: UInt32, label: String?) throws {
             try Storage.Facade.withContext(container) { ctx in
                 let id = "\(purpose)-\(coinType)-\(index)"
-                let p = #Predicate<Storage.Entity.Account> { $0.id == id }
+                let p = #Predicate<Storage.Entity.AccountModel> { $0.id == id }
                 if let ex = try ctx.fetch(FetchDescriptor(predicate: p)).first {
                     ex.label = label
                     ctx.insert(ex)
                 } else {
-                    ctx.insert(Storage.Entity.Account(purpose: purpose, coinType: coinType, index: index, label: label))
+                    ctx.insert(Storage.Entity.AccountModel(purpose: purpose, coinType: coinType, index: index, label: label))
                 }
             }
         }
         
-        public func byIndex(purpose: UInt32, coinType: UInt32, index: UInt32) throws -> Storage.Entity.Account? {
+        public func byIndex(purpose: UInt32, coinType: UInt32, index: UInt32) throws -> Storage.Entity.AccountModel? {
             try Storage.Facade.withContext(container) { ctx in
                 let id = "\(purpose)-\(coinType)-\(index)"
-                let p = #Predicate<Storage.Entity.Account> { $0.id == id }
+                let p = #Predicate<Storage.Entity.AccountModel> { $0.id == id }
                 return try ctx.fetch(FetchDescriptor(predicate: p)).first
             }
         }
         
-        public func all() throws -> [Storage.Entity.Account] {
+        public func all() throws -> [Storage.Entity.AccountModel] {
             try Storage.Facade.withContext(container) { ctx in
-                try ctx.fetch(FetchDescriptor<Storage.Entity.Account>())
+                try ctx.fetch(FetchDescriptor<Storage.Entity.AccountModel>())
             }
         }
     }
@@ -238,26 +239,26 @@ extension Storage.Repository {
         
         public init(container: ModelContainer) { self.container = container }
         
-        public func put(tier: Storage.Entity.Fee.Tier, satsPerByte: UInt64, ttl: TimeInterval = 600) async throws {
+        public func put(tier: Storage.Entity.FeeModel.Tier, satsPerByte: UInt64, ttl: TimeInterval = 600) async throws {
             try Storage.Facade.withContext(container) { ctx in
                 let key = tier.rawValue
-                let p = #Predicate<Storage.Entity.Fee> { $0.tier == key }
+                let p = #Predicate<Storage.Entity.FeeModel> { $0.tier == key }
                 if let ex = try ctx.fetch(FetchDescriptor(predicate: p)).first {
                     ex.satsPerByte = satsPerByte
                     ex.timestamp = .now
                     ctx.insert(ex)
                 } else {
-                    ctx.insert(Storage.Entity.Fee(tier: tier, satsPerByte: satsPerByte))
+                    ctx.insert(Storage.Entity.FeeModel(tier: tier, satsPerByte: satsPerByte))
                 }
             }
             await cache.set(tier.rawValue, satsPerByte, ttl: ttl)
         }
         
-        public func latest(_ tier: Storage.Entity.Fee.Tier, maxAge: TimeInterval = 900) async throws -> UInt64? {
+        public func latest(_ tier: Storage.Entity.FeeModel.Tier, maxAge: TimeInterval = 900) async throws -> UInt64? {
             if let v = await cache.get(tier.rawValue) { return v }
             let v = try Storage.Facade.withContext(container) { ctx in
                 let key = tier.rawValue
-                let p = #Predicate<Storage.Entity.Fee> { $0.tier == key }
+                let p = #Predicate<Storage.Entity.FeeModel> { $0.tier == key }
                 return try ctx.fetch(FetchDescriptor(predicate: p)).first
             }
             guard let m = v else { return nil }
@@ -282,7 +283,7 @@ extension Storage.Repository {
         public func recordProbe(url: URL, latency: TimeInterval?, healthy: Bool) async throws {
             try Storage.Facade.withContext(container) { ctx in
                 let key = url.absoluteString
-                let p = #Predicate<Storage.Entity.ServerHealth> { $0.url == key }
+                let p = #Predicate<Storage.Entity.ServerHealthModel> { $0.url == key }
                 let ms = latency.map { $0 * 1000 }
                 if let ex = try ctx.fetch(FetchDescriptor(predicate: p)).first {
                     ex.latencyMs = ms
@@ -291,12 +292,12 @@ extension Storage.Repository {
                     else { ex.failures += 1 }
                     ctx.insert(ex)
                 } else {
-                    ctx.insert(Storage.Entity.ServerHealth(url: key,
-                                                           latencyMs: ms,
-                                                           status: healthy ? "healthy" : "unhealthy",
-                                                           failures: healthy ? 0 : 1,
-                                                           quarantineUntil: nil,
-                                                           lastOK: healthy ? .now : nil))
+                    ctx.insert(Storage.Entity.ServerHealthModel(url: key,
+                                                                latencyMs: ms,
+                                                                status: healthy ? "healthy" : "unhealthy",
+                                                                failures: healthy ? 0 : 1,
+                                                                quarantineUntil: nil,
+                                                                lastOK: healthy ? .now : nil))
                 }
             }
             await cache.invalidate(url.absoluteString)
@@ -305,7 +306,7 @@ extension Storage.Repository {
         public func bestPrimary(candidates: [URL]) throws -> URL? {
             try Storage.Facade.withContext(container) { ctx in
                 let urls = Set(candidates.map(\.absoluteString))
-                let p = #Predicate<Storage.Entity.ServerHealth> { urls.contains($0.url) && $0.quarantineUntil == nil && $0.status == "healthy" }
+                let p = #Predicate<Storage.Entity.ServerHealthModel> { urls.contains($0.url) && $0.quarantineUntil == nil && $0.status == "healthy" }
                 let rows = try ctx.fetch(FetchDescriptor(predicate: p)).map(\.row)
                 return rows
                     .sorted { ($0.latencyMs ?? .greatestFiniteMagnitude) < ($1.latencyMs ?? .greatestFiniteMagnitude) }
@@ -317,13 +318,18 @@ extension Storage.Repository {
         public func quarantine(_ url: URL, until: Date) async throws {
             try Storage.Facade.withContext(container) { ctx in
                 let key = url.absoluteString
-                let p = #Predicate<Storage.Entity.ServerHealth> { $0.url == key }
+                let p = #Predicate<Storage.Entity.ServerHealthModel> { $0.url == key }
                 if let ex = try ctx.fetch(FetchDescriptor(predicate: p)).first {
                     ex.quarantineUntil = until
                     ex.status = "unhealthy"
                     ctx.insert(ex)
                 } else {
-                    ctx.insert(Storage.Entity.ServerHealth(url: key, latencyMs: nil, status: "unhealthy", failures: 1, quarantineUntil: until, lastOK: nil))
+                    ctx.insert(Storage.Entity.ServerHealthModel(url: key,
+                                                                latencyMs: nil,
+                                                                status: "unhealthy",
+                                                                failures: 1,
+                                                                quarantineUntil: until,
+                                                                lastOK: nil))
                 }
             }
             await cache.invalidate(url.absoluteString)
@@ -332,7 +338,7 @@ extension Storage.Repository {
         public func history(_ url: URL) throws -> Storage.Row.ServerHealth? {
             try Storage.Facade.withContext(container) { ctx in
                 let key = url.absoluteString
-                let p = #Predicate<Storage.Entity.ServerHealth> { $0.url == key }
+                let p = #Predicate<Storage.Entity.ServerHealthModel> { $0.url == key }
                 return try ctx.fetch(FetchDescriptor(predicate: p)).first?.row
             }
         }
@@ -349,14 +355,16 @@ extension Storage.Repository {
         
         public func upsert(address: String, isActive: Bool, lastStatus: String?) async throws {
             try Storage.Facade.withContext(container) { ctx in
-                let p = #Predicate<Storage.Entity.Subscription> { $0.address == address }
+                let p = #Predicate<Storage.Entity.SubscriptionModel> { $0.address == address }
                 if let ex = try ctx.fetch(FetchDescriptor(predicate: p)).first {
                     ex.isActive = isActive
                     ex.lastStatus = lastStatus
                     ex.lastUpdated = .now
                     ctx.insert(ex)
                 } else {
-                    ctx.insert(Storage.Entity.Subscription(address: address, isActive: isActive, lastStatus: lastStatus))
+                    ctx.insert(Storage.Entity.SubscriptionModel(address: address,
+                                                                isActive: isActive,
+                                                                lastStatus: lastStatus))
                 }
             }
             await cache.invalidate(address)
@@ -365,7 +373,7 @@ extension Storage.Repository {
         public func byAddress(_ address: String) async throws -> Storage.Row.Subscription? {
             if let s = await cache.get(address) { return s }
             let row = try Storage.Facade.withContext(container) { ctx in
-                let p = #Predicate<Storage.Entity.Subscription> { $0.address == address }
+                let p = #Predicate<Storage.Entity.SubscriptionModel> { $0.address == address }
                 return try ctx.fetch(FetchDescriptor(predicate: p)).first?.row
             }
             if let row { await cache.set(address, row) }
@@ -374,7 +382,7 @@ extension Storage.Repository {
         
         public func deactivate(_ address: String) async throws {
             try Storage.Facade.withContext(container) { ctx in
-                let p = #Predicate<Storage.Entity.Subscription> { $0.address == address }
+                let p = #Predicate<Storage.Entity.SubscriptionModel> { $0.address == address }
                 if let ex = try ctx.fetch(FetchDescriptor(predicate: p)).first {
                     ex.isActive = false
                     ex.lastUpdated = .now

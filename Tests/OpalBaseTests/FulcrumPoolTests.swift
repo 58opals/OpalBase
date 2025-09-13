@@ -5,7 +5,7 @@ import SwiftFulcrum
 @Suite("FulcrumPool Reconnection")
 struct FulcrumPoolTests {
     @Test func testReconnectBringsOfflineServerOnline() async throws {
-        let pool = try await Wallet.Network.FulcrumPool()
+        let pool = try await Network.Wallet.FulcrumPool()
         #expect(await pool.currentStatus == .offline)
         
         let stream = await pool.observeStatus()
@@ -25,10 +25,10 @@ struct FulcrumPoolTests {
     }
     
     @Test func testPoolThrowsWhenNoServerResponds() async throws {
-        let pool = try await Wallet.Network.FulcrumPool(urls: ["wss://invalid.example.invalid:50004"])
+        let pool = try await Network.Wallet.FulcrumPool(urls: ["wss://invalid.example.invalid:50004"])
         
-        await #expect(throws: Wallet.Network.Error.noHealthyServer) {
-            _ = try await pool.getFulcrum()
+        await #expect(throws: Network.Wallet.Error.noHealthyServer) {
+            _ = try await pool.acquireFulcrum()
         }
     }
 }

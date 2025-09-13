@@ -10,7 +10,7 @@ extension Address.Book {
         return privateKey
     }
     
-    func getPrivateKeys(for utxos: [Transaction.Output.Unspent]) throws -> [Transaction.Output.Unspent: PrivateKey] {
+    func derivePrivateKeys(for utxos: [Transaction.Output.Unspent]) throws -> [Transaction.Output.Unspent: PrivateKey] {
         var pair: [Transaction.Output.Unspent: PrivateKey] = [:]
         
         for utxo in utxos {

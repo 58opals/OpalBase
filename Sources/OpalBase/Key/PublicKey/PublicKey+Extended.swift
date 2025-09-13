@@ -97,7 +97,7 @@ extension PublicKey.Extended {
         let indices = [
             path.purpose.hardenedIndex,
             path.coinType.hardenedIndex,
-            try path.account.getHardenedIndex(),
+            try path.account.deriveHardenedIndex(),
             path.usage.unhardenedIndex,
             path.index
         ]

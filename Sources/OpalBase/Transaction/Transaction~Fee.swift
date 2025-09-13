@@ -9,6 +9,33 @@ extension Transaction {
     }
 }
 
+// MARK: - Centralized estimators for selection and building
+extension Transaction {
+    static func estimatedSize(inputCount: Int,
+                              outputs: [Output],
+                              version: UInt32 = 2,
+                              lockTime: UInt32 = 0) -> Int {
+        guard inputCount >= 0 else { return 0 }
+        let placeholderHash = Transaction.Hash(naturalOrder: Data(repeating: 0, count: 32))
+        let templateInput = Input(previousTransactionHash: placeholderHash,
+                                  previousTransactionOutputIndex: 0,
+                                  unlockingScript: Data(),
+                                  sequence: 0xFFFFFFFF)
+        let inputs = Array(repeating: templateInput, count: inputCount)
+        let transaction = Transaction(version: version, inputs: inputs, outputs: outputs, lockTime: lockTime)
+        return transaction.estimatedSize()
+    }
+    
+    static func estimatedFee(inputCount: Int,
+                             outputs: [Output],
+                             feePerByte: UInt64,
+                             version: UInt32 = 2,
+                             lockTime: UInt32 = 0) -> UInt64 {
+        let size = estimatedSize(inputCount: inputCount, outputs: outputs, version: version, lockTime: lockTime)
+        return UInt64(size) * feePerByte
+    }
+}
+
 extension Transaction {
     func estimatedSize() -> Int {
         var size = 0

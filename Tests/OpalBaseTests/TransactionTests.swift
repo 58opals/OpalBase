@@ -62,7 +62,7 @@ extension TransactionTests {
         let changeOutput = Transaction.Output(value: 1000, lockingScript: lockingScript)
         
         do {
-            _ = try Transaction.createTransaction(utxoPrivateKeyPairs: [utxo: privateKey], recipientOutputs: [], changeOutput: changeOutput, signatureFormat: .schnorr)
+            _ = try Transaction.build(utxoPrivateKeyPairs: [utxo: privateKey], recipientOutputs: [], changeOutput: changeOutput, signatureFormat: .schnorr)
             #expect(Bool(false), "Expected unsupportedSignatureFormat error")
         } catch Transaction.Error.unsupportedSignatureFormat {
             #expect(true, "Caught unsupportedSignatureFormat error")
@@ -81,10 +81,10 @@ extension TransactionTests {
         let changeOutput = Transaction.Output(value: 700, lockingScript: lockingScript)
         
         do {
-            _ = try Transaction.createTransaction(utxoPrivateKeyPairs: [utxo: privateKey],
-                                                  recipientOutputs: [recipient],
-                                                  changeOutput: changeOutput,
-                                                  allowDustDonation: false)
+            _ = try Transaction.build(utxoPrivateKeyPairs: [utxo: privateKey],
+                                      recipientOutputs: [recipient],
+                                      changeOutput: changeOutput,
+                                      allowDustDonation: false)
             #expect(Bool(false), "Expected outputValueIsLessThanTheDustLimit error")
         } catch Transaction.Error.outputValueIsLessThanTheDustLimit {
             #expect(true, "Caught outputValueIsLessThanTheDustLimit error")
@@ -93,10 +93,10 @@ extension TransactionTests {
         }
         
         do {
-            let tx = try Transaction.createTransaction(utxoPrivateKeyPairs: [utxo: privateKey],
-                                                       recipientOutputs: [recipient],
-                                                       changeOutput: changeOutput,
-                                                       allowDustDonation: true)
+            let tx = try Transaction.build(utxoPrivateKeyPairs: [utxo: privateKey],
+                                           recipientOutputs: [recipient],
+                                           changeOutput: changeOutput,
+                                           allowDustDonation: true)
             #expect(tx.outputs.count == 1, "Change output should be dropped when donating dust")
         } catch {
             #expect(Bool(false), "Unexpected error: \(error)")

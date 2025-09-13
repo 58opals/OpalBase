@@ -122,7 +122,7 @@ extension DerivationPath {
             return unhardenedIndex
         }
         
-        func getHardenedIndex() throws -> UInt32 {
+        func deriveHardenedIndex() throws -> UInt32 {
             return try self.unhardenedIndex.harden()
         }
         

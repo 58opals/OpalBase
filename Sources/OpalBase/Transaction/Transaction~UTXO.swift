@@ -6,15 +6,15 @@ extension Transaction {
     public static let defaultFeeRate = UInt64(1)
     static var dustLimit: UInt64 { 546 }
     
-    static func createTransaction(version: UInt32 = 2,
-                                  utxoPrivateKeyPairs: [Transaction.Output.Unspent: PrivateKey],
-                                  recipientOutputs: [Output],
-                                  changeOutput: Output,
-                                  signatureFormat: ECDSA.SignatureFormat = .ecdsa(.der),
-                                  feePerByte: UInt64 = 1,
-                                  sequence: UInt32 = 0xFFFFFFFF,
-                                  lockTime: UInt32 = 0,
-                                  allowDustDonation: Bool = false) throws -> Transaction {
+    static func build(version: UInt32 = 2,
+                      utxoPrivateKeyPairs: [Transaction.Output.Unspent: PrivateKey],
+                      recipientOutputs: [Output],
+                      changeOutput: Output,
+                      signatureFormat: ECDSA.SignatureFormat = .ecdsa(.der),
+                      feePerByte: UInt64 = 1,
+                      sequence: UInt32 = 0xFFFFFFFF,
+                      lockTime: UInt32 = 0,
+                      allowDustDonation: Bool = false) throws -> Transaction {
         var inputs: [Input] = []
         
         let utxos = utxoPrivateKeyPairs.keys

@@ -27,13 +27,13 @@ extension Storage {
 
         func makeContainer() throws -> ModelContainer {
             let schema = Schema([
-                Entity.Header.self,
-                Entity.UTXO.self,
-                Entity.Transaction.self,
-                Entity.Account.self,
-                Entity.Fee.self,
-                Entity.ServerHealth.self,
-                Entity.Subscription.self
+                Entity.HeaderModel.self,
+                Entity.UTXOModel.self,
+                Entity.TransactionModel.self,
+                Entity.AccountModel.self,
+                Entity.FeeModel.self,
+                Entity.ServerHealthModel.self,
+                Entity.SubscriptionModel.self
             ])
 
             switch self {

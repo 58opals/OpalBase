@@ -77,7 +77,7 @@ extension Network.Wallet.FulcrumPool {
 }
 
 extension Network.Wallet.FulcrumPool {
-    public func getFulcrum() async throws -> Fulcrum {
+    public func acquireFulcrum() async throws -> Fulcrum {
         updateStatus(.connecting)
         
         var attempts: Int = 0
@@ -135,7 +135,7 @@ extension Network.Wallet.FulcrumPool {
         
         Task {
             do {
-                _ = try await self.getFulcrum()
+                _ = try await self.acquireFulcrum()
             } catch {
                 updateStatus(.offline)
                 throw Network.Wallet.Error.connectionFailed(error)

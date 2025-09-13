@@ -31,7 +31,7 @@ extension WalletTests {
 extension WalletTests {
     @Test func testAddAccount() async throws {
         try await wallet.addAccount(unhardenedIndex: 0)
-        let account = try await wallet.getAccount(unhardenedIndex: 0)
+        let account = try await wallet.fetchAccount(at: 0)
         await print(account.id.hexadecimalString)
         
         #expect(await wallet.accounts.count == 1, "Wallet should have one account after adding an account.")
@@ -39,7 +39,7 @@ extension WalletTests {
     
     @Test func testGetAccount() async throws {
         try await wallet.addAccount(unhardenedIndex: 0)
-        let account = try await wallet.getAccount(unhardenedIndex: 0)
+        let account = try await wallet.fetchAccount(at: 0)
         
         await print(account.id.hexadecimalString)
     }
@@ -48,7 +48,7 @@ extension WalletTests {
         try await wallet.addAccount(unhardenedIndex: 0)
         try await wallet.addAccount(unhardenedIndex: 1)
         
-        let totalBalance = try await wallet.getBalance()
+        let totalBalance = try await wallet.calculateBalance()
         
         #expect(totalBalance.uint64 == 0, "Total balance should be 0 satoshis for a new wallet.")
     }
@@ -58,7 +58,7 @@ extension WalletTests {
     @Test mutating func testSnapshotSaveLoad() async throws {
         try await wallet.addAccount(unhardenedIndex: 0)
         
-        let account = try await wallet.getAccount(unhardenedIndex: 0)
+        let account = try await wallet.fetchAccount(at: 0)
         let entry = await account.addressBook.receivingEntries[0]
         try await account.addressBook.updateCache(for: entry.address, with: try Satoshi(123))
         try await account.addressBook.mark(address: entry.address, isUsed: true)
@@ -71,9 +71,9 @@ extension WalletTests {
         let newWallet = await Wallet(mnemonic: wallet.mnemonic)
         try await newWallet.loadSnapshot(from: url, using: key)
         
-        let restoredAccount = try await newWallet.getAccount(unhardenedIndex: 0)
+        let restoredAccount = try await newWallet.fetchAccount(at: 0)
         let restoredEntry = await restoredAccount.addressBook.findEntry(for: entry.address)
-        let restoredBalance = try await restoredAccount.addressBook.getBalanceFromCache(address: entry.address)
+        let restoredBalance = try await restoredAccount.addressBook.readCachedBalance(for: entry.address)
         
         #expect(restoredEntry?.isUsed == true, "Used flag should restore")
         #expect(restoredBalance?.uint64 == 123, "Balance should restore")
@@ -82,7 +82,7 @@ extension WalletTests {
     @Test mutating func testSnapshotSaveLoadWithoutKey() async throws {
         try await wallet.addAccount(unhardenedIndex: 0)
         
-        let account = try await wallet.getAccount(unhardenedIndex: 0)
+        let account = try await wallet.fetchAccount(at: 0)
         let entry = await account.addressBook.receivingEntries[0]
         try await account.addressBook.updateCache(for: entry.address, with: try Satoshi(123))
         try await account.addressBook.mark(address: entry.address, isUsed: true)
@@ -94,9 +94,9 @@ extension WalletTests {
         let newWallet = await Wallet(mnemonic: wallet.mnemonic)
         try await newWallet.loadSnapshot(from: url)
         
-        let restoredAccount = try await newWallet.getAccount(unhardenedIndex: 0)
+        let restoredAccount = try await newWallet.fetchAccount(at: 0)
         let restoredEntry = await restoredAccount.addressBook.findEntry(for: entry.address)
-        let restoredBalance = try await restoredAccount.addressBook.getBalanceFromCache(address: entry.address)
+        let restoredBalance = try await restoredAccount.addressBook.readCachedBalance(for: entry.address)
         
         #expect(restoredEntry?.isUsed == true, "Used flag should restore")
         #expect(restoredBalance?.uint64 == 123, "Balance should restore")
@@ -106,7 +106,7 @@ extension WalletTests {
         try await wallet.addAccount(unhardenedIndex: 0)
         try await wallet.addAccount(unhardenedIndex: 1)
         
-        let snap = await wallet.getSnapshot()
+        let snap = await wallet.makeSnapshot()
         let restoredWallet = try await Wallet(from: snap)
         let numberOfAccounts = await wallet.accounts.count
         

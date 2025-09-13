@@ -14,9 +14,9 @@ extension Address {
     }
     
     func fetchSimpleTransactionHistory(fromHeight: UInt? = nil,
-                                              toHeight: UInt? = nil,
-                                              includeUnconfirmed: Bool = true,
-                                              fulcrum: Fulcrum) async throws -> [Transaction.Simple] {
+                                       toHeight: UInt? = nil,
+                                       includeUnconfirmed: Bool = true,
+                                       fulcrum: Fulcrum) async throws -> [Transaction.Simple] {
         return try await Address.fetchSimpleTransactionHistory(for: self,
                                                                fromHeight: fromHeight,
                                                                toHeight: toHeight,
@@ -25,9 +25,9 @@ extension Address {
     }
     
     func fetchSimpleTransactionHistoryPage(fromHeight: UInt? = nil,
-                                                  window: UInt,
-                                                  includeUnconfirmed: Bool = true,
-                                                  fulcrum: Fulcrum) async throws -> Address.Book.Page<Transaction.Simple> {
+                                           window: UInt,
+                                           includeUnconfirmed: Bool = true,
+                                           fulcrum: Fulcrum) async throws -> Address.Book.Page<Transaction.Simple> {
         let startHeight = fromHeight ?? 0
         let endHeight = (window == 0) ? nil : ((startHeight &+ window) &- 1)
         let transactions = try await self.fetchSimpleTransactionHistory(fromHeight: startHeight,
@@ -40,9 +40,9 @@ extension Address {
     }
     
     func fetchFullTransactionHistory(fromHeight: UInt? = nil,
-                                            toHeight: UInt? = nil,
-                                            includeUnconfirmed: Bool = true,
-                                            fulcrum: Fulcrum) async throws -> [Transaction.Detailed] {
+                                     toHeight: UInt? = nil,
+                                     includeUnconfirmed: Bool = true,
+                                     fulcrum: Fulcrum) async throws -> [Transaction.Detailed] {
         return try await Address.fetchFullTransactionHistory(for: self,
                                                              fromHeight: fromHeight,
                                                              toHeight: toHeight,
@@ -51,15 +51,15 @@ extension Address {
     }
     
     func fetchFullTransactionHistoryPage(fromHeight: UInt? = nil,
-                                                window: UInt,
-                                                includeUnconfirmed: Bool = true,
-                                                fulcrum: Fulcrum) async throws -> Address.Book.Page<Transaction.Detailed> {
+                                         window: UInt,
+                                         includeUnconfirmed: Bool = true,
+                                         fulcrum: Fulcrum) async throws -> Address.Book.Page<Transaction.Detailed> {
         let startHeight = fromHeight ?? 0
         let endHeight = (window == 0) ? nil : ((startHeight &+ window) &- 1)
         let transactions = try await self.fetchFullTransactionHistory(fromHeight: startHeight,
-                                                                        toHeight: endHeight,
-                                                                        includeUnconfirmed: includeUnconfirmed,
-                                                                        fulcrum: fulcrum)
+                                                                      toHeight: endHeight,
+                                                                      includeUnconfirmed: includeUnconfirmed,
+                                                                      fulcrum: fulcrum)
         let nextHeight = endHeight.map { $0 &+ 1 }
         
         return .init(transactions: transactions, nextFromHeight: nextHeight)
@@ -101,27 +101,70 @@ extension Address {
     }
     
     static func fetchUnspentTransactionOutputs(in address: Address, using fulcrum: Fulcrum) async throws -> [Transaction.Output.Unspent] {
-        let response = try await fulcrum.submit(method: .blockchain(.address(.listUnspent(address: address.string, tokenFilter: nil))),
-                                                responseType: Response.Result.Blockchain.Address.ListUnspent.self)
-        guard case .single(let id, let result) = response else { throw Fulcrum.Error.coding(.decode(nil)) }
-        
-        assert(UUID(uuidString: id.uuidString) != nil, "Invalid UUID: \(id.uuidString)")
-        
-        let utxos = result.items
-        var unspentTransactionOutputs: [Transaction.Output.Unspent] = .init()
-        for utxo in utxos {
-            let transactionHash = Transaction.Hash(reverseOrder: try Data(hexString: utxo.transactionHash))
-            let outputIndex = UInt32(utxo.transactionPosition)
-            let amount = utxo.value
-            let fullTransaction = try await Transaction.fetchFullTransaction(for: transactionHash.externallyUsedFormat, using: fulcrum)
-            let lockingScript = fullTransaction.transaction.outputs[Int(outputIndex)].lockingScript
-            unspentTransactionOutputs.append(.init(value: amount,
-                                                   lockingScript: lockingScript,
-                                                   previousTransactionHash: transactionHash,
-                                                   previousTransactionOutputIndex: outputIndex))
+        do {
+            let scriptHash = SHA256.hash(address.lockingScript.data).reversedData
+            let response = try await fulcrum.submit(
+                method: .blockchain(.scripthash(.listUnspent(scripthash: scriptHash.hexadecimalString, tokenFilter: nil))),
+                responseType: Response.Result.Blockchain.ScriptHash.ListUnspent.self
+            )
+            guard case .single(let id, let result) = response else { throw Fulcrum.Error.coding(.decode(nil)) }
+            assert(UUID(uuidString: id.uuidString) != nil, "Invalid UUID: \(id.uuidString)")
+            
+            return try result.items.map { item in
+                let transactionHash = Transaction.Hash(reverseOrder: try Data(hexString: item.transactionHash))
+                let outputIndex = UInt32(item.transactionPosition)
+                return Transaction.Output.Unspent(value: item.value,
+                                                  lockingScript: address.lockingScript.data,
+                                                  previousTransactionHash: transactionHash,
+                                                  previousTransactionOutputIndex: outputIndex)
+            }
+        } catch {
+            let response = try await fulcrum.submit(
+                method: .blockchain(.address(.listUnspent(address: address.string, tokenFilter: nil))),
+                responseType: Response.Result.Blockchain.Address.ListUnspent.self
+            )
+            guard case .single(let id, let result) = response else { throw Fulcrum.Error.coding(.decode(nil)) }
+            assert(UUID(uuidString: id.uuidString) != nil, "Invalid UUID: \(id.uuidString)")
+            
+            var unspentTransactionOutputs: [Transaction.Output.Unspent] = .init()
+            var needs: [(transactionHash: Transaction.Hash, outputIndex: UInt32, value: UInt64)] = .init()
+            
+            for utxo in result.items {
+                let transactionHash = try Data(hexString: utxo.transactionHash)
+                let outputIndex = UInt32(utxo.transactionPosition)
+                let value = utxo.value
+                
+                if address.lockingScript.isDerivableFromAddress {
+                    unspentTransactionOutputs.append(.init(value: value,
+                                                           lockingScript: address.lockingScript.data,
+                                                           previousTransactionHash: .init(dataFromRPC: transactionHash),
+                                                           previousTransactionOutputIndex: outputIndex))
+                } else {
+                    needs.append(
+                        (transactionHash: .init(dataFromRPC: transactionHash),
+                         outputIndex: outputIndex,
+                         value: value)
+                    )
+                }
+            }
+            
+            if !needs.isEmpty {
+                let unique = Array(Set(needs.map { $0.transactionHash }))
+                let fetched = try await Transaction.fetchFullTransactionsBatched(for: unique, using: fulcrum)
+                for need in needs {
+                    if let detailed = fetched[need.transactionHash.originalData],
+                       Int(need.outputIndex) < detailed.transaction.outputs.count {
+                        let script = detailed.transaction.outputs[Int(need.outputIndex)].lockingScript
+                        unspentTransactionOutputs.append(.init(value: need.value,
+                                                               lockingScript: script,
+                                                               previousTransactionHash: .init(dataFromRPC: need.transactionHash.originalData),
+                                                               previousTransactionOutputIndex: need.outputIndex))
+                    }
+                }
+            }
+            
+            return unspentTransactionOutputs
         }
-        
-        return unspentTransactionOutputs
     }
     
     static func fetchSimpleTransactionHistory(for address: Address,

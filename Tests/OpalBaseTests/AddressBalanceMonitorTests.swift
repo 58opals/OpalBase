@@ -13,9 +13,9 @@ struct AddressBalanceMonitorTests {
     init() async throws {
         let wallet = Wallet(mnemonic: try .init())
         try await wallet.addAccount(unhardenedIndex: 0)
-        self.account = try await wallet.getAccount(unhardenedIndex: 0)
+        self.account = try await wallet.fetchAccount(at: 0)
 
-        let fulcrum = try await account.fulcrumPool.getFulcrum()
+        let fulcrum = try await account.fulcrumPool.acquireFulcrum()
         try await fulcrum.start()
     }
 

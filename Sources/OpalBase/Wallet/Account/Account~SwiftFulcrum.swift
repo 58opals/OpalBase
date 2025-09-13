@@ -8,11 +8,11 @@ extension Account {
         let addresses = await (addressBook.receivingEntries + addressBook.changeEntries).map { $0.address }
         guard !addresses.isEmpty else { return try Satoshi(0) }
         
-        let fulcrum = try await fulcrumPool.getFulcrum()
+        let fulcrum = try await fulcrumPool.acquireFulcrum()
         let total = try await withThrowingTaskGroup(of: UInt64.self) { group in
             for address in addresses {
                 group.addTask {
-                    let balance = try await self.addressBook.getBalanceFromBlockchain(address: address, fulcrum: fulcrum)
+                    let balance = try await self.addressBook.fetchBalance(for: address, using: fulcrum)
                     return balance.uint64
                 }
             }
@@ -28,7 +28,7 @@ extension Account {
     public func send(_ sendings: [(value: Satoshi, recipientAddress: Address)],
                      feePerByte: UInt64? = nil,
                      allowDustDonation: Bool = false,
-                     strategy: Address.Book.CoinSelection = .greedyLargestFirst) async throws -> Data {
+                     strategy: Address.Book.CoinSelection = .greedyLargestFirst) async throws -> Transaction.Hash {
         let accountBalance = try await calculateBalance()
         let spendingValue = sendings.map{ $0.value.uint64 }.reduce(0, +)
         guard spendingValue < accountBalance.uint64 else { throw Transaction.Error.insufficientFunds(required: spendingValue) }
@@ -37,32 +37,40 @@ extension Account {
         if let feePerByte = feePerByte {
             selectedFeeRate = feePerByte
         } else {
-            selectedFeeRate = try await feeRate.getRecommendedFeeRate()
+            selectedFeeRate = try await feeRate.fetchRecommendedFeeRate()
         }
         
-        let utxos = try await addressBook.selectUTXOs(targetAmount: Satoshi(spendingValue), feePerByte: selectedFeeRate, strategy: strategy)
+        let recipientOutputs = sendings.map { Transaction.Output(value: $0.value.uint64, address: $0.recipientAddress) }
+        let utxos = try await addressBook.selectUTXOs(
+            targetAmount: Satoshi(spendingValue),
+            recipientOutputs: recipientOutputs,
+            changeLockingScript: addressBook.selectNextEntry(for: .change).address.lockingScript.data,
+            feePerByte: selectedFeeRate,
+            strategy: strategy
+        )
+        
         let spendableValue = utxos.map { $0.value }.reduce(0, +)
         
-        let privateKeyPairs = try await addressBook.getPrivateKeys(for: utxos)
+        let privateKeyPairs = try await addressBook.derivePrivateKeys(for: utxos)
         
-        let changeAddress = try await addressBook.getNextEntry(for: .change).address
+        let changeAddress = try await addressBook.selectNextEntry(for: .change).address
         let remainingValue = spendableValue - spendingValue
         
-        let transaction = try Transaction.createTransaction(version: 2,
-                                                            utxoPrivateKeyPairs: privateKeyPairs,
-                                                            recipientOutputs: sendings.map { Transaction.Output(value: $0.value.uint64, address: $0.recipientAddress) },
-                                                            changeOutput: Transaction.Output(value: remainingValue, address: changeAddress),
-                                                            feePerByte: selectedFeeRate,
-                                                            allowDustDonation: allowDustDonation)
+        let transaction = try Transaction.build(version: 2,
+                                                utxoPrivateKeyPairs: privateKeyPairs,
+                                                recipientOutputs: recipientOutputs,
+                                                changeOutput: Transaction.Output(value: remainingValue, address: changeAddress),
+                                                feePerByte: selectedFeeRate,
+                                                allowDustDonation: allowDustDonation)
         
         let transactionData = transaction.encode()
         try await outbox.save(transactionData: transactionData)
         
         let broadcastRequest: @Sendable () async throws -> Void = { [self] in
-            let fulcrum = try await fulcrumPool.getFulcrum()
+            let fulcrum = try await fulcrumPool.acquireFulcrum()
             let response = try await transaction.broadcast(using: fulcrum)
-            guard !response.isEmpty else { throw Transaction.Error.cannotBroadcastTransaction }
-            await outbox.remove(transactionHashData: HASH256.hash(transactionData))
+            guard !response.originalData.isEmpty else { throw Transaction.Error.cannotBroadcastTransaction }
+            await outbox.remove(transactionHash: response)
         }
         
         if await fulcrumPool.currentStatus == .online {
@@ -76,12 +84,12 @@ extension Account {
         
         await addressBook.handleOutgoingTransaction(transaction)
         
-        return manuallyGeneratedTransactionHash.naturalOrder
+        return manuallyGeneratedTransactionHash
     }
     
     public func refreshUTXOSet() async {
         let request: @Sendable () async throws -> Void = { [self] in
-            let fulcrum = try await self.fulcrumPool.getFulcrum()
+            let fulcrum = try await self.fulcrumPool.acquireFulcrum()
             try await self.addressBook.refreshUTXOSet(fulcrum: fulcrum)
         }
         
@@ -94,7 +102,7 @@ extension Account {
         guard !initialAddresses.isEmpty else { throw Account.Monitor.Error.emptyAddresses }
         
         do {
-            let fulcrum = try await fulcrumPool.getFulcrum()
+            let fulcrum = try await fulcrumPool.acquireFulcrum()
             let initialStream = try await addressMonitor.start(for: initialAddresses, using: fulcrum)
             let newEntryStream = await addressBook.observeNewEntries()
             
@@ -174,7 +182,7 @@ extension Account {
                 await processQueuedRequests()
                 await addressBook.processQueuedRequests()
                 
-                if let fulcrum = try? await fulcrumPool.getFulcrum() {
+                if let fulcrum = try? await fulcrumPool.acquireFulcrum() {
                     await addressBook.startSubscription(using: fulcrum)
                     await outbox.retryPendingTransactions(using: fulcrum)
                 }

@@ -49,10 +49,10 @@ extension Block.Header.Chain {
         tipHash = headerHash
     }
     
-    func verifyTransaction(hash: Data, merkleProof: [Data], index: Int, height: UInt32) -> Bool {
+    func verifyTransaction(hash: Transaction.Hash, merkleProof: [Data], index: Int, height: UInt32) -> Bool {
         guard let header = headers[height] else { return false }
         
-        var currentHash = hash
+        var currentHash = hash.naturalOrder
         var currentIndex = index
         for sibling in merkleProof {
             if currentIndex % 2 == 0 {

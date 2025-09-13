@@ -113,7 +113,7 @@ extension Transaction {
         public let blockHash: Data?
         public let blockTime: UInt32?
         public let confirmations: UInt32?
-        public let hash: Data
+        public let hash: Transaction.Hash
         public let raw: Data
         public let size: UInt32
         public let time: UInt32?

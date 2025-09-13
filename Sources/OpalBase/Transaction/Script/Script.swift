@@ -127,6 +127,14 @@ extension Script {
     }
 }
 
+extension Script {
+    var isDerivableFromAddress: Bool {
+        switch self {
+        case .p2pkh, .p2sh: true
+        case .p2pk, .p2ms: false
+        }
+    }
+}
 
 extension Script: Hashable {
     public static func == (lhs: Script, rhs: Script) -> Bool {

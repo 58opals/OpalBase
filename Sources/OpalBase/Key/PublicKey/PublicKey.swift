@@ -6,7 +6,7 @@ public struct PublicKey {
     let compressedData: Data
     
     public init(privateKey: PrivateKey) throws {
-        self.compressedData = try ECDSA.getPublicKey(from: privateKey.rawData).dataRepresentation
+        self.compressedData = try ECDSA.derivePublicKey(from: privateKey.rawData).dataRepresentation
     }
     
     public init(compressedData: Data) throws {

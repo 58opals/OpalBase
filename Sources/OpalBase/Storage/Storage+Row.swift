@@ -49,7 +49,7 @@ extension Storage {
 }
 
 // Mapping helpers kept inside the storage module
-extension Storage.Entity.Header {
+extension Storage.Entity.HeaderModel {
     var row: Storage.Row.Header { .init(height: height,
                                         version: version,
                                         previousBlockHash: previousBlockHash,
@@ -59,7 +59,7 @@ extension Storage.Entity.Header {
                                         nonce: nonce,
                                         hash: hash) }
 }
-extension Storage.Entity.UTXO {
+extension Storage.Entity.UTXOModel {
     var row: Storage.Row.UTXO { .init(key: key,
                                       txHash: transactionHash,
                                       index: outputIndex,
@@ -67,7 +67,7 @@ extension Storage.Entity.UTXO {
                                       lockingScript: lockingScript,
                                       accountIndex: accountIndex) }
 }
-extension Storage.Entity.Transaction {
+extension Storage.Entity.TransactionModel {
     var row: Storage.Row.Transaction { .init(hash: hash,
                                              raw: raw,
                                              height: height,
@@ -76,13 +76,13 @@ extension Storage.Entity.Transaction {
                                              isPending: isPending,
                                              accountIndex: accountIndex) }
 }
-extension Storage.Entity.Subscription {
+extension Storage.Entity.SubscriptionModel {
     var row: Storage.Row.Subscription { .init(address: address,
                                               isActive: isActive,
                                               lastStatus: lastStatus,
                                               lastUpdated: lastUpdated) }
 }
-extension Storage.Entity.ServerHealth {
+extension Storage.Entity.ServerHealthModel {
     var row: Storage.Row.ServerHealth { .init(url: url,
                                               latencyMs: latencyMs,
                                               status: status,

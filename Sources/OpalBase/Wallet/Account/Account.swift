@@ -36,7 +36,7 @@ public actor Account: Identifiable {
         self.coinType = coinType
         self.account = account
         
-        self.id = try [self.rootExtendedPrivateKey.serialize(), self.purpose.hardenedIndex.data, self.coinType.hardenedIndex.data, self.account.getHardenedIndex().data].generateID()
+        self.id = try [self.rootExtendedPrivateKey.serialize(), self.purpose.hardenedIndex.data, self.coinType.hardenedIndex.data, self.account.deriveHardenedIndex().data].generateID()
         
         self.addressBook = try await Address.Book(rootExtendedPrivateKey: rootExtendedPrivateKey,
                                                   purpose: purpose,
@@ -111,7 +111,7 @@ extension Account {
     }
     
     public func getHardenedIndex() throws -> UInt32 {
-        return try self.account.getHardenedIndex()
+        return try self.account.deriveHardenedIndex()
     }
 }
 
@@ -125,7 +125,7 @@ extension Account {
 
 extension Account {
     public func getBalanceFromCache() async throws -> Satoshi {
-        return try await addressBook.getTotalBalanceFromCache()
+        return try await addressBook.calculateCachedTotalBalance()
     }
 }
 

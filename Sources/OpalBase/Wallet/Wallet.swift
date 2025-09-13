@@ -84,32 +84,32 @@ extension Wallet {
 
 extension Wallet {
     public func observeNetworkStatus(forAccount index: UInt32) async throws -> AsyncStream<Network.Wallet.Status> {
-        let account = try getAccount(unhardenedIndex: index)
+        let account = try fetchAccount(at: index)
         return await account.observeNetworkStatus()
     }
-
+    
     public func processQueuedRequests(forAccount index: UInt32) async throws {
-        let account = try getAccount(unhardenedIndex: index)
+        let account = try fetchAccount(at: index)
         await account.processQueuedRequests()
     }
 }
 
 extension Wallet {
-    public func getDerivationPath() -> (purpose: DerivationPath.Purpose, coinType: DerivationPath.CoinType) {
+    public var derivationPath: (purpose: DerivationPath.Purpose, coinType: DerivationPath.CoinType) {
         return (self.purpose, self.coinType)
     }
     
-    public func getAccount(unhardenedIndex: UInt32) throws -> Account {
+    public func fetchAccount(at unhardenedIndex: UInt32) throws -> Account {
         guard Int(unhardenedIndex) < accounts.count else { throw Error.cannotGetAccount(index: unhardenedIndex) }
         return accounts[Int(unhardenedIndex)]
     }
 }
 
 extension Wallet {
-    public func getBalance() async throws -> Satoshi {
+    public func calculateCachedBalance() async throws -> Satoshi {
         var totalBalance: Satoshi = .init()
         for account in accounts {
-            let balance = try await account.addressBook.getTotalBalanceFromCache()
+            let balance = try await account.addressBook.calculateCachedTotalBalance()
             totalBalance = try totalBalance + balance
         }
         

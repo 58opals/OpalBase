@@ -50,7 +50,7 @@ extension AddressBookTests {
         
         try await addressBook.updateCache(for: entry.address, with: try Satoshi(500_000))
         
-        let cachedBalance = try await addressBook.getBalanceFromCache(address: entry.address)
+        let cachedBalance = try await addressBook.readCachedBalance(for: entry.address)
         
         #expect(cachedBalance?.uint64 == 500_000, "Balance should be 500,000 satoshis.")
     }
@@ -58,7 +58,7 @@ extension AddressBookTests {
     @Test mutating func testGetBalanceFromBlockchain() async throws {
         let entry = await addressBook.receivingEntries[0]
         
-        let balance = try await addressBook.getBalanceFromBlockchain(address: entry.address, fulcrum: fulcrum)
+        let balance = try await addressBook.fetchBalance(for: entry.address, using: fulcrum)
         print(balance)
     }
     
@@ -70,7 +70,7 @@ extension AddressBookTests {
         
         try await addressBook.updateCache(for: entry.address, with: try Satoshi(200_000))
         
-        let updatedBalance = try await addressBook.getBalanceFromCache(address: entry.address)
+        let updatedBalance = try await addressBook.readCachedBalance(for: entry.address)
         
         #expect(updatedBalance?.uint64 == 200_000, "Updated cache balance should be 200,000 satoshis.")
     }
@@ -158,7 +158,7 @@ extension AddressBookTests {
                                             blockHash: nil,
                                             blockTime: 0,
                                             confirmations: nil,
-                                            hash: hash,
+                                            hash: .init(naturalOrder: hash),
                                             raw: Data(),
                                             size: 0,
                                             time: 0)
@@ -177,13 +177,13 @@ extension AddressBookTests {
         try await addressBook.updateCache(for: address, with: try Satoshi(300_000))
         
         // Ensure cache is valid immediately after update
-        let balance1 = try await addressBook.getBalanceFromCache(address: address)
+        let balance1 = try await addressBook.readCachedBalance(for: address)
         #expect(balance1?.uint64 == 300_000, "Initial cached balance should be 300,000 satoshis.")
         
         // Manually update the cache with a new balance
         try await addressBook.updateCache(for: address, with: try Satoshi(400_000))
         
-        let balance2 = try await addressBook.getBalanceFromCache(address: address)
+        let balance2 = try await addressBook.readCachedBalance(for: address)
         #expect(balance2?.uint64 == 400_000, "Updated cached balance should be 400,000 satoshis.")
     }
     
@@ -225,7 +225,7 @@ extension AddressBookTests {
         
         try await addressBook.scanForUsedAddresses(using: fulcrum)
         
-        let usedEntries = await addressBook.getUsedEntries(for: .receiving)
+        let usedEntries = await addressBook.listUsedEntries(for: .receiving)
         let isDiscovered = usedEntries.contains { $0.address == targetEntry.address }
         
         #expect(isDiscovered, "Scanning should mark addresses beyond the default gap as used when activity is detected.")
@@ -243,7 +243,7 @@ extension AddressBookTests {
                                     blockHash: nil,
                                     blockTime: time,
                                     confirmations: nil,
-                                    hash: Data(repeating: hashByte, count: 32),
+                                    hash: .init(naturalOrder: Data(repeating: hashByte, count: 32)),
                                     raw: Data(),
                                     size: 0,
                                     time: time)
@@ -254,7 +254,7 @@ extension AddressBookTests {
         let tx2 = makeDummyDetailedTransaction(hashByte: 2, time: 50)
         let tx3 = makeDummyDetailedTransaction(hashByte: 3, time: 150)
         
-        let combined = Address.Book.combineHistories(receiving: [tx1, tx3], change: [tx2, tx1])
+        let combined = Address.Book.mergeHistories(receiving: [tx1, tx3], change: [tx2, tx1])
         
         let expectedOrder = [tx2.hash, tx1.hash, tx3.hash]
         #expect(combined.map { $0.hash } == expectedOrder, "Transactions should be deduplicated and ordered by time ascending.")
@@ -330,7 +330,7 @@ extension AddressBookTests {
         try await newBook.loadSnapshot(from: url, using: key)
         
         let restoredEntry = await newBook.findEntry(for: entry.address)
-        let restoredBalance = try await newBook.getBalanceFromCache(address: entry.address)
+        let restoredBalance = try await newBook.readCachedBalance(for: entry.address)
         
         #expect(restoredEntry?.isUsed == true, "Used flag should restore")
         #expect(restoredBalance?.uint64 == 123, "Balance should restore")
@@ -362,7 +362,7 @@ extension AddressBookTests {
         try await newBook.loadSnapshot(from: url)
         
         let restoredEntry = await newBook.findEntry(for: entry.address)
-        let restoredBalance = try await newBook.getBalanceFromCache(address: entry.address)
+        let restoredBalance = try await newBook.readCachedBalance(for: entry.address)
         
         #expect(restoredEntry?.isUsed == true, "Used flag should restore")
         #expect(restoredBalance?.uint64 == 123, "Balance should restore")

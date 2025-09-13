@@ -22,19 +22,22 @@ extension Account.Monitor {
             return collected
         }
         
-        return AsyncThrowingStream { continuation in
+        return AsyncThrowingStream(bufferingPolicy: .bufferingNewest(1)) { continuation in
             for stream in streams {
-                Task {
+                let task = Task { [weak self] in
+                    guard let self else { return }
                     do {
                         for try await _ in stream {
-                            continuation.yield(())
+                            await self.scheduleCoalescedEmit { continuation.yield(()) }
                         }
+                    } catch is CancellationError {
+                        // ignore cancellations
                     } catch {
                         continuation.finish(throwing: error)
                     }
                 }
+                Task { self.storeTask(task) }
             }
-            
             continuation.onTermination = { _ in
                 Task { await self.stop() }
             }

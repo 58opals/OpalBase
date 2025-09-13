@@ -34,7 +34,7 @@ extension Wallet.Snapshot {
 extension Wallet.Snapshot: Sendable {}
 
 extension Wallet {
-    public func getSnapshot() async -> Snapshot {
+    public func makeSnapshot() async -> Snapshot {
         var accountSnaps: [Account.Snapshot] = .init()
         for account in accounts {
             let snap = await account.getSnapshot()
@@ -48,7 +48,7 @@ extension Wallet {
     }
     
     public func saveSnapshot(to url: URL, using key: SymmetricKey? = nil) async throws {
-        let data = try JSONEncoder().encode(await getSnapshot())
+        let data = try JSONEncoder().encode(await makeSnapshot())
         let output: Data
         if let key {
             let sealed = try AES.GCM.seal(data, using: key)

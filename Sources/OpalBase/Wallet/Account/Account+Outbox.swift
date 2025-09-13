@@ -17,13 +17,13 @@ extension Account {
 
 extension Account.Outbox {
     func save(transactionData: Data) async throws {
-        let hash = HASH256.hash(transactionData)
-        let url = folderURL.appendingPathComponent(hash.hexadecimalString)
+        let hash = Transaction.Hash(naturalOrder: HASH256.hash(transactionData))
+        let url = folderURL.appendingPathComponent(hash.naturalOrder.hexadecimalString)
         try transactionData.write(to: url)
     }
     
-    func remove(transactionHashData: Data) async {
-        let url = folderURL.appendingPathComponent(transactionHashData.hexadecimalString)
+    func remove(transactionHash: Transaction.Hash) async {
+        let url = folderURL.appendingPathComponent(transactionHash.naturalOrder.hexadecimalString)
         try? fileManager.removeItem(at: url)
     }
 }
@@ -52,7 +52,7 @@ extension Account.Outbox {
 
 extension Account {
     func retryOutbox() async {
-        guard let fulcrum = try? await fulcrumPool.getFulcrum() else { return }
+        guard let fulcrum = try? await fulcrumPool.acquireFulcrum() else { return }
         await outbox.retryPendingTransactions(using: fulcrum)
     }
     

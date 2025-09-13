@@ -1,7 +1,6 @@
 // Address+Book.swift
 
 import Foundation
-import SwiftFulcrum
 
 extension Address {
     public actor Book {
@@ -65,6 +64,39 @@ extension Address {
 }
 
 extension Address.Book {
+    func enqueueRequest(_ request: @escaping @Sendable () async throws -> Void) {
+        requestQueue.append(request)
+    }
+    
+    func processQueuedRequests() async {
+        guard !requestQueue.isEmpty else { return }
+        
+        let currentRequests = requestQueue
+        requestQueue.removeAll()
+        for request in currentRequests {
+            do { try await request() }
+            catch { requestQueue.append(request) }
+        }
+    }
+    
+    func executeOrEnqueue(_ operation: @escaping @Sendable () async throws -> Void) async throws {
+        do { try await operation() }
+        catch {
+            enqueueRequest(operation)
+            throw error
+        }
+    }
+    
+    func executeOrEnqueue<T: Sendable>(_ operation: @escaping @Sendable () async throws -> T) async throws -> T {
+        do { return try await operation() }
+        catch {
+            enqueueRequest { _ = try await operation() }
+            throw error
+        }
+    }
+}
+
+extension Address.Book {
     func createDerivationPath(usage: DerivationPath.Usage,
                               index: UInt32) throws -> DerivationPath {
         let derivationPath = try DerivationPath(purpose: self.purpose,
@@ -111,7 +143,7 @@ extension Address.Book {
             
             if derivationPathToAddress.values.contains(address) {
                 let utxo = Transaction.Output.Unspent(output: output,
-                                                      previousTransactionHash: .init(naturalOrder: detailedTransaction.hash),
+                                                      previousTransactionHash: .init(dataFromRPC: detailedTransaction.hash.originalData),
                                                       previousTransactionOutputIndex: UInt32(index))
                 addUTXO(utxo)
             }

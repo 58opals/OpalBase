@@ -36,7 +36,7 @@ extension Address.Book {
 }
 
 extension Address.Book {
-    func getBalanceFromBlockchain(address: Address, fulcrum: Fulcrum) async throws -> Satoshi {
+    func fetchBalance(for address: Address, using fulcrum: Fulcrum) async throws -> Satoshi {
         let operation: @Sendable () async throws -> Satoshi = { [self] in
             let newBalance = try await address.fetchBalance(using: fulcrum)
             try await updateCache(for: address, with: newBalance)

@@ -9,7 +9,7 @@ extension Address.Book.Entry {
         self.cache = .init(balance: balance)
     }
     
-    mutating func getBalance(using fulcrum: Fulcrum) async throws -> Satoshi {
+    mutating func loadBalance(using fulcrum: Fulcrum) async throws -> Satoshi {
         if cache.isValid, let cacheBalance = cache.balance {
             return cacheBalance
         } else {
@@ -47,7 +47,7 @@ extension Address.Book.Entry {
         let detailedTransactions = try await withThrowingTaskGroup(of: Transaction.Detailed.self) { group in
             for transactionHash in transactionHashes {
                 group.addTask {
-                    try await Transaction.fetchFullTransaction(for: transactionHash.originalData, using: fulcrum)
+                    try await Transaction.fetchFullTransaction(for: transactionHash, using: fulcrum)
                 }
             }
             
@@ -64,16 +64,16 @@ extension Address.Book.Entry {
 }
 
 extension Address.Book {
-    static func combineHistories(receiving: [Transaction.Detailed], change: [Transaction.Detailed]) -> [Transaction.Detailed] {
+    static func mergeHistories(receiving: [Transaction.Detailed], change: [Transaction.Detailed]) -> [Transaction.Detailed] {
         var uniqueTransactions: [Data: Transaction.Detailed] = .init()
-        for transaction in receiving { uniqueTransactions[transaction.hash] = transaction }
-        for transaction in change { uniqueTransactions[transaction.hash] = transaction }
+        for transaction in receiving { uniqueTransactions[transaction.hash.naturalOrder] = transaction }
+        for transaction in change { uniqueTransactions[transaction.hash.naturalOrder] = transaction }
         
         var mergedTransactions = Array(uniqueTransactions.values)
         mergedTransactions.sort {
             let lhsTime = ($0.blockTime ?? $0.time ?? UInt32.max)
             let rhsTime = ($1.blockTime ?? $1.time ?? UInt32.max)
-            if lhsTime == rhsTime { return $0.hash.lexicographicallyPrecedes($1.hash) }
+            if lhsTime == rhsTime { return $0.hash.naturalOrder.lexicographicallyPrecedes($1.hash.naturalOrder) }
             return lhsTime < rhsTime
         }
         
@@ -86,7 +86,7 @@ extension Address.Book {
                                           includeUnconfirmed: Bool = true,
                                           using fulcrum: Fulcrum) async throws -> [Transaction.Detailed] {
         let operation: @Sendable () async throws -> [Transaction.Detailed] = { [self] in
-            let entries = await getEntries(of: usage)
+            let entries = await listEntries(for: usage)
             var allDetailedTransactions: [Transaction.Detailed] = []
             allDetailedTransactions.reserveCapacity(entries.count * 10)
             
@@ -128,7 +128,7 @@ extension Address.Book {
                                                                      using: fulcrum)
             let (receivingTransactionHistory, changeTransactionHistory) = try await (receivingTransactions, changeTransactions)
             
-            return Address.Book.combineHistories(receiving: receivingTransactionHistory, change: changeTransactionHistory)
+            return Address.Book.mergeHistories(receiving: receivingTransactionHistory, change: changeTransactionHistory)
         }
         
         return try await executeOrEnqueue(operation)
@@ -166,7 +166,7 @@ extension Address.Book {
     
     func refreshUsedStatus(for usage: DerivationPath.Usage, fulcrum: Fulcrum) async throws {
         let operation: @Sendable () async throws -> Void = { [self] in
-            let entries = await getEntries(of: usage)
+            let entries = await listEntries(for: usage)
             
             for entry in entries {
                 if entry.isUsed { continue }
@@ -206,7 +206,7 @@ extension Address.Book {
     
     private func updateAddressUsageStatus(for usage: DerivationPath.Usage, using fulcrum: Fulcrum) async throws {
         let operation: @Sendable () async throws -> Void = { [self] in
-            let entries = await getEntries(of: usage)
+            let entries = await listEntries(for: usage)
             
             try await withThrowingTaskGroup(of: (Address, Bool).self) { group in
                 for entry in entries where !entry.isUsed {
@@ -242,7 +242,7 @@ extension Address.Book {
 
 extension Address.Book {
     private func countUsedEntries() -> Int {
-        getUsedEntries(for: .receiving).count + getUsedEntries(for: .change).count
+        listUsedEntries(for: .receiving).count + listUsedEntries(for: .change).count
     }
     
     func scanForUsedAddresses(using fulcrum: Fulcrum) async throws {

@@ -111,7 +111,7 @@ public actor WalletCore {
     public func send(_ request: SendRequest) async throws -> Transaction.Hash {
         let tx: Transaction
         do {
-            tx = try Transaction.createTransaction(
+            tx = try Transaction.build(
                 utxoPrivateKeyPairs: request.inputs,
                 recipientOutputs: request.outputs,
                 changeOutput: request.change,

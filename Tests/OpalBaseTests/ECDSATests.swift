@@ -9,7 +9,7 @@ extension ECDSATests {
     @Test func testPublicKeyGeneration() throws {
         let privateKey = try PrivateKey(data: Data(repeating: 0x01, count: 32))
         let publicKey = try PublicKey(privateKey: privateKey)
-        let publicKeyFromECDSA = try ECDSA.getPublicKey(from: privateKey.rawData)
+        let publicKeyFromECDSA = try ECDSA.derivePublicKey(from: privateKey.rawData)
         
         #expect(publicKey.compressedData == publicKeyFromECDSA.dataRepresentation, "Public key data mismatch.")
         #expect(publicKey.compressedData.count == 33, "Compressed public key should be 33 bytes.")
@@ -24,7 +24,7 @@ extension ECDSATests {
         
         let derSignature = try ECDSA.sign(message: message, with: privateKey.rawData, in: .ecdsa(.der))
         
-        let publicKeyFromECDSA = try ECDSA.getPublicKey(from: privateKey.rawData)
+        let publicKeyFromECDSA = try ECDSA.derivePublicKey(from: privateKey.rawData)
         #expect(publicKey.compressedData == publicKeyFromECDSA.dataRepresentation, "Public key data mismatch.")
         
         let isDERSignatureValid = try ECDSA.verify(signature: derSignature, message: message, publicKey: publicKey, format: .ecdsa(.der))

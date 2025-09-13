@@ -10,9 +10,9 @@ struct AccountTests {
     init() async throws {
         let wallet = Wallet(mnemonic: try .init())
         try await wallet.addAccount(unhardenedIndex: 0)
-        self.account = try await wallet.getAccount(unhardenedIndex: 0)
+        self.account = try await wallet.fetchAccount(at: 0)
         
-        let fulcrum = try await account.fulcrumPool.getFulcrum()
+        let fulcrum = try await account.fulcrumPool.acquireFulcrum()
         try await fulcrum.start()
     }
 }
@@ -34,8 +34,8 @@ extension AccountTests {
         try await wallet1.addAccount(unhardenedIndex: 0)
         try await wallet2.addAccount(unhardenedIndex: 0)
         
-        let account0FromWallet1 = try await wallet1.getAccount(unhardenedIndex: 0)
-        let account0FromWallet2 = try await wallet2.getAccount(unhardenedIndex: 0)
+        let account0FromWallet1 = try await wallet1.fetchAccount(at: 0)
+        let account0FromWallet2 = try await wallet2.fetchAccount(at: 0)
         
         let account0FromWallet1ID = await account0FromWallet1.id
         let account0FromWallet2ID = await account0FromWallet2.id
@@ -63,9 +63,9 @@ extension AccountTests {
         func sequentialBalance() async throws -> Satoshi {
             var total: UInt64 = 0
             let addresses = await (account.addressBook.receivingEntries + account.addressBook.changeEntries).map(\.address)
-            let fulcrum = try await account.fulcrumPool.getFulcrum()
+            let fulcrum = try await account.fulcrumPool.acquireFulcrum()
             for address in addresses {
-                total += try await account.addressBook.getBalanceFromBlockchain(address: address, fulcrum: fulcrum).uint64
+                total += try await account.addressBook.fetchBalance(for: address, using: fulcrum).uint64
             }
             return try Satoshi(total)
         }
@@ -92,9 +92,9 @@ extension AccountTests {
                 ]
             )
             
-            print("The new transaction \(transactionHash.reversedData.hexadecimalString) is successfully created.")
+            print("The new transaction \(transactionHash.externallyUsedFormat.hexadecimalString) is successfully created.")
             
-            #expect(transactionHash.count == 32, "Transaction hash should be 32 bytes.")
+            #expect(transactionHash.naturalOrder.count == 32, "Transaction hash should be 32 bytes.")
         } catch {
             print(error)
         }
