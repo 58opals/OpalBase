@@ -18,6 +18,8 @@ extension ECDSA {
     enum Error: Swift.Error {
         case invalidCompressedPublicKeyLength
         case invalidCompressedPublicKeyPrefix
+        case invalidDigestLength(expected: Int, actual: Int)
+        case invalidHashIterationCount
     }
 }
 
@@ -35,6 +37,10 @@ extension ECDSA {
 
 extension ECDSA {
     enum SignatureFormat {
+        /// Signature wire-format used by signing and verification.
+        /// - Note:
+        ///   - **OP_CHECKSIG + ECDSA requires DER**. Using `.raw` or `.compact` with CHECKSIG is invalid at consensus.
+        ///   - Schnorr is allowed for CHECKSIG as per BCH consensus.
         case ecdsa(ECDSA)
         case schnorr
         
@@ -47,24 +53,22 @@ extension ECDSA {
 }
 
 extension ECDSA {
-    static func sign(message: Data, with privateKey: Data, in format: SignatureFormat) throws -> Data {
+    static func sign(message: Data, with privateKey: PrivateKey, in format: SignatureFormat) throws -> Data {
         switch format {
         case .ecdsa(let ecdsa):
-            let ecdsaPrivateKey = try P256K.Signing.PrivateKey(dataRepresentation: privateKey)
+            let ecdsaPrivateKey = try P256K.Signing.PrivateKey(dataRepresentation: privateKey.rawData)
+            let ecdsaSignature = try ecdsaPrivateKey.signature(for: message)
             switch ecdsa {
             case .raw:
-                let signature = try ecdsaPrivateKey.signature(for: message)
-                return signature.dataRepresentation
+                return ecdsaSignature.dataRepresentation
             case .compact:
-                let signature = try ecdsaPrivateKey.signature(for: message)
-                return try signature.compactRepresentation
+                return try ecdsaSignature.compactRepresentation
             case .der:
-                let signature = try ecdsaPrivateKey.signature(for: message)
-                return try signature.derRepresentation
+                return try ecdsaSignature.derRepresentation
             }
             
         case .schnorr:
-            let schnorrPrivateKey = try P256K.Schnorr.PrivateKey(dataRepresentation: privateKey)
+            let schnorrPrivateKey = try P256K.Schnorr.PrivateKey(dataRepresentation: privateKey.rawData)
             let schnorrSignature = try schnorrPrivateKey.signature(for: message)
             return schnorrSignature.dataRepresentation
         }

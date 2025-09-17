@@ -96,26 +96,31 @@ extension Script {
                       readByte() == OP._PUSHBYTES_20.rawValue,
                       let hash = readData(length: 20),
                       readByte() == OP._EQUALVERIFY.rawValue,
-                      readByte() == OP._CHECKSIG.rawValue else {
+                      let finalOp = readByte()
+                else { throw Error.invalidP2PKHScript }
+                
+                let publicKeyHash = PublicKey.Hash(hash)
+                switch finalOp {
+                case OP._CHECKSIG.rawValue:
+                    return .p2pkh_OPCHECKSIG(hash: publicKeyHash)
+                case OP._CHECKDATASIG.rawValue:
+                    return .p2pkh_OPCHECKDATASIG(hash: publicKeyHash)
+                default:
                     throw Error.invalidP2PKHScript
                 }
-                let publicKeyHash = PublicKey.Hash(hash)
-                return .p2pkh_OPCHECKSIG(hash: publicKeyHash)
-                
             case OP._PUSHBYTES_33.rawValue:
                 guard let publicKeyData = readData(length: 33),
-                      readByte() == OP._CHECKSIG.rawValue else {
-                    throw Error.invalidP2PKScript
-                }
+                      readByte() == OP._CHECKSIG.rawValue
+                else { throw Error.invalidP2PKScript }
+                
                 let publicKey = try PublicKey(compressedData: publicKeyData)
                 return .p2pk(publicKey: publicKey)
-                
             case OP._HASH160.rawValue:
                 guard readByte() == OP._PUSHBYTES_20.rawValue,
                       let scriptHash = readData(length: 20),
-                      readByte() == OP._EQUAL.rawValue else {
-                    throw Error.invalidP2SHScript
-                }
+                      readByte() == OP._EQUAL.rawValue
+                else { throw Error.invalidP2SHScript }
+                
                 return .p2sh(scriptHash: scriptHash)
                 
             case OP._1.rawValue...OP._16.rawValue:
@@ -125,20 +130,20 @@ extension Script {
                 while index < lockingScript.count {
                     guard let nextOpcode = readByte(),
                           nextOpcode == OP._PUSHBYTES_33.rawValue,
-                          let publicKeyData = readData(length: 33) else {
-                        throw Error.invalidP2MSScript
-                    }
+                          let publicKeyData = readData(length: 33)
+                    else { throw Error.invalidP2MSScript }
+                    
                     let publicKey = try PublicKey(compressedData: publicKeyData)
                     publicKeys.append(publicKey)
                 }
                 
                 guard let lastOpcode = lockingScript.last,
                       lastOpcode == OP._CHECKMULTISIG.rawValue,
-                      publicKeys.count > 0 else {
-                    throw Error.invalidP2MSScript
-                }
+                      publicKeys.count > 0
+                else { throw Error.invalidP2MSScript }
                 
-                return .p2ms(numberOfRequiredSignatures: numberOfRequiredSignatures, publicKeys: publicKeys)
+                return .p2ms(numberOfRequiredSignatures: numberOfRequiredSignatures,
+                             publicKeys: publicKeys)
                 
             default:
                 break

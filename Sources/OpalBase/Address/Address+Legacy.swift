@@ -8,11 +8,11 @@ extension Address {
         
         init(_ script: Script) throws {
             switch script {
-            case .p2pkh_OPCHECKSIG(let hash):
+            case .p2pkh_OPCHECKSIG(let hash), .p2pkh_OPCHECKDATASIG(hash: let hash):
                 let prefix = Data([0x00])
                 let hash160 = hash.data
                 let data = prefix + hash160
-                let checksum = HASH256.computeChecksum(data)
+                let checksum = HASH256.computeChecksum(for: data)
                 let base58 = Base58.encode(data + checksum)
                 self.string = base58
                 

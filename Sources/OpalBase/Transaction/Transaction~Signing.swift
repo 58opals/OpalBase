@@ -9,7 +9,9 @@ extension Transaction {
     ///   - hashType: The hash type (e.g., SIGHASH_ALL).
     ///   - outputBeingSpent: The output being spent by this input.
     /// - Returns: The preimage data.
-    func generatePreimage(for index: Int, hashType: HashType, outputBeingSpent: Output) -> Data {
+    func generatePreimage(for index: Int, hashType: HashType, outputBeingSpent: Output) throws -> Data {
+        if case .single = hashType, index >= outputs.count { throw Transaction.Error.sighashSingleIndexOutOfRange }
+        
         var preimage = Data()
         
         let transactionVersion = version.littleEndianData
@@ -58,22 +60,17 @@ extension Transaction {
         
         var transactionOutputsHash = Data()
         switch hashType {
-        case .all(_):
+        case .all:
             var data = Data()
             for output in outputs {
                 data.append(output.encode())
             }
             transactionOutputsHash = HASH256.hash(data)
-        case .none(_):
+        case .none:
             transactionOutputsHash = Data(repeating: 0x00, count: 32)
-        case .single(_):
-            //if outputs.endIndex - 1 > index {
-            if index < outputs.count {
-                let outputWithTheSameIndexAsTheInputBeingSigned = outputs[index].encode()
-                transactionOutputsHash = HASH256.hash(outputWithTheSameIndexAsTheInputBeingSigned)
-            } else {
-                transactionOutputsHash = Data(repeating: 0x00, count: 32)
-            }
+        case .single:
+            let outputWithTheSameIndexAsTheInputBeingSigned = outputs[index].encode()
+            transactionOutputsHash = HASH256.hash(outputWithTheSameIndexAsTheInputBeingSigned)
         }
         preimage.append(transactionOutputsHash)
         

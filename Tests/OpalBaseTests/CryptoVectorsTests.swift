@@ -131,7 +131,7 @@ struct CryptoVectorsTests {
         let utxo = Transaction.Output(value: 50_000, lockingScript: outScript)
         
         // SIGHASH_ALL without ACP: prevouts hash and sequences hash are present (non-zero), outputs hash is non-zero.
-        let preimageAll = tx.generatePreimage(for: 0, hashType: .all(anyoneCanPay: false), outputBeingSpent: utxo)
+        let preimageAll = try tx.generatePreimage(for: 0, hashType: .all(anyoneCanPay: false), outputBeingSpent: utxo)
         // Offsets: 4(version) + 32(prevouts) + 32(sequences)
         let prevoutsHash_all   = take32(preimageAll, 4)
         let sequencesHash_all  = take32(preimageAll, 4 + 32)
@@ -141,7 +141,7 @@ struct CryptoVectorsTests {
         #expect(preimageAll.suffix(4) == Transaction.HashType.all(anyoneCanPay: false).value.littleEndianData)
         
         // SIGHASH_ALL with ACP: prevouts and sequences hashes are zeroed.
-        let preimageACP = tx.generatePreimage(for: 0, hashType: .all(anyoneCanPay: true), outputBeingSpent: utxo)
+        let preimageACP = try tx.generatePreimage(for: 0, hashType: .all(anyoneCanPay: true), outputBeingSpent: utxo)
         let prevoutsHash_acp  = take32(preimageACP, 4)
         let sequencesHash_acp = take32(preimageACP, 4 + 32)
         #expect(prevoutsHash_acp == zeros32)
@@ -149,12 +149,12 @@ struct CryptoVectorsTests {
         #expect(preimageACP.suffix(4) == Transaction.HashType.all(anyoneCanPay: true).value.littleEndianData)
         
         // SIGHASH_NONE: hashOutputs should be zero.
-        let preimageNone = tx.generatePreimage(for: 0, hashType: .none(anyoneCanPay: false), outputBeingSpent: utxo)
+        let preimageNone = try tx.generatePreimage(for: 0, hashType: .none(anyoneCanPay: false), outputBeingSpent: utxo)
         let outputsHashNone = preimageNone.subdata(in: preimageNone.count - 8 - 32 ..< preimageNone.count - 8)
         #expect(outputsHashNone == zeros32)
         
         // SIGHASH_SINGLE: hashOutputs equals HASH256 of the output with the same index.
-        let preimageSingle = tx.generatePreimage(for: 0, hashType: .single(anyoneCanPay: false), outputBeingSpent: utxo)
+        let preimageSingle = try tx.generatePreimage(for: 0, hashType: .single(anyoneCanPay: false), outputBeingSpent: utxo)
         let outputsHashSingle = preimageSingle.subdata(in: preimageSingle.count - 8 - 32 ..< preimageSingle.count - 8)
         let expectedSingle = HASH256.hash(output.encode())
         #expect(outputsHashSingle == expectedSingle)

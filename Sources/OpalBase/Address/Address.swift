@@ -47,7 +47,7 @@ public struct Address {
         self.lockingScript = script
         
         switch script {
-        case .p2pkh_OPCHECKSIG(let hash):
+        case .p2pkh_OPCHECKSIG(let hash), .p2pkh_OPCHECKDATASIG(hash: let hash):
             let versionByte = Data([0x00])
             let payload = versionByte + hash.data
             let payload5BitValues = Address.convertPayloadToFiveBitValues(payload: payload)

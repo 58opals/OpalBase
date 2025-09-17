@@ -58,12 +58,19 @@ extension Transaction {
             let publicKey = try PublicKey(privateKey: privateKey)
             let mode = unlockers[utxo] ?? .p2pkh_CheckSig()
             
+            switch signatureFormat {
+            case .ecdsa(.raw), .ecdsa(.compact):
+                throw Error.unsupportedSignatureFormat
+            default:
+                break
+            }
+            
             switch mode {
             case .p2pkh_CheckSig(let hashType):
                 let outputBeingSpent = Output(value: utxo.value, lockingScript: utxo.lockingScript)
-                let preimage = temporaryTransactionWithFee.generatePreimage(for: index,
-                                                                            hashType: hashType,
-                                                                            outputBeingSpent: outputBeingSpent)
+                let preimage = try temporaryTransactionWithFee.generatePreimage(for: index,
+                                                                                hashType: hashType,
+                                                                                outputBeingSpent: outputBeingSpent)
                 
                 let message = SHA256.hash(preimage)
                 // MARK: ↑ We hash the preimage "ONCE" here.
@@ -71,7 +78,7 @@ extension Transaction {
                 /// Final digest signed = double‑SHA256(preimage).
                 
                 let signature = try ECDSA.sign(message: message,
-                                               with: privateKey.rawData,
+                                               with: privateKey,
                                                in: signatureFormat)
                 let signatureWithType = signature + Data([UInt8(hashType.value)])
                 let unlockingScript = Data.push(signatureWithType) + Data.push(publicKey.compressedData)
@@ -84,7 +91,7 @@ extension Transaction {
                 /// Final digest signed = single‑SHA256(preimage).
                 
                 let signature = try ECDSA.sign(message: message,
-                                               with: privateKey.rawData,
+                                               with: privateKey,
                                                in: signatureFormat)
                 let unlockingSignature = Data.push(signature) + Data.push(message) + Data.push(publicKey.compressedData)
                 

@@ -129,6 +129,7 @@ extension Transaction {
         case unsupportedHashType
         case unsupportedSignatureFormat
         case outputValueIsLessThanTheDustLimit
+        case sighashSingleIndexOutOfRange
     }
 }
 

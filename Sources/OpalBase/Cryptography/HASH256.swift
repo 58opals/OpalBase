@@ -9,7 +9,7 @@ struct HASH256 {
         return secondHash
     }
     
-    static func computeChecksum(_ data: Data) -> Data {
+    static func computeChecksum(for data: Data) -> Data {
         let hash256 = HASH256.hash(data)
         let checksum = hash256[0..<4]
         return checksum

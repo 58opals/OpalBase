@@ -11,13 +11,23 @@ extension Transaction {
 
 extension Transaction.Unlocker {
     func placeholderUnlockingScript(signatureFormat: ECDSA.SignatureFormat) -> Data {
+        switch signatureFormat {
+        case .ecdsa(.raw), .ecdsa(.compact):
+            assertionFailure("OP_CHECKSIG or OP_CHECKDATASIG requires DER-encoded ECDSA. Use .ecdsa(.der) or .schnorr.")
+        default:
+            break
+        }
+        
         let publicKeyLength: Int = 33
         let coreSignatureLength: Int = {
             switch signatureFormat {
             case .ecdsa(.der):
                 return 72
-            case .ecdsa(.raw), .ecdsa(.compact), .schnorr:
+            case .schnorr:
                 return 64
+            case .ecdsa(.raw), .ecdsa(.compact):
+                assertionFailure("Unsupported ECDSA format. Use .ecdsa(.der) or .schnorr.")
+                return 72
             }
         }()
         
