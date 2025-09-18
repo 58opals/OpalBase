@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 import SwiftFulcrum
 @testable import OpalBase
@@ -14,11 +15,11 @@ struct FulcrumPoolTests {
         #expect(initial == .offline)
         
         async let reconnection = pool.reconnect()
-
+        
         let connecting = await iterator.next()
         _ = try await reconnection
         let final = await iterator.next()
-
+        
         #expect(connecting == .connecting)
         #expect(final == .online)
         #expect(await pool.currentStatus == .online)
@@ -30,5 +31,65 @@ struct FulcrumPoolTests {
         await #expect(throws: Network.Wallet.Error.noHealthyServer) {
             _ = try await pool.acquireFulcrum()
         }
+    }
+    
+    @Test func testServerHealthPersistsMetrics() async throws {
+        let storage = try Storage.Facade(configuration: .memory)
+        let repository = await storage.serverHealth
+        let monitor = Network.Wallet.FulcrumPool.ServerHealth(repository: repository)
+        let endpoint = try #require(URL(string: "wss://example.org:50002"))
+        
+        let failure = try await monitor.recordFailure(for: endpoint, maxBackoff: 32)
+        #expect(failure.failures == 1)
+        let quarantine = try #require(failure.quarantineUntil)
+        #expect(quarantine > Date())
+        
+        let storedFailure = try await repository.history(endpoint)
+        #expect(storedFailure?.failures == 1)
+        #expect(storedFailure?.quarantineUntil != nil)
+        
+        let success = try await monitor.recordSuccess(for: endpoint, latency: 0.25)
+        #expect(success.failures == 0)
+        #expect(success.quarantineUntil == nil)
+        
+        let storedSuccess = try await repository.history(endpoint)
+        #expect(storedSuccess?.failures == 0)
+        #expect(storedSuccess?.quarantineUntil == nil)
+        let latency = try #require(storedSuccess?.latencyMs)
+        #expect(latency >= 240 && latency <= 260)
+    }
+    
+    @Test func testServerHealthBootstrapRestoresSnapshot() async throws {
+        let storage = try Storage.Facade(configuration: .memory)
+        let repository = await storage.serverHealth
+        let endpoint = try #require(URL(string: "wss://example.org:50002"))
+        let monitor = Network.Wallet.FulcrumPool.ServerHealth(repository: repository)
+        
+        _ = try await monitor.recordSuccess(for: endpoint, latency: 0.18)
+        
+        let restored = Network.Wallet.FulcrumPool.ServerHealth(repository: repository)
+        let snapshot = try await restored.bootstrap(for: endpoint)
+        let restoredLatency = try #require(snapshot?.latency)
+        #expect(abs(restoredLatency - 0.18) < 0.02)
+    }
+    
+    @Test func testServerHealthIncrementsFailuresWithBackoff() async throws {
+        let storage = try Storage.Facade(configuration: .memory)
+        let repository = await storage.serverHealth
+        let monitor = Network.Wallet.FulcrumPool.ServerHealth(repository: repository)
+        let endpoint = try #require(URL(string: "wss://example.org:50002"))
+        
+        let first = try await monitor.recordFailure(for: endpoint, maxBackoff: 64)
+        let second = try await monitor.recordFailure(for: endpoint, maxBackoff: 64)
+        
+        #expect(first.failures == 1)
+        #expect(second.failures == 2)
+        
+        let firstQuarantine = try #require(first.quarantineUntil)
+        let secondQuarantine = try #require(second.quarantineUntil)
+        #expect(secondQuarantine > firstQuarantine)
+        
+        let stored = try await repository.history(endpoint)
+        #expect(stored?.failures == 2)
     }
 }

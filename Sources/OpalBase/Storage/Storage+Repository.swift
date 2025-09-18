@@ -281,65 +281,86 @@ extension Storage.Repository {
         public init(container: ModelContainer) { self.container = container }
         
         public func recordProbe(url: URL, latency: TimeInterval?, healthy: Bool) async throws {
-            try Storage.Facade.withContext(container) { ctx in
-                let key = url.absoluteString
-                let p = #Predicate<Storage.Entity.ServerHealthModel> { $0.url == key }
-                let ms = latency.map { $0 * 1000 }
-                if let ex = try ctx.fetch(FetchDescriptor(predicate: p)).first {
-                    ex.latencyMs = ms
-                    ex.status = healthy ? "healthy" : "unhealthy"
-                    if healthy { ex.lastOK = .now; ex.failures = 0; ex.quarantineUntil = nil }
-                    else { ex.failures += 1 }
-                    ctx.insert(ex)
-                } else {
-                    ctx.insert(Storage.Entity.ServerHealthModel(url: key,
-                                                                latencyMs: ms,
-                                                                status: healthy ? "healthy" : "unhealthy",
-                                                                failures: healthy ? 0 : 1,
-                                                                quarantineUntil: nil,
-                                                                lastOK: healthy ? .now : nil))
+            do {
+                try Storage.Facade.withContext(container) { ctx in
+                    let key = url.absoluteString
+                    let p = #Predicate<Storage.Entity.ServerHealthModel> { $0.url == key }
+                    let ms = latency.map { $0 * 1000 }
+                    if let ex = try ctx.fetch(FetchDescriptor(predicate: p)).first {
+                        ex.latencyMs = ms
+                        ex.status = healthy ? "healthy" : "unhealthy"
+                        if healthy {
+                            ex.lastOK = .now
+                            ex.failures = 0
+                            ex.quarantineUntil = nil
+                        } else {
+                            ex.failures += 1
+                        }
+                        ctx.insert(ex)
+                    } else {
+                        ctx.insert(Storage.Entity.ServerHealthModel(url: key,
+                                                                    latencyMs: ms,
+                                                                    status: healthy ? "healthy" : "unhealthy",
+                                                                    failures: healthy ? 0 : 1,
+                                                                    quarantineUntil: nil,
+                                                                    lastOK: healthy ? .now : nil))
+                    }
                 }
+            } catch {
+                throw Error(operation: "recordProbe", reason: String(describing: error))
             }
             await cache.invalidate(url.absoluteString)
         }
         
         public func bestPrimary(candidates: [URL]) throws -> URL? {
-            try Storage.Facade.withContext(container) { ctx in
-                let urls = Set(candidates.map(\.absoluteString))
-                let p = #Predicate<Storage.Entity.ServerHealthModel> { urls.contains($0.url) && $0.quarantineUntil == nil && $0.status == "healthy" }
-                let rows = try ctx.fetch(FetchDescriptor(predicate: p)).map(\.row)
-                return rows
-                    .sorted { ($0.latencyMs ?? .greatestFiniteMagnitude) < ($1.latencyMs ?? .greatestFiniteMagnitude) }
-                    .first
-                    .flatMap { URL(string: $0.url) }
+            do {
+                return try Storage.Facade.withContext(container) { ctx in
+                    let urls = Set(candidates.map(\.absoluteString))
+                    let p = #Predicate<Storage.Entity.ServerHealthModel> { urls.contains($0.url) && $0.quarantineUntil == nil && $0.status == "healthy" }
+                    let rows = try ctx.fetch(FetchDescriptor(predicate: p)).map(\.row)
+                    return rows
+                        .sorted { ($0.latencyMs ?? .greatestFiniteMagnitude) < ($1.latencyMs ?? .greatestFiniteMagnitude) }
+                        .first
+                        .flatMap { URL(string: $0.url) }
+                }
+            } catch {
+                throw Error(operation: "bestPrimary", reason: String(describing: error))
             }
         }
         
         public func quarantine(_ url: URL, until: Date) async throws {
-            try Storage.Facade.withContext(container) { ctx in
-                let key = url.absoluteString
-                let p = #Predicate<Storage.Entity.ServerHealthModel> { $0.url == key }
-                if let ex = try ctx.fetch(FetchDescriptor(predicate: p)).first {
-                    ex.quarantineUntil = until
-                    ex.status = "unhealthy"
-                    ctx.insert(ex)
-                } else {
-                    ctx.insert(Storage.Entity.ServerHealthModel(url: key,
-                                                                latencyMs: nil,
-                                                                status: "unhealthy",
-                                                                failures: 1,
-                                                                quarantineUntil: until,
-                                                                lastOK: nil))
+            do {
+                try Storage.Facade.withContext(container) { ctx in
+                    let key = url.absoluteString
+                    let p = #Predicate<Storage.Entity.ServerHealthModel> { $0.url == key }
+                    if let ex = try ctx.fetch(FetchDescriptor(predicate: p)).first {
+                        ex.quarantineUntil = until
+                        ex.status = "unhealthy"
+                        ctx.insert(ex)
+                    } else {
+                        ctx.insert(Storage.Entity.ServerHealthModel(url: key,
+                                                                    latencyMs: nil,
+                                                                    status: "unhealthy",
+                                                                    failures: 1,
+                                                                    quarantineUntil: until,
+                                                                    lastOK: nil))
+                    }
                 }
+            } catch {
+                throw Error(operation: "quarantine", reason: String(describing: error))
             }
             await cache.invalidate(url.absoluteString)
         }
         
         public func history(_ url: URL) throws -> Storage.Row.ServerHealth? {
-            try Storage.Facade.withContext(container) { ctx in
-                let key = url.absoluteString
-                let p = #Predicate<Storage.Entity.ServerHealthModel> { $0.url == key }
-                return try ctx.fetch(FetchDescriptor(predicate: p)).first?.row
+            do {
+                return try Storage.Facade.withContext(container) { ctx in
+                    let key = url.absoluteString
+                    let p = #Predicate<Storage.Entity.ServerHealthModel> { $0.url == key }
+                    return try ctx.fetch(FetchDescriptor(predicate: p)).first?.row
+                }
+            } catch {
+                throw Error(operation: "history", reason: String(describing: error))
             }
         }
     }
