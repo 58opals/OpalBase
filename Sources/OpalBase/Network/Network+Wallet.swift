@@ -11,6 +11,7 @@ extension Network.Wallet {
         case noHealthyServer
         case connectionFailed(Swift.Error)
         case pingFailed(Swift.Error)
+        case healthRepositoryFailure(Storage.Repository.ServerHealth.Error)
     }
 }
 
@@ -19,7 +20,8 @@ extension Network.Wallet.Error: Equatable {
         switch (lhs, rhs) {
         case (.noHealthyServer, .noHealthyServer),
             (.connectionFailed, .connectionFailed),
-            (.pingFailed, .pingFailed):
+            (.pingFailed, .pingFailed),
+            (.healthRepositoryFailure, .healthRepositoryFailure):
             return true
         default:
             return false

@@ -345,6 +345,13 @@ extension Storage.Repository {
     }
 }
 
+extension Storage.Repository.ServerHealth {
+    public struct Error: Swift.Error, Sendable, Equatable {
+        public let operation: String
+        public let reason: String
+    }
+}
+
 // Subscriptions
 extension Storage.Repository {
     public actor Subscriptions {
