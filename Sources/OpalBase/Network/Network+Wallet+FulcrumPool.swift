@@ -5,6 +5,12 @@ import SwiftFulcrum
 
 extension Network.Wallet {
     public actor FulcrumPool {
+        public enum Role: Sendable {
+            case primary
+            case standby
+            case candidate
+        }
+        
         struct Server {
             let fulcrum: Fulcrum
             let endpoint: URL?
@@ -14,6 +20,8 @@ extension Network.Wallet {
             var lastLatency: TimeInterval?
             var lastSuccessAt: Date?
             
+            var role: Role
+            
             init(fulcrum: Fulcrum, endpoint: URL?) {
                 self.fulcrum = fulcrum
                 self.endpoint = endpoint
@@ -22,13 +30,17 @@ extension Network.Wallet {
                 self.status = .offline
                 self.lastLatency = nil
                 self.lastSuccessAt = nil
+                self.role = .candidate
             }
         }
         
         public let serverHealth: ServerHealth
         private var servers: [Server]
-        private var currentIndex: Int = 0
         private let maxBackoff: TimeInterval
+        
+        private var primaryIndex: Int?
+        private var standbyIndex: Int?
+        private var activeIndex: Int?
         
         private var status: Network.Wallet.Status = .offline
         private var statusContinuations: [UUID: AsyncStream<Network.Wallet.Status>.Continuation] = .init()
@@ -40,6 +52,10 @@ extension Network.Wallet {
             self.servers = []
             self.maxBackoff = maxBackoff
             self.status = .offline
+            
+            self.primaryIndex = nil
+            self.standbyIndex = nil
+            self.activeIndex = nil
             
             if urls.isEmpty {
                 let fulcrum = try await Fulcrum()
@@ -60,7 +76,7 @@ extension Network.Wallet {
             }
             
             try await bootstrapPersistentHealth()
-            updatePreferredIndex()
+            assignRoles()
         }
     }
 }
@@ -97,57 +113,65 @@ extension Network.Wallet.FulcrumPool {
 
 extension Network.Wallet.FulcrumPool {
     public func acquireFulcrum() async throws -> Fulcrum {
-        updatePreferredIndex()
-        var attempts: Int = 0
-        while attempts < servers.count {
-            let server = servers[currentIndex]
-            if Date() >= server.nextRetry {
-                do {
-                    if server.status != .online {
-                        updateStatus(.connecting)
-                        do {
-                            try await server.fulcrum.start()
-                        } catch {
-                            throw Network.Wallet.Error.connectionFailed(error)
-                        }
-                    }
-                    
-                    let latency = try await ping(server.fulcrum)
-                    try await markSuccess(at: currentIndex, latency: latency)
-                    if status != .online { updateStatus(.online) }
-                    return servers[currentIndex].fulcrum
-                } catch let walletError as Network.Wallet.Error {
-                    await server.fulcrum.stop()
-                    var failedServer = servers[currentIndex]
-                    failedServer.status = .offline
-                    servers[currentIndex] = failedServer
-                    if case .healthRepositoryFailure = walletError {
-                        updateStatus(.offline)
-                        throw walletError
-                    }
-                    do {
-                        try await markFailure(at: currentIndex)
-                    } catch let repositoryError as Network.Wallet.Error {
-                        updateStatus(.offline)
-                        throw repositoryError
-                    }
-                } catch {
-                    await server.fulcrum.stop()
-                    var failedServer = servers[currentIndex]
-                    failedServer.status = .offline
-                    servers[currentIndex] = failedServer
-                    do {
-                        try await markFailure(at: currentIndex)
-                    } catch let repositoryError as Network.Wallet.Error {
-                        updateStatus(.offline)
-                        throw repositoryError
-                    }
-                    updateStatus(.offline)
-                }
-            }
+        assignRoles()
+        let prioritized = prioritizedServerIndices(now: Date())
+        guard !prioritized.isEmpty else {
+            if status != .offline { updateStatus(.offline) }
+            throw Network.Wallet.Error.noHealthyServer
+        }
+        
+        for index in prioritized {
+            var server = servers[index]
+            guard Date() >= server.nextRetry else { continue }
             
-            currentIndex = (currentIndex + 1) % servers.count
-            attempts += 1
+            do {
+                if server.status != .online {
+                    updateStatus(.connecting)
+                    do {
+                        try await server.fulcrum.start()
+                    } catch {
+                        throw Network.Wallet.Error.connectionFailed(error)
+                    }
+                }
+                
+                let latency = try await ping(server.fulcrum)
+                activeIndex = index
+                try await markSuccess(at: index, latency: latency)
+                activeIndex = primaryIndex
+                guard let primaryIndex else {
+                    updateStatus(.offline)
+                    throw Network.Wallet.Error.noHealthyServer
+                }
+                if status != .online { updateStatus(.online) }
+                return servers[primaryIndex].fulcrum
+            } catch let walletError as Network.Wallet.Error {
+                await server.fulcrum.stop()
+                var failedServer = servers[index]
+                failedServer.status = .offline
+                servers[index] = failedServer
+                if case .healthRepositoryFailure = walletError {
+                    updateStatus(.offline)
+                    throw walletError
+                }
+                do {
+                    try await markFailure(at: index)
+                } catch let repositoryError as Network.Wallet.Error {
+                    updateStatus(.offline)
+                    throw repositoryError
+                }
+            } catch {
+                await server.fulcrum.stop()
+                var failedServer = servers[index]
+                failedServer.status = .offline
+                servers[index] = failedServer
+                do {
+                    try await markFailure(at: index)
+                } catch let repositoryError as Network.Wallet.Error {
+                    updateStatus(.offline)
+                    throw repositoryError
+                }
+                updateStatus(.offline)
+            }
         }
         
         if status != .offline { updateStatus(.offline) }
@@ -167,9 +191,13 @@ extension Network.Wallet.FulcrumPool {
     
     private func markSuccess(at index: Int, latency: TimeInterval) async throws {
         var server = servers[index]
+        var succeeded = false
         defer {
-            servers[index] = server
-            updatePreferredIndex()
+            if succeeded {
+                servers[index] = server
+                assignRoles(preferredPrimary: index)
+                activeIndex = primaryIndex
+            }
         }
         
         if let endpoint = server.endpoint {
@@ -182,13 +210,18 @@ extension Network.Wallet.FulcrumPool {
             server.lastLatency = latency
             server.lastSuccessAt = Date()
         }
+        
+        succeeded = true
     }
     
     private func markFailure(at index: Int) async throws {
         var server = servers[index]
+        server.status = .offline
+        
         defer {
             servers[index] = server
-            updatePreferredIndex()
+            assignRoles()
+            activeIndex = primaryIndex
         }
         server.status = .offline
         
@@ -210,42 +243,60 @@ extension Network.Wallet.FulcrumPool {
     }
     
     public func reportFailure() async throws {
-        try await markFailure(at: currentIndex)
-        currentIndex = (currentIndex + 1) % servers.count
+        assignRoles()
+        guard !servers.isEmpty else {
+            updateStatus(.offline)
+            throw Network.Wallet.Error.noHealthyServer
+        }
+        
+        guard let index = activeIndex ?? primaryIndex else {
+            updateStatus(.offline)
+            throw Network.Wallet.Error.noHealthyServer
+        }
+        
+        await servers[index].fulcrum.stop()
+        try await markFailure(at: index)
+        activeIndex = primaryIndex
         
         _ = try await acquireFulcrum()
     }
     
     public func reconnect() async throws -> Fulcrum {
         updateStatus(.connecting)
-        guard servers.indices.contains(currentIndex) else {
+        assignRoles()
+        
+        guard let index = activeIndex ?? primaryIndex, servers.indices.contains(index) else {
             updateStatus(.offline)
             throw Network.Wallet.Error.noHealthyServer
         }
         
-        await servers[currentIndex].fulcrum.stop()
+        await servers[index].fulcrum.stop()
         
         do {
             do {
-                try await servers[currentIndex].fulcrum.start()
+                try await servers[index].fulcrum.start()
             } catch {
                 throw Network.Wallet.Error.connectionFailed(error)
             }
-            let latency = try await ping(servers[currentIndex].fulcrum)
-            try await markSuccess(at: currentIndex, latency: latency)
+            let latency = try await ping(servers[index].fulcrum)
+            try await markSuccess(at: index, latency: latency)
+            guard let primaryIndex else {
+                updateStatus(.offline)
+                throw Network.Wallet.Error.noHealthyServer
+            }
             updateStatus(.online)
-            return servers[currentIndex].fulcrum
+            return servers[primaryIndex].fulcrum
         } catch let walletError as Network.Wallet.Error {
-            await servers[currentIndex].fulcrum.stop()
-            var failedServer = servers[currentIndex]
+            await servers[index].fulcrum.stop()
+            var failedServer = servers[index]
             failedServer.status = .offline
-            servers[currentIndex] = failedServer
+            servers[index] = failedServer
             if case .healthRepositoryFailure = walletError {
                 updateStatus(.offline)
                 throw walletError
             }
             do {
-                try await markFailure(at: currentIndex)
+                try await markFailure(at: index)
             } catch let repositoryError as Network.Wallet.Error {
                 updateStatus(.offline)
                 throw repositoryError
@@ -253,12 +304,12 @@ extension Network.Wallet.FulcrumPool {
             updateStatus(.offline)
             throw walletError
         } catch {
-            await servers[currentIndex].fulcrum.stop()
-            var failedServer = servers[currentIndex]
+            await servers[index].fulcrum.stop()
+            var failedServer = servers[index]
             failedServer.status = .offline
-            servers[currentIndex] = failedServer
+            servers[index] = failedServer
             do {
-                try await markFailure(at: currentIndex)
+                try await markFailure(at: index)
             } catch let repositoryError as Network.Wallet.Error {
                 updateStatus(.offline)
                 throw repositoryError
@@ -289,22 +340,124 @@ extension Network.Wallet.FulcrumPool {
         }
     }
     
-    private func updatePreferredIndex(now: Date = .init()) {
-        guard !servers.isEmpty else { return }
-        
-        let available = servers.enumerated().filter { now >= $0.element.nextRetry }
-        if let best = available.min(by: { lhs, rhs in
-            let lhsLatency = lhs.element.lastLatency ?? .greatestFiniteMagnitude
-            let rhsLatency = rhs.element.lastLatency ?? .greatestFiniteMagnitude
-            if lhsLatency == rhsLatency { return lhs.offset < rhs.offset }
+    struct RoleMetrics: Sendable {
+        let index: Int
+        let nextRetry: Date
+        let lastLatency: TimeInterval?
+    }
+    
+    static func determineRoles(for metrics: [RoleMetrics],
+                               now: Date,
+                               preferredPrimary: Int?) -> (primary: Int?, standby: Int?) {
+        var available = metrics.filter { now >= $0.nextRetry }
+        available.sort { lhs, rhs in
+            let lhsLatency = lhs.lastLatency ?? .greatestFiniteMagnitude
+            let rhsLatency = rhs.lastLatency ?? .greatestFiniteMagnitude
+            if lhsLatency == rhsLatency { return lhs.index < rhs.index }
             return lhsLatency < rhsLatency
-        }) {
-            currentIndex = best.offset
+        }
+        
+        if let preferredPrimary,
+           let preferredIndex = available.firstIndex(where: { $0.index == preferredPrimary }) {
+            let preferred = available.remove(at: preferredIndex)
+            available.insert(preferred, at: 0)
+        }
+        
+        var primary = available.first?.index
+        var standby = available.dropFirst().first?.index
+        
+        let deferred = metrics.filter { now < $0.nextRetry }.sorted { lhs, rhs in
+            if lhs.nextRetry == rhs.nextRetry {
+                let lhsLatency = lhs.lastLatency ?? .greatestFiniteMagnitude
+                let rhsLatency = rhs.lastLatency ?? .greatestFiniteMagnitude
+                if lhsLatency == rhsLatency { return lhs.index < rhs.index }
+                return lhsLatency < rhsLatency
+            }
+            return lhs.nextRetry < rhs.nextRetry
+        }
+        
+        if primary == nil {
+            primary = deferred.first?.index
+        }
+        
+        let orderedCandidates = available + deferred
+        if standby == nil {
+            standby = orderedCandidates.first(where: { $0.index != primary })?.index
+        }
+        
+        return (primary, standby)
+    }
+    
+    private func assignRoles(now: Date = .init(), preferredPrimary: Int? = nil) {
+        guard !servers.isEmpty else {
+            primaryIndex = nil
+            standbyIndex = nil
+            activeIndex = nil
             return
         }
         
-        if let soonest = servers.enumerated().min(by: { $0.element.nextRetry < $1.element.nextRetry }) {
-            currentIndex = soonest.offset
+        let metrics = servers.enumerated().map { RoleMetrics(index: $0.offset,
+                                                             nextRetry: $0.element.nextRetry,
+                                                             lastLatency: $0.element.lastLatency) }
+        let roles = Self.determineRoles(for: metrics, now: now, preferredPrimary: preferredPrimary)
+        primaryIndex = roles.primary
+        standbyIndex = roles.standby
+        
+        for index in servers.indices {
+            var server = servers[index]
+            switch index {
+            case roles.primary:
+                server.role = .primary
+            case roles.standby:
+                server.role = .standby
+            default:
+                server.role = .candidate
+            }
+            servers[index] = server
         }
+    }
+    
+    private func prioritizedServerIndices(now: Date = .init()) -> [Int] {
+        var ordered: [Int] = []
+        if let primaryIndex {
+            ordered.append(primaryIndex)
+        }
+        if let standbyIndex, standbyIndex != primaryIndex {
+            ordered.append(standbyIndex)
+        }
+        
+        let excluded = Set(ordered)
+        let available = servers.enumerated()
+            .filter { now >= $0.element.nextRetry && !excluded.contains($0.offset) }
+            .sorted { lhs, rhs in
+                let lhsLatency = lhs.element.lastLatency ?? .greatestFiniteMagnitude
+                let rhsLatency = rhs.element.lastLatency ?? .greatestFiniteMagnitude
+                if lhsLatency == rhsLatency { return lhs.offset < rhs.offset }
+                return lhsLatency < rhsLatency
+            }
+            .map(\.offset)
+        
+        let deferred = servers.enumerated()
+            .filter { now < $0.element.nextRetry && !excluded.contains($0.offset) }
+            .sorted { lhs, rhs in
+                if lhs.element.nextRetry == rhs.element.nextRetry {
+                    let lhsLatency = lhs.element.lastLatency ?? .greatestFiniteMagnitude
+                    let rhsLatency = rhs.element.lastLatency ?? .greatestFiniteMagnitude
+                    if lhsLatency == rhsLatency { return lhs.offset < rhs.offset }
+                    return lhsLatency < rhsLatency
+                }
+                return lhs.element.nextRetry < rhs.element.nextRetry
+            }
+            .map(\.offset)
+        
+        ordered.append(contentsOf: available)
+        ordered.append(contentsOf: deferred)
+        return ordered
+    }
+    
+    func describeRoles() -> (primary: URL?, standby: URL?) {
+        let primary = primaryIndex.flatMap { servers[$0].endpoint }
+        let standby = standbyIndex.flatMap { servers[$0].endpoint }
+        return (primary, standby)
     }
 }

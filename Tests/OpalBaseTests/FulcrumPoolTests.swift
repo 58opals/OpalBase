@@ -92,4 +92,45 @@ struct FulcrumPoolTests {
         let stored = try await repository.history(endpoint)
         #expect(stored?.failures == 2)
     }
+    
+    @Test func testRoleSelectionPrefersLowestLatency() {
+        let now = Date()
+        let metrics: [Network.Wallet.FulcrumPool.RoleMetrics] = [
+            .init(index: 0, nextRetry: now, lastLatency: 0.35),
+            .init(index: 1, nextRetry: now, lastLatency: 0.22),
+            .init(index: 2, nextRetry: now.addingTimeInterval(30), lastLatency: 0.18)
+        ]
+        
+        let roles = Network.Wallet.FulcrumPool.determineRoles(for: metrics, now: now, preferredPrimary: nil)
+        
+        #expect(roles.primary == 1)
+        #expect(roles.standby == 0)
+    }
+    
+    @Test func testRoleSelectionUsesPreferredPrimaryWhenHealthy() {
+        let now = Date()
+        let metrics: [Network.Wallet.FulcrumPool.RoleMetrics] = [
+            .init(index: 0, nextRetry: now, lastLatency: 0.45),
+            .init(index: 1, nextRetry: now, lastLatency: 0.18)
+        ]
+        
+        let roles = Network.Wallet.FulcrumPool.determineRoles(for: metrics, now: now, preferredPrimary: 0)
+        
+        #expect(roles.primary == 0)
+        #expect(roles.standby == 1)
+    }
+    
+    @Test func testRoleSelectionPromotesStandbyWhenPreferredIsQuarantined() {
+        let now = Date()
+        let metrics: [Network.Wallet.FulcrumPool.RoleMetrics] = [
+            .init(index: 0, nextRetry: now.addingTimeInterval(60), lastLatency: 0.12),
+            .init(index: 1, nextRetry: now, lastLatency: 0.28),
+            .init(index: 2, nextRetry: now, lastLatency: 0.31)
+        ]
+        
+        let roles = Network.Wallet.FulcrumPool.determineRoles(for: metrics, now: now, preferredPrimary: 0)
+        
+        #expect(roles.primary == 1)
+        #expect(roles.standby == 2)
+    }
 }
