@@ -4,43 +4,46 @@ import Foundation
 import SwiftFulcrum
 
 extension Account.Monitor {
-    public func start(for addresses: [Address], using fulcrum: Fulcrum) async throws -> AsyncThrowingStream<Void, Swift.Error> {
+    public func start(for addresses: [Address],
+                      using fulcrum: Fulcrum,
+                      through hub: Network.Wallet.SubscriptionHub) async throws -> (stream: AsyncThrowingStream<Void, Swift.Error>, consumerID: UUID) {
         guard !addresses.isEmpty else { throw Account.Monitor.Error.emptyAddresses }
-        try beginMonitoring()
         
-        let streams = try await withThrowingTaskGroup(of: AsyncThrowingStream<Response.Result.Blockchain.Address.SubscribeNotification, Swift.Error>.self) { group in
-            for address in addresses {
-                group.addTask {
-                    let (_, _, stream, cancel) = try await address.subscribe(fulcrum: fulcrum)
-                    await self.storeCancel(cancel)
-                    return stream
-                }
-            }
+        let consumerID = UUID()
+        do {
+            try beginMonitoring(consumerID: consumerID)
+            let handle = try await hub.makeStream(for: addresses, using: fulcrum, consumerID: consumerID)
             
-            var collected: [AsyncThrowingStream<Response.Result.Blockchain.Address.SubscribeNotification, Swift.Error>] = []
-            for try await stream in group { collected.append(stream) }
-            return collected
-        }
-        
-        return AsyncThrowingStream(bufferingPolicy: .bufferingNewest(1)) { continuation in
-            for stream in streams {
+            let stream = AsyncThrowingStream<Void, Swift.Error>(bufferingPolicy: .bufferingNewest(1)) { continuation in
                 let task = Task { [weak self] in
                     guard let self else { return }
                     do {
-                        for try await _ in stream {
+                        for try await _ in handle.notifications {
                             await self.scheduleCoalescedEmit { continuation.yield(()) }
                         }
+                        continuation.finish()
                     } catch is CancellationError {
-                        // ignore cancellations
+                        continuation.finish()
                     } catch {
                         continuation.finish(throwing: error)
                     }
                 }
-                Task { self.storeTask(task) }
+                continuation.onTermination = { _ in
+                    task.cancel()
+                    Task { [weak self] in
+                        guard let self else { return }
+                        await self.stop(hub: hub)
+                    }
+                }
             }
-            continuation.onTermination = { _ in
-                Task { await self.stop() }
-            }
+            
+            return (stream, handle.id)
+        } catch let error as Account.Monitor.Error {
+            await stop(hub: hub)
+            throw error
+        } catch {
+            await stop(hub: hub)
+            throw Account.Monitor.Error.monitoringFailed(error)
         }
     }
 }

@@ -17,6 +17,8 @@ public actor Account: Identifiable {
     public var addressBook: Address.Book
     let outbox: Outbox
     
+    let subscriptionHub: Network.Wallet.SubscriptionHub
+    
     let addressMonitor: Monitor
     
     private var networkMonitorTask: Task<Void, Never>?
@@ -27,7 +29,8 @@ public actor Account: Identifiable {
          purpose: DerivationPath.Purpose,
          coinType: DerivationPath.CoinType,
          account: DerivationPath.Account,
-         outboxPath: URL? = nil) async throws {
+         outboxPath: URL? = nil,
+         subscriptionRepository: Storage.Repository.Subscriptions? = nil) async throws {
         self.fulcrumPool = try await .init(urls: fulcrumServerURLs)
         self.feeRate = .init(fulcrumPool: self.fulcrumPool)
         
@@ -46,6 +49,8 @@ public actor Account: Identifiable {
         let folderURL = outboxPath ?? FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0].appendingPathComponent("accountOutbox")
         self.outbox = try .init(folderURL: folderURL)
         
+        self.subscriptionHub = .init(repository: subscriptionRepository)
+        
         self.addressMonitor = .init()
         self.networkMonitorTask = Task { [weak self] in
             guard let self else { return }
@@ -58,13 +63,15 @@ public actor Account: Identifiable {
          rootExtendedPrivateKey: PrivateKey.Extended,
          purpose: DerivationPath.Purpose,
          coinType: DerivationPath.CoinType,
-         outboxPath: URL? = nil) async throws {
+         outboxPath: URL? = nil,
+         subscriptionRepository: Storage.Repository.Subscriptions? = nil) async throws {
         let account = try await Self.init(fulcrumServerURLs: fulcrumServerURLs,
                                           rootExtendedPrivateKey: rootExtendedPrivateKey,
                                           purpose: purpose,
                                           coinType: coinType,
                                           account: try .init(rawIndexInteger: snapshot.account),
-                                          outboxPath: outboxPath)
+                                          outboxPath: outboxPath,
+                                          subscriptionRepository: subscriptionRepository)
         self.fulcrumPool = account.fulcrumPool
         self.feeRate = account.feeRate
         self.rootExtendedPrivateKey = account.rootExtendedPrivateKey
@@ -74,6 +81,7 @@ public actor Account: Identifiable {
         self.id = account.id
         self.addressBook = await account.addressBook
         self.outbox = account.outbox
+        self.subscriptionHub = account.subscriptionHub
         self.addressMonitor = .init()
         
         try await self.addressBook.applySnapshot(snapshot.addressBook)

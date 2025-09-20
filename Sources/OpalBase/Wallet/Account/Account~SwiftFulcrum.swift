@@ -110,15 +110,15 @@ extension Account {
         
         do {
             let fulcrum = try await fulcrumPool.acquireFulcrum()
-            let initialStream = try await addressMonitor.start(for: initialAddresses, using: fulcrum)
+            let (initialStream, consumerID) = try await addressMonitor.start(for: initialAddresses, using: fulcrum, through: subscriptionHub)
             let newEntryStream = await addressBook.observeNewEntries()
             
             return AsyncThrowingStream { continuation in
                 Task { [weak self] in
                     guard let self else { return }
                     
-                    func handle(_ stream: AsyncThrowingStream<Void, Swift.Error>) {
-                        Task { [weak self] in
+                    func handle(_ stream: AsyncThrowingStream<Void, Swift.Error>) async {
+                        let task = Task { [weak self] in
                             guard let self else { return }
                             do {
                                 for try await _ in stream {
@@ -127,34 +127,22 @@ extension Account {
                                     continuation.yield(balance)
                                 }
                             } catch {
-                                continuation.finish(throwing: error)
+                                continuation.finish(throwing: Account.Monitor.Error.monitoringFailed(error))
                             }
                         }
+                        
+                        await addressMonitor.storeTask(task)
                     }
                     
-                    handle(initialStream)
+                    await handle(initialStream)
                     
-                    Task { [weak self] in
+                    let newEntryTask = Task { [weak self] in
                         guard let self else { return }
                         for await entry in newEntryStream {
                             do {
-                                let (_, _, stream, cancel) = try await entry.address.subscribe(fulcrum: fulcrum)
-                                await self.addressMonitor.storeCancel(cancel)
-                                
-                                let voidStream = AsyncThrowingStream<Void, Swift.Error> { innerContinuation in
-                                    Task {
-                                        do {
-                                            for try await _ in stream {
-                                                innerContinuation.yield(())
-                                            }
-                                            innerContinuation.finish()
-                                        } catch {
-                                            innerContinuation.finish(throwing: error)
-                                        }
-                                    }
-                                }
-                                
-                                handle(voidStream)
+                                try await self.subscriptionHub.add(addresses: [entry.address],
+                                                                   for: consumerID,
+                                                                   using: fulcrum)
                             } catch {
                                 continuation.finish(throwing: Account.Monitor.Error.monitoringFailed(error))
                                 break
@@ -162,8 +150,14 @@ extension Account {
                         }
                     }
                     
+                    await addressMonitor.storeTask(newEntryTask)
+                    
                     continuation.onTermination = { _ in
-                        Task { [weak self] in await self?.addressMonitor.stop() }
+                        
+                        Task { [weak self] in
+                            guard let self else { return }
+                            await self.addressMonitor.stop(hub: self.subscriptionHub)
+                        }
                     }
                 }
             }
@@ -173,7 +167,7 @@ extension Account {
     }
     
     public func stopBalanceMonitoring() async {
-        await addressMonitor.stop()
+        await addressMonitor.stop(hub: subscriptionHub)
     }
 }
 
@@ -190,7 +184,7 @@ extension Account {
                 await addressBook.resumeQueuedRequests()
                 
                 if let fulcrum = try? await fulcrumPool.acquireFulcrum() {
-                    await addressBook.startSubscription(using: fulcrum)
+                    await addressBook.startSubscription(using: fulcrum, hub: subscriptionHub)
                     await outbox.retryPendingTransactions(using: fulcrum)
                 }
                 

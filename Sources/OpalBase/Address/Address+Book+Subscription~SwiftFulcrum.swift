@@ -6,20 +6,25 @@ import SwiftFulcrum
 extension Address.Book {
     actor Subscription {
         private let book: Address.Book
+        private let hub: Network.Wallet.SubscriptionHub
+        private let notificationHook: (@Sendable () async -> Void)?
         private var isRunning: Bool = false
-        private var cancelHandlers: [@Sendable () async -> Void] = .init()
-        private var task: Task<Void, Never>?
-        private var subscriptionTasks: [Task<Void, Never>] = .init()
+        private var streamTask: Task<Void, Never>?
         private var newEntriesTask: Task<Void, Never>?
         private var debounceTask: Task<Void, Never>?
         private let debounceDuration: UInt64 = 100_000_000 // 100ms
+        private var consumerID: UUID?
         private var subscriptionCount: Int = 0
-        private let notificationHook: (@Sendable () async -> Void)?
+        
+        private var fulcrum: Fulcrum?
         
         var activeSubscriptionCount: Int { subscriptionCount }
         
-        init(book: Address.Book, notificationHook: (@Sendable () async -> Void)? = nil) {
+        init(book: Address.Book,
+             hub: Network.Wallet.SubscriptionHub,
+             notificationHook: (@Sendable () async -> Void)? = nil) {
             self.book = book
+            self.hub = hub
             self.notificationHook = notificationHook
         }
     }
@@ -30,74 +35,77 @@ extension Address.Book.Subscription {
         guard !isRunning else { return }
         isRunning = true
         
-        setNewEntriesTask(
-            Task { [weak self] in
+        self.fulcrum = fulcrum
+        
+        let initialAddresses = await (book.receivingEntries + book.changeEntries).map(\.address)
+        let consumerID = UUID()
+        
+        do {
+            let handle = try await hub.makeStream(for: initialAddresses,
+                                                  using: fulcrum,
+                                                  consumerID: consumerID)
+            self.consumerID = handle.id
+            subscriptionCount = initialAddresses.count
+            
+            streamTask = Task { [weak self] in
                 guard let self else { return }
-                for await entry in await book.observeNewEntries() {
-                    guard await self.isRunning else { break }
-                    let task = await self.startSubscription(for: entry, fulcrum: fulcrum)
-                    
-                    await self.storeSubscriptionTask(task)
+                do {
+                    for try await _ in handle.notifications {
+                        guard await self.isRunning else { break }
+                        await self.processNotification()
+                    }
+                } catch {
+                    await resetState(cancelStream: false)
                 }
             }
-        )
-        
-        task = Task { [weak self] in
-            guard let self else { return }
-            let entries = await self.book.receivingEntries + self.book.changeEntries
-            for entry in entries {
-                let task = await self.startSubscription(for: entry, fulcrum: fulcrum)
-                await self.storeSubscriptionTask(task)
+            
+            newEntriesTask = Task { [weak self] in
+                guard let self else { return }
+                for await entry in await self.book.observeNewEntries() {
+                    guard await self.isRunning else { break }
+                    do {
+                        try await self.hub.add(addresses: [entry.address],
+                                               for: consumerID,
+                                               using: fulcrum)
+                        await self.incrementSubscriptionCount()
+                    } catch {
+                        await resetState(cancelStream: false)
+                        break
+                    }
+                }
             }
+        } catch {
+            await resetState(cancelStream: false)
         }
     }
     
     func stop() async {
-        isRunning = false
-        for cancel in cancelHandlers { await cancel() }
-        cancelHandlers.removeAll()
-        task?.cancel()
-        task = nil
-        for task in subscriptionTasks { task.cancel() }
-        subscriptionTasks.removeAll()
-        subscriptionCount = 0
-        newEntriesTask?.cancel()
-        newEntriesTask = nil
-        debounceTask?.cancel()
-        debounceTask = nil
+        await resetState(cancelStream: true)
     }
 }
 
 extension Address.Book.Subscription {
-    private func storeCancel(_ cancel: @escaping @Sendable () async -> Void) async {
-        cancelHandlers.append(cancel)
+    private func resetState(cancelStream: Bool) async {
+        debounceTask?.cancel()
+        debounceTask = nil
+        if cancelStream { streamTask?.cancel() }
+        streamTask = nil
+        newEntriesTask?.cancel()
+        newEntriesTask = nil
+        if let consumerID { await hub.remove(consumerID: consumerID) }
+        consumerID = nil
+        subscriptionCount = 0
+        fulcrum = nil
+        isRunning = false
     }
     
-    private func setNewEntriesTask(_ task: Task<Void, Never>) {
-        newEntriesTask = task
-    }
-    
-    private func storeSubscriptionTask(_ task: Task<Void, Never>) async {
-        subscriptionTasks.append(task)
-    }
-    
-    private func startSubscription(for entry: Address.Book.Entry, fulcrum: Fulcrum) async -> Task<Void, Never> {
+    private func incrementSubscriptionCount() {
         subscriptionCount += 1
-        
-        let task = Task { [weak self] in
-            guard let self else { return }
-            do {
-                let (_, _, stream, cancel) = try await entry.address.subscribe(fulcrum: fulcrum)
-                await storeCancel(cancel)
-                for try await _ in stream where await self.isRunning {
-                    await self.handleNotification(fulcrum: fulcrum)
-                }
-            } catch {
-                // Ignore individual subscription failures
-            }
-        }
-        
-        return task
+    }
+    
+    private func processNotification() async {
+        guard let fulcrum else { return }
+        await triggerDebouncedNotification(for: fulcrum)
     }
     
     private func scheduleNotification(fulcrum: Fulcrum) async {
@@ -136,11 +144,13 @@ extension Address.Book.Subscription: Sendable {}
 extension Address.Book {
     var currentSubscription: Subscription? { self.subscription }
     
-    func startSubscription(using fulcrum: Fulcrum, notificationHook: (@Sendable () async -> Void)? = nil) async {
+    func startSubscription(using fulcrum: Fulcrum,
+                           hub: Network.Wallet.SubscriptionHub,
+                           notificationHook: (@Sendable () async -> Void)? = nil) async {
         if self.subscription != nil { return }
-        let subscription = Subscription(book: self, notificationHook: notificationHook)
-        self.subscription = subscription
-        await subscription.start(fulcrum: fulcrum)
+        let newSubscription = Subscription(book: self, hub: hub, notificationHook: notificationHook)
+        self.subscription = newSubscription
+        await newSubscription.start(fulcrum: fulcrum)
     }
     
     func stopSubscription() async {
