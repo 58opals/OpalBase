@@ -14,6 +14,7 @@ extension Storage {
                        nonce: UInt32,
                        hash: Data
         }
+        
         public struct UTXO: Sendable, Codable, Hashable {
             public let key: String,
                        txHash: Data,
@@ -22,6 +23,13 @@ extension Storage {
                        lockingScript: Data,
                        accountIndex: UInt32
         }
+        
+        public struct Fee: Sendable, Codable, Hashable {
+            public let tier: Storage.Entity.FeeModel.Tier,
+                       satsPerByte: UInt64,
+                       timestamp: Date
+        }
+        
         public struct Transaction: Sendable, Codable, Hashable {
             public let hash: Data,
                        raw: Data,
@@ -31,12 +39,14 @@ extension Storage {
                        isPending: Bool,
                        accountIndex: UInt32?
         }
+        
         public struct Subscription: Sendable, Codable, Hashable {
             public let address: String,
                        isActive: Bool,
                        lastStatus: String?,
                        lastUpdated: Date?
         }
+        
         public struct ServerHealth: Sendable, Codable, Hashable {
             public let url: String,
                        latencyMs: Double?,
@@ -66,6 +76,14 @@ extension Storage.Entity.UTXOModel {
                                       value: value,
                                       lockingScript: lockingScript,
                                       accountIndex: accountIndex) }
+}
+extension Storage.Entity.FeeModel {
+    var row: Storage.Row.Fee {
+        guard let parsedTier = Storage.Entity.FeeModel.Tier(rawValue: tier) else {
+            preconditionFailure("Unsupported fee tier: \(tier)")
+        }
+        return .init(tier: parsedTier, satsPerByte: satsPerByte, timestamp: timestamp)
+    }
 }
 extension Storage.Entity.TransactionModel {
     var row: Storage.Row.Transaction { .init(hash: hash,

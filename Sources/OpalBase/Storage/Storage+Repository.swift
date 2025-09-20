@@ -235,39 +235,40 @@ extension Storage.Repository {
 extension Storage.Repository {
     public actor Fees {
         private let container: ModelContainer
-        private let cache = TTLCache<String, UInt64>(defaultTTL: 600)
+        private let cache = TTLCache<String, Storage.Row.Fee>(defaultTTL: 600)
         
         public init(container: ModelContainer) { self.container = container }
         
         public func put(tier: Storage.Entity.FeeModel.Tier, satsPerByte: UInt64, ttl: TimeInterval = 600) async throws {
+            let now = Date()
             try Storage.Facade.withContext(container) { ctx in
                 let key = tier.rawValue
                 let p = #Predicate<Storage.Entity.FeeModel> { $0.tier == key }
                 if let ex = try ctx.fetch(FetchDescriptor(predicate: p)).first {
                     ex.satsPerByte = satsPerByte
-                    ex.timestamp = .now
+                    ex.timestamp = now
                     ctx.insert(ex)
                 } else {
-                    ctx.insert(Storage.Entity.FeeModel(tier: tier, satsPerByte: satsPerByte))
+                    ctx.insert(Storage.Entity.FeeModel(tier: tier, satsPerByte: satsPerByte, timestamp: now))
                 }
             }
-            await cache.set(tier.rawValue, satsPerByte, ttl: ttl)
+            let row = Storage.Row.Fee(tier: tier, satsPerByte: satsPerByte, timestamp: now)
+            await cache.set(tier.rawValue, row, ttl: max(0, ttl))
         }
         
-        public func latest(_ tier: Storage.Entity.FeeModel.Tier, maxAge: TimeInterval = 900) async throws -> UInt64? {
-            if let v = await cache.get(tier.rawValue) { return v }
-            let v = try Storage.Facade.withContext(container) { ctx in
+        public func latest(_ tier: Storage.Entity.FeeModel.Tier, maxAge: TimeInterval = 900) async throws -> Storage.Row.Fee? {
+            if let cached = await cache.get(tier.rawValue) { return cached }
+            let model = try Storage.Facade.withContext(container) { ctx in
                 let key = tier.rawValue
                 let p = #Predicate<Storage.Entity.FeeModel> { $0.tier == key }
                 return try ctx.fetch(FetchDescriptor(predicate: p)).first
             }
-            guard let m = v else { return nil }
-            let age = Date().timeIntervalSince(m.timestamp)
-            if age <= maxAge {
-                await cache.set(tier.rawValue, m.satsPerByte, ttl: maxAge - age)
-                return m.satsPerByte
-            }
-            return nil
+            guard let stored = model else { return nil }
+            let row = stored.row
+            let age = Date().timeIntervalSince(row.timestamp)
+            guard age <= maxAge else { return nil }
+            await cache.set(tier.rawValue, row, ttl: max(0, maxAge - age))
+            return row
         }
     }
 }

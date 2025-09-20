@@ -104,7 +104,7 @@ extension Storage.Entity {
     
     @Model
     public final class FeeModel {
-        public enum Tier: String, Codable, CaseIterable { case slow, normal, fast }
+        public enum Tier: String, Codable, Sendable, CaseIterable { case slow, normal, fast }
         @Attribute(.unique) public var tier: String
         public var satsPerByte: UInt64
         public var timestamp: Date

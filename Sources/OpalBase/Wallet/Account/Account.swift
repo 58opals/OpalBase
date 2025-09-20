@@ -30,9 +30,10 @@ public actor Account: Identifiable {
          coinType: DerivationPath.CoinType,
          account: DerivationPath.Account,
          outboxPath: URL? = nil,
-         subscriptionRepository: Storage.Repository.Subscriptions? = nil) async throws {
+         subscriptionRepository: Storage.Repository.Subscriptions? = nil,
+         feeRepository: Storage.Repository.Fees? = nil) async throws {
         self.fulcrumPool = try await .init(urls: fulcrumServerURLs)
-        self.feeRate = .init(fulcrumPool: self.fulcrumPool)
+        self.feeRate = .init(fulcrumPool: self.fulcrumPool, feeRepository: feeRepository)
         
         self.rootExtendedPrivateKey = rootExtendedPrivateKey
         self.purpose = purpose
@@ -64,14 +65,16 @@ public actor Account: Identifiable {
          purpose: DerivationPath.Purpose,
          coinType: DerivationPath.CoinType,
          outboxPath: URL? = nil,
-         subscriptionRepository: Storage.Repository.Subscriptions? = nil) async throws {
+         subscriptionRepository: Storage.Repository.Subscriptions? = nil,
+         feeRepository: Storage.Repository.Fees? = nil) async throws {
         let account = try await Self.init(fulcrumServerURLs: fulcrumServerURLs,
                                           rootExtendedPrivateKey: rootExtendedPrivateKey,
                                           purpose: purpose,
                                           coinType: coinType,
                                           account: try .init(rawIndexInteger: snapshot.account),
                                           outboxPath: outboxPath,
-                                          subscriptionRepository: subscriptionRepository)
+                                          subscriptionRepository: subscriptionRepository,
+                                          feeRepository: feeRepository)
         self.fulcrumPool = account.fulcrumPool
         self.feeRate = account.feeRate
         self.rootExtendedPrivateKey = account.rootExtendedPrivateKey
@@ -139,8 +142,8 @@ extension Account {
 
 extension Account {
     func enqueueRequest(for key: Request,
-                                priority: TaskPriority? = nil,
-                                operation: @escaping @Sendable () async throws -> Void) async {
+                        priority: TaskPriority? = nil,
+                        operation: @escaping @Sendable () async throws -> Void) async {
         let handle = await requestRouter.handle(for: key)
         _ = await handle.enqueue(priority: priority, retryPolicy: .retry, operation: operation)
     }
