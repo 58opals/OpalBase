@@ -6,15 +6,16 @@ import SwiftFulcrum
 extension Address.Book {
     public func refreshBalances(using fulcrum: Fulcrum) async throws {
         let operation: @Sendable () async throws -> Void = { [self] in
-            try await refreshBalances(in: receivingEntries, fulcrum: fulcrum)
-            try await refreshBalances(in: changeEntries, fulcrum: fulcrum)
+            try await refreshBalances(in: .receiving, fulcrum: fulcrum)
+            try await refreshBalances(in: .change, fulcrum: fulcrum)
         }
         
-        try await executeOrEnqueue(operation)
+        try await executeOrEnqueue(.refreshBalances, operation: operation)
     }
     
-    private func refreshBalances(in entries: [Entry], fulcrum: Fulcrum) async throws {
+    private func refreshBalances(in usage: DerivationPath.Usage, fulcrum: Fulcrum) async throws {
         let operation: @Sendable () async throws -> Void = { [self] in
+            let entries = await listEntries(for: usage)
             let staleEntries = entries.filter { !$0.cache.isValid }
             
             try await withThrowingTaskGroup(of: (Address, Satoshi).self) { group in
@@ -31,7 +32,8 @@ extension Address.Book {
             }
         }
         
-        try await executeOrEnqueue(operation)
+        let scope = Request.Scope(usage: usage)
+        try await executeOrEnqueue(.refreshBalancesSubset(scope), operation: operation)
     }
 }
 
@@ -43,6 +45,6 @@ extension Address.Book {
             return newBalance
         }
         
-        return try await executeOrEnqueue(operation)
+        return try await executeOrEnqueue(.fetchBalance(address), operation: operation)
     }
 }

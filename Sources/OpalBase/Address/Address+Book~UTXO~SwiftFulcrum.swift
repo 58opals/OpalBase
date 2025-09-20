@@ -32,6 +32,6 @@ extension Address.Book {
             await addUTXOs(updatedUTXOs)
         }
         
-        try await executeOrEnqueue(operation)
+        try await executeOrEnqueue(.refreshUTXOSet, operation: operation)
     }
 }

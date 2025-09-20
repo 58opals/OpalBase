@@ -20,7 +20,7 @@ public actor Account: Identifiable {
     let addressMonitor: Monitor
     
     private var networkMonitorTask: Task<Void, Never>?
-    private var requestQueue: [@Sendable () async throws -> Void] = .init()
+    let requestRouter = RequestRouter<Request>()
     
     init(fulcrumServerURLs: [String] = [],
          rootExtendedPrivateKey: PrivateKey.Extended,
@@ -130,19 +130,23 @@ extension Account {
 }
 
 extension Account {
-    func enqueueRequest(_ request: @escaping @Sendable () async throws -> Void) {
-        requestQueue.append(request)
+    func enqueueRequest(for key: Request,
+                                priority: TaskPriority? = nil,
+                                operation: @escaping @Sendable () async throws -> Void) async {
+        let handle = await requestRouter.handle(for: key)
+        _ = await handle.enqueue(priority: priority, retryPolicy: .retry, operation: operation)
     }
     
     public func processQueuedRequests() async {
-        guard !requestQueue.isEmpty else { return }
-        
-        let currentRequests = requestQueue
-        requestQueue.removeAll()
-        for request in currentRequests {
-            do { try await request() }
-            catch { requestQueue.append(request) }
-        }
+        await requestRouter.resume()
+    }
+    
+    func suspendQueuedRequests() async {
+        await requestRouter.suspend()
+    }
+    
+    func resumeQueuedRequests() async {
+        await requestRouter.resume()
     }
     
     public func stopNetworkMonitor() {

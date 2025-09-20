@@ -108,7 +108,12 @@ extension Address.Book {
             return allDetailedTransactions
         }
         
-        return try await executeOrEnqueue(operation)
+        let scope = Request.Scope(usage: usage)
+        return try await executeOrEnqueue(.fetchDetailedTransactions(scope: scope,
+                                                                     fromHeight: fromHeight,
+                                                                     toHeight: toHeight,
+                                                                     includeUnconfirmed: includeUnconfirmed),
+                                          operation: operation)
     }
     
     public func fetchCombinedHistory(fromHeight: UInt? = nil,
@@ -131,7 +136,10 @@ extension Address.Book {
             return Address.Book.mergeHistories(receiving: receivingTransactionHistory, change: changeTransactionHistory)
         }
         
-        return try await executeOrEnqueue(operation)
+        return try await executeOrEnqueue(.fetchCombinedHistory(fromHeight: fromHeight,
+                                                                toHeight: toHeight,
+                                                                includeUnconfirmed: includeUnconfirmed),
+                                          operation: operation)
     }
     
     public func fetchCombinedHistoryPage(fromHeight: UInt? = nil,
@@ -150,7 +158,10 @@ extension Address.Book {
             return .init(transactions: transactions, nextFromHeight: nextHeight)
         }
         
-        return try await executeOrEnqueue(operation)
+        return try await executeOrEnqueue(.fetchCombinedHistoryPage(fromHeight: fromHeight,
+                                                                    window: window,
+                                                                    includeUnconfirmed: includeUnconfirmed),
+                                          operation: operation)
     }
 }
 
@@ -161,7 +172,7 @@ extension Address.Book {
             try await refreshUsedStatus(for: .change, fulcrum: fulcrum)
         }
         
-        try await executeOrEnqueue(operation)
+        try await executeOrEnqueue(.refreshUsedStatus, operation: operation)
     }
     
     func refreshUsedStatus(for usage: DerivationPath.Usage, fulcrum: Fulcrum) async throws {
@@ -187,7 +198,8 @@ extension Address.Book {
             }
         }
         
-        try await executeOrEnqueue(operation)
+        let scope = Request.Scope(usage: usage)
+        try await executeOrEnqueue(.refreshUsedStatusSubset(scope), operation: operation)
     }
 }
 
@@ -201,7 +213,7 @@ extension Address.Book {
             }
         }
         
-        try await executeOrEnqueue(operation)
+        try await executeOrEnqueue(.updateAddressUsageStatus, operation: operation)
     }
     
     private func updateAddressUsageStatus(for usage: DerivationPath.Usage, using fulcrum: Fulcrum) async throws {
@@ -222,7 +234,8 @@ extension Address.Book {
             }
         }
         
-        try await executeOrEnqueue(operation)
+        let scope = Request.Scope(usage: usage)
+        try await executeOrEnqueue(.updateAddressUsageStatusSubset(scope), operation: operation)
     }
     
     private func checkIfUsed(entry: Entry, using fulcrum: Fulcrum) async throws -> Bool {
@@ -236,7 +249,7 @@ extension Address.Book {
             return !txHistory.isEmpty
         }
         
-        return try await executeOrEnqueue(operation)
+        return try await executeOrEnqueue(.checkIfUsed(entry.address), operation: operation)
     }
 }
 
@@ -257,7 +270,7 @@ extension Address.Book {
             } while true
         }
         
-        try await executeOrEnqueue(operation)
+        try await executeOrEnqueue(.scanForUsedAddresses, operation: operation)
     }
 }
 

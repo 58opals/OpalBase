@@ -66,6 +66,9 @@ extension Account {
         let transactionData = transaction.encode()
         try await outbox.save(transactionData: transactionData)
         
+        let manuallyGeneratedTransactionHash = Transaction.Hash(naturalOrder: HASH256.hash(transactionData))
+        let broadcastHandle = await requestRouter.handle(for: .broadcast(manuallyGeneratedTransactionHash))
+        
         let broadcastRequest: @Sendable () async throws -> Void = { [self] in
             let fulcrum = try await fulcrumPool.acquireFulcrum()
             let response = try await transaction.broadcast(using: fulcrum)
@@ -75,12 +78,16 @@ extension Account {
         
         if await fulcrumPool.currentStatus == .online {
             do { try await broadcastRequest() }
-            catch { enqueueRequest(broadcastRequest) }
+            catch {
+                _ = await broadcastHandle.enqueue(priority: .high,
+                                                  retryPolicy: .retry,
+                                                  operation: broadcastRequest)
+            }
         } else {
-            enqueueRequest(broadcastRequest)
+            _ = await broadcastHandle.enqueue(priority: .high,
+                                              retryPolicy: .retry,
+                                              operation: broadcastRequest)
         }
-        
-        let manuallyGeneratedTransactionHash = Transaction.Hash(naturalOrder: HASH256.hash(transactionData))
         
         await addressBook.handleOutgoingTransaction(transaction)
         
@@ -94,7 +101,7 @@ extension Account {
         }
         
         do { try await request() }
-        catch { enqueueRequest(request) }
+        catch { await enqueueRequest(for: .refreshUTXOSet, operation: request) }
     }
     
     public func monitorBalances() async throws -> AsyncThrowingStream<Satoshi, Swift.Error> {
@@ -179,8 +186,8 @@ extension Account {
         for await status in await fulcrumPool.observeStatus() {
             switch status {
             case .online:
-                await processQueuedRequests()
-                await addressBook.processQueuedRequests()
+                await resumeQueuedRequests()
+                await addressBook.resumeQueuedRequests()
                 
                 if let fulcrum = try? await fulcrumPool.acquireFulcrum() {
                     await addressBook.startSubscription(using: fulcrum)
@@ -188,6 +195,8 @@ extension Account {
                 }
                 
             case .connecting, .offline:
+                await suspendQueuedRequests()
+                await addressBook.suspendQueuedRequests()
                 await addressBook.stopSubscription()
             }
         }

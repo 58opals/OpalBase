@@ -25,6 +25,7 @@ extension Address {
         var cacheValidityDuration: TimeInterval
         
         var subscription: Subscription?
+        private let requestRouter = RequestRouter<Request>()
         var requestQueue: [@Sendable () async throws -> Void] = .init()
         var entryContinuations: [UUID: AsyncStream<Entry>.Continuation] = .init()
         
@@ -64,33 +65,47 @@ extension Address {
 }
 
 extension Address.Book {
-    func enqueueRequest(_ request: @escaping @Sendable () async throws -> Void) {
-        requestQueue.append(request)
+    func enqueueRequest(for request: Request,
+                        priority: TaskPriority? = nil,
+                        retryPolicy: RequestRouter<Request>.RetryPolicy = .retry,
+                        operation: @escaping @Sendable () async throws -> Void) async {
+        let handle = await requestRouter.handle(for: request)
+        _ = await handle.enqueue(priority: priority, retryPolicy: retryPolicy, operation: operation)
     }
     
     func processQueuedRequests() async {
-        guard !requestQueue.isEmpty else { return }
-        
-        let currentRequests = requestQueue
-        requestQueue.removeAll()
-        for request in currentRequests {
-            do { try await request() }
-            catch { requestQueue.append(request) }
-        }
+        await requestRouter.resume()
     }
     
-    func executeOrEnqueue(_ operation: @escaping @Sendable () async throws -> Void) async throws {
+    func suspendQueuedRequests() async {
+        await requestRouter.suspend()
+    }
+    
+    func resumeQueuedRequests() async {
+        await requestRouter.resume()
+    }
+    
+    func executeOrEnqueue(_ request: Request,
+                          priority: TaskPriority? = nil,
+                          operation: @escaping @Sendable () async throws -> Void) async throws {
         do { try await operation() }
         catch {
-            enqueueRequest(operation)
+            await enqueueRequest(for: request,
+                                 priority: priority,
+                                 operation: operation)
             throw error
         }
     }
     
-    func executeOrEnqueue<T: Sendable>(_ operation: @escaping @Sendable () async throws -> T) async throws -> T {
+    func executeOrEnqueue<T: Sendable>(_ request: Request,
+                                       priority: TaskPriority? = nil,
+                                       operation: @escaping @Sendable () async throws -> T) async throws -> T {
         do { return try await operation() }
         catch {
-            enqueueRequest { _ = try await operation() }
+            await enqueueRequest(for: request,
+                                 priority: priority) {
+                _ = try await operation()
+            }
             throw error
         }
     }
