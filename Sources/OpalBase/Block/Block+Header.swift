@@ -58,3 +58,28 @@ extension Block {
 
 extension Block.Header: Sendable {}
 extension Block.Header: Equatable {}
+
+import BigInt
+
+extension Block.Header {
+    var proofOfWorkHash: Data { return HASH256.hash(encode()) }
+    
+    public static func getTarget(for bits: UInt32) -> BigUInt {
+        let exponent = Int(bits >> 24)
+        var mantissa = BigUInt(bits & 0x00ff_ffff)
+        
+        if exponent <= 3 {
+            mantissa >>= (8 * (3 - exponent))
+            return mantissa
+        } else {
+            return mantissa << (8 * (exponent - 3))
+        }
+    }
+    
+    public func satisfiesProofOfWork() -> Bool {
+        let hash = proofOfWorkHash
+        let hashNumber = BigUInt(hash.reversedData)
+        let target = Self.getTarget(for: bits)
+        return hashNumber <= target
+    }
+}

@@ -8,15 +8,23 @@ extension Block.Header {
     actor Chain {
         private let checkpointHeight: UInt32
         private let checkpointHash: Data
+        private let maxCheckpointDepth: Int
         
         private var headers: [UInt32: Block.Header] = .init()
         private var hashes: [UInt32: Data] = .init()
+        private var checkpoints: [Checkpoint]
         private var tipHeight: UInt32
         private var tipHash: Data
         
-        init(checkpointHeight: UInt32, checkpointHash: Data) {
+        private var tipTimestamp: UInt32?
+        private var queuedMaintenanceEvents: [MaintenanceEvent] = .init()
+        private var lastTipStatus: TipStatus?
+        
+        init(checkpointHeight: UInt32, checkpointHash: Data, maxCheckpointDepth: Int = 24) {
             self.checkpointHeight = checkpointHeight
             self.checkpointHash = checkpointHash
+            self.maxCheckpointDepth = max(1, maxCheckpointDepth)
+            self.checkpoints = [.init(height: checkpointHeight, hash: checkpointHash)]
             self.tipHeight = checkpointHeight
             self.tipHash = checkpointHash
         }
@@ -27,26 +35,45 @@ extension Block.Header.Chain {
     enum Error: Swift.Error {
         case invalidProofOfWork(height: UInt32)
         case doesNotConnect(height: UInt32)
+        case checkpointViolation(expected: Checkpoint, actual: Checkpoint?)
     }
 }
 
 extension Block.Header.Chain {
     var latestHeight: UInt32 { tipHeight }
+    var latestCheckpoint: Checkpoint { checkpoints.last ?? .init(height: tipHeight, hash: tipHash) }
     
     func append(_ header: Block.Header, height: UInt32) throws {
-        let headerHash = try verify(header)
+        let headerHash = try verify(header, height: height)
         
-        if headers.isEmpty && (height == checkpointHeight) {
-            guard headerHash == checkpointHash else { throw Error.doesNotConnect(height: height) }
+        if headers.isEmpty {
+            guard height == checkpointHeight else {
+                registerContinuityFailure()
+                throw Error.doesNotConnect(height: height)
+            }
+            guard headerHash == checkpointHash else {
+                registerContinuityFailure()
+                throw Error.doesNotConnect(height: height)
+            }
         } else {
-            let expectedPreviousBlockHash = tipHash
-            guard header.previousBlockHash == expectedPreviousBlockHash else { throw Error.doesNotConnect(height: height) }
+            let expectedHeight = tipHeight &+ 1
+            guard height == expectedHeight else {
+                registerContinuityFailure()
+                throw Error.doesNotConnect(height: height)
+            }
+            guard header.previousBlockHash == tipHash else {
+                registerContinuityFailure()
+                throw Error.doesNotConnect(height: height)
+            }
         }
         
         headers[height] = header
         hashes[height] = headerHash
         tipHeight = height
         tipHash = headerHash
+        tipTimestamp = header.time
+        lastTipStatus = nil
+        registerCheckpoint(height: height, hash: headerHash)
     }
     
     func verifyTransaction(hash: Transaction.Hash, merkleProof: [Data], index: Int, height: UInt32) -> Bool {
@@ -68,8 +95,7 @@ extension Block.Header.Chain {
     }
     
     func sync(from startHeight: UInt32? = nil, using fulcrum: Fulcrum) async throws {
-        var height = startHeight ?? tipHeight &+ 1
-        var previousBlockHash = tipHash
+        var height = startHeight ?? (headers.isEmpty ? checkpointHeight : tipHeight &+ 1)
         while true {
             let response = try await fulcrum.submit(method: .blockchain(.block(.header(height: .init(height), checkpointHeight: nil))),
                                                     responseType: Response.Result.Blockchain.Block.Header.self)
@@ -80,41 +106,99 @@ extension Block.Header.Chain {
             let (header, bytes) = try Block.Header.decode(from: headerData)
             await Log.shared.log("\(bytes) bytes for \(header.encode().hexadecimalString)")
             
-            guard header.previousBlockHash == previousBlockHash else { throw Error.doesNotConnect(height: height) }
-            let headerHash = try verify(header)
-            headers[height] = header
-            hashes[height] = headerHash
-            previousBlockHash = headerHash
-            tipHeight = height
-            tipHash = headerHash
+            try append(header, height: height)
             height &+= 1
         }
     }
 }
 
 extension Block.Header.Chain {
-    private func getHash(of header: Block.Header) -> Data {
-        HASH256.hash(header.encode())
-    }
-    
-    private func getTarget(from bits: UInt32) -> BigUInt {
-        let exponent = Int(bits >> 24)
-        var mantissa = BigUInt(bits & 0x00ffffff)
+    func reset(to checkpoint: Checkpoint) throws {
+        guard checkpoint.height >= checkpointHeight else {
+            let baseline = Checkpoint(height: checkpointHeight, hash: checkpointHash)
+            throw Error.checkpointViolation(expected: checkpoint, actual: baseline)
+        }
+        if checkpoint.height == checkpointHeight && checkpoint.hash != checkpointHash {
+            let baseline = Checkpoint(height: checkpointHeight, hash: checkpointHash)
+            throw Error.checkpointViolation(expected: checkpoint, actual: baseline)
+        }
+        if let knownHash = hashes[checkpoint.height], knownHash != checkpoint.hash {
+            let actual = Checkpoint(height: checkpoint.height, hash: knownHash)
+            throw Error.checkpointViolation(expected: checkpoint, actual: actual)
+        }
         
-        if exponent <= 3 {
-            mantissa >>= (8 * (3 - exponent))
-            return mantissa
-        } else {
-            return mantissa << (8 * (exponent - 3))
+        headers = headers.filter { $0.key <= checkpoint.height }
+        hashes = hashes.filter { $0.key <= checkpoint.height }
+        tipHeight = checkpoint.height
+        tipHash = checkpoint.hash
+        tipTimestamp = headers[checkpoint.height]?.time
+        lastTipStatus = nil
+        checkpoints = checkpoints.filter { $0.height <= checkpoint.height }
+        if checkpoints.last != checkpoint {
+            checkpoints.append(checkpoint)
         }
     }
     
-    private func verify(_ header: Block.Header) throws -> Data {
-        let hash = getHash(of: header)
-        let hashNumber = BigUInt(hash.reversedData)
-        let target = getTarget(from: header.bits)
+    func drainMaintenanceEvents() -> [MaintenanceEvent] {
+        let events = queuedMaintenanceEvents
+        queuedMaintenanceEvents.removeAll()
+        return events
+    }
+    
+    func assessTipFreshness(now: Date = .init(), tolerance: TimeInterval) -> TipStatus {
+        guard let timestamp = tipTimestamp else {
+            let status = TipStatus(condition: .fresh, headerTime: .distantPast, assessedAt: now, height: tipHeight)
+            lastTipStatus = status
+            return status
+        }
         
-        guard hashNumber <= target else { throw Error.invalidProofOfWork(height: tipHeight + 1) }
+        let headerTime = Date(timeIntervalSince1970: TimeInterval(timestamp))
+        let drift = now.timeIntervalSince(headerTime)
+        let condition: TipStatus.Condition
+        
+        if drift > tolerance {
+            condition = .stale(by: drift)
+        } else if drift < -tolerance {
+            condition = .future(by: -drift)
+        } else {
+            condition = .fresh
+        }
+        
+        let status = TipStatus(condition: condition, headerTime: headerTime, assessedAt: now, height: tipHeight)
+        if status.condition != .fresh && status != lastTipStatus {
+            queueMaintenanceEvent(.staleTip(status: status))
+        }
+        lastTipStatus = status
+        return status
+    }
+}
+
+extension Block.Header.Chain {
+    private func verify(_ header: Block.Header, height: UInt32) throws -> Data {
+        let hash = header.proofOfWorkHash
+        let hashNumber = BigUInt(hash.reversedData)
+        let target = Block.Header.getTarget(for: header.bits)
+        
+        guard hashNumber <= target else { throw Error.invalidProofOfWork(height: height) }
         return hash
+    }
+    
+    private func registerCheckpoint(height: UInt32, hash: Data) {
+        let checkpoint = Checkpoint(height: height, hash: hash)
+        guard checkpoints.last != checkpoint else { return }
+        checkpoints.append(checkpoint)
+        let overflow = checkpoints.count - maxCheckpointDepth
+        if overflow > 0 {
+            checkpoints.removeFirst(overflow)
+        }
+    }
+    
+    private func registerContinuityFailure() {
+        queueMaintenanceEvent(.requiresResynchronization(from: latestCheckpoint))
+    }
+    
+    private func queueMaintenanceEvent(_ event: MaintenanceEvent) {
+        guard queuedMaintenanceEvents.contains(event) == false else { return }
+        queuedMaintenanceEvents.append(event)
     }
 }
