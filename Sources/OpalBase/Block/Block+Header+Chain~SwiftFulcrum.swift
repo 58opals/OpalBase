@@ -100,11 +100,32 @@ extension Block.Header.Chain {
             let response = try await fulcrum.submit(method: .blockchain(.block(.header(height: .init(height), checkpointHeight: nil))),
                                                     responseType: Response.Result.Blockchain.Block.Header.self)
             guard case .single(let id, let result) = response else { break }
-            await Log.shared.log("Synced block \(id)")
+            await Telemetry.shared.record(
+                name: "blockchain.sync.received",
+                category: .blockchain,
+                message: "Synced block payload",
+                metadata: [
+                    "block.identifier": .string(id.uuidString),
+                    "block.height": .int(Int(height))
+                ],
+                sensitiveKeys: ["block.identifier"]
+            )
             
             let headerData = try Data(hexString: result.hex)
             let (header, bytes) = try Block.Header.decode(from: headerData)
-            await Log.shared.log("\(bytes) bytes for \(header.encode().hexadecimalString)")
+            await Telemetry.shared.record(
+                name: "blockchain.sync.decoded",
+                category: .blockchain,
+                message: "Decoded block header payload",
+                metadata: [
+                    "block.identifier": .string(id.uuidString),
+                    "header.payload": .string(header.encode().hexadecimalString)
+                ],
+                metrics: [
+                    "block.payloadBytes": Double(bytes)
+                ],
+                sensitiveKeys: ["block.identifier", "header.payload"]
+            )
             
             try append(header, height: height)
             height &+= 1
