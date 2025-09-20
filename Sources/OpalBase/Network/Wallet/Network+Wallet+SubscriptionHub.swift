@@ -116,22 +116,37 @@ extension Network.Wallet.SubscriptionHub {
     func attach(consumerID: UUID,
                 address: Address,
                 fulcrum: Fulcrum) async throws {
-        var state = subscriptions[address] ?? SubscriptionState()
-        state.consumers.insert(consumerID)
-        subscriptions[address] = state
+        subscriptions[address, default: .init()].consumers.insert(consumerID)
         
         if let continuation = consumers[consumerID] {
             try await deliverReplay(for: address,
                                     to: continuation)
+            guard isConsumerActive(consumerID: consumerID, address: address) else {
+                await removeInactiveConsumer(consumerID, address: address)
+                return
+            }
         }
         
-        try await persist(address: address, isActive: true, lastStatus: state.lastStatus)
+        guard isConsumerActive(consumerID: consumerID, address: address) else {
+            await removeInactiveConsumer(consumerID, address: address)
+            return
+        }
+        
+        let lastStatus = subscriptions[address]?.lastStatus
+        
+        try await persist(address: address, isActive: true, lastStatus: lastStatus)
+        guard isConsumerActive(consumerID: consumerID, address: address) else {
+            await removeInactiveConsumer(consumerID, address: address)
+            return
+        }
+        
         try await startStreamingIfNeeded(for: address, using: fulcrum)
     }
     
     func startStreamingIfNeeded(for address: Address, using fulcrum: Fulcrum) async throws {
         var state = subscriptions[address] ?? SubscriptionState()
         guard state.task == nil else { return }
+        guard !state.consumers.isEmpty else { return }
         
         let task = Task { [weak self] in
             guard let self else { return }
@@ -249,11 +264,35 @@ extension Network.Wallet.SubscriptionHub {
             } catch {
                 throw Error.storageFailure(address, error)
             }
-            subscriptions[address] = state
+        }
+        
+        if var current = subscriptions[address] {
+            current.lastStatus = state.lastStatus
+            subscriptions[address] = current
         }
         
         if let status = state.lastStatus {
             continuation.yield(.init(address: address, status: status, isReplay: true))
+        }
+    }
+    
+    private func isConsumerActive(consumerID: UUID, address: Address) -> Bool {
+        guard consumers[consumerID] != nil else { return false }
+        guard let addresses = consumerAddresses[consumerID],
+              addresses.contains(address)
+        else { return false }
+        guard let state = subscriptions[address],
+              state.consumers.contains(consumerID)
+        else { return false }
+        return true
+    }
+    
+    private func removeInactiveConsumer(_ consumerID: UUID, address: Address) async {
+        guard var state = subscriptions[address], state.consumers.contains(consumerID) else { return }
+        state.consumers.remove(consumerID)
+        subscriptions[address] = state
+        if state.consumers.isEmpty {
+            await tearDown(address: address)
         }
     }
     

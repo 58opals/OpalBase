@@ -8,6 +8,7 @@ import SwiftFulcrum
 struct AddressBookTests {
     let fulcrum: Fulcrum
     var addressBook: Address.Book
+    let subscriptionHub: Network.Wallet.SubscriptionHub
     let rootExtendedPrivateKey: PrivateKey.Extended
     let purpose: DerivationPath.Purpose
     let coinType: DerivationPath.CoinType
@@ -15,6 +16,7 @@ struct AddressBookTests {
     
     init() async throws {
         self.fulcrum = try await .init()
+        self.subscriptionHub = .init()
         self.rootExtendedPrivateKey = .init(rootKey: try .init(seed: .init([0x00])))
         self.purpose = .bip44
         self.coinType = .bitcoinCash
@@ -275,7 +277,7 @@ extension AddressBookTests {
     @Test mutating func testHandleNotificationHook() async throws {
         let flag = Flag()
         
-        await addressBook.startSubscription(using: fulcrum) { await flag.mark() }
+        await addressBook.startSubscription(using: fulcrum, hub: subscriptionHub) { await flag.mark() }
         if let subscription = await addressBook.currentSubscription {
             await subscription.handleNotification(fulcrum: fulcrum)
         }
@@ -287,7 +289,7 @@ extension AddressBookTests {
     @Test func testAutoSubscribeNewAddress() async throws {
         let flag = Flag()
         
-        await addressBook.startSubscription(using: fulcrum) { await flag.mark() }
+        await addressBook.startSubscription(using: fulcrum, hub: subscriptionHub) { await flag.mark() }
         
         try await addressBook.generateEntries(for: .receiving, numberOfNewEntries: 1, isUsed: false)
         try await Task.sleep(nanoseconds: 100_000_000) // allow subscription setup
