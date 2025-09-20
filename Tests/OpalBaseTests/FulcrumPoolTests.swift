@@ -39,10 +39,11 @@ struct FulcrumPoolTests {
         let monitor = Network.Wallet.FulcrumPool.ServerHealth(repository: repository)
         let endpoint = try #require(URL(string: "wss://example.org:50002"))
         
-        let failure = try await monitor.recordFailure(for: endpoint, maxBackoff: 32)
+        let retryDate = Date().addingTimeInterval(5)
+        let failure = try await monitor.recordFailure(for: endpoint, retryAt: retryDate)
         #expect(failure.failures == 1)
         let quarantine = try #require(failure.quarantineUntil)
-        #expect(quarantine > Date())
+        #expect(quarantine >= retryDate)
         
         let storedFailure = try await repository.history(endpoint)
         #expect(storedFailure?.failures == 1)
@@ -79,18 +80,39 @@ struct FulcrumPoolTests {
         let monitor = Network.Wallet.FulcrumPool.ServerHealth(repository: repository)
         let endpoint = try #require(URL(string: "wss://example.org:50002"))
         
-        let first = try await monitor.recordFailure(for: endpoint, maxBackoff: 64)
-        let second = try await monitor.recordFailure(for: endpoint, maxBackoff: 64)
+        let now = Date()
+        let firstRetry = now.addingTimeInterval(3)
+        let secondRetry = now.addingTimeInterval(9)
+        let first = try await monitor.recordFailure(for: endpoint, retryAt: firstRetry)
+        let second = try await monitor.recordFailure(for: endpoint, retryAt: secondRetry)
         
         #expect(first.failures == 1)
         #expect(second.failures == 2)
         
         let firstQuarantine = try #require(first.quarantineUntil)
         let secondQuarantine = try #require(second.quarantineUntil)
-        #expect(secondQuarantine > firstQuarantine)
+        #expect(firstQuarantine >= firstRetry)
+        #expect(secondQuarantine >= secondRetry)
         
         let stored = try await repository.history(endpoint)
         #expect(stored?.failures == 2)
+    }
+    
+    @Test func testRetryBudgetDelaysAfterBurst() {
+        let configuration = Network.Wallet.FulcrumPool.Retry.Configuration.Budget(maximumAttempts: 2,
+                                                                                  replenishmentInterval: 4)
+        var budget = Network.Wallet.FulcrumPool.Retry(configuration: configuration,
+                                                      now: Date(timeIntervalSince1970: 0))
+        
+        let origin = Date(timeIntervalSince1970: 0)
+        #expect(budget.nextDelay(now: origin) == 0)
+        #expect(budget.nextDelay(now: origin) == 0)
+        
+        let throttledDelay = budget.nextDelay(now: origin)
+        #expect(abs(throttledDelay - 4) < 0.01)
+        
+        let resumed = budget.nextDelay(now: origin.addingTimeInterval(throttledDelay))
+        #expect(resumed == 0)
     }
     
     @Test func testRoleSelectionPrefersLowestLatency() {

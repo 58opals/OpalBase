@@ -81,15 +81,14 @@ extension Network.Wallet.FulcrumPool {
             return snapshot
         }
         
-        public func recordFailure(for url: URL, maxBackoff: TimeInterval) async throws -> Snapshot {
+        public func recordFailure(for url: URL, retryAt: Date) async throws -> Snapshot {
             let baseline = cache[url] ?? Snapshot(latency: nil,
                                                   condition: .unhealthy,
                                                   failures: 0,
                                                   quarantineUntil: nil,
                                                   lastOK: nil)
             let failures = baseline.failures + 1
-            let backoff = min(pow(2.0, Double(failures)), maxBackoff)
-            let until = Date().addingTimeInterval(backoff)
+            let until = max(retryAt, Date())
             let snapshot = Snapshot(latency: baseline.latency,
                                     condition: .unhealthy,
                                     failures: failures,

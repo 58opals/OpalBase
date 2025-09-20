@@ -21,8 +21,9 @@ extension Network.Wallet {
             var lastSuccessAt: Date?
             
             var role: Role
+            var retry: Retry
             
-            init(fulcrum: Fulcrum, endpoint: URL?) {
+            init(fulcrum: Fulcrum, endpoint: URL?, retryConfiguration: Retry.Configuration.Budget) {
                 self.fulcrum = fulcrum
                 self.endpoint = endpoint
                 self.failureCount = 0
@@ -31,12 +32,16 @@ extension Network.Wallet {
                 self.lastLatency = nil
                 self.lastSuccessAt = nil
                 self.role = .candidate
+                self.retry = .init(configuration: retryConfiguration)
             }
         }
         
         public let serverHealth: ServerHealth
         private var servers: [Server]
         private let maxBackoff: TimeInterval
+        
+        private let retryConfiguration: Retry.Configuration
+        private var globalRetry: Retry
         
         private var primaryIndex: Int?
         private var standbyIndex: Int?
@@ -45,12 +50,17 @@ extension Network.Wallet {
         private var status: Network.Wallet.Status = .offline
         private var statusContinuations: [UUID: AsyncStream<Network.Wallet.Status>.Continuation] = .init()
         
-        public init(urls: [String] = [],
-                    maxBackoff: TimeInterval = 64,
-                    healthRepository: Storage.Repository.ServerHealth? = nil) async throws {
+        public init(
+            urls: [String] = [],
+            maxBackoff: TimeInterval = 64,
+            healthRepository: Storage.Repository.ServerHealth? = nil,
+            retryConfiguration: Retry.Configuration = .basic
+        ) async throws {
             self.serverHealth = .init(repository: healthRepository)
             self.servers = []
             self.maxBackoff = maxBackoff
+            self.retryConfiguration = retryConfiguration
+            self.globalRetry = .init(configuration: retryConfiguration.global)
             self.status = .offline
             
             self.primaryIndex = nil
@@ -59,13 +69,17 @@ extension Network.Wallet {
             
             if urls.isEmpty {
                 let fulcrum = try await Fulcrum()
-                self.servers = [.init(fulcrum: fulcrum, endpoint: nil)]
+                self.servers = [.init(fulcrum: fulcrum,
+                                      endpoint: nil,
+                                      retryConfiguration: retryConfiguration.perServer)]
             } else {
                 self.servers = try await withThrowingTaskGroup(of: Server.self) { group in
                     for url in urls {
                         group.addTask {
                             let fulcrum = try await Fulcrum(url: url)
-                            return Server(fulcrum: fulcrum, endpoint: .init(string: url))
+                            return Server(fulcrum: fulcrum,
+                                          endpoint: .init(string: url),
+                                          retryConfiguration: retryConfiguration.perServer)
                         }
                     }
                     
@@ -121,7 +135,7 @@ extension Network.Wallet.FulcrumPool {
         }
         
         for index in prioritized {
-            var server = servers[index]
+            let server = servers[index]
             guard Date() >= server.nextRetry else { continue }
             
             do {
@@ -200,6 +214,8 @@ extension Network.Wallet.FulcrumPool {
             }
         }
         
+        let now = Date()
+        
         if let endpoint = server.endpoint {
             let snapshot = try await serverHealth.recordSuccess(for: endpoint, latency: latency)
             apply(snapshot, to: &server, adoptStatus: true)
@@ -208,10 +224,29 @@ extension Network.Wallet.FulcrumPool {
             server.nextRetry = .distantPast
             server.status = .online
             server.lastLatency = latency
-            server.lastSuccessAt = Date()
+            server.lastSuccessAt = now
         }
         
+        server.retry.reset(now: now)
         succeeded = true
+    }
+    
+    private func scheduleNextRetry(for server: inout Server, now: Date) -> Date {
+        var delay = max(server.retry.nextDelay(now: now),
+                        globalRetry.nextDelay(now: now))
+        delay = min(delay, maxBackoff)
+        
+        let jitterAddition: TimeInterval
+        if retryConfiguration.jitter.lowerBound == retryConfiguration.jitter.upperBound {
+            jitterAddition = retryConfiguration.jitter.lowerBound
+        } else {
+            jitterAddition = Double.random(in: retryConfiguration.jitter)
+        }
+        
+        let jittered = min(maxBackoff, delay + max(0, jitterAddition))
+        let scheduled = now.addingTimeInterval(jittered)
+        server.nextRetry = scheduled
+        return scheduled
     }
     
     private func markFailure(at index: Int) async throws {
@@ -225,20 +260,21 @@ extension Network.Wallet.FulcrumPool {
         }
         server.status = .offline
         
+        let now = Date()
+        let scheduledRetry = scheduleNextRetry(for: &server, now: now)
+        
         if let endpoint = server.endpoint {
             do {
-                let snapshot = try await serverHealth.recordFailure(for: endpoint, maxBackoff: maxBackoff)
+                let snapshot = try await serverHealth.recordFailure(for: endpoint, retryAt: scheduledRetry)
                 apply(snapshot, to: &server, adoptStatus: true)
+                server.nextRetry = max(server.nextRetry, snapshot.nextAttempt)
+                server.failureCount = snapshot.failures
             } catch let repositoryError as Network.Wallet.Error {
                 server.failureCount += 1
-                let backoff = min(pow(2.0, Double(server.failureCount)), maxBackoff)
-                server.nextRetry = Date().addingTimeInterval(backoff)
                 throw repositoryError
             }
         } else {
             server.failureCount += 1
-            let backoff = min(pow(2.0, Double(server.failureCount)), maxBackoff)
-            server.nextRetry = Date().addingTimeInterval(backoff)
         }
     }
     
