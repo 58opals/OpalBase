@@ -23,7 +23,7 @@ public struct DerivationPath {
     
     public var path: String {
         do {
-            return try "m/\(purpose.hardenedIndex.unharden())'/\(coinType.hardenedIndex.unharden())'/\(account.unhardenedIndex.harden())'/\(usage.unhardenedIndex)/\(index)"
+            return try "m/\(purpose.hardenedIndex.unharden())'/\(coinType.hardenedIndex.unharden())'/\(account.unhardenedIndex)'/\(usage.unhardenedIndex)/\(index)"
         } catch {
             Task {
                 await Telemetry.shared.record(

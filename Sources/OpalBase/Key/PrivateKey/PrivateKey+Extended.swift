@@ -30,11 +30,11 @@ extension PrivateKey {
         init(xprv: String) throws {
             guard let data = Base58.decode(xprv) else { throw Error.invalidFormat }
             guard data.count == 82 else { throw Error.invalidLength }
-            let version = UInt32(bigEndian: data[0..<4].withUnsafeBytes { $0.load(as: UInt32.self) })
+            let version = data[0..<4].withUnsafeBytes { UInt32(bigEndian: $0.loadUnaligned(as: UInt32.self)) }
             guard version == 0x0488ade4 else { throw Error.invalidVersion } // xprv main‑net
             self.depth = data[4]
             self.parentFingerprint = Data(data[5..<9])
-            self.childIndexNumber = UInt32(bigEndian: data[9..<13].withUnsafeBytes { $0.load(as: UInt32.self) })
+            self.childIndexNumber = data[9..<13].withUnsafeBytes { UInt32(bigEndian: $0.loadUnaligned(as: UInt32.self)) }
             self.chainCode = Data(data[13..<45])
             
             guard data[45] == 0 else { throw Error.invalidKeyPrefix }
