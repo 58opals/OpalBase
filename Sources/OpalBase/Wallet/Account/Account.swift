@@ -21,6 +21,9 @@ public actor Account: Identifiable {
     
     let addressMonitor: Monitor
     
+    public let privacyConfiguration: PrivacyShaper.Configuration
+    let privacyShaper: PrivacyShaper
+    
     private var networkMonitorTask: Task<Void, Never>?
     let requestRouter = RequestRouter<Request>()
     
@@ -29,6 +32,7 @@ public actor Account: Identifiable {
          purpose: DerivationPath.Purpose,
          coinType: DerivationPath.CoinType,
          account: DerivationPath.Account,
+         privacyConfiguration: PrivacyShaper.Configuration = .standard,
          outboxPath: URL? = nil,
          subscriptionRepository: Storage.Repository.Subscriptions? = nil,
          feeRepository: Storage.Repository.Fees? = nil) async throws {
@@ -53,6 +57,10 @@ public actor Account: Identifiable {
         self.subscriptionHub = .init(repository: subscriptionRepository)
         
         self.addressMonitor = .init()
+        
+        self.privacyConfiguration = privacyConfiguration
+        self.privacyShaper = .init(configuration: privacyConfiguration)
+        
         self.networkMonitorTask = Task { [weak self] in
             guard let self else { return }
             await self.monitorNetworkStatus()
@@ -64,35 +72,20 @@ public actor Account: Identifiable {
          rootExtendedPrivateKey: PrivateKey.Extended,
          purpose: DerivationPath.Purpose,
          coinType: DerivationPath.CoinType,
+         privacyConfiguration: PrivacyShaper.Configuration = .standard,
          outboxPath: URL? = nil,
          subscriptionRepository: Storage.Repository.Subscriptions? = nil,
          feeRepository: Storage.Repository.Fees? = nil) async throws {
-        let account = try await Self.init(fulcrumServerURLs: fulcrumServerURLs,
-                                          rootExtendedPrivateKey: rootExtendedPrivateKey,
-                                          purpose: purpose,
-                                          coinType: coinType,
-                                          account: try .init(rawIndexInteger: snapshot.account),
-                                          outboxPath: outboxPath,
-                                          subscriptionRepository: subscriptionRepository,
-                                          feeRepository: feeRepository)
-        self.fulcrumPool = account.fulcrumPool
-        self.feeRate = account.feeRate
-        self.rootExtendedPrivateKey = account.rootExtendedPrivateKey
-        self.purpose = account.purpose
-        self.coinType = account.coinType
-        self.account = account.account
-        self.id = account.id
-        self.addressBook = await account.addressBook
-        self.outbox = account.outbox
-        self.subscriptionHub = account.subscriptionHub
-        self.addressMonitor = .init()
-        
+        try await self.init(fulcrumServerURLs: fulcrumServerURLs,
+                            rootExtendedPrivateKey: rootExtendedPrivateKey,
+                            purpose: purpose,
+                            coinType: coinType,
+                            account: try .init(rawIndexInteger: snapshot.account),
+                            privacyConfiguration: privacyConfiguration,
+                            outboxPath: outboxPath,
+                            subscriptionRepository: subscriptionRepository,
+                            feeRepository: feeRepository)
         try await self.addressBook.applySnapshot(snapshot.addressBook)
-        
-        self.networkMonitorTask = Task { [weak self] in
-            guard let self else { return }
-            await self.monitorNetworkStatus()
-        }
     }
     
     deinit {

@@ -30,30 +30,42 @@ extension Account {
                      allowDustDonation: Bool = false,
                      strategy: Address.Book.CoinSelection = .greedyLargestFirst) async throws -> Transaction.Hash {
         let accountBalance = try await calculateBalance()
-        let spendingValue = sendings.map{ $0.value.uint64 }.reduce(0, +)
+        let spendingValue = sendings.map { $0.value.uint64 }.reduce(0, +)
         guard spendingValue < accountBalance.uint64 else { throw Transaction.Error.insufficientFunds(required: spendingValue) }
         
-        var selectedFeeRate: UInt64
+        let selectedFeeRate: UInt64
         if let feePerByte = feePerByte {
             selectedFeeRate = feePerByte
         } else {
-            selectedFeeRate = try await feeRate.fetchRecommendedFeeRate()
+            let feeDecoyCount = await privacyShaper.nextDecoyCount
+            let feeDecoys = await makeDecoyOperations(count: feeDecoyCount)
+            selectedFeeRate = try await privacyShaper.scheduleSensitiveOperation(decoys: feeDecoys) {
+                try await self.feeRate.fetchRecommendedFeeRate()
+            }
         }
         
-        let recipientOutputs = sendings.map { Transaction.Output(value: $0.value.uint64, address: $0.recipientAddress) }
-        let utxos = try await addressBook.selectUTXOs(
-            targetAmount: Satoshi(spendingValue),
-            recipientOutputs: recipientOutputs,
-            changeLockingScript: addressBook.selectNextEntry(for: .change).address.lockingScript.data,
-            feePerByte: selectedFeeRate,
-            strategy: strategy
-        )
+        let baseRecipientOutputs = sendings.map { Transaction.Output(value: $0.value.uint64, address: $0.recipientAddress) }
+        let recipientOutputs = await privacyShaper.randomizeOutputs(baseRecipientOutputs)
+        let changeEntry = try await addressBook.selectNextEntry(for: .change)
         
+        let utxoDecoyCount = await privacyShaper.nextDecoyCount
+        let utxoDecoys = await makeDecoyOperations(count: utxoDecoyCount)
+        let selectedUTXOs = try await privacyShaper.scheduleSensitiveOperation(decoys: utxoDecoys) {
+            try await self.addressBook.selectUTXOs(
+                targetAmount: Satoshi(spendingValue),
+                recipientOutputs: recipientOutputs,
+                changeLockingScript: changeEntry.address.lockingScript.data,
+                feePerByte: selectedFeeRate,
+                strategy: strategy
+            )
+        }
+        
+        let utxos = await privacyShaper.applyCoinSelectionHeuristics(to: selectedUTXOs)
         let spendableValue = utxos.map { $0.value }.reduce(0, +)
         
         let privateKeyPairs = try await addressBook.derivePrivateKeys(for: utxos)
         
-        let changeAddress = try await addressBook.selectNextEntry(for: .change).address
+        let changeAddress = changeEntry.address
         let remainingValue = spendableValue - spendingValue
         
         let transaction = try Transaction.build(version: 2,
@@ -69,11 +81,15 @@ extension Account {
         let manuallyGeneratedTransactionHash = Transaction.Hash(naturalOrder: HASH256.hash(transactionData))
         let broadcastHandle = await requestRouter.handle(for: .broadcast(manuallyGeneratedTransactionHash))
         
-        let broadcastRequest: @Sendable () async throws -> Void = { [self] in
-            let fulcrum = try await fulcrumPool.acquireFulcrum()
-            let response = try await transaction.broadcast(using: fulcrum)
-            guard !response.originalData.isEmpty else { throw Transaction.Error.cannotBroadcastTransaction }
-            await outbox.remove(transactionHash: response)
+        let broadcastRequest: @Sendable () async throws -> Void = { [self, transaction] in
+            let broadcastDecoyCount = await self.privacyShaper.nextDecoyCount
+            let broadcastDecoys = await self.makeDecoyOperations(count: broadcastDecoyCount, includeFeeRateQuery: true)
+            try await self.privacyShaper.scheduleSensitiveOperation(decoys: broadcastDecoys) {
+                let fulcrum = try await self.fulcrumPool.acquireFulcrum()
+                let response = try await transaction.broadcast(using: fulcrum)
+                guard !response.originalData.isEmpty else { throw Transaction.Error.cannotBroadcastTransaction }
+                await self.outbox.remove(transactionHash: response)
+            }
         }
         
         if await fulcrumPool.currentStatus == .online {
@@ -92,6 +108,40 @@ extension Account {
         await addressBook.handleOutgoingTransaction(transaction)
         
         return manuallyGeneratedTransactionHash
+    }
+    
+    private func makeDecoyOperations(count: Int, includeFeeRateQuery: Bool = false) async -> [@Sendable () async -> Void] {
+        guard count > 0 || includeFeeRateQuery else { return [] }
+        
+        var operations: [@Sendable () async -> Void] = .init()
+        
+        if count > 0 {
+            let receivingEntries = await addressBook.listEntries(for: .receiving)
+            let changeEntries = await addressBook.listEntries(for: .change)
+            let addresses = (receivingEntries + changeEntries).map(\.address)
+            
+            if !addresses.isEmpty {
+                var generator = SystemRandomNumberGenerator()
+                for address in addresses.shuffled(using: &generator).prefix(count) {
+                    let decoy: @Sendable () async -> Void = { [fulcrumPool, address] in
+                        do {
+                            let fulcrum = try await fulcrumPool.acquireFulcrum()
+                            _ = try? await address.fetchBalance(includeUnconfirmed: true, using: fulcrum)
+                        } catch { }
+                    }
+                    operations.append(decoy)
+                }
+            }
+        }
+        
+        if includeFeeRateQuery {
+            let decoy: @Sendable () async -> Void = { [feeRate] in
+                _ = try? await feeRate.fetchRecommendedFeeRate(for: .normal)
+            }
+            operations.append(decoy)
+        }
+        
+        return operations
     }
     
     public func refreshUTXOSet() async {

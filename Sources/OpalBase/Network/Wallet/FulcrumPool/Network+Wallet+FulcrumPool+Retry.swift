@@ -71,7 +71,7 @@ extension Network.Wallet.FulcrumPool.Retry {
             self.jitter = jitter
         }
         
-        public static let basic: Self = .init(perServer: .init(maximumAttempts: 5,
+        public static let standard: Self = .init(perServer: .init(maximumAttempts: 5,
                                                                replenishmentInterval: 45),
                                               global: .init(maximumAttempts: 12,
                                                             replenishmentInterval: 30),

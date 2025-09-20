@@ -54,7 +54,7 @@ extension Network.Wallet {
             urls: [String] = [],
             maxBackoff: TimeInterval = 64,
             healthRepository: Storage.Repository.ServerHealth? = nil,
-            retryConfiguration: Retry.Configuration = .basic
+            retryConfiguration: Retry.Configuration = .standard
         ) async throws {
             self.serverHealth = .init(repository: healthRepository)
             self.servers = []
