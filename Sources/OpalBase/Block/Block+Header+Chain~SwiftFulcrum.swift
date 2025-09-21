@@ -94,31 +94,28 @@ extension Block.Header.Chain {
         return currentHash == header.merkleRoot
     }
     
-    func sync(from startHeight: UInt32? = nil, using fulcrum: Fulcrum) async throws {
+    func sync(from startHeight: UInt32? = nil, using client: Network.Gateway.Client) async throws {
         var height = startHeight ?? (headers.isEmpty ? checkpointHeight : tipHeight &+ 1)
         while true {
-            let response = try await fulcrum.submit(method: .blockchain(.block(.header(height: .init(height), checkpointHeight: nil))),
-                                                    responseType: Response.Result.Blockchain.Block.Header.self)
-            guard case .single(let id, let result) = response else { break }
+            guard let payload = try await client.getHeader(height: height) else { break }
             await Telemetry.shared.record(
                 name: "blockchain.sync.received",
                 category: .blockchain,
                 message: "Synced block payload",
                 metadata: [
-                    "block.identifier": .string(id.uuidString),
+                    "block.identifier": .string(payload.identifier.uuidString),
                     "block.height": .int(Int(height))
                 ],
                 sensitiveKeys: ["block.identifier"]
             )
             
-            let headerData = try Data(hexString: result.hex)
-            let (header, bytes) = try Block.Header.decode(from: headerData)
+            let (header, bytes) = try Block.Header.decode(from: payload.raw)
             await Telemetry.shared.record(
                 name: "blockchain.sync.decoded",
                 category: .blockchain,
                 message: "Decoded block header payload",
                 metadata: [
-                    "block.identifier": .string(id.uuidString),
+                    "block.identifier": .string(payload.identifier.uuidString),
                     "header.payload": .string(header.encode().hexadecimalString)
                 ],
                 metrics: [

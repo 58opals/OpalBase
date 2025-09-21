@@ -23,12 +23,8 @@ extension Network {
         public func currentMempool(forceRefresh: Bool = false) async throws -> Set<Transaction.Hash> {
             let now = Date()
             if forceRefresh || now.timeIntervalSince(mempoolLastRefresh) > mempoolTTL {
-                do {
-                    mempool = try await client.currentMempool()
-                    mempoolLastRefresh = now
-                } catch {
-                    throw Error.mempoolFetchFailed(error)
-                }
+                mempool = client.currentMempool
+                mempoolLastRefresh = now
             }
             return mempool
         }
@@ -38,23 +34,52 @@ extension Network {
         }
         
         public func broadcast(_ transaction: Transaction) async throws -> Transaction.Hash {
-            let hash = Transaction.Hash(naturalOrder: HASH256.hash(transaction.encode()))
-            
-            if await seen.get(hash) != nil { return hash }
+            let expectedHash = Transaction.Hash(naturalOrder: HASH256.hash(transaction.encode()))
+            if await seen.get(expectedHash) != nil { return expectedHash }
             let pool = try await currentMempool()
-            guard !pool.contains(hash) else {
-                await seen.set(hash, true)
-                return hash
+            guard !pool.contains(expectedHash) else {
+                await seen.set(expectedHash, true)
+                return expectedHash
             }
             
             do {
-                try await client.broadcast(transaction)
-                mempool.insert(hash)
-                await seen.set(hash, true)
-                return hash
+                let acknowledged = try await client.broadcast(transaction)
+                mempool.insert(acknowledged)
+                if acknowledged != expectedHash {
+                    mempool.insert(expectedHash)
+                }
+                await seen.set(expectedHash, true)
+                if acknowledged != expectedHash {
+                    await seen.set(expectedHash, true)
+                }
+                return acknowledged
             } catch {
                 throw Error.broadcastFailed(error)
             }
+        }
+        
+        public func rawTransaction(for hash: Transaction.Hash) async throws -> Data {
+            try await client.getRawTransaction(for: hash)
+        }
+        
+        public func detailedTransaction(for hash: Transaction.Hash) async throws -> Transaction.Detailed {
+            try await client.getDetailedTransaction(for: hash)
+        }
+        
+        public func estimateFee(targetBlocks: Int) async throws -> Satoshi {
+            try await client.getEstimateFee(targetBlocks: targetBlocks)
+        }
+        
+        public func relayFee() async throws -> Satoshi {
+            try await client.getRelayFee()
+        }
+        
+        public func header(height: UInt32) async throws -> HeaderPayload? {
+            try await client.getHeader(height: height)
+        }
+        
+        public func pingHeadersTip() async throws {
+            try await client.pingHeadersTip()
         }
         
         public func isInMempool(_ hash: Transaction.Hash) -> Bool {
@@ -82,23 +107,6 @@ extension Network.Gateway.Error: Equatable {
             return true
         default:
             return false
-        }
-    }
-}
-
-// MARK: - SwiftFulcrum
-import SwiftFulcrum
-
-extension Network.Gateway {
-    public struct FulcrumClient: Client {
-        private let fulcrum: SwiftFulcrum.Fulcrum
-        public init(fulcrum: SwiftFulcrum.Fulcrum) { self.fulcrum = fulcrum }
-        public func currentMempool() async throws -> Set<Transaction.Hash> { [] }
-        public func broadcast(_ transaction: Transaction) async throws {
-            _ = try await transaction.broadcast(using: fulcrum)
-        }
-        public func fetch(_ hash: Transaction.Hash) async throws -> Transaction? {
-            try? await Transaction.fetchTransaction(for: hash, using: fulcrum)
         }
     }
 }

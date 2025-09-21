@@ -150,7 +150,7 @@ extension Address {
             
             if !needs.isEmpty {
                 let unique = Array(Set(needs.map { $0.transactionHash }))
-                let fetched = try await Transaction.fetchFullTransactionsBatched(for: unique, using: fulcrum)
+                let fetched = try await Transaction.fetchFullTransactionsBatched(for: unique, using: Adapter.SwiftFulcrum.GatewayClient(fulcrum: fulcrum))
                 for need in needs {
                     if let detailed = fetched[need.transactionHash.originalData],
                        Int(need.outputIndex) < detailed.transaction.outputs.count {

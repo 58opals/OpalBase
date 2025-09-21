@@ -199,10 +199,10 @@ struct TransactionSigningTests {
         defer { Task { await fulcrum.stop() } }
         
         // Fee endpoints should return sane values.
-        let relay = try await Transaction.relayFee(using: fulcrum)
+        let relay = try await Transaction.getRelayFee(using: Adapter.SwiftFulcrum.GatewayClient(fulcrum: fulcrum))
         #expect(relay.uint64 > 0)
         
-        let est = try await Transaction.estimateFee(numberOfBlocks: 1, using: fulcrum)
+        let est = try await Transaction.getEstimateFee(numberOfBlocks: 1, using: Adapter.SwiftFulcrum.GatewayClient(fulcrum: fulcrum))
         #expect(est.uint64 > 0)
         
         // Query a zero-balance fresh address to exercise address RPCs.

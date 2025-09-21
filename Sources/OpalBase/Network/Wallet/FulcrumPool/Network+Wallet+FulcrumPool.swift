@@ -192,11 +192,16 @@ extension Network.Wallet.FulcrumPool {
         throw Network.Wallet.Error.noHealthyServer
     }
     
+    public func acquireGatewayClient() async throws -> Network.Gateway.Client {
+        let fulcrum = try await acquireFulcrum()
+        return Adapter.SwiftFulcrum.GatewayClient(fulcrum: fulcrum)
+    }
+    
     private func ping(_ fulcrum: Fulcrum) async throws -> TimeInterval {
         let start = Date()
         do {
-            _ = try await fulcrum.submit(method: .blockchain(.headers(.getTip)),
-                                         responseType: Response.Result.Blockchain.Headers.GetTip.self)
+            let client = Adapter.SwiftFulcrum.GatewayClient(fulcrum: fulcrum)
+            try await client.pingHeadersTip()
             return Date().timeIntervalSince(start)
         } catch {
             throw Network.Wallet.Error.pingFailed(error)

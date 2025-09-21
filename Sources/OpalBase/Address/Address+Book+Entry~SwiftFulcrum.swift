@@ -47,7 +47,7 @@ extension Address.Book.Entry {
         let detailedTransactions = try await withThrowingTaskGroup(of: Transaction.Detailed.self) { group in
             for transactionHash in transactionHashes {
                 group.addTask {
-                    try await Transaction.fetchFullTransaction(for: transactionHash, using: fulcrum)
+                    try await Transaction.fetchFullTransaction(for: transactionHash, using: Adapter.SwiftFulcrum.GatewayClient(fulcrum: fulcrum))
                 }
             }
             

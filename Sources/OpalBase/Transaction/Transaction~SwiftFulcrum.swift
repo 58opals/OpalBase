@@ -59,84 +59,42 @@ extension Transaction.Detailed {
 }
 
 extension Transaction {
-    func broadcast(using fulcrum: Fulcrum) async throws -> Transaction.Hash {
-        let response = try await fulcrum.submit(method: .blockchain(.transaction(.broadcast(rawTransaction: self.encode().hexadecimalString))),
-                                                responseType: Response.Result.Blockchain.Transaction.Broadcast.self)
-        guard case .single(let id, let result) = response else { throw Fulcrum.Error.coding(.decode(nil))  }
-        
-        assert(UUID(uuidString: id.uuidString) != nil, "Invalid UUID: \(id.uuidString)")
-        
-        let broadcasted = result
-        
-        return .init(dataFromRPC: broadcasted.transactionHash)
+    public func broadcast(using client: Network.Gateway.Client) async throws -> Transaction.Hash {
+        try await client.broadcast(self)
     }
 }
 
 extension Transaction {
-    static func estimateFee(numberOfBlocks: Int, using fulcrum: Fulcrum) async throws -> Satoshi {
-        let response = try await fulcrum.submit(method: .blockchain(.estimateFee(numberOfBlocks: numberOfBlocks)),
-                                                responseType: Response.Result.Blockchain.EstimateFee.self)
-        guard case .single(let id, let result) = response else { throw Fulcrum.Error.coding(.decode(nil))  }
-        
-        assert(UUID(uuidString: id.uuidString) != nil, "Invalid UUID: \(id.uuidString)")
-        
-        let satoshi = try Satoshi(bch: result.fee)
-        
-        return satoshi
+    public static func getEstimateFee(numberOfBlocks: Int, using client: Network.Gateway.Client) async throws -> Satoshi {
+        try await client.getEstimateFee(targetBlocks: numberOfBlocks)
     }
     
-    static func relayFee(using fulcrum: Fulcrum) async throws -> Satoshi {
-        let response = try await fulcrum.submit(method: .blockchain(.relayFee),
-                                                responseType: Response.Result.Blockchain.RelayFee.self)
-        guard case .single(let id, let result) = response else { throw Fulcrum.Error.coding(.decode(nil))  }
-        
-        assert(UUID(uuidString: id.uuidString) != nil, "Invalid UUID: \(id.uuidString)")
-        
-        let satoshi = try Satoshi(bch: result.fee)
-        
-        return satoshi
+    public static func getRelayFee(using client: Network.Gateway.Client) async throws -> Satoshi {
+        try await client.getRelayFee()
     }
 }
 
 extension Transaction {
-    static func fetchRawData(for transactionHash: Transaction.Hash, using fulcrum: Fulcrum) async throws -> Data {
-        let response = try await fulcrum.submit(method: .blockchain(.transaction(.get(transactionHash: transactionHash.externallyUsedFormat.hexadecimalString, verbose: true))),
-                                                responseType: Response.Result.Blockchain.Transaction.Get.self)
-        guard case .single(let id, let result) = response else { throw Fulcrum.Error.coding(.decode(nil))  }
-        
-        assert(UUID(uuidString: id.uuidString) != nil, "Invalid UUID: \(id.uuidString)")
-        
-        let rawHex = result.hex
-        
-        return try Data(hexString: rawHex)
+    public static func fetchRawData(for transactionHash: Transaction.Hash, using client: Network.Gateway.Client) async throws -> Data {
+        try await client.getRawTransaction(for: transactionHash)
     }
     
-    static func fetchTransaction(for transactionHash: Transaction.Hash, using fulcrum: Fulcrum) async throws -> Transaction {
-        let response = try await fulcrum.submit(
-            method: .blockchain(.transaction(.get(transactionHash: transactionHash.externallyUsedFormat.hexadecimalString, verbose: true))),
-            responseType: Response.Result.Blockchain.Transaction.Get.self
-        )
-        guard case .single(let id, let result) = response else { throw Fulcrum.Error.coding(.decode(nil))  }
-        assert(UUID(uuidString: id.uuidString) != nil, "Invalid UUID: \(id.uuidString)")
-        
-        return try Transaction.Detailed(from: result).transaction
+    public static func fetchTransaction(for transactionHash: Transaction.Hash, using client: Network.Gateway.Client) async throws -> Transaction {
+        guard let transaction = try await client.fetch(transactionHash) else {
+            throw Transaction.Error.transactionNotFound
+        }
+        return transaction
     }
     
-    static func fetchFullTransaction(for transactionHash: Transaction.Hash, using fulcrum: Fulcrum) async throws -> Transaction.Detailed {
+    public static func fetchFullTransaction(for transactionHash: Transaction.Hash, using client: Network.Gateway.Client) async throws -> Transaction.Detailed {
         let cacheKey = transactionHash
         if let cached = await Cache.shared.get(at: cacheKey) { return cached }
-        let response = try await fulcrum.submit(
-            method: .blockchain(.transaction(.get(transactionHash: transactionHash.externallyUsedFormat.hexadecimalString, verbose: true))),
-            responseType: Response.Result.Blockchain.Transaction.Get.self
-        )
-        guard case .single(let id, let result) = response else { throw Fulcrum.Error.coding(.decode(nil)) }
-        assert(UUID(uuidString: id.uuidString) != nil, "Invalid UUID: \(id.uuidString)")
-        let detailed = try Transaction.Detailed(from: result)
+        let detailed = try await client.getDetailedTransaction(for: transactionHash)
         await Cache.shared.put(detailed, at: cacheKey)
         return detailed
     }
     
-    static func fetchFullTransactionsBatched(for hashes: [Transaction.Hash], using fulcrum: Fulcrum) async throws -> [Data: Transaction.Detailed] {
+    public static func fetchFullTransactionsBatched(for hashes: [Transaction.Hash], using client: Network.Gateway.Client) async throws -> [Data: Transaction.Detailed] {
         var result: [Data: Transaction.Detailed] = .init()
         var hashesToFetch: [Transaction.Hash] = .init()
         var hashesAlreadySeen: Set<Transaction.Hash> = .init()
@@ -153,7 +111,7 @@ extension Transaction {
             try await withThrowingTaskGroup(of: (Transaction.Hash, Transaction.Detailed).self) { group in
                 for hash in hashesToFetch {
                     group.addTask {
-                        let detailed = try await fetchFullTransaction(for: hash, using: fulcrum)
+                        let detailed = try await fetchFullTransaction(for: hash, using: client)
                         return (hash, detailed)
                     }
                 }

@@ -21,7 +21,7 @@ extension OutboxTests {
         #expect((try? FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil))?.count == 1, "Transaction should be stored")
 
         let badFulcrum = try await Fulcrum(url: "wss://invalid.example.com")
-        await outbox.retryPendingTransactions(using: badFulcrum)
+        await outbox.retryPendingTransactions(using: Adapter.SwiftFulcrum.GatewayClient(fulcrum: badFulcrum))
         #expect((try? FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil))?.count == 1, "Failed retry should keep file")
 
         await outbox.purgeTransactions()

@@ -85,8 +85,8 @@ extension Account {
             let broadcastDecoyCount = await self.privacyShaper.nextDecoyCount
             let broadcastDecoys = await self.makeDecoyOperations(count: broadcastDecoyCount, includeFeeRateQuery: true)
             try await self.privacyShaper.scheduleSensitiveOperation(decoys: broadcastDecoys) {
-                let fulcrum = try await self.fulcrumPool.acquireFulcrum()
-                let response = try await transaction.broadcast(using: fulcrum)
+                let client = try await self.fulcrumPool.acquireGatewayClient()
+                let response = try await client.broadcast(transaction)
                 guard !response.originalData.isEmpty else { throw Transaction.Error.cannotBroadcastTransaction }
                 await self.outbox.remove(transactionHash: response)
             }
@@ -235,7 +235,7 @@ extension Account {
                 
                 if let fulcrum = try? await fulcrumPool.acquireFulcrum() {
                     await addressBook.startSubscription(using: fulcrum, hub: subscriptionHub)
-                    await outbox.retryPendingTransactions(using: fulcrum)
+                    await outbox.retryPendingTransactions(using: Adapter.SwiftFulcrum.GatewayClient(fulcrum: fulcrum))
                 }
                 
             case .connecting, .offline:

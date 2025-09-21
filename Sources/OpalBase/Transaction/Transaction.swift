@@ -130,6 +130,7 @@ extension Transaction {
         case unsupportedSignatureFormat
         case outputValueIsLessThanTheDustLimit
         case sighashSingleIndexOutOfRange
+        case transactionNotFound
     }
 }
 
