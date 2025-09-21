@@ -7,7 +7,7 @@ import SwiftFulcrum
 struct OutboxTests {
     let folder: URL
     let outbox: Account.Outbox
-
+    
     init() async throws {
         folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         outbox = try Account.Outbox(folderURL: folder)
@@ -19,11 +19,11 @@ extension OutboxTests {
         let tx = Data([0xde, 0xad, 0xbe, 0xef])
         try await outbox.save(transactionData: tx)
         #expect((try? FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil))?.count == 1, "Transaction should be stored")
-
+        
         let badFulcrum = try await Fulcrum(url: "wss://invalid.example.com")
-        await outbox.retryPendingTransactions(using: Adapter.SwiftFulcrum.GatewayClient(fulcrum: badFulcrum))
+        await outbox.retryPendingTransactions(using: .init(client: Adapter.SwiftFulcrum.GatewayClient(fulcrum: badFulcrum)))
         #expect((try? FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil))?.count == 1, "Failed retry should keep file")
-
+        
         await outbox.purgeTransactions()
         #expect((try? FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil))?.isEmpty ?? false, "Purge should clear files")
     }
@@ -33,7 +33,7 @@ extension OutboxTests {
 struct AccountOutboxAPITests {
     let folder: URL
     var account: Account
-
+    
     init() async throws {
         folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         let root = try PrivateKey.Extended.Root(seed: Data([0x00]))
@@ -51,10 +51,10 @@ extension AccountOutboxAPITests {
     @Test mutating func testRetryAndPurgeViaAccount() async throws {
         let tx = Data([0xca, 0xfe])
         try await account.outbox.save(transactionData: tx)
-
+        
         await account.retryOutbox()
         #expect((try? FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil))?.count == 1, "Failed retry should keep file")
-
+        
         await account.purgeOutbox()
         #expect((try? FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil))?.isEmpty ?? false, "Purge should clear files")
     }

@@ -26,9 +26,11 @@ extension RequestRouter.Handle {
     }
     
     public func perform<Value: Sendable>(priority: TaskPriority? = nil,
+                                         retryPolicy: RequestRouter.RetryPolicy = .discard,
                                          operation: @escaping @Sendable () async throws -> Value) async throws -> Value {
         try await router.perform(key: key,
                                  priority: priority,
+                                 retryPolicy: retryPolicy,
                                  operation: operation)
     }
     

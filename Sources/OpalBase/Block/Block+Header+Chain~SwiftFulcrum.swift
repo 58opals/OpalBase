@@ -94,10 +94,10 @@ extension Block.Header.Chain {
         return currentHash == header.merkleRoot
     }
     
-    func sync(from startHeight: UInt32? = nil, using client: Network.Gateway.Client) async throws {
+    func sync(from startHeight: UInt32? = nil, using gateway: Network.Gateway) async throws {
         var height = startHeight ?? (headers.isEmpty ? checkpointHeight : tipHeight &+ 1)
         while true {
-            guard let payload = try await client.getHeader(height: height) else { break }
+            guard let payload = try await gateway.getHeader(height: height) else { break }
             await Telemetry.shared.record(
                 name: "blockchain.sync.received",
                 category: .blockchain,

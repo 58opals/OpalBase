@@ -29,13 +29,13 @@ extension Account.Outbox {
 }
 
 extension Account.Outbox {
-    func retryPendingTransactions(using client: Network.Gateway.Client) async {
+    func retryPendingTransactions(using gateway: Network.Gateway) async {
         guard let urls = try? fileManager.contentsOfDirectory(at: folderURL, includingPropertiesForKeys: nil) else { return }
         for url in urls {
             do {
                 let data = try Data(contentsOf: url)
                 let (transaction, _) = try Transaction.decode(from: data)
-                let response = try await client.broadcast(transaction)
+                let response = try await gateway.broadcast(transaction)
                 guard !response.originalData.isEmpty else { continue }
                 try fileManager.removeItem(at: url)
             } catch {
@@ -52,8 +52,8 @@ extension Account.Outbox {
 
 extension Account {
     func retryOutbox() async {
-        if let client = try? await fulcrumPool.acquireGatewayClient() {
-            await outbox.retryPendingTransactions(using: client)
+        if let gateway = try? await fulcrumPool.acquireGateway() {
+            await outbox.retryPendingTransactions(using: gateway)
         }
     }
     

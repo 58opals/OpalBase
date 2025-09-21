@@ -22,9 +22,9 @@ extension Network.Wallet {
                     persistence: Persistence? = nil)
         {
             self.fetchRate = { tier in
-                let client = try await fulcrumPool.acquireGatewayClient()
-                async let estimated = client.getEstimateFee(targetBlocks: tier.targetBlocks)
-                async let relay = client.getRelayFee()
+                let gateway = try await fulcrumPool.acquireGateway()
+                async let estimated = gateway.getEstimateFee(targetBlocks: tier.targetBlocks)
+                async let relay = gateway.getRelayFee()
                 let (recommended, relayFee) = try await (estimated, relay)
                 return max(recommended.uint64, relayFee.uint64)
             }

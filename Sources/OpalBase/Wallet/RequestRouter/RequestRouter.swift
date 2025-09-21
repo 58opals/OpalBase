@@ -4,17 +4,27 @@ import Foundation
 
 public actor RequestRouter<RequestValue: Hashable & Sendable> {
     private let configuration: Configuration
+    private let instrumentation: Instrumentation
     private var queue: [Request] = .init()
     private var queuedIndices: [Key: Int] = .init()
     private var queueIndicesKeys: [Key] { Array(queuedIndices.keys) }
     private var activeRequests: [Key: ActiveRequest] = .init()
-    private var processor: Task<Void, Never>?
     private var isSuspended = false
-    private let clock = ContinuousClock()
     private var nextPermittedStart: ContinuousClock.Instant?
     
-    public init(configuration: Configuration = .init()) {
+    private var scheduledResume: Task<Void, Never>?
+    private var scheduledResumeDeadline: ContinuousClock.Instant?
+    private let clock = ContinuousClock()
+    private var retryBudgetState: RetryBudget.State
+    
+    public init(configuration: Configuration = .init(),
+                instrumentation: Instrumentation = .init())
+    {
+        precondition(configuration.maximumConcurrentRequests > 0,
+                     "maximumConcurrentRequests must be at least 1")
         self.configuration = configuration
+        self.instrumentation = instrumentation
+        self.retryBudgetState = configuration.retryBudget.makeState(clock: clock)
     }
     
     public func handle(for rawValue: RequestValue) -> Handle {
@@ -24,9 +34,14 @@ public actor RequestRouter<RequestValue: Hashable & Sendable> {
     public func cancelAll() {
         let cancellation = CancellationError()
         
+        scheduledResume?.cancel()
+        scheduledResume = nil
+        scheduledResumeDeadline = nil
+        
         let requests = queue
         queue.removeAll()
         queuedIndices.removeAll()
+        instrumentation.queueDepthDidChange(queue.count)
         for request in requests {
             request.onCancellation?(cancellation)
         }
@@ -45,37 +60,55 @@ public actor RequestRouter<RequestValue: Hashable & Sendable> {
     
     public func suspend() {
         isSuspended = true
+        scheduledResume?.cancel()
+        scheduledResume = nil
+        scheduledResumeDeadline = nil
     }
     
     public func resume() {
         guard isSuspended else { return }
         isSuspended = false
         nextPermittedStart = nil
-        startProcessingIfNeeded()
+        tryStartNext()
     }
     
     func enqueue(key: Key,
                  priority: TaskPriority?,
                  retryPolicy: RetryPolicy,
                  onCancellation: (@Sendable (CancellationError) -> Void)? = nil,
-                 operation: @escaping @Sendable () async throws -> Void) {
+                 onFailure: (@Sendable (Swift.Error) -> Void)? = nil,
+                 operation: @escaping @Sendable () async throws -> Void)
+    {
+        let now = clock.now
         let request = Request(key: key,
                               priority: priority,
                               retryPolicy: retryPolicy,
                               operation: operation,
-                              onCancellation: onCancellation)
+                              onCancellation: onCancellation,
+                              onFailure: onFailure,
+                              enqueuedAt: now,
+                              attempt: 0,
+                              earliestStart: now)
         schedule(request)
     }
     
     func perform<Value>(key: Key,
                         priority: TaskPriority?,
-                        operation: @escaping @Sendable () async throws -> Value) async throws -> Value {
+                        retryPolicy: RetryPolicy,
+                        operation: @escaping @Sendable () async throws -> Value) async throws -> Value
+    {
         try await withCheckedThrowingContinuation { continuation in
-            Task {
-                enqueue(key: key,
-                        priority: priority,
-                        retryPolicy: .discard,
-                        onCancellation: { continuation.resume(throwing: $0) }) { [weak self] in
+            Task { [weak self] in
+                guard let self else {
+                    continuation.resume(throwing: CancellationError())
+                    return
+                }
+                
+                await self.enqueue(key: key,
+                                   priority: priority,
+                                   retryPolicy: retryPolicy,
+                                   onCancellation: { continuation.resume(throwing: $0) },
+                                   onFailure: { continuation.resume(throwing: $0) }) { [weak self] in
                     guard self != nil else {
                         continuation.resume(throwing: CancellationError())
                         return
@@ -88,7 +121,6 @@ public actor RequestRouter<RequestValue: Hashable & Sendable> {
                         continuation.resume(throwing: cancellation)
                         throw cancellation
                     } catch {
-                        continuation.resume(throwing: error)
                         throw error
                     }
                 }
@@ -108,6 +140,7 @@ public actor RequestRouter<RequestValue: Hashable & Sendable> {
                     queuedIndices[existingKey] = currentIndex - 1
                 }
             }
+            instrumentation.queueDepthDidChange(queue.count)
         }
         
         if var activeRequest = activeRequests[key] {
@@ -117,6 +150,8 @@ public actor RequestRouter<RequestValue: Hashable & Sendable> {
             replacement?.onCancellation?(cancellation)
             activeRequest.task.cancel()
         }
+        
+        tryStartNext()
     }
     
     private func schedule(_ request: Request, preferFront: Bool = false) {
@@ -149,7 +184,8 @@ public actor RequestRouter<RequestValue: Hashable & Sendable> {
             queuedIndices[request.key] = queue.count - 1
         }
         
-        startProcessingIfNeeded()
+        instrumentation.queueDepthDidChange(queue.count)
+        tryStartNext()
     }
     
     func dequeue() -> Request? {
@@ -163,79 +199,177 @@ public actor RequestRouter<RequestValue: Hashable & Sendable> {
             }
         }
         
+        instrumentation.queueDepthDidChange(queue.count)
         return request
     }
     
-    private func startProcessingIfNeeded() {
-        guard processor == nil, !isSuspended else { return }
-        processor = Task { [weak self] in
-            await self?.processRequests()
+    private func tryStartNext() {
+        guard !isSuspended else { return }
+        guard activeRequests.count < configuration.maximumConcurrentRequests else { return }
+        guard let pending = queue.first else { return }
+        
+        let now = clock.now
+        let earliestStart = max(pending.earliestStart, nextPermittedStart ?? pending.earliestStart)
+        if now < earliestStart {
+            scheduleResume(at: earliestStart)
+            return
+        }
+        
+        scheduledResume?.cancel()
+        scheduledResume = nil
+        scheduledResumeDeadline = nil
+        
+        guard let request = dequeue() else { return }
+        start(request)
+        tryStartNext()
+    }
+    
+    private func scheduleResume(at instant: ContinuousClock.Instant) {
+        if let deadline = scheduledResumeDeadline, deadline <= instant { return }
+        scheduledResume?.cancel()
+        scheduledResumeDeadline = instant
+        scheduledResume = Task { [weak self] in
+            guard let self else { return }
+            
+            do {
+                try await self.clock.sleep(until: instant, tolerance: .zero)
+            } catch {
+                return
+            }
+            
+            await self.resumeProcessing()
         }
     }
     
-    private func processRequests() async {
-        defer { processor = nil }
+    private func resumeProcessing() {
+        scheduledResume = nil
+        scheduledResumeDeadline = nil
+        tryStartNext()
+    }
+    
+    private func start(_ request: Request) {
+        let startInstant = clock.now
+        nextPermittedStart = startInstant.advanced(by: configuration.minimumDelayBetweenRequests)
+        let waitDuration = request.enqueuedAt.duration(to: startInstant)
+        instrumentation.waitTimeMeasured(for: request.key.rawValue,
+                                         attempt: request.attempt,
+                                         wait: waitDuration)
         
-        while !Task.isCancelled {
-            if isSuspended { break }
-            
-            guard let request = dequeue() else { break }
-            
+        let task = Task(priority: request.priority) {
             do {
-                try await waitForRateLimitIfNeeded()
+                try await request.operation()
+                await self.handleCompletion(for: request.key,
+                                            request: request,
+                                            result: .success(()))
             } catch {
-                schedule(request, preferFront: true)
-                break
+                await self.handleCompletion(for: request.key,
+                                            request: request,
+                                            result: .failure(error))
             }
-            
-            let result = await execute(request)
-            let activeRequest = activeRequests.removeValue(forKey: request.key)
-            let replacement = activeRequest?.replacement
-            
-            switch result {
-            case .success:
-                if let replacement { schedule(replacement, preferFront: true) }
-                
-            case .failure(let error):
-                if let cancellation = error as? CancellationError {
-                    request.onCancellation?(cancellation)
+        }
+        
+        activeRequests[request.key] = .init(request: request,
+                                            task: task,
+                                            replacement: nil)
+    }
+    
+    private func handleCompletion(for key: Key,
+                                  request: Request,
+                                  result: Result<Void, Swift.Error>) async
+    {
+        guard var activeRequest = activeRequests.removeValue(forKey: key) else { return }
+        let replacement = activeRequest.replacement
+        activeRequest.replacement = nil
+        
+        switch result {
+        case .success:
+            if let replacement { schedule(replacement, preferFront: true) }
+        case .failure(let error):
+            if let cancellation = error as? CancellationError {
+                request.onCancellation?(cancellation)
+            } else {
+                if let replacement {
+                    schedule(replacement, preferFront: true)
+                    request.onFailure?(error)
+                    instrumentation.requestFailed(for: request.key.rawValue,
+                                                  attempt: request.attempt,
+                                                  error: error)
+                } else if let retryRequest = makeRetryRequest(from: request, error: error) {
+                    instrumentation.requestRetried(for: request.key.rawValue,
+                                                   attempt: retryRequest.attempt,
+                                                   error: error)
+                    schedule(retryRequest)
                 } else {
-                    if let replacement {
-                        schedule(replacement, preferFront: true)
-                    } else if request.retryPolicy == .retry {
-                        schedule(request)
-                    }
+                    request.onFailure?(error)
+                    instrumentation.requestFailed(for: request.key.rawValue,
+                                                  attempt: request.attempt,
+                                                  error: error)
                 }
             }
         }
         
-        if !queue.isEmpty && !isSuspended && !Task.isCancelled {
-            startProcessingIfNeeded()
-        }
+        tryStartNext()
     }
     
-    private func execute(_ request: Request) async -> Result<Void, Swift.Error> {
-        let task = Task(priority: request.priority) {
-            try await request.operation()
-        }
-        activeRequests[request.key] = .init(request: request, task: task, replacement: nil)
+    private func makeRetryRequest(from request: Request, error: Swift.Error) -> Request? {
+        guard request.retryPolicy == .retry else { return nil }
+        let nextAttempt = request.attempt + 1
+        guard nextAttempt <= configuration.retryBudget.maximumRetryCount else { return nil }
         
-        do {
-            try await task.value
-            return .success(())
-        } catch {
-            return .failure(error)
+        let now = clock.now
+        var totalDelay = configuration.backoff.delay(forAttempt: nextAttempt)
+        if configuration.jitterRange.upperBound > 0 {
+            let jitter = Double.random(in: configuration.jitterRange)
+            totalDelay += Duration.seconds(jitter)
         }
+        let budgetDelay = retryBudgetState.nextDelay(now: now)
+        totalDelay += budgetDelay
+        
+        let earliestStart = now.advanced(by: totalDelay)
+        return Request(key: request.key,
+                       priority: request.priority,
+                       retryPolicy: request.retryPolicy,
+                       operation: request.operation,
+                       onCancellation: request.onCancellation,
+                       onFailure: request.onFailure,
+                       enqueuedAt: now,
+                       attempt: nextAttempt,
+                       earliestStart: earliestStart)
     }
-    
-    private func waitForRateLimitIfNeeded() async throws {
-        if let next = nextPermittedStart {
-            let now = clock.now
-            if now < next {
-                try await clock.sleep(until: next, tolerance: .zero)
-            }
+}
+
+extension RequestRouter {
+    public struct Instrumentation: Sendable {
+        private let queueDepthChangeHandler: @Sendable (Int) -> Void
+        private let waitTimeHandler: @Sendable (RequestValue, Int, Duration) -> Void
+        private let retryHandler: @Sendable (RequestValue, Int, Swift.Error) -> Void
+        private let failureHandler: @Sendable (RequestValue, Int, Swift.Error) -> Void
+        
+        public init(onQueueDepthDidChange: @escaping @Sendable (Int) -> Void = { _ in },
+                    onWaitTimeMeasured: @escaping @Sendable (RequestValue, Int, Duration) -> Void = { _, _, _ in },
+                    onRetry: @escaping @Sendable (RequestValue, Int, Swift.Error) -> Void = { _, _, _ in },
+                    onFailure: @escaping @Sendable (RequestValue, Int, Swift.Error) -> Void = { _, _, _ in })
+        {
+            self.queueDepthChangeHandler = onQueueDepthDidChange
+            self.waitTimeHandler = onWaitTimeMeasured
+            self.retryHandler = onRetry
+            self.failureHandler = onFailure
         }
         
-        nextPermittedStart = clock.now.advanced(by: configuration.minimumDelayBetweenRequests)
+        func queueDepthDidChange(_ depth: Int) {
+            queueDepthChangeHandler(depth)
+        }
+        
+        func waitTimeMeasured(for value: RequestValue, attempt: Int, wait: Duration) {
+            waitTimeHandler(value, attempt, wait)
+        }
+        
+        func requestRetried(for value: RequestValue, attempt: Int, error: Swift.Error) {
+            retryHandler(value, attempt, error)
+        }
+        
+        func requestFailed(for value: RequestValue, attempt: Int, error: Swift.Error) {
+            failureHandler(value, attempt, error)
+        }
     }
 }

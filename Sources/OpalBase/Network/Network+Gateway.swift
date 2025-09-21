@@ -9,15 +9,21 @@ extension Network {
         private var mempoolLastRefresh: Date = .distantPast
         private let mempoolTTL: TimeInterval
         private let seen: Storage.Repository.TTLCache<Transaction.Hash, Bool>
+        private let requestRouter: RequestRouter<Request>
         
-        public init(client: Client, mempoolTTL: TimeInterval = 30, seenTTL: TimeInterval = 600) {
+        public init(client: Client, configuration: Configuration = .init()) {
             self.client = client
-            self.mempoolTTL = mempoolTTL
-            self.seen = .init(defaultTTL: seenTTL)
+            self.mempoolTTL = configuration.mempoolTTL
+            self.seen = .init(defaultTTL: configuration.seenTTL)
+            self.requestRouter = .init(configuration: configuration.router,
+                                       instrumentation: configuration.instrumentation)
         }
         
         public func transaction(for hash: Transaction.Hash) async throws -> Transaction? {
-            try await client.fetch(hash)
+            let handle = await requestRouter.handle(for: .transaction(hash))
+            return try await handle.perform(retryPolicy: .retry) {
+                try await self.client.fetch(hash)
+            }
         }
         
         public func currentMempool(forceRefresh: Bool = false) async throws -> Set<Transaction.Hash> {
@@ -42,15 +48,18 @@ extension Network {
                 return expectedHash
             }
             
+            let handle = await requestRouter.handle(for: .broadcast(expectedHash))
             do {
-                let acknowledged = try await client.broadcast(transaction)
+                let acknowledged = try await handle.perform(priority: .high, retryPolicy: .retry) {
+                    try await self.client.broadcast(transaction)
+                }
                 mempool.insert(acknowledged)
                 if acknowledged != expectedHash {
                     mempool.insert(expectedHash)
                 }
                 await seen.set(expectedHash, true)
                 if acknowledged != expectedHash {
-                    await seen.set(expectedHash, true)
+                    await seen.set(acknowledged, true)
                 }
                 return acknowledged
             } catch {
@@ -58,28 +67,46 @@ extension Network {
             }
         }
         
-        public func rawTransaction(for hash: Transaction.Hash) async throws -> Data {
-            try await client.getRawTransaction(for: hash)
+        public func getRawTransaction(for hash: Transaction.Hash) async throws -> Data {
+            let handle = await requestRouter.handle(for: .rawTransaction(hash))
+            return try await handle.perform(retryPolicy: .retry) {
+                try await self.client.getRawTransaction(for: hash)
+            }
         }
         
-        public func detailedTransaction(for hash: Transaction.Hash) async throws -> Transaction.Detailed {
-            try await client.getDetailedTransaction(for: hash)
+        public func getDetailedTransaction(for hash: Transaction.Hash) async throws -> Transaction.Detailed {
+            let handle = await requestRouter.handle(for: .detailedTransaction(hash))
+                        return try await handle.perform(retryPolicy: .retry) {
+                            try await self.client.getDetailedTransaction(for: hash)
+                        }
         }
         
-        public func estimateFee(targetBlocks: Int) async throws -> Satoshi {
-            try await client.getEstimateFee(targetBlocks: targetBlocks)
+        public func getEstimateFee(targetBlocks: Int) async throws -> Satoshi {
+            let handle = await requestRouter.handle(for: .estimateFee(targetBlocks))
+                        return try await handle.perform(retryPolicy: .retry) {
+                            try await self.client.getEstimateFee(targetBlocks: targetBlocks)
+                        }
         }
         
-        public func relayFee() async throws -> Satoshi {
-            try await client.getRelayFee()
+        public func getRelayFee() async throws -> Satoshi {
+            let handle = await requestRouter.handle(for: .relayFee)
+                        return try await handle.perform(retryPolicy: .retry) {
+                            try await self.client.getRelayFee()
+                        }
         }
         
-        public func header(height: UInt32) async throws -> HeaderPayload? {
-            try await client.getHeader(height: height)
+        public func getHeader(height: UInt32) async throws -> HeaderPayload? {
+            let handle = await requestRouter.handle(for: .header(height))
+                        return try await handle.perform(retryPolicy: .retry) {
+                            try await self.client.getHeader(height: height)
+                        }
         }
         
         public func pingHeadersTip() async throws {
-            try await client.pingHeadersTip()
+            let handle = await requestRouter.handle(for: .pingHeadersTip)
+                        _ = try await handle.perform(retryPolicy: .retry) {
+                            try await self.client.pingHeadersTip()
+                        }
         }
         
         public func isInMempool(_ hash: Transaction.Hash) -> Bool {
@@ -107,6 +134,39 @@ extension Network.Gateway.Error: Equatable {
             return true
         default:
             return false
+        }
+    }
+}
+
+extension Network.Gateway {
+    public enum Request: Hashable, Sendable {
+        case transaction(Transaction.Hash)
+        case broadcast(Transaction.Hash)
+        case rawTransaction(Transaction.Hash)
+        case detailedTransaction(Transaction.Hash)
+        case estimateFee(Int)
+        case relayFee
+        case header(UInt32)
+        case pingHeadersTip
+    }
+}
+
+extension Network.Gateway {
+    public struct Configuration: Sendable {
+        public var mempoolTTL: TimeInterval
+        public var seenTTL: TimeInterval
+        public var router: RequestRouter<Request>.Configuration
+        public var instrumentation: RequestRouter<Request>.Instrumentation
+
+        public init(mempoolTTL: TimeInterval = 30,
+                    seenTTL: TimeInterval = 600,
+                    router: RequestRouter<Request>.Configuration = .init(),
+                    instrumentation: RequestRouter<Request>.Instrumentation = .init())
+        {
+            self.mempoolTTL = mempoolTTL
+            self.seenTTL = seenTTL
+            self.router = router
+            self.instrumentation = instrumentation
         }
     }
 }

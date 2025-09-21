@@ -23,7 +23,13 @@ extension Network.Wallet {
             var role: Role
             var retry: Retry
             
-            init(fulcrum: Fulcrum, endpoint: URL?, retryConfiguration: Retry.Configuration.Budget) {
+            let gateway: Network.Gateway
+            
+            init(fulcrum: Fulcrum,
+                 endpoint: URL?,
+                 retryConfiguration: Retry.Configuration.Budget,
+                 gatewayConfiguration: Network.Gateway.Configuration)
+            {
                 self.fulcrum = fulcrum
                 self.endpoint = endpoint
                 self.failureCount = 0
@@ -33,6 +39,7 @@ extension Network.Wallet {
                 self.lastSuccessAt = nil
                 self.role = .candidate
                 self.retry = .init(configuration: retryConfiguration)
+                self.gateway = .init(client: Adapter.SwiftFulcrum.GatewayClient(fulcrum: fulcrum), configuration: gatewayConfiguration)
             }
         }
         
@@ -54,7 +61,8 @@ extension Network.Wallet {
             urls: [String] = [],
             maxBackoff: TimeInterval = 64,
             healthRepository: Storage.Repository.ServerHealth? = nil,
-            retryConfiguration: Retry.Configuration = .standard
+            retryConfiguration: Retry.Configuration = .standard,
+            gatewayConfiguration: Network.Gateway.Configuration = .init()
         ) async throws {
             self.serverHealth = .init(repository: healthRepository)
             self.servers = []
@@ -71,7 +79,8 @@ extension Network.Wallet {
                 let fulcrum = try await Fulcrum()
                 self.servers = [.init(fulcrum: fulcrum,
                                       endpoint: nil,
-                                      retryConfiguration: retryConfiguration.perServer)]
+                                      retryConfiguration: retryConfiguration.perServer,
+                                      gatewayConfiguration: gatewayConfiguration)]
             } else {
                 self.servers = try await withThrowingTaskGroup(of: Server.self) { group in
                     for url in urls {
@@ -79,7 +88,8 @@ extension Network.Wallet {
                             let fulcrum = try await Fulcrum(url: url)
                             return Server(fulcrum: fulcrum,
                                           endpoint: .init(string: url),
-                                          retryConfiguration: retryConfiguration.perServer)
+                                          retryConfiguration: retryConfiguration.perServer,
+                                          gatewayConfiguration: gatewayConfiguration)
                         }
                     }
                     
@@ -192,9 +202,14 @@ extension Network.Wallet.FulcrumPool {
         throw Network.Wallet.Error.noHealthyServer
     }
     
-    public func acquireGatewayClient() async throws -> Network.Gateway.Client {
-        let fulcrum = try await acquireFulcrum()
-        return Adapter.SwiftFulcrum.GatewayClient(fulcrum: fulcrum)
+    public func acquireGateway() async throws -> Network.Gateway {
+        _ = try await acquireFulcrum()
+        guard let primaryIndex else {
+            updateStatus(.offline)
+            throw Network.Wallet.Error.noHealthyServer
+        }
+        if status != .online { updateStatus(.online) }
+        return servers[primaryIndex].gateway
     }
     
     private func ping(_ fulcrum: Fulcrum) async throws -> TimeInterval {

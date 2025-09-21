@@ -26,7 +26,6 @@ extension Address {
         
         var subscription: Subscription?
         private let requestRouter = RequestRouter<Request>()
-        var requestQueue: [@Sendable () async throws -> Void] = .init()
         var entryContinuations: [UUID: AsyncStream<Entry>.Continuation] = .init()
         
         init(rootExtendedPrivateKey: PrivateKey.Extended? = nil,
