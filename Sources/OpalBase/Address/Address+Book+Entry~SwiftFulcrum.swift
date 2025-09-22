@@ -44,10 +44,13 @@ extension Address.Book.Entry {
                                                                         fulcrum: fulcrum)
         let transactionHashes = simpleTransactions.map { $0.transactionHash }
         
+        let gateway = Network.Gateway(client: Adapter.SwiftFulcrum.GatewayClient(fulcrum: fulcrum))
+        await gateway.updateHealth(status: .online, lastHeaderAt: Date())
+        
         let detailedTransactions = try await withThrowingTaskGroup(of: Transaction.Detailed.self) { group in
             for transactionHash in transactionHashes {
                 group.addTask {
-                    try await Transaction.fetchFullTransaction(for: transactionHash, using: Adapter.SwiftFulcrum.GatewayClient(fulcrum: fulcrum))
+                    try await Transaction.fetchFullTransaction(for: transactionHash, using: gateway)
                 }
             }
             

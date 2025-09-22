@@ -3,9 +3,9 @@ import Testing
 import SwiftFulcrum
 @testable import OpalBase
 
-@Suite("FulcrumPool Reconnection")
-struct FulcrumPoolTests {
-    @Test func testReconnectBringsOfflineServerOnline() async throws {
+@Suite("FulcrumPool Integration")
+struct FulcrumPoolIntegrationTests {
+    @Test func testReconnectTransitionsStatus() async throws {
         let pool = try await Network.Wallet.FulcrumPool()
         #expect(await pool.currentStatus == .offline)
         
@@ -32,7 +32,10 @@ struct FulcrumPoolTests {
             _ = try await pool.acquireFulcrum()
         }
     }
-    
+}
+
+@Suite("FulcrumPool Server Health")
+struct FulcrumPoolServerHealthTests {
     @Test func testServerHealthPersistsMetrics() async throws {
         let storage = try Storage.Facade(configuration: .memory)
         let repository = await storage.serverHealth
@@ -100,7 +103,60 @@ struct FulcrumPoolTests {
         #expect(stored?.failures == 2)
     }
     
-    @Test func testRetryBudgetDelaysAfterBurst() {
+    @Test func testServerHealthDecayReducesFailures() async throws {
+        let storage = try Storage.Facade(configuration: .memory)
+        let repository = await storage.serverHealth
+        let monitor = Network.Wallet.FulcrumPool.ServerHealth(repository: repository, decayInterval: 5)
+        let endpoint = try #require(URL(string: "wss://decay.example:50002"))
+        
+        let base = Date()
+        let retryAt = base.addingTimeInterval(10)
+        _ = try await monitor.recordFailure(for: endpoint, retryAt: retryAt)
+        let snapshot = try await monitor.decay(for: endpoint, now: base.addingTimeInterval(15))
+        
+        #expect(snapshot.failures == 0)
+        #expect(snapshot.condition == .healthy)
+    }
+    
+    @Test func testQuarantineEvictionReleasesEndpoints() async throws {
+        let storage = try Storage.Facade(configuration: .memory)
+        let repository = await storage.serverHealth
+        let monitor = Network.Wallet.FulcrumPool.ServerHealth(repository: repository)
+        let endpoint = try #require(URL(string: "wss://quarantine.example:50002"))
+        
+        let baseline = Date()
+        _ = try await monitor.recordFailure(for: endpoint, retryAt: baseline.addingTimeInterval(2))
+        _ = try await monitor.recordFailure(for: endpoint, retryAt: baseline.addingTimeInterval(4))
+        
+        let releases = try await monitor.evictExpiredQuarantine(now: baseline.addingTimeInterval(10))
+        #expect(releases.contains(endpoint))
+        
+        let refreshed = try await monitor.decay(for: endpoint, now: baseline.addingTimeInterval(20))
+        #expect(refreshed.failures <= 1)
+    }
+    
+    @Test func testServerHealthFlappingRecovers() async throws {
+        let storage = try Storage.Facade(configuration: .memory)
+        let repository = await storage.serverHealth
+        let monitor = Network.Wallet.FulcrumPool.ServerHealth(repository: repository, decayInterval: 5)
+        let endpoint = try #require(URL(string: "wss://flap.example:50002"))
+        
+        let start = Date()
+        let failure = try await monitor.recordFailure(for: endpoint, retryAt: start.addingTimeInterval(2))
+        #expect(failure.condition == .degraded)
+        
+        _ = try await monitor.evictExpiredQuarantine(now: start.addingTimeInterval(10))
+        let recovered = try await monitor.recordSuccess(for: endpoint, latency: 0.12)
+        #expect(recovered.condition == .healthy)
+        
+        let snapshot = try await monitor.decay(for: endpoint, now: start.addingTimeInterval(30))
+        #expect(snapshot.condition == .healthy)
+    }
+}
+
+@Suite("FulcrumPool Backoff")
+struct FulcrumPoolBackoffTests {
+    @Test func testBackoffProgressionAfterBurst() {
         let configuration = Network.Wallet.FulcrumPool.Retry.Configuration.Budget(maximumAttempts: 2,
                                                                                   replenishmentInterval: 4)
         var budget = Network.Wallet.FulcrumPool.Retry(configuration: configuration,
@@ -117,7 +173,7 @@ struct FulcrumPoolTests {
         #expect(resumed == 0)
     }
     
-    @Test func testRetryBudgetPartiallyRefills() {
+    @Test func testBackoffPartiallyRefills() {
         let configuration = Network.Wallet.FulcrumPool.Retry.Configuration.Budget(maximumAttempts: 3,
                                                                                   replenishmentInterval: 9)
         var budget = Network.Wallet.FulcrumPool.Retry(configuration: configuration,
@@ -133,7 +189,7 @@ struct FulcrumPoolTests {
         #expect(abs(partial - 1.5) < 0.01)
     }
     
-    @Test func testRetryResetRestoresCapacity() {
+    @Test func testBackoffResetRestoresCapacity() {
         let configuration = Network.Wallet.FulcrumPool.Retry.Configuration.Budget(maximumAttempts: 2,
                                                                                   replenishmentInterval: 10)
         var budget = Network.Wallet.FulcrumPool.Retry(configuration: configuration,
@@ -150,6 +206,23 @@ struct FulcrumPoolTests {
         #expect(immediate == 0)
     }
     
+    @Test func testBackoffNeverReturnsNegativeDelay() {
+        let configuration = Network.Wallet.FulcrumPool.Retry.Configuration.Budget(maximumAttempts: 4,
+                                                                                  replenishmentInterval: 8)
+        var budget = Network.Wallet.FulcrumPool.Retry(configuration: configuration,
+                                                      now: Date(timeIntervalSince1970: 0))
+        
+        let origin = Date(timeIntervalSince1970: 0)
+        _ = budget.nextDelay(now: origin)
+        _ = budget.nextDelay(now: origin)
+        let delay = budget.nextDelay(now: origin.addingTimeInterval(1))
+        
+        #expect(delay >= 0)
+    }
+}
+
+@Suite("FulcrumPool Server Selection")
+struct FulcrumPoolSelectionTests {
     @Test func testRoleSelectionPrefersLowestLatency() {
         let now = Date()
         let metrics: [Network.Wallet.FulcrumPool.RoleMetrics] = [
@@ -189,56 +262,6 @@ struct FulcrumPoolTests {
         
         #expect(roles.primary == 1)
         #expect(roles.standby == 2)
-    }
-    
-    @Test func testServerHealthDecayReducesFailures() async throws {
-        let storage = try Storage.Facade(configuration: .memory)
-        let repository = await storage.serverHealth
-        let monitor = Network.Wallet.FulcrumPool.ServerHealth(repository: repository, decayInterval: 5)
-        let endpoint = try #require(URL(string: "wss://decay.example:50002"))
-        
-        let base = Date()
-        let retryAt = base.addingTimeInterval(10)
-        _ = try await monitor.recordFailure(for: endpoint, retryAt: retryAt)
-        let snapshot = try await monitor.decay(for: endpoint, now: base.addingTimeInterval(15))
-        
-        #expect(snapshot.failures == 0)
-        #expect(snapshot.condition == .healthy)
-    }
-    
-    @Test func testQuarantineEvictionReleasesEndpoints() async throws {
-        let storage = try Storage.Facade(configuration: .memory)
-        let repository = await storage.serverHealth
-        let monitor = Network.Wallet.FulcrumPool.ServerHealth(repository: repository)
-        let endpoint = try #require(URL(string: "wss://quarantine.example:50002"))
-        
-        let baseline = Date()
-        _ = try await monitor.recordFailure(for: endpoint, retryAt: baseline.addingTimeInterval(2))
-        _ = try await monitor.recordFailure(for: endpoint, retryAt: baseline.addingTimeInterval(4))
-        
-        let releases = try await monitor.evictExpiredQuarantine(now: baseline.addingTimeInterval(10))
-        #expect(releases.contains(endpoint))
-        
-        let refreshed = try await monitor.decay(for: endpoint, now: baseline.addingTimeInterval(20))
-        #expect(refreshed.failures <= 1)
-    }
-    
-    @Test func testServerSelectionRecoversAfterFlapping() async throws {
-        let storage = try Storage.Facade(configuration: .memory)
-        let repository = await storage.serverHealth
-        let monitor = Network.Wallet.FulcrumPool.ServerHealth(repository: repository, decayInterval: 5)
-        let endpoint = try #require(URL(string: "wss://flap.example:50002"))
-        
-        let start = Date()
-        let failure = try await monitor.recordFailure(for: endpoint, retryAt: start.addingTimeInterval(2))
-        #expect(failure.condition == .degraded)
-        
-        _ = try await monitor.evictExpiredQuarantine(now: start.addingTimeInterval(10))
-        let recovered = try await monitor.recordSuccess(for: endpoint, latency: 0.12)
-        #expect(recovered.condition == .healthy)
-        
-        let snapshot = try await monitor.decay(for: endpoint, now: start.addingTimeInterval(30))
-        #expect(snapshot.condition == .healthy)
     }
     
     @Test func testPartialOutagePromotesHealthiestServer() {

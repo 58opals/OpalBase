@@ -116,8 +116,11 @@ extension Network.Wallet.FulcrumPool {
                 self.lastSuccessAt = nil
                 self.role = .candidate
                 self.retry = .init(configuration: retryConfiguration)
+                var configuration = gatewayConfiguration
+                configuration.initialStatus = .offline
+                configuration.initialHeaderUpdate = nil
                 self.gateway = .init(client: Adapter.SwiftFulcrum.GatewayClient(fulcrum: fulcrum),
-                                     configuration: gatewayConfiguration)
+                                     configuration: configuration)
             }
         }
         

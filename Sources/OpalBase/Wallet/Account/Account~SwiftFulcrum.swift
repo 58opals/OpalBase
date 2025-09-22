@@ -233,9 +233,11 @@ extension Account {
                 await resumeQueuedRequests()
                 await addressBook.resumeQueuedRequests()
                 
-                if let fulcrum = try? await fulcrumPool.acquireFulcrum() {
-                    await addressBook.startSubscription(using: fulcrum, hub: subscriptionHub)
-                    await outbox.retryPendingTransactions(using: .init(client: Adapter.SwiftFulcrum.GatewayClient(fulcrum: fulcrum)))
+                if let gateway = try? await fulcrumPool.acquireGateway() {
+                    if let fulcrum = try? await fulcrumPool.acquireFulcrum() {
+                        await addressBook.startSubscription(using: fulcrum, hub: subscriptionHub)
+                    }
+                    await outbox.retryPendingTransactions(using: gateway)
                 }
                 
             case .connecting, .offline:

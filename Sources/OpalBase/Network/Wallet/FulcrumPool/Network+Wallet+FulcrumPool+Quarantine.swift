@@ -173,14 +173,6 @@ extension Network.Wallet.FulcrumPool.PoolState {
     
     private func markSuccess(at index: Int, latency: TimeInterval, now: Date) async throws {
         var server = servers[index]
-        var succeeded = false
-        defer {
-            if succeeded {
-                servers[index] = server
-                assignRoles(now: now, preferredPrimary: index)
-                activeIndex = primaryIndex
-            }
-        }
         
         if let endpoint = server.endpoint {
             do {
@@ -198,18 +190,14 @@ extension Network.Wallet.FulcrumPool.PoolState {
         }
         
         server.retry.reset(now: now)
-        succeeded = true
+        servers[index] = server
+        assignRoles(now: now, preferredPrimary: index)
+        activeIndex = primaryIndex
+        await updateGateway(from: server)
     }
     
     private func markFailure(at index: Int, now: Date) async throws {
         var server = servers[index]
-        server.status = .offline
-        
-        defer {
-            servers[index] = server
-            assignRoles(now: now)
-            activeIndex = primaryIndex
-        }
         server.status = .offline
         
         let scheduledRetry = scheduleNextRetry(for: &server, now: now)
@@ -222,11 +210,20 @@ extension Network.Wallet.FulcrumPool.PoolState {
                 server.failureCount = snapshot.failures
             } catch let repositoryError as Network.Wallet.Error {
                 server.failureCount += 1
+                servers[index] = server
+                assignRoles(now: now)
+                activeIndex = primaryIndex
+                await updateGateway(from: server)
                 throw repositoryError
             }
         } else {
             server.failureCount += 1
         }
+        
+        servers[index] = server
+        assignRoles(now: now)
+        activeIndex = primaryIndex
+        await updateGateway(from: server)
     }
     
     private func scheduleNextRetry(for server: inout Server, now: Date) -> Date {
@@ -247,6 +244,11 @@ extension Network.Wallet.FulcrumPool.PoolState {
         return scheduled
     }
     
+    private func updateGateway(from server: Server) async {
+        await server.gateway.updateHealth(status: server.status,
+                                          lastHeaderAt: server.lastSuccessAt)
+    }
+    
     func bootstrapPersistentHealth() async throws {
         for index in servers.indices {
             guard let endpoint = servers[index].endpoint else { continue }
@@ -254,6 +256,7 @@ extension Network.Wallet.FulcrumPool.PoolState {
                 var server = servers[index]
                 apply(snapshot, to: &server, adoptStatus: false)
                 servers[index] = server
+                await updateGateway(from: server)
             }
         }
     }
@@ -287,6 +290,7 @@ extension Network.Wallet.FulcrumPool.PoolState {
             let snapshot = try await serverHealth.decay(for: endpoint, now: now)
             apply(snapshot, to: &server, adoptStatus: false)
             servers[index] = server
+            await updateGateway(from: server)
         }
     }
 }
