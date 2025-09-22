@@ -93,7 +93,6 @@ extension Storage.Repository {
     }
 }
 
-
 // UTXOs
 extension Storage.Repository {
     public actor UTXOs {
@@ -193,7 +192,6 @@ extension Storage.Repository {
         }
     }
 }
-
 
 // Accounts
 extension Storage.Repository {
@@ -349,6 +347,60 @@ extension Storage.Repository {
                 }
             } catch {
                 throw Error(operation: "quarantine", reason: String(describing: error))
+            }
+            await cache.invalidate(url.absoluteString)
+        }
+        
+        public func release(_ url: URL, failures: Int, condition: String) async throws {
+            do {
+                try Storage.Facade.withContext(container) { ctx in
+                    let key = url.absoluteString
+                    let p = #Predicate<Storage.Entity.ServerHealthModel> { $0.url == key }
+                    if let ex = try ctx.fetch(FetchDescriptor(predicate: p)).first {
+                        ex.quarantineUntil = nil
+                        ex.failures = failures
+                        ex.status = condition
+                        ctx.insert(ex)
+                    } else {
+                        ctx.insert(Storage.Entity.ServerHealthModel(url: key,
+                                                                    latencyMs: nil,
+                                                                    status: condition,
+                                                                    failures: failures,
+                                                                    quarantineUntil: nil,
+                                                                    lastOK: nil))
+                    }
+                }
+            } catch {
+                throw Error(operation: "release", reason: String(describing: error))
+            }
+            await cache.invalidate(url.absoluteString)
+        }
+        
+        public func soften(_ url: URL,
+                           failures: Int,
+                           condition: String,
+                           quarantineUntil: Date?) async throws
+        {
+            do {
+                try Storage.Facade.withContext(container) { ctx in
+                    let key = url.absoluteString
+                    let p = #Predicate<Storage.Entity.ServerHealthModel> { $0.url == key }
+                    if let ex = try ctx.fetch(FetchDescriptor(predicate: p)).first {
+                        ex.failures = failures
+                        ex.status = condition
+                        ex.quarantineUntil = quarantineUntil
+                        ctx.insert(ex)
+                    } else {
+                        ctx.insert(Storage.Entity.ServerHealthModel(url: key,
+                                                                    latencyMs: nil,
+                                                                    status: condition,
+                                                                    failures: failures,
+                                                                    quarantineUntil: quarantineUntil,
+                                                                    lastOK: nil))
+                    }
+                }
+            } catch {
+                throw Error(operation: "soften", reason: String(describing: error))
             }
             await cache.invalidate(url.absoluteString)
         }

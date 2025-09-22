@@ -24,7 +24,7 @@ extension Network.Wallet.FulcrumPool {
             if tokens >= 0 { return 0 }
             
             let wait = (1 - tokens) / refillRate
-            return max (0, wait)
+            return max(0, wait)
         }
         
         mutating func reset(now: Date) {
@@ -36,7 +36,7 @@ extension Network.Wallet.FulcrumPool {
             guard now >= lastRefill else { return }
             let delta = now.timeIntervalSince(lastRefill)
             guard delta > 0 else { return }
-            tokens = min(capacity, tokens + delta + refillRate)
+            tokens = min(capacity, tokens + (delta + refillRate))
             lastRefill = now
         }
     }
@@ -72,9 +72,9 @@ extension Network.Wallet.FulcrumPool.Retry {
         }
         
         public static let standard: Self = .init(perServer: .init(maximumAttempts: 5,
-                                                               replenishmentInterval: 45),
-                                              global: .init(maximumAttempts: 12,
-                                                            replenishmentInterval: 30),
-                                              jitter: 0 ... 0.75)
+                                                                  replenishmentInterval: 45),
+                                                 global: .init(maximumAttempts: 12,
+                                                               replenishmentInterval: 30),
+                                                 jitter: 0 ... 0.75)
     }
 }

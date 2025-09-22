@@ -40,10 +40,12 @@ extension Network.Wallet.FulcrumPool {
         }
         
         private let repository: Storage.Repository.ServerHealth?
+        private let decayInterval: TimeInterval
         private var cache: [URL: Snapshot] = .init()
         
-        public init(repository: Storage.Repository.ServerHealth?) {
+        public init(repository: Storage.Repository.ServerHealth?, decayInterval: TimeInterval = 120) {
             self.repository = repository
+            self.decayInterval = max(0, decayInterval)
         }
         
         public func bootstrap(for url: URL) async throws -> Snapshot? {
@@ -70,7 +72,7 @@ extension Network.Wallet.FulcrumPool {
                                     lastOK: now)
             if let repository {
                 do {
-                    try await repository.recordProbe(url: url, latency: latency, healthy: true)
+                    try await repository.release(url, failures: 0, condition: Condition.healthy.rawValue)
                     cache[url] = snapshot
                     return snapshot
                 } catch {
@@ -89,8 +91,17 @@ extension Network.Wallet.FulcrumPool {
                                                   lastOK: nil)
             let failures = baseline.failures + 1
             let until = max(retryAt, Date())
+            let condition: Condition
+            switch failures {
+            case 0:
+                condition = .healthy
+            case 1:
+                condition = .degraded
+            default:
+                condition = .unhealthy
+            }
             let snapshot = Snapshot(latency: baseline.latency,
-                                    condition: .unhealthy,
+                                    condition: condition,
                                     failures: failures,
                                     quarantineUntil: until,
                                     lastOK: baseline.lastOK)
@@ -110,6 +121,90 @@ extension Network.Wallet.FulcrumPool {
             }
             cache[url] = snapshot
             return snapshot
+        }
+        
+        public func decay(for url: URL, now: Date = .init()) async throws -> Snapshot {
+            let baseline: Snapshot
+            if let cached = cache[url] {
+                baseline = cached
+            } else if let snapshot = try await bootstrap(for: url) {
+                baseline = snapshot
+            } else {
+                let healthy = Snapshot(latency: nil,
+                                       condition: .healthy,
+                                       failures: 0,
+                                       quarantineUntil: nil,
+                                       lastOK: nil)
+                cache[url] = healthy
+                return healthy
+            }
+            
+            guard baseline.failures > 0, decayInterval > 0 else {
+                cache[url] = baseline
+                return baseline
+            }
+            
+            let reference = baseline.lastOK ?? baseline.quarantineUntil ?? now
+            let elapsed = max(0, now.timeIntervalSince(reference))
+            let steps = Int(elapsed / decayInterval)
+            guard steps > 0 else {
+                cache[url] = baseline
+                return baseline
+            }
+            
+            let remainingFailures = max(0, baseline.failures - steps)
+            let condition: Condition
+            switch remainingFailures {
+            case 0:
+                condition = .healthy
+            case 1:
+                condition = .degraded
+            default:
+                condition = .unhealthy
+            }
+            let snapshot = Snapshot(latency: baseline.latency,
+                                    condition: condition,
+                                    failures: remainingFailures,
+                                    quarantineUntil: baseline.quarantineUntil,
+                                    lastOK: baseline.lastOK)
+            cache[url] = snapshot
+            if let repository {
+                do {
+                    try await repository.soften(url,
+                                                failures: remainingFailures,
+                                                condition: condition.rawValue,
+                                                quarantineUntil: snapshot.quarantineUntil)
+                } catch {
+                    throw mapError(error, fallbackOperation: "soften")
+                }
+            }
+            return snapshot
+        }
+        
+        public func evictExpiredQuarantine(now: Date = .init()) async throws -> [URL] {
+            var released: [URL] = []
+            let expired = cache.filter { $0.value.quarantineUntil.map { $0 <= now } ?? false }
+            for (url, snapshot) in expired {
+                let failures = max(0, snapshot.failures - 1)
+                let condition: Condition = failures == 0 ? .healthy : .degraded
+                let refreshed = Snapshot(latency: snapshot.latency,
+                                         condition: condition,
+                                         failures: failures,
+                                         quarantineUntil: nil,
+                                         lastOK: snapshot.lastOK)
+                cache[url] = refreshed
+                released.append(url)
+                if let repository {
+                    do {
+                        try await repository.release(url,
+                                                     failures: failures,
+                                                     condition: condition.rawValue)
+                    } catch {
+                        throw mapError(error, fallbackOperation: "release")
+                    }
+                }
+            }
+            return released
         }
         
         private func mapError(_ error: Swift.Error, fallbackOperation: String) -> Network.Wallet.Error {
