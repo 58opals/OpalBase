@@ -3,19 +3,19 @@
 import Foundation
 
 extension Network.Wallet.FulcrumPool {
-    public actor ServerHealth {
-        public enum Condition: String, Sendable {
+    actor ServerHealth {
+        enum Condition: String, Sendable {
             case healthy
             case degraded
             case unhealthy
         }
         
-        public struct Snapshot: Sendable {
-            public let latency: TimeInterval?
-            public let condition: Condition
-            public let failures: Int
-            public let quarantineUntil: Date?
-            public let lastOK: Date?
+        struct Snapshot: Sendable {
+            let latency: TimeInterval?
+            let condition: Condition
+            let failures: Int
+            let quarantineUntil: Date?
+            let lastOK: Date?
             
             var walletStatus: Network.Wallet.Status {
                 switch condition {
@@ -43,12 +43,12 @@ extension Network.Wallet.FulcrumPool {
         private let decayInterval: TimeInterval
         private var cache: [URL: Snapshot] = .init()
         
-        public init(repository: Storage.Repository.ServerHealth?, decayInterval: TimeInterval = 120) {
+        init(repository: Storage.Repository.ServerHealth?, decayInterval: TimeInterval = 120) {
             self.repository = repository
             self.decayInterval = max(0, decayInterval)
         }
         
-        public func bootstrap(for url: URL) async throws -> Snapshot? {
+        func bootstrap(for url: URL) async throws -> Snapshot? {
             if let cached = cache[url] { return cached }
             guard let repository else { return nil }
             do {
@@ -63,7 +63,7 @@ extension Network.Wallet.FulcrumPool {
             }
         }
         
-        public func recordSuccess(for url: URL, latency: TimeInterval) async throws -> Snapshot {
+        func recordSuccess(for url: URL, latency: TimeInterval) async throws -> Snapshot {
             let now = Date()
             let snapshot = Snapshot(latency: latency,
                                     condition: .healthy,
@@ -83,7 +83,7 @@ extension Network.Wallet.FulcrumPool {
             return snapshot
         }
         
-        public func recordFailure(for url: URL, retryAt: Date) async throws -> Snapshot {
+        func recordFailure(for url: URL, retryAt: Date) async throws -> Snapshot {
             let baseline = cache[url] ?? Snapshot(latency: nil,
                                                   condition: .unhealthy,
                                                   failures: 0,
@@ -123,7 +123,7 @@ extension Network.Wallet.FulcrumPool {
             return snapshot
         }
         
-        public func decay(for url: URL, now: Date = .init()) async throws -> Snapshot {
+        func decay(for url: URL, now: Date = .init()) async throws -> Snapshot {
             let baseline: Snapshot
             if let cached = cache[url] {
                 baseline = cached
@@ -181,7 +181,7 @@ extension Network.Wallet.FulcrumPool {
             return snapshot
         }
         
-        public func evictExpiredQuarantine(now: Date = .init()) async throws -> [URL] {
+        func evictExpiredQuarantine(now: Date = .init()) async throws -> [URL] {
             var released: [URL] = []
             let expired = cache.filter { $0.value.quarantineUntil.map { $0 <= now } ?? false }
             for (url, snapshot) in expired {

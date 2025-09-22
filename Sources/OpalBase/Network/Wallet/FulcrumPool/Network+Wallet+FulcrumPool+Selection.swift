@@ -3,19 +3,19 @@
 import Foundation
 
 extension Network.Wallet.FulcrumPool {
-    public struct RoleMetrics: Sendable {
-        public let index: Int
-        public let nextRetry: Date
-        public let lastLatency: TimeInterval?
+    struct RoleMetrics: Sendable {
+        let index: Int
+        let nextRetry: Date
+        let lastLatency: TimeInterval?
         
-        public init(index: Int, nextRetry: Date, lastLatency: TimeInterval?) {
+        init(index: Int, nextRetry: Date, lastLatency: TimeInterval?) {
             self.index = index
             self.nextRetry = nextRetry
             self.lastLatency = lastLatency
         }
     }
     
-    public static func determineRoles(
+    static func determineRoles(
         for metrics: [RoleMetrics],
         now: Date,
         preferredPrimary: Int?

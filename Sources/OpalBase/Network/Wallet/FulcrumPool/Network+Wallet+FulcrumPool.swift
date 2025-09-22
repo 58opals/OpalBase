@@ -6,8 +6,7 @@ import SwiftFulcrum
 extension Network.Wallet {
     public struct FulcrumPool: Sendable {
         typealias FulcrumFactory = @Sendable (_ endpoint: String?) async throws -> Fulcrum
-        
-        let state: PoolState
+        private let state: PoolState
         
         public init(
             urls: [String] = [],
@@ -133,7 +132,7 @@ extension Network.Wallet.FulcrumPool {
         var standbyIndex: Int?
         var activeIndex: Int?
         var status: Network.Wallet.Status
-        var statusContinuations: [UUID: AsyncStream<Network.Wallet.Status>.Continuation]
+        private var statusContinuations: [UUID: AsyncStream<Network.Wallet.Status>.Continuation]
         
         init(urls: [String],
              maxBackoff: TimeInterval,
@@ -194,14 +193,13 @@ extension Network.Wallet.FulcrumPool {
             }
         }
         
-        func addContinuation(identifier: UUID,
-                                     continuation: AsyncStream<Network.Wallet.Status>.Continuation)
-        {
+        private func addContinuation(identifier: UUID,
+                                     continuation: AsyncStream<Network.Wallet.Status>.Continuation) {
             continuation.yield(status)
             statusContinuations[identifier] = continuation
         }
         
-        func removeContinuation(for identifier: UUID) {
+        private func removeContinuation(for identifier: UUID) {
             statusContinuations.removeValue(forKey: identifier)
         }
         

@@ -258,7 +258,11 @@ extension Network.Wallet.FulcrumPool.PoolState {
         }
     }
     
-    private func apply(_ snapshot: Network.Wallet.FulcrumPool.ServerHealth.Snapshot, to server: inout Server, adoptStatus: Bool) {
+    private func apply(
+        _ snapshot: Network.Wallet.FulcrumPool.ServerHealth.Snapshot,
+        to server: inout Server,
+        adoptStatus: Bool
+    ) {
         server.failureCount = snapshot.failures
         server.nextRetry = snapshot.nextAttempt
         server.lastLatency = snapshot.latency

@@ -133,6 +133,23 @@ struct FulcrumPoolTests {
         #expect(abs(partial - 1.5) < 0.01)
     }
     
+    @Test func testRetryResetRestoresCapacity() {
+        let configuration = Network.Wallet.FulcrumPool.Retry.Configuration.Budget(maximumAttempts: 2,
+                                                                                  replenishmentInterval: 10)
+        var budget = Network.Wallet.FulcrumPool.Retry(configuration: configuration,
+                                                      now: Date(timeIntervalSince1970: 0))
+        
+        let origin = Date(timeIntervalSince1970: 0)
+        _ = budget.nextDelay(now: origin)
+        _ = budget.nextDelay(now: origin)
+        _ = budget.nextDelay(now: origin)
+        
+        budget.reset(now: origin.addingTimeInterval(2))
+        
+        let immediate = budget.nextDelay(now: origin.addingTimeInterval(2))
+        #expect(immediate == 0)
+    }
+    
     @Test func testRoleSelectionPrefersLowestLatency() {
         let now = Date()
         let metrics: [Network.Wallet.FulcrumPool.RoleMetrics] = [

@@ -5,30 +5,51 @@ import Foundation
 extension Network.Wallet.FulcrumPool {
     public struct Retry: Sendable {
         private let capacity: Double
-        private let refillRate: Double
+        private let spacing: TimeInterval
+        private let baselineTokens: Double
         private var tokens: Double
+        private var warmupAllowance: Int
         private var lastRefill: Date
         
         init(configuration: Configuration.Budget, now: Date = .init()) {
-            let capacity = Double(configuration.maximumAttempts)
+            let capacity = max(1, Double(configuration.maximumAttempts - 1))
             self.capacity = capacity
-            self.refillRate = capacity / configuration.replenishmentInterval
-            self.tokens = capacity
+            self.spacing = configuration.replenishmentInterval / capacity
+            if configuration.maximumAttempts >= 2 {
+                let baseline = max(1, capacity - 1)
+                self.baselineTokens = baseline
+                self.tokens = baseline
+            } else {
+                let baseline = max(0, capacity - 1)
+                self.baselineTokens = baseline
+                self.tokens = baseline
+            }
+            self.warmupAllowance = 1
             self.lastRefill = now
         }
         
         mutating func nextDelay(now: Date) -> TimeInterval {
             refill(now: now)
-            tokens -= 1
+            if warmupAllowance > 0 {
+                warmupAllowance -= 1
+                return 0
+            }
             
-            if tokens >= 0 { return 0 }
+            if tokens >= 1 {
+                tokens -= 1
+                return 0
+            }
             
-            let wait = (1 - tokens) / refillRate
+            let deficit = 1 - tokens
+            let wait = deficit * spacing
+            tokens = 0
+            lastRefill = now
             return max(0, wait)
         }
         
         mutating func reset(now: Date) {
-            tokens = capacity
+            tokens = baselineTokens
+            warmupAllowance = 1
             lastRefill = now
         }
         
@@ -36,7 +57,7 @@ extension Network.Wallet.FulcrumPool {
             guard now >= lastRefill else { return }
             let delta = now.timeIntervalSince(lastRefill)
             guard delta > 0 else { return }
-            tokens = min(capacity, tokens + (delta + refillRate))
+            tokens = min(capacity, tokens + (delta / spacing))
             lastRefill = now
         }
     }
