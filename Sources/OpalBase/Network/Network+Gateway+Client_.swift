@@ -13,8 +13,8 @@ extension Network.Gateway {
         func getRelayFee() async throws -> Satoshi
         func getHeader(height: UInt32) async throws -> Network.Gateway.HeaderPayload?
         func pingHeadersTip() async throws
-        func interpretBroadcastError(_ error: Swift.Error,
-                                     expectedHash: Transaction.Hash) -> Network.Gateway.BroadcastResolution?
+        func interpretBroadcastError(_ error: Swift.Error, expectedHash: Transaction.Hash) -> Network.Gateway.BroadcastResolution?
+        func normalize(error: Swift.Error, during request: Network.Gateway.Request) -> Network.Gateway.Error?
     }
 }
 
@@ -23,6 +23,13 @@ extension Network.Gateway.Client {
         _ error: Swift.Error,
         expectedHash: Transaction.Hash
     ) -> Network.Gateway.BroadcastResolution? {
+        nil
+    }
+    
+    public func normalize(
+        error: Swift.Error,
+        during _: Network.Gateway.Request
+    ) -> Network.Gateway.Error? {
         nil
     }
 }

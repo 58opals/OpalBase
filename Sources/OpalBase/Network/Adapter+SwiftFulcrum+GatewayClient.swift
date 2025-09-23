@@ -26,8 +26,11 @@ extension Adapter.SwiftFulcrum {
             do {
                 let detailed = try await getDetailedTransaction(for: hash)
                 return detailed.transaction
+            } catch let fulcrumError as Fulcrum.Error {
+                if isNotFound(error: fulcrumError) { return nil }
+                throw fulcrumError
             } catch {
-                return nil
+                throw error
             }
         }
         
@@ -99,27 +102,79 @@ extension Adapter.SwiftFulcrum {
             guard let fulcrumError = error as? Fulcrum.Error else { return nil }
             switch fulcrumError {
             case .rpc(let server):
-                if isDuplicate(server: server) {
-                    return .alreadyKnown(expectedHash)
-                }
-                return retry(.rejected(code: server.code, message: server.message), hint: .never)
+                if isDuplicate(server: server) { return .alreadyKnown(expectedHash) }
+                return .retry(normalizedError(for: server))
             case .transport(let transport):
-                let description = describeTransport(transport)
-                let delay = transportRetryDelay(for: transport)
-                return retry(.transport(description: description), hint: .after(delay))
+                return .retry(normalizedError(for: transport))
             case .client(let clientError):
-                return interpret(clientError, expectedHash: expectedHash)
+                return .retry(normalizedError(for: clientError))
             case .coding(let codingError):
-                let description = describeCoding(codingError)
-                return retry(.transport(description: description), hint: .after(5))
+                return .retry(normalizedError(for: codingError))
             }
         }
         
-        private func retry(
+        public func normalize(
+            error: Swift.Error,
+            during _: Network.Gateway.Request
+        ) -> Network.Gateway.Error? {
+            guard let fulcrumError = error as? Fulcrum.Error else { return nil }
+            switch fulcrumError {
+            case .rpc(let server):
+                return normalizedError(for: server)
+            case .transport(let transport):
+                return normalizedError(for: transport)
+            case .client(let clientError):
+                return normalizedError(for: clientError)
+            case .coding(let codingError):
+                return normalizedError(for: codingError)
+            }
+        }
+        
+        private func normalizedError(for server: Fulcrum.Error.Server) -> Network.Gateway.Error {
+            gatewayError(.rejected(code: server.code, message: server.message), hint: .never)
+        }
+        
+        private func normalizedError(for transport: Fulcrum.Error.Transport) -> Network.Gateway.Error {
+            let description = describeTransport(transport)
+            let delay = transportRetryDelay(for: transport)
+            return gatewayError(.transport(description: description), hint: .after(delay))
+        }
+        
+        private func normalizedError(for client: Fulcrum.Error.Client) -> Network.Gateway.Error {
+            switch client {
+            case .duplicateHandler:
+                return gatewayError(.transport(description: "Duplicate handler detected"), hint: .immediately)
+            case .cancelled:
+                return gatewayError(.transport(description: "Request cancelled"), hint: .after(1))
+            case .timeout(let duration):
+                let seconds = max(1, seconds(from: duration))
+                let description = String(format: "Request timed out after %.2f seconds", seconds)
+                return gatewayError(.transport(description: description), hint: .after(seconds))
+            case .emptyResponse(let identifier):
+                if let identifier {
+                    return gatewayError(.transport(description: "Empty response for request \(identifier.uuidString)"),
+                                        hint: .after(1))
+                }
+                return gatewayError(.transport(description: "Empty response from server"), hint: .after(1))
+            case .protocolMismatch(let message):
+                let detail = message ?? "unknown mismatch"
+                return gatewayError(.transport(description: "Protocol mismatch: \(detail)"), hint: .after(5))
+            case .unknown(let underlying):
+                let description = "Unknown client error: \(detail(from: underlying))"
+                return gatewayError(.transport(description: description), hint: .after(5))
+            }
+        }
+        
+        private func normalizedError(for coding: Fulcrum.Error.Coding) -> Network.Gateway.Error {
+            let description = describeCoding(coding)
+            return gatewayError(.transport(description: description), hint: .after(5))
+        }
+        
+        private func gatewayError(
             _ reason: Network.Gateway.Error.Reason,
             hint: Network.Gateway.Error.RetryHint
-        ) -> Network.Gateway.BroadcastResolution {
-            .retry(.init(reason: reason, retry: hint))
+        ) -> Network.Gateway.Error {
+            .init(reason: reason, retry: hint)
         }
         
         private func isDuplicate(server: Fulcrum.Error.Server) -> Bool {
@@ -133,6 +188,18 @@ extension Adapter.SwiftFulcrum {
                 "txn-already-in-mempool"
             ]
             return duplicatePhrases.contains { lowered.contains($0) }
+        }
+        
+        private func isNotFound(error: Fulcrum.Error) -> Bool {
+            guard case .rpc(let server) = error else { return false }
+            if server.code == -5 { return true }
+            let lowered = server.message.lowercased()
+            let notFoundPhrases = [
+                "no such mempool or blockchain transaction",
+                "transaction not found",
+                "not found"
+            ]
+            return notFoundPhrases.contains { lowered.contains($0) }
         }
         
         private func transportRetryDelay(for transport: Fulcrum.Error.Transport) -> TimeInterval {
@@ -168,33 +235,6 @@ extension Adapter.SwiftFulcrum {
                 return "Reconnect failed"
             case .heartbeatTimeout:
                 return "Heartbeat timeout"
-            }
-        }
-        
-        private func interpret(
-            _ error: Fulcrum.Error.Client,
-            expectedHash _: Transaction.Hash
-        ) -> Network.Gateway.BroadcastResolution {
-            switch error {
-            case .duplicateHandler:
-                return retry(.transport(description: "Duplicate handler detected"), hint: .immediately)
-            case .cancelled:
-                return retry(.transport(description: "Request cancelled"), hint: .after(1))
-            case .timeout(let duration):
-                let seconds = max(1, seconds(from: duration))
-                let description = String(format: "Request timed out after %.2f seconds", seconds)
-                return retry(.transport(description: description), hint: .after(seconds))
-            case .emptyResponse(let identifier):
-                if let identifier {
-                    return retry(.transport(description: "Empty response for request \(identifier.uuidString)"), hint: .after(1))
-                }
-                return retry(.transport(description: "Empty response from server"), hint: .after(1))
-            case .protocolMismatch(let message):
-                let detail = message ?? "unknown mismatch"
-                return retry(.transport(description: "Protocol mismatch: \(detail)"), hint: .after(5))
-            case .unknown(let underlying):
-                let description = "Unknown client error: \(detail(from: underlying))"
-                return retry(.transport(description: description), hint: .after(5))
             }
         }
         

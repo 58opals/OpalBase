@@ -154,70 +154,85 @@ extension Account {
         catch { await enqueueRequest(for: .refreshUTXOSet, operation: request) }
     }
     
-    public func monitorBalances() async throws -> AsyncThrowingStream<Satoshi, Swift.Error> {
-        let initialAddresses = await (addressBook.receivingEntries + addressBook.changeEntries).map(\.address)
-        guard !initialAddresses.isEmpty else { throw Account.Monitor.Error.emptyAddresses }
+    func makeBalanceStream() async throws -> AsyncThrowingStream<Satoshi, Swift.Error> {
+        let addresses = await (addressBook.receivingEntries + addressBook.changeEntries).map(\.address)
+        guard !addresses.isEmpty else { throw Network.Account.Lifecycle.Error.emptyAddresses }
         
-        do {
-            let fulcrum = try await fulcrumPool.acquireFulcrum()
-            let (initialStream, consumerID) = try await addressMonitor.start(for: initialAddresses, using: fulcrum, through: subscriptionHub)
-            let newEntryStream = await addressBook.observeNewEntries()
+        let fulcrum = try await fulcrumPool.acquireFulcrum()
+        let consumerID = UUID()
+        balanceMonitorConsumerID = consumerID
+        isBalanceMonitoringSuspended = false
+        
+        let streamHandle = try await subscriptionHub.makeStream(for: addresses, using: fulcrum, consumerID: consumerID)
+        let newEntryStream = await addressBook.observeNewEntries()
+        
+        return AsyncThrowingStream { continuation in
+            self.balanceMonitorContinuation = continuation
             
-            return AsyncThrowingStream { continuation in
-                Task { [weak self] in
-                    guard let self else { return }
-                    
-                    func handle(_ stream: AsyncThrowingStream<Void, Swift.Error>) async {
-                        let task = Task { [weak self] in
-                            guard let self else { return }
-                            do {
-                                for try await _ in stream {
-                                    await self.refreshUTXOSet()
-                                    let balance = try await self.calculateBalance()
-                                    continuation.yield(balance)
-                                }
-                            } catch {
-                                continuation.finish(throwing: Account.Monitor.Error.monitoringFailed(error))
-                            }
-                        }
-                        
-                        await addressMonitor.storeTask(task)
+            let notificationTask = Task { [weak self] in
+                guard let self else { return }
+                defer { Task { await self.cleanupBalanceMonitoring(removeConsumer: true) } }
+                
+                do {
+                    for try await _ in streamHandle.notifications {
+                        await self.handleBalanceNotification(continuation: continuation)
                     }
                     
-                    await handle(initialStream)
-                    
-                    let newEntryTask = Task { [weak self] in
-                        guard let self else { return }
-                        for await entry in newEntryStream {
-                            do {
-                                try await self.subscriptionHub.add(addresses: [entry.address],
-                                                                   for: consumerID,
-                                                                   using: fulcrum)
-                            } catch {
-                                continuation.finish(throwing: Account.Monitor.Error.monitoringFailed(error))
-                                break
-                            }
-                        }
-                    }
-                    
-                    await addressMonitor.storeTask(newEntryTask)
-                    
-                    continuation.onTermination = { _ in
-                        
-                        Task { [weak self] in
-                            guard let self else { return }
-                            await self.addressMonitor.stop(hub: self.subscriptionHub)
-                        }
+                    continuation.finish()
+                } catch is CancellationError {
+                    continuation.finish()
+                } catch {
+                    continuation.finish(throwing: Network.Account.Lifecycle.Error.monitoringFailed(error))
+                }
+            }
+            
+            balanceMonitorTasks.append(notificationTask)
+            
+            let newEntryTask = Task { [weak self] in
+                guard let self else { return }
+                for await entry in newEntryStream {
+                    do {
+                        try await self.subscriptionHub.add(addresses: [entry.address], for: consumerID, using: fulcrum)
+                    } catch {
+                        continuation.finish(throwing: Network.Account.Lifecycle.Error.monitoringFailed(error))
+                        break
                     }
                 }
             }
-        } catch {
-            throw Account.Monitor.Error.monitoringFailed(error)
+            balanceMonitorTasks.append(newEntryTask)
+            
+            continuation.onTermination = { _ in
+                Task { [weak self] in
+                    await self?.cleanupBalanceMonitoring(removeConsumer: true)
+                }
+            }
         }
     }
     
-    public func stopBalanceMonitoring() async {
-        await addressMonitor.stop(hub: subscriptionHub)
+    func suspendBalanceStream() async throws {
+        guard balanceMonitorContinuation != nil else { return }
+        isBalanceMonitoringSuspended = true
+        balanceMonitorDebounceTask?.cancel()
+        balanceMonitorDebounceTask = nil
+    }
+    
+    func resumeBalanceStream() async throws {
+        guard let continuation = balanceMonitorContinuation else { return }
+        isBalanceMonitoringSuspended = false
+        
+        do {
+            await refreshUTXOSet()
+            let balance = try await calculateBalance()
+            continuation.yield(balance)
+        } catch let lifecycleError as Network.Account.Lifecycle.Error {
+            throw lifecycleError
+        } catch {
+            throw Network.Account.Lifecycle.Error.monitoringFailed(error)
+        }
+    }
+    
+    func shutdownBalanceStream() async throws {
+        await cleanupBalanceMonitoring(removeConsumer: true)
     }
 }
 
@@ -233,6 +248,9 @@ extension Account {
                 await resumeQueuedRequests()
                 await addressBook.resumeQueuedRequests()
                 
+                do { try await resumeBalanceMonitoring() }
+                catch { }
+                
                 if let gateway = try? await fulcrumPool.acquireGateway() {
                     if let fulcrum = try? await fulcrumPool.acquireFulcrum() {
                         await addressBook.startSubscription(using: fulcrum, hub: subscriptionHub)
@@ -244,7 +262,52 @@ extension Account {
                 await suspendQueuedRequests()
                 await addressBook.suspendQueuedRequests()
                 await addressBook.stopSubscription()
+                
+                do { try await suspendBalanceMonitoring() }
+                catch { }
             }
         }
+    }
+}
+
+private extension Account {
+    func handleBalanceNotification(
+        continuation: AsyncThrowingStream<Satoshi, Swift.Error>.Continuation
+    ) async {
+        guard !isBalanceMonitoringSuspended else { return }
+        
+        balanceMonitorDebounceTask?.cancel()
+        balanceMonitorDebounceTask = Task { [weak self] in
+            guard let self else { return }
+            
+            do {
+                try await Task.sleep(nanoseconds: balanceMonitorDebounceInterval)
+                await self.refreshUTXOSet()
+                let balance = try await self.calculateBalance()
+                continuation.yield(balance)
+            } catch is CancellationError {
+                return
+            } catch let lifecycleError as Network.Account.Lifecycle.Error {
+                continuation.finish(throwing: lifecycleError)
+            } catch {
+                continuation.finish(throwing: Network.Account.Lifecycle.Error.monitoringFailed(error))
+            }
+        }
+    }
+    
+    func cleanupBalanceMonitoring(removeConsumer: Bool) async {
+        balanceMonitorDebounceTask?.cancel()
+        balanceMonitorDebounceTask = nil
+        
+        for task in balanceMonitorTasks { task.cancel() }
+        balanceMonitorTasks.removeAll()
+        
+        if removeConsumer, let consumerID = balanceMonitorConsumerID {
+            await subscriptionHub.remove(consumerID: consumerID)
+        }
+        
+        balanceMonitorConsumerID = nil
+        balanceMonitorContinuation = nil
+        isBalanceMonitoringSuspended = false
     }
 }

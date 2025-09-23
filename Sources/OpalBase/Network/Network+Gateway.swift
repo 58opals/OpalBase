@@ -27,6 +27,22 @@ extension Network {
             self.healthRetryDelay = max(0, configuration.healthRetryDelay)
         }
         
+        private func perform<Value: Sendable>(
+            _ request: Request,
+            priority: TaskPriority? = nil,
+            retryPolicy: RequestRouter<Request>.RetryPolicy = .retry,
+            operation: @escaping @Sendable () async throws -> Value
+        ) async throws -> Value {
+            let handle = await requestRouter.handle(for: request)
+            do {
+                return try await handle.perform(priority: priority,
+                                                retryPolicy: retryPolicy,
+                                                operation: operation)
+            } catch {
+                throw try mapToGatewayError(error, for: request)
+            }
+        }
+        
         private func ensureBroadcastEligibility(now: Date = .init()) throws {
             guard health.status == .online else {
                 throw Error(reason: .poolUnhealthy(health.status),
@@ -58,19 +74,50 @@ extension Network {
             await seen.set(hash, true)
         }
         
-        private func mapToGatewayError(_ error: Swift.Error) throws -> Error {
+        private func refreshSeenIfPresent(_ hash: Transaction.Hash) async -> Bool {
+            guard await seen.get(hash) != nil else { return false }
+            await seen.set(hash, true)
+            return true
+        }
+        
+        private func cachedMempoolContains(_ hash: Transaction.Hash,
+                                           now: Date = .init()) async -> Bool
+        {
+            if now.timeIntervalSince(mempoolLastRefresh) > mempoolTTL {
+                _ = try? await getCurrentMempool(forceRefresh: true)
+            }
+            
+            guard mempool.contains(hash) else { return false }
+            await markKnown(hash: hash)
+            return true
+        }
+        
+        private func remoteAcknowledges(_ hash: Transaction.Hash) async throws -> Bool {
+            do {
+                if try await getTransaction(for: hash) != nil {
+                    await markKnown(hash: hash)
+                    return true
+                }
+            } catch let cancellation as CancellationError {
+                throw cancellation
+            } catch {
+                return false
+            }
+            
+            return false
+        }
+        
+        private func mapToGatewayError(_ error: Swift.Error, for request: Request) throws -> Error {
             if let cancellation = error as? CancellationError { throw cancellation }
             if let domain = error as? Error { return domain }
+            if let normalized = client.normalize(error: error, during: request) { return normalized }
             let description = String(describing: error)
             return Error(reason: .transport(description: description),
                          retry: .after(healthRetryDelay))
         }
         
         public func getTransaction(for hash: Transaction.Hash) async throws -> Transaction? {
-            let handle = await requestRouter.handle(for: .transaction(hash))
-            return try await handle.perform(retryPolicy: .retry) {
-                try await self.client.fetch(hash)
-            }
+            try await perform(.transaction(hash)) { try await self.client.fetch(hash) }
         }
         
         public func getCurrentMempool(forceRefresh: Bool = false) async throws -> Set<Transaction.Hash> {
@@ -101,25 +148,17 @@ extension Network {
         }
         
         private func submit(transaction: Transaction,
-                            expectedHash: Transaction.Hash) async throws -> Transaction.Hash
-        {
-            if await seen.get(expectedHash) != nil {
-                return expectedHash
-            }
+                            expectedHash: Transaction.Hash) async throws -> Transaction.Hash {
+            let now = Date()
             
-            if mempool.contains(expectedHash) {
-                await markKnown(hash: expectedHash)
-                return expectedHash
-            }
+            if await refreshSeenIfPresent(expectedHash) { return expectedHash }
+            if await cachedMempoolContains(expectedHash, now: now) { return expectedHash }
+            if try await remoteAcknowledges(expectedHash) { return expectedHash }
             
-            if (try? await getTransaction(for: expectedHash)) != nil {
-                await markKnown(hash: expectedHash)
-                return expectedHash
-            }
+            try ensureBroadcastEligibility(now: now)
             
-            try ensureBroadcastEligibility()
-            
-            let handle = await requestRouter.handle(for: .broadcast(expectedHash))
+            let request = Network.Gateway.Request.broadcast(expectedHash)
+            let handle = await requestRouter.handle(for: request)
             do {
                 let acknowledged = try await handle.perform(priority: .high, retryPolicy: .retry) {
                     try await self.client.broadcast(transaction)
@@ -136,48 +175,42 @@ extension Network {
                         throw normalized
                     }
                 }
-                throw try mapToGatewayError(error)
+                throw try mapToGatewayError(error, for: request)
             }
         }
         
         public func getRawTransaction(for hash: Transaction.Hash) async throws -> Data {
-            let handle = await requestRouter.handle(for: .rawTransaction(hash))
-            return try await handle.perform(retryPolicy: .retry) {
+            try await perform(.rawTransaction(hash)) {
                 try await self.client.getRawTransaction(for: hash)
             }
         }
         
         public func getDetailedTransaction(for hash: Transaction.Hash) async throws -> Transaction.Detailed {
-            let handle = await requestRouter.handle(for: .detailedTransaction(hash))
-            return try await handle.perform(retryPolicy: .retry) {
+            try await perform(.detailedTransaction(hash)) {
                 try await self.client.getDetailedTransaction(for: hash)
             }
         }
         
         public func getEstimateFee(targetBlocks: Int) async throws -> Satoshi {
-            let handle = await requestRouter.handle(for: .estimateFee(targetBlocks))
-            return try await handle.perform(retryPolicy: .retry) {
+            try await perform(.estimateFee(targetBlocks)) {
                 try await self.client.getEstimateFee(targetBlocks: targetBlocks)
             }
         }
         
         public func getRelayFee() async throws -> Satoshi {
-            let handle = await requestRouter.handle(for: .relayFee)
-            return try await handle.perform(retryPolicy: .retry) {
+            try await perform(.relayFee) {
                 try await self.client.getRelayFee()
             }
         }
         
         public func getHeader(height: UInt32) async throws -> HeaderPayload? {
-            let handle = await requestRouter.handle(for: .header(height))
-            return try await handle.perform(retryPolicy: .retry) {
+            try await perform(.header(height)) {
                 try await self.client.getHeader(height: height)
             }
         }
         
         public func pingHeadersTip() async throws {
-            let handle = await requestRouter.handle(for: .pingHeadersTip)
-            _ = try await handle.perform(retryPolicy: .retry) {
+            try await perform(.pingHeadersTip) {
                 try await self.client.pingHeadersTip()
             }
         }

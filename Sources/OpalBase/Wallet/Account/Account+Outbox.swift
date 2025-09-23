@@ -1,7 +1,6 @@
 // Account+Outbox.swift
 
 import Foundation
-import SwiftFulcrum
 
 extension Account {
     actor Outbox {
@@ -34,8 +33,7 @@ extension Account.Outbox {
         for url in urls {
             do {
                 let data = try Data(contentsOf: url)
-                let (transaction, _) = try Transaction.decode(from: data)
-                let response = try await gateway.broadcast(transaction)
+                let response = try await gateway.submit(data)
                 guard !response.originalData.isEmpty else { continue }
                 try fileManager.removeItem(at: url)
             } catch {

@@ -12,6 +12,9 @@ public actor Wallet: Identifiable {
     
     var accounts: [Account] = .init()
     
+    let balanceLifecycleCoordinator = Lifecycle.Coordinator<Satoshi>()
+    var balanceLifecycleRegistrations: [Data: UUID] = .init()
+    
     private func generateID(from inputs: [Data]) -> Data {
         var hashInput: Data = .init()
         for input in inputs {
@@ -27,7 +30,6 @@ public actor Wallet: Identifiable {
         self.mnemonic = mnemonic
         self.purpose = purpose
         self.coinType = coinType
-        
         self.id = [self.mnemonic.seed, self.purpose.hardenedIndex.data, self.coinType.hardenedIndex.data].generateID()
     }
     
@@ -35,6 +37,7 @@ public actor Wallet: Identifiable {
         self.mnemonic = try Mnemonic(words: snapshot.words, passphrase: snapshot.passphrase)
         self.purpose = snapshot.purpose
         self.coinType = snapshot.coinType
+        self.id = [self.mnemonic.seed, self.purpose.hardenedIndex.data, self.coinType.hardenedIndex.data].generateID()
         
         let rootExtendedPrivateKey = PrivateKey.Extended(rootKey: try .init(seed: self.mnemonic.seed))
         for accountSnap in snapshot.accounts {
@@ -43,9 +46,8 @@ public actor Wallet: Identifiable {
                                             purpose: snapshot.purpose,
                                             coinType: snapshot.coinType)
             self.accounts.append(account)
+            await registerAccountLifecycle(for: account)
         }
-        
-        self.id = [self.mnemonic.seed, self.purpose.hardenedIndex.data, self.coinType.hardenedIndex.data].generateID()
     }
 }
 
@@ -72,6 +74,7 @@ extension Wallet {
                                         coinType: coinType,
                                         account: derivationPathAccount)
         self.accounts.append(account)
+        await registerAccountLifecycle(for: account)
     }
 }
 

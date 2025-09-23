@@ -8,26 +8,26 @@ import SwiftFulcrum
 struct AddressBalanceMonitorTests {
     /// Account under test.
     var account: Account
-
+    
     /// Creates a fresh account and starts the underlying Fulcrum service.
     init() async throws {
         let wallet = Wallet(mnemonic: try .init())
         try await wallet.addAccount(unhardenedIndex: 0)
         self.account = try await wallet.fetchAccount(at: 0)
-
+        
         let fulcrum = try await account.fulcrumPool.acquireFulcrum()
         try await fulcrum.start()
     }
-
+    
     /// Ensures monitoring fails when no addresses exist.
     @Test func testMonitorBalancesThrowsOnEmptyAddressBook() async throws {
         await account.addressBook.clearEntries()
         
-        await #expect(throws: Account.Monitor.Error.emptyAddresses) {
+        await #expect(throws: Network.Account.Lifecycle.Error.emptyAddresses) {
             _ = try await account.monitorBalances()
         }
     }
-
+    
     /// Verifies a stream is produced when monitoring begins.
     @Test func testMonitorBalancesStartsStream() async throws {
         let stream = try await account.monitorBalances()

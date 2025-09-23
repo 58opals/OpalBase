@@ -19,7 +19,13 @@ public actor Account: Identifiable {
     
     let subscriptionHub: Network.Wallet.SubscriptionHub
     
-    let addressMonitor: Monitor
+    let balanceLifecycleCoordinator: Lifecycle.Coordinator<Satoshi>
+    var balanceMonitorConsumerID: UUID?
+    var balanceMonitorTasks: [Task<Void, Never>] = .init()
+    var balanceMonitorDebounceTask: Task<Void, Never>?
+    var balanceMonitorContinuation: AsyncThrowingStream<Satoshi, Swift.Error>.Continuation?
+    var isBalanceMonitoringSuspended = false
+    let balanceMonitorDebounceInterval: UInt64 = 100_000_000
     
     public let privacyConfiguration: PrivacyShaper.Configuration
     let privacyShaper: PrivacyShaper
@@ -56,10 +62,14 @@ public actor Account: Identifiable {
         
         self.subscriptionHub = .init(repository: subscriptionRepository)
         
-        self.addressMonitor = .init()
-        
         self.privacyConfiguration = privacyConfiguration
         self.privacyShaper = .init(configuration: privacyConfiguration)
+        
+        self.balanceLifecycleCoordinator = .init()
+        _ = await Self.configureBalanceLifecycle(
+            coordinator: balanceLifecycleCoordinator,
+            account: self
+        )
         
         self.networkMonitorTask = Task { [weak self] in
             guard let self else { return }
