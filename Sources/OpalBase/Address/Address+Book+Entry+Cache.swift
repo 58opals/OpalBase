@@ -1,7 +1,6 @@
 // Address+Book+Entry+Cache.swift
 
 import Foundation
-import SwiftFulcrum
 
 extension Address.Book.Entry {
     struct Cache {
