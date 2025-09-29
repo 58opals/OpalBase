@@ -82,6 +82,11 @@ extension Network.Wallet.FulcrumPool.PoolState {
         return servers[primaryIndex].gateway
     }
     
+    func acquireNode(now: Date = .init()) async throws -> Network.Wallet.Node {
+        let fulcrum = try await acquireFulcrum(now: now)
+        return Adapter.SwiftFulcrum.Node(fulcrum: fulcrum)
+    }
+    
     func reportFailure(now: Date = .init()) async throws {
         assignRoles(now: now)
         guard !servers.isEmpty else {

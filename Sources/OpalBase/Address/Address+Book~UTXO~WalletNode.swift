@@ -1,17 +1,16 @@
-// Address+Book~UTXO~SwiftFulcrum.swift
+// Address+Book~UTXO~WalletNode.swift
 
 import Foundation
-import SwiftFulcrum
 
 extension Address.Book {
-    public func refreshUTXOSet(fulcrum: Fulcrum) async throws {
+    public func refreshUTXOSet(node: any Network.Wallet.Node) async throws {
         let operation: @Sendable () async throws -> Void = { [self] in
             let entries = await receivingEntries + changeEntries
             
             let updatedUTXOs = try await withThrowingTaskGroup(of: [Transaction.Output.Unspent].self) { group in
                 for entry in entries {
                     group.addTask {
-                        let newUTXOs = try await entry.address.fetchUnspentTransactionOutputs(fulcrum: fulcrum)
+                        let newUTXOs = try await node.unspentOutputs(for: entry.address)
                         return newUTXOs.map {
                             Transaction.Output.Unspent(value: $0.value,
                                                        lockingScript: $0.lockingScript,

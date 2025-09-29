@@ -1,24 +1,23 @@
-// Address+Book+Entry+Cache~SwiftFulcrum.swift
+// Address+Book+Entry+Cache~WalletNode.swift
 
 import Foundation
-import SwiftFulcrum
 
 extension Address.Book {
-    func updateCache(using fulcrum: Fulcrum) async throws {
+    func updateCache(using node: any Network.Wallet.Node) async throws {
         let operation: @Sendable () async throws -> Void = { [self] in
-            try await updateCache(in: .receiving, fulcrum: fulcrum)
-            try await updateCache(in: .change, fulcrum: fulcrum)
+            try await updateCache(in: .receiving, node: node)
+            try await updateCache(in: .change, node: node)
         }
         
         try await executeOrEnqueue(.updateCache, operation: operation)
     }
     
-    func updateCache(in usage: DerivationPath.Usage, fulcrum: Fulcrum) async throws {
+    func updateCache(in usage: DerivationPath.Usage, node: any Network.Wallet.Node) async throws {
         let operation: @Sendable () async throws -> Void = { [self] in
             let entries = await listEntries(for: usage)
             for entry in entries where !entry.cache.isValid {
                 let address = entry.address
-                let latestBalance = try await address.fetchBalance(using: fulcrum)
+                let latestBalance = try await node.balance(for: address, includeUnconfirmed: true)
                 try await updateCache(for: address, with: latestBalance)
             }
         }

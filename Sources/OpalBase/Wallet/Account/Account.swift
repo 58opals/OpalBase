@@ -3,8 +3,8 @@
 import Foundation
 
 public actor Account: Identifiable {
-    public let fulcrumPool: Network.Wallet.FulcrumPool
-    public let feeRate: Network.Wallet.FeeRate
+    public let fulcrumPool: any Network.Wallet.ConnectionPool
+    public let feeRate: any Network.Wallet.FeeService
     
     private let rootExtendedPrivateKey: PrivateKey.Extended
     
@@ -17,7 +17,7 @@ public actor Account: Identifiable {
     public var addressBook: Address.Book
     let outbox: Outbox
     
-    let subscriptionHub: Network.Wallet.SubscriptionHub
+    let subscriptionHub: any Network.Wallet.SubscriptionService
     
     let balanceLifecycleCoordinator: Lifecycle.Coordinator<Satoshi>
     var balanceMonitorConsumerID: UUID?
@@ -42,8 +42,9 @@ public actor Account: Identifiable {
          outboxPath: URL? = nil,
          subscriptionRepository: Storage.Repository.Subscriptions? = nil,
          feeRepository: Storage.Repository.Fees? = nil) async throws {
-        self.fulcrumPool = try await .init(urls: fulcrumServerURLs)
-        self.feeRate = .init(fulcrumPool: self.fulcrumPool, feeRepository: feeRepository)
+        let pool = try await Network.Wallet.FulcrumPool(urls: fulcrumServerURLs)
+        self.fulcrumPool = pool
+        self.feeRate = Network.Wallet.FeeRate(connectionPool: pool, feeRepository: feeRepository)
         
         self.rootExtendedPrivateKey = rootExtendedPrivateKey
         self.purpose = purpose
@@ -60,7 +61,7 @@ public actor Account: Identifiable {
         let folderURL = outboxPath ?? FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0].appendingPathComponent("accountOutbox")
         self.outbox = try .init(folderURL: folderURL)
         
-        self.subscriptionHub = .init(repository: subscriptionRepository)
+        self.subscriptionHub = Network.Wallet.SubscriptionHub(repository: subscriptionRepository)
         
         self.privacyConfiguration = privacyConfiguration
         self.privacyShaper = .init(configuration: privacyConfiguration)

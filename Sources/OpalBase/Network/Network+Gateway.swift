@@ -329,3 +329,5 @@ extension Network.Gateway {
         }
     }
 }
+
+extension Network.Gateway: Network.Gateway.HeaderClient {}

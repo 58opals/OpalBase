@@ -2,7 +2,6 @@
 
 import Foundation
 import BigInt
-import SwiftFulcrum
 
 extension Block.Header {
     actor Chain {
@@ -94,7 +93,8 @@ extension Block.Header.Chain {
         return currentHash == header.merkleRoot
     }
     
-    func sync(from startHeight: UInt32? = nil, using gateway: Network.Gateway) async throws {
+    func sync(from startHeight: UInt32? = nil,
+              using gateway: any Network.Gateway.HeaderClient) async throws {
         var height = startHeight ?? (headers.isEmpty ? checkpointHeight : tipHeight &+ 1)
         while true {
             guard let payload = try await gateway.getHeader(height: height) else { break }

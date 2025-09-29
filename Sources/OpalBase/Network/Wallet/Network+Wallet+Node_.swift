@@ -3,7 +3,6 @@
 import Foundation
 
 extension Network.Wallet {
-    /// A lightweight abstraction over a Fulcrum-compatible node used by the domain layer.
     public protocol Node: Sendable {
         func balance(for address: Address, includeUnconfirmed: Bool) async throws -> Satoshi
         func unspentOutputs(for address: Address) async throws -> [Transaction.Output.Unspent]

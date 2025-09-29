@@ -1,18 +1,17 @@
-// Account~SwiftFulcrum.swift
+// Account~WalletNode.swift
 
 import Foundation
-import SwiftFulcrum
 
 extension Account {
     public func calculateBalance() async throws -> Satoshi {
         let addresses = await (addressBook.receivingEntries + addressBook.changeEntries).map { $0.address }
         guard !addresses.isEmpty else { return try Satoshi(0) }
         
-        let fulcrum = try await fulcrumPool.acquireFulcrum()
+        let node = try await fulcrumPool.acquireNode()
         let total = try await withThrowingTaskGroup(of: UInt64.self) { group in
             for address in addresses {
                 group.addTask {
-                    let balance = try await self.addressBook.fetchBalance(for: address, using: fulcrum)
+                    let balance = try await self.addressBook.fetchBalance(for: address, using: node)
                     return balance.uint64
                 }
             }
@@ -40,7 +39,7 @@ extension Account {
             let feeDecoyCount = await privacyShaper.nextDecoyCount
             let feeDecoys = await makeDecoyOperations(count: feeDecoyCount)
             selectedFeeRate = try await privacyShaper.scheduleSensitiveOperation(decoys: feeDecoys) {
-                try await self.feeRate.fetchRecommendedFeeRate()
+                try await self.feeRate.fetchRecommendedFeeRate(for: .fast)
             }
         }
         
@@ -125,8 +124,8 @@ extension Account {
                 for address in addresses.shuffled(using: &generator).prefix(count) {
                     let decoy: @Sendable () async -> Void = { [fulcrumPool, address] in
                         do {
-                            let fulcrum = try await fulcrumPool.acquireFulcrum()
-                            _ = try? await address.fetchBalance(includeUnconfirmed: true, using: fulcrum)
+                            let node = try await fulcrumPool.acquireNode()
+                            _ = try? await node.balance(for: address, includeUnconfirmed: true)
                         } catch { }
                     }
                     operations.append(decoy)
@@ -144,10 +143,10 @@ extension Account {
         return operations
     }
     
-    public func refreshUTXOSet() async {
+    public func refreshUTXOSet() async throws {
         let request: @Sendable () async throws -> Void = { [self] in
-            let fulcrum = try await self.fulcrumPool.acquireFulcrum()
-            try await self.addressBook.refreshUTXOSet(fulcrum: fulcrum)
+            let node = try await self.fulcrumPool.acquireNode()
+            try await self.addressBook.refreshUTXOSet(node: node)
         }
         
         do { try await request() }
@@ -158,12 +157,12 @@ extension Account {
         let addresses = await (addressBook.receivingEntries + addressBook.changeEntries).map(\.address)
         guard !addresses.isEmpty else { throw Network.Account.Lifecycle.Error.emptyAddresses }
         
-        let fulcrum = try await fulcrumPool.acquireFulcrum()
+        let node = try await fulcrumPool.acquireNode()
         let consumerID = UUID()
         balanceMonitorConsumerID = consumerID
         isBalanceMonitoringSuspended = false
         
-        let streamHandle = try await subscriptionHub.makeStream(for: addresses, using: fulcrum, consumerID: consumerID)
+        let streamHandle = try await subscriptionHub.makeStream(for: addresses, using: node, consumerID: consumerID)
         let newEntryStream = await addressBook.observeNewEntries()
         
         return AsyncThrowingStream { continuation in
@@ -192,13 +191,14 @@ extension Account {
                 guard let self else { return }
                 for await entry in newEntryStream {
                     do {
-                        try await self.subscriptionHub.add(addresses: [entry.address], for: consumerID, using: fulcrum)
+                        try await self.subscriptionHub.add(addresses: [entry.address], for: consumerID, using: node)
                     } catch {
                         continuation.finish(throwing: Network.Account.Lifecycle.Error.monitoringFailed(error))
                         break
                     }
                 }
             }
+            
             balanceMonitorTasks.append(newEntryTask)
             
             continuation.onTermination = { _ in
@@ -221,7 +221,7 @@ extension Account {
         isBalanceMonitoringSuspended = false
         
         do {
-            await refreshUTXOSet()
+            try await refreshUTXOSet()
             let balance = try await calculateBalance()
             continuation.yield(balance)
         } catch let lifecycleError as Network.Account.Lifecycle.Error {
@@ -251,10 +251,9 @@ extension Account {
                 do { try await resumeBalanceMonitoring() }
                 catch { }
                 
-                if let gateway = try? await fulcrumPool.acquireGateway() {
-                    if let fulcrum = try? await fulcrumPool.acquireFulcrum() {
-                        await addressBook.startSubscription(using: fulcrum, hub: subscriptionHub)
-                    }
+                if let gateway = try? await fulcrumPool.acquireGateway(),
+                   let node = try? await fulcrumPool.acquireNode() {
+                    await addressBook.startSubscription(using: node, hub: subscriptionHub)
                     await outbox.retryPendingTransactions(using: gateway)
                 }
                 
@@ -282,7 +281,7 @@ private extension Account {
             
             do {
                 try await Task.sleep(nanoseconds: balanceMonitorDebounceInterval)
-                await self.refreshUTXOSet()
+                try await self.refreshUTXOSet()
                 let balance = try await self.calculateBalance()
                 continuation.yield(balance)
             } catch is CancellationError {

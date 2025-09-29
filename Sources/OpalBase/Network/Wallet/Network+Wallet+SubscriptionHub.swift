@@ -1,10 +1,9 @@
 // Network+Wallet+SubscriptionHub.swift
 
 import Foundation
-import SwiftFulcrum
 
 extension Network.Wallet {
-    public actor SubscriptionHub {
+    public actor SubscriptionHub: SubscriptionService {
         public struct Notification: Sendable {
             public let address: Address
             public let status: String?
@@ -39,14 +38,14 @@ extension Network.Wallet {
         }
         
         public func makeStream(for addresses: [Address],
-                               using fulcrum: Fulcrum,
+                               using node: any Network.Wallet.Node,
                                consumerID: UUID) async throws -> Stream {
             let unique = Set(addresses)
             let stream = AsyncThrowingStream<Notification, Swift.Error>(bufferingPolicy: .bufferingNewest(1)) { continuation in
                 Task {
                     await self.register(consumerID: consumerID,
                                         addresses: unique,
-                                        fulcrum: fulcrum,
+                                        node: node,
                                         continuation: continuation)
                 }
                 continuation.onTermination = { _ in
@@ -59,7 +58,7 @@ extension Network.Wallet {
         
         public func add(addresses: [Address],
                         for consumerID: UUID,
-                        using fulcrum: Fulcrum) async throws {
+                        using node: any Network.Wallet.Node) async throws {
             let unique = Set(addresses)
             guard !unique.isEmpty else { return }
             guard consumers[consumerID] != nil else { throw Error.consumerNotFound(consumerID) }
@@ -68,7 +67,7 @@ extension Network.Wallet {
             for address in unique {
                 try await attach(consumerID: consumerID,
                                  address: address,
-                                 fulcrum: fulcrum)
+                                 node: node)
             }
         }
         
@@ -81,7 +80,7 @@ extension Network.Wallet {
 extension Network.Wallet.SubscriptionHub {
     func register(consumerID: UUID,
                   addresses: Set<Address>,
-                  fulcrum: Fulcrum,
+                  node: any Network.Wallet.Node,
                   continuation: AsyncThrowingStream<Notification, Swift.Error>.Continuation) async {
         consumers[consumerID] = continuation
         consumerAddresses[consumerID, default: .init()].formUnion(addresses)
@@ -90,7 +89,7 @@ extension Network.Wallet.SubscriptionHub {
             do {
                 try await attach(consumerID: consumerID,
                                  address: address,
-                                 fulcrum: fulcrum)
+                                 node: node)
             } catch {
                 continuation.finish(throwing: error)
                 await unregister(consumerID: consumerID)
@@ -115,7 +114,7 @@ extension Network.Wallet.SubscriptionHub {
     
     func attach(consumerID: UUID,
                 address: Address,
-                fulcrum: Fulcrum) async throws {
+                node: any Network.Wallet.Node) async throws {
         subscriptions[address, default: .init()].consumers.insert(consumerID)
         
         if let continuation = consumers[consumerID] {
@@ -140,10 +139,11 @@ extension Network.Wallet.SubscriptionHub {
             return
         }
         
-        try await startStreamingIfNeeded(for: address, using: fulcrum)
+        try await startStreamingIfNeeded(for: address, using: node)
     }
     
-    func startStreamingIfNeeded(for address: Address, using fulcrum: Fulcrum) async throws {
+    func startStreamingIfNeeded(for address: Address,
+                                using node: any Network.Wallet.Node) async throws {
         var state = subscriptions[address] ?? SubscriptionState()
         guard state.task == nil else { return }
         guard !state.consumers.isEmpty else { return }
@@ -151,15 +151,15 @@ extension Network.Wallet.SubscriptionHub {
         let task = Task { [weak self] in
             guard let self else { return }
             do {
-                let (_, initialStatus, stream, cancel) = try await address.subscribe(fulcrum: fulcrum)
-                if let failure = await self.recordInitialStatus(initialStatus,
+                let subscription = try await node.subscribe(to: address)
+                if let failure = await self.recordInitialStatus(subscription.initialStatus,
                                                                 for: address,
-                                                                cancel: cancel) {
+                                                                cancel: subscription.cancel) {
                     await self.finishSubscription(for: address, error: failure)
                     return
                 }
                 
-                for try await notification in stream {
+                for try await notification in subscription.updates {
                     await self.handle(notification: notification, for: address)
                 }
                 await self.finishSubscription(for: address, error: nil)
@@ -194,8 +194,8 @@ extension Network.Wallet.SubscriptionHub {
         return nil
     }
     
-    func handle(notification: Response.Result.Blockchain.Address.SubscribeNotification,
-                for address:Address) async {
+    func handle(notification: Network.Wallet.SubscriptionStream.Notification,
+                for address: Address) async {
         var state = subscriptions[address] ?? SubscriptionState()
         state.lastStatus = notification.status
         subscriptions[address] = state
@@ -207,7 +207,10 @@ extension Network.Wallet.SubscriptionHub {
             return
         }
         
-        await broadcast(.init(address: address, status: notification.status, isReplay: false), for: address)
+        await broadcast(.init(address: address,
+                              status: notification.status,
+                              isReplay: false),
+                        for: address)
     }
     
     func finishSubscription(for address: Address, error: Swift.Error?) async {
@@ -276,7 +279,7 @@ extension Network.Wallet.SubscriptionHub {
         }
     }
     
-    private func isConsumerActive(consumerID: UUID, address: Address) -> Bool {
+    func isConsumerActive(consumerID: UUID, address: Address) -> Bool {
         guard consumers[consumerID] != nil else { return false }
         guard let addresses = consumerAddresses[consumerID],
               addresses.contains(address)
@@ -287,7 +290,7 @@ extension Network.Wallet.SubscriptionHub {
         return true
     }
     
-    private func removeInactiveConsumer(_ consumerID: UUID, address: Address) async {
+    func removeInactiveConsumer(_ consumerID: UUID, address: Address) async {
         guard var state = subscriptions[address], state.consumers.contains(consumerID) else { return }
         state.consumers.remove(consumerID)
         subscriptions[address] = state

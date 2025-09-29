@@ -51,7 +51,7 @@ extension Adapter.SwiftFulcrum {
             )
             guard case .single(_, let result) = response else { throw Fulcrum.Error.coding(.decode(nil)) }
             
-            return try .init(from: result)
+            return try Transaction.Detailed(from: result)
         }
         
         public func getEstimateFee(targetBlocks: Int) async throws -> Satoshi {

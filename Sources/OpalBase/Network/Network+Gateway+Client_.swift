@@ -3,7 +3,7 @@
 import Foundation
 
 extension Network.Gateway {
-    public protocol Client: Sendable {
+    public protocol Client: Sendable, HeaderClient {
         var currentMempool: Set<Transaction.Hash> { get set }
         func broadcast(_ transaction: Transaction) async throws -> Transaction.Hash
         func fetch(_ hash: Transaction.Hash) async throws -> Transaction?
@@ -11,10 +11,15 @@ extension Network.Gateway {
         func getDetailedTransaction(for hash: Transaction.Hash) async throws -> Transaction.Detailed
         func getEstimateFee(targetBlocks: Int) async throws -> Satoshi
         func getRelayFee() async throws -> Satoshi
-        func getHeader(height: UInt32) async throws -> Network.Gateway.HeaderPayload?
-        func pingHeadersTip() async throws
         func interpretBroadcastError(_ error: Swift.Error, expectedHash: Transaction.Hash) -> Network.Gateway.BroadcastResolution?
         func normalize(error: Swift.Error, during request: Network.Gateway.Request) -> Network.Gateway.Error?
+    }
+}
+
+extension Network.Gateway {
+    public protocol HeaderClient: Sendable {
+        func getHeader(height: UInt32) async throws -> Network.Gateway.HeaderPayload?
+        func pingHeadersTip() async throws
     }
 }
 
