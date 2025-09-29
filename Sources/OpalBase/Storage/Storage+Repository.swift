@@ -232,41 +232,101 @@ extension Storage.Repository {
 // Fees
 extension Storage.Repository {
     public actor Fees {
+        public enum Error: Swift.Error, Sendable, Equatable {
+            case conflict(expected: UInt64?, actual: UInt64?)
+            case storage(String)
+        }
+        
         private let container: ModelContainer
         private let cache = TTLCache<String, Storage.Row.Fee>(defaultTTL: 600)
         
         public init(container: ModelContainer) { self.container = container }
         
-        public func put(tier: Storage.Entity.FeeModel.Tier, satsPerByte: UInt64, ttl: TimeInterval = 600) async throws {
+        public func put(tier: Storage.Entity.FeeModel.Tier,
+                        satsPerByte: UInt64,
+                        ttl: TimeInterval = 600,
+                        expectedVersion: UInt64? = nil) async throws -> Storage.Row.Fee {
             let now = Date()
-            try Storage.Facade.withContext(container) { ctx in
-                let key = tier.rawValue
-                let p = #Predicate<Storage.Entity.FeeModel> { $0.tier == key }
-                if let ex = try ctx.fetch(FetchDescriptor(predicate: p)).first {
-                    ex.satsPerByte = satsPerByte
-                    ex.timestamp = now
-                    ctx.insert(ex)
-                } else {
-                    ctx.insert(Storage.Entity.FeeModel(tier: tier, satsPerByte: satsPerByte, timestamp: now))
+            let row: Storage.Row.Fee
+            do {
+                row = try Storage.Facade.withContext(container) { ctx in
+                    let key = tier.rawValue
+                    let predicate = #Predicate<Storage.Entity.FeeModel> { $0.tier == key }
+                    if let existing = try ctx.fetch(FetchDescriptor(predicate: predicate)).first {
+                        if let expectedVersion, existing.version != expectedVersion {
+                            throw Error.conflict(expected: expectedVersion, actual: existing.version)
+                        }
+                        existing.satsPerByte = satsPerByte
+                        existing.timestamp = now
+                        existing.version &+= 1
+                        ctx.insert(existing)
+                        return existing.row
+                    }
+                    if let expectedVersion {
+                        throw Error.conflict(expected: expectedVersion, actual: nil)
+                    }
+                    let created = Storage.Entity.FeeModel(tier: tier,
+                                                          satsPerByte: satsPerByte,
+                                                          timestamp: now,
+                                                          version: 0)
+                    ctx.insert(created)
+                    return created.row
                 }
+            } catch let conflict as Error {
+                throw conflict
+            } catch {
+                throw Error.storage(String(describing: error))
             }
-            let row = Storage.Row.Fee(tier: tier, satsPerByte: satsPerByte, timestamp: now)
             await cache.set(tier.rawValue, row, ttl: max(0, ttl))
+            
+            return row
         }
         
-        public func latest(_ tier: Storage.Entity.FeeModel.Tier, maxAge: TimeInterval = 900) async throws -> Storage.Row.Fee? {
+        public func latest(_ tier: Storage.Entity.FeeModel.Tier,
+                           maxAge: TimeInterval = 900) async throws -> Storage.Row.Fee? {
             if let cached = await cache.get(tier.rawValue) { return cached }
-            let model = try Storage.Facade.withContext(container) { ctx in
-                let key = tier.rawValue
-                let p = #Predicate<Storage.Entity.FeeModel> { $0.tier == key }
-                return try ctx.fetch(FetchDescriptor(predicate: p)).first
+            let model: Storage.Entity.FeeModel?
+            do {
+                model = try Storage.Facade.withContext(container) { ctx in
+                    let key = tier.rawValue
+                    let predicate = #Predicate<Storage.Entity.FeeModel> { $0.tier == key }
+                    return try ctx.fetch(FetchDescriptor(predicate: predicate)).first
+                }
+            } catch {
+                throw Error.storage(String(describing: error))
             }
             guard let stored = model else { return nil }
             let row = stored.row
             let age = Date().timeIntervalSince(row.timestamp)
-            guard age <= maxAge else { return nil }
+            guard age <= maxAge else {
+                await cache.invalidate(tier.rawValue)
+                return nil
+            }
             await cache.set(tier.rawValue, row, ttl: max(0, maxAge - age))
             return row
+        }
+        
+        public func remove(_ tier: Storage.Entity.FeeModel.Tier,
+                           expectedVersion: UInt64? = nil) async throws {
+            do {
+                try Storage.Facade.withContext(container) { ctx in
+                    let key = tier.rawValue
+                    let predicate = #Predicate<Storage.Entity.FeeModel> { $0.tier == key }
+                    if let existing = try ctx.fetch(FetchDescriptor(predicate: predicate)).first {
+                        if let expectedVersion, existing.version != expectedVersion {
+                            throw Error.conflict(expected: expectedVersion, actual: existing.version)
+                        }
+                        ctx.delete(existing)
+                    } else if let expectedVersion {
+                        throw Error.conflict(expected: expectedVersion, actual: nil)
+                    }
+                }
+            } catch let conflict as Error {
+                throw conflict
+            } catch {
+                throw Error.storage(String(describing: error))
+            }
+            await cache.invalidate(tier.rawValue)
         }
     }
 }

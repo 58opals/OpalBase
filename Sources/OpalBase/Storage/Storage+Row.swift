@@ -27,7 +27,8 @@ extension Storage {
         public struct Fee: Sendable, Codable, Hashable {
             public let tier: Storage.Entity.FeeModel.Tier,
                        satsPerByte: UInt64,
-                       timestamp: Date
+                       timestamp: Date,
+                       version: UInt64
         }
         
         public struct Transaction: Sendable, Codable, Hashable {
@@ -82,7 +83,10 @@ extension Storage.Entity.FeeModel {
         guard let parsedTier = Storage.Entity.FeeModel.Tier(rawValue: tier) else {
             preconditionFailure("Unsupported fee tier: \(tier)")
         }
-        return .init(tier: parsedTier, satsPerByte: satsPerByte, timestamp: timestamp)
+        return .init(tier: parsedTier,
+                     satsPerByte: satsPerByte,
+                     timestamp: timestamp,
+                     version: version)
     }
 }
 extension Storage.Entity.TransactionModel {

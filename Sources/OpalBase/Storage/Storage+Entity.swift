@@ -109,10 +109,17 @@ extension Storage.Entity {
         public var satsPerByte: UInt64
         public var timestamp: Date
         
-        public init(tier: Tier, satsPerByte: UInt64, timestamp: Date = .now) {
+        public var version: UInt64
+        
+        public init(tier: Tier,
+                    satsPerByte: UInt64,
+                    timestamp: Date = .now,
+                    version: UInt64 = 0)
+        {
             self.tier = tier.rawValue
             self.satsPerByte = satsPerByte
             self.timestamp = timestamp
+            self.version = version
         }
     }
     
