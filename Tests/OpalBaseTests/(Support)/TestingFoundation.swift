@@ -20,7 +20,7 @@ extension Tag {
 enum Environment {
     static let network = ProcessInfo.processInfo.environment["OPAL_NETWORK_TESTS"] == "1"
     static let fulcrumURL = ProcessInfo.processInfo.environment["OPAL_FULCRUM_URL"]
-    static let fixtureDir = ProcessInfo.processInfo.environment["OPAL_FIXTURE_DIR"] ?? "Tests/Fixtures"
+    static let fixtureDirectory = ProcessInfo.processInfo.environment["OPAL_FIXTURE_DIRECTORY"] ?? "Tests/Fixtures"
 }
 
 extension TimeInterval {
