@@ -155,9 +155,8 @@ private final class MockGatewayClient: Network.Gateway.Client, @unchecked Sendab
     var broadcastCallCount: Int { lock.withLock { broadcastInvocations } }
     
     func broadcast(_ transaction: Transaction) async throws -> Transaction.Hash {
-        let hash = try await broadcastClosure(transaction)
-        lock.withLock { broadcastInvocations += 1 }
-        return hash
+        defer { lock.withLock { broadcastInvocations += 1 } }
+        return try await broadcastClosure(transaction)
     }
     
     func fetch(_ hash: Transaction.Hash) async throws -> Transaction? {
@@ -212,7 +211,7 @@ private extension Network.Gateway.Configuration {
             healthRetryDelay: healthRetryDelay,
             initialStatus: .online,
             initialHeaderUpdate: Date(),
-            router: .init(),
+            router: .init(retryBudget: .init(maximumRetryCount: 0)),
             instrumentation: .init()
         )
     }
