@@ -49,7 +49,7 @@ extension Address.Book.Subscription {
             streamTask = Task { [weak self] in
                 guard let self else { return }
                 do {
-                    for try await _ in handle.notifications {
+                    for try await _ in handle.eventStream {
                         guard await self.isRunning else { break }
                         await self.processNotification()
                     }

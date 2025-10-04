@@ -173,7 +173,7 @@ extension Account {
                 defer { Task { await self.cleanupBalanceMonitoring(removeConsumer: true) } }
                 
                 do {
-                    for try await _ in streamHandle.notifications {
+                    for try await _ in streamHandle.eventStream {
                         await self.handleBalanceNotification(continuation: continuation)
                     }
                     
