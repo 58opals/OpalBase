@@ -43,8 +43,10 @@ extension Transaction {
         static func decode(from data: Data) throws -> (input: Input, bytesRead: Int) {
             var index = data.startIndex
             
-            let previousTransactionHash = data[index..<index + 32]
-            index += 32
+            let hashUpperBound = index.advanced(by: 32)
+            guard hashUpperBound <= data.endIndex else { throw Data.Error.indexOutOfRange }
+            let previousTransactionHash = Data(data[index..<hashUpperBound])
+            index = hashUpperBound
             
             let (previousTransactionIndex, newIndex1): (UInt32, Data.Index) = try data.extractValue(from: index)
             index = newIndex1
@@ -52,8 +54,11 @@ extension Transaction {
             let (unlockingScriptLength, unlockingScriptLengthSize) = try CompactSize.decode(from: data[index...])
             index += unlockingScriptLengthSize
             
-            let unlockingScript = data[index..<index + Int(unlockingScriptLength.value)]
-            index += unlockingScript.count
+            let scriptLength = Int(unlockingScriptLength.value)
+            let scriptUpperBound = index.advanced(by: scriptLength)
+            guard scriptUpperBound <= data.endIndex else { throw Data.Error.indexOutOfRange }
+            let unlockingScript = Data(data[index..<scriptUpperBound])
+            index = scriptUpperBound
             
             let (sequence, newIndex2): (UInt32, Data.Index) = try data.extractValue(from: index)
             index = newIndex2

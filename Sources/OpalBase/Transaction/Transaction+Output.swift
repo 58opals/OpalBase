@@ -51,8 +51,11 @@ extension Transaction {
             let (lockingScriptLength, lockingScriptLengthSize) = try CompactSize.decode(from: data[index...])
             index += lockingScriptLengthSize
             
-            let lockingScript = data[index..<index + Int(lockingScriptLength.value)]
-            index += lockingScript.count
+            let scriptLength = Int(lockingScriptLength.value)
+            let scriptUpperBound = index.advanced(by: scriptLength)
+            guard scriptUpperBound <= data.endIndex else { throw Data.Error.indexOutOfRange }
+            let lockingScript = Data(data[index..<scriptUpperBound])
+            index = scriptUpperBound
             
             let output = Output(value: value, lockingScript: lockingScript)
             
