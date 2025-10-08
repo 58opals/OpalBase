@@ -11,20 +11,28 @@ public struct Address {
     public init(_ string: String) throws {
         let encodedPayload: String
         
+        let prefix: String
+        
         if string.contains(Address.separator) {
             let splitComponents = string.split(separator: Address.separator)
             guard splitComponents.count == 2 else { throw Error.invalidCashAddressFormat }
-            guard String(splitComponents[0]) == Address.prefix else { throw Error.invalidCashAddressFormat }
+            prefix = String(splitComponents[0])
+            guard prefix == Address.prefix else { throw Error.invalidCashAddressFormat }
             encodedPayload = String(splitComponents[1])
         } else {
+            prefix = Address.prefix
             encodedPayload = string
         }
         
         let decodedData = try Base32.decode(encodedPayload, interpretedAs5Bit: true)
+        guard decodedData.count >= 8 else { throw Error.invalidPayloadLength }
         
         let payload5BitValuesWithChecksum = decodedData
         let payload5BitValues = payload5BitValuesWithChecksum.dropLast(8)
-        let payload = Address.convertFiveBitValuesToData(fiveBitValues: payload5BitValues.bytes)
+        let checksumValues = payload5BitValuesWithChecksum.suffix(8)
+        let checksumInput = try Address.convertPrefixToFiveBitValues(prefix: prefix) + [0x00] + Array(payload5BitValues) + Array(checksumValues)
+        guard Polymod.compute(checksumInput) == 0 else { throw Error.invalidChecksum }
+        let payload = Address.convertFiveBitValuesToData(fiveBitValues: Array(payload5BitValues))
         guard !payload.isEmpty else { throw Error.invalidPayloadLength }
         let versionByte = payload[0]
         let hashData = payload[1...]

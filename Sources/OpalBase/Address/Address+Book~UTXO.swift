@@ -45,7 +45,7 @@ extension Address.Book {
                 let estimatedTransactionSize = (selectedUTXOs.count * 148) + 34 + 10
                 let estimatedFee = UInt64(estimatedTransactionSize) * feePerByte
                 
-                if totalAmount >= targetAmount.uint64 + (estimatedFee * 2) {
+                if totalAmount >= targetAmount.uint64 + (estimatedFee) {
                     return selectedUTXOs
                 }
             }
@@ -59,7 +59,7 @@ extension Address.Book {
             func exploreCombinations(index: Int, selection: [Transaction.Output.Unspent], total: UInt64) {
                 let estimatedTransactionSize = (selection.count * 148) + 34 + 10
                 let estimatedFee = UInt64(estimatedTransactionSize) * feePerByte
-                let target = targetAmount.uint64 + (estimatedFee * 2)
+                let target = targetAmount.uint64 + (estimatedFee)
                 
                 if total >= target {
                     let excess = total - target

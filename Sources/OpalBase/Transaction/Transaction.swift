@@ -150,6 +150,18 @@ extension Transaction: CustomStringConvertible {
 
 extension Transaction.Simple: CustomStringConvertible {
     public var description: String {
-        "Simplified Transaction: \(self.transactionHash.naturalOrder.hexadecimalString)" + ((self.height != nil) ? " at \(self.height!)" : "(unconfirmed)") + ((self.fee != nil) ? " with \(self.fee!.description) fee" : "")
+        var description = "Simplified Transaction: \(transactionHash.naturalOrder.hexadecimalString)"
+        
+        if let height {
+            description += " at \(height)"
+        } else {
+            description += " (unconfirmed)"
+        }
+        
+        if let fee {
+            description += " with \(fee) fee"
+        }
+        
+        return description
     }
 }

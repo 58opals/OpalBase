@@ -128,8 +128,12 @@ extension Script {
                 var publicKeys: [PublicKey] = []
                 
                 while index < lockingScript.count {
-                    guard let nextOpcode = readByte(),
-                          nextOpcode == OP._PUSHBYTES_33.rawValue,
+                    guard index < lockingScript.count else { throw Error.invalidP2MSScript }
+                    
+                    let nextOpcode = lockingScript[index]
+                    guard nextOpcode == OP._PUSHBYTES_33.rawValue else { break }
+                    
+                    guard readByte() == OP._PUSHBYTES_33.rawValue,
                           let publicKeyData = readData(length: 33)
                     else { throw Error.invalidP2MSScript }
                     
@@ -137,9 +141,18 @@ extension Script {
                     publicKeys.append(publicKey)
                 }
                 
-                guard let lastOpcode = lockingScript.last,
-                      lastOpcode == OP._CHECKMULTISIG.rawValue,
-                      publicKeys.count > 0
+                guard !publicKeys.isEmpty,
+                      let publicKeyCountOpcode = readByte(),
+                      publicKeyCountOpcode >= OP._1.rawValue,
+                      publicKeyCountOpcode <= OP._16.rawValue
+                else { throw Error.invalidP2MSScript }
+                
+                let reportedPublicKeyCount = Int(publicKeyCountOpcode - OP._1.rawValue) + 1
+                
+                guard reportedPublicKeyCount == publicKeys.count,
+                      reportedPublicKeyCount >= numberOfRequiredSignatures,
+                      let finalOpcode = readByte(),
+                      finalOpcode == OP._CHECKMULTISIG.rawValue
                 else { throw Error.invalidP2MSScript }
                 
                 return .p2ms(numberOfRequiredSignatures: numberOfRequiredSignatures,

@@ -11,8 +11,10 @@ extension Tag {
     @Tag static var crypto: Self
     @Tag static var policy: Self
     @Tag static var serialization: Self
+    @Tag static var script: Self
     @Tag static var address: Self
     @Tag static var transaction: Self
+    @Tag static var wallet: Self
     @Tag static var key: Self
     @Tag static var network: Self
     @Tag static var core: Self
