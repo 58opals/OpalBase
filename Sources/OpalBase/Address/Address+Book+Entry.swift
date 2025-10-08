@@ -59,7 +59,7 @@ extension Address.Book {
     /// Generates a new entry for the specified usage.
     /// - Parameters:
     ///   - usage: The usage type (`.receiving` or `.change`).
-    ///   - isUsed: Indicates wether the address is already used.
+    ///   - isUsed: Indicates whether the address is already used.
     /// - Throws: An error if entry generation fails.
     func generateEntry(for usage: DerivationPath.Usage,
                        isUsed: Bool) throws {

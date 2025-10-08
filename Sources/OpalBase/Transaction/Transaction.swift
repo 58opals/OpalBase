@@ -104,7 +104,7 @@ extension Transaction {
     ///   - blockTime: The block time if confirmed.
     ///   - confirmations: The number of confirmations.
     ///   - hash: The transaction hash.
-    ///   - hex: The raw transaction data in hex.
+    ///   - raw: The raw transaction payload as returned by the network.
     ///   - size: The transaction size in bytes.
     ///   - time: The transaction time if available.
     public struct Detailed {

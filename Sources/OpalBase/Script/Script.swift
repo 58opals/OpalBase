@@ -128,12 +128,13 @@ extension Script {
                 var publicKeys: [PublicKey] = []
                 
                 while index < lockingScript.count {
-                    guard index < lockingScript.count else { throw Error.invalidP2MSScript }
-                    
                     let nextOpcode = lockingScript[index]
-                    guard nextOpcode == OP._PUSHBYTES_33.rawValue else { break }
+                    if (OP._1.rawValue...OP._16.rawValue).contains(nextOpcode) {
+                        break
+                    }
                     
-                    guard readByte() == OP._PUSHBYTES_33.rawValue,
+                    guard nextOpcode == OP._PUSHBYTES_33.rawValue,
+                          readByte() == OP._PUSHBYTES_33.rawValue,
                           let publicKeyData = readData(length: 33)
                     else { throw Error.invalidP2MSScript }
                     

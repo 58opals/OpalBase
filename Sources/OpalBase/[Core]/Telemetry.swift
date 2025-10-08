@@ -29,14 +29,14 @@ import Foundation
 /// name enables richer aggregation and ensures the redactor can strip sensitive tokens.
 public actor Telemetry {
     public static let shared = Telemetry()
-
+    
     private var isEnabled: Bool
     private var sinks: [any TelemetrySink]
     private var eventCounters: [EventKey: EventCounter]
     private var valueAggregates: [String: MutableValueAggregate]
     private var recordedErrors: [Error]
     private let redactor = TelemetryRedactor()
-
+    
     /// Creates a telemetry pipeline with optional sinks.
     /// - Parameters:
     ///   - isEnabled: Indicates whether events should be processed.
@@ -52,7 +52,7 @@ public actor Telemetry {
         self.valueAggregates = [:]
         self.recordedErrors = []
     }
-
+    
     /// Updates the configuration of the telemetry pipeline.
     /// - Parameters:
     ///   - isEnabled: Optional override for the enabled flag.
@@ -68,7 +68,7 @@ public actor Telemetry {
             self.sinks = sinks
         }
     }
-
+    
     /// Records an event using the supplied components.
     /// - Parameters:
     ///   - name: A unique identifier for the event. Event names are used for aggregation keys.
@@ -98,25 +98,33 @@ public actor Telemetry {
         )
         await record(event)
     }
-
+    
     /// Records an already constructed event.
     /// - Parameter event: The event that should be processed by the pipeline.
     public func record(_ event: Event) async {
         guard isEnabled else { return }
         let sanitised = redactor.sanitise(event: event)
-        registerEvent(sanitised)
         updateValueAggregates(for: sanitised)
-
+        
+        var didRecordFailure = false
+        
         for sink in sinks {
             do {
                 try await sink.consume(sanitised)
             } catch {
-                registerFailure(for: sanitised)
+                if !didRecordFailure {
+                    registerFailure(for: sanitised)
+                    didRecordFailure = true
+                }
                 recordedErrors.append(.sinkFailure(description: String(describing: error)))
             }
         }
+        
+        if !didRecordFailure {
+            registerSuccess(for: sanitised)
+        }
     }
-
+    
     /// Generates a snapshot of the aggregated metrics for analytics inspection.
     /// - Returns: A snapshot containing counters for events and value aggregates.
     public func metricsSnapshot(timestamp: Date = .init()) -> MetricsSnapshot {
@@ -130,7 +138,7 @@ public actor Telemetry {
             }
         )
     }
-
+    
     /// Collects errors produced by telemetry sinks and clears the internal buffer.
     /// This enables callers to react to sink failures without leaking implementation details.
     /// - Returns: The errors raised by sinks since the last invocation.
@@ -139,7 +147,7 @@ public actor Telemetry {
         recordedErrors.removeAll(keepingCapacity: false)
         return errors
     }
-
+    
     /// Resets all aggregated counters, metrics, and recorded errors.
     /// Typically useful in tests or when restarting analytics sessions.
     public func reset() {
@@ -162,7 +170,7 @@ extension Telemetry {
             case security
             case analytics
         }
-
+        
         public var name: String
         public var category: Category
         public var message: String?
@@ -170,7 +178,7 @@ extension Telemetry {
         public var metrics: [String: Double]
         public var sensitiveKeys: Set<Metadata.Key>
         public var timestamp: Date
-
+        
         public init(
             name: String,
             category: Category,
@@ -188,7 +196,7 @@ extension Telemetry {
             self.sensitiveKeys = sensitiveKeys
             self.timestamp = timestamp
         }
-
+        
         private enum CodingKeys: String, CodingKey {
             case name
             case category
@@ -197,7 +205,7 @@ extension Telemetry {
             case metrics
             case timestamp
         }
-
+        
         public func encode(to encoder: Encoder) throws {
             var container = encoder.container(keyedBy: CodingKeys.self)
             try container.encode(name, forKey: .name)
@@ -222,47 +230,47 @@ extension Telemetry {
     public struct Metadata: Sendable, Encodable, ExpressibleByDictionaryLiteral {
         public struct Key: Hashable, Sendable, ExpressibleByStringLiteral, Encodable {
             public let rawValue: String
-
+            
             public init(_ rawValue: String) {
                 self.rawValue = rawValue
             }
-
+            
             public init(stringLiteral value: String) {
                 self.rawValue = value
             }
-
+            
             public func encode(to encoder: Encoder) throws {
                 var container = encoder.singleValueContainer()
                 try container.encode(rawValue)
             }
         }
-
+        
         private var storage: [Key: MetadataValue]
-
+        
         public init(dictionaryLiteral elements: (Key, MetadataValue)...) {
             self.storage = Dictionary(elements, uniquingKeysWith: { first, _ in first })
         }
-
+        
         public init(_ storage: [Key: MetadataValue] = [:]) {
             self.storage = storage
         }
-
+        
         public subscript(key: Key) -> MetadataValue? {
             get { storage[key] }
             set { storage[key] = newValue }
         }
-
+        
         public var keys: [Key] { Array(storage.keys) }
-
+        
         public var isEmpty: Bool { storage.isEmpty }
-
+        
         public func encode(to encoder: Encoder) throws {
             var container = encoder.container(keyedBy: DynamicCodingKey.self)
             for (key, value) in storage {
                 try container.encode(value, forKey: DynamicCodingKey(stringValue: key.rawValue))
             }
         }
-
+        
         fileprivate var rawDictionary: [Key: MetadataValue] { storage }
     }
 }
@@ -271,11 +279,11 @@ extension Telemetry.Metadata {
     struct DynamicCodingKey: CodingKey {
         let stringValue: String
         let intValue: Int? = nil
-
+        
         init(stringValue: String) {
             self.stringValue = stringValue
         }
-
+        
         init?(intValue: Int) {
             return nil
         }
@@ -291,7 +299,7 @@ extension Telemetry {
         case bool(Bool)
         case null
         case redacted
-
+        
         public func encode(to encoder: Encoder) throws {
             var container = encoder.singleValueContainer()
             switch self {
@@ -318,18 +326,18 @@ extension Telemetry {
         public struct EventCounters: Sendable, Encodable {
             public let total: Int
             public let failures: Int
-
+            
             public var successRate: Double? {
                 guard total > 0 else { return nil }
                 return Double(total - failures) / Double(total)
             }
-
+            
             private enum CodingKeys: String, CodingKey {
                 case total
                 case failures
                 case successRate
             }
-
+            
             public func encode(to encoder: Encoder) throws {
                 var container = encoder.container(keyedBy: CodingKeys.self)
                 try container.encode(total, forKey: .total)
@@ -337,18 +345,18 @@ extension Telemetry {
                 try container.encode(successRate, forKey: .successRate)
             }
         }
-
+        
         public struct ValueAggregate: Sendable, Encodable {
             public let count: Int
             public let sum: Double
             public let minimum: Double?
             public let maximum: Double?
-
+            
             public var average: Double? {
                 guard count > 0 else { return nil }
                 return sum / Double(count)
             }
-
+            
             private enum CodingKeys: String, CodingKey {
                 case count
                 case sum
@@ -356,7 +364,7 @@ extension Telemetry {
                 case maximum
                 case average
             }
-
+            
             public func encode(to encoder: Encoder) throws {
                 var container = encoder.container(keyedBy: CodingKeys.self)
                 try container.encode(count, forKey: .count)
@@ -366,7 +374,7 @@ extension Telemetry {
                 try container.encode(average, forKey: .average)
             }
         }
-
+        
         public let timestamp: Date
         public let eventCounters: [String: EventCounters]
         public let valueAggregates: [String: ValueAggregate]
@@ -379,40 +387,41 @@ private extension Telemetry {
     struct EventKey: Hashable, Sendable {
         let category: Event.Category
         let name: String
-
+        
         var analyticsKey: String { "\(category.rawValue).\(name)" }
     }
-
+    
     struct EventCounter: Sendable {
         var total: Int = 0
         var failures: Int = 0
-
+        
         mutating func recordSuccess() {
             total &+= 1
         }
-
+        
         mutating func recordFailure() {
+            total &+= 1
             failures &+= 1
         }
-
+        
         var snapshot: MetricsSnapshot.EventCounters {
             MetricsSnapshot.EventCounters(total: total, failures: failures)
         }
     }
-
+    
     struct MutableValueAggregate: Sendable {
         private(set) var count: Int = 0
         private(set) var sum: Double = 0
         private(set) var minimum: Double = .infinity
         private(set) var maximum: Double = -.infinity
-
+        
         mutating func append(_ value: Double) {
             count &+= 1
             sum += value
             minimum = Swift.min(minimum, value)
             maximum = Swift.max(maximum, value)
         }
-
+        
         var snapshot: MetricsSnapshot.ValueAggregate {
             MetricsSnapshot.ValueAggregate(
                 count: count,
@@ -422,21 +431,21 @@ private extension Telemetry {
             )
         }
     }
-
-    func registerEvent(_ event: Event) {
+    
+    func registerSuccess(for event: Event) {
         let key = EventKey(category: event.category, name: event.name)
         var counter = eventCounters[key] ?? EventCounter()
         counter.recordSuccess()
         eventCounters[key] = counter
     }
-
+    
     func registerFailure(for event: Event) {
         let key = EventKey(category: event.category, name: event.name)
         var counter = eventCounters[key] ?? EventCounter()
         counter.recordFailure()
         eventCounters[key] = counter
     }
-
+    
     func updateValueAggregates(for event: Event) {
         for (metric, value) in event.metrics {
             var aggregate = valueAggregates[metric] ?? MutableValueAggregate()
@@ -451,7 +460,7 @@ private extension Telemetry {
 /// A sink that emits redacted telemetry events as structured JSON to the console.
 public struct TelemetryStructuredConsoleSink: TelemetrySink {
     public init() {}
-
+    
     public func consume(_ event: Telemetry.Event) async throws {
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
@@ -467,7 +476,7 @@ struct TelemetryRedactor: Sendable {
     enum Constants {
         static let redactedToken = "‹redacted›"
     }
-
+    
     func sanitise(event: Telemetry.Event) -> Telemetry.Event {
         var sanitised = event
         if let message = event.message {
@@ -476,7 +485,7 @@ struct TelemetryRedactor: Sendable {
         sanitised.metadata = sanitise(metadata: event.metadata, sensitiveKeys: event.sensitiveKeys)
         return sanitised
     }
-
+    
     private func sanitise(message: String) -> String {
         let segments = message.components(separatedBy: .whitespacesAndNewlines).filter { !$0.isEmpty }
         guard !segments.isEmpty else { return message }
@@ -487,7 +496,7 @@ struct TelemetryRedactor: Sendable {
             return token.replacingOccurrences(of: trimmed, with: Constants.redactedToken)
         }.joined(separator: " ")
     }
-
+    
     private func sanitise(
         metadata: Telemetry.Metadata,
         sensitiveKeys: Set<Telemetry.Metadata.Key>
@@ -504,7 +513,7 @@ struct TelemetryRedactor: Sendable {
         }
         return sanitised
     }
-
+    
     private func shouldRedact(token: String) -> Bool {
         let trimmed = token.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return false }
@@ -537,7 +546,7 @@ private extension Character {
     var isAlphaNumeric: Bool {
         unicodeScalars.allSatisfy { CharacterSet.alphanumerics.contains($0) }
     }
-
+    
     var isHexDigit: Bool {
         unicodeScalars.allSatisfy { CharacterSet(charactersIn: "0123456789abcdefABCDEF").contains($0) }
     }

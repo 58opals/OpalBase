@@ -29,6 +29,44 @@ extension Address.Book {
 }
 
 extension Address.Book {
+    private struct CoinSelectionEvaluation {
+        let excess: UInt64
+    }
+    
+    private func evaluateSelection(total: UInt64,
+                                   inputCount: Int,
+                                   targetAmount: UInt64,
+                                   recipientOutputs: [Transaction.Output],
+                                   outputsWithChange: [Transaction.Output],
+                                   dustLimit: UInt64,
+                                   feePerByte: UInt64) -> CoinSelectionEvaluation? {
+        let feeWithoutChange = Transaction.estimatedFee(inputCount: inputCount,
+                                                        outputs: recipientOutputs,
+                                                        feePerByte: feePerByte)
+        let requiredWithoutChange = targetAmount &+ feeWithoutChange
+        
+        if total >= requiredWithoutChange {
+            let excess = total &- requiredWithoutChange
+            if excess == 0 || excess < dustLimit {
+                return CoinSelectionEvaluation(excess: excess)
+            }
+        }
+        
+        let feeWithChange = Transaction.estimatedFee(inputCount: inputCount,
+                                                     outputs: outputsWithChange,
+                                                     feePerByte: feePerByte)
+        let requiredWithChange = targetAmount &+ feeWithChange
+        
+        guard total >= requiredWithChange else { return nil }
+        
+        let change = total &- requiredWithChange
+        guard change == 0 || change >= dustLimit else { return nil }
+        
+        return CoinSelectionEvaluation(excess: change)
+    }
+}
+
+extension Address.Book {
     func selectUTXOs(targetAmount: Satoshi,
                      feePerByte: UInt64 = 1,
                      strategy: CoinSelection = .greedyLargestFirst) throws -> [Transaction.Output.Unspent] {
@@ -107,12 +145,14 @@ extension Address.Book {
                 selected.append(utxo)
                 total &+= utxo.value
                 
-                let feeWithChange = Transaction.estimatedFee(inputCount: selected.count,
-                                                             outputs: withChangeOutputs,
-                                                             feePerByte: feePerByte)
-                if total >= targetAmount.uint64 &+ feeWithChange {
-                    let change = total &- targetAmount.uint64 &- feeWithChange
-                    if change == 0 || change >= dust { return selected }
+                if evaluateSelection(total: total,
+                                     inputCount: selected.count,
+                                     targetAmount: targetAmount.uint64,
+                                     recipientOutputs: recipientOutputs,
+                                     outputsWithChange: withChangeOutputs,
+                                     dustLimit: dust,
+                                     feePerByte: feePerByte) != nil {
+                    return selected
                 }
             }
             throw Error.insufficientFunds
@@ -120,36 +160,57 @@ extension Address.Book {
         case .branchAndBound:
             let sorted = utxos.sorted { $0.value > $1.value }
             var bestUTXOs: [Transaction.Output.Unspent] = []
-            var bestChange: UInt64?
+            var bestEvaluation: CoinSelectionEvaluation?
             
-            func explore(index: Int, selection: [Transaction.Output.Unspent], sum: UInt64) {
-                if index >= sorted.count { return }
+            var suffixTotals: [UInt64] = Array(repeating: 0, count: sorted.count + 1)
+            if !sorted.isEmpty {
+                for index in stride(from: sorted.count - 1, through: 0, by: -1) {
+                    suffixTotals[index] = suffixTotals[index + 1] &+ sorted[index].value
+                }
+            }
+            
+            func updateBest(selection: [Transaction.Output.Unspent], sum: UInt64) {
+                guard let evaluation = evaluateSelection(total: sum,
+                                                         inputCount: selection.count,
+                                                         targetAmount: targetAmount.uint64,
+                                                         recipientOutputs: recipientOutputs,
+                                                         outputsWithChange: withChangeOutputs,
+                                                         dustLimit: dust,
+                                                         feePerByte: feePerByte) else { return }
                 
-                var remaining: UInt64 = 0
-                for index in index..<sorted.count { remaining &+= sorted[index].value }
-                let minimumFee = Transaction.estimatedFee(inputCount: selection.count,
-                                                          outputs: withChangeOutputs,
-                                                          feePerByte: feePerByte)
-                if sum &+ remaining < targetAmount.uint64 &+ minimumFee { return }
-                
-                var selectionIncluded = selection; selectionIncluded.append(sorted[index])
-                let sumIncluded = sum &+ sorted[index].value
-                let feeIncluded = Transaction.estimatedFee(inputCount: selectionIncluded.count,
-                                                           outputs: withChangeOutputs,
-                                                           feePerByte: feePerByte)
-                if sumIncluded >= targetAmount.uint64 &+ feeIncluded {
-                    let change = sumIncluded &- targetAmount.uint64 &- feeIncluded
-                    if change == 0 || change >= dust {
-                        if let best = bestChange {
-                            if change < best { bestChange = change; bestUTXOs = selectionIncluded }
-                        } else {
-                            bestChange = change; bestUTXOs = selectionIncluded
-                        }
+                if let currentBest = bestEvaluation {
+                    if evaluation.excess < currentBest.excess {
+                        bestEvaluation = evaluation
+                        bestUTXOs = selection
+                    } else if evaluation.excess == currentBest.excess,
+                              selection.count < bestUTXOs.count {
+                        bestEvaluation = evaluation
+                        bestUTXOs = selection
                     }
                 } else {
-                    explore(index: index + 1, selection: selectionIncluded, sum: sumIncluded)
+                    bestEvaluation = evaluation
+                    bestUTXOs = selection
                 }
                 
+            }
+            
+            func explore(index: Int, selection: [Transaction.Output.Unspent], sum: UInt64) {
+                updateBest(selection: selection, sum: sum)
+                
+                guard index < sorted.count else { return }
+                
+                let remaining = suffixTotals[index]
+                let minimalFee = Transaction.estimatedFee(inputCount: selection.count,
+                                                          outputs: recipientOutputs,
+                                                          feePerByte: feePerByte)
+                let minimalRequirement = targetAmount.uint64 &+ minimalFee
+                if sum &+ remaining < minimalRequirement { return }
+                
+                var selectionIncluded = selection
+                selectionIncluded.append(sorted[index])
+                let sumIncluded = sum &+ sorted[index].value
+                
+                explore(index: index + 1, selection: selectionIncluded, sum: sumIncluded)
                 explore(index: index + 1, selection: selection, sum: sum)
             }
             
