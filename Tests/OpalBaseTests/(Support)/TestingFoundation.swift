@@ -21,6 +21,15 @@ enum Environment {
     static let network = ProcessInfo.processInfo.environment["OPAL_NETWORK_TESTS"] == "1"
     static let fulcrumURL = ProcessInfo.processInfo.environment["OPAL_FULCRUM_URL"]
     static let fixtureDirectory = ProcessInfo.processInfo.environment["OPAL_FIXTURE_DIRECTORY"] ?? "Tests/Fixtures"
+    
+    static var testBalanceAccountIndex: Int { getTestBalanceAccountIndex() }
+    static func getTestBalanceAccountIndex(default defaultIndex: Int = 0) -> Int {
+        guard let value = ProcessInfo.processInfo.environment["OPAL_TEST_BALANCE_ACCOUNT"],
+              let parsed = Int(value)
+        else { return defaultIndex }
+        
+        return parsed
+    }
 }
 
 extension TimeInterval {
