@@ -113,4 +113,110 @@ struct AddressBookUTXOSuite {
         
         #expect(selection == [utxo])
     }
+    
+    @Test("greedy largest-first accounts for change cost at elevated fee rates", .tags(.unit, .wallet))
+    func greedySelectionRespectsChangeFeesAtHighRates() async throws {
+        let subject = try await makeAddressBook()
+        let hash = Transaction.Hash(naturalOrder: Data(repeating: 0, count: 32))
+        
+        let primary = Transaction.Output.Unspent(
+            value: 30_000,
+            lockingScript: Data(),
+            previousTransactionHash: hash,
+            previousTransactionOutputIndex: 0
+        )
+        let secondary = Transaction.Output.Unspent(
+            value: 27_400,
+            lockingScript: Data(),
+            previousTransactionHash: hash,
+            previousTransactionOutputIndex: 1
+        )
+        let buffer = Transaction.Output.Unspent(
+            value: 4_000,
+            lockingScript: Data(),
+            previousTransactionHash: hash,
+            previousTransactionOutputIndex: 2
+        )
+        
+        await subject.addUTXOs([primary, secondary, buffer])
+        
+        let feePerByte: UInt64 = 20
+        let target = try Satoshi(50_000)
+        let selection = try await subject.selectUTXOs(
+            targetAmount: target,
+            feePerByte: feePerByte,
+            strategy: .greedyLargestFirst
+        )
+        
+        #expect(Set(selection) == Set([primary, secondary, buffer]))
+        
+        let total = selection.reduce(UInt64(0)) { $0 &+ $1.value }
+        let placeholderScript = Data(repeating: 0, count: 25)
+        let outputsWithChange = [
+            Transaction.Output(value: 0, lockingScript: placeholderScript),
+            Transaction.Output(value: 0, lockingScript: placeholderScript)
+        ]
+        let feeWithChange = Transaction.estimatedFee(
+            inputCount: selection.count,
+            outputs: outputsWithChange,
+            feePerByte: feePerByte
+        )
+        
+        #expect(total >= target.uint64 &+ feeWithChange)
+        let change = total &- target.uint64 &- feeWithChange
+        #expect(change >= Transaction.dustLimit)
+    }
+    
+    @Test("branch and bound accounts for change cost at elevated fee rates", .tags(.unit, .wallet))
+    func branchAndBoundSelectionRespectsChangeFeesAtHighRates() async throws {
+        let subject = try await makeAddressBook()
+        let hash = Transaction.Hash(naturalOrder: Data(repeating: 0, count: 32))
+        
+        let primary = Transaction.Output.Unspent(
+            value: 30_000,
+            lockingScript: Data(),
+            previousTransactionHash: hash,
+            previousTransactionOutputIndex: 0
+        )
+        let secondary = Transaction.Output.Unspent(
+            value: 27_400,
+            lockingScript: Data(),
+            previousTransactionHash: hash,
+            previousTransactionOutputIndex: 1
+        )
+        let buffer = Transaction.Output.Unspent(
+            value: 4_000,
+            lockingScript: Data(),
+            previousTransactionHash: hash,
+            previousTransactionOutputIndex: 2
+        )
+        
+        await subject.addUTXOs([primary, secondary, buffer])
+        
+        let feePerByte: UInt64 = 20
+        let target = try Satoshi(50_000)
+        let selection = try await subject.selectUTXOs(
+            targetAmount: target,
+            feePerByte: feePerByte,
+            strategy: .branchAndBound
+        )
+        
+        #expect(Set(selection) == Set([primary, secondary, buffer]))
+        
+        let total = selection.reduce(UInt64(0)) { $0 &+ $1.value }
+        let placeholderScript = Data(repeating: 0, count: 25)
+        let outputsWithChange = [
+            Transaction.Output(value: 0, lockingScript: placeholderScript),
+            Transaction.Output(value: 0, lockingScript: placeholderScript)
+        ]
+        let feeWithChange = Transaction.estimatedFee(
+            inputCount: selection.count,
+            outputs: outputsWithChange,
+            feePerByte: feePerByte
+        )
+        
+        #expect(total >= target.uint64 &+ feeWithChange)
+        let change = total &- target.uint64 &- feeWithChange
+        #expect(change >= Transaction.dustLimit)
+    }
 }

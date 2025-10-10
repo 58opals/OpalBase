@@ -33,6 +33,20 @@ extension Address.Book {
         let excess: UInt64
     }
     
+    private enum CoinSelectionTemplates {
+        static var lockingScript: Data { Data(repeating: 0, count: 25) }
+        
+        static var recipientOutputs: [Transaction.Output] {
+            [Transaction.Output(value: 0, lockingScript: lockingScript)]
+        }
+        
+        static var outputsWithChange: [Transaction.Output] {
+            let recipient = Transaction.Output(value: 0, lockingScript: lockingScript)
+            let change = Transaction.Output(value: 0, lockingScript: lockingScript)
+            return [recipient, change]
+        }
+    }
+    
     private func evaluateSelection(total: UInt64,
                                    inputCount: Int,
                                    targetAmount: UInt64,
@@ -76,14 +90,21 @@ extension Address.Book {
             var totalAmount: UInt64 = 0
             let sortedUTXOs = utxos.sorted { $0.value > $1.value }
             
+            let dustLimit = Transaction.dustLimit
+            let recipientOutputs = CoinSelectionTemplates.recipientOutputs
+            let outputsWithChange = CoinSelectionTemplates.outputsWithChange
+            
             for utxo in sortedUTXOs {
                 selectedUTXOs.append(utxo)
                 totalAmount += utxo.value
                 
-                let estimatedTransactionSize = (selectedUTXOs.count * 148) + 34 + 10
-                let estimatedFee = UInt64(estimatedTransactionSize) * feePerByte
-                
-                if totalAmount >= targetAmount.uint64 + (estimatedFee) {
+                if evaluateSelection(total: totalAmount,
+                                     inputCount: selectedUTXOs.count,
+                                     targetAmount: targetAmount.uint64,
+                                     recipientOutputs: recipientOutputs,
+                                     outputsWithChange: outputsWithChange,
+                                     dustLimit: dustLimit,
+                                     feePerByte: feePerByte) != nil {
                     return selectedUTXOs
                 }
             }
@@ -94,13 +115,19 @@ extension Address.Book {
             var bestSelection: [Transaction.Output.Unspent] = .init()
             var bestExcess = UInt64.max
             
+            let dustLimit = Transaction.dustLimit
+            let recipientOutputs = CoinSelectionTemplates.recipientOutputs
+            let outputsWithChange = CoinSelectionTemplates.outputsWithChange
+            
             func exploreCombinations(index: Int, selection: [Transaction.Output.Unspent], total: UInt64) {
-                let estimatedTransactionSize = (selection.count * 148) + 34 + 10
-                let estimatedFee = UInt64(estimatedTransactionSize) * feePerByte
-                let target = targetAmount.uint64 + (estimatedFee)
-                
-                if total >= target {
-                    let excess = total - target
+                if let evaluation = evaluateSelection(total: total,
+                                                      inputCount: selection.count,
+                                                      targetAmount: targetAmount.uint64,
+                                                      recipientOutputs: recipientOutputs,
+                                                      outputsWithChange: outputsWithChange,
+                                                      dustLimit: dustLimit,
+                                                      feePerByte: feePerByte) {
+                    let excess = evaluation.excess
                     if excess < bestExcess {
                         bestExcess = excess
                         bestSelection = selection
@@ -111,7 +138,11 @@ extension Address.Book {
                 guard index < sortedUTXOs.count else { return }
                 
                 let remaining = sortedUTXOs[index...].reduce(0) { $0 + $1.value }
-                if (total + remaining) < target { return }
+                let estimatedFee = Transaction.estimatedFee(inputCount: selection.count,
+                                                            outputs: recipientOutputs,
+                                                            feePerByte: feePerByte)
+                let minimalRequirement = targetAmount.uint64 + estimatedFee
+                if (total + remaining) < minimalRequirement { return }
                 
                 var nextSelection = selection
                 nextSelection.append(sortedUTXOs[index])
@@ -161,6 +192,8 @@ extension Address.Book {
             let sorted = utxos.sorted { $0.value > $1.value }
             var bestUTXOs: [Transaction.Output.Unspent] = []
             var bestEvaluation: CoinSelectionEvaluation?
+            
+            let dust = Transaction.dustLimit
             
             var suffixTotals: [UInt64] = Array(repeating: 0, count: sorted.count + 1)
             if !sorted.isEmpty {
