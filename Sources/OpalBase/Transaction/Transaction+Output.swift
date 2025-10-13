@@ -21,7 +21,7 @@ extension Transaction {
         /// Initializes a Transaction.Output instance.
         /// - Parameters:
         ///   - value: The number of satoshis to be transferred.
-        ///   - address: The address of output's recipient.
+        ///   - address: The address of the output's recipient.
         public init(value: UInt64, address: Address) {
             self.value = value
             self.lockingScript = address.lockingScript.data

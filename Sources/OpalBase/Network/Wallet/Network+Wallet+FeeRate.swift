@@ -203,13 +203,18 @@ extension Network.Wallet {
             guard cacheThreshold > 0 || persistenceWindow > 0 else { return }
             
             var expired: [Tier: CachedRate] = .init()
+            var expiredKeys: [Tier] = .init()
             for (tier, cached) in cachedRates {
                 let cacheExpired = cacheThreshold > 0 && !cached.isFresh(for: cacheThreshold, now: now)
                 let persistenceExpired = persistenceWindow > 0 && !cached.isWithin(window: persistenceWindow, now: now)
                 if cacheExpired || persistenceExpired {
                     expired[tier] = cached
-                    cachedRates.removeValue(forKey: tier)
+                    expiredKeys.append(tier)
                 }
+            }
+            
+            for tier in expiredKeys {
+                cachedRates.removeValue(forKey: tier)
             }
             
             guard persistenceWindow > 0 else { return }

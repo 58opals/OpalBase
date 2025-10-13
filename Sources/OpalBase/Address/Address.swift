@@ -149,14 +149,36 @@ extension Address {
 
 extension Address {
     public static func filterBase32(from string: String) -> String {
-        let cleanedString: String
-        if string.hasPrefix(Address.prefix + Address.separator) {
-            cleanedString = String(string.dropFirst((Address.prefix + Address.separator).count))
+        let prefixWithSeparator = Address.prefix + Address.separator
+        
+        let cleanedSubstring: Substring
+        if let prefixRange = string.range(
+            of: prefixWithSeparator,
+            options: [.caseInsensitive, .anchored]
+        ) {
+            cleanedSubstring = string[prefixRange.upperBound...]
         } else {
-            cleanedString = string
+            cleanedSubstring = string[string.startIndex...]
         }
         
-        let filteredString = cleanedString.filter { Base32.characters.contains($0) }
+        let filteredString = cleanedSubstring.reduce(into: String()) { partialResult, candidate in
+            guard let asciiValue = candidate.asciiValue else { return }
+            
+            let normalizedAscii: UInt8
+            switch asciiValue {
+            case 0x41...0x5A:
+                normalizedAscii = asciiValue &+ 0x20
+            default:
+                normalizedAscii = asciiValue
+            }
+            
+            let normalizedScalar = UnicodeScalar(normalizedAscii)
+            guard Base32.characters.contains(Character(normalizedScalar))
+            else { return }
+            
+            partialResult.append(candidate)
+        }
+        
         return filteredString
     }
 }

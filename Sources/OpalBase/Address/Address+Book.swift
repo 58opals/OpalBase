@@ -157,7 +157,7 @@ extension Address.Book {
             
             if derivationPathToAddress.values.contains(address) {
                 let utxo = Transaction.Output.Unspent(output: output,
-                                                      previousTransactionHash: .init(dataFromRPC: detailedTransaction.hash.originalData),
+                                                      previousTransactionHash: detailedTransaction.hash,
                                                       previousTransactionOutputIndex: UInt32(index))
                 addUTXO(utxo)
             }

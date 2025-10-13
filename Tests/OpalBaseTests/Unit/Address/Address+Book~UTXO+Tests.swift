@@ -219,4 +219,71 @@ struct AddressBookUTXOSuite {
         let change = total &- target.uint64 &- feeWithChange
         #expect(change >= Transaction.dustLimit)
     }
+    
+    @Test("incoming transactions preserve natural-order hashes", .tags(.unit, .wallet))
+    func incomingTransactionsPreserveNaturalOrderHashes() async throws {
+        let subject = try await makeAddressBook()
+        let receivingEntry = try await subject.selectNextEntry(for: .receiving)
+        
+        let receivedValue: UInt64 = 12_500
+        let receivingOutput = Transaction.Output(value: receivedValue, address: receivingEntry.address)
+        
+        let fundingInput = Transaction.Input(
+            previousTransactionHash: .init(naturalOrder: Data(repeating: 0xAB, count: 32)),
+            previousTransactionOutputIndex: 1,
+            unlockingScript: Data(),
+            sequence: 0xFFFF_FFFF
+        )
+        
+        let incomingTransaction = Transaction(
+            version: 2,
+            inputs: [fundingInput],
+            outputs: [receivingOutput],
+            lockTime: 0
+        )
+        
+        let transactionHash = Transaction.Hash(naturalOrder: Data((0..<32).map(UInt8.init)))
+        let encodedIncomingTransaction = incomingTransaction.encode()
+        
+        let detailedTransaction = Transaction.Detailed(
+            transaction: incomingTransaction,
+            blockHash: nil,
+            blockTime: nil,
+            confirmations: nil,
+            hash: transactionHash,
+            raw: encodedIncomingTransaction,
+            size: UInt32(encodedIncomingTransaction.count),
+            time: nil
+        )
+        
+        try await subject.handleIncomingTransaction(detailedTransaction)
+        
+        let expectedUTXO = Transaction.Output.Unspent(
+            output: receivingOutput,
+            previousTransactionHash: transactionHash,
+            previousTransactionOutputIndex: 0
+        )
+        
+        let utxos = await subject.listUTXOs()
+        #expect(utxos.contains(expectedUTXO))
+        
+        let spendingInput = Transaction.Input(
+            previousTransactionHash: transactionHash,
+            previousTransactionOutputIndex: 0,
+            unlockingScript: Data(),
+            sequence: 0xFFFF_FFFF
+        )
+        
+        let spendingTransaction = Transaction(
+            version: 2,
+            inputs: [spendingInput],
+            outputs: [Transaction.Output(value: receivedValue &- 500, lockingScript: Data())],
+            lockTime: 0
+        )
+        
+        await subject.handleOutgoingTransaction(spendingTransaction)
+        
+        let remainingUTXOs = await subject.listUTXOs()
+        #expect(remainingUTXOs.isEmpty)
+    }
 }

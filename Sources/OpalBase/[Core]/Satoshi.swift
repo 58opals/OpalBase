@@ -52,9 +52,10 @@ extension Satoshi: Hashable {
     }
     
     public static func * (lhs: Satoshi, rhs: UInt64) throws -> Satoshi {
-        let result = lhs.uint64 * rhs
-        guard result <= Satoshi.maximumSatoshi else { throw Error.exceedsMaximumAmount }
-        return try Satoshi(result)
+        let (product, didOverflow) = lhs.uint64.multipliedReportingOverflow(by: rhs)
+        guard didOverflow == false else { throw Error.exceedsMaximumAmount }
+        guard product <= Satoshi.maximumSatoshi else { throw Error.exceedsMaximumAmount }
+        return try Satoshi(product)
     }
     
     public static func / (lhs: Satoshi, rhs: UInt64) throws -> Satoshi {
