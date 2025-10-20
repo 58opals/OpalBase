@@ -34,7 +34,8 @@ struct WalletMnemonicIntegrationSuite {
     
     @Test("derives the receiving address from the mnemonic using Fulcrum")
     func derivesReceivingAddressFromMnemonic() async throws {
-        guard Environment.network, let endpoint = Environment.fulcrumURL else { return }
+        guard Environment.network else { return }
+        let endpoint = try #require(Environment.fulcrumURL)
         
         let mnemonic = try Mnemonic(words: Self.mnemonicWords)
         let wallet = Wallet(mnemonic: mnemonic)
@@ -49,7 +50,8 @@ struct WalletMnemonicIntegrationSuite {
     
     @Test("restores mnemonic wallets and syncs with Fulcrum", .tags(.integration, .network, .fulcrum))
     func restoresMnemonicWalletsAndSyncsWithFulcrum() async throws {
-        guard Environment.network, let endpoint = Environment.fulcrumURL else { return }
+        guard Environment.network else { return }
+        let endpoint = try #require(Environment.fulcrumURL)
         
         let mnemonicWords = Self.mnemonicWords
         let mnemonic = try Mnemonic(words: mnemonicWords)
@@ -118,7 +120,8 @@ struct WalletMnemonicIntegrationSuite {
     
     @Test("reports consistent balances between aggregate and sampled entries", .tags(.integration, .network, .fulcrum))
     func reportsConsistentBalancesBetweenAggregateAndSampledEntries() async throws {
-        guard Environment.network, let endpoint = Environment.fulcrumURL else { return }
+        guard Environment.network else { return }
+        let endpoint = try #require(Environment.fulcrumURL)
         
         let mnemonic = try Mnemonic(words: Self.mnemonicWords)
         let wallet = Wallet(mnemonic: mnemonic)
@@ -151,7 +154,8 @@ struct WalletMnemonicIntegrationSuite {
     
     @Test("verifies aggregate balance consistency with Fulcrum", .tags(.integration, .network, .fulcrum))
     func verifiesAggregateBalanceConsistencyWithFulcrum() async throws {
-        guard Environment.network, let endpoint = Environment.fulcrumURL else { return }
+        guard Environment.network else { return }
+        let endpoint = try #require(Environment.fulcrumURL)
         
         let (_, account) = try await Self.makeSeededWalletAndAccount(endpoint: endpoint)
         
@@ -177,9 +181,9 @@ struct WalletMnemonicIntegrationSuite {
     
     @Test("builds raw transaction from live UTXOs - v1", .tags(.integration, .network, .fulcrum, .transaction))
     func buildsRawTransactionFromLiveUTXOs1() async throws {
-        guard Environment.network,
-              let endpoint = Environment.fulcrumURL,
-              let recipientAddress = Environment.sendAddress,
+        guard Environment.network else { return }
+        let endpoint = try #require(Environment.fulcrumURL)
+        guard let recipientAddress = Environment.sendAddress,
               let targetAmount = Environment.sendAmount
         else { return }
         
@@ -242,9 +246,9 @@ struct WalletMnemonicIntegrationSuite {
     
     @Test("builds raw transaction from live UTXOs - v2", .tags(.integration, .network, .fulcrum, .transaction))
     func buildsRawTransactionFromLiveUTXOs2() async throws {
-        guard Environment.network,
-              let endpoint = Environment.fulcrumURL,
-              let recipientAddress = Environment.sendAddress,
+        guard Environment.network else { return }
+        let endpoint = try #require(Environment.fulcrumURL)
+        guard let recipientAddress = Environment.sendAddress,
               let sendAmount = Environment.sendAmount else { return }
         
         let mnemonic = try Mnemonic(words: Self.mnemonicWords)
@@ -310,9 +314,9 @@ struct WalletMnemonicIntegrationSuite {
     
     @Test("builds raw transaction from live UTXOs - v3", .tags(.integration, .network, .fulcrum, .transaction))
     func buildsRawTransactionFromLiveUTXOs3() async throws {
-        guard Environment.network,
-              let endpoint = Environment.fulcrumURL,
-              let recipientAddress = Environment.sendAddress,
+        guard Environment.network else { return }
+        let endpoint = try #require(Environment.fulcrumURL)
+        guard let recipientAddress = Environment.sendAddress,
               let targetAmount = Environment.sendAmount
         else { return }
         
@@ -407,9 +411,9 @@ struct WalletMnemonicIntegrationSuite {
     
     @Test("builds raw transaction from live UTXOs - v4", .tags(.integration, .network, .fulcrum, .transaction))
     func buildsRawTransactionFromLiveUTXOs4() async throws {
-        guard Environment.network,
-              let endpoint = Environment.fulcrumURL,
-              let recipient = Environment.sendAddress,
+        guard Environment.network else { return }
+        let endpoint = try #require(Environment.fulcrumURL)
+        guard let recipient = Environment.sendAddress,
               let amount = Environment.sendAmount
         else { return }
         
@@ -488,7 +492,8 @@ struct WalletMnemonicIntegrationSuite {
     
     @Test("matches Fulcrum balance with refreshed UTXO set", .tags(.integration, .network, .fulcrum))
     func matchesFulcrumBalanceWithRefreshedUTXOSet() async throws {
-        guard Environment.network, let endpoint = Environment.fulcrumURL else { return }
+        guard Environment.network else { return }
+        let endpoint = try #require(Environment.fulcrumURL)
         
         let mnemonic = try Mnemonic(words: Self.mnemonicWords)
         let wallet = Wallet(mnemonic: mnemonic)

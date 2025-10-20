@@ -30,7 +30,8 @@ struct WalletBalanceMonitoringIntegrationSuite {
 
     @Test("streams live balance updates from Fulcrum", .tags(.slow))
     func streamsLiveBalanceUpdatesFromFulcrum() async throws {
-        guard Environment.network, let endpoint = Environment.fulcrumURL else { return }
+        guard Environment.network else { return }
+        let endpoint = try #require(Environment.fulcrumURL)
 
         let account = try await Self.prepareAccount(using: endpoint)
         _ = try await account.calculateBalance()

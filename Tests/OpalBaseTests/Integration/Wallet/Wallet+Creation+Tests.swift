@@ -6,7 +6,8 @@ import Testing
 struct WalletFulcrumCreationSuite {
     @Test("generates receiving address from mnemonic", .tags(.integration, .network, .fulcrum))
     func generatesReceivingAddressFromMnemonic() async throws {
-        guard Environment.network, let endpoint = Environment.fulcrumURL else { return }
+        guard Environment.network else { return }
+        let endpoint = try #require(Environment.fulcrumURL)
         
         let mnemonic = try Mnemonic(length: .short)
         let wallet = Wallet(mnemonic: mnemonic)
@@ -31,7 +32,8 @@ struct WalletFulcrumCreationSuite {
     
     @Test("restores wallet from snapshot", .tags(.integration, .network, .fulcrum))
     func restoresWalletFromSnapshot() async throws {
-        guard Environment.network, let endpoint = Environment.fulcrumURL else { return }
+        guard Environment.network else { return }
+        let endpoint = try #require(Environment.fulcrumURL)
         
         let mnemonic = try Mnemonic(length: .short)
         let wallet = Wallet(mnemonic: mnemonic)

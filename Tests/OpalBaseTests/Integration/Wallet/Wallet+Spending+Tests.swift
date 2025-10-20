@@ -6,7 +6,8 @@ import Testing
 struct WalletFulcrumSpendingSuite {
     @Test("fetches zero balance for fresh address", .tags(.integration, .network, .fulcrum, .transaction))
     func fetchesZeroBalanceForFreshAddress() async throws {
-        guard Environment.network, let endpoint = Environment.fulcrumURL else { return }
+        guard Environment.network else { return }
+        let endpoint = try #require(Environment.fulcrumURL)
         
         let mnemonic = try Mnemonic(length: .short)
         let wallet = Wallet(mnemonic: mnemonic)
@@ -26,8 +27,9 @@ struct WalletFulcrumSpendingSuite {
     
     @Test("builds raw transaction from single UTXO", .tags(.integration, .network, .fulcrum, .transaction))
     func buildsRawTransactionFromSingleUTXO() async throws {
-        guard Environment.network, let endpoint = Environment.fulcrumURL else { return }
-        _ = endpoint
+        guard Environment.network else { return }
+        let endpoint = try #require(Environment.fulcrumURL)
+        print(endpoint)
         
         let wif = "L3uV4ompYyuMTg2YyLJpfaAqa4oHNq6x3Wa4iK1CkyxwyuEiYXXu"
         let privateKey = try PrivateKey(wif: wif)

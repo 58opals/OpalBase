@@ -7,9 +7,9 @@ import Testing
 struct TransactionFulcrumFundingSuite {
     @Test("builds signed transaction from live UTXOs", .tags(.integration, .network, .fulcrum, .transaction, .crypto, .key))
     func buildsSignedTransactionFromLiveUTXOs() async throws {
+        guard Environment.network else { return }
+        let endpoint = try #require(Environment.fulcrumURL)
         guard
-            Environment.network,
-            let endpoint = Environment.fulcrumURL,
             let wif = Environment.walletWIF,
             let recipientString = Environment.transactionRecipient,
             let satoshis = Environment.transactionSatoshis,

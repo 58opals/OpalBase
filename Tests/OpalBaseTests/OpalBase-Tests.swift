@@ -1,4 +1,3 @@
-import Foundation
 import Testing
 @testable import OpalBase
 
@@ -6,7 +5,8 @@ import Testing
 struct OpalBaseTests {}
 
 extension OpalBaseTests {
-    @Test func testPrint() {
-        print("Hello, Bitcoin Cash.")
+    @Test("version is non-empty", .tags(.unit))
+    func versionIsNonEmpty() {
+        #expect(OpalBase.version.isEmpty == false)
     }
 }
