@@ -21,8 +21,8 @@ struct SubscriptionHubFulcrumIntegrationTests {
     func bundledFulcrumServersSurfaceLiveEvents() async throws {
         let telemetry = Telemetry(isEnabled: false, sinks: [])
         let hub = Network.Wallet.SubscriptionHub(telemetry: telemetry)
-        let poolWithBundledURLs = try await Network.Wallet.FulcrumPool()
-        let pool = try await Network.Wallet.FulcrumPool(urls: Self.publicFulcrumEndpoints)
+        let pool = try await Network.Wallet.FulcrumPool()
+        //let pool = try await Network.Wallet.FulcrumPool(urls: Self.publicFulcrumEndpoints)
         let node = try await pool.acquireNode()
         let address = try Address("bitcoincash:qpm2qsznhks23z7629mms6s4cwef74vcwvy22gdx6a")
         let consumerID = UUID()
