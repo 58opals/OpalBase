@@ -143,7 +143,19 @@ extension Adapter.SwiftFulcrum {
         private func normalizedError(for client: Fulcrum.Error.Client) -> Network.Gateway.Error {
             switch client {
             case .urlNotFound:
-            case .invalidURL(let URL):
+                return gatewayError(
+                    .transport(description: "Fulcrum endpoint URL not found"),
+                    hint: .never
+                )
+            case .invalidURL(let urlString):
+                if let resolvedURL = URL(string: urlString) {
+                    let description = "Fulcrum endpoint URL is invalid: \(resolvedURL.absoluteString)"
+                    return gatewayError(.transport(description: description), hint: .never)
+                }
+                return gatewayError(
+                    .transport(description: "Fulcrum endpoint URL is invalid"),
+                    hint: .never
+                )
             case .duplicateHandler:
                 return gatewayError(.transport(description: "Duplicate handler detected"), hint: .immediately)
             case .cancelled:
@@ -164,10 +176,6 @@ extension Adapter.SwiftFulcrum {
             case .unknown(let underlying):
                 let description = "Unknown client error: \(detail(from: underlying))"
                 return gatewayError(.transport(description: description), hint: .after(5))
-            case .urlNotFound:
-                <#code#>
-            case .invalidURL(_):
-                <#code#>
             }
         }
         

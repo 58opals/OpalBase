@@ -281,6 +281,10 @@ extension Adapter.SwiftFulcrum {
         
         private func describe(_ client: Fulcrum.Error.Client) -> String {
             switch client {
+            case .urlNotFound:
+                return "URL not found"
+            case .invalidURL(let url):
+                return "Invalid URL: \(url)"
             case .duplicateHandler:
                 return "Duplicate handler detected"
             case .cancelled:
