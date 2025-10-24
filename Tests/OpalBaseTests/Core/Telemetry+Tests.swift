@@ -6,10 +6,10 @@ struct TelemetryTests {
     @Test("disabled pipeline does not emit events")
     func disabledPipelineDoesNotEmitEvents() async {
         let recorder = RecordingTelemetryStore()
-        let sink = Telemetry.Sink { event in
+        let handler = Telemetry.Handler { event in
             await recorder.append(event)
         }
-        let telemetry = Telemetry(isEnabled: false, sinks: [sink])
+        let telemetry = Telemetry(isEnabled: false, handlers: [handler])
         
         await telemetry.record(name: "disabled", category: .diagnostics)
         
@@ -20,10 +20,10 @@ struct TelemetryTests {
     @Test("recording redacts sensitive metadata")
     func recordingRedactsSensitiveMetadata() async {
         let recorder = RecordingTelemetryStore()
-        let sink = Telemetry.Sink { event in
+        let handler = Telemetry.Handler { event in
             await recorder.append(event)
         }
-        let telemetry = Telemetry(isEnabled: true, sinks: [sink])
+        let telemetry = Telemetry(isEnabled: true, handlers: [handler])
         
         await telemetry.record(
             name: "wallet.event",
@@ -46,7 +46,7 @@ struct TelemetryTests {
     
     @Test("metrics snapshot aggregates events")
     func metricsSnapshotAggregatesEvents() async {
-        let telemetry = Telemetry(isEnabled: true, sinks: [Telemetry.Sink { _ in }])
+        let telemetry = Telemetry(isEnabled: true, handlers: [Telemetry.Handler { _ in }])
         
         await telemetry.record(
             name: "latency",

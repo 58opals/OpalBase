@@ -2,76 +2,28 @@
 
 import Foundation
 
-/// A configurable telemetry pipeline that aggregates metrics, redacts sensitive payloads,
-/// and emits structured analytics events.
-///
-/// The pipeline replaces the previous `Log` actor with a richer interface while preserving
-/// the ability to fire-and-forget diagnostic messages. All events are sanitised before
-/// reaching any sink so analytics consumers never observe raw user data.
-///
-/// ## Example
-/// ```swift
-/// await Telemetry.shared.record(
-///     name: "wallet.transaction.submitted",
-///     category: .wallet,
-///     message: "Submitted transaction to network",
-///     metadata: [
-///         "transaction.identifier": .string(transactionID),
-///         "fee.satoshis": .int(fee)
-///     ],
-///     sensitiveKeys: ["transaction.identifier"]
-/// )
-/// ```
-///
-/// ## Migration
-/// Replace usages of `Log.shared.log("message")` with
-/// `await Telemetry.shared.record(name:category:message:)`. Supplying a dedicated event
-/// name enables richer aggregation and ensures the redactor can strip sensitive tokens.
 public actor Telemetry {
     public static let shared = Telemetry()
     
-    /// A sink consumes sanitised telemetry events.
-    ///
-    /// Instead of conforming to a protocol, sinks are lightweight value types backed by
-    /// closures. This enables call sites to provide ad-hoc sinks without additional types
-    /// and aligns with Swift Concurrency's preference for `@Sendable` closures.
-    ///
-    /// ## Example
-    /// ```swift
-    /// let sink = Telemetry.Sink { event in
-    ///     try await database.save(event)
-    /// }
-    /// ```
-    ///
-    /// ## Migration
-    /// Replace conformances to the removed ``TelemetrySink`` protocol with
-    /// ``Telemetry/Sink`` values created via the ``Telemetry/Sink/init(consume:)``
-    /// initializer or the convenience factories.
-    public struct Sink: Sendable {
-        public typealias Consume = @Sendable (Event) async throws -> Void
+    public struct Handler: Sendable {
+        public typealias Operation = @Sendable (Event) async throws -> Void
         
-        private let consumeClosure: Consume
+        private let operation: Operation
         
-        /// Creates a telemetry sink that forwards events to the supplied closure.
-        /// - Parameter consume: A closure invoked for each sanitised telemetry event.
-        public init(consume: @escaping Consume) {
-            self.consumeClosure = consume
+        public init(_ operation: @escaping Operation) {
+            self.operation = operation
         }
         
-        /// Consumes a sanitised telemetry event.
-        /// - Parameter event: The event emitted by the telemetry pipeline.
-        public func consume(_ event: Event) async throws {
-            try await consumeClosure(event)
+        public func callAsFunction(_ event: Event) async throws {
+            try await operation(event)
         }
         
-        /// Creates a sink that prints telemetry events as structured JSON.
-        /// - Parameter printer: A closure responsible for emitting the formatted payload.
         public static func console(
             printer: @escaping @Sendable (String) -> Void = { message in
                 Swift.print(message)
             }
         ) -> Self {
-            Sink { event in
+            Handler { event in
                 let encoder = JSONEncoder()
                 encoder.dateEncodingStrategy = .iso8601
                 let payload = try encoder.encode(event)
@@ -82,53 +34,35 @@ public actor Telemetry {
     }
     
     private var isEnabled: Bool
-    private var sinks: [Sink]
+    private var handlers: [Handler]
     private var eventCounters: [EventKey: EventCounter]
     private var valueAggregates: [String: MutableValueAggregate]
     private var recordedErrors: [Error]
     private let redactor = TelemetryRedactor()
     
-    /// Creates a telemetry pipeline with optional sinks.
-    /// - Parameters:
-    ///   - isEnabled: Indicates whether events should be processed.
-    ///   - sinks: Destinations that should consume sanitised events. Defaults to a
-    ///            structured console sink suitable for development diagnostics.
     public init(
         isEnabled: Bool = false,
-        sinks: [Sink] = [.console()]
+        handlers: [Handler] = [.console()]
     ) {
         self.isEnabled = isEnabled
-        self.sinks = sinks
+        self.handlers = handlers
         self.eventCounters = [:]
         self.valueAggregates = [:]
         self.recordedErrors = []
     }
     
-    /// Updates the configuration of the telemetry pipeline.
-    /// - Parameters:
-    ///   - isEnabled: Optional override for the enabled flag.
-    ///   - sinks: Optional replacement sinks. When provided, the array replaces the existing sinks.
     public func configure(
         isEnabled: Bool? = nil,
-        sinks: [Sink]? = nil
+        handlers: [Handler]? = nil
     ) {
         if let isEnabled {
             self.isEnabled = isEnabled
         }
-        if let sinks {
-            self.sinks = sinks
+        if let handlers {
+            self.handlers = handlers
         }
     }
     
-    /// Records an event using the supplied components.
-    /// - Parameters:
-    ///   - name: A unique identifier for the event. Event names are used for aggregation keys.
-    ///   - category: A semantic grouping for the event that can be leveraged in analytics tools.
-    ///   - message: Optional human-friendly description. Sensitive tokens will be redacted.
-    ///   - metadata: Structured metadata that supports redaction at key granularity.
-    ///   - metrics: Numeric metrics associated with the event.
-    ///   - sensitiveKeys: Metadata keys that should be replaced by a redaction token.
-    ///   - timestamp: Overrides the automatically generated timestamp.
     public func record(
         name: String,
         category: Event.Category,
@@ -150,8 +84,6 @@ public actor Telemetry {
         await record(event)
     }
     
-    /// Records an already constructed event.
-    /// - Parameter event: The event that should be processed by the pipeline.
     public func record(_ event: Event) async {
         guard isEnabled else { return }
         let sanitised = redactor.sanitise(event: event)
@@ -159,15 +91,15 @@ public actor Telemetry {
         
         var didRecordFailure = false
         
-        for sink in sinks {
+        for handler in handlers {
             do {
-                try await sink.consume(sanitised)
+                try await handler(sanitised)
             } catch {
                 if !didRecordFailure {
                     registerFailure(for: sanitised)
                     didRecordFailure = true
                 }
-                recordedErrors.append(.sinkFailure(description: String(describing: error)))
+                recordedErrors.append(.handlerFailure(description: String(describing: error)))
             }
         }
         
@@ -176,8 +108,6 @@ public actor Telemetry {
         }
     }
     
-    /// Generates a snapshot of the aggregated metrics for analytics inspection.
-    /// - Returns: A snapshot containing counters for events and value aggregates.
     public func metricsSnapshot(timestamp: Date = .init()) -> MetricsSnapshot {
         MetricsSnapshot(
             timestamp: timestamp,
@@ -190,17 +120,12 @@ public actor Telemetry {
         )
     }
     
-    /// Collects errors produced by telemetry sinks and clears the internal buffer.
-    /// This enables callers to react to sink failures without leaking implementation details.
-    /// - Returns: The errors raised by sinks since the last invocation.
     public func collectErrors() -> [Error] {
         let errors = recordedErrors
         recordedErrors.removeAll(keepingCapacity: false)
         return errors
     }
     
-    /// Resets all aggregated counters, metrics, and recorded errors.
-    /// Typically useful in tests or when restarting analytics sessions.
     public func reset() {
         eventCounters.removeAll(keepingCapacity: false)
         valueAggregates.removeAll(keepingCapacity: false)
@@ -209,9 +134,7 @@ public actor Telemetry {
 }
 
 extension Telemetry {
-    /// A telemetry event capturing structured metadata and numeric metrics.
     public struct Event: Sendable, Encodable {
-        /// Semantic category describing the type of event.
         public enum Category: String, Sendable, Encodable {
             case diagnostics
             case blockchain
@@ -270,14 +193,12 @@ extension Telemetry {
 }
 
 extension Telemetry {
-    /// Errors generated by the telemetry subsystem.
     public enum Error: Swift.Error, Sendable {
-        case sinkFailure(description: String)
+        case handlerFailure(description: String)
     }
 }
 
 extension Telemetry {
-    /// Encapsulates metadata associated with telemetry events.
     public struct Metadata: Sendable, Encodable, ExpressibleByDictionaryLiteral {
         public struct Key: Hashable, Sendable, ExpressibleByStringLiteral, Encodable {
             public let rawValue: String
@@ -342,7 +263,6 @@ extension Telemetry.Metadata {
 }
 
 extension Telemetry {
-    /// Supported metadata value types for telemetry events.
     public enum MetadataValue: Sendable, Encodable, Equatable {
         case string(String)
         case int(Int)
@@ -372,7 +292,6 @@ extension Telemetry {
 }
 
 extension Telemetry {
-    /// Snapshot produced by `metricsSnapshot()` containing aggregated analytics data.
     public struct MetricsSnapshot: Sendable, Encodable {
         public struct EventCounters: Sendable, Encodable {
             public let total: Int

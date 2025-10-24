@@ -19,7 +19,7 @@ struct SubscriptionHubFulcrumIntegrationTests {
     
     @Test("bundled Fulcrum servers surface live subscription events")
     func bundledFulcrumServersSurfaceLiveEvents() async throws {
-        let telemetry = Telemetry(isEnabled: false, sinks: [])
+        let telemetry = Telemetry(isEnabled: false, handlers: [])
         let hub = Network.Wallet.SubscriptionHub(telemetry: telemetry)
         let pool = try await Network.Wallet.FulcrumPool()
         //let pool = try await Network.Wallet.FulcrumPool(urls: Self.publicFulcrumEndpoints)
