@@ -4,7 +4,7 @@ import Foundation
 
 extension Network {
     public actor Gateway {
-        private let client: Client
+        private let api: API
         private var mempool: Set<Transaction.Hash> = []
         private var mempoolLastRefresh: Date = .distantPast
         private let mempoolTTL: TimeInterval
@@ -15,8 +15,8 @@ extension Network {
         private let headerFreshnessInterval: TimeInterval
         private let healthRetryDelay: TimeInterval
         
-        public init(client: Client, configuration: Configuration = .init()) {
-            self.client = client
+        public init(api: API, configuration: Configuration = .init()) {
+            self.api = api
             self.mempoolTTL = configuration.mempoolTTL
             self.seen = .init(defaultTTL: configuration.seenTTL)
             self.requestRouter = .init(configuration: configuration.router,
@@ -110,20 +110,20 @@ extension Network {
         private func mapToGatewayError(_ error: Swift.Error, for request: Request) throws -> Error {
             if let cancellation = error as? CancellationError { throw cancellation }
             if let domain = error as? Error { return domain }
-            if let normalized = client.normalize(error: error, during: request) { return normalized }
+            if let normalized = api.normalize(error, during: request) { return normalized }
             let description = String(describing: error)
             return Error(reason: .transport(description: description),
                          retry: .after(healthRetryDelay))
         }
         
         public func getTransaction(for hash: Transaction.Hash) async throws -> Transaction? {
-            try await perform(.transaction(hash)) { try await self.client.fetch(hash) }
+            try await perform(.transaction(hash)) { try await self.api.fetch(hash) }
         }
         
         public func getCurrentMempool(forceRefresh: Bool = false) async throws -> Set<Transaction.Hash> {
             let now = Date()
             if forceRefresh || now.timeIntervalSince(mempoolLastRefresh) > mempoolTTL {
-                mempool = client.currentMempool
+                mempool = api.currentMempool()
                 mempoolLastRefresh = now
             }
             return mempool
@@ -161,12 +161,12 @@ extension Network {
             let handle = await requestRouter.handle(for: request)
             do {
                 let acknowledged = try await handle.perform(priority: .high, retryPolicy: .retry) {
-                    try await self.client.broadcast(transaction)
+                    try await self.api.broadcast(transaction)
                 }
                 await cacheBroadcast(expected: expectedHash, acknowledged: acknowledged)
                 return acknowledged
             } catch {
-                if let resolution = client.interpretBroadcastError(error, expectedHash: expectedHash) {
+                if let resolution = api.interpretBroadcastError(error, expectedHash: expectedHash) {
                     switch resolution {
                     case .alreadyKnown(let hash):
                         await cacheBroadcast(expected: expectedHash, acknowledged: hash)
@@ -181,37 +181,37 @@ extension Network {
         
         public func getRawTransaction(for hash: Transaction.Hash) async throws -> Data {
             try await perform(.rawTransaction(hash)) {
-                try await self.client.getRawTransaction(for: hash)
+                try await self.api.getRawTransaction(hash)
             }
         }
         
         public func getDetailedTransaction(for hash: Transaction.Hash) async throws -> Transaction.Detailed {
             try await perform(.detailedTransaction(hash)) {
-                try await self.client.getDetailedTransaction(for: hash)
+                try await self.api.getDetailedTransaction(hash)
             }
         }
         
         public func getEstimateFee(targetBlocks: Int) async throws -> Satoshi {
             try await perform(.estimateFee(targetBlocks)) {
-                try await self.client.getEstimateFee(targetBlocks: targetBlocks)
+                try await self.api.getEstimateFee(targetBlocks)
             }
         }
         
         public func getRelayFee() async throws -> Satoshi {
             try await perform(.relayFee) {
-                try await self.client.getRelayFee()
+                try await self.api.getRelayFee()
             }
         }
         
         public func getHeader(height: UInt32) async throws -> HeaderPayload? {
             try await perform(.header(height)) {
-                try await self.client.getHeader(height: height)
+                try await self.api.getHeader(height)
             }
         }
         
         public func pingHeadersTip() async throws {
             try await perform(.pingHeadersTip) {
-                try await self.client.pingHeadersTip()
+                try await self.api.pingHeadersTip()
             }
         }
         
@@ -329,5 +329,3 @@ extension Network.Gateway {
         }
     }
 }
-
-extension Network.Gateway: Network.Gateway.HeaderClient {}

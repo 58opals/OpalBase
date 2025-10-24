@@ -49,9 +49,9 @@ let mnemonic = try Mnemonic(words: [
 let wallet = Wallet(mnemonic: mnemonic)
 try await wallet.addAccount(unhardenedIndex: 0)
 let account = try wallet.getAccount(unhardenedIndex: 0)
-let fulcrum = try await account.fulcrumPool.getFulcrum()
-try await account.addressBook.refreshBalances(using: fulcrum)
-let history = try await account.addressBook.fetchDetailedTransactions(for: .receiving, using: fulcrum)
+let node = try await account.fulcrumPool.acquireNode()
+try await account.addressBook.refreshBalances(using: node)
+let history = try await account.addressBook.fetchDetailedTransactions(for: .receiving, using: node)
 ```
 
 ### Generating and Using an Address in the Account

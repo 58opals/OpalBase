@@ -168,8 +168,8 @@ extension Network.Wallet.FulcrumPool.PoolState {
     private func ping(_ fulcrum: Fulcrum) async throws -> TimeInterval {
         let start = Date()
         do {
-            let client = Adapter.SwiftFulcrum.GatewayClient(fulcrum: fulcrum)
-            try await client.pingHeadersTip()
+            let api = Adapter.SwiftFulcrum.gatewayAPI(fulcrum: fulcrum)
+            try await api.pingHeadersTip()
             return Date().timeIntervalSince(start)
         } catch {
             throw Network.Wallet.Error.pingFailed(error)

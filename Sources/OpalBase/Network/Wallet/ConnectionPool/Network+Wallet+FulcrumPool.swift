@@ -104,6 +104,7 @@ extension Network.Wallet.FulcrumPool {
             var role: Role
             var retry: Retry
             
+            let api: Network.Gateway.API
             let gateway: Network.Gateway
             
             init(fulcrum: Fulcrum,
@@ -123,8 +124,9 @@ extension Network.Wallet.FulcrumPool {
                 var configuration = gatewayConfiguration
                 configuration.initialStatus = .offline
                 configuration.initialHeaderUpdate = nil
-                self.gateway = .init(client: Adapter.SwiftFulcrum.GatewayClient(fulcrum: fulcrum),
-                                     configuration: configuration)
+                let api = Adapter.SwiftFulcrum.gatewayAPI(fulcrum: fulcrum)
+                self.api = api
+                self.gateway = .init(api: api, configuration: configuration)
             }
         }
         

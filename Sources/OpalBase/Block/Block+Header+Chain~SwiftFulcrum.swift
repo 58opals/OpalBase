@@ -94,10 +94,23 @@ extension Block.Header.Chain {
     }
     
     func sync(from startHeight: UInt32? = nil,
-              using gateway: any Network.Gateway.HeaderClient) async throws {
+              using gateway: Network.Gateway) async throws {
+        try await sync(from: startHeight) { height in
+            try await gateway.getHeader(height: height)
+        }
+    }
+    
+    func sync(from startHeight: UInt32? = nil,
+              using api: Network.Gateway.API) async throws {
+        try await sync(from: startHeight, provider: api.getHeader)
+    }
+    
+    private func sync(from startHeight: UInt32?,
+                      provider: @escaping @Sendable (UInt32) async throws -> Network.Gateway.HeaderPayload?) async throws
+    {
         var height = startHeight ?? (headers.isEmpty ? checkpointHeight : tipHeight &+ 1)
         while true {
-            guard let payload = try await gateway.getHeader(height: height) else { break }
+            guard let payload = try await provider(height) else { break }
             await Telemetry.shared.record(
                 name: "blockchain.sync.received",
                 category: .blockchain,

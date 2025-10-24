@@ -150,7 +150,7 @@ extension Address {
             
             if !needs.isEmpty {
                 let unique = Array(Set(needs.map { $0.transactionHash }))
-                let gateway = Network.Gateway(client: Adapter.SwiftFulcrum.GatewayClient(fulcrum: fulcrum))
+                let gateway = Network.Gateway(api: Adapter.SwiftFulcrum.gatewayAPI(fulcrum: fulcrum))
                 await gateway.updateHealth(status: .online, lastHeaderAt: Date())
                 let fetched = try await Transaction.fetchFullTransactionsBatched(for: unique, using: gateway)
                 for need in needs {
