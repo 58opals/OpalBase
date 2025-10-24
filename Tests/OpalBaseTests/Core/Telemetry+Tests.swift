@@ -5,18 +5,24 @@ import Testing
 struct TelemetryTests {
     @Test("disabled pipeline does not emit events")
     func disabledPipelineDoesNotEmitEvents() async {
-        let sink = RecordingTelemetrySink()
+        let recorder = RecordingTelemetryStore()
+        let sink = Telemetry.Sink { event in
+            await recorder.append(event)
+        }
         let telemetry = Telemetry(isEnabled: false, sinks: [sink])
         
         await telemetry.record(name: "disabled", category: .diagnostics)
         
-        let captured = await sink.events()
+        let captured = await recorder.events()
         #expect(captured.isEmpty)
     }
     
     @Test("recording redacts sensitive metadata")
     func recordingRedactsSensitiveMetadata() async {
-        let sink = RecordingTelemetrySink()
+        let recorder = RecordingTelemetryStore()
+        let sink = Telemetry.Sink { event in
+            await recorder.append(event)
+        }
         let telemetry = Telemetry(isEnabled: true, sinks: [sink])
         
         await telemetry.record(
@@ -30,7 +36,7 @@ struct TelemetryTests {
             sensitiveKeys: ["transaction.id"]
         )
         
-        let captured = await sink.events()
+        let captured = await recorder.events()
         #expect(captured.count == 1)
         let event = captured[0]
         #expect(event.message?.contains("‹redacted›") == true)
@@ -40,7 +46,7 @@ struct TelemetryTests {
     
     @Test("metrics snapshot aggregates events")
     func metricsSnapshotAggregatesEvents() async {
-        let telemetry = Telemetry(isEnabled: true, sinks: [RecordingTelemetrySink()])
+        let telemetry = Telemetry(isEnabled: true, sinks: [Telemetry.Sink { _ in }])
         
         await telemetry.record(
             name: "latency",
@@ -68,10 +74,10 @@ struct TelemetryTests {
     }
 }
 
-private actor RecordingTelemetrySink: TelemetrySink {
+private actor RecordingTelemetryStore {
     private var capturedEvents: [Telemetry.Event] = []
     
-    func consume(_ event: Telemetry.Event) async throws {
+    func append(_ event: Telemetry.Event) {
         capturedEvents.append(event)
     }
     

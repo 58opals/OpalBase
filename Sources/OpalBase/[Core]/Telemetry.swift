@@ -30,8 +30,59 @@ import Foundation
 public actor Telemetry {
     public static let shared = Telemetry()
     
+    /// A sink consumes sanitised telemetry events.
+    ///
+    /// Instead of conforming to a protocol, sinks are lightweight value types backed by
+    /// closures. This enables call sites to provide ad-hoc sinks without additional types
+    /// and aligns with Swift Concurrency's preference for `@Sendable` closures.
+    ///
+    /// ## Example
+    /// ```swift
+    /// let sink = Telemetry.Sink { event in
+    ///     try await database.save(event)
+    /// }
+    /// ```
+    ///
+    /// ## Migration
+    /// Replace conformances to the removed ``TelemetrySink`` protocol with
+    /// ``Telemetry/Sink`` values created via the ``Telemetry/Sink/init(consume:)``
+    /// initializer or the convenience factories.
+    public struct Sink: Sendable {
+        public typealias Consume = @Sendable (Event) async throws -> Void
+        
+        private let consumeClosure: Consume
+        
+        /// Creates a telemetry sink that forwards events to the supplied closure.
+        /// - Parameter consume: A closure invoked for each sanitised telemetry event.
+        public init(consume: @escaping Consume) {
+            self.consumeClosure = consume
+        }
+        
+        /// Consumes a sanitised telemetry event.
+        /// - Parameter event: The event emitted by the telemetry pipeline.
+        public func consume(_ event: Event) async throws {
+            try await consumeClosure(event)
+        }
+        
+        /// Creates a sink that prints telemetry events as structured JSON.
+        /// - Parameter printer: A closure responsible for emitting the formatted payload.
+        public static func console(
+            printer: @escaping @Sendable (String) -> Void = { message in
+                Swift.print(message)
+            }
+        ) -> Self {
+            Sink { event in
+                let encoder = JSONEncoder()
+                encoder.dateEncodingStrategy = .iso8601
+                let payload = try encoder.encode(event)
+                let json = String(decoding: payload, as: UTF8.self)
+                printer(json)
+            }
+        }
+    }
+    
     private var isEnabled: Bool
-    private var sinks: [any TelemetrySink]
+    private var sinks: [Sink]
     private var eventCounters: [EventKey: EventCounter]
     private var valueAggregates: [String: MutableValueAggregate]
     private var recordedErrors: [Error]
@@ -44,7 +95,7 @@ public actor Telemetry {
     ///            structured console sink suitable for development diagnostics.
     public init(
         isEnabled: Bool = false,
-        sinks: [any TelemetrySink] = [TelemetryStructuredConsoleSink()]
+        sinks: [Sink] = [.console()]
     ) {
         self.isEnabled = isEnabled
         self.sinks = sinks
@@ -59,7 +110,7 @@ public actor Telemetry {
     ///   - sinks: Optional replacement sinks. When provided, the array replaces the existing sinks.
     public func configure(
         isEnabled: Bool? = nil,
-        sinks: [any TelemetrySink]? = nil
+        sinks: [Sink]? = nil
     ) {
         if let isEnabled {
             self.isEnabled = isEnabled
@@ -455,21 +506,6 @@ private extension Telemetry {
     }
 }
 
-// MARK: - Telemetry sinks
-
-/// A sink that emits redacted telemetry events as structured JSON to the console.
-public struct TelemetryStructuredConsoleSink: TelemetrySink {
-    public init() {}
-    
-    public func consume(_ event: Telemetry.Event) async throws {
-        let encoder = JSONEncoder()
-        encoder.dateEncodingStrategy = .iso8601
-        let payload = try encoder.encode(event)
-        let json = String(decoding: payload, as: UTF8.self)
-        print(json)
-    }
-}
-
 // MARK: - Telemetry redaction
 
 struct TelemetryRedactor: Sendable {
@@ -528,12 +564,7 @@ struct TelemetryRedactor: Sendable {
     }
 }
 
-// MARK: - Protocols
-
-/// Consumers that receive sanitised telemetry events for downstream processing.
-public protocol TelemetrySink: Sendable {
-    func consume(_ event: Telemetry.Event) async throws
-}
+// MARK: -
 
 private extension String {
     var isLikelyHexadecimal: Bool {
