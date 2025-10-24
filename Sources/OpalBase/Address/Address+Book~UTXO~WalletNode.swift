@@ -3,7 +3,7 @@
 import Foundation
 
 extension Address.Book {
-    public func refreshUTXOSet(node: any Network.Wallet.Node) async throws {
+    public func refreshUTXOSet(node: Network.Wallet.Node) async throws {
         let operation: @Sendable () async throws -> Void = { [self] in
             let entries = await receivingEntries + changeEntries
             

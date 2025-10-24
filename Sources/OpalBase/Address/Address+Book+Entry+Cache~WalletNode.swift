@@ -3,7 +3,7 @@
 import Foundation
 
 extension Address.Book {
-    func updateCache(using node: any Network.Wallet.Node) async throws {
+    func updateCache(using node: Network.Wallet.Node) async throws {
         let operation: @Sendable () async throws -> Void = { [self] in
             try await updateCache(in: .receiving, node: node)
             try await updateCache(in: .change, node: node)
@@ -12,7 +12,7 @@ extension Address.Book {
         try await executeOrEnqueue(.updateCache, operation: operation)
     }
     
-    func updateCache(in usage: DerivationPath.Usage, node: any Network.Wallet.Node) async throws {
+    func updateCache(in usage: DerivationPath.Usage, node: Network.Wallet.Node) async throws {
         let operation: @Sendable () async throws -> Void = { [self] in
             let entries = await listEntries(for: usage)
             for entry in entries where !entry.cache.isValid {

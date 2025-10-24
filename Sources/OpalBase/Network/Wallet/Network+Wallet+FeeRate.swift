@@ -3,7 +3,7 @@
 import Foundation
 
 extension Network.Wallet {
-    public actor FeeRate: FeeService {
+    public actor FeeRate {
         public typealias RateProvider = @Sendable (Tier) async throws -> UInt64
         
         private let fetchRate: RateProvider
@@ -14,14 +14,14 @@ extension Network.Wallet {
         
         private var cachedRates: [Tier: CachedRate] = .init()
         
-        public init(connectionPool: any Network.Wallet.ConnectionPool,
+        public init(pool: Network.Wallet.FulcrumPool,
                     cacheThreshold: TimeInterval = 10 * 60,
                     smoothingAlpha: Double = 0.35,
                     persistenceWindow: TimeInterval = 60 * 60,
                     feeRepository: Storage.Repository.Fees? = nil,
                     persistence: Persistence? = nil) {
             self.fetchRate = { tier in
-                let gateway = try await connectionPool.acquireGateway()
+                let gateway = try await pool.acquireGateway()
                 async let estimated = gateway.getEstimateFee(targetBlocks: tier.targetBlocks)
                 async let relay = gateway.getRelayFee()
                 let (recommended, relayFee) = try await (estimated, relay)

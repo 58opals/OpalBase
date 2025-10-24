@@ -3,7 +3,7 @@
 import Foundation
 
 extension Address.Book {
-    public func refreshBalances(using node: any Network.Wallet.Node) async throws {
+    public func refreshBalances(using node: Network.Wallet.Node) async throws {
         let operation: @Sendable () async throws -> Void = { [self] in
             try await refreshBalances(in: .receiving, node: node)
             try await refreshBalances(in: .change, node: node)
@@ -12,7 +12,7 @@ extension Address.Book {
         try await executeOrEnqueue(.refreshBalances, operation: operation)
     }
     
-    private func refreshBalances(in usage: DerivationPath.Usage, node: any Network.Wallet.Node) async throws {
+    private func refreshBalances(in usage: DerivationPath.Usage, node: Network.Wallet.Node) async throws {
         let operation: @Sendable () async throws -> Void = { [self] in
             let entries = await listEntries(for: usage)
             let staleEntries = entries.filter { !$0.cache.isValid }
@@ -37,7 +37,7 @@ extension Address.Book {
 }
 
 extension Address.Book {
-    func fetchBalance(for address: Address, using node: any Network.Wallet.Node) async throws -> Satoshi {
+    func fetchBalance(for address: Address, using node: Network.Wallet.Node) async throws -> Satoshi {
         let operation: @Sendable () async throws -> Satoshi = { [self] in
             let newBalance = try await node.balance(for: address, includeUnconfirmed: true)
             try await updateCache(for: address, with: newBalance)

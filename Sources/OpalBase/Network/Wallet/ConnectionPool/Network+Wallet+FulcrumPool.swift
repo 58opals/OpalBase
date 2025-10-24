@@ -4,7 +4,7 @@ import Foundation
 import SwiftFulcrum
 
 extension Network.Wallet {
-    public struct FulcrumPool: Sendable, ConnectionPool {
+    public struct FulcrumPool: Sendable {
         typealias FulcrumFactory = @Sendable (_ endpoint: String?) async throws -> Fulcrum
         private let state: PoolState
         

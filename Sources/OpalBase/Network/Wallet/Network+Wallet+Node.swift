@@ -1,8 +1,10 @@
+// Network+Wallet+Node.swift
+
 import Foundation
 import SwiftFulcrum
 
-extension Adapter.SwiftFulcrum {
-    public struct Node: Network.Wallet.Node {
+extension Network.Wallet {
+    public struct Node: Sendable {
         private let fulcrum: SwiftFulcrum.Fulcrum
         
         public init(fulcrum: SwiftFulcrum.Fulcrum) {
@@ -320,4 +322,46 @@ extension Adapter.SwiftFulcrum {
     }
 }
 
-extension Adapter.SwiftFulcrum.Node: Sendable {}
+extension Network.Wallet {
+    public struct SubscriptionStream: Sendable {
+        public struct Notification: Sendable, Equatable {
+            public let status: String?
+            
+            public init(status: String?) {
+                self.status = status
+            }
+        }
+        
+        public let id: UUID
+        public let initialStatus: String
+        public let updates: AsyncThrowingStream<Notification, Swift.Error>
+        public let cancel: @Sendable () async -> Void
+        
+        public init(id: UUID,
+                    initialStatus: String,
+                    updates: AsyncThrowingStream<Notification, Swift.Error>,
+                    cancel: @escaping @Sendable () async -> Void) {
+            self.id = id
+            self.initialStatus = initialStatus
+            self.updates = updates
+            self.cancel = cancel
+        }
+    }
+}
+
+extension Network.Wallet {
+    public struct NodeError: Swift.Error, Sendable, Equatable {
+        public enum Reason: Sendable, Equatable {
+            case rejected(code: Int?, message: String)
+            case transport(description: String)
+            case coding(description: String)
+            case unknown(description: String)
+        }
+        
+        public let reason: Reason
+        
+        public init(reason: Reason) {
+            self.reason = reason
+        }
+    }
+}

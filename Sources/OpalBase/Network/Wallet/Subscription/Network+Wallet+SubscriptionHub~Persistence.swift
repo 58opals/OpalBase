@@ -2,32 +2,42 @@
 
 import Foundation
 
-extension Network.Wallet.SubscriptionHub {
-    struct StorageBackfillAdapter: Persistence, ReplayAdapter, Sendable {
-        let repository: Storage.Repository.Subscriptions
-        
-        init(repository: Storage.Repository.Subscriptions) {
-            self.repository = repository
-        }
-        
-        func loadState(for address: Address) async throws -> PersistenceState? {
-            guard let row = try await repository.byAddress(address.string) else { return nil }
-            return PersistenceState(address: address, activationFlag: row.isActive, lastStatus: row.lastStatus)
-        }
-        
-        func persist(_ state: PersistenceState) async throws {
-            try await repository.upsert(address: state.address.string,
-                                        isActive: state.activationFlag,
-                                        lastStatus: state.lastStatus)
-        }
-        
-        func deactivate(address: Address, lastStatus: String?) async throws {
-            try await repository.upsert(address: address.string,
-                                        isActive: false,
-                                        lastStatus: lastStatus)
-        }
-        
-        func replay(for address: Address, lastStatus: String?) -> AsyncThrowingStream<Notification.Event, Swift.Error> {
+extension Network.Wallet.SubscriptionHub.Persistence {
+    static func storage(repository: Storage.Repository.Subscriptions) -> Self {
+        Self(
+            loader: { address in
+                do {
+                    guard let row = try await repository.byAddress(address.string) else { return nil }
+                    return .init(address: address, activationFlag: row.isActive, lastStatus: row.lastStatus)
+                } catch {
+                    throw Error.repository(String(describing: error))
+                }
+            },
+            writer: { state in
+                do {
+                    try await repository.upsert(address: state.address.string,
+                                                isActive: state.activationFlag,
+                                                lastStatus: state.lastStatus)
+                } catch {
+                    throw Error.repository(String(describing: error))
+                }
+            },
+            deactivator: { address, lastStatus in
+                do {
+                    try await repository.upsert(address: address.string,
+                                                isActive: false,
+                                                lastStatus: lastStatus)
+                } catch {
+                    throw Error.repository(String(describing: error))
+                }
+            }
+        )
+    }
+}
+
+extension Network.Wallet.SubscriptionHub.Replay {
+    static func storage(repository: Storage.Repository.Subscriptions) -> Self {
+        Self { address, lastStatus in
             AsyncThrowingStream { continuation in
                 Task {
                     do {
@@ -39,10 +49,10 @@ extension Network.Wallet.SubscriptionHub {
                         }
                         if let status {
                             continuation.yield(
-                                Notification.Event(address: address,
-                                                   status: status,
-                                                   replayFlag: true,
-                                                   sequence: 0)
+                                .init(address: address,
+                                      status: status,
+                                      replayFlag: true,
+                                      sequence: 0)
                             )
                         }
                         continuation.finish()

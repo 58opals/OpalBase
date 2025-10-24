@@ -3,7 +3,7 @@
 import Foundation
 
 extension Network.Wallet {
-    public actor SubscriptionHub: SubscriptionService {
+    public actor SubscriptionHub {
         public struct Notification: Sendable {
             public struct Event: Sendable {
                 public let address: Address
@@ -83,10 +83,38 @@ extension Network.Wallet {
             )
         }
         
-        public protocol Persistence: Sendable {
-            func loadState(for address: Address) async throws -> PersistenceState?
-            func persist(_ state: PersistenceState) async throws
-            func deactivate(address: Address, lastStatus: String?) async throws
+        public struct Persistence: Sendable {
+            public enum Error: Swift.Error, Sendable, Equatable {
+                case repository(String)
+            }
+            
+            public typealias Loader = @Sendable (Address) async throws -> PersistenceState?
+            public typealias Writer = @Sendable (PersistenceState) async throws -> Void
+            public typealias Deactivator = @Sendable (Address, String?) async throws -> Void
+            
+            private let loader: Loader
+            private let writer: Writer
+            private let deactivator: Deactivator
+            
+            public init(loader: @escaping Loader,
+                        writer: @escaping Writer,
+                        deactivator: @escaping Deactivator) {
+                self.loader = loader
+                self.writer = writer
+                self.deactivator = deactivator
+            }
+            
+            func load(address: Address) async throws -> PersistenceState? {
+                try await loader(address)
+            }
+            
+            func persist(_ state: PersistenceState) async throws {
+                try await writer(state)
+            }
+            
+            func deactivate(address: Address, lastStatus: String?) async throws {
+                try await deactivator(address, lastStatus)
+            }
         }
         
         public struct PersistenceState: Sendable, Hashable {
@@ -101,8 +129,18 @@ extension Network.Wallet {
             }
         }
         
-        public protocol ReplayAdapter: Sendable {
-            func replay(for address: Address, lastStatus: String?) -> AsyncThrowingStream<Notification.Event, Swift.Error>
+        public struct Replay: Sendable {
+            public typealias Factory = @Sendable (Address, String?) -> AsyncThrowingStream<Notification.Event, Swift.Error>
+            
+            private let factory: Factory
+            
+            public init(factory: @escaping Factory) {
+                self.factory = factory
+            }
+            
+            func stream(for address: Address, lastStatus: String?) -> AsyncThrowingStream<Notification.Event, Swift.Error> {
+                factory(address, lastStatus)
+            }
         }
         
         public enum Error: Swift.Error, Sendable {
@@ -115,33 +153,34 @@ extension Network.Wallet {
         var consumerAddressBook: [UUID: Set<Address>] = .init()
         var subscriptionStates: [Address: State] = .init()
         let configuration: Configuration
-        let persistence: (any Persistence)?
-        let replayAdapter: (any ReplayAdapter)?
+        let persistence: Persistence?
+        let replay: Replay?
         let telemetry: Telemetry
         let clock = ContinuousClock()
         
         public init(configuration: Configuration = .standard,
-                    persistence: (any Persistence)? = nil,
-                    replay: (any ReplayAdapter)? = nil,
+                    persistence: Persistence? = nil,
+                    replay: Replay? = nil,
                     telemetry: Telemetry = .shared) {
             self.configuration = configuration
             self.persistence = persistence
-            self.replayAdapter = replay
+            self.replay = replay
             self.telemetry = telemetry
         }
         
         public init(configuration: Configuration = .standard,
                     repository: Storage.Repository.Subscriptions?) {
             if let repository {
-                let adapter = StorageBackfillAdapter(repository: repository)
-                self.init(configuration: configuration, persistence: adapter, replay: adapter)
+                self.init(configuration: configuration,
+                          persistence: .storage(repository: repository),
+                          replay: .storage(repository: repository))
             } else {
                 self.init(configuration: configuration, persistence: nil, replay: nil)
             }
         }
         
         public func makeStream(for addresses: [Address],
-                               using node: any Network.Wallet.Node,
+                               using node: Network.Wallet.Node,
                                consumerID: UUID) async throws -> Stream {
             let uniqueAddresses = Set(addresses)
             let stream = AsyncThrowingStream<Notification.Event, Swift.Error>(bufferingPolicy: .bufferingNewest(1)) { continuation in
@@ -161,7 +200,7 @@ extension Network.Wallet {
         
         public func add(addresses: [Address],
                         for consumerID: UUID,
-                        using node: any Network.Wallet.Node) async throws {
+                        using node: Network.Wallet.Node) async throws {
             let uniqueAddresses = Set(addresses)
             guard !uniqueAddresses.isEmpty else { return }
             guard consumerContinuations[consumerID] != nil else { throw Error.consumerNotFound(consumerID) }

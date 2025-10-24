@@ -5,7 +5,7 @@ import Foundation
 extension Network.Wallet.SubscriptionHub {
     func register(consumerID: UUID,
                   addresses: Set<Address>,
-                  node: any Network.Wallet.Node,
+                  node: Network.Wallet.Node,
                   continuation: AsyncThrowingStream<Notification.Event, Swift.Error>.Continuation) async {
         consumerContinuations[consumerID] = continuation
         consumerAddressBook[consumerID, default: .init()].formUnion(addresses)
@@ -39,7 +39,7 @@ extension Network.Wallet.SubscriptionHub {
     
     func attach(consumerID: UUID,
                 address: Address,
-                node: any Network.Wallet.Node) async throws {
+                node: Network.Wallet.Node) async throws {
         var state = subscriptionStates[address] ?? State()
         state.consumerIdentifiers.insert(consumerID)
         subscriptionStates[address] = state
@@ -70,7 +70,7 @@ extension Network.Wallet.SubscriptionHub {
     }
     
     func startStreamingIfNeeded(for address: Address,
-                                using node: any Network.Wallet.Node) async throws {
+                                using node: Network.Wallet.Node) async throws {
         var state = subscriptionStates[address] ?? State()
         guard state.streamTask == nil else { return }
         guard !state.consumerIdentifiers.isEmpty else { return }
@@ -161,7 +161,7 @@ extension Network.Wallet.SubscriptionHub {
         var state = subscriptionStates[address] ?? State()
         if state.queue.lastStatus == nil, let persistence {
             do {
-                if let stored = try await persistence.loadState(for: address) {
+                if let stored = try await persistence.load(address: address) {
                     state.queue.lastStatus = stored.lastStatus
                 }
             } catch {
@@ -171,8 +171,8 @@ extension Network.Wallet.SubscriptionHub {
         
         subscriptionStates[address] = state
         
-        if let adapter = replayAdapter {
-            let stream = adapter.replay(for: address, lastStatus: state.queue.lastStatus)
+        if let replay {
+            let stream = replay.stream(for: address, lastStatus: state.queue.lastStatus)
             do {
                 for try await replay in stream {
                     await enqueue(status: replay.status, replayFlag: true, for: address, bypassDebounce: true)

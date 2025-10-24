@@ -5,7 +5,7 @@ import Foundation
 extension Address.Book {
     actor Subscription {
         private let book: Address.Book
-        private let hub: any Network.Wallet.SubscriptionService
+        private let hub: Network.Wallet.SubscriptionHub
         private let notificationHook: (@Sendable () async -> Void)?
         private var isRunning: Bool = false
         private var streamTask: Task<Void, Never>?
@@ -15,12 +15,12 @@ extension Address.Book {
         private var consumerID: UUID?
         private var subscriptionCount: Int = 0
         
-        private var node: (any Network.Wallet.Node)?
+        private var node: Network.Wallet.Node?
         
         var activeSubscriptionCount: Int { subscriptionCount }
         
         init(book: Address.Book,
-             hub: any Network.Wallet.SubscriptionService,
+             hub: Network.Wallet.SubscriptionHub,
              notificationHook: (@Sendable () async -> Void)? = nil) {
             self.book = book
             self.hub = hub
@@ -30,7 +30,7 @@ extension Address.Book {
 }
 
 extension Address.Book.Subscription {
-    func start(node: any Network.Wallet.Node) async {
+    func start(node: Network.Wallet.Node) async {
         guard !isRunning else { return }
         isRunning = true
         
@@ -107,7 +107,7 @@ extension Address.Book.Subscription {
         await triggerDebouncedNotification(using: node)
     }
     
-    private func scheduleNotification(node: any Network.Wallet.Node) async {
+    private func scheduleNotification(node: Network.Wallet.Node) async {
         debounceTask?.cancel()
         debounceTask = Task { [weak self] in
             guard let self else { return }
@@ -122,11 +122,11 @@ extension Address.Book.Subscription {
         debounceTask = nil
     }
     
-    func triggerDebouncedNotification(using node: any Network.Wallet.Node) async {
+    func triggerDebouncedNotification(using node: Network.Wallet.Node) async {
             await scheduleNotification(node: node)
         }
     
-    func handleNotification(node: any Network.Wallet.Node) async {
+    func handleNotification(node: Network.Wallet.Node) async {
         do {
             try await book.refreshUTXOSet(node: node)
             try await book.refreshBalances(using: node)
@@ -143,8 +143,8 @@ extension Address.Book.Subscription: Sendable {}
 extension Address.Book {
     var currentSubscription: Subscription? { self.subscription }
     
-    func startSubscription(using node: any Network.Wallet.Node,
-                           hub: any Network.Wallet.SubscriptionService,
+    func startSubscription(using node: Network.Wallet.Node,
+                           hub: Network.Wallet.SubscriptionHub,
                            notificationHook: (@Sendable () async -> Void)? = nil) async {
         if self.subscription != nil { return }
         let newSubscription = Subscription(book: self, hub: hub, notificationHook: notificationHook)

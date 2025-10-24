@@ -3,8 +3,8 @@
 import Foundation
 
 public actor Account: Identifiable {
-    public let fulcrumPool: any Network.Wallet.ConnectionPool
-    public let feeRate: any Network.Wallet.FeeService
+    public let fulcrumPool: Network.Wallet.FulcrumPool
+    public let feeRate: Network.Wallet.FeeRate
     
     private let rootExtendedPrivateKey: PrivateKey.Extended
     
@@ -17,7 +17,7 @@ public actor Account: Identifiable {
     public var addressBook: Address.Book
     let outbox: Outbox
     
-    let subscriptionHub: any Network.Wallet.SubscriptionService
+    let subscriptionHub: Network.Wallet.SubscriptionHub
     
     let balanceLifecycleCoordinator: Lifecycle.Coordinator<Satoshi>
     var balanceMonitorConsumerID: UUID?
@@ -44,7 +44,7 @@ public actor Account: Identifiable {
          feeRepository: Storage.Repository.Fees? = nil) async throws {
         let pool = try await Network.Wallet.FulcrumPool(urls: fulcrumServerURLs)
         self.fulcrumPool = pool
-        self.feeRate = Network.Wallet.FeeRate(connectionPool: pool, feeRepository: feeRepository)
+        self.feeRate = Network.Wallet.FeeRate(pool: pool, feeRepository: feeRepository)
         
         self.rootExtendedPrivateKey = rootExtendedPrivateKey
         self.purpose = purpose
