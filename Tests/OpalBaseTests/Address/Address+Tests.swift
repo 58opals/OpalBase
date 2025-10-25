@@ -4,7 +4,7 @@ import Testing
 @Suite("CashAddr", .tags(.unit, .address))
 struct AddressTests {
     @Test("cash address decodes to P2PKH script")
-    func cashAddressDecodesToP2PKHScript() throws {
+    func testDecodeCashAddressToP2PKHScript() throws {
         let cashaddr = "bitcoincash:qpm2qsznhks23z7629mms6s4cwef74vcwvy22gdx6a"
         let address = try Address(cashaddr)
         
@@ -19,14 +19,14 @@ struct AddressTests {
     }
     
     @Test("filter removes invalid characters")
-    func filterRemovesInvalidCharacters() {
+    func testFilterRemovesInvalidCharacters() {
         let noisy = "BITCOINCASH:QPM2-QSZN HK S23Z7629MMS6S4CWEF74VCWVY22GDX6A"
         let filtered = Address.filterBase32(from: noisy)
         #expect(filtered == "QPM2QSZNHKS23Z7629MMS6S4CWEF74VCWVY22GDX6A")
     }
     
     @Test("invalid checksum is rejected")
-    func invalidChecksumIsRejected() {
+    func testRejectInvalidChecksum() {
         let invalid = "bitcoincash:qpm2qsznhks23z7629mms6s4cwef74vcwvy22gdx6z"
         #expect(throws: Address.Error.invalidChecksum) {
             _ = try Address(invalid)

@@ -4,7 +4,7 @@ import Testing
 @Suite("Telemetry", .tags(.unit, .telemetry))
 struct TelemetryTests {
     @Test("disabled pipeline does not emit events")
-    func disabledPipelineDoesNotEmitEvents() async {
+    func testDisabledPipelineDoesNotEmitEvents() async {
         let recorder = RecordingTelemetryStore()
         let handler = Telemetry.Handler { event in
             await recorder.append(event)
@@ -13,12 +13,12 @@ struct TelemetryTests {
         
         await telemetry.record(name: "disabled", category: .diagnostics)
         
-        let captured = await recorder.events()
+        let captured = await recorder.events
         #expect(captured.isEmpty)
     }
     
     @Test("recording redacts sensitive metadata")
-    func recordingRedactsSensitiveMetadata() async {
+    func testRedactSensitiveMetadata() async {
         let recorder = RecordingTelemetryStore()
         let handler = Telemetry.Handler { event in
             await recorder.append(event)
@@ -36,7 +36,7 @@ struct TelemetryTests {
             sensitiveKeys: ["transaction.id"]
         )
         
-        let captured = await recorder.events()
+        let captured = await recorder.events
         #expect(captured.count == 1)
         let event = captured[0]
         #expect(event.message?.contains("‹redacted›") == true)
@@ -45,7 +45,7 @@ struct TelemetryTests {
     }
     
     @Test("metrics snapshot aggregates events")
-    func metricsSnapshotAggregatesEvents() async {
+    func testAggregateMetricsSnapshot() async {
         let telemetry = Telemetry(isEnabled: true, handlers: [Telemetry.Handler { _ in }])
         
         await telemetry.record(
@@ -59,7 +59,7 @@ struct TelemetryTests {
             metrics: ["latency.ms": 30]
         )
         
-        let snapshot = await telemetry.metricsSnapshot()
+        let snapshot = await telemetry.makeMetricsSnapshot()
         let counters = snapshot.eventCounters["network.latency"]
         #expect(counters?.total == 2)
         #expect(counters?.failures == 0)
@@ -81,7 +81,5 @@ private actor RecordingTelemetryStore {
         capturedEvents.append(event)
     }
     
-    func events() -> [Telemetry.Event] {
-        capturedEvents
-    }
+    var events: [Telemetry.Event] { capturedEvents }
 }

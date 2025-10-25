@@ -44,7 +44,7 @@ public actor WalletCore {
                 var lastEmit = clock.now
                 while !Task.isCancelled {
                     do {
-                        let rows = try await repositories.utxos.forAccount(index)
+                        let rows = try await repositories.utxos.loadForAccount(index)
                         let total = rows.reduce(0) { $0 + $1.value }
                         let now = clock.now
                         if last != total || lastEmit.duration(to: now) >= heartbeat {
@@ -75,7 +75,7 @@ public actor WalletCore {
                 var lastEmit = clock.now
                 while !Task.isCancelled {
                     do {
-                        let rows = try await repositories.utxos.forAccount(index)
+                        let rows = try await repositories.utxos.loadForAccount(index)
                         let current = Set(rows.map { row in
                             Transaction.Output.Unspent(
                                 value: row.value,

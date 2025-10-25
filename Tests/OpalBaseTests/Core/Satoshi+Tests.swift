@@ -5,7 +5,7 @@ import Testing
 @Suite("Satoshi", .tags(.unit))
 struct SatoshiTests {
     @Test("initialisation from integer")
-    func initializationFromInteger() throws {
+    func testInitializeFromInteger() throws {
         let value = try Satoshi(42)
         #expect(value.uint64 == 42)
         guard let expected = Decimal(string: "0.00000042") else {

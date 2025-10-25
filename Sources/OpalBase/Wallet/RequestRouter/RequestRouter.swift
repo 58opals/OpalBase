@@ -41,7 +41,7 @@ public actor RequestRouter<RequestValue: Hashable & Sendable> {
         let requests = queue
         queue.removeAll()
         queuedIndices.removeAll()
-        instrumentation.queueDepthDidChange(queue.count)
+        instrumentation.didChangeQueueDepth(to: queue.count)
         for request in requests {
             request.onCancellation?(cancellation)
         }
@@ -140,7 +140,7 @@ public actor RequestRouter<RequestValue: Hashable & Sendable> {
                     queuedIndices[existingKey] = currentIndex - 1
                 }
             }
-            instrumentation.queueDepthDidChange(queue.count)
+            instrumentation.didChangeQueueDepth(to: queue.count)
         }
         
         if var activeRequest = activeRequests[key] {
@@ -184,7 +184,7 @@ public actor RequestRouter<RequestValue: Hashable & Sendable> {
             queuedIndices[request.key] = queue.count - 1
         }
         
-        instrumentation.queueDepthDidChange(queue.count)
+        instrumentation.didChangeQueueDepth(to: queue.count)
         tryStartNext()
     }
     
@@ -199,7 +199,7 @@ public actor RequestRouter<RequestValue: Hashable & Sendable> {
             }
         }
         
-        instrumentation.queueDepthDidChange(queue.count)
+        instrumentation.didChangeQueueDepth(to: queue.count)
         return request
     }
     
@@ -251,9 +251,9 @@ public actor RequestRouter<RequestValue: Hashable & Sendable> {
         let startInstant = clock.now
         nextPermittedStart = startInstant.advanced(by: configuration.minimumDelayBetweenRequests)
         let waitDuration = request.enqueuedAt.duration(to: startInstant)
-        instrumentation.waitTimeMeasured(for: request.key.rawValue,
-                                         attempt: request.attempt,
-                                         wait: waitDuration)
+        instrumentation.didMeasureWaitTime(for: request.key.rawValue,
+                                           attempt: request.attempt,
+                                           wait: waitDuration)
         
         let task = Task(priority: request.priority) {
             do {
@@ -291,19 +291,19 @@ public actor RequestRouter<RequestValue: Hashable & Sendable> {
                 if let replacement {
                     schedule(replacement, preferFront: true)
                     request.onFailure?(error)
-                    instrumentation.requestFailed(for: request.key.rawValue,
-                                                  attempt: request.attempt,
-                                                  error: error)
-                } else if let retryRequest = makeRetryRequest(from: request, error: error) {
-                    instrumentation.requestRetried(for: request.key.rawValue,
-                                                   attempt: retryRequest.attempt,
+                    instrumentation.didFailRequest(for: request.key.rawValue,
+                                                   attempt: request.attempt,
                                                    error: error)
+                } else if let retryRequest = makeRetryRequest(from: request, error: error) {
+                    instrumentation.didRetryRequest(for: request.key.rawValue,
+                                                    attempt: retryRequest.attempt,
+                                                    error: error)
                     schedule(retryRequest)
                 } else {
                     request.onFailure?(error)
-                    instrumentation.requestFailed(for: request.key.rawValue,
-                                                  attempt: request.attempt,
-                                                  error: error)
+                    instrumentation.didFailRequest(for: request.key.rawValue,
+                                                   attempt: request.attempt,
+                                                   error: error)
                 }
             }
         }
@@ -340,36 +340,36 @@ public actor RequestRouter<RequestValue: Hashable & Sendable> {
 
 extension RequestRouter {
     public struct Instrumentation: Sendable {
-        private let queueDepthChangeHandler: @Sendable (Int) -> Void
-        private let waitTimeHandler: @Sendable (RequestValue, Int, Duration) -> Void
-        private let retryHandler: @Sendable (RequestValue, Int, Swift.Error) -> Void
-        private let failureHandler: @Sendable (RequestValue, Int, Swift.Error) -> Void
+        private let queueDepthDidChangeHandler: @Sendable (Int) -> Void
+        private let waitTimeDidMeasureHandler: @Sendable (RequestValue, Int, Duration) -> Void
+        private let requestDidRetryHandler: @Sendable (RequestValue, Int, Swift.Error) -> Void
+        private let requestDidFailHandler: @Sendable (RequestValue, Int, Swift.Error) -> Void
         
-        public init(onQueueDepthDidChange: @escaping @Sendable (Int) -> Void = { _ in },
-                    onWaitTimeMeasured: @escaping @Sendable (RequestValue, Int, Duration) -> Void = { _, _, _ in },
-                    onRetry: @escaping @Sendable (RequestValue, Int, Swift.Error) -> Void = { _, _, _ in },
-                    onFailure: @escaping @Sendable (RequestValue, Int, Swift.Error) -> Void = { _, _, _ in })
+        public init(didChangeQueueDepth: @escaping @Sendable (Int) -> Void = { _ in },
+                    didMeasureWaitTime: @escaping @Sendable (RequestValue, Int, Duration) -> Void = { _, _, _ in },
+                    didRetryRequest: @escaping @Sendable (RequestValue, Int, Swift.Error) -> Void = { _, _, _ in },
+                    didFailRequest: @escaping @Sendable (RequestValue, Int, Swift.Error) -> Void = { _, _, _ in })
         {
-            self.queueDepthChangeHandler = onQueueDepthDidChange
-            self.waitTimeHandler = onWaitTimeMeasured
-            self.retryHandler = onRetry
-            self.failureHandler = onFailure
+            self.queueDepthDidChangeHandler = didChangeQueueDepth
+            self.waitTimeDidMeasureHandler = didMeasureWaitTime
+            self.requestDidRetryHandler = didRetryRequest
+            self.requestDidFailHandler = didFailRequest
         }
         
-        func queueDepthDidChange(_ depth: Int) {
-            queueDepthChangeHandler(depth)
+        func didChangeQueueDepth(to depth: Int) {
+            queueDepthDidChangeHandler(depth)
         }
         
-        func waitTimeMeasured(for value: RequestValue, attempt: Int, wait: Duration) {
-            waitTimeHandler(value, attempt, wait)
+        func didMeasureWaitTime(for value: RequestValue, attempt: Int, wait: Duration) {
+            waitTimeDidMeasureHandler(value, attempt, wait)
         }
         
-        func requestRetried(for value: RequestValue, attempt: Int, error: Swift.Error) {
-            retryHandler(value, attempt, error)
+        func didRetryRequest(for value: RequestValue, attempt: Int, error: Swift.Error) {
+            requestDidRetryHandler(value, attempt, error)
         }
         
-        func requestFailed(for value: RequestValue, attempt: Int, error: Swift.Error) {
-            failureHandler(value, attempt, error)
+        func didFailRequest(for value: RequestValue, attempt: Int, error: Swift.Error) {
+            requestDidFailHandler(value, attempt, error)
         }
     }
 }

@@ -108,7 +108,7 @@ public actor Telemetry {
         }
     }
     
-    public func metricsSnapshot(timestamp: Date = .init()) -> MetricsSnapshot {
+    public func makeMetricsSnapshot(timestamp: Date = .init()) -> MetricsSnapshot {
         MetricsSnapshot(
             timestamp: timestamp,
             eventCounters: eventCounters.reduce(into: [:]) { partialResult, element in

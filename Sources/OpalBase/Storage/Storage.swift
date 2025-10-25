@@ -19,12 +19,12 @@ extension Storage {
     public enum Configuration: Sendable {
         case disk(appGroup: String? = nil, filename: String = "opal.sqlite")
         case memory
-
+        
         var isMemoryOnly: Bool {
             if case .memory = self { return true }
             return false
         }
-
+        
         func makeContainer() throws -> ModelContainer {
             let schema = Schema([
                 Entity.HeaderModel.self,
@@ -35,7 +35,7 @@ extension Storage {
                 Entity.ServerHealthModel.self,
                 Entity.SubscriptionModel.self
             ])
-
+            
             switch self {
             case .memory:
                 let config = ModelConfiguration(isStoredInMemoryOnly: true)
@@ -61,7 +61,7 @@ extension Storage {
 extension Storage {
     public actor Facade {
         public let container: ModelContainer
-
+        
         public let headers: Repository.Headers
         public let utxos: Repository.UTXOs
         public let transactions: Repository.Transactions
@@ -69,10 +69,10 @@ extension Storage {
         public let fees: Repository.Fees
         public let serverHealth: Repository.ServerHealth
         public let subscriptions: Repository.Subscriptions
-
+        
         public init(configuration: Configuration) throws {
             self.container = try configuration.makeContainer()
-
+            
             self.headers = .init(container: container)
             self.utxos = .init(container: container)
             self.transactions = .init(container: container)
@@ -85,9 +85,8 @@ extension Storage {
 }
 
 extension Storage.Facade {
-    @inline(__always)
-    nonisolated static func withContext<T>(_ container: ModelContainer,
-                                           _ body: (ModelContext) throws -> T) rethrows -> T {
+    nonisolated static func performWithContext<T>(_ container: ModelContainer,
+                                                  _ body: (ModelContext) throws -> T) rethrows -> T {
         let ctx = ModelContext(container)
         ctx.autosaveEnabled = true
         return try body(ctx)

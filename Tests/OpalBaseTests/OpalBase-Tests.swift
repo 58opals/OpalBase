@@ -6,7 +6,7 @@ struct OpalBaseTests {}
 
 extension OpalBaseTests {
     @Test("version is non-empty", .tags(.unit))
-    func versionIsNonEmpty() {
+    func testVersionIsNonEmpty() {
         #expect(OpalBase.version.isEmpty == false)
     }
 }
