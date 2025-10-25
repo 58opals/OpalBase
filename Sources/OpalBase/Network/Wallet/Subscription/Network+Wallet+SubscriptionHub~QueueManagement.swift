@@ -52,10 +52,10 @@ extension Network.Wallet.SubscriptionHub {
         
         var awaitedOperations = 0
         
-        if let persistence {
+        if dependencies.hasPersistenceWriter {
             awaitedOperations += 1
             do {
-                try await persistence.persist(
+                try await dependencies.persist(
                     .init(address: address,
                           activationFlag: true,
                           lastStatus: batch.events.last?.status)

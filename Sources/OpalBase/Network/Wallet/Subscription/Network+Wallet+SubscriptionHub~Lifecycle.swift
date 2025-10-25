@@ -8,7 +8,7 @@ extension Network.Wallet.SubscriptionHub {
                   node: Network.Wallet.Node,
                   continuation: AsyncThrowingStream<Notification.Event, Swift.Error>.Continuation) async {
         consumerContinuations[consumerID] = continuation
-        consumerAddressBook[consumerID, default: .init()].formUnion(addresses)
+        addressBook.union(addresses, for: consumerID)
         
         for address in addresses {
             do {
@@ -24,7 +24,7 @@ extension Network.Wallet.SubscriptionHub {
     }
     
     func unregister(consumerID: UUID) async {
-        guard let addresses = consumerAddressBook.removeValue(forKey: consumerID) else { return }
+        guard let addresses = addressBook.removeAddresses(for: consumerID) else { return }
         consumerContinuations.removeValue(forKey: consumerID)?.finish()
         
         for address in addresses {
@@ -130,7 +130,7 @@ extension Network.Wallet.SubscriptionHub {
             let wrapped = Error.subscriptionFailed(address, error)
             for consumerID in state.consumerIdentifiers {
                 consumerContinuations[consumerID]?.finish(throwing: wrapped)
-                consumerAddressBook[consumerID]?.remove(address)
+                addressBook.remove(address, for: consumerID)
             }
             await persistInactiveState(address: address, lastStatus: state.queue.lastStatus)
             subscriptionStates[address] = nil
@@ -159,9 +159,9 @@ extension Network.Wallet.SubscriptionHub {
     func deliverReplayEvents(for address: Address,
                              to continuation: AsyncThrowingStream<Notification.Event, Swift.Error>.Continuation) async throws {
         var state = subscriptionStates[address] ?? State()
-        if state.queue.lastStatus == nil, let persistence {
+        if state.queue.lastStatus == nil, dependencies.hasPersistenceLoader {
             do {
-                if let stored = try await persistence.load(address: address) {
+                if let stored = try await dependencies.load(address: address) {
                     state.queue.lastStatus = stored.lastStatus
                 }
             } catch {
@@ -171,8 +171,7 @@ extension Network.Wallet.SubscriptionHub {
         
         subscriptionStates[address] = state
         
-        if let replay {
-            let stream = replay.stream(for: address, lastStatus: state.queue.lastStatus)
+        if let stream = dependencies.replayStream(for: address, lastStatus: state.queue.lastStatus) {
             do {
                 for try await replay in stream {
                     await enqueue(status: replay.status, replayFlag: true, for: address, bypassDebounce: true)
@@ -194,8 +193,7 @@ extension Network.Wallet.SubscriptionHub {
     
     func checkConsumerIsActive(consumerID: UUID, address: Address) -> Bool {
         guard consumerContinuations[consumerID] != nil else { return false }
-        guard let addresses = consumerAddressBook[consumerID],
-              addresses.contains(address)
+        guard addressBook.contains(address, for: consumerID)
         else { return false }
         guard let state = subscriptionStates[address],
               state.consumerIdentifiers.contains(consumerID)

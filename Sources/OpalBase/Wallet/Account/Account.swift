@@ -41,10 +41,11 @@ public actor Account: Identifiable {
          privacyConfiguration: PrivacyShaper.Configuration = .standard,
          outboxPath: URL? = nil,
          subscriptionRepository: Storage.Repository.Subscriptions? = nil,
+         feeRate: Network.Wallet.FeeRate? = nil,
          feeRepository: Storage.Repository.Fees? = nil) async throws {
         let pool = try await Network.Wallet.FulcrumPool(urls: fulcrumServerURLs)
         self.fulcrumPool = pool
-        self.feeRate = Network.Wallet.FeeRate(pool: pool, feeRepository: feeRepository)
+        self.feeRate = feeRate ?? Network.Wallet.FeeRate(pool: pool, feeRepository: feeRepository)
         
         self.rootExtendedPrivateKey = rootExtendedPrivateKey
         self.purpose = purpose
@@ -86,6 +87,7 @@ public actor Account: Identifiable {
          privacyConfiguration: PrivacyShaper.Configuration = .standard,
          outboxPath: URL? = nil,
          subscriptionRepository: Storage.Repository.Subscriptions? = nil,
+         feeRate: Network.Wallet.FeeRate? = nil,
          feeRepository: Storage.Repository.Fees? = nil) async throws {
         try await self.init(fulcrumServerURLs: fulcrumServerURLs,
                             rootExtendedPrivateKey: rootExtendedPrivateKey,
@@ -95,6 +97,7 @@ public actor Account: Identifiable {
                             privacyConfiguration: privacyConfiguration,
                             outboxPath: outboxPath,
                             subscriptionRepository: subscriptionRepository,
+                            feeRate: feeRate,
                             feeRepository: feeRepository)
         try await self.addressBook.applySnapshot(snapshot.addressBook)
     }

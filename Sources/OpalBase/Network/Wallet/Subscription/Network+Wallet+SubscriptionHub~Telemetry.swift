@@ -4,9 +4,9 @@ import Foundation
 
 extension Network.Wallet.SubscriptionHub {
     func persistInactiveState(address: Address, lastStatus: String?) async {
-        guard let persistence else { return }
+        guard dependencies.hasPersistenceDeactivator else { return }
         do {
-            try await persistence.deactivate(address: address, lastStatus: lastStatus)
+            try await dependencies.deactivate(address: address, lastStatus: lastStatus)
         } catch {
             Task { [telemetry] in
                 await telemetry.record(
