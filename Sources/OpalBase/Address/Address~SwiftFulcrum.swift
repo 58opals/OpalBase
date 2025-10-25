@@ -5,35 +5,34 @@ import BigInt
 import SwiftFulcrum
 
 extension Address {
-    func fetchBalance(includeUnconfirmed: Bool = true, using fulcrum: Fulcrum) async throws -> Satoshi {
-        return try await Address.fetchBalance(for: self, includeUnconfirmed: includeUnconfirmed, using: fulcrum)
+    func fetchBalance(includeUnconfirmed: Bool = true, using service: Network.FulcrumService) async throws -> Satoshi {
+        try await service.balance(for: self, includeUnconfirmed: includeUnconfirmed)
     }
     
-    func fetchUnspentTransactionOutputs(fulcrum: Fulcrum) async throws -> [Transaction.Output.Unspent] {
-        return try await Address.fetchUnspentTransactionOutputs(in: self, using: fulcrum)
+    func fetchUnspentTransactionOutputs(using service: Network.FulcrumService) async throws -> [Transaction.Output.Unspent] {
+        try await service.unspentOutputs(for: self)
     }
     
     func fetchSimpleTransactionHistory(fromHeight: UInt? = nil,
                                        toHeight: UInt? = nil,
                                        includeUnconfirmed: Bool = true,
-                                       fulcrum: Fulcrum) async throws -> [Transaction.Simple] {
-        return try await Address.fetchSimpleTransactionHistory(for: self,
-                                                               fromHeight: fromHeight,
-                                                               toHeight: toHeight,
-                                                               includeUnconfirmed: includeUnconfirmed,
-                                                               using: fulcrum)
+                                       using service: Network.FulcrumService) async throws -> [Transaction.Simple] {
+        try await service.simpleHistory(for: self,
+                                        fromHeight: fromHeight,
+                                        toHeight: toHeight,
+                                        includeUnconfirmed: includeUnconfirmed)
     }
     
     func fetchSimpleTransactionHistoryPage(fromHeight: UInt? = nil,
                                            window: UInt,
                                            includeUnconfirmed: Bool = true,
-                                           fulcrum: Fulcrum) async throws -> Address.Book.Page<Transaction.Simple> {
+                                           using service: Network.FulcrumService) async throws -> Address.Book.Page<Transaction.Simple> {
         let startHeight = fromHeight ?? 0
-        let endHeight = (window == 0) ? nil : ((startHeight &+ window) &- 1)
-        let transactions = try await self.fetchSimpleTransactionHistory(fromHeight: startHeight,
-                                                                        toHeight: endHeight,
-                                                                        includeUnconfirmed: includeUnconfirmed,
-                                                                        fulcrum: fulcrum)
+        let endHeight = window == 0 ? nil : ((startHeight &+ window) &- 1)
+        let transactions = try await fetchSimpleTransactionHistory(fromHeight: startHeight,
+                                                                   toHeight: endHeight,
+                                                                   includeUnconfirmed: includeUnconfirmed,
+                                                                   using: service)
         let nextHeight = endHeight.map { $0 &+ 1 }
         
         return .init(transactions: transactions, nextFromHeight: nextHeight)
@@ -42,200 +41,84 @@ extension Address {
     func fetchFullTransactionHistory(fromHeight: UInt? = nil,
                                      toHeight: UInt? = nil,
                                      includeUnconfirmed: Bool = true,
-                                     fulcrum: Fulcrum) async throws -> [Transaction.Detailed] {
-        return try await Address.fetchFullTransactionHistory(for: self,
-                                                             fromHeight: fromHeight,
-                                                             toHeight: toHeight,
-                                                             includeUnconfirmed: includeUnconfirmed,
-                                                             using: fulcrum)
+                                     using service: Network.FulcrumService) async throws -> [Transaction.Detailed] {
+        try await service.detailedHistory(for: self,
+                                          fromHeight: fromHeight,
+                                          toHeight: toHeight,
+                                          includeUnconfirmed: includeUnconfirmed)
     }
     
     func fetchFullTransactionHistoryPage(fromHeight: UInt? = nil,
                                          window: UInt,
                                          includeUnconfirmed: Bool = true,
-                                         fulcrum: Fulcrum) async throws -> Address.Book.Page<Transaction.Detailed> {
+                                         using service: Network.FulcrumService) async throws -> Address.Book.Page<Transaction.Detailed> {
         let startHeight = fromHeight ?? 0
-        let endHeight = (window == 0) ? nil : ((startHeight &+ window) &- 1)
-        let transactions = try await self.fetchFullTransactionHistory(fromHeight: startHeight,
-                                                                      toHeight: endHeight,
-                                                                      includeUnconfirmed: includeUnconfirmed,
-                                                                      fulcrum: fulcrum)
+        let endHeight = window == 0 ? nil : ((startHeight &+ window) &- 1)
+        let transactions = try await fetchFullTransactionHistory(fromHeight: startHeight,
+                                                                 toHeight: endHeight,
+                                                                 includeUnconfirmed: includeUnconfirmed,
+                                                                 using: service)
         let nextHeight = endHeight.map { $0 &+ 1 }
         
         return .init(transactions: transactions, nextFromHeight: nextHeight)
     }
     
-    func subscribe(fulcrum: Fulcrum) async throws -> (requestedID: UUID,
-                                                      initialStatus: String,
-                                                      followingStatus: AsyncThrowingStream<Response.Result.Blockchain.Address.SubscribeNotification, Swift.Error>,
-                                                      cancel: @Sendable () async -> Void) {
-        let (id, result, notifications, cancel) = try await Address.subscribeToActivities(of: self, using: fulcrum)
-        
-        let requestedID = id
-        let initialStatus = result.status ?? ""
-        let followingStatus = notifications
-        let cancelSubscription = cancel
-        
-        return (requestedID, initialStatus, followingStatus, cancelSubscription)
+    func subscribe(using service: Network.FulcrumService) async throws -> Network.Wallet.SubscriptionStream {
+        try await service.subscribe(to: self)
     }
 }
 
-extension Address {
-    static func fetchBalance(for address: Address, includeUnconfirmed: Bool = true, using fulcrum: Fulcrum) async throws -> Satoshi {
-        let response = try await fulcrum.submit(method: .blockchain(.address(.getBalance(address: address.string, tokenFilter: nil))),
-                                                responseType: Response.Result.Blockchain.Address.GetBalance.self)
-        guard case .single(let id, let result) = response else { throw Fulcrum.Error.coding(.decode(nil)) }
-        
-        assert(UUID(uuidString: id.uuidString) != nil, "Invalid UUID: \(id.uuidString)")
-        
-        let delta = includeUnconfirmed ? result.unconfirmed : 0
-        let balance: UInt64
-        if delta >= 0 {
-            balance = result.confirmed &+ UInt64(delta)
-        } else {
-            let decrease = UInt64(-delta)
-            balance = result.confirmed > decrease ? (result.confirmed - decrease) : 0
-        }
-        
-        return try Satoshi(balance)
-    }
-    
-    static func fetchUnspentTransactionOutputs(in address: Address, using fulcrum: Fulcrum) async throws -> [Transaction.Output.Unspent] {
-        do {
-            let scriptHash = SHA256.hash(address.lockingScript.data).reversedData
-            let response = try await fulcrum.submit(
-                method: .blockchain(.scripthash(.listUnspent(scripthash: scriptHash.hexadecimalString, tokenFilter: nil))),
-                responseType: Response.Result.Blockchain.ScriptHash.ListUnspent.self
-            )
-            guard case .single(let id, let result) = response else { throw Fulcrum.Error.coding(.decode(nil)) }
-            assert(UUID(uuidString: id.uuidString) != nil, "Invalid UUID: \(id.uuidString)")
-            
-            return try result.items.map { item in
-                let transactionHash = Transaction.Hash(reverseOrder: try Data(hexString: item.transactionHash))
-                let outputIndex = UInt32(item.transactionPosition)
-                return Transaction.Output.Unspent(value: item.value,
-                                                  lockingScript: address.lockingScript.data,
-                                                  previousTransactionHash: transactionHash,
-                                                  previousTransactionOutputIndex: outputIndex)
-            }
-        } catch {
-            let response = try await fulcrum.submit(
-                method: .blockchain(.address(.listUnspent(address: address.string, tokenFilter: nil))),
-                responseType: Response.Result.Blockchain.Address.ListUnspent.self
-            )
-            guard case .single(let id, let result) = response else { throw Fulcrum.Error.coding(.decode(nil)) }
-            assert(UUID(uuidString: id.uuidString) != nil, "Invalid UUID: \(id.uuidString)")
-            
-            var unspentTransactionOutputs: [Transaction.Output.Unspent] = .init()
-            var needs: [(transactionHash: Transaction.Hash, outputIndex: UInt32, value: UInt64)] = .init()
-            
-            for utxo in result.items {
-                let transactionHash = try Data(hexString: utxo.transactionHash)
-                let outputIndex = UInt32(utxo.transactionPosition)
-                let value = utxo.value
-                
-                if address.lockingScript.isDerivableFromAddress {
-                    unspentTransactionOutputs.append(.init(value: value,
-                                                           lockingScript: address.lockingScript.data,
-                                                           previousTransactionHash: .init(dataFromRPC: transactionHash),
-                                                           previousTransactionOutputIndex: outputIndex))
-                } else {
-                    needs.append(
-                        (transactionHash: .init(dataFromRPC: transactionHash),
-                         outputIndex: outputIndex,
-                         value: value)
-                    )
-                }
-            }
-            
-            if !needs.isEmpty {
-                let unique = Array(Set(needs.map { $0.transactionHash }))
-                let gateway = Network.Gateway(api: Adapter.SwiftFulcrum.gatewayAPI(fulcrum: fulcrum))
-                await gateway.updateHealth(status: .online, lastHeaderAt: Date())
-                let fetched = try await Transaction.fetchFullTransactionsBatched(for: unique, using: gateway)
-                for need in needs {
-                    if let detailed = fetched[need.transactionHash.originalData],
-                       Int(need.outputIndex) < detailed.transaction.outputs.count {
-                        let script = detailed.transaction.outputs[Int(need.outputIndex)].lockingScript
-                        unspentTransactionOutputs.append(.init(value: need.value,
-                                                               lockingScript: script,
-                                                               previousTransactionHash: need.transactionHash,
-                                                               previousTransactionOutputIndex: need.outputIndex))
-                    }
-                }
-            }
-            
-            return unspentTransactionOutputs
-        }
-    }
-    
-    static func fetchSimpleTransactionHistory(for address: Address,
-                                              fromHeight: UInt? = nil,
-                                              toHeight: UInt? = nil,
-                                              includeUnconfirmed: Bool = true,
-                                              using fulcrum: Fulcrum) async throws -> [Transaction.Simple] {
-        let response = try await fulcrum.submit(method: .blockchain(.address(.getHistory(address: address.string,
-                                                                                         fromHeight: fromHeight,
-                                                                                         toHeight: toHeight,
-                                                                                         includeUnconfirmed: includeUnconfirmed))),
-                                                responseType: Response.Result.Blockchain.Address.GetHistory.self)
-        guard case .single(let id, let result) = response else { throw Fulcrum.Error.coding(.decode(nil)) }
-        
-        assert(UUID(uuidString: id.uuidString) != nil, "Invalid UUID: \(id.uuidString)")
-        
-        let history = result.transactions
-        let transactions = try history.map { historyItem in
-            return Transaction.Simple(transactionHash: .init(dataFromRPC: try .init(hexString: historyItem.transactionHash)),
-                                      height: (historyItem.height <= 0) ? nil : UInt32(historyItem.height),
-                                      fee: { if let fee = historyItem.fee { return UInt64?(.init(fee)) } else { return nil } }() )
-        }
-        
-        return transactions
-    }
-    
-    static func fetchFullTransactionHistory(for address: Address, fromHeight: UInt? = nil, toHeight: UInt? = nil, includeUnconfirmed: Bool = true, using fulcrum: Fulcrum) async throws -> [Transaction.Detailed] {
-        let simpleTransactions = try await self.fetchSimpleTransactionHistory(for: address,
-                                                                              fromHeight: fromHeight,
-                                                                              toHeight: toHeight,
-                                                                              includeUnconfirmed: includeUnconfirmed,
-                                                                              using: fulcrum)
-        
-        return try await withThrowingTaskGroup(of: Transaction.Detailed.self) { group in
-            for simpleTransaction in simpleTransactions {
-                group.addTask {
-                    let response = try await fulcrum.submit(method: .blockchain(.transaction(.get(transactionHash: simpleTransaction.transactionHash.externallyUsedFormat.hexadecimalString, verbose: true))),
-                                                            responseType: Response.Result.Blockchain.Transaction.Get.self)
-                    guard case .single(let id, let result) = response else { throw Fulcrum.Error.coding(.decode(nil)) }
-                    
-                    assert(UUID(uuidString: id.uuidString) != nil, "Invalid UUID: \(id.uuidString)")
-                    
-                    let detailedTransaction = try Transaction.Detailed(from: result)
-                    
-                    return detailedTransaction
-                }
-            }
-            
-            var detailedTransactions = [Transaction.Detailed]()
-            for try await transaction in group {
-                detailedTransactions.append(transaction)
-            }
-            
-            return detailedTransactions
-        }
-    }
-    
-    static func subscribeToActivities(of address: Address, using fulcrum: Fulcrum) async throws -> (requestedID: UUID,
-                                                                                                    result: Response.Result.Blockchain.Address.Subscribe,
-                                                                                                    notifications: AsyncThrowingStream<Response.Result.Blockchain.Address.SubscribeNotification, Swift.Error>,
-                                                                                                    cancel: @Sendable () async -> Void) {
-        let response: Fulcrum.RPCResponse<
-            Response.Result.Blockchain.Address.Subscribe,
-            Response.Result.Blockchain.Address.SubscribeNotification
-        > = try await fulcrum.submit(
-            method: .blockchain(.address(.subscribe(address: address.string)))
-        )
-        guard case .stream(let id, let initialResponse, let updates, let cancel) = response else { throw Fulcrum.Error.coding(.decode(nil)) }
-        
-        return (id, initialResponse, updates, cancel)
-    }
-}
+//extension Transaction.Detailed {
+//    init(from result: Response.Result.Blockchain.Transaction.Get) throws {
+//        let transactionDetails = result
+//        
+//        let versionFromResult = UInt32(transactionDetails.version)
+//        let inputsFromResult = try transactionDetails.inputs.map { input in
+//            let previousTransactionHashData = try Data(hexString: input.transactionID)
+//            let previousTransactionHash = Transaction.Hash(dataFromRPC: previousTransactionHashData)
+//            let previousTransactionOutputIndex = UInt32(input.indexNumberOfPreviousTransactionOutput)
+//            let unlockingScript = try Data(hexString: input.scriptSig.hex)
+//            let sequence = UInt32(input.sequence)
+//            
+//            return Transaction.Input(previousTransactionHash: previousTransactionHash,
+//                                     previousTransactionOutputIndex: previousTransactionOutputIndex,
+//                                     unlockingScript: unlockingScript,
+//                                     sequence: sequence)
+//        }
+//        let outputsFromResult = try transactionDetails.outputs.map { output in
+//            let value = try Satoshi(bch: output.value).uint64
+//            let lockingScript = try Data(hexString: output.scriptPubKey.hex)
+//            
+//            return Transaction.Output(value: value,
+//                                      lockingScript: lockingScript)
+//        }
+//        let locktimeFromResult = UInt32(transactionDetails.locktime)
+//        let transactionFromResult = Transaction(version: versionFromResult,
+//                                                inputs: inputsFromResult,
+//                                                outputs: outputsFromResult,
+//                                                lockTime: locktimeFromResult)
+//        let blockHashFromResult: Data? = {
+//            do {
+//                let data = try Data(hexString: transactionDetails.blockHash)
+//                return data
+//            } catch {
+//                return nil
+//            }
+//        }()
+//        let blockTimeFromResult = UInt32(transactionDetails.blocktime)
+//        let confirmationsFromResult = UInt32(transactionDetails.confirmations)
+//        let hashFromResult = try Data(hexString: transactionDetails.hash)
+//        let hexFromResult = try Data(hexString: transactionDetails.hex)
+//        let sizeFromResult = UInt32(transactionDetails.size)
+//        let timeFromResult = UInt32(transactionDetails.time)
+//        
+//        self.init(transaction: transactionFromResult,
+//                  blockHash: blockHashFromResult,
+//                  blockTime: blockTimeFromResult,
+//                  confirmations: confirmationsFromResult,
+//                  hash: .init(dataFromRPC: hashFromResult),
+//                  raw: hexFromResult,
+//                  size: sizeFromResult,
+//                  time: timeFromResult)
+//    }
+//}

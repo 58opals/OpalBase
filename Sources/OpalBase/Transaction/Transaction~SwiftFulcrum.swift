@@ -3,42 +3,42 @@
 import Foundation
 
 extension Transaction {
-    public func broadcast(using gateway: Network.Gateway) async throws -> Transaction.Hash {
-        try await gateway.broadcast(self)
+    public func broadcast(using service: Network.FulcrumService) async throws -> Transaction.Hash {
+            try await service.broadcast(self)
     }
 }
 
 extension Transaction {
-    public static func getEstimateFee(numberOfBlocks: Int, using gateway: Network.Gateway) async throws -> Satoshi {
-        try await gateway.getEstimateFee(targetBlocks: numberOfBlocks)
+    public static func getEstimateFee(numberOfBlocks: Int, using service: Network.FulcrumService) async throws -> Satoshi {
+            try await service.getEstimateFee(targetBlocks: numberOfBlocks)
     }
     
-    public static func getRelayFee(using gateway: Network.Gateway) async throws -> Satoshi {
-        try await gateway.getRelayFee()
+    public static func getRelayFee(using service: Network.FulcrumService) async throws -> Satoshi {
+            try await service.getRelayFee()
     }
 }
 
 extension Transaction {
-    public static func fetchRawData(for transactionHash: Transaction.Hash, using gateway: Network.Gateway) async throws -> Data {
-        try await gateway.getRawTransaction(for: transactionHash)
+    public static func fetchRawData(for transactionHash: Transaction.Hash, using service: Network.FulcrumService) async throws -> Data {
+            try await service.getRawTransaction(for: transactionHash)
     }
     
-    public static func fetchTransaction(for transactionHash: Transaction.Hash, using gateway: Network.Gateway) async throws -> Transaction {
-        guard let transaction = try await gateway.getTransaction(for: transactionHash) else {
+    public static func fetchTransaction(for transactionHash: Transaction.Hash, using service: Network.FulcrumService) async throws -> Transaction {
+            guard let transaction = try await service.getTransaction(for: transactionHash) else {
             throw Transaction.Error.transactionNotFound
         }
         return transaction
     }
     
-    public static func fetchFullTransaction(for transactionHash: Transaction.Hash, using gateway: Network.Gateway) async throws -> Transaction.Detailed {
+    public static func fetchFullTransaction(for transactionHash: Transaction.Hash, using service: Network.FulcrumService) async throws -> Transaction.Detailed {
         let cacheKey = transactionHash
         if let cached = await Cache.shared.get(at: cacheKey) { return cached }
-        let detailed = try await gateway.getDetailedTransaction(for: transactionHash)
+        let detailed = try await service.getDetailedTransaction(for: transactionHash)
         await Cache.shared.put(detailed, at: cacheKey)
         return detailed
     }
     
-    public static func fetchFullTransactionsBatched(for hashes: [Transaction.Hash], using gateway: Network.Gateway) async throws -> [Data: Transaction.Detailed] {
+    public static func fetchFullTransactionsBatched(for hashes: [Transaction.Hash], using service: Network.FulcrumService) async throws -> [Data: Transaction.Detailed] {
         var result: [Data: Transaction.Detailed] = .init()
         var hashesToFetch: [Transaction.Hash] = .init()
         var hashesAlreadySeen: Set<Transaction.Hash> = .init()
@@ -55,7 +55,7 @@ extension Transaction {
             try await withThrowingTaskGroup(of: (Transaction.Hash, Transaction.Detailed).self) { group in
                 for hash in hashesToFetch {
                     group.addTask {
-                        let detailed = try await fetchFullTransaction(for: hash, using: gateway)
+                        let detailed = try await fetchFullTransaction(for: hash, using: service)
                         return (hash, detailed)
                     }
                 }

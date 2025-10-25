@@ -1,4 +1,4 @@
-// Address+Book+Subscription~WalletNode.swift
+// Address+Book+Subscription~FulcrumService.swift
 
 import Foundation
 
@@ -15,7 +15,7 @@ extension Address.Book {
         private var consumerID: UUID?
         private var subscriptionCount: Int = 0
         
-        private var node: Network.Wallet.Node?
+        private var service: Network.FulcrumService?
         
         var activeSubscriptionCount: Int { subscriptionCount }
         
@@ -30,18 +30,18 @@ extension Address.Book {
 }
 
 extension Address.Book.Subscription {
-    func start(node: Network.Wallet.Node) async {
+    func start(service: Network.FulcrumService) async {
         guard !isRunning else { return }
         isRunning = true
         
-        self.node = node
+        self.service = service
         
         let initialAddresses = await (book.receivingEntries + book.changeEntries).map(\.address)
         let consumerID = UUID()
         
         do {
             let handle = try await hub.makeStream(for: initialAddresses,
-                                                  using: node,
+                                                  using: service,
                                                   consumerID: consumerID)
             self.consumerID = handle.id
             subscriptionCount = initialAddresses.count
@@ -65,7 +65,7 @@ extension Address.Book.Subscription {
                     do {
                         try await self.hub.add(addresses: [entry.address],
                                                for: consumerID,
-                                               using: node)
+                                               using: service)
                         await self.incrementSubscriptionCount()
                     } catch {
                         await resetState(cancelStream: false)
@@ -94,7 +94,7 @@ extension Address.Book.Subscription {
         if let consumerID { await hub.remove(consumerID: consumerID) }
         consumerID = nil
         subscriptionCount = 0
-        node = nil
+        service = nil
         isRunning = false
     }
     
@@ -103,16 +103,16 @@ extension Address.Book.Subscription {
     }
     
     private func processNotification() async {
-        guard let node else { return }
-        await triggerDebouncedNotification(using: node)
+        guard let service else { return }
+        await triggerDebouncedNotification(using: service)
     }
     
-    private func scheduleNotification(node: Network.Wallet.Node) async {
+    private func scheduleNotification(service: Network.FulcrumService) async {
         debounceTask?.cancel()
         debounceTask = Task { [weak self] in
             guard let self else { return }
             try? await Task.sleep(nanoseconds: self.debounceDuration)
-            await self.handleNotification(node: node)
+            await self.handleNotification(service: service)
             await self.clearDebounce()
         }
     }
@@ -122,15 +122,15 @@ extension Address.Book.Subscription {
         debounceTask = nil
     }
     
-    func triggerDebouncedNotification(using node: Network.Wallet.Node) async {
-            await scheduleNotification(node: node)
-        }
+    func triggerDebouncedNotification(using service: Network.FulcrumService) async {
+        await scheduleNotification(service: service)
+    }
     
-    func handleNotification(node: Network.Wallet.Node) async {
+    func handleNotification(service: Network.FulcrumService) async {
         do {
-            try await book.refreshUTXOSet(node: node)
-            try await book.refreshBalances(using: node)
-            try await book.updateAddressUsageStatus(using: node)
+            try await book.refreshUTXOSet(service: service)
+            try await book.refreshBalances(using: service)
+            try await book.updateAddressUsageStatus(using: service)
             if let hook = notificationHook { await hook() }
         } catch {
             // Ignore update errors
@@ -143,13 +143,13 @@ extension Address.Book.Subscription: Sendable {}
 extension Address.Book {
     var currentSubscription: Subscription? { self.subscription }
     
-    func startSubscription(using node: Network.Wallet.Node,
+    func startSubscription(using service: Network.FulcrumService,
                            hub: Network.Wallet.SubscriptionHub,
                            notificationHook: (@Sendable () async -> Void)? = nil) async {
         if self.subscription != nil { return }
         let newSubscription = Subscription(book: self, hub: hub, notificationHook: notificationHook)
         self.subscription = newSubscription
-        await newSubscription.start(node: node)
+        await newSubscription.start(service: service)
     }
     
     func stopSubscription() async {

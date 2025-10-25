@@ -94,9 +94,9 @@ extension Block.Header.Chain {
     }
     
     func sync(from startHeight: UInt32? = nil,
-              using gateway: Network.Gateway) async throws {
+              using service: Network.FulcrumService) async throws {
         try await sync(from: startHeight) { height in
-            try await gateway.getHeader(height: height)
+            try await service.getHeader(height: height)
         }
     }
     

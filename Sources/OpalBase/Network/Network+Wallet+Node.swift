@@ -219,11 +219,10 @@ extension Network.Wallet {
                 }
                 
                 if !needsScriptResolution.isEmpty {
-                    let gateway = Network.Gateway(api: Adapter.SwiftFulcrum.gatewayAPI(fulcrum: fulcrum))
-                    await gateway.updateHealth(status: .online, lastHeaderAt: Date())
+                    let fulcrumService = try await Network.FulcrumService(urls: [])
                     let fetched = try await Transaction.fetchFullTransactionsBatched(
                         for: needsScriptResolution.map(\.hash),
-                        using: gateway
+                        using: fulcrumService
                     )
                     for pending in needsScriptResolution {
                         if let detailed = fetched[pending.hash.originalData],

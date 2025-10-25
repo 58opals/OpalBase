@@ -1,18 +1,18 @@
-// Address+Book+Entry~WalletNode.swift
+// Address+Book+Entry~FulcrumService.swift
 
 import Foundation
 
 extension Address.Book.Entry {
-    mutating func fetchBalance(using node: Network.Wallet.Node) async throws {
-        let balance = try await node.balance(for: address, includeUnconfirmed: true)
+    mutating func fetchBalance(using service: Network.FulcrumService) async throws {
+        let balance = try await service.balance(for: address, includeUnconfirmed: true)
         self.cache = .init(balance: balance)
     }
     
-    mutating func loadBalance(using node: Network.Wallet.Node) async throws -> Satoshi {
+    mutating func loadBalance(using service: Network.FulcrumService) async throws -> Satoshi {
         if cache.isValid, let cacheBalance = cache.balance {
             return cacheBalance
         } else {
-            try await fetchBalance(using: node)
+            try await fetchBalance(using: service)
             guard cache.isValid else { throw Address.Book.Error.cacheInvalid }
             guard let fetchedBalance = cache.balance else { throw Address.Book.Error.cacheUpdateFailed }
             return fetchedBalance
@@ -24,21 +24,21 @@ extension Address.Book.Entry {
     func fetchSimpleTransactions(fromHeight: UInt? = nil,
                                  toHeight: UInt? = nil,
                                  includeUnconfirmed: Bool = true,
-                                 node: Network.Wallet.Node) async throws -> [Transaction.Simple] {
-        try await node.simpleHistory(for: address,
-                                     fromHeight: fromHeight,
-                                     toHeight: toHeight,
-                                     includeUnconfirmed: includeUnconfirmed)
+                                 service: Network.FulcrumService) async throws -> [Transaction.Simple] {
+        try await service.simpleHistory(for: address,
+                                        fromHeight: fromHeight,
+                                        toHeight: toHeight,
+                                        includeUnconfirmed: includeUnconfirmed)
     }
     
     func fetchFullTransactions(fromHeight: UInt? = nil,
                                toHeight: UInt? = nil,
                                includeUnconfirmed: Bool = true,
-                               node: Network.Wallet.Node) async throws -> [Transaction.Detailed] {
-        try await node.detailedHistory(for: address,
-                                       fromHeight: fromHeight,
-                                       toHeight: toHeight,
-                                       includeUnconfirmed: includeUnconfirmed)
+                               service: Network.FulcrumService) async throws -> [Transaction.Detailed] {
+        try await service.detailedHistory(for: address,
+                                          fromHeight: fromHeight,
+                                          toHeight: toHeight,
+                                          includeUnconfirmed: includeUnconfirmed)
     }
 }
 
@@ -63,7 +63,7 @@ extension Address.Book {
                                           fromHeight: UInt? = nil,
                                           toHeight: UInt? = nil,
                                           includeUnconfirmed: Bool = true,
-                                          using node: Network.Wallet.Node) async throws -> [Transaction.Detailed] {
+                                          using service: Network.FulcrumService) async throws -> [Transaction.Detailed] {
         let operation: @Sendable () async throws -> [Transaction.Detailed] = { [self] in
             let entries = await listEntries(for: usage)
             var allDetailedTransactions: [Transaction.Detailed] = []
@@ -75,7 +75,7 @@ extension Address.Book {
                         try await entry.fetchFullTransactions(fromHeight: fromHeight,
                                                               toHeight: toHeight,
                                                               includeUnconfirmed: includeUnconfirmed,
-                                                              node: node)
+                                                              service: service)
                     }
                 }
                 
@@ -98,18 +98,18 @@ extension Address.Book {
     public func fetchCombinedHistory(fromHeight: UInt? = nil,
                                      toHeight: UInt? = nil,
                                      includeUnconfirmed: Bool = true,
-                                     using node: Network.Wallet.Node) async throws -> [Transaction.Detailed] {
+                                     using service: Network.FulcrumService) async throws -> [Transaction.Detailed] {
         let operation: @Sendable () async throws -> [Transaction.Detailed] = { [self] in
             async let receivingTransactions = fetchDetailedTransactions(for: .receiving,
                                                                         fromHeight: fromHeight,
                                                                         toHeight: toHeight,
                                                                         includeUnconfirmed: includeUnconfirmed,
-                                                                        using: node)
+                                                                        using: service)
             async let changeTransactions = fetchDetailedTransactions(for: .change,
                                                                      fromHeight: fromHeight,
                                                                      toHeight: toHeight,
                                                                      includeUnconfirmed: includeUnconfirmed,
-                                                                     using: node)
+                                                                     using: service)
             let (receivingTransactionHistory, changeTransactionHistory) = try await (receivingTransactions, changeTransactions)
             
             return Address.Book.mergeHistories(receiving: receivingTransactionHistory, change: changeTransactionHistory)
@@ -124,14 +124,14 @@ extension Address.Book {
     public func fetchCombinedHistoryPage(fromHeight: UInt? = nil,
                                          window: UInt,
                                          includeUnconfirmed: Bool = true,
-                                         using node: Network.Wallet.Node) async throws -> Address.Book.Page<Transaction.Detailed> {
+                                         using service: Network.FulcrumService) async throws -> Address.Book.Page<Transaction.Detailed> {
         let operation: @Sendable () async throws -> Address.Book.Page<Transaction.Detailed> = { [self] in
             let startHeight = fromHeight ?? 0
             let endHeight = (window == 0) ? nil : ((startHeight &+ window) &- 1)
             let transactions = try await self.fetchCombinedHistory(fromHeight: startHeight,
                                                                    toHeight: endHeight,
                                                                    includeUnconfirmed: includeUnconfirmed,
-                                                                   using: node)
+                                                                   using: service)
             let nextHeight = endHeight.map { $0 &+ 1 }
             
             return .init(transactions: transactions, nextFromHeight: nextHeight)
@@ -145,16 +145,16 @@ extension Address.Book {
 }
 
 extension Address.Book {
-    func refreshUsedStatus(node: Network.Wallet.Node) async throws {
+    func refreshUsedStatus(service: Network.FulcrumService) async throws {
         let operation: @Sendable () async throws -> Void = { [self] in
-            try await refreshUsedStatus(for: .receiving, node: node)
-            try await refreshUsedStatus(for: .change, node: node)
+            try await refreshUsedStatus(for: .receiving, service: service)
+            try await refreshUsedStatus(for: .change, service: service)
         }
         
         try await executeOrEnqueue(.refreshUsedStatus, operation: operation)
     }
     
-    func refreshUsedStatus(for usage: DerivationPath.Usage, node: Network.Wallet.Node) async throws {
+    func refreshUsedStatus(for usage: DerivationPath.Usage, service: Network.FulcrumService) async throws {
         let operation: @Sendable () async throws -> Void = { [self] in
             let entries = await listEntries(for: usage)
             
@@ -163,15 +163,15 @@ extension Address.Book {
                 
                 if let cacheBalance = entry.cache.balance {
                     if cacheBalance.uint64 > 0 {
-                        let utxos = try await node.unspentOutputs(for: entry.address)
+                        let utxos = try await service.unspentOutputs(for: entry.address)
                         if !utxos.isEmpty {
                             try await mark(address: entry.address, isUsed: true)
                         }
                     } else if cacheBalance.uint64 == 0 {
-                        let transactionHistory = try await node.simpleHistory(for: entry.address,
-                                                                              fromHeight: nil,
-                                                                              toHeight: nil,
-                                                                              includeUnconfirmed: true)
+                        let transactionHistory = try await service.simpleHistory(for: entry.address,
+                                                                                 fromHeight: nil,
+                                                                                 toHeight: nil,
+                                                                                 includeUnconfirmed: true)
                         if !transactionHistory.isEmpty {
                             try await mark(address: entry.address, isUsed: true)
                         }
@@ -186,11 +186,11 @@ extension Address.Book {
 }
 
 extension Address.Book {
-    public func updateAddressUsageStatus(using node: Network.Wallet.Node) async throws {
+    public func updateAddressUsageStatus(using service: Network.FulcrumService) async throws {
         let operation: @Sendable () async throws -> Void = { [self] in
             try await withThrowingTaskGroup(of: Void.self) { group in
-                group.addTask { try await self.updateAddressUsageStatus(for: .receiving, using: node) }
-                group.addTask { try await self.updateAddressUsageStatus(for: .change, using: node) }
+                group.addTask { try await self.updateAddressUsageStatus(for: .receiving, using: service) }
+                group.addTask { try await self.updateAddressUsageStatus(for: .change, using: service) }
                 try await group.waitForAll()
             }
         }
@@ -198,14 +198,14 @@ extension Address.Book {
         try await executeOrEnqueue(.updateAddressUsageStatus, operation: operation)
     }
     
-    private func updateAddressUsageStatus(for usage: DerivationPath.Usage, using node: Network.Wallet.Node) async throws {
+    private func updateAddressUsageStatus(for usage: DerivationPath.Usage, using service: Network.FulcrumService) async throws {
         let operation: @Sendable () async throws -> Void = { [self] in
             let entries = await listEntries(for: usage)
             
             try await withThrowingTaskGroup(of: (Address, Bool).self) { group in
                 for entry in entries where !entry.isUsed {
                     group.addTask {
-                        let isActuallyUsed = try await self.checkIfUsed(entry: entry, using: node)
+                        let isActuallyUsed = try await self.checkIfUsed(entry: entry, using: service)
                         return (entry.address, isActuallyUsed)
                     }
                 }
@@ -220,17 +220,17 @@ extension Address.Book {
         try await executeOrEnqueue(.updateAddressUsageStatusSubset(scope), operation: operation)
     }
     
-    private func checkIfUsed(entry: Entry, using node: Network.Wallet.Node) async throws -> Bool {
+    private func checkIfUsed(entry: Entry, using service: Network.FulcrumService) async throws -> Bool {
         let operation: @Sendable () async throws -> Bool = {
             if let cacheBalance = entry.cache.balance, cacheBalance.uint64 > 0 { return true }
             
-            let utxos = try await node.unspentOutputs(for: entry.address)
+            let utxos = try await service.unspentOutputs(for: entry.address)
             if !utxos.isEmpty { return true }
             
-            let txHistory = try await node.simpleHistory(for: entry.address,
-                                                         fromHeight: nil,
-                                                         toHeight: nil,
-                                                         includeUnconfirmed: true)
+            let txHistory = try await service.simpleHistory(for: entry.address,
+                                                            fromHeight: nil,
+                                                            toHeight: nil,
+                                                            includeUnconfirmed: true)
             return !txHistory.isEmpty
         }
         
@@ -243,12 +243,12 @@ extension Address.Book {
         listUsedEntries(for: .receiving).count + listUsedEntries(for: .change).count
     }
     
-    func scanForUsedAddresses(using node: Network.Wallet.Node) async throws {
+    func scanForUsedAddresses(using service: Network.FulcrumService) async throws {
         let operation: @Sendable () async throws -> Void = { [self] in
             var previousUsedCount = await countUsedEntries()
             
             repeat {
-                try await updateAddressUsageStatus(using: node)
+                try await updateAddressUsageStatus(using: service)
                 let currentUsedCount = await countUsedEntries()
                 if currentUsedCount == previousUsedCount { break }
                 previousUsedCount = currentUsedCount

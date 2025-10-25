@@ -21,19 +21,19 @@ public actor WalletCore {
     }
     
     private let repositories: Storage.Facade
-    private let gateway: Network.Gateway
+    private let fulcrumService: Network.FulcrumService
     private var isSynced = false
     
     public init(storage: Storage.Facade,
-                gateway: Network.Gateway) {
+                fulcrumService: Network.FulcrumService) {
         self.repositories = storage
-        self.gateway = gateway
+        self.fulcrumService = fulcrumService
     }
     
     public func sync() async throws {
         guard !isSynced else { return }
         do {
-            try await gateway.refreshMempool()
+            try await fulcrumService.refreshMempool()
             isSynced = true
         } catch {
             throw Error.syncFailed(error)
@@ -121,7 +121,7 @@ public actor WalletCore {
             throw Error.transactionBuildFailed(error)
         }
         do {
-            return try await gateway.broadcast(tx)
+            return try await fulcrumService.broadcast(tx)
         } catch {
             throw Error.broadcastFailed(error)
         }

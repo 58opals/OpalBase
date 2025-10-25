@@ -49,9 +49,9 @@ let mnemonic = try Mnemonic(words: [
 let wallet = Wallet(mnemonic: mnemonic)
 try await wallet.addAccount(unhardenedIndex: 0)
 let account = try wallet.getAccount(unhardenedIndex: 0)
-let node = try await account.fulcrumPool.acquireNode()
-try await account.addressBook.refreshBalances(using: node)
-let history = try await account.addressBook.fetchDetailedTransactions(for: .receiving, using: node)
+let service = account.fulcrumService
+try await account.addressBook.refreshBalances(using: service)
+let history = try await account.addressBook.fetchDetailedTransactions(for: .receiving, using: service)
 ```
 
 ### Generating and Using an Address in the Account
@@ -94,10 +94,10 @@ print("Transaction successfully sent with hash: \(transactionHash)")
 Retrieve detailed transaction information for your receiving addresses:
 
 ```swift
-let fulcrum = try await account.fulcrumPool.getFulcrum()
+let service = account.fulcrumService
 let history = try await account.addressBook.fetchDetailedTransactions(
     for: .receiving,
-    using: fulcrum
+    using: service
 )
 print("Found \(history.count) transactions")
 ```
@@ -105,8 +105,8 @@ print("Found \(history.count) transactions")
 ### Updating Address Usage Status
 
 ```swift
-let fulcrum = try await account.fulcrumPool.getFulcrum()
-try await account.addressBook.updateAddressUsageStatus(using: fulcrum)
+let service = account.fulcrumService
+try await account.addressBook.updateAddressUsageStatus(using: service)
 ```
 
 ### Refreshing UTXO Set
@@ -114,8 +114,8 @@ try await account.addressBook.updateAddressUsageStatus(using: fulcrum)
 To refresh the UTXO set for an account:
 
 ```swift
-let fulcrum = try await account.fulcrumPool.getFulcrum()
-try await account.addressBook.refreshUTXOSet(fulcrum: fulcrum)
+let service = account.fulcrumService
+try await account.addressBook.refreshUTXOSet(service: service)
 ```
 ### Monitoring Balance Updates
 

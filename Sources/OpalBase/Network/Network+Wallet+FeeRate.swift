@@ -14,16 +14,15 @@ extension Network.Wallet {
         
         private var cachedRates: [Tier: CachedRate] = .init()
         
-        public init(pool: Network.Wallet.FulcrumPool,
+        public init(service: Network.FulcrumService,
                     cacheThreshold: TimeInterval = 10 * 60,
                     smoothingAlpha: Double = 0.35,
                     persistenceWindow: TimeInterval = 60 * 60,
                     feeRepository: Storage.Repository.Fees? = nil,
                     persistence: Persistence? = nil) {
             self.fetchRate = { tier in
-                let gateway = try await pool.acquireGateway()
-                async let estimated = gateway.getEstimateFee(targetBlocks: tier.targetBlocks)
-                async let relay = gateway.getRelayFee()
+                async let estimated = service.getEstimateFee(targetBlocks: tier.targetBlocks)
+                async let relay = service.getRelayFee()
                 let (recommended, relayFee) = try await (estimated, relay)
                 return max(recommended.uint64, relayFee.uint64)
             }

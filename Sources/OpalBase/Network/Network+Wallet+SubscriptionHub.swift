@@ -213,14 +213,14 @@ extension Network.Wallet {
         }
         
         public func makeStream(for addresses: [Address],
-                               using node: Network.Wallet.Node,
+                               using service: Network.FulcrumService,
                                consumerID: UUID) async throws -> Stream {
             let uniqueAddresses = Set(addresses)
             let stream = AsyncThrowingStream<Notification.Event, Swift.Error>(bufferingPolicy: .bufferingNewest(1)) { continuation in
                 Task {
                     await self.register(consumerID: consumerID,
                                         addresses: uniqueAddresses,
-                                        node: node,
+                                        service: service,
                                         continuation: continuation)
                 }
                 continuation.onTermination = { _ in
@@ -233,7 +233,7 @@ extension Network.Wallet {
         
         public func add(addresses: [Address],
                         for consumerID: UUID,
-                        using node: Network.Wallet.Node) async throws {
+                        using service: Network.FulcrumService) async throws {
             let uniqueAddresses = Set(addresses)
             guard !uniqueAddresses.isEmpty else { return }
             guard consumerContinuations[consumerID] != nil else { throw Error.consumerNotFound(consumerID) }
@@ -242,7 +242,7 @@ extension Network.Wallet {
             for address in uniqueAddresses {
                 try await attach(consumerID: consumerID,
                                  address: address,
-                                 node: node)
+                                 service: service)
             }
         }
         

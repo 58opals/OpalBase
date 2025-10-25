@@ -5,7 +5,7 @@ import Foundation
 extension Network.Wallet.SubscriptionHub {
     func register(consumerID: UUID,
                   addresses: Set<Address>,
-                  node: Network.Wallet.Node,
+                  service: Network.FulcrumService,
                   continuation: AsyncThrowingStream<Notification.Event, Swift.Error>.Continuation) async {
         consumerContinuations[consumerID] = continuation
         addressBook.union(addresses, for: consumerID)
@@ -14,7 +14,7 @@ extension Network.Wallet.SubscriptionHub {
             do {
                 try await attach(consumerID: consumerID,
                                  address: address,
-                                 node: node)
+                                 service: service)
             } catch {
                 continuation.finish(throwing: error)
                 await unregister(consumerID: consumerID)
@@ -39,7 +39,7 @@ extension Network.Wallet.SubscriptionHub {
     
     func attach(consumerID: UUID,
                 address: Address,
-                node: Network.Wallet.Node) async throws {
+                service: Network.FulcrumService) async throws {
         var state = subscriptionStates[address] ?? State()
         state.consumerIdentifiers.insert(consumerID)
         subscriptionStates[address] = state
@@ -57,7 +57,7 @@ extension Network.Wallet.SubscriptionHub {
             return
         }
         
-        try await startStreamingIfNeeded(for: address, using: node)
+        try await startStreamingIfNeeded(for: address, using: service)
     }
     
     func detach(consumerID: UUID, address: Address) async {
@@ -70,7 +70,7 @@ extension Network.Wallet.SubscriptionHub {
     }
     
     func startStreamingIfNeeded(for address: Address,
-                                using node: Network.Wallet.Node) async throws {
+                                using service: Network.FulcrumService) async throws {
         var state = subscriptionStates[address] ?? State()
         guard state.streamTask == nil else { return }
         guard !state.consumerIdentifiers.isEmpty else { return }
@@ -78,7 +78,7 @@ extension Network.Wallet.SubscriptionHub {
         let task = Task { [weak self] in
             guard let self else { return }
             do {
-                let subscription = try await node.subscribe(to: address)
+                let subscription = try await service.subscribe(to: address)
                 if let failure = await self.recordInitialStatusValue(subscription.initialStatus,
                                                                      for: address,
                                                                      cancelAction: subscription.cancel) {
