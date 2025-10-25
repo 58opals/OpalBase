@@ -54,9 +54,9 @@ extension Address.Book {
                                    outputsWithChange: [Transaction.Output],
                                    dustLimit: UInt64,
                                    feePerByte: UInt64) -> CoinSelectionEvaluation? {
-        let feeWithoutChange = Transaction.estimatedFee(inputCount: inputCount,
-                                                        outputs: recipientOutputs,
-                                                        feePerByte: feePerByte)
+        let feeWithoutChange = Transaction.estimateFee(inputCount: inputCount,
+                                                       outputs: recipientOutputs,
+                                                       feePerByte: feePerByte)
         let requiredWithoutChange = targetAmount &+ feeWithoutChange
         
         if total >= requiredWithoutChange {
@@ -66,9 +66,9 @@ extension Address.Book {
             }
         }
         
-        let feeWithChange = Transaction.estimatedFee(inputCount: inputCount,
-                                                     outputs: outputsWithChange,
-                                                     feePerByte: feePerByte)
+        let feeWithChange = Transaction.estimateFee(inputCount: inputCount,
+                                                    outputs: outputsWithChange,
+                                                    feePerByte: feePerByte)
         let requiredWithChange = targetAmount &+ feeWithChange
         
         guard total >= requiredWithChange else { return nil }
@@ -138,9 +138,9 @@ extension Address.Book {
                 guard index < sortedUTXOs.count else { return }
                 
                 let remaining = sortedUTXOs[index...].reduce(0) { $0 + $1.value }
-                let estimatedFee = Transaction.estimatedFee(inputCount: selection.count,
-                                                            outputs: recipientOutputs,
-                                                            feePerByte: feePerByte)
+                let estimatedFee = Transaction.estimateFee(inputCount: selection.count,
+                                                           outputs: recipientOutputs,
+                                                           feePerByte: feePerByte)
                 let minimalRequirement = targetAmount.uint64 + estimatedFee
                 if (total + remaining) < minimalRequirement { return }
                 
@@ -233,9 +233,9 @@ extension Address.Book {
                 guard index < sorted.count else { return }
                 
                 let remaining = suffixTotals[index]
-                let minimalFee = Transaction.estimatedFee(inputCount: selection.count,
-                                                          outputs: recipientOutputs,
-                                                          feePerByte: feePerByte)
+                let minimalFee = Transaction.estimateFee(inputCount: selection.count,
+                                                         outputs: recipientOutputs,
+                                                         feePerByte: feePerByte)
                 let minimalRequirement = targetAmount.uint64 &+ minimalFee
                 if sum &+ remaining < minimalRequirement { return }
                 

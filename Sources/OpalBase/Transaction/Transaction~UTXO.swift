@@ -22,7 +22,7 @@ extension Transaction {
         
         let inputs = orderedUTXOs.map { utxo in
             let unlocker = unlockers[utxo] ?? .p2pkh_CheckSig()
-            let placeholder = unlocker.placeholderUnlockingScript(signatureFormat: signatureFormat)
+            let placeholder = unlocker.makePlaceholderUnlockingScript(signatureFormat: signatureFormat)
             return Input(previousTransactionHash: utxo.previousTransactionHash,
                          previousTransactionOutputIndex: utxo.previousTransactionOutputIndex,
                          unlockingScript: placeholder,

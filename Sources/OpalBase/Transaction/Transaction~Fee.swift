@@ -4,17 +4,17 @@ import Foundation
 
 extension Transaction {
     func calculateFee(feePerByte: UInt64 = 1) -> UInt64 {
-        let size = self.estimatedSize()
+        let size = self.estimateSize()
         return UInt64(size) * feePerByte
     }
 }
 
 // MARK: - Centralized estimators for selection and building
 extension Transaction {
-    static func estimatedSize(inputCount: Int,
-                              outputs: [Output],
-                              version: UInt32 = 2,
-                              lockTime: UInt32 = 0) -> Int {
+    static func estimateSize(inputCount: Int,
+                             outputs: [Output],
+                             version: UInt32 = 2,
+                             lockTime: UInt32 = 0) -> Int {
         guard inputCount >= 0 else { return 0 }
         let placeholderHash = Transaction.Hash(naturalOrder: Data(repeating: 0, count: 32))
         let templateInput = Input(previousTransactionHash: placeholderHash,
@@ -23,21 +23,21 @@ extension Transaction {
                                   sequence: 0xFFFFFFFF)
         let inputs = Array(repeating: templateInput, count: inputCount)
         let transaction = Transaction(version: version, inputs: inputs, outputs: outputs, lockTime: lockTime)
-        return transaction.estimatedSize()
+        return transaction.estimateSize()
     }
     
-    static func estimatedFee(inputCount: Int,
-                             outputs: [Output],
-                             feePerByte: UInt64,
-                             version: UInt32 = 2,
-                             lockTime: UInt32 = 0) -> UInt64 {
-        let size = estimatedSize(inputCount: inputCount, outputs: outputs, version: version, lockTime: lockTime)
+    static func estimateFee(inputCount: Int,
+                            outputs: [Output],
+                            feePerByte: UInt64,
+                            version: UInt32 = 2,
+                            lockTime: UInt32 = 0) -> UInt64 {
+        let size = estimateSize(inputCount: inputCount, outputs: outputs, version: version, lockTime: lockTime)
         return UInt64(size) * feePerByte
     }
 }
 
 extension Transaction {
-    func estimatedSize() -> Int {
+    func estimateSize() -> Int {
         var size = 0
         
         size += 4 // version (4 bytes)
@@ -45,15 +45,15 @@ extension Transaction {
         size += CompactSize(value: UInt64(inputs.count)).encodedSize
         size += CompactSize(value: UInt64(outputs.count)).encodedSize
         
-        inputs.forEach { size += $0.estimatedSize() }
-        outputs.forEach { size += $0.estimatedSize() }
+        inputs.forEach { size += $0.estimateSize() }
+        outputs.forEach { size += $0.estimateSize() }
         
         return size
     }
 }
 
 extension Transaction.Input {
-    func estimatedSize() -> Int {
+    func estimateSize() -> Int {
         var size = 0
         
         size += 32 // previous transaction hash (32 bytes)
@@ -68,7 +68,7 @@ extension Transaction.Input {
 }
 
 extension Transaction.Output {
-    func estimatedSize() -> Int {
+    func estimateSize() -> Int {
         var size = 0
         
         size += 8 // value (8 bytes)

@@ -33,7 +33,7 @@ extension UInt32 {
 }
 
 extension BigUInt {
-    func leftPadded(to size: Int) -> Data {
+    func padLeft(to size: Int) -> Data {
         let bytes = self.serialize()
         if bytes.count >= size { return bytes }
         return Data(repeating: 0, count: size - bytes.count) + bytes

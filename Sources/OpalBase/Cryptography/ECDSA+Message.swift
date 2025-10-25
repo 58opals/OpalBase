@@ -14,31 +14,31 @@ extension ECDSA {
             case payload(data: Data, hashRounds: UInt8)
             case digest(digest: CryptoKit.SHA256.Digest, hashRounds: UInt8)
         }
-
+        
         private let representation: Representation
         
         private init(representation: Representation) {
             self.representation = representation
         }
         
-        static func raw(_ data: Data) -> Message {
+        static func makeRaw(_ data: Data) -> Message {
             .init(representation: .payload(data: data, hashRounds: 0))
         }
         
-        static func singleSHA256(_ data: Data) -> Message {
+        static func makeSingleSHA256(_ data: Data) -> Message {
             .init(representation: .payload(data: data, hashRounds: 1))
         }
         
-        static func doubleSHA256(_ data: Data) -> Message {
+        static func makeDoubleSHA256(_ data: Data) -> Message {
             .init(representation: .payload(data: data, hashRounds: 2))
         }
         
-        static func hashing(_ data: Data, rounds: UInt8) throws -> Message {
+        static func makeHashing(_ data: Data, rounds: UInt8) throws -> Message {
             guard rounds > 0 else { throw Error.hashCountMustBeGreaterThanZero }
             return .init(representation: .payload(data: data, hashRounds: rounds))
         }
         
-        static func digest(_ digest: CryptoKit.SHA256.Digest, hashCount: UInt8 = 1) -> Message {
+        static func makeDigest(_ digest: CryptoKit.SHA256.Digest, hashCount: UInt8 = 1) -> Message {
             .init(representation: .digest(digest: digest, hashRounds: hashCount))
         }
     }

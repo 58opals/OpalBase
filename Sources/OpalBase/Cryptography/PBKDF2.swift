@@ -52,7 +52,7 @@ struct PBKDF2 {
 }
 
 private extension PBKDF2 {
-    func intToByteArray(_ value: Int) -> Array<UInt8> {
+    func makeByteArray(from value: Int) -> Array<UInt8> {
         var byteArray = Array<UInt8>(repeating: 0, count: 4)
         byteArray[0] = UInt8((value >> 24) & 0xff)
         byteArray[1] = UInt8((value >> 16) & 0xff)
@@ -62,7 +62,7 @@ private extension PBKDF2 {
     }
     
     func computeBlock(_ saltBytes: Array<UInt8>, blockNum: Int) throws -> Array<UInt8>? {
-        let u1 = HMAC<SHA512>.authenticationCode(for: saltBytes + intToByteArray(blockNum), using: symmetricKey)
+        let u1 = HMAC<SHA512>.authenticationCode(for: saltBytes + makeByteArray(from: blockNum), using: symmetricKey)
         
         var u = u1.bytes
         var blockResult = u.bytes

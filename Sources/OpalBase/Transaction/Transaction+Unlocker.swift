@@ -10,7 +10,7 @@ extension Transaction {
 }
 
 extension Transaction.Unlocker {
-    func placeholderUnlockingScript(signatureFormat: ECDSA.SignatureFormat) -> Data {
+    func makePlaceholderUnlockingScript(signatureFormat: ECDSA.SignatureFormat) -> Data {
         switch signatureFormat {
         case .ecdsa(.raw), .ecdsa(.compact):
             assertionFailure("OP_CHECKSIG or OP_CHECKDATASIG requires DER-encoded ECDSA. Use .ecdsa(.der) or .schnorr.")

@@ -11,9 +11,9 @@ extension Storage {
         public struct Options: Sendable {
             public var accessGroup: String?
             public var shouldUseSecureEnclave: Bool
-                        public init(accessGroup: String? = nil, shouldUseSecureEnclave: Bool = false) {
+            public init(accessGroup: String? = nil, shouldUseSecureEnclave: Bool = false) {
                 self.accessGroup = accessGroup
-                            self.shouldUseSecureEnclave = shouldUseSecureEnclave
+                self.shouldUseSecureEnclave = shouldUseSecureEnclave
             }
         }
         
@@ -50,7 +50,7 @@ extension Storage {
             try keychainDelete(account: key)
         }
         
-        public func exists(key: String) -> Bool {
+        public func hasValue(forKey key: String) -> Bool {
             (try? keychainGet(account: key)) != nil
         }
     }
@@ -76,7 +76,7 @@ extension Storage.Secure {
         }
         return q
     }
-
+    
     func keychainPut(account: String, data: Data) throws {
         var q = makeKeyAttributes(for: account)
         q[kSecValueData as String] = data
@@ -90,7 +90,7 @@ extension Storage.Secure {
         }
         guard status == errSecSuccess else { throw Error.keychain(status) }
     }
-
+    
     func keychainGet(account: String) throws -> Data? {
         var q = makeKeyAttributes(for: account)
         q[kSecReturnData as String] = true
@@ -101,7 +101,7 @@ extension Storage.Secure {
         guard status == errSecSuccess else { throw Error.keychain(status) }
         return out as? Data
     }
-
+    
     func keychainDelete(account: String) throws {
         let q = makeKeyAttributes(for: account)
         let status = SecItemDelete(q as CFDictionary)
@@ -136,15 +136,15 @@ extension Storage.Secure {
             return cek
         }
     }
-
+    
     func splitWrapped(_ data: Data) throws -> (wrapped: Data, nonce: Data, tag: Data) {
         // Combined = wrapped + 28 zero bytes (placeholder). Backward compatible format.
         if data.count >= 28 { return (data.prefix(data.count - 28), Data(), Data()) }
         return (data, Data(), Data())
     }
-
+    
     func makeEnclaveKeyTag() -> Data { Data("com.58opals.opal.seckey".utf8) }
-
+    
     func enclaveLoadOrCreateKey() throws -> SecKey {
         if let key = enclaveCopyKey() { return key }
         var access: SecAccessControl?
@@ -166,13 +166,13 @@ extension Storage.Secure {
         guard let priv = SecKeyCreateRandomKey(attrs as CFDictionary, &error) else { throw Error.enclave }
         return priv
     }
-
+    
     func enclaveLoadOrCreatePublicKey() throws -> SecKey {
         let priv = try enclaveLoadOrCreateKey()
         guard let pub = SecKeyCopyPublicKey(priv) else { throw Error.enclave }
         return pub
     }
-
+    
     func enclaveCopyKey() -> SecKey? {
         let query: [String: Any] = [
             kSecClass as String: kSecClassKey,
@@ -198,6 +198,7 @@ extension Storage {
         }
         public func read(_ key: String) throws -> Data? { store[key] }
         public mutating func delete(_ key: String) throws { store.removeValue(forKey: key) }
+        public func hasValue(forKey key: String) -> Bool { store[key] != nil }
     }
 }
 

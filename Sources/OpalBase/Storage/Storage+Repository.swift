@@ -221,7 +221,7 @@ extension Storage.Repository {
             }
         }
         
-        public func all() throws -> [Storage.Entity.AccountModel] {
+        public func loadAllAccounts() throws -> [Storage.Entity.AccountModel] {
             try Storage.Facade.performWithContext(container) { ctx in
                 try ctx.fetch(FetchDescriptor<Storage.Entity.AccountModel>())
             }

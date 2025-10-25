@@ -76,7 +76,7 @@ extension Block.Header {
         }
     }
     
-    public func satisfiesProofOfWork() -> Bool {
+    public var isProofOfWorkSatisfied: Bool {
         let hash = proofOfWorkHash
         let hashNumber = BigUInt(hash.reversedData)
         let target = Block.Header.calculateTarget(for: bits)

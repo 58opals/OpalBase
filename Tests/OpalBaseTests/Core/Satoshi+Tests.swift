@@ -16,7 +16,7 @@ struct SatoshiTests {
     }
     
     @Test("addition respects maximum supply")
-    func additionRespectsMaximumSupply() throws {
+    func testAdditionRespectsMaximumSupply() throws {
         let half = try Satoshi(Satoshi.maximumSatoshi / 2)
         let otherHalf = try Satoshi(Satoshi.maximumSatoshi / 2)
         let combined = try half + otherHalf
@@ -28,7 +28,7 @@ struct SatoshiTests {
     }
     
     @Test("subtraction prevents negative results")
-    func subtractionPreventsNegativeResults() throws {
+    func testSubtractionPreventsNegativeResults() throws {
         let initial = try Satoshi(10)
         let remainder = try initial - Satoshi(4)
         #expect(remainder.uint64 == 6)

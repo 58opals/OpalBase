@@ -85,7 +85,7 @@ extension Account.PrivacyShaper {
         guard !pendingOperations.isEmpty else { return }
         guard batchingTask == nil else { return }
         let configuration = self.configuration
-        let delay = randomNanoseconds(in: configuration.batchingIntervalRange)
+        let delay = makeRandomNanoseconds(in: configuration.batchingIntervalRange)
         batchingTask = Task {
             await self.sleep(nanoseconds: delay)
             await self.flushPending()
@@ -105,7 +105,7 @@ extension Account.PrivacyShaper {
     }
     
     private func performWithJitter(_ operation: @escaping @Sendable () async -> Void) async {
-        let delay = randomNanoseconds(in: configuration.operationJitterRange)
+        let delay = makeRandomNanoseconds(in: configuration.operationJitterRange)
         await sleep(nanoseconds: delay)
         await operation()
     }
@@ -116,7 +116,7 @@ extension Account.PrivacyShaper {
         catch { }
     }
     
-    private func randomNanoseconds(in range: ClosedRange<UInt64>) -> UInt64 {
+    private func makeRandomNanoseconds(in range: ClosedRange<UInt64>) -> UInt64 {
         guard range.lowerBound < range.upperBound else { return range.lowerBound }
         return UInt64.random(in: range, using: &generator)
     }
