@@ -10,10 +10,10 @@ extension Storage {
     public struct Secure {
         public struct Options: Sendable {
             public var accessGroup: String?
-            public var useSecureEnclave: Bool
-            public init(accessGroup: String? = nil, useSecureEnclave: Bool = false) {
+            public var shouldUseSecureEnclave: Bool
+                        public init(accessGroup: String? = nil, shouldUseSecureEnclave: Bool = false) {
                 self.accessGroup = accessGroup
-                self.useSecureEnclave = useSecureEnclave
+                            self.shouldUseSecureEnclave = shouldUseSecureEnclave
             }
         }
         
@@ -25,7 +25,7 @@ extension Storage {
         
         // Store raw or AES.GCM-encrypted with CEK wrapped by Secure Enclave.
         public func store(key: String, value: Data) throws {
-            if opts.useSecureEnclave {
+            if opts.shouldUseSecureEnclave {
                 let cek = try loadOrCreateCEK()
                 let sealed = try AES.GCM.seal(value, using: cek)
                 guard let combined = sealed.combined else { throw Error.crypto }
@@ -37,7 +37,7 @@ extension Storage {
         
         public func retrieve(key: String) throws -> Data? {
             guard let data = try keychainGet(account: key) else { return nil }
-            if opts.useSecureEnclave {
+            if opts.shouldUseSecureEnclave {
                 let cek = try loadOrCreateCEK()
                 let box = try AES.GCM.SealedBox(combined: data)
                 return try AES.GCM.open(box, using: cek)
