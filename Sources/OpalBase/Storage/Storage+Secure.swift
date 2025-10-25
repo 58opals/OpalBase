@@ -65,7 +65,7 @@ extension Storage.Secure {
 }
 
 extension Storage.Secure {
-    func keyAttrs(_ account: String) -> [String: Any] {
+    func makeKeyAttributes(for account: String) -> [String: Any] {
         var q: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
@@ -78,7 +78,7 @@ extension Storage.Secure {
     }
 
     func keychainPut(account: String, data: Data) throws {
-        var q = keyAttrs(account)
+        var q = makeKeyAttributes(for: account)
         q[kSecValueData as String] = data
         q[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlock
         let status: OSStatus
@@ -92,7 +92,7 @@ extension Storage.Secure {
     }
 
     func keychainGet(account: String) throws -> Data? {
-        var q = keyAttrs(account)
+        var q = makeKeyAttributes(for: account)
         q[kSecReturnData as String] = true
         q[kSecMatchLimit as String] = kSecMatchLimitOne
         var out: CFTypeRef?
@@ -103,7 +103,7 @@ extension Storage.Secure {
     }
 
     func keychainDelete(account: String) throws {
-        let q = keyAttrs(account)
+        let q = makeKeyAttributes(for: account)
         let status = SecItemDelete(q as CFDictionary)
         guard status == errSecSuccess || status == errSecItemNotFound else { throw Error.keychain(status) }
     }
@@ -143,7 +143,7 @@ extension Storage.Secure {
         return (data, Data(), Data())
     }
 
-    func enclaveKeyTag() -> Data { Data("com.58opals.opal.seckey".utf8) }
+    func makeEnclaveKeyTag() -> Data { Data("com.58opals.opal.seckey".utf8) }
 
     func enclaveLoadOrCreateKey() throws -> SecKey {
         if let key = enclaveCopyKey() { return key }
@@ -158,7 +158,7 @@ extension Storage.Secure {
             kSecAttrTokenID as String: kSecAttrTokenIDSecureEnclave,
             kSecPrivateKeyAttrs as String: [
                 kSecAttrIsPermanent as String: true,
-                kSecAttrApplicationTag as String: enclaveKeyTag(),
+                kSecAttrApplicationTag as String: makeEnclaveKeyTag(),
                 kSecAttrAccessControl as String: access as Any
             ]
         ]
@@ -177,7 +177,7 @@ extension Storage.Secure {
         let query: [String: Any] = [
             kSecClass as String: kSecClassKey,
             kSecAttrKeyType as String: kSecAttrKeyTypeECSECPrimeRandom,
-            kSecAttrApplicationTag as String: enclaveKeyTag(),
+            kSecAttrApplicationTag as String: makeEnclaveKeyTag(),
             kSecReturnRef as String: true
         ]
         var out: CFTypeRef?

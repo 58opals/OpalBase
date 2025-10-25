@@ -12,7 +12,7 @@ extension Storage.Repository {
         private var items: [Key: Item] = [:]
         private let defaultTTL: TimeInterval
         public init(defaultTTL: TimeInterval) { self.defaultTTL = defaultTTL }
-        public func get(_ key: Key) -> Value? {
+        public func loadValue(for key: Key) -> Value? {
             guard let item = items[key] else { return nil }
             if item.expiry > Date() { return item.value }
             items[key] = nil; return nil
@@ -36,7 +36,7 @@ extension Storage.Repository {
         public init(container: ModelContainer) { self.container = container }
         
         public func tip() async throws -> Storage.Row.Header? {
-            if let cached = await tipCache.get("tip") { return cached }
+            if let cached = await tipCache.loadValue(for: "tip") { return cached }
             let found: Storage.Entity.HeaderModel? = try Storage.Facade.withContext(container) { ctx in
                 var desc = FetchDescriptor<Storage.Entity.HeaderModel>(predicate: nil,
                                                                        sortBy: [SortDescriptor(\.height, order: .reverse)])
@@ -102,7 +102,7 @@ extension Storage.Repository {
         
         public func forAccount(_ index: UInt32) async throws -> [Storage.Row.UTXO] {
             let key = "a:\(index)"
-            if let cached = await cache.get(key) { return cached }
+            if let cached = await cache.loadValue(for: key) { return cached }
             let rows: [Storage.Row.UTXO] = try Storage.Facade.withContext(container) { ctx in
                 let p = #Predicate<Storage.Entity.UTXOModel> { $0.accountIndex == index }
                 return try ctx.fetch(FetchDescriptor(predicate: p)).map(\.row)
@@ -180,7 +180,7 @@ extension Storage.Repository {
         }
         
         public func recent(limit: Int = 50) async throws -> [Storage.Row.Transaction] {
-            if let cached = await recentCache.get("recent:\(limit)") { return cached }
+            if let cached = await recentCache.loadValue(for: "recent:\(limit)") { return cached }
             let r: [Storage.Row.Transaction] = try Storage.Facade.withContext(container) { ctx in
                 var d = FetchDescriptor<Storage.Entity.TransactionModel>(predicate: nil,
                                                                          sortBy: [SortDescriptor(\.time, order: .reverse)])
@@ -284,7 +284,7 @@ extension Storage.Repository {
         
         public func latest(_ tier: Storage.Entity.FeeModel.Tier,
                            maxAge: TimeInterval = 900) async throws -> Storage.Row.Fee? {
-            if let cached = await cache.get(tier.rawValue) { return cached }
+            if let cached = await cache.loadValue(for: tier.rawValue) { return cached }
             let model: Storage.Entity.FeeModel?
             do {
                 model = try Storage.Facade.withContext(container) { ctx in
@@ -512,7 +512,7 @@ extension Storage.Repository {
         }
         
         public func byAddress(_ address: String) async throws -> Storage.Row.Subscription? {
-            if let s = await cache.get(address) { return s }
+            if let s = await cache.loadValue(for: address) { return s }
             let row = try Storage.Facade.withContext(container) { ctx in
                 let p = #Predicate<Storage.Entity.SubscriptionModel> { $0.address == address }
                 return try ctx.fetch(FetchDescriptor(predicate: p)).first?.row

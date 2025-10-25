@@ -3,7 +3,7 @@
 import Foundation
 
 extension Address.Book {
-    private func getPrivateKey(for address: Address) throws -> PrivateKey {
+    private func loadPrivateKey(for address: Address) throws -> PrivateKey {
         guard let entry = findEntry(for: address) else { throw Error.entryNotFound }
         let privateKey = try generatePrivateKey(at: entry.derivationPath.index,
                                                 for: entry.derivationPath.usage)
@@ -17,7 +17,7 @@ extension Address.Book {
             let lockingScript = utxo.lockingScript
             let script = try Script.decode(lockingScript: lockingScript)
             let address = try Address(script: script)
-            let privateKey = try getPrivateKey(for: address)
+            let privateKey = try loadPrivateKey(for: address)
             pair[utxo] = privateKey
         }
         

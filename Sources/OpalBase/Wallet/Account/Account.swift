@@ -94,30 +94,30 @@ extension Account: Equatable {
 }
 
 extension Account {
-    public func getRawIndex() -> UInt32 {
-        return self.account.unhardenedIndex
+    public var rawIndex: UInt32 {
+        account.unhardenedIndex
     }
     
-    public func getUnhardenedIndex() -> UInt32 {
-        return self.account.getUnhardenedIndex()
+    public var unhardenedIndex: UInt32 {
+        account.unhardenedIndex
     }
     
-    public func getHardenedIndex() throws -> UInt32 {
-        return try self.account.deriveHardenedIndex()
+    public func deriveHardenedIndex() throws -> UInt32 {
+        try account.deriveHardenedIndex()
     }
 }
 
 extension Account {
-    public func getDerivationPath() -> (purpose: DerivationPath.Purpose,
-                                        coinType: DerivationPath.CoinType,
-                                        account: DerivationPath.Account) {
+    public var derivationPath: (purpose: DerivationPath.Purpose,
+                                coinType: DerivationPath.CoinType,
+                                account: DerivationPath.Account) {
         return (self.purpose, self.coinType, self.account)
     }
 }
 
 extension Account {
-    public func getBalanceFromCache() async throws -> Satoshi {
-        return try await addressBook.calculateCachedTotalBalance()
+    public func loadBalanceFromCache() async throws -> Satoshi {
+        try await addressBook.calculateCachedTotalBalance()
     }
 }
 

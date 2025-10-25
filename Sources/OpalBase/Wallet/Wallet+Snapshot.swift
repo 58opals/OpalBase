@@ -37,7 +37,7 @@ extension Wallet {
     public func makeSnapshot() async -> Snapshot {
         var accountSnaps: [Account.Snapshot] = .init()
         for account in accounts {
-            let snap = await account.getSnapshot()
+            let snap = await account.makeSnapshot()
             accountSnaps.append(snap)
         }
         return Snapshot(words: mnemonic.words,

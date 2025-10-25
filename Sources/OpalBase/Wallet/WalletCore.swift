@@ -32,7 +32,7 @@ public actor WalletCore {
         isSynced = true
     }
     
-    public func getBalances(
+    public func observeBalances(
         for index: UInt32,
         pollInterval: Duration = .seconds(5),
         heartbeat: Duration = .seconds(30)
@@ -63,7 +63,7 @@ public actor WalletCore {
         }
     }
     
-    public func getUTXOs(
+    public func observeUTXOs(
         for index: UInt32,
         pollInterval: Duration = .seconds(5),
         heartbeat: Duration = .seconds(30)

@@ -129,10 +129,6 @@ extension DerivationPath {
             self.unhardenedIndex = unhardenedIndex
         }
         
-        func getUnhardenedIndex() -> UInt32 {
-            return unhardenedIndex
-        }
-        
         func deriveHardenedIndex() throws -> UInt32 {
             return try self.unhardenedIndex.harden()
         }
@@ -257,7 +253,7 @@ extension DerivationPath.Usage: Codable {
         default: throw DecodingError.dataCorruptedError(in: container, debugDescription: "Invalid usage value")
         }
     }
-
+    
     public func encode(to encoder: Encoder) throws {
         var container = encoder.singleValueContainer()
         switch self {

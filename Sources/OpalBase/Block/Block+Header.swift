@@ -64,7 +64,7 @@ import BigInt
 extension Block.Header {
     var proofOfWorkHash: Data { return HASH256.hash(encode()) }
     
-    public static func getTarget(for bits: UInt32) -> BigUInt {
+    public static func calculateTarget(for bits: UInt32) -> BigUInt {
         let exponent = Int(bits >> 24)
         var mantissa = BigUInt(bits & 0x00ff_ffff)
         
@@ -79,7 +79,7 @@ extension Block.Header {
     public func satisfiesProofOfWork() -> Bool {
         let hash = proofOfWorkHash
         let hashNumber = BigUInt(hash.reversedData)
-        let target = Self.getTarget(for: bits)
+        let target = Block.Header.calculateTarget(for: bits)
         return hashNumber <= target
     }
 }

@@ -67,7 +67,7 @@ extension Address.Book.Snapshot.Entry: Sendable {}
 extension Address.Book.Snapshot.UTXO: Sendable {}
 
 extension Address.Book {
-    public func getSnapshot() -> Snapshot {
+    public func makeSnapshot() -> Snapshot {
         let receiving = receivingEntries.map { entry in
             Snapshot.Entry(usage: entry.derivationPath.usage,
                            index: entry.derivationPath.index,
@@ -136,7 +136,7 @@ extension Address.Book {
 
 extension Address.Book {
     public func saveSnapshot(to url: URL, using key: SymmetricKey? = nil) throws {
-        let data = try JSONEncoder().encode(getSnapshot())
+        let data = try JSONEncoder().encode(makeSnapshot())
         let output: Data
         
         if let key {
