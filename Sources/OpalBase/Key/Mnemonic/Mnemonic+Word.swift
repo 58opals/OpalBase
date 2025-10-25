@@ -45,7 +45,7 @@ extension Mnemonic.Word {
         let entropyBits = bitString.prefix(bitString.count - checksumLength)
         let checksumBits = bitString.suffix(checksumLength)
         
-        let entropyData = String(entropyBits).convertBitToData()
+        let entropyData = String(entropyBits).convertBitsToData()
         let calculatedChecksum = SHA256.hash(entropyData).convertToBitString().prefix(checksumLength)
         
         if checksumBits != calculatedChecksum {

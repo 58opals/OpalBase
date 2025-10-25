@@ -12,7 +12,7 @@ extension String {
         }
     }
     
-    func convertBitToData() -> Data {
+    func convertBitsToData() -> Data {
         var bytes = [UInt8]()
         var currentByte: UInt8 = 0
         
