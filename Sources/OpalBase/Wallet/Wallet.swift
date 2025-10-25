@@ -77,7 +77,7 @@ extension Wallet {
 
 extension Wallet {
     public var numberOfAccounts: Int { self.accounts.count }
-    public func setAccounts(_ accounts: [Account]) {
+    public func updateAccounts(_ accounts: [Account]) {
         self.accounts = accounts
     }
 }

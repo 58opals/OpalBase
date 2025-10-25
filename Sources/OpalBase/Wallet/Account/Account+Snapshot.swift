@@ -11,9 +11,9 @@ extension Account {
         public let addressBook: Address.Book.Snapshot
         
         public init(purpose: DerivationPath.Purpose,
-                     coinType: DerivationPath.CoinType,
-                     account: UInt32,
-                     addressBook: Address.Book.Snapshot) {
+                    coinType: DerivationPath.CoinType,
+                    account: UInt32,
+                    addressBook: Address.Book.Snapshot) {
             self.purpose = purpose
             self.coinType = coinType
             self.account = account

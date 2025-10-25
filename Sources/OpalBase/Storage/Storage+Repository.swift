@@ -35,7 +35,7 @@ extension Storage.Repository {
         private let tipCache = TTLCache<String, Storage.Row.Header>(defaultTTL: 600)
         public init(container: ModelContainer) { self.container = container }
         
-        public func tip() async throws -> Storage.Row.Header? {
+        public func loadTip() async throws -> Storage.Row.Header? {
             if let cached = await tipCache.loadValue(for: "tip") { return cached }
             let found: Storage.Entity.HeaderModel? = try Storage.Facade.performWithContext(container) { ctx in
                 var desc = FetchDescriptor<Storage.Entity.HeaderModel>(predicate: nil,
@@ -47,7 +47,7 @@ extension Storage.Repository {
             return nil
         }
         
-        public func byHeight(_ height: UInt32) throws -> Storage.Row.Header? {
+        public func loadByHeight(_ height: UInt32) throws -> Storage.Row.Header? {
             try Storage.Facade.performWithContext(container) { ctx in
                 let p = #Predicate<Storage.Entity.HeaderModel> { $0.height == height }
                 return try ctx.fetch(FetchDescriptor(predicate: p)).first?.row
@@ -164,7 +164,7 @@ extension Storage.Repository {
         private let recentCache = TTLCache<String, [Storage.Row.Transaction]>(defaultTTL: 300)
         public init(container: ModelContainer) { self.container = container }
         
-        public func byHash(_ hash: Transaction.Hash) throws -> Storage.Row.Transaction? {
+        public func loadByHash(_ hash: Transaction.Hash) throws -> Storage.Row.Transaction? {
             try Storage.Facade.performWithContext(container) { ctx in
                 let hashData = hash.naturalOrder
                 let p = #Predicate<Storage.Entity.TransactionModel> { $0.hash == hashData }
@@ -172,14 +172,14 @@ extension Storage.Repository {
             }
         }
         
-        public func pending() throws -> [Storage.Row.Transaction] {
+        public func loadPending() throws -> [Storage.Row.Transaction] {
             try Storage.Facade.performWithContext(container) { ctx in
                 let p = #Predicate<Storage.Entity.TransactionModel> { $0.isPending == true }
                 return try ctx.fetch(FetchDescriptor(predicate: p)).map(\.row)
             }
         }
         
-        public func recent(limit: Int = 50) async throws -> [Storage.Row.Transaction] {
+        public func loadRecent(limit: Int = 50) async throws -> [Storage.Row.Transaction] {
             if let cached = await recentCache.loadValue(for: "recent:\(limit)") { return cached }
             let r: [Storage.Row.Transaction] = try Storage.Facade.performWithContext(container) { ctx in
                 var d = FetchDescriptor<Storage.Entity.TransactionModel>(predicate: nil,
@@ -213,7 +213,7 @@ extension Storage.Repository {
             }
         }
         
-        public func byIndex(purpose: UInt32, coinType: UInt32, index: UInt32) throws -> Storage.Entity.AccountModel? {
+        public func loadByIndex(purpose: UInt32, coinType: UInt32, index: UInt32) throws -> Storage.Entity.AccountModel? {
             try Storage.Facade.performWithContext(container) { ctx in
                 let id = "\(purpose)-\(coinType)-\(index)"
                 let p = #Predicate<Storage.Entity.AccountModel> { $0.id == id }
@@ -282,8 +282,8 @@ extension Storage.Repository {
             return row
         }
         
-        public func latest(_ tier: Storage.Entity.FeeModel.Tier,
-                           maxAge: TimeInterval = 900) async throws -> Storage.Row.Fee? {
+        public func loadLatest(_ tier: Storage.Entity.FeeModel.Tier,
+                               maxAge: TimeInterval = 900) async throws -> Storage.Row.Fee? {
             if let cached = await cache.loadValue(for: tier.rawValue) { return cached }
             let model: Storage.Entity.FeeModel?
             do {
@@ -371,7 +371,7 @@ extension Storage.Repository {
             await cache.invalidate(url.absoluteString)
         }
         
-        public func bestPrimary(candidates: [URL]) throws -> URL? {
+        public func loadBestPrimary(candidates: [URL]) throws -> URL? {
             do {
                 return try Storage.Facade.performWithContext(container) { ctx in
                     let urls = Set(candidates.map(\.absoluteString))
@@ -465,7 +465,7 @@ extension Storage.Repository {
             await cache.invalidate(url.absoluteString)
         }
         
-        public func history(_ url: URL) throws -> Storage.Row.ServerHealth? {
+        public func loadHistory(_ url: URL) throws -> Storage.Row.ServerHealth? {
             do {
                 return try Storage.Facade.performWithContext(container) { ctx in
                     let key = url.absoluteString
@@ -511,7 +511,7 @@ extension Storage.Repository {
             await cache.invalidate(address)
         }
         
-        public func byAddress(_ address: String) async throws -> Storage.Row.Subscription? {
+        public func loadByAddress(_ address: String) async throws -> Storage.Row.Subscription? {
             if let s = await cache.loadValue(for: address) { return s }
             let row = try Storage.Facade.performWithContext(container) { ctx in
                 let p = #Predicate<Storage.Entity.SubscriptionModel> { $0.address == address }
