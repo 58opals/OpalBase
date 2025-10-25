@@ -24,7 +24,6 @@ extension Address {
         
         var cacheValidityDuration: TimeInterval
         
-        var subscription: Subscription?
         private let requestRouter = RequestRouter<Request>()
         var entryContinuations: [UUID: AsyncStream<Entry>.Continuation] = .init()
         

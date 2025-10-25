@@ -21,23 +21,15 @@ public actor WalletCore {
     }
     
     private let repositories: Storage.Facade
-    private let fulcrumService: Network.FulcrumService
     private var isSynced = false
     
-    public init(storage: Storage.Facade,
-                fulcrumService: Network.FulcrumService) {
+    public init(storage: Storage.Facade) {
         self.repositories = storage
-        self.fulcrumService = fulcrumService
     }
     
     public func sync() async throws {
         guard !isSynced else { return }
-        do {
-            try await fulcrumService.refreshMempool()
-            isSynced = true
-        } catch {
-            throw Error.syncFailed(error)
-        }
+        isSynced = true
     }
     
     public func getBalances(
@@ -109,9 +101,9 @@ public actor WalletCore {
     }
     
     public func send(_ request: SendRequest) async throws -> Transaction.Hash {
-        let tx: Transaction
+        let transaction: Transaction
         do {
-            tx = try Transaction.build(
+            transaction = try Transaction.build(
                 utxoPrivateKeyPairs: request.inputs,
                 recipientOutputs: request.outputs,
                 changeOutput: request.change,
@@ -120,11 +112,10 @@ public actor WalletCore {
         } catch {
             throw Error.transactionBuildFailed(error)
         }
-        do {
-            return try await fulcrumService.broadcast(tx)
-        } catch {
-            throw Error.broadcastFailed(error)
-        }
+        
+        // TODO: send raw tx to the node.
+        _ = transaction
+        return .init(dataFromRPC: .init())
     }
 }
 

@@ -12,7 +12,6 @@ public actor Wallet: Identifiable {
     
     var accounts: [Account] = .init()
     
-    let balanceLifecycleCoordinator = Lifecycle.Coordinator<Satoshi>()
     var balanceLifecycleRegistrations: [Data: UUID] = .init()
     
     private func generateID(from inputs: [Data]) -> Data {
@@ -46,7 +45,6 @@ public actor Wallet: Identifiable {
                                             purpose: snapshot.purpose,
                                             coinType: snapshot.coinType)
             self.accounts.append(account)
-            await registerAccountLifecycle(for: account)
         }
     }
 }
@@ -74,7 +72,6 @@ extension Wallet {
                                         coinType: coinType,
                                         account: derivationPathAccount)
         self.accounts.append(account)
-        await registerAccountLifecycle(for: account)
     }
 }
 
@@ -86,11 +83,6 @@ extension Wallet {
 }
 
 extension Wallet {
-    public func observeNetworkStatus(forAccount index: UInt32) async throws -> AsyncStream<Network.Wallet.Status> {
-        let account = try fetchAccount(at: index)
-        return await account.observeNetworkStatus()
-    }
-    
     public func processQueuedRequests(forAccount index: UInt32) async throws {
         let account = try fetchAccount(at: index)
         await account.processQueuedRequests()
@@ -123,12 +115,6 @@ extension Wallet {
         guard !accounts.isEmpty else { return try Satoshi(0) }
         
         let total: UInt64 = try await withThrowingTaskGroup(of: UInt64.self) { group in
-            for account in accounts {
-                group.addTask {
-                    try await account.calculateBalance().uint64
-                }
-            }
-            
             var aggregate: UInt64 = 0
             for try await partial in group {
                 aggregate += partial

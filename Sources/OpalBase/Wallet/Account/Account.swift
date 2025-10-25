@@ -3,9 +3,6 @@
 import Foundation
 
 public actor Account: Identifiable {
-    public let fulcrumService: Network.FulcrumService
-    public let feeRate: Network.Wallet.FeeRate
-    
     private let rootExtendedPrivateKey: PrivateKey.Extended
     
     let purpose: DerivationPath.Purpose
@@ -17,9 +14,6 @@ public actor Account: Identifiable {
     public var addressBook: Address.Book
     let outbox: Outbox
     
-    let subscriptionHub: Network.Wallet.SubscriptionHub
-    
-    let balanceLifecycleCoordinator: Lifecycle.Coordinator<Satoshi>
     var balanceMonitorConsumerID: UUID?
     var balanceMonitorTasks: [Task<Void, Never>] = .init()
     var balanceMonitorDebounceTask: Task<Void, Never>?
@@ -41,12 +35,7 @@ public actor Account: Identifiable {
          privacyConfiguration: PrivacyShaper.Configuration = .standard,
          outboxPath: URL? = nil,
          subscriptionRepository: Storage.Repository.Subscriptions? = nil,
-         feeRate: Network.Wallet.FeeRate? = nil,
          feeRepository: Storage.Repository.Fees? = nil) async throws {
-        let service = try await Network.FulcrumService(urls: fulcrumServerURLs)
-        self.fulcrumService = service
-        self.feeRate = feeRate ?? Network.Wallet.FeeRate(service: service, feeRepository: feeRepository)
-        
         self.rootExtendedPrivateKey = rootExtendedPrivateKey
         self.purpose = purpose
         self.coinType = coinType
@@ -62,21 +51,8 @@ public actor Account: Identifiable {
         let folderURL = outboxPath ?? FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0].appendingPathComponent("accountOutbox")
         self.outbox = try .init(folderURL: folderURL)
         
-        self.subscriptionHub = Network.Wallet.SubscriptionHub(repository: subscriptionRepository)
-        
         self.privacyConfiguration = privacyConfiguration
         self.privacyShaper = .init(configuration: privacyConfiguration)
-        
-        self.balanceLifecycleCoordinator = .init()
-        _ = await Self.configureBalanceLifecycle(
-            coordinator: balanceLifecycleCoordinator,
-            account: self
-        )
-        
-        self.networkMonitorTask = Task { [weak self] in
-            guard let self else { return }
-            await self.monitorNetworkStatus()
-        }
     }
     
     init(from snapshot: Account.Snapshot,
@@ -87,7 +63,6 @@ public actor Account: Identifiable {
          privacyConfiguration: PrivacyShaper.Configuration = .standard,
          outboxPath: URL? = nil,
          subscriptionRepository: Storage.Repository.Subscriptions? = nil,
-         feeRate: Network.Wallet.FeeRate? = nil,
          feeRepository: Storage.Repository.Fees? = nil) async throws {
         try await self.init(fulcrumServerURLs: fulcrumServerURLs,
                             rootExtendedPrivateKey: rootExtendedPrivateKey,
@@ -97,7 +72,6 @@ public actor Account: Identifiable {
                             privacyConfiguration: privacyConfiguration,
                             outboxPath: outboxPath,
                             subscriptionRepository: subscriptionRepository,
-                            feeRate: feeRate,
                             feeRepository: feeRepository)
         try await self.addressBook.applySnapshot(snapshot.addressBook)
     }

@@ -28,20 +28,6 @@ extension Account.Outbox {
 }
 
 extension Account.Outbox {
-    func retryPendingTransactions(using service: Network.FulcrumService) async {
-        guard let urls = try? fileManager.contentsOfDirectory(at: folderURL, includingPropertiesForKeys: nil) else { return }
-        for url in urls {
-            do {
-                let data = try Data(contentsOf: url)
-                let response = try await service.submit(data)
-                guard !response.originalData.isEmpty else { continue }
-                try fileManager.removeItem(at: url)
-            } catch {
-                continue
-            }
-        }
-    }
-    
     func purgeTransactions() async {
         guard let urls = try? fileManager.contentsOfDirectory(at: folderURL, includingPropertiesForKeys: nil) else { return }
         for url in urls { try? fileManager.removeItem(at: url) }
@@ -49,10 +35,6 @@ extension Account.Outbox {
 }
 
 extension Account {
-    func retryOutbox() async {
-        await outbox.retryPendingTransactions(using: fulcrumService)
-    }
-    
     func purgeOutbox() async {
         await outbox.purgeTransactions()
     }
