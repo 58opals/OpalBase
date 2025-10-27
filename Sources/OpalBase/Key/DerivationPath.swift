@@ -23,7 +23,7 @@ public struct DerivationPath {
     
     public var path: String {
         do {
-            return try "m/\(purpose.hardenedIndex.unharden())'/\(coinType.hardenedIndex.unharden())'/\(account.unhardenedIndex)'/\(usage.unhardenedIndex)/\(index)"
+            return try "m/\(purpose.hardenedIndex.unhardened())'/\(coinType.hardenedIndex.unhardened())'/\(account.unhardenedIndex)'/\(usage.unhardenedIndex)/\(index)"
         } catch {
             Task {
                 await Telemetry.shared.record(
@@ -75,7 +75,7 @@ extension DerivationPath {
         var hardenedIndex: UInt32 {
             switch self {
             case .bip44:
-                do { return try UInt32(44).harden() }
+                do { return try UInt32(44).hardened() }
                 catch { fatalError("The index number 44 failed to be hardened.") }
             }
         }
@@ -108,10 +108,10 @@ extension DerivationPath {
         var hardenedIndex: UInt32 {
             switch self {
             case .bitcoin:
-                do { return try UInt32(0).harden() }
+                do { return try UInt32(0).hardened() }
                 catch { fatalError("The index number 0 failed to be hardened.") }
             case .bitcoinCash:
-                do { return try UInt32(145).harden() }
+                do { return try UInt32(145).hardened() }
                 catch { fatalError("The index number 145 failed to be hardened.") }
             }
         }
@@ -130,7 +130,7 @@ extension DerivationPath {
         }
         
         func deriveHardenedIndex() throws -> UInt32 {
-            return try self.unhardenedIndex.harden()
+            return try self.unhardenedIndex.hardened()
         }
         
         mutating func increase() throws {

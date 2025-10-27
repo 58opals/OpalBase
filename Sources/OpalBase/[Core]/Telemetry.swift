@@ -18,7 +18,7 @@ public actor Telemetry {
             try await operation(event)
         }
         
-        public static func console(
+        public static func makeConsole(
             printer: @escaping @Sendable (String) -> Void = { message in
                 Swift.print(message)
             }
@@ -42,7 +42,7 @@ public actor Telemetry {
     
     public init(
         isEnabled: Bool = false,
-        handlers: [Handler] = [.console()]
+        handlers: [Handler] = [.makeConsole()]
     ) {
         self.isEnabled = isEnabled
         self.handlers = handlers

@@ -21,19 +21,19 @@ extension FixedWidthInteger {
 }
 
 extension UInt32 {
-    func harden() throws -> UInt32 {
+    func hardened() throws -> UInt32 {
         guard self < 0x80000000 else { throw DerivationPath.Error.indexTooLargeForHardening }
         return self | 0x80000000
     }
     
-    func unharden() throws -> UInt32 {
+    func unhardened() throws -> UInt32 {
         guard self >= 0x80000000 else { throw DerivationPath.Error.indexTooSmallForUnhardening }
         return self & ~0x80000000
     }
 }
 
 extension BigUInt {
-    func padLeft(to size: Int) -> Data {
+    func leftPadded(to size: Int) -> Data {
         let bytes = self.serialize()
         if bytes.count >= size { return bytes }
         return Data(repeating: 0, count: size - bytes.count) + bytes
