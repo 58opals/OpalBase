@@ -87,9 +87,9 @@ extension Storage {
 extension Storage.Facade {
     nonisolated static func performWithContext<T>(_ container: ModelContainer,
                                                   _ body: (ModelContext) throws -> T) rethrows -> T {
-        let ctx = ModelContext(container)
-        ctx.autosaveEnabled = true
-        return try body(ctx)
+        let context = ModelContext(container)
+        context.autosaveEnabled = true
+        return try body(context)
     }
 }
 
@@ -107,7 +107,7 @@ public enum StorageConfig {
 }
 
 public struct StorageFacade {
-    public init(config: StorageConfig = .memory, ttl: TimeInterval = 0) throws {}
+    public init(config: StorageConfig = .memory, timeToLive: TimeInterval = 0) throws {}
 }
 
 #endif

@@ -6,10 +6,10 @@ extension Transaction {
     actor Cache {
         static let shared = Cache()
         private var store: [Transaction.Hash: (Date, Transaction.Detailed)] = .init()
-        private let ttl: TimeInterval = 600
+        private let timeToLive: TimeInterval = 600
         
         func loadTransaction(at key: Transaction.Hash) -> Transaction.Detailed? {
-            if let (time, transaction) = store[key], Date().timeIntervalSince(time) < ttl { return transaction }
+            if let (time, transaction) = store[key], Date().timeIntervalSince(time) < timeToLive { return transaction }
             store[key] = nil
             return nil
         }
