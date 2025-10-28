@@ -86,7 +86,7 @@ extension Address.Book {
                      strategy: CoinSelection = .greedyLargestFirst) throws -> [Transaction.Output.Unspent] {
         switch strategy {
         case .greedyLargestFirst:
-            var selectedUTXOs: [Transaction.Output.Unspent] = []
+            var selectedUTXOs: [Transaction.Output.Unspent] = .init()
             var totalAmount: UInt64 = 0
             let sortedUTXOs = utxos.sorted { $0.value > $1.value }
             
@@ -170,7 +170,7 @@ extension Address.Book {
         
         switch strategy {
         case .greedyLargestFirst:
-            var selected: [Transaction.Output.Unspent] = []
+            var selected: [Transaction.Output.Unspent] = .init()
             var total: UInt64 = 0
             for utxo in utxos.sorted(by: { $0.value > $1.value }) {
                 selected.append(utxo)
@@ -190,7 +190,7 @@ extension Address.Book {
             
         case .branchAndBound:
             let sorted = utxos.sorted { $0.value > $1.value }
-            var bestUTXOs: [Transaction.Output.Unspent] = []
+            var bestUTXOs: [Transaction.Output.Unspent] = .init()
             var bestEvaluation: CoinSelectionEvaluation?
             
             let dust = Transaction.dustLimit
@@ -247,7 +247,7 @@ extension Address.Book {
                 explore(index: index + 1, selection: selection, sum: sum)
             }
             
-            explore(index: 0, selection: [], sum: 0)
+            explore(index: 0, selection: .init(), sum: 0)
             guard !bestUTXOs.isEmpty else { throw Error.insufficientFunds }
             return bestUTXOs
             

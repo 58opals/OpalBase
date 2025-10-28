@@ -119,7 +119,7 @@ public actor Storage {
     }
     
     public func loadUnspentTransactionOutputs(for accountIndex: UInt32) throws -> [Transaction.Output.Unspent] {
-        guard let cached = snapshot.accounts[accountIndex]?.unspentTransactionOutputs else { return [] }
+        guard let cached = snapshot.accounts[accountIndex]?.unspentTransactionOutputs else { return .init() }
         return cached.map { $0.makeTransactionOutput() }
     }
     

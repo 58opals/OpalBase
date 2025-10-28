@@ -27,7 +27,7 @@ public actor Account: Identifiable {
     private var networkMonitorTask: Task<Void, Never>?
     let requestRouter = RequestRouter<Request>()
     
-    init(fulcrumServerURLs: [String] = [],
+    init(fulcrumServerURLs: [String] = .init(),
          rootExtendedPrivateKey: PrivateKey.Extended,
          purpose: DerivationPath.Purpose,
          coinType: DerivationPath.CoinType,
@@ -54,7 +54,7 @@ public actor Account: Identifiable {
     }
     
     init(from snapshot: Account.Snapshot,
-         fulcrumServerURLs: [String] = [],
+         fulcrumServerURLs: [String] = .init(),
          rootExtendedPrivateKey: PrivateKey.Extended,
          purpose: DerivationPath.Purpose,
          coinType: DerivationPath.CoinType,

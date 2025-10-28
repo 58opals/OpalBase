@@ -11,7 +11,7 @@ extension Address.Book {
     }
     
     func derivePrivateKeys(for utxos: [Transaction.Output.Unspent]) throws -> [Transaction.Output.Unspent: PrivateKey] {
-        var pair: [Transaction.Output.Unspent: PrivateKey] = [:]
+        var pair: [Transaction.Output.Unspent: PrivateKey] = .init()
         
         for utxo in utxos {
             let lockingScript = utxo.lockingScript

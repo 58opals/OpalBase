@@ -7,6 +7,24 @@ import SwiftFulcrum
 struct NetworkFulcrumSessionTests {
     private static let healthyServerAddress = URL(string: "wss://bch.imaginary.cash:50004")!
     
+    private func collectEvents(
+        from stream: AsyncStream<Network.FulcrumSession.Event>,
+        until condition: @escaping ([Network.FulcrumSession.Event]) -> Bool
+    ) async -> [Network.FulcrumSession.Event] {
+        var events: [Network.FulcrumSession.Event] = []
+        var iterator = stream.makeAsyncIterator()
+        
+        while let event = await iterator.next() {
+            events.append(event)
+            
+            if condition(events) || events.count >= 50 {
+                break
+            }
+        }
+        
+        return events
+    }
+    
     private func withSession(
         using serverAddress: URL = Self.healthyServerAddress,
         configuration: SwiftFulcrum.Fulcrum.Configuration = .init(),
@@ -32,6 +50,102 @@ struct NetworkFulcrumSessionTests {
 }
 
 extension NetworkFulcrumSessionTests {
+    @Test("candidate server addresses surface the configured candidates", .tags(.unit))
+    func testCandidateServerAddressesExposeConfiguration() async throws {
+        let preferredServerAddress = URL(string: "wss://fulcrum.example.opalbase.test:50004")!
+        let bootstrapServerAddress = URL(string: "wss://fulcrum.bootstrap.opalbase.test:50004")!
+        let configuration = SwiftFulcrum.Fulcrum.Configuration(bootstrapServers: [bootstrapServerAddress])
+        
+        try await withSession(using: preferredServerAddress, configuration: configuration) { session in
+            let addresses = await session.candidateServerAddresses
+            
+            #expect(addresses.contains(preferredServerAddress))
+            #expect(addresses.contains(bootstrapServerAddress))
+        }
+    }
+    
+    @Test("activate server validates unsupported schemes", .tags(.unit))
+    func testActivateServerValidatesSchemes() async throws {
+        let unsupportedServerAddress = URL(string: "http://example.com")!
+        
+        try await withSession { session in
+            do {
+                try await session.activateServerAddress(unsupportedServerAddress)
+                #expect(Bool(false), "Expected activateServerAddress to throw for unsupported schemes")
+            } catch let sessionError as Network.FulcrumSession.Error {
+                guard case .unsupportedServerAddress = sessionError else {
+                    return #expect(Bool(false), "Unexpected session error: \(sessionError)")
+                }
+            } catch {
+                #expect(Bool(false), "Unexpected error: \(error)")
+            }
+            
+            let addresses = await session.candidateServerAddresses
+            #expect(!addresses.contains(unsupportedServerAddress))
+        }
+    }
+    
+    @Test("event stream surfaces failover activity", .tags(.integration))
+    func testEventStreamSurfacesFailoverActivity() async throws {
+        let unreachableServer = URL(string: "wss://fulcrum.jettscythe.xyz:50004")!
+        let configuration = SwiftFulcrum.Fulcrum.Configuration(
+            connectionTimeout: 1,
+            bootstrapServers: [Self.healthyServerAddress]
+        )
+        
+        try await withSession(using: unreachableServer, configuration: configuration) { session in
+            let eventStream = await session.makeEventStream()
+            
+            async let observedEvents = collectEvents(from: eventStream) { events in
+                let hasFailure = events.contains { event in
+                    if case .didFailToConnectToServer(unreachableServer, _) = event { return true }
+                    return false
+                }
+                
+                let hasDemotion = events.contains { event in
+                    if case .didDemoteServer(unreachableServer) = event { return true }
+                    return false
+                }
+                
+                let hasPromotion = events.contains { event in
+                    if case .didPromoteServer(Self.healthyServerAddress) = event { return true }
+                    return false
+                }
+                
+                let hasActivation = events.contains { event in
+                    if case .didActivateServer(Self.healthyServerAddress) = event { return true }
+                    return false
+                }
+                
+                return hasFailure && hasDemotion && hasPromotion && hasActivation
+            }
+            
+            try await session.start()
+            
+            let events = await observedEvents
+            
+            #expect(events.contains { event in
+                if case .didFailToConnectToServer(unreachableServer, _) = event { return true }
+                return false
+            })
+            
+            #expect(events.contains { event in
+                if case .didDemoteServer(unreachableServer) = event { return true }
+                return false
+            })
+            
+            #expect(events.contains { event in
+                if case .didPromoteServer(Self.healthyServerAddress) = event { return true }
+                return false
+            })
+            
+            #expect(events.contains { event in
+                if case .didActivateServer(Self.healthyServerAddress) = event { return true }
+                return false
+            })
+        }
+    }
+    
     @Test("start, fetch header tip, and stop on a healthy server", .tags(.integration))
     func testStartFetchTipAndStopOnHealthyServer() async throws {
         try await withSession { session in

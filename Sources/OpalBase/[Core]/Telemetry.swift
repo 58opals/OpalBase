@@ -46,9 +46,9 @@ public actor Telemetry {
     ) {
         self.isEnabled = isEnabled
         self.handlers = handlers
-        self.eventCounters = [:]
-        self.valueAggregates = [:]
-        self.recordedErrors = []
+        self.eventCounters = .init()
+        self.valueAggregates = .init()
+        self.recordedErrors = .init()
     }
     
     public func configure(
@@ -67,9 +67,9 @@ public actor Telemetry {
         name: String,
         category: Event.Category,
         message: @autoclosure () -> String? = nil,
-        metadata: Metadata = [:],
-        metrics: [String: Double] = [:],
-        sensitiveKeys: Set<Metadata.Key> = [],
+        metadata: Metadata = .init(),
+        metrics: [String: Double] = .init(),
+        sensitiveKeys: Set<Metadata.Key> = .init(),
         timestamp: Date = .init()
     ) async {
         let event = Event(
@@ -111,10 +111,10 @@ public actor Telemetry {
     public func makeMetricsSnapshot(timestamp: Date = .init()) -> MetricsSnapshot {
         MetricsSnapshot(
             timestamp: timestamp,
-            eventCounters: eventCounters.reduce(into: [:]) { partialResult, element in
+            eventCounters: eventCounters.reduce(into: .init()) { partialResult, element in
                 partialResult[element.key.analyticsKey] = element.value.snapshot
             },
-            valueAggregates: valueAggregates.reduce(into: [:]) { partialResult, element in
+            valueAggregates: valueAggregates.reduce(into: .init()) { partialResult, element in
                 partialResult[element.key] = element.value.snapshot
             }
         )
@@ -157,9 +157,9 @@ extension Telemetry {
             name: String,
             category: Category,
             message: String? = nil,
-            metadata: Metadata = [:],
-            metrics: [String: Double] = [:],
-            sensitiveKeys: Set<Metadata.Key> = [],
+            metadata: Metadata = .init(),
+            metrics: [String: Double] = .init(),
+            sensitiveKeys: Set<Metadata.Key> = .init(),
             timestamp: Date = .init()
         ) {
             self.name = name
@@ -223,7 +223,7 @@ extension Telemetry {
             self.storage = Dictionary(elements, uniquingKeysWith: { first, _ in first })
         }
         
-        public init(_ storage: [Key: MetadataValue] = [:]) {
+        public init(_ storage: [Key: MetadataValue] = .init()) {
             self.storage = storage
         }
         

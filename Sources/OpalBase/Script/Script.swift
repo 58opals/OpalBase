@@ -125,7 +125,7 @@ extension Script {
                 
             case OP._1.rawValue...OP._16.rawValue:
                 let numberOfRequiredSignatures = Int(opcode - OP._1.rawValue) + 1
-                var publicKeys: [PublicKey] = []
+                var publicKeys: [PublicKey] = .init()
                 
                 while index < lockingScript.count {
                     let nextOpcode = lockingScript[index]

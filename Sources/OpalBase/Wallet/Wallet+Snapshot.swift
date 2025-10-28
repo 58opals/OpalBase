@@ -74,7 +74,7 @@ extension Wallet {
         self.accounts.removeAll()
         let rootKey = PrivateKey.Extended(rootKey: try .init(seed: mnemonic.seed))
         for accSnap in snap.accounts {
-            let account = try await Account(fulcrumServerURLs: [],
+            let account = try await Account(fulcrumServerURLs: .init(),
                                             rootExtendedPrivateKey: rootKey,
                                             purpose: accSnap.purpose,
                                             coinType: accSnap.coinType,

@@ -75,7 +75,7 @@ struct TelemetryTests {
 }
 
 private actor RecordingTelemetryStore {
-    private var capturedEvents: [Telemetry.Event] = []
+    private var capturedEvents: [Telemetry.Event] = .init()
     
     func append(_ event: Telemetry.Event) {
         capturedEvents.append(event)
