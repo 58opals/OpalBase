@@ -85,15 +85,11 @@ public actor Storage {
         if let configuredDirectory = configuration.directory {
             directory = configuredDirectory
         } else {
-#if os(macOS) || os(iOS) || os(tvOS) || os(watchOS)
             if let applicationSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first {
                 directory = applicationSupport
             } else {
                 directory = FileManager.default.temporaryDirectory
             }
-#else
-            directory = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".opal", isDirectory: true)
-#endif
         }
         
         do {
