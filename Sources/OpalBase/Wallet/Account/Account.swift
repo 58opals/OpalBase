@@ -33,9 +33,7 @@ public actor Account: Identifiable {
          coinType: DerivationPath.CoinType,
          account: DerivationPath.Account,
          privacyConfiguration: PrivacyShaper.Configuration = .standard,
-         outboxPath: URL? = nil,
-         subscriptionRepository: Storage.Repository.Subscriptions? = nil,
-         feeRepository: Storage.Repository.Fees? = nil) async throws {
+         outboxPath: URL? = nil) async throws {
         self.rootExtendedPrivateKey = rootExtendedPrivateKey
         self.purpose = purpose
         self.coinType = coinType
@@ -61,18 +59,14 @@ public actor Account: Identifiable {
          purpose: DerivationPath.Purpose,
          coinType: DerivationPath.CoinType,
          privacyConfiguration: PrivacyShaper.Configuration = .standard,
-         outboxPath: URL? = nil,
-         subscriptionRepository: Storage.Repository.Subscriptions? = nil,
-         feeRepository: Storage.Repository.Fees? = nil) async throws {
+         outboxPath: URL? = nil) async throws {
         try await self.init(fulcrumServerURLs: fulcrumServerURLs,
                             rootExtendedPrivateKey: rootExtendedPrivateKey,
                             purpose: purpose,
                             coinType: coinType,
                             account: try .init(rawIndexInteger: snapshot.account),
                             privacyConfiguration: privacyConfiguration,
-                            outboxPath: outboxPath,
-                            subscriptionRepository: subscriptionRepository,
-                            feeRepository: feeRepository)
+                            outboxPath: outboxPath)
         try await self.addressBook.applySnapshot(snapshot.addressBook)
     }
     

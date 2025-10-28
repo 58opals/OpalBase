@@ -2,112 +2,198 @@
 
 import Foundation
 
-public enum Storage {}
-
-extension Storage {
+public actor Storage {
     public enum Error: Swift.Error, Sendable {
-        case platformUnavailable
-        case persistenceFailure(Swift.Error)
-        case keychainError(OSStatus)
+        case directoryCreationFailed(URL, Swift.Error)
+        case dataReadFailed(URL, Swift.Error)
+        case dataWriteFailed(URL, Swift.Error)
+        case secureStoreUnavailable
+        case secureStoreFailure(Swift.Error)
     }
-}
-
-#if canImport(SwiftData)
-import SwiftData
-
-extension Storage {
-    public enum Configuration: Sendable {
-        case disk(appGroup: String? = nil, filename: String = "opal.sqlite")
-        case memory
+    
+    public struct Configuration: Sendable {
+        public var directory: URL?
+        public var isMemoryOnly: Bool
+        public var filename: String
         
-        var isMemoryOnly: Bool {
-            if case .memory = self { return true }
-            return false
+        public init(directory: URL? = nil, isMemoryOnly: Bool = false, filename: String = "opal-storage.json") {
+            self.directory = directory
+            self.isMemoryOnly = isMemoryOnly
+            self.filename = filename
+        }
+    }
+    
+    public struct AccountSnapshot: Codable, Sendable, Hashable {
+        public var accountIndex: UInt32
+        public var unspentTransactionOutputs: [CachedUnspentTransactionOutput]
+        public var lastUpdatedAt: Date
+        
+        public init(accountIndex: UInt32,
+                    unspentTransactionOutputs: [CachedUnspentTransactionOutput],
+                    lastUpdatedAt: Date = .now) {
+            self.accountIndex = accountIndex
+            self.unspentTransactionOutputs = unspentTransactionOutputs
+            self.lastUpdatedAt = lastUpdatedAt
+        }
+    }
+    
+    public struct CachedUnspentTransactionOutput: Codable, Sendable, Hashable {
+        public var transactionHash: Data
+        public var outputIndex: UInt32
+        public var value: UInt64
+        public var lockingScript: Data
+        
+        public init(transactionHash: Data, outputIndex: UInt32, value: UInt64, lockingScript: Data) {
+            self.transactionHash = transactionHash
+            self.outputIndex = outputIndex
+            self.value = value
+            self.lockingScript = lockingScript
         }
         
-        func makeContainer() throws -> ModelContainer {
-            let schema = Schema([
-                Entity.HeaderModel.self,
-                Entity.UTXOModel.self,
-                Entity.TransactionModel.self,
-                Entity.AccountModel.self,
-                Entity.FeeModel.self,
-                Entity.ServerHealthModel.self,
-                Entity.SubscriptionModel.self
-            ])
-            
-            switch self {
-            case .memory:
-                let config = ModelConfiguration(isStoredInMemoryOnly: true)
-                return try ModelContainer(for: schema, configurations: config)
-            case .disk(let appGroup, let filename):
-                let baseURL: URL = {
-                    if let group = appGroup,
-                       let url = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: group) {
-                        return url
-                    } else {
-                        return FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-                    }
-                }()
-                try FileManager.default.createDirectory(at: baseURL, withIntermediateDirectories: true)
-                let url = baseURL.appendingPathComponent(filename, isDirectory: false)
-                let config = ModelConfiguration(url: url)
-                return try ModelContainer(for: schema, configurations: config)
+        public init(unspentTransactionOutput: Transaction.Output.Unspent) {
+            self.transactionHash = unspentTransactionOutput.previousTransactionHash.naturalOrder
+            self.outputIndex = unspentTransactionOutput.previousTransactionOutputIndex
+            self.value = unspentTransactionOutput.value
+            self.lockingScript = unspentTransactionOutput.lockingScript
+        }
+        
+        public func makeTransactionOutput() -> Transaction.Output.Unspent {
+            Transaction.Output.Unspent(value: value,
+                                       lockingScript: lockingScript,
+                                       previousTransactionHash: .init(naturalOrder: transactionHash),
+                                       previousTransactionOutputIndex: outputIndex)
+        }
+    }
+    
+    private struct Snapshot: Codable, Sendable {
+        var accounts: [UInt32: AccountSnapshot] = .init()
+    }
+    
+    private let fileURL: URL?
+    private let mnemonicStore: MnemonicStore?
+    private var snapshot: Snapshot
+    
+    public init(configuration: Configuration = .init(), mnemonicStore: MnemonicStore? = nil) async throws {
+        self.mnemonicStore = mnemonicStore
+        if configuration.isMemoryOnly {
+            self.fileURL = nil
+            self.snapshot = .init()
+            return
+        }
+        
+        let directory: URL
+        if let configuredDirectory = configuration.directory {
+            directory = configuredDirectory
+        } else {
+#if os(macOS) || os(iOS) || os(tvOS) || os(watchOS)
+            if let applicationSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first {
+                directory = applicationSupport
+            } else {
+                directory = FileManager.default.temporaryDirectory
             }
-        }
-    }
-}
-
-extension Storage {
-    public actor Facade {
-        public let container: ModelContainer
-        
-        public let headers: Repository.Headers
-        public let utxos: Repository.UTXOs
-        public let transactions: Repository.Transactions
-        public let accounts: Repository.Accounts
-        public let fees: Repository.Fees
-        public let serverHealth: Repository.ServerHealth
-        public let subscriptions: Repository.Subscriptions
-        
-        public init(configuration: Configuration) throws {
-            self.container = try configuration.makeContainer()
-            
-            self.headers = .init(container: container)
-            self.utxos = .init(container: container)
-            self.transactions = .init(container: container)
-            self.accounts = .init(container: container)
-            self.fees = .init(container: container)
-            self.serverHealth = .init(container: container)
-            self.subscriptions = .init(container: container)
-        }
-    }
-}
-
-extension Storage.Facade {
-    nonisolated static func performWithContext<T>(_ container: ModelContainer,
-                                                  _ body: (ModelContext) throws -> T) rethrows -> T {
-        let context = ModelContext(container)
-        context.autosaveEnabled = true
-        return try body(context)
-    }
-}
-
-extension Storage.Facade {
-    enum Error: Swift.Error {
-        case containerCreationFailed(Swift.Error)
-    }
-}
-
 #else
-
-public enum StorageConfig {
-    case disk(URL)
-    case memory
-}
-
-public struct StorageFacade {
-    public init(config: StorageConfig = .memory, timeToLive: TimeInterval = 0) throws {}
-}
-
+            directory = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".opal", isDirectory: true)
 #endif
+        }
+        
+        do {
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        } catch {
+            throw Error.directoryCreationFailed(directory, error)
+        }
+        
+        let resolvedURL = directory.appendingPathComponent(configuration.filename)
+        self.fileURL = resolvedURL
+        
+        if FileManager.default.fileExists(atPath: resolvedURL.path) {
+            do {
+                let data = try Data(contentsOf: resolvedURL)
+                let decoded = try JSONDecoder().decode(Snapshot.self, from: data)
+                self.snapshot = decoded
+            } catch {
+                throw Error.dataReadFailed(resolvedURL, error)
+            }
+        } else {
+            self.snapshot = .init()
+            try await persistSnapshot()
+        }
+    }
+    public func loadAccountSnapshot(for accountIndex: UInt32) -> AccountSnapshot? {
+        snapshot.accounts[accountIndex]
+    }
+    
+    public func loadUnspentTransactionOutputs(for accountIndex: UInt32) throws -> [Transaction.Output.Unspent] {
+        guard let cached = snapshot.accounts[accountIndex]?.unspentTransactionOutputs else { return [] }
+        return cached.map { $0.makeTransactionOutput() }
+    }
+    
+    public func replaceUnspentTransactionOutputs(_ unspentTransactionOutputs: [Transaction.Output.Unspent],
+                                                 for accountIndex: UInt32) async throws {
+        let cached = unspentTransactionOutputs.map(CachedUnspentTransactionOutput.init)
+        let accountSnapshot = AccountSnapshot(accountIndex: accountIndex,
+                                              unspentTransactionOutputs: cached,
+                                              lastUpdatedAt: .now)
+        snapshot.accounts[accountIndex] = accountSnapshot
+        try await persistSnapshot()
+    }
+    
+    public func removeAccount(_ accountIndex: UInt32) async throws {
+        snapshot.accounts.removeValue(forKey: accountIndex)
+        try await persistSnapshot()
+    }
+    
+    public func clear() async throws {
+        snapshot = .init()
+        try await persistSnapshot()
+    }
+    
+    public func loadBalance(for accountIndex: UInt32) throws -> UInt64 {
+        try loadUnspentTransactionOutputs(for: accountIndex).reduce(0) { $0 + $1.value }
+    }
+    
+    public func saveMnemonic(_ mnemonic: Mnemonic) throws {
+        guard let mnemonicStore else { throw Error.secureStoreUnavailable }
+        do {
+            try mnemonicStore.saveMnemonic(mnemonic)
+        } catch {
+            throw Error.secureStoreFailure(error)
+        }
+    }
+    
+    public func loadMnemonic() throws -> Mnemonic? {
+        guard let mnemonicStore else { throw Error.secureStoreUnavailable }
+        do {
+            return try mnemonicStore.loadMnemonic()
+        } catch {
+            throw Error.secureStoreFailure(error)
+        }
+    }
+    
+    public func removeMnemonic() throws {
+        guard let mnemonicStore else { throw Error.secureStoreUnavailable }
+        do {
+            try mnemonicStore.removeMnemonic()
+        } catch {
+            throw Error.secureStoreFailure(error)
+        }
+    }
+    
+    public func hasMnemonic() throws -> Bool {
+        guard let mnemonicStore else { throw Error.secureStoreUnavailable }
+        do {
+            return try mnemonicStore.hasMnemonic()
+        } catch {
+            throw Error.secureStoreFailure(error)
+        }
+    }
+    
+    private func persistSnapshot() async throws {
+        guard let fileURL else { return }
+        do {
+            let data = try JSONEncoder().encode(snapshot)
+            try data.write(to: fileURL, options: [.atomic])
+        } catch {
+            throw Error.dataWriteFailed(fileURL, error)
+        }
+    }
+}

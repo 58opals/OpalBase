@@ -20,11 +20,11 @@ public actor WalletCore {
         }
     }
     
-    private let repositories: Storage.Facade
+    private let storage: Storage
     private var isSynced = false
     
-    public init(storage: Storage.Facade) {
-        self.repositories = storage
+    public init(storage: Storage) {
+        self.storage = storage
     }
     
     public func sync() async throws {
@@ -38,14 +38,14 @@ public actor WalletCore {
         heartbeat: Duration = .seconds(30)
     ) -> AsyncThrowingStream<Satoshi, Swift.Error> {
         AsyncThrowingStream(bufferingPolicy: .bufferingNewest(1)) { continuation in
-            let task = Task { [repositories] in
+            let task = Task { [storage] in
                 let clock = ContinuousClock()
                 var last: UInt64?
                 var lastEmit = clock.now
                 while !Task.isCancelled {
                     do {
-                        let rows = try await repositories.utxos.loadForAccount(index)
-                        let total = rows.reduce(0) { $0 + $1.value }
+                        let unspentTransactionOutputs = try await storage.loadUnspentTransactionOutputs(for: index)
+                        let total = unspentTransactionOutputs.reduce(0) { $0 + $1.value }
                         let now = clock.now
                         if last != total || lastEmit.duration(to: now) >= heartbeat {
                             last = total
@@ -69,25 +69,19 @@ public actor WalletCore {
         heartbeat: Duration = .seconds(30)
     ) -> AsyncThrowingStream<Set<Transaction.Output.Unspent>, Swift.Error> {
         AsyncThrowingStream(bufferingPolicy: .bufferingNewest(1)) { continuation in
-            let task = Task { [repositories] in
+            let task = Task { [storage] in
                 let clock = ContinuousClock()
                 var last = Set<Transaction.Output.Unspent>()
                 var lastEmit = clock.now
                 while !Task.isCancelled {
                     do {
-                        let rows = try await repositories.utxos.loadForAccount(index)
-                        let current = Set(rows.map { row in
-                            Transaction.Output.Unspent(
-                                value: row.value,
-                                lockingScript: row.lockingScript,
-                                previousTransactionHash: .init(naturalOrder: row.txHash),
-                                previousTransactionOutputIndex: row.index)
-                        })
+                        let current = try await storage.loadUnspentTransactionOutputs(for: index)
+                        let currentSet = Set(current)
                         let now = clock.now
-                        if current != last || lastEmit.duration(to: now) >= heartbeat {
-                            last = current
+                        if currentSet != last || lastEmit.duration(to: now) >= heartbeat {
+                            last = currentSet
                             lastEmit = now
-                            continuation.yield(current)
+                            continuation.yield(currentSet)
                         }
                         try await Task.sleep(for: pollInterval)
                     } catch {
