@@ -30,7 +30,7 @@ extension Network {
         public var isRunning: Bool { isSessionRunning }
         
         public func start() async throws {
-            guard !isSessionRunning else { return }
+            guard !isSessionRunning else { throw Error.sessionAlreadyStarted }
             
             if let currentFulcrum = fulcrum {
                 do {
@@ -50,8 +50,8 @@ extension Network {
             try await startUsingCandidateServers()
         }
         
-        public func stop() async {
-            guard isSessionRunning else { return }
+        public func stop() async throws {
+            guard isSessionRunning else { throw Error.sessionNotStarted }
             
             await fulcrum?.stop()
             isSessionRunning = false

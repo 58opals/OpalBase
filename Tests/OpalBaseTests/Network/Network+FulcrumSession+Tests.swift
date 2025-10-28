@@ -31,12 +31,9 @@ struct NetworkFulcrumSessionTests {
     func testReconnectKeepsSessionHealthy() async throws {
         try await withSession { session in
             try await session.start()
-            try await session.start()
             #expect(await session.isRunning)
             
-            print(await session.isRunning)
             try await session.reconnect()
-            print(await session.isRunning)
             
             let response = try await session.submit(
                 method: .blockchain(.headers(.getTip)),
@@ -118,6 +115,42 @@ struct NetworkFulcrumSessionTests {
         }
     }
     
+    @Test("start requires the session to be idle", .tags(.unit))
+    func testStartRequiresIdleSession() async throws {
+        try await withSession { session in
+            try await session.start()
+            
+            do {
+                try await session.start()
+                #expect(Bool(false), "Expected start to throw when the session is already running")
+            } catch let sessionError as Network.FulcrumSession.Error {
+                guard case .sessionAlreadyStarted = sessionError else {
+                    return #expect(Bool(false), "Unexpected session error: \(sessionError)")
+                }
+            } catch {
+                #expect(Bool(false), "Unexpected error: \(error)")
+            }
+        }
+    }
+    
+    @Test("stop requires the session to be running", .tags(.unit))
+    func testStopRequiresRunningSession() async throws {
+        try await withSession { session in
+            #expect(await !session.isRunning)
+            
+            do {
+                try await session.stop()
+                #expect(Bool(false), "Expected stop to throw when the session has not been started")
+            } catch let sessionError as Network.FulcrumSession.Error {
+                guard case .sessionNotStarted = sessionError else {
+                    return #expect(Bool(false), "Unexpected session error: \(sessionError)")
+                }
+            } catch {
+                #expect(Bool(false), "Unexpected error: \(error)")
+            }
+        }
+    }
+    
     @Test("start fails fast for unreachable servers", .tags(.integration))
     func testStartFailsFastForUnreachableServers() async throws {
         let unreachableServer = URL(string: "wss://unreachable.fulcrum.opalbase.test:12345")!
@@ -145,12 +178,12 @@ struct NetworkFulcrumSessionTests {
         do {
             try await perform(session)
         } catch {
-            await session.stop()
+            try await session.stop()
             #expect(await !session.isRunning)
             throw error
         }
         
-        await session.stop()
+        try await session.stop()
         #expect(await !session.isRunning)
     }
 }
