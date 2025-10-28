@@ -53,6 +53,32 @@ struct NetworkFulcrumSessionTests {
         }
     }
     
+    @Test("start falls back to a healthy server when the primary endpoint fails", .tags(.integration))
+    func testStartFallsBackToHealthyServer() async throws {
+        let unreachableServer = URL(string: "wss://fulcrum.jettscythe.xyz:50004")!
+        let configuration = SwiftFulcrum.Fulcrum.Configuration(
+            connectionTimeout: 1,
+            bootstrapServers: [Self.healthyServerAddress]
+        )
+        
+        try await withSession(using: unreachableServer, configuration: configuration) { session in
+            try await session.start()
+            #expect(await session.isRunning)
+            
+            let response = try await session.submit(
+                method: .blockchain(.headers(.getTip)),
+                responseType: SwiftFulcrum.Response.Result.Blockchain.Headers.GetTip.self
+            )
+            
+            guard case .single(_, let tip) = response else {
+                return #expect(Bool(false), "Expected a single response when requesting the header tip after failing over")
+            }
+            
+            #expect(tip.height > 0)
+            #expect(!tip.hex.isEmpty)
+        }
+    }
+    
     @Test("submit requires the session to be running", .tags(.unit))
     func testSubmitRequiresRunningSession() async throws {
         try await withSession { session in
