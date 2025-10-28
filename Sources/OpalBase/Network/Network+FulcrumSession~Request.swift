@@ -34,7 +34,6 @@ extension Network.FulcrumSession {
 }
 
 extension Network.FulcrumSession {
-    @discardableResult
     public func fetchHeaderTip(
         options: SwiftFulcrum.Client.Call.Options = .init()
     ) async throws -> SwiftFulcrum.Response.Result.Blockchain.Headers.GetTip {
@@ -51,7 +50,6 @@ extension Network.FulcrumSession {
         return tip
     }
     
-    @discardableResult
     public func fetchAddressBalance(
         _ address: String,
         tokenFilter: SwiftFulcrum.Method.Blockchain.CashTokens.TokenFilter? = nil,
@@ -70,7 +68,6 @@ extension Network.FulcrumSession {
         return balance
     }
     
-    @discardableResult
     public func fetchScriptHashBalance(
         _ scriptHash: String,
         tokenFilter: SwiftFulcrum.Method.Blockchain.CashTokens.TokenFilter? = nil,
@@ -89,7 +86,6 @@ extension Network.FulcrumSession {
         return balance
     }
     
-    @discardableResult
     public func fetchTransactionMerkleProof(
         forTransactionHash transactionHash: String,
         options: SwiftFulcrum.Client.Call.Options = .init()
@@ -107,7 +103,6 @@ extension Network.FulcrumSession {
         return merkle
     }
     
-    @discardableResult
     public func broadcastTransaction(
         _ rawTransaction: String,
         options: SwiftFulcrum.Client.Call.Options = .init()

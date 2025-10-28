@@ -32,7 +32,7 @@ extension Network {
         var isSessionRunning = false
         
         var eventContinuations: [UUID: AsyncStream<Event>.Continuation] = .init()
-        var streamingCallDescriptors: [UUID: AnyStreamingCallDescriptor] = .init()
+        var streamingCallDescriptors: [UUID: any AnyStreamingCallDescriptor] = .init()
         
         public init(serverAddress: URL? = nil,
                     configuration: SwiftFulcrum.Fulcrum.Configuration = .init()) async throws {

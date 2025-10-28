@@ -5,26 +5,42 @@ import SwiftFulcrum
 
 extension Network.FulcrumSession {
     public struct Subscription<Initial: JSONRPCConvertible, Notification: JSONRPCConvertible>: Sendable {
-        fileprivate let storage: SubscriptionStorage<Initial, Notification>
+        private let fetchLatestInitialResponseHandler: @Sendable () async -> Initial
+        private let checkIsActiveHandler: @Sendable () async -> Bool
+        private let cancelHandler: @Sendable () async -> Void
+        private let resubscribeHandler: @Sendable () async throws -> Initial
         
-        public var identifier: UUID { storage.identifier }
-        public var updates: AsyncThrowingStream<Notification, Swift.Error> { storage.updates }
+        public let identifier: UUID
+        public let updates: AsyncThrowingStream<Notification, Swift.Error>
+        
+        init(identifier: UUID,
+             updates: AsyncThrowingStream<Notification, Swift.Error>,
+             fetchLatestInitialResponse: @escaping @Sendable () async -> Initial,
+             checkIsActive: @escaping @Sendable () async -> Bool,
+             cancel: @escaping @Sendable () async -> Void,
+             resubscribe: @escaping @Sendable () async throws -> Initial) {
+            self.identifier = identifier
+            self.updates = updates
+            self.fetchLatestInitialResponseHandler = fetchLatestInitialResponse
+            self.checkIsActiveHandler = checkIsActive
+            self.cancelHandler = cancel
+            self.resubscribeHandler = resubscribe
+        }
         
         public func fetchLatestInitialResponse() async -> Initial {
-            await storage.fetchLatestInitialResponse()
+            await fetchLatestInitialResponseHandler()
         }
         
         public func checkIsActive() async -> Bool {
-            await storage.checkIsActive()
+            await checkIsActiveHandler()
         }
         
         public func cancel() async {
-            await storage.cancel()
+            await cancelHandler()
         }
         
-        @discardableResult
         public func resubscribe() async throws -> Initial {
-            try await storage.resubscribe()
+            try await resubscribeHandler()
         }
     }
 }
@@ -77,22 +93,38 @@ extension Network.FulcrumSession {
         }
         
         let descriptorIdentifier = responseID
-        let descriptor = StreamingCallDescriptor(identifier: descriptorIdentifier,
-                                                 method: method,
-                                                 options: normalizedOptions,
-                                                 initial: initial,
-                                                 updates: updates,
-                                                 cancel: cancel)
+        let descriptor = await StreamingCallDescriptor(identifier: descriptorIdentifier,
+                                                       method: method,
+                                                       options: normalizedOptions,
+                                                       initial: initial,
+                                                       updates: updates,
+                                                       cancel: cancel)
         
         streamingCallDescriptors[descriptorIdentifier] = descriptor
         
-        let storage = SubscriptionStorage(session: self, descriptor: descriptor)
-        return Subscription(storage: storage)
+        return Subscription(identifier: descriptorIdentifier,
+                            updates: descriptor.stream,
+                            fetchLatestInitialResponse: { [weak session = self, descriptor] in
+            guard let session else { return await descriptor.readLatestInitialResponse() }
+            return await session.latestInitialResponse(for: descriptor)
+        },
+                            checkIsActive: { [weak session = self, descriptor] in
+            guard let session else { return await descriptor.readIsActive() }
+            return await session.isStreamingCallActive(descriptor)
+        },
+                            cancel: { [weak session = self, descriptor] in
+            guard let session else { return await descriptor.cancelAndFinish() }
+            await session.cancelStreamingCall(for: descriptor)
+        },
+                            resubscribe: { [weak session = self, descriptor] in
+            guard let session else { return await descriptor.readLatestInitialResponse() }
+            return try await session.resubscribeExisting(descriptor)
+        })
     }
     
-    internal func prepareStreamingCallsForRestart() {
+    internal func prepareStreamingCallsForRestart() async {
         for descriptor in streamingCallDescriptors.values {
-            descriptor.prepareForRestart()
+            await descriptor.prepareForRestart()
         }
     }
     
@@ -112,7 +144,7 @@ extension Network.FulcrumSession {
             do {
                 try await descriptor.resubscribe(using: self, fulcrum: fulcrum)
             } catch {
-                descriptor.finish(with: error)
+                await descriptor.finish(with: error)
                 streamingCallDescriptors.removeValue(forKey: descriptor.identifier)
             }
         }
@@ -127,14 +159,14 @@ extension Network.FulcrumSession {
     
     private func latestInitialResponse<Initial: JSONRPCConvertible, Notification: JSONRPCConvertible>(
         for descriptor: StreamingCallDescriptor<Initial, Notification>
-    ) -> Initial {
-        descriptor.latestInitialResponse
+    ) async -> Initial {
+        await descriptor.readLatestInitialResponse()
     }
     
     private func isStreamingCallActive<Initial: JSONRPCConvertible, Notification: JSONRPCConvertible>(
         _ descriptor: StreamingCallDescriptor<Initial, Notification>
-    ) -> Bool {
-        descriptor.isActive
+    ) async -> Bool {
+        await descriptor.readIsActive()
     }
     
     internal func resubscribeExisting<Initial: JSONRPCConvertible, Notification: JSONRPCConvertible>(
@@ -154,106 +186,79 @@ extension Network.FulcrumSession {
             throw Error.unexpectedResponse(descriptor.method)
         }
         
-        descriptor.update(initial: initial, updates: updates, cancel: cancel)
+        await descriptor.update(initial: initial, updates: updates, cancel: cancel)
         return initial
     }
     
     func readLatestInitialResponse<Initial: JSONRPCConvertible, Notification: JSONRPCConvertible>(
         for descriptor: StreamingCallDescriptor<Initial, Notification>
     ) async -> Initial {
-        latestInitialResponse(for: descriptor)
+        await latestInitialResponse(for: descriptor)
     }
     
     func readIsStreamingCallActive<Initial: JSONRPCConvertible, Notification: JSONRPCConvertible>(
         _ descriptor: StreamingCallDescriptor<Initial, Notification>
     ) async -> Bool {
-        isStreamingCallActive(descriptor)
+        await isStreamingCallActive(descriptor)
     }
 }
 
 // MARK: - Descriptor storage
-private final class SubscriptionStorage<Initial: JSONRPCConvertible, Notification: JSONRPCConvertible>: @unchecked Sendable {
-    private unowned let session: Network.FulcrumSession
-    private let descriptor: StreamingCallDescriptor<Initial, Notification>
-    private let updatesStream: AsyncThrowingStream<Notification, Swift.Error>
+protocol AnyStreamingCallDescriptor: Sendable {
+    var identifier: UUID { get }
+    var method: SwiftFulcrum.Method { get }
+    var options: SwiftFulcrum.Client.Call.Options { get }
     
-    init(session: Network.FulcrumSession, descriptor: StreamingCallDescriptor<Initial, Notification>) {
-        self.session = session
-        self.descriptor = descriptor
-        self.updatesStream = descriptor.stream
-    }
-    
-    var identifier: UUID { descriptor.identifier }
-    
-    var updates: AsyncThrowingStream<Notification, Swift.Error> { updatesStream }
-    
-    func fetchLatestInitialResponse() async -> Initial {
-        await session.readLatestInitialResponse(for: descriptor)
-    }
-    
-    func checkIsActive() async -> Bool {
-        await session.readIsStreamingCallActive(descriptor)
-    }
-    
-    func cancel() async {
-        await session.cancelStreamingCall(for: descriptor)
-    }
-    
-    func resubscribe() async throws -> Initial {
-        try await session.resubscribeExisting(descriptor)
-    }
+    func prepareForRestart() async
+    func cancelAndFinish() async
+    func finish(with error: Swift.Error) async
+    func resubscribe(using session: Network.FulcrumSession, fulcrum: SwiftFulcrum.Fulcrum) async throws
 }
 
-class AnyStreamingCallDescriptor: @unchecked Sendable {
+actor StreamingCallDescriptor<Initial: JSONRPCConvertible, Notification: JSONRPCConvertible>: AnyStreamingCallDescriptor {
     let identifier: UUID
     let method: SwiftFulcrum.Method
     let options: SwiftFulcrum.Client.Call.Options
+    let stream: AsyncThrowingStream<Notification, Swift.Error>
     
-    init(identifier: UUID, method: SwiftFulcrum.Method, options: SwiftFulcrum.Client.Call.Options) {
-        self.identifier = identifier
-        self.method = method
-        self.options = options
-    }
-    
-    func prepareForRestart() {}
-    func cancelAndFinish() async {}
-    func finish(with error: Swift.Error) {}
-    func resubscribe(using session: Network.FulcrumSession, fulcrum: SwiftFulcrum.Fulcrum) async throws {}
-}
-
-final class StreamingCallDescriptor<Initial: JSONRPCConvertible, Notification: JSONRPCConvertible>: AnyStreamingCallDescriptor, @unchecked Sendable {
     private var cancelHandler: (@Sendable () async -> Void)?
     private var forwardingTask: Task<Void, Never>?
     private let continuation: AsyncThrowingStream<Notification, Swift.Error>.Continuation
-    let stream: AsyncThrowingStream<Notification, Swift.Error>
-    private(set) var latestInitialResponse: Initial
-    private(set) var isActive = false
+    
+    private var latestInitialResponse: Initial
+    private var isActive = false
     
     init(identifier: UUID,
          method: SwiftFulcrum.Method,
          options: SwiftFulcrum.Client.Call.Options,
          initial: Initial,
          updates: AsyncThrowingStream<Notification, Swift.Error>,
-         cancel: @escaping @Sendable () async -> Void) {
+         cancel: @escaping @Sendable () async -> Void) async {
+        self.identifier = identifier
+        self.method = method
+        self.options = options
+        
         var capturedContinuation: AsyncThrowingStream<Notification, Swift.Error>.Continuation!
-        self.stream = AsyncThrowingStream { continuation in
+        let stream = AsyncThrowingStream<Notification, Swift.Error> { continuation in
             capturedContinuation = continuation
         }
+        
+        self.stream = stream
         self.continuation = capturedContinuation
         self.latestInitialResponse = initial
+        self.cancelHandler = cancel
         
-        super.init(identifier: identifier, method: method, options: options)
         update(initial: initial, updates: updates, cancel: cancel)
     }
     
-    override func prepareForRestart() {
+    func prepareForRestart() async {
         forwardingTask?.cancel()
         forwardingTask = nil
         cancelHandler = nil
         isActive = false
     }
     
-    override func cancelAndFinish() async {
+    func cancelAndFinish() async {
         forwardingTask?.cancel()
         forwardingTask = nil
         if let cancelHandler {
@@ -264,7 +269,7 @@ final class StreamingCallDescriptor<Initial: JSONRPCConvertible, Notification: J
         continuation.finish()
     }
     
-    override func finish(with error: Swift.Error) {
+    func finish(with error: Swift.Error) async {
         forwardingTask?.cancel()
         forwardingTask = nil
         cancelHandler = nil
@@ -272,7 +277,7 @@ final class StreamingCallDescriptor<Initial: JSONRPCConvertible, Notification: J
         continuation.finish(throwing: error)
     }
     
-    override func resubscribe(using session: Network.FulcrumSession, fulcrum: SwiftFulcrum.Fulcrum) async throws {
+    func resubscribe(using session: Network.FulcrumSession, fulcrum: SwiftFulcrum.Fulcrum) async throws {
         _ = try await session.resubscribeExisting(self, using: fulcrum)
     }
     
@@ -282,19 +287,35 @@ final class StreamingCallDescriptor<Initial: JSONRPCConvertible, Notification: J
         latestInitialResponse = initial
         cancelHandler = cancel
         forwardingTask?.cancel()
-        forwardingTask = Task {
-            do {
-                for try await update in updates {
-                    continuation.yield(update)
-                }
-                isActive = false
-            } catch is CancellationError {
-                isActive = false
-            } catch {
-                isActive = false
-            }
+        forwardingTask = Task { [weak self] in
+            guard let self else { return }
+            await self.forwardUpdates(from: updates)
         }
         isActive = true
+    }
+    
+    private func forwardUpdates(from updates: AsyncThrowingStream<Notification, Swift.Error>) async {
+        do {
+            for try await update in updates {
+                continuation.yield(update)
+            }
+            isActive = false
+            forwardingTask = nil
+        } catch is CancellationError {
+            isActive = false
+            forwardingTask = nil
+        } catch {
+            isActive = false
+            forwardingTask = nil
+        }
+    }
+    
+    func readLatestInitialResponse() -> Initial {
+        latestInitialResponse
+    }
+    
+    func readIsActive() -> Bool {
+        isActive
     }
 }
 

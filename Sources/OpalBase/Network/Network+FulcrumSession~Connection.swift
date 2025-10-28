@@ -18,7 +18,7 @@ extension Network.FulcrumSession {
                 return
             } catch {
                 await currentFulcrum.stop()
-                prepareStreamingCallsForRestart()
+                await prepareStreamingCallsForRestart()
                 fulcrum = nil
                 setActiveServerAddress(nil)
             }
@@ -49,7 +49,7 @@ extension Network.FulcrumSession {
             await restoreStreamingSubscriptions(using: fulcrum)
         } catch {
             await fulcrum.stop()
-            prepareStreamingCallsForRestart()
+            await prepareStreamingCallsForRestart()
             isSessionRunning = false
             self.fulcrum = nil
             
@@ -87,7 +87,7 @@ extension Network.FulcrumSession {
                 await fulcrum.stop()
             }
             
-            prepareStreamingCallsForRestart()
+            await prepareStreamingCallsForRestart()
             self.fulcrum = nil
             isSessionRunning = false
             setActiveServerAddress(nil)
