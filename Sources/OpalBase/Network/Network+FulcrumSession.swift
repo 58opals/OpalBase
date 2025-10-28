@@ -194,7 +194,10 @@ extension Network {
                 bootstrapServers.forEach(append)
             }
             
-            if let bundledServers = try? SwiftFulcrum.WebSocket.Server.decodeBundledServers() {
+            let shouldUseBundledServers = serverAddress == nil && (configuration.bootstrapServers?.isEmpty ?? true)
+            
+            if shouldUseBundledServers,
+               let bundledServers = try? SwiftFulcrum.WebSocket.Server.decodeBundledServers() {
                 bundledServers.forEach(append)
             }
             

@@ -7,6 +7,31 @@ import SwiftFulcrum
 struct NetworkFulcrumSessionTests {
     private static let healthyServerAddress = URL(string: "wss://bch.imaginary.cash:50004")!
     
+    private func withSession(
+        using serverAddress: URL = Self.healthyServerAddress,
+        configuration: SwiftFulcrum.Fulcrum.Configuration = .init(),
+        perform: @escaping @Sendable (Network.FulcrumSession) async throws -> Void
+    ) async throws {
+        let session = try await Network.FulcrumSession(serverAddress: serverAddress, configuration: configuration)
+        
+        do {
+            try await perform(session)
+        } catch {
+            if await session.isRunning {
+                try await session.stop()
+            }
+            #expect(await !session.isRunning)
+            throw error
+        }
+        
+        if await session.isRunning {
+            try await session.stop()
+        }
+        #expect(await !session.isRunning)
+    }
+}
+
+extension NetworkFulcrumSessionTests {
     @Test("start, fetch header tip, and stop on a healthy server", .tags(.integration))
     func testStartFetchTipAndStopOnHealthyServer() async throws {
         try await withSession { session in
@@ -166,24 +191,5 @@ struct NetworkFulcrumSessionTests {
                 #expect(await !session.isRunning)
             }
         }
-    }
-    
-    private func withSession(
-        using serverAddress: URL = Self.healthyServerAddress,
-        configuration: SwiftFulcrum.Fulcrum.Configuration = .init(),
-        perform: @escaping @Sendable (Network.FulcrumSession) async throws -> Void
-    ) async throws {
-        let session = try await Network.FulcrumSession(serverAddress: serverAddress, configuration: configuration)
-        
-        do {
-            try await perform(session)
-        } catch {
-            try await session.stop()
-            #expect(await !session.isRunning)
-            throw error
-        }
-        
-        try await session.stop()
-        #expect(await !session.isRunning)
     }
 }

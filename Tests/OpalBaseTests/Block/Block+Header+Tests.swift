@@ -2,7 +2,7 @@ import Foundation
 import Testing
 @testable import OpalBase
 
-@Suite("BlockHeader", .tags(.unit, .block))
+@Suite("Block.Header", .tags(.unit, .block))
 struct BlockHeaderTests {
     @Test("decode rejects insufficient data")
     func testDecodeRejectsInsufficientData() {
