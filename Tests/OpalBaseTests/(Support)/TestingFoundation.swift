@@ -7,5 +7,6 @@ extension Tag {
     @Tag static var address: Self
     @Tag static var telemetry: Self
     @Tag static var wallet: Self
+    @Tag static var block: Self
     @Tag static var transaction: Self
 }

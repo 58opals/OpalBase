@@ -31,29 +31,46 @@ struct Base32 {
     }
     
     static func decode(_ string: String, interpretedAs5Bit: Bool) throws -> Data {
-         var data = Data()
-         switch interpretedAs5Bit {
-         case true:
-             for char in string {
-                 if let index = characters.firstIndex(of: char) {
-                     data.append(UInt8(index))
-                 } else {
-                     throw Error.invalidCharacterFound
-                 }
-             }
-         case false:
-             var value = BigUInt(0)
-             for char in string {
-                 if let index = characters.firstIndex(of: char) {
-                     value = value * BigUInt(baseNumber) + BigUInt(index)
-                 } else {
-                     throw Error.invalidCharacterFound
-                 }
-             }
-             data = value.serialize()
-         }
-         return data
-     }
+        var data = Data()
+        switch interpretedAs5Bit {
+        case true:
+            for character in string {
+                let normalizedCharacter = try normalizeCharacter(character)
+                
+                if let index = characters.firstIndex(of: normalizedCharacter) {
+                    data.append(UInt8(index))
+                } else {
+                    throw Error.invalidCharacterFound
+                }
+            }
+        case false:
+            var value = BigUInt(0)
+            for character in string {
+                let normalizedCharacter = try normalizeCharacter(character)
+                
+                if let index = characters.firstIndex(of: normalizedCharacter) {
+                    value = value * BigUInt(baseNumber) + BigUInt(index)
+                } else {
+                    throw Error.invalidCharacterFound
+                }
+            }
+            data = value.serialize()
+        }
+        return data
+    }
+    
+    private static func normalizeCharacter(_ character: Character) throws -> Character {
+        guard let asciiValue = character.asciiValue else { return character }
+        
+        switch asciiValue {
+        case 0x41...0x5A:
+            let normalizedAsciiValue = asciiValue &+ 0x20
+            let scalar = UnicodeScalar(normalizedAsciiValue)
+            return Character(scalar)
+        default:
+            return character
+        }
+    }
 }
 
 extension Base32 {

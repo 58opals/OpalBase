@@ -40,8 +40,10 @@ extension Block {
             var index = data.startIndex
             let (version, newIndex1): (Int32, Data.Index) = try data.extractValue(from: index)
             index = newIndex1
+            guard index + 32 <= data.endIndex else { throw Data.Error.indexOutOfRange }
             let previousBlockHash = data[index..<index + 32]
             index += 32
+            guard index + 32 <= data.endIndex else { throw Data.Error.indexOutOfRange }
             let merkleRoot = data[index..<index + 32]
             index += 32
             let (time, newIndex2): (UInt32, Data.Index) = try data.extractValue(from: index)

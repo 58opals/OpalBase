@@ -115,9 +115,18 @@ extension Wallet {
         guard !accounts.isEmpty else { return try Satoshi(0) }
         
         let total: UInt64 = try await withThrowingTaskGroup(of: UInt64.self) { group in
+            for account in accounts {
+                group.addTask {
+                    let balance = try await account.loadBalanceFromCache()
+                    return balance.uint64
+                }
+            }
+            
             var aggregate: UInt64 = 0
             for try await partial in group {
-                aggregate += partial
+                let (updated, didOverflow) = aggregate.addingReportingOverflow(partial)
+                if didOverflow { throw Satoshi.Error.exceedsMaximumAmount }
+                aggregate = updated
             }
             
             return aggregate

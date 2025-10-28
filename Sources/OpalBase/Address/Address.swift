@@ -173,7 +173,9 @@ extension Address {
             }
             
             let normalizedScalar = UnicodeScalar(normalizedAscii)
-            guard Base32.characters.contains(Character(normalizedScalar))
+            let normalizedCharacter = Character(normalizedScalar)
+            
+            guard Base32.characters.contains(normalizedCharacter)
             else { return }
             
             partialResult.append(candidate)
