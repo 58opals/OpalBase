@@ -123,6 +123,14 @@ extension Account {
         _ = await handle.enqueue(priority: priority, retryPolicy: .retry, operation: operation)
     }
     
+    func performRequest<Value: Sendable>(for key: Request,
+                                         priority: TaskPriority? = nil,
+                                         retryPolicy: RequestRouter<Request>.RetryPolicy = .retry,
+                                         operation: @escaping @Sendable () async throws -> Value) async throws -> Value {
+        let handle = await requestRouter.handle(for: key)
+        return try await handle.perform(priority: priority, retryPolicy: retryPolicy, operation: operation)
+    }
+    
     public func processQueuedRequests() async {
         await requestRouter.resume()
     }

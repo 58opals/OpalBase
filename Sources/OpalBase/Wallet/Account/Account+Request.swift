@@ -6,5 +6,6 @@ extension Account {
     enum Request: Hashable, Sendable {
         case broadcast(Transaction.Hash)
         case refreshUTXOSet
+        case calculateBalance
     }
 }
