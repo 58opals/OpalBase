@@ -98,8 +98,12 @@ extension Network.FulcrumSession {
             isActive = false
             forwardingTask = nil
             
-            if let caughtError, shouldForwardUpdates {
-                continuation.finish(throwing: caughtError)
+            if let caughtError {
+                if shouldForwardUpdates {
+                    continuation.finish(throwing: caughtError)
+                }
+            } else if shouldForwardUpdates {
+                continuation.finish()
             }
             
             notifyCancellationCompletion()

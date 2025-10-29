@@ -18,8 +18,9 @@ extension Network.FulcrumSession {
     }
     
     public func stop() async throws {
-        guard state == .running else { throw Error.sessionNotStarted }
+        guard state == .running || state == .restoring else { throw Error.sessionNotStarted }
         
+        await cancelAllStreamingCalls()
         await resetFulcrumForRestart()
         setActiveServerAddress(nil)
         await cancelAllStreamingCalls()

@@ -78,6 +78,11 @@ extension Network.FulcrumSession {
         var firstError: Swift.Error?
         
         for descriptor in Array(streamingCallDescriptors.values) {
+            if let token = descriptor.options.token, await token.isCancelled {
+                streamingCallDescriptors.removeValue(forKey: descriptor.identifier)
+                await descriptor.cancelAndFinish()
+                continue
+            }
             do {
                 try await descriptor.resubscribe(using: self, fulcrum: fulcrum)
             } catch {
@@ -158,6 +163,6 @@ extension Network.FulcrumSession {
     static func normalizeStreamingOptions(
         _ options: SwiftFulcrum.Client.Call.Options
     ) -> SwiftFulcrum.Client.Call.Options {
-        SwiftFulcrum.Client.Call.Options(timeout: options.timeout, token: nil)
+        SwiftFulcrum.Client.Call.Options(timeout: options.timeout, token: options.token)
     }
 }
