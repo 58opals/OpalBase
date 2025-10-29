@@ -349,10 +349,7 @@ private actor EventIteratorBox {
         self.iterator = iterator
     }
     func next() async -> Network.FulcrumSession.Event? {
-        var iterator = self.iterator
-        let event = await iterator.next()
-        self.iterator = iterator
-        return event
+        return await iterator.next()
     }
 }
 
