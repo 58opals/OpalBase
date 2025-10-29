@@ -86,7 +86,7 @@ extension Network.FulcrumSession {
         let response = try await fulcrum.submit(method: method,
                                                 initialType: initialType,
                                                 notificationType: notificationType,
-                                                options: options)
+                                                options: normalizedOptions)
         
         guard case .stream(let responseID, let initial, let updates, let cancel) = response else {
             throw Error.unexpectedResponse(method)
@@ -269,11 +269,11 @@ actor StreamingCallDescriptor<Initial: JSONRPCConvertible, Notification: JSONRPC
     }
     
     func prepareForRestart() async {
-        await cancelForwardingTaskAndWait()
         let cancelHandler = cancelHandler
         self.cancelHandler = nil
-        isActive = false
         if let cancelHandler { await cancelHandler() }
+        await cancelForwardingTaskAndWait()
+        isActive = false
     }
     
     func cancelAndFinish() async {
