@@ -5,11 +5,13 @@ import SwiftFulcrum
 
 extension Network.FulcrumSession {
     public func resumeQueuedWork(for account: Account) async {
+        await ensureTelemetryInstalled(for: account)
         await account.resumeQueuedRequests()
     }
     
     public func computeCachedBalance(for account: Account) async throws -> Satoshi {
-        try await account.loadBalanceFromCache()
+        await ensureTelemetryInstalled(for: account)
+        return try await account.loadBalanceFromCache()
     }
     
     public func computeBalance(
@@ -17,9 +19,10 @@ extension Network.FulcrumSession {
         priority: TaskPriority? = nil,
         options: SwiftFulcrum.Client.Call.Options = .init()
     ) async throws -> Satoshi {
-        try await account.performRequest(for: .calculateBalance,
-                                         priority: priority,
-                                         retryPolicy: .retry) {
+        await ensureTelemetryInstalled(for: account)
+        return try await account.performRequest(for: .calculateBalance,
+                                                priority: priority,
+                                                retryPolicy: .retry) {
             try await self.ensureSessionReady()
             return try await self.refreshCachedBalance(for: account, options: options)
         }

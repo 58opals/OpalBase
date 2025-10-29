@@ -148,3 +148,9 @@ extension Account {
         networkMonitorTask = nil
     }
 }
+
+extension Account {
+    func updateRequestRouterInstrumentation(_ instrumentation: RequestRouter<Request>.Instrumentation) async {
+        await requestRouter.updateInstrumentation(instrumentation)
+    }
+}

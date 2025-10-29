@@ -4,7 +4,7 @@ import Foundation
 
 public actor RequestRouter<RequestValue: Hashable & Sendable> {
     private let configuration: Configuration
-    private let instrumentation: Instrumentation
+    private var instrumentation: Instrumentation
     private var queue: [Request] = .init()
     private var queuedIndices: [Key: Int] = .init()
     private var queueIndicesKeys: [Key] { Array(queuedIndices.keys) }
@@ -70,6 +70,11 @@ public actor RequestRouter<RequestValue: Hashable & Sendable> {
         isSuspended = false
         nextPermittedStart = nil
         tryStartNext()
+    }
+    
+    func updateInstrumentation(_ instrumentation: Instrumentation) {
+        self.instrumentation = instrumentation
+        instrumentation.didChangeQueueDepth(to: queue.count)
     }
     
     func enqueue(key: Key,

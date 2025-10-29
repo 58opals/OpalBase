@@ -3,7 +3,7 @@
 import Foundation
 
 extension Account {
-    enum Request: Hashable, Sendable {
+    public enum Request: Hashable, Sendable {
         case broadcast(Transaction.Hash)
         case refreshUTXOSet
         case calculateBalance

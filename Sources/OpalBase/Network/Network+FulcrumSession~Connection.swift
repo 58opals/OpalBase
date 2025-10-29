@@ -7,12 +7,17 @@ extension Network.FulcrumSession {
     public func start() async throws {
         guard state == .stopped else { throw Error.sessionAlreadyStarted }
         
-        if try await restartExistingFulcrumIfPossible() { return }
+        if try await restartExistingFulcrumIfPossible() {
+            recordStart(using: activeServerAddress)
+            return
+        }
         await resetFulcrumForRestart()
         do {
             try await startUsingCandidateServers()
+            recordStart(using: activeServerAddress)
         } catch {
             state = .stopped
+            pendingFallbackOrigin = nil
             throw error
         }
     }
@@ -24,6 +29,7 @@ extension Network.FulcrumSession {
         await resetFulcrumForRestart()
         setActiveServerAddress(nil)
         await cancelAllStreamingCalls()
+        pendingFallbackOrigin = nil
         state = .stopped
     }
     
@@ -37,6 +43,7 @@ extension Network.FulcrumSession {
         do {
             try await fulcrum.reconnect()
             try await restoreStreamingSubscriptions(using: fulcrum)
+            recordReconnect(using: activeServerAddress)
         } catch {
             await handleConnectionFailure(for: activeServerAddress,
                                           error: error,
@@ -176,6 +183,7 @@ extension Network.FulcrumSession {
         }
         
         activeServerAddress = server
+        emitTelemetry(.activeServerDidChange(server))
         
         if let server {
             emitEvent(.didActivateServer(server))
@@ -186,6 +194,7 @@ extension Network.FulcrumSession {
         try await connect(to: server) {
             if let server { promoteCandidate(server) }
             setActiveServerAddress(server)
+            recordFallbackIfNeeded(to: server)
         }
     }
     
@@ -226,6 +235,7 @@ extension Network.FulcrumSession {
         
         setActiveServerAddress(nil)
         if let server {
+            prepareForFallback(from: server)
             emitEvent(.didFailToConnectToServer(server, failureDescription: error.localizedDescription))
             demoteCandidate(server)
         }

@@ -5,13 +5,10 @@ import SwiftFulcrum
 
 extension Network {
     public actor FulcrumSession {
-        public enum State: Sendable, Equatable {
-            case stopped
-            case restoring
-            case running
-        }
-        
         public enum Event: Sendable, Equatable {
+            case didStart(URL?)
+            case didReconnect(URL?)
+            case didFallback(from: URL?, to: URL?)
             case didActivateServer(URL)
             case didDeactivateServer(URL)
             case didPromoteServer(URL)
@@ -32,6 +29,9 @@ extension Network {
         var fulcrum: SwiftFulcrum.Fulcrum?
         
         var eventContinuations: [UUID: AsyncStream<Event>.Continuation] = .init()
+        var telemetryContinuations: [UUID: AsyncStream<Telemetry.Event>.Continuation] = .init()
+        var telemetryAccountContexts: [Data: Telemetry.AccountContext] = .init()
+        var pendingFallbackOrigin: URL?
         var streamingCallDescriptors: [UUID: any AnyStreamingCallDescriptor] = .init()
         var streamingCallOptions: [UUID: SwiftFulcrum.Client.Call.Options] = .init()
         var internallyCancelledStreamingCallIdentifiers: Set<UUID> = .init()

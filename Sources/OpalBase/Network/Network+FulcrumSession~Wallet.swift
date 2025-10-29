@@ -10,7 +10,9 @@ extension Network.FulcrumSession {
         fulcrumServerURLs: [String] = .init()
     ) async throws -> Account {
         try await wallet.addAccount(unhardenedIndex: unhardenedIndex, fulcrumServerURLs: fulcrumServerURLs)
-        return try await wallet.fetchAccount(at: unhardenedIndex)
+        let account = try await wallet.fetchAccount(at: unhardenedIndex)
+        await ensureTelemetryInstalled(for: account)
+        return account
     }
     
     public func resumeQueuedWork(for wallet: Wallet) async {
@@ -20,6 +22,7 @@ extension Network.FulcrumSession {
         for index in 0..<numberOfAccounts {
             do {
                 let account = try await wallet.fetchAccount(at: UInt32(index))
+                await ensureTelemetryInstalled(for: account)
                 await resumeQueuedWork(for: account)
             } catch {
                 continue
@@ -29,11 +32,25 @@ extension Network.FulcrumSession {
     
     public func resumeQueuedWork(for wallet: Wallet, accountIndex: UInt32) async throws {
         let account = try await wallet.fetchAccount(at: accountIndex)
+        await ensureTelemetryInstalled(for: account)
         await resumeQueuedWork(for: account)
     }
     
     public func computeCachedBalance(for wallet: Wallet) async throws -> Satoshi {
-        try await wallet.calculateBalance()
+        let balance = try await wallet.calculateBalance()
+        let numberOfAccounts = await wallet.numberOfAccounts
+        guard numberOfAccounts > 0 else { return balance }
+        
+        for index in 0..<numberOfAccounts {
+            do {
+                let account = try await wallet.fetchAccount(at: UInt32(index))
+                await ensureTelemetryInstalled(for: account)
+            } catch {
+                continue
+            }
+        }
+        
+        return balance
     }
     
     public func computeBalance(
@@ -48,6 +65,7 @@ extension Network.FulcrumSession {
         accounts.reserveCapacity(numberOfAccounts)
         for index in 0..<numberOfAccounts {
             let account = try await wallet.fetchAccount(at: UInt32(index))
+            await ensureTelemetryInstalled(for: account)
             accounts.append(account)
         }
         
