@@ -122,15 +122,15 @@ extension Network.FulcrumSession {
         })
     }
     
-    internal func prepareStreamingCallsForRestart() async {
-        await resetFulcrumForRestart()
-        
+    func prepareStreamingCallsForRestart() async {
         for descriptor in streamingCallDescriptors.values {
             await descriptor.prepareForRestart()
         }
+        
+        await resetFulcrumForRestart()
     }
     
-    internal func cancelAllStreamingCalls() async {
+    func cancelAllStreamingCalls() async {
         let descriptors = Array(streamingCallDescriptors.values)
         streamingCallDescriptors.removeAll()
         
@@ -139,7 +139,7 @@ extension Network.FulcrumSession {
         }
     }
     
-    internal func restoreStreamingSubscriptions(using fulcrum: SwiftFulcrum.Fulcrum) async {
+    func restoreStreamingSubscriptions(using fulcrum: SwiftFulcrum.Fulcrum) async {
         guard !streamingCallDescriptors.isEmpty else { return }
         
         for descriptor in Array(streamingCallDescriptors.values) {
@@ -171,10 +171,12 @@ extension Network.FulcrumSession {
         await descriptor.readIsActive()
     }
     
-    internal func resubscribeExisting<Initial: JSONRPCConvertible, Notification: JSONRPCConvertible>(
+    func resubscribeExisting<Initial: JSONRPCConvertible, Notification: JSONRPCConvertible>(
         _ descriptor: StreamingCallDescriptor<Initial, Notification>,
         using fulcrum: SwiftFulcrum.Fulcrum? = nil
     ) async throws -> Initial {
+        await descriptor.prepareForRestart()
+        
         try ensureSessionIsRunning()
         let activeFulcrum = fulcrum ?? self.fulcrum
         guard let activeFulcrum else { throw Error.sessionNotStarted }
@@ -256,8 +258,10 @@ actor StreamingCallDescriptor<Initial: JSONRPCConvertible, Notification: JSONRPC
     func prepareForRestart() async {
         forwardingTask?.cancel()
         forwardingTask = nil
-        cancelHandler = nil
+        let cancelHandler = cancelHandler
+        self.cancelHandler = nil
         isActive = false
+        if let cancelHandler { await cancelHandler() }
     }
     
     func cancelAndFinish() async {
