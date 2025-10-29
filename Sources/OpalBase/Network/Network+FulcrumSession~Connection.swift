@@ -14,9 +14,7 @@ extension Network.FulcrumSession {
     public func stop() async throws {
         guard isSessionRunning else { throw Error.sessionNotStarted }
         
-        await fulcrum?.stop()
-        isSessionRunning = false
-        fulcrum = nil
+        await resetFulcrumForRestart()
         setActiveServerAddress(nil)
         await cancelAllStreamingCalls()
     }
@@ -79,12 +77,16 @@ extension Network.FulcrumSession {
         refreshCandidateServerAddressesIfNeeded()
         
         let serversToAttempt = candidateServerAddresses
+        if serversToAttempt.isEmpty {
+                    try await connectAndActivateServer(nil)
+                    return
+                }
+        
         var lastError: Swift.Error?
         
-        let targets: [URL?] = serversToAttempt.isEmpty ? [nil] : serversToAttempt.map(Optional.init)
-        for target in targets {
+        for server in serversToAttempt {
             do {
-                try await connectAndActivateServer(target)
+                try await connectAndActivateServer(server)
                 return
             } catch {
                 lastError = error
@@ -155,34 +157,38 @@ extension Network.FulcrumSession {
     }
     
     private func connect(to server: URL?, onSuccess: () -> Void) async throws {
-        let instance: SwiftFulcrum.Fulcrum
-        
-        do {
-            instance = try await SwiftFulcrum.Fulcrum(url: server?.absoluteString, configuration: configuration)
-        } catch {
-            await handleConnectionFailure(for: server, error: error, shouldPrepareStreamingCalls: false)
-            throw error
-        }
+        let instance = try await makeFulcrum(for: server)
+        var shouldPrepareStreamingCalls = false
         
         do {
             try await instance.start()
+            
+            do {
+                try await restoreStreamingSubscriptions(using: instance)
+            } catch {
+                shouldPrepareStreamingCalls = true
+                throw error
+            }
         } catch {
             await instance.stop()
-            await handleConnectionFailure(for: server, error: error, shouldPrepareStreamingCalls: false)
-            throw error
-        }
-        
-        do {
-            try await restoreStreamingSubscriptions(using: instance)
-        } catch {
-            await instance.stop()
-            await handleConnectionFailure(for: server, error: error, shouldPrepareStreamingCalls: true)
+            await handleConnectionFailure(for: server,
+                                          error: error,
+                                          shouldPrepareStreamingCalls: shouldPrepareStreamingCalls)
             throw error
         }
         
         fulcrum = instance
         isSessionRunning = true
         onSuccess()
+    }
+    
+    private func makeFulcrum(for server: URL?) async throws -> SwiftFulcrum.Fulcrum {
+        do {
+            return try await SwiftFulcrum.Fulcrum(url: server?.absoluteString, configuration: configuration)
+        } catch {
+            await handleConnectionFailure(for: server, error: error, shouldPrepareStreamingCalls: false)
+            throw error
+        }
     }
     
     private func handleConnectionFailure(for server: URL?,

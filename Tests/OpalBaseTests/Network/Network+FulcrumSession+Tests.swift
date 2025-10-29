@@ -64,6 +64,19 @@ extension NetworkFulcrumSessionTests {
         }
     }
     
+    @Test("candidate server addresses remove duplicates", .tags(.unit))
+    func testCandidateServerAddressesRemoveDuplicates() async throws {
+        let duplicateServerAddress = URL(string: "wss://fulcrum.duplicate.opalbase.test:50004")!
+        let configuration = SwiftFulcrum.Fulcrum.Configuration(bootstrapServers: [duplicateServerAddress, duplicateServerAddress])
+        
+        try await withSession(using: duplicateServerAddress, configuration: configuration) { session in
+            let addresses = await session.candidateServerAddresses
+            let duplicateCount = addresses.filter { $0 == duplicateServerAddress }.count
+            
+            #expect(duplicateCount == 1)
+        }
+    }
+    
     @Test("activate server validates unsupported schemes", .tags(.unit))
     func testActivateServerValidatesSchemes() async throws {
         let unsupportedServerAddress = URL(string: "http://example.com")!
@@ -163,6 +176,24 @@ extension NetworkFulcrumSessionTests {
             
             #expect(tip.height > 0)
             #expect(!tip.hex.isEmpty)
+        }
+    }
+    
+    @Test("start throws when the session is already running", .tags(.integration))
+    func testStartThrowsWhenSessionAlreadyRunning() async throws {
+        try await withSession { session in
+            try await session.start()
+            
+            do {
+                try await session.start()
+                #expect(Bool(false), "Expected start to throw when the session is already running")
+            } catch let sessionError as Network.FulcrumSession.Error {
+                guard case .sessionAlreadyStarted = sessionError else {
+                    return #expect(Bool(false), "Unexpected session error: \(sessionError)")
+                }
+            } catch {
+                #expect(Bool(false), "Unexpected error: \(error)")
+            }
         }
     }
     
