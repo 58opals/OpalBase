@@ -5,15 +5,6 @@ import SwiftFulcrum
 
 extension Network {
     public actor FulcrumSession {
-        public enum Error: Swift.Error {
-            case sessionAlreadyStarted
-            case sessionNotStarted
-            case unsupportedServerAddress
-            case unexpectedResponse(SwiftFulcrum.Method)
-            case subscriptionNotFound
-            case failedToRestoreSubscription(Swift.Error)
-        }
-        
         public enum State: Sendable, Equatable {
             case stopped
             case restoring
@@ -117,6 +108,37 @@ extension Network {
             }
             
             return result
+        }
+    }
+}
+
+extension Network.FulcrumSession {
+    public enum Error: Swift.Error {
+        case sessionAlreadyStarted
+        case sessionNotStarted
+        case unsupportedServerAddress
+        case subscriptionNotFound
+        case unexpectedResponse(SwiftFulcrum.Method)
+        case failedToRestoreSubscription(Swift.Error)
+    }
+}
+
+extension Network.FulcrumSession.Error: Equatable {
+    public static func == (lhs: Network.FulcrumSession.Error, rhs: Network.FulcrumSession.Error) -> Bool {
+        switch (lhs, rhs) {
+        case (.sessionAlreadyStarted, .sessionAlreadyStarted),
+            (.sessionNotStarted, .sessionNotStarted),
+            (.unsupportedServerAddress, .unsupportedServerAddress),
+            (.subscriptionNotFound, .subscriptionNotFound):
+            return true
+        case (.unexpectedResponse(let leftMethod), .unexpectedResponse(let rightMethod)):
+            _ = leftMethod.isSubscription
+            _ = rightMethod.isSubscription
+            return true
+        case (.failedToRestoreSubscription(let leftError), .failedToRestoreSubscription(let rightError)):
+            return leftError.localizedDescription == rightError.localizedDescription
+        default:
+            return false
         }
     }
 }

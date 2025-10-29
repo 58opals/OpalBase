@@ -155,7 +155,7 @@ extension Network.FulcrumSession {
 
 // MARK: - Utilities
 extension Network.FulcrumSession {
-    fileprivate static func normalizeStreamingOptions(
+    static func normalizeStreamingOptions(
         _ options: SwiftFulcrum.Client.Call.Options
     ) -> SwiftFulcrum.Client.Call.Options {
         SwiftFulcrum.Client.Call.Options(timeout: options.timeout, token: nil)
