@@ -36,10 +36,13 @@ extension Network {
         
         public init(serverAddress: URL? = nil,
                     configuration: SwiftFulcrum.Fulcrum.Configuration = .init()) async throws {
+            let candidates = Self.makeCandidateServerAddresses(from: serverAddress,
+                                                               configuration: configuration)
+            if let serverAddress, !candidates.contains(serverAddress) { throw Error.unsupportedServerAddress }
+            
             self.configuration = configuration
             self.preferredServerAddress = serverAddress
-            self.candidateServerAddresses = Self.makeCandidateServerAddresses(from: serverAddress,
-                                                                              configuration: configuration)
+            self.candidateServerAddresses = candidates
             self.activeServerAddress = nil
         }
         

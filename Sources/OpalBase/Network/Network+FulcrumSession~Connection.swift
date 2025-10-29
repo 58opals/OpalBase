@@ -48,6 +48,8 @@ extension Network.FulcrumSession {
     public func activateServerAddress(_ server: URL) async throws {
         let previousPreferredServerAddress = preferredServerAddress
         let previousCandidateServerAddresses = candidateServerAddresses
+        let wasOperational = isOperational
+        let previousActiveServerAddress = activeServerAddress
         
         preferredServerAddress = server
         candidateServerAddresses = Self.makeCandidateServerAddresses(from: preferredServerAddress,
@@ -59,8 +61,8 @@ extension Network.FulcrumSession {
             throw Error.unsupportedServerAddress
         }
         
-        if isOperational {
-            if activeServerAddress == server {
+        if wasOperational {
+            if previousActiveServerAddress == server {
                 return
             }
             
@@ -68,7 +70,20 @@ extension Network.FulcrumSession {
             setActiveServerAddress(nil)
         }
         
-        try await start()
+        do {
+            try await start()
+        } catch {
+            preferredServerAddress = previousPreferredServerAddress
+            candidateServerAddresses = previousCandidateServerAddresses
+            
+            if wasOperational {
+                do {
+                    try await start()
+                } catch {}
+            }
+            
+            throw error
+        }
     }
     
     func resetFulcrumForRestart() async {
@@ -139,6 +154,7 @@ extension Network.FulcrumSession {
     }
     
     private func demoteCandidate(_ server: URL) {
+        if preferredServerAddress == server { return }
         guard let index = candidateServerAddresses.firstIndex(of: server) else { return }
         let candidate = candidateServerAddresses.remove(at: index)
         candidateServerAddresses.append(candidate)
@@ -199,6 +215,8 @@ extension Network.FulcrumSession {
     private func handleConnectionFailure(for server: URL?,
                                          error: Swift.Error,
                                          shouldForceStreamingPreparation: Bool = false) async {
+        state = .stopped
+        
         if let server {
             emitEvent(.didFailToConnectToServer(server, failureDescription: error.localizedDescription))
             demoteCandidate(server)
