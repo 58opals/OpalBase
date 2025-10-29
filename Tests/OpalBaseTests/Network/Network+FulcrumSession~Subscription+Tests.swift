@@ -66,7 +66,13 @@ extension NetworkFulcrumSessionSubscriptionTests {
             
             await session.prepareStreamingCallsForRestart()
             print(await session.isRunning)
+            #expect(await session.fulcrum == nil)
+            #expect(await !session.isRunning)
             #expect(await !subscription.checkIsActive())
+            
+            try await session.start()
+            #expect(await session.isRunning)
+            #expect(await subscription.checkIsActive())
             
             let refreshedStatus = try await subscription.resubscribe()
             print(refreshedStatus)

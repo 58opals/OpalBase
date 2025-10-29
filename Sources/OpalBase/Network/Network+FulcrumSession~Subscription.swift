@@ -123,6 +123,8 @@ extension Network.FulcrumSession {
     }
     
     internal func prepareStreamingCallsForRestart() async {
+        await resetFulcrumForRestart()
+        
         for descriptor in streamingCallDescriptors.values {
             await descriptor.prepareForRestart()
         }

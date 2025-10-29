@@ -17,9 +17,7 @@ extension Network.FulcrumSession {
                 await restoreStreamingSubscriptions(using: currentFulcrum)
                 return
             } catch {
-                await currentFulcrum.stop()
                 await prepareStreamingCallsForRestart()
-                fulcrum = nil
                 setActiveServerAddress(nil)
             }
         }
@@ -48,10 +46,7 @@ extension Network.FulcrumSession {
             try await fulcrum.reconnect()
             await restoreStreamingSubscriptions(using: fulcrum)
         } catch {
-            await fulcrum.stop()
             await prepareStreamingCallsForRestart()
-            isSessionRunning = false
-            self.fulcrum = nil
             
             if let activeServerAddress {
                 emitEvent(.didFailToConnectToServer(activeServerAddress,
@@ -83,20 +78,24 @@ extension Network.FulcrumSession {
                 return
             }
             
-            if let fulcrum {
-                await fulcrum.stop()
-            }
-            
             await prepareStreamingCallsForRestart()
-            self.fulcrum = nil
-            isSessionRunning = false
             setActiveServerAddress(nil)
         }
         
         try await start()
     }
     
+    func resetFulcrumForRestart() async {
+        if let currentFulcrum = fulcrum {
+            await currentFulcrum.stop()
+            fulcrum = nil
+        }
+        isSessionRunning = false
+    }
+    
     private func startUsingCandidateServers() async throws {
+        await resetFulcrumForRestart()
+        
         if candidateServerAddresses.isEmpty {
             candidateServerAddresses = Self.makeCandidateServerAddresses(from: preferredServerAddress,
                                                                          configuration: configuration)
