@@ -7,21 +7,7 @@ extension Network.FulcrumSession {
     public func start() async throws {
         guard !isSessionRunning else { throw Error.sessionAlreadyStarted }
         
-        if let currentFulcrum = fulcrum {
-            do {
-                try await currentFulcrum.start()
-                isSessionRunning = true
-                if activeServerAddress == nil {
-                    setActiveServerAddress(candidateServerAddresses.first)
-                }
-                try await restoreStreamingSubscriptions(using: currentFulcrum)
-                return
-            } catch {
-                await prepareStreamingCallsForRestart()
-                setActiveServerAddress(nil)
-            }
-        }
-        
+        if try await restartExistingFulcrumIfPossible() { return }
         try await startUsingCandidateServers()
     }
     
@@ -46,15 +32,10 @@ extension Network.FulcrumSession {
             try await fulcrum.reconnect()
             try await restoreStreamingSubscriptions(using: fulcrum)
         } catch {
-            await prepareStreamingCallsForRestart()
-            
-            if let activeServerAddress {
-                emitEvent(.didFailToConnectToServer(activeServerAddress,
-                                                    failureDescription: error.localizedDescription))
-                demoteCandidate(activeServerAddress)
-                setActiveServerAddress(nil)
-            }
-            
+            await handleConnectionFailure(for: activeServerAddress,
+                                          error: error,
+                                          shouldPrepareStreamingCalls: true)
+            setActiveServerAddress(nil)
             try await start()
         }
     }
@@ -95,27 +76,15 @@ extension Network.FulcrumSession {
     
     private func startUsingCandidateServers() async throws {
         await resetFulcrumForRestart()
-        
-        if candidateServerAddresses.isEmpty {
-            candidateServerAddresses = Self.makeCandidateServerAddresses(from: preferredServerAddress,
-                                                                         configuration: configuration)
-        }
+        refreshCandidateServerAddressesIfNeeded()
         
         let serversToAttempt = candidateServerAddresses
         var lastError: Swift.Error?
         
-        for server in serversToAttempt {
+        let targets: [URL?] = serversToAttempt.isEmpty ? [nil] : serversToAttempt.map(Optional.init)
+        for target in targets {
             do {
-                try await connectToCandidate(server)
-                return
-            } catch {
-                lastError = error
-            }
-        }
-        
-        if serversToAttempt.isEmpty {
-            do {
-                try await connectToFallbackServer()
+                try await connectAndActivateServer(target)
                 return
             } catch {
                 lastError = error
@@ -123,6 +92,31 @@ extension Network.FulcrumSession {
         }
         
         throw lastError ?? SwiftFulcrum.Fulcrum.Error.transport(.setupFailed)
+    }
+    
+    private func restartExistingFulcrumIfPossible() async throws -> Bool {
+        guard let currentFulcrum = fulcrum else { return false }
+        
+        do {
+            try await currentFulcrum.start()
+            isSessionRunning = true
+            if activeServerAddress == nil {
+                setActiveServerAddress(candidateServerAddresses.first)
+            }
+            try await restoreStreamingSubscriptions(using: currentFulcrum)
+            return true
+        } catch {
+            await prepareStreamingCallsForRestart()
+            setActiveServerAddress(nil)
+            return false
+        }
+    }
+    
+    private func refreshCandidateServerAddressesIfNeeded() {
+        guard candidateServerAddresses.isEmpty else { return }
+        
+        candidateServerAddresses = Self.makeCandidateServerAddresses(from: preferredServerAddress,
+                                                                     configuration: configuration)
     }
     
     private func promoteCandidate(_ server: URL) {
@@ -153,16 +147,10 @@ extension Network.FulcrumSession {
         }
     }
     
-    private func connectToCandidate(_ server: URL) async throws {
+    private func connectAndActivateServer(_ server: URL?) async throws {
         try await connect(to: server) {
-            promoteCandidate(server)
+            if let server { promoteCandidate(server) }
             setActiveServerAddress(server)
-        }
-    }
-    
-    private func connectToFallbackServer() async throws {
-        try await connect(to: nil) {
-            setActiveServerAddress(nil)
         }
     }
     
