@@ -320,8 +320,8 @@ actor StreamingCallDescriptor<Initial: JSONRPCConvertible, Notification: JSONRPC
                     continuation.yield(update)
                 }
             }
-        } catch is CancellationError {
         } catch {
+            return
         }
         isActive = false
         forwardingTask = nil
