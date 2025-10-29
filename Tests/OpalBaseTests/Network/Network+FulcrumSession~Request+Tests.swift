@@ -86,17 +86,14 @@ extension NetworkFulcrumSessionRequestTests {
             guard case .single(_, let history) = historyResponse else {
                 return #expect(Bool(false), "Expected single history response for sample script hash")
             }
-            print(history.transactions.count)
             
             guard let confirmed = history.transactions.first(where: { $0.height > 0 }) else {
                 return #expect(Bool(false), "Expected at least one confirmed transaction in script hash history")
             }
-            print(confirmed.transactionHash)
             
             let merkleProof = try await session.fetchTransactionMerkleProof(
                 forTransactionHash: confirmed.transactionHash
             )
-            print(merkleProof.blockHeight)
             
             #expect(merkleProof.blockHeight == UInt(confirmed.height))
             #expect(!merkleProof.merkle.isEmpty)

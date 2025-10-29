@@ -60,14 +60,18 @@ extension NetworkFulcrumSessionSubscriptionTests {
             defer { Task { await subscription.cancel() } }
             
             let initialStatus = await subscription.fetchLatestInitialResponse()
+            print(initialStatus)
             #expect(initialStatus.status != nil)
             #expect(await subscription.checkIsActive())
             
             await session.prepareStreamingCallsForRestart()
+            print(await session.isRunning)
             #expect(await !subscription.checkIsActive())
             
             let refreshedStatus = try await subscription.resubscribe()
+            print(refreshedStatus)
             let latestStatus = await subscription.fetchLatestInitialResponse()
+            print(latestStatus)
             
             #expect(refreshedStatus.status == latestStatus.status)
             #expect(await subscription.checkIsActive())
