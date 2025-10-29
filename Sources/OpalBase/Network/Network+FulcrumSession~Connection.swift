@@ -162,7 +162,7 @@ extension Network.FulcrumSession {
         emitEvent(.didDemoteServer(server))
     }
     
-    private func setActiveServerAddress(_ server: URL?) {
+    func setActiveServerAddress(_ server: URL?) {
         guard activeServerAddress != server else { return }
         
         if let currentAddress = activeServerAddress {
@@ -218,6 +218,7 @@ extension Network.FulcrumSession {
                                          shouldForceStreamingPreparation: Bool = false) async {
         state = .stopped
         
+        setActiveServerAddress(nil)
         if let server {
             emitEvent(.didFailToConnectToServer(server, failureDescription: error.localizedDescription))
             demoteCandidate(server)

@@ -58,6 +58,7 @@ extension Network.FulcrumSession {
             await descriptor.prepareForRestart()
         }
         
+        setActiveServerAddress(nil)
         await resetFulcrumForRestart()
         state = .stopped
     }
