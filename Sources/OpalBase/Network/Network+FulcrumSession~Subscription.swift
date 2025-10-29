@@ -181,9 +181,15 @@ extension Network.FulcrumSession {
     ) async throws -> Initial {
         await descriptor.prepareForRestart()
         
-        try ensureSessionIsRunning()
-        let activeFulcrum = fulcrum ?? self.fulcrum
-        guard let activeFulcrum else { throw Error.sessionNotStarted }
+        let activeFulcrum: SwiftFulcrum.Fulcrum
+        
+        if let fulcrum {
+            activeFulcrum = fulcrum
+        } else {
+            try ensureSessionIsRunning()
+            guard let currentFulcrum = self.fulcrum else { throw Error.sessionNotStarted }
+            activeFulcrum = currentFulcrum
+        }
         
         let response = try await activeFulcrum.submit(method: descriptor.method,
                                                       initialType: Initial.self,
