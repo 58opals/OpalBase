@@ -31,7 +31,7 @@ struct NetworkFulcrumSessionStateMachineTests {
     }
 }
 
-private actor TestStreamingCallDescriptor: AnyStreamingCallDescriptor {
+private actor TestStreamingCallDescriptor: Network.FulcrumSession.AnyStreamingCallDescriptor {
     enum Error: Swift.Error {
         case simulated
     }
@@ -86,7 +86,7 @@ extension Network.FulcrumSession {
 }
 
 extension NetworkFulcrumSessionStateMachineTests {
-    @Test("start transitions from stopped through restoring to running")
+    @Test("start transitions from stopped through restoring to running", .timeLimit(.minutes(3)))
     func testStartTransitionsThroughRestoringToRunning() async throws {
         try await withSession { session in
             let descriptor = TestStreamingCallDescriptor()
@@ -100,7 +100,7 @@ extension NetworkFulcrumSessionStateMachineTests {
         }
     }
     
-    @Test("failed restoration returns the session to stopped")
+    @Test("failed restoration returns the session to stopped", .timeLimit(.minutes(3)))
     func testRestoreFailureReturnsSessionToStopped() async throws {
         try await withSession { session in
             let descriptor = TestStreamingCallDescriptor(shouldThrowOnResubscribe: true)
@@ -120,7 +120,7 @@ extension NetworkFulcrumSessionStateMachineTests {
         }
     }
     
-    @Test("start rejects attempts while already running")
+    @Test("start rejects attempts while already running", .timeLimit(.minutes(3)))
     func testStartRejectsWhileAlreadyRunning() async throws {
         try await withSession { session in
             try await session.start()

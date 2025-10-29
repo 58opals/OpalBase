@@ -52,7 +52,7 @@ struct NetworkFulcrumSessionRequestTests {
 }
 
 extension NetworkFulcrumSessionRequestTests {
-    @Test("fetchHeaderTip surfaces the latest chain tip")
+    @Test("fetchHeaderTip surfaces the latest chain tip", .timeLimit(.minutes(3)))
     func testFetchHeaderTipProvidesRecentChainInformation() async throws {
         try await withRunningSession { session in
             let tip = try await session.fetchHeaderTip()
@@ -62,7 +62,7 @@ extension NetworkFulcrumSessionRequestTests {
         }
     }
     
-    @Test("fetchAddressBalance aligns with script hash balance")
+    @Test("fetchAddressBalance aligns with script hash balance", .timeLimit(.minutes(3)))
     func testFetchAddressAndScriptHashBalanceConsistency() async throws {
         try await withRunningSession { session in
             let addressBalance = try await session.fetchAddressBalance(Self.sampleAddress)
@@ -74,7 +74,7 @@ extension NetworkFulcrumSessionRequestTests {
         }
     }
     
-    @Test("fetchTransactionMerkleProof matches historical data")
+    @Test("fetchTransactionMerkleProof matches historical data", .timeLimit(.minutes(3)))
     func testFetchTransactionMerkleProofMatchesHistory() async throws {
         try await withRunningSession { session in
             let scriptHash = try makeScriptHash(for: Self.sampleAddress)
@@ -100,7 +100,7 @@ extension NetworkFulcrumSessionRequestTests {
         }
     }
     
-    @Test("broadcasting invalid transactions surfaces server errors")
+    @Test("broadcasting invalid transactions surfaces server errors", .timeLimit(.minutes(3)))
     func testBroadcastTransactionSurfacesServerErrors() async throws {
         try await withRunningSession { session in
             await #expect(throws: SwiftFulcrum.Fulcrum.Error.self) {

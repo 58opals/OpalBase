@@ -50,7 +50,7 @@ struct NetworkFulcrumSessionTests {
 }
 
 extension NetworkFulcrumSessionTests {
-    @Test("candidate server addresses surface the configured candidates", .tags(.unit))
+    @Test("candidate server addresses surface the configured candidates", .tags(.unit), .timeLimit(.minutes(3)))
     func testCandidateServerAddressesExposeConfiguration() async throws {
         let preferredServerAddress = URL(string: "wss://fulcrum.example.opalbase.test:50004")!
         let bootstrapServerAddress = URL(string: "wss://fulcrum.bootstrap.opalbase.test:50004")!
@@ -64,7 +64,7 @@ extension NetworkFulcrumSessionTests {
         }
     }
     
-    @Test("candidate server addresses remove duplicates", .tags(.unit))
+    @Test("candidate server addresses remove duplicates", .tags(.unit), .timeLimit(.minutes(3)))
     func testCandidateServerAddressesRemoveDuplicates() async throws {
         let duplicateServerAddress = URL(string: "wss://fulcrum.duplicate.opalbase.test:50004")!
         let configuration = SwiftFulcrum.Fulcrum.Configuration(bootstrapServers: [duplicateServerAddress, duplicateServerAddress])
@@ -77,7 +77,7 @@ extension NetworkFulcrumSessionTests {
         }
     }
     
-    @Test("activate server validates unsupported schemes", .tags(.unit))
+    @Test("activate server validates unsupported schemes", .tags(.unit), .timeLimit(.minutes(3)))
     func testActivateServerValidatesSchemes() async throws {
         let unsupportedServerAddress = URL(string: "http://example.com")!
         
@@ -98,7 +98,7 @@ extension NetworkFulcrumSessionTests {
         }
     }
     
-    @Test("event stream surfaces failover activity", .tags(.integration))
+    @Test("event stream surfaces failover activity", .tags(.integration), .timeLimit(.minutes(3)))
     func testEventStreamSurfacesFailoverActivity() async throws {
         let unreachableServer = URL(string: "wss://fulcrum.jettscythe.xyz:50004")!
         let configuration = SwiftFulcrum.Fulcrum.Configuration(
@@ -159,7 +159,7 @@ extension NetworkFulcrumSessionTests {
         }
     }
     
-    @Test("start, fetch header tip, and stop on a healthy server", .tags(.integration))
+    @Test("start, fetch header tip, and stop on a healthy server", .tags(.integration), .timeLimit(.minutes(3)))
     func testStartFetchTipAndStopOnHealthyServer() async throws {
         try await withSession { session in
             try await session.start()
@@ -179,7 +179,7 @@ extension NetworkFulcrumSessionTests {
         }
     }
     
-    @Test("start throws when the session is already running", .tags(.integration))
+    @Test("start throws when the session is already running", .tags(.integration), .timeLimit(.minutes(3)))
     func testStartThrowsWhenSessionAlreadyRunning() async throws {
         try await withSession { session in
             try await session.start()
@@ -197,7 +197,7 @@ extension NetworkFulcrumSessionTests {
         }
     }
     
-    @Test("reconnect keeps the session healthy", .tags(.integration))
+    @Test("reconnect keeps the session healthy", .tags(.integration), .timeLimit(.minutes(3)))
     func testReconnectKeepsSessionHealthy() async throws {
         try await withSession { session in
             try await session.start()
@@ -220,7 +220,7 @@ extension NetworkFulcrumSessionTests {
         }
     }
     
-    @Test("start falls back to a healthy server when the primary endpoint fails", .tags(.integration))
+    @Test("start falls back to a healthy server when the primary endpoint fails", .tags(.integration), .timeLimit(.minutes(3)))
     func testStartFallsBackToHealthyServer() async throws {
         let unreachableServer = URL(string: "wss://fulcrum.jettscythe.xyz:50004")!
         let configuration = SwiftFulcrum.Fulcrum.Configuration(
@@ -246,7 +246,7 @@ extension NetworkFulcrumSessionTests {
         }
     }
     
-    @Test("submit requires the session to be running", .tags(.unit))
+    @Test("submit requires the session to be running", .tags(.unit), .timeLimit(.minutes(3)))
     func testSubmitRequiresRunningSession() async throws {
         try await withSession { session in
             #expect(await !session.isRunning)
@@ -267,7 +267,7 @@ extension NetworkFulcrumSessionTests {
         }
     }
     
-    @Test("reconnect requires the session to be running", .tags(.unit))
+    @Test("reconnect requires the session to be running", .tags(.unit), .timeLimit(.minutes(3)))
     func testReconnectRequiresRunningSession() async throws {
         try await withSession { session in
             #expect(await !session.isRunning)
@@ -285,7 +285,7 @@ extension NetworkFulcrumSessionTests {
         }
     }
     
-    @Test("start requires the session to be idle", .tags(.unit))
+    @Test("start requires the session to be idle", .tags(.unit), .timeLimit(.minutes(3)))
     func testStartRequiresIdleSession() async throws {
         try await withSession { session in
             try await session.start()
@@ -303,7 +303,7 @@ extension NetworkFulcrumSessionTests {
         }
     }
     
-    @Test("stop requires the session to be running", .tags(.unit))
+    @Test("stop requires the session to be running", .tags(.unit), .timeLimit(.minutes(3)))
     func testStopRequiresRunningSession() async throws {
         try await withSession { session in
             #expect(await !session.isRunning)
@@ -321,7 +321,7 @@ extension NetworkFulcrumSessionTests {
         }
     }
     
-    @Test("start fails fast for unreachable servers", .tags(.integration))
+    @Test("start fails fast for unreachable servers", .tags(.integration), .timeLimit(.minutes(3)))
     func testStartFailsFastForUnreachableServers() async throws {
         let unreachableServer = URL(string: "wss://unreachable.fulcrum.opalbase.test:12345")!
         let configuration = SwiftFulcrum.Fulcrum.Configuration(connectionTimeout: 1)

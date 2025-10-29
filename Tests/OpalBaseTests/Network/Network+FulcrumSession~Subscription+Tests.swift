@@ -59,7 +59,7 @@ struct NetworkFulcrumSessionSubscriptionTests {
 }
 
 extension NetworkFulcrumSessionSubscriptionTests {
-    @Test("subscription resubscribes after preparing for restart")
+    @Test("subscription resubscribes after preparing for restart", .timeLimit(.minutes(3)))
     func testScriptHashSubscriptionRecoversAfterRestartPreparation() async throws {
         try await withRunningSession { session in
             let scriptHash = try makeScriptHash(for: Self.sampleAddress)
@@ -89,7 +89,7 @@ extension NetworkFulcrumSessionSubscriptionTests {
         }
     }
     
-    @Test("canceling subscriptions finishes the update stream")
+    @Test("canceling subscriptions finishes the update stream", .timeLimit(.minutes(3)))
     func testScriptHashSubscriptionCancellationFinishesStream() async throws {
         try await withRunningSession { session in
             let scriptHash = try makeScriptHash(for: Self.sampleAddress)
@@ -109,7 +109,7 @@ extension NetworkFulcrumSessionSubscriptionTests {
         }
     }
     
-    @Test("resubscribeExisting succeeds while running")
+    @Test("resubscribeExisting succeeds while running", .timeLimit(.minutes(3)))
     func testResubscribeExistingSucceedsWhileRunning() async throws {
         try await withRunningSession { session in
             let scriptHash = try makeScriptHash(for: Self.sampleAddress)
@@ -127,7 +127,7 @@ extension NetworkFulcrumSessionSubscriptionTests {
         }
     }
     
-    @Test("resubscribeExisting fails while stopped")
+    @Test("resubscribeExisting fails while stopped", .timeLimit(.minutes(3)))
     func testResubscribeExistingFailsWhileStopped() async throws {
         try await withRunningSession { session in
             let scriptHash = try makeScriptHash(for: Self.sampleAddress)
@@ -200,7 +200,7 @@ private actor SubscriptionRestorationDescriptor: AnyStreamingCallDescriptor {
 }
 
 extension NetworkFulcrumSessionSubscriptionTests {
-    @Test("resubscribeExisting succeeds while restoring")
+    @Test("resubscribeExisting succeeds while restoring", .timeLimit(.minutes(3)))
     func testResubscribeExistingSucceedsWhileRestoring() async throws {
         try await withSession { session in
             let descriptor = SubscriptionRestorationDescriptor(mode: .succeed)
@@ -214,7 +214,7 @@ extension NetworkFulcrumSessionSubscriptionTests {
         }
     }
     
-    @Test("resubscribeExisting failure during restoring records errors")
+    @Test("resubscribeExisting failure during restoring records errors", .timeLimit(.minutes(3)))
     func testResubscribeExistingFailureDuringRestoringRecordsErrors() async throws {
         try await withSession { session in
             let descriptor = SubscriptionRestorationDescriptor(mode: .fail(Network.FulcrumSession.Error.subscriptionNotFound))
