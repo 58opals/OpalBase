@@ -84,6 +84,8 @@ extension Network.FulcrumSession {
         }
         
         private func forwardUpdates(from updates: AsyncThrowingStream<Notification, Swift.Error>) async {
+            var caughtError: Swift.Error?
+            
             do {
                 for try await update in updates {
                     if shouldForwardUpdates {
@@ -91,10 +93,15 @@ extension Network.FulcrumSession {
                     }
                 }
             } catch {
-                return
+                caughtError = error
             }
             isActive = false
             forwardingTask = nil
+            
+            if let caughtError, shouldForwardUpdates {
+                continuation.finish(throwing: caughtError)
+            }
+            
             notifyCancellationCompletion()
         }
         
