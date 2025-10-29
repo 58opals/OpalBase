@@ -7,7 +7,6 @@ extension Network.FulcrumSession {
     actor StreamingCallDescriptor<Initial: JSONRPCConvertible, Notification: JSONRPCConvertible>: AnyStreamingCallDescriptor {
         let identifier: UUID
         let method: SwiftFulcrum.Method
-        let options: SwiftFulcrum.Client.Call.Options
         let stream: AsyncThrowingStream<Notification, Swift.Error>
         
         private var cancelHandler: (@Sendable () async -> Void)?
@@ -21,13 +20,11 @@ extension Network.FulcrumSession {
         
         init(identifier: UUID,
              method: SwiftFulcrum.Method,
-             options: SwiftFulcrum.Client.Call.Options,
              initial: Initial,
              updates: AsyncThrowingStream<Notification, Swift.Error>,
              cancel: @escaping @Sendable () async -> Void) async {
             self.identifier = identifier
             self.method = method
-            self.options = options
             
             var capturedContinuation: AsyncThrowingStream<Notification, Swift.Error>.Continuation!
             let stream = AsyncThrowingStream<Notification, Swift.Error> { continuation in

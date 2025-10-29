@@ -7,7 +7,6 @@ extension Network.FulcrumSession {
     protocol AnyStreamingCallDescriptor: Sendable {
         var identifier: UUID { get }
         var method: SwiftFulcrum.Method { get }
-        var options: SwiftFulcrum.Client.Call.Options { get }
         
         func prepareForRestart() async
         func cancelAndFinish() async

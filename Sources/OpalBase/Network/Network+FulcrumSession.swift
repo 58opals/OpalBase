@@ -33,6 +33,8 @@ extension Network {
         
         var eventContinuations: [UUID: AsyncStream<Event>.Continuation] = .init()
         var streamingCallDescriptors: [UUID: any AnyStreamingCallDescriptor] = .init()
+        var streamingCallOptions: [UUID: SwiftFulcrum.Client.Call.Options] = .init()
+        var internallyCancelledStreamingCallIdentifiers: Set<UUID> = .init()
         
         public init(serverAddress: URL? = nil,
                     configuration: SwiftFulcrum.Fulcrum.Configuration = .init()) async throws {
