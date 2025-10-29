@@ -181,7 +181,9 @@ extension Network.FulcrumSession {
         _ descriptor: StreamingCallDescriptor<Initial, Notification>,
         using fulcrum: SwiftFulcrum.Fulcrum? = nil
     ) async throws -> Initial {
-        await descriptor.prepareForRestart()
+        let cancelHandler = await descriptor.prepareForResubscription()
+        if let cancelHandler { await cancelHandler() }
+        await descriptor.waitForCancellationCompletion()
         
         try ensureSessionReady(allowRestoring: true)
         
@@ -244,6 +246,8 @@ actor StreamingCallDescriptor<Initial: JSONRPCConvertible, Notification: JSONRPC
     
     private var latestInitialResponse: Initial
     private var isActive = false
+    private var shouldForwardUpdates = true
+    private var pendingCancellationContinuations: [CheckedContinuation<Void, Never>] = .init()
     
     init(identifier: UUID,
          method: SwiftFulcrum.Method,
@@ -269,28 +273,26 @@ actor StreamingCallDescriptor<Initial: JSONRPCConvertible, Notification: JSONRPC
     }
     
     func prepareForRestart() async {
-        let cancelHandler = cancelHandler
-        self.cancelHandler = nil
+        let cancelHandler = await prepareForResubscription()
         if let cancelHandler { await cancelHandler() }
-        await cancelForwardingTaskAndWait()
-        isActive = false
+        await waitForCancellationCompletion()
     }
     
     func cancelAndFinish() async {
-        await cancelForwardingTaskAndWait()
-        if let cancelHandler {
-            await cancelHandler()
-        }
-        cancelHandler = nil
-        isActive = false
+        let cancelHandler = await prepareForResubscription()
+        if let cancelHandler { await cancelHandler() }
+        await waitForCancellationCompletion()
         continuation.finish()
     }
     
     func finish(with error: Swift.Error) async {
-        await cancelForwardingTaskAndWait()
+        shouldForwardUpdates = false
         cancelHandler = nil
         isActive = false
+        forwardingTask?.cancel()
+        forwardingTask = nil
         continuation.finish(throwing: error)
+        notifyCancellationCompletion()
     }
     
     func resubscribe(using session: Network.FulcrumSession, fulcrum: SwiftFulcrum.Fulcrum) async throws {
@@ -308,22 +310,22 @@ actor StreamingCallDescriptor<Initial: JSONRPCConvertible, Notification: JSONRPC
             await self.forwardUpdates(from: updates)
         }
         isActive = true
+        shouldForwardUpdates = true
     }
     
     private func forwardUpdates(from updates: AsyncThrowingStream<Notification, Swift.Error>) async {
         do {
             for try await update in updates {
-                continuation.yield(update)
+                if shouldForwardUpdates {
+                    continuation.yield(update)
+                }
             }
-            isActive = false
-            forwardingTask = nil
         } catch is CancellationError {
-            isActive = false
-            forwardingTask = nil
         } catch {
-            isActive = false
-            forwardingTask = nil
         }
+        isActive = false
+        forwardingTask = nil
+        notifyCancellationCompletion()
     }
     
     func readLatestInitialResponse() -> Initial {
@@ -340,8 +342,31 @@ actor StreamingCallDescriptor<Initial: JSONRPCConvertible, Notification: JSONRPC
         currentTask.cancel()
         await currentTask.value
     }
+    
+    private func notifyCancellationCompletion() {
+        guard !pendingCancellationContinuations.isEmpty else { return }
+        let continuations = pendingCancellationContinuations
+        pendingCancellationContinuations.removeAll()
+        for continuation in continuations {
+            continuation.resume()
+        }
+    }
+    
+    func prepareForResubscription() async -> (@Sendable () async -> Void)? {
+        shouldForwardUpdates = false
+        let handler = cancelHandler
+        cancelHandler = nil
+        isActive = false
+        return handler
+    }
+    
+    func waitForCancellationCompletion() async {
+        guard forwardingTask != nil else { return }
+        await withCheckedContinuation { continuation in
+            pendingCancellationContinuations.append(continuation)
+        }
+    }
 }
-
 // MARK: - Utilities
 extension Network.FulcrumSession {
     fileprivate static func normalizeStreamingOptions(
