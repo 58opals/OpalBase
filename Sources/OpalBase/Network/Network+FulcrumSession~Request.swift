@@ -9,7 +9,7 @@ extension Network.FulcrumSession {
         responseType: RegularResponseResult.Type = RegularResponseResult.self,
         options: SwiftFulcrum.Client.Call.Options = .init()
     ) async throws -> SwiftFulcrum.Fulcrum.RPCResponse<RegularResponseResult, Never> {
-        try ensureSessionIsRunning()
+        try ensureSessionReady()
         guard let fulcrum else { throw Error.sessionNotStarted }
         
         return try await fulcrum.submit(method: method,
@@ -23,7 +23,7 @@ extension Network.FulcrumSession {
         notificationType: Notification.Type = Notification.self,
         options: SwiftFulcrum.Client.Call.Options = .init()
     ) async throws -> SwiftFulcrum.Fulcrum.RPCResponse<Initial, Notification> {
-        try ensureSessionIsRunning()
+        try ensureSessionReady()
         guard let fulcrum else { throw Error.sessionNotStarted }
         
         return try await fulcrum.submit(method: method,

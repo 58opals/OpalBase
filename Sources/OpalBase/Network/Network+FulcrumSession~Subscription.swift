@@ -79,7 +79,7 @@ extension Network.FulcrumSession {
         notificationType: Notification.Type,
         options: SwiftFulcrum.Client.Call.Options
     ) async throws -> Subscription<Initial, Notification> {
-        try ensureSessionIsRunning()
+        try ensureSessionReady()
         guard let fulcrum else { throw Error.sessionNotStarted }
         
         let normalizedOptions = Self.normalizeStreamingOptions(options)
@@ -128,6 +128,7 @@ extension Network.FulcrumSession {
         }
         
         await resetFulcrumForRestart()
+        state = .stopped
     }
     
     func cancelAllStreamingCalls() async {
@@ -141,6 +142,7 @@ extension Network.FulcrumSession {
     
     func restoreStreamingSubscriptions(using fulcrum: SwiftFulcrum.Fulcrum) async throws {
         guard !streamingCallDescriptors.isEmpty else { return }
+        try ensureSessionReady(allowRestoring: true)
         
         var firstError: Swift.Error?
         
@@ -181,12 +183,13 @@ extension Network.FulcrumSession {
     ) async throws -> Initial {
         await descriptor.prepareForRestart()
         
+        try ensureSessionReady(allowRestoring: true)
+        
         let activeFulcrum: SwiftFulcrum.Fulcrum
         
         if let fulcrum {
             activeFulcrum = fulcrum
         } else {
-            try ensureSessionIsRunning()
             guard let currentFulcrum = self.fulcrum else { throw Error.sessionNotStarted }
             activeFulcrum = currentFulcrum
         }

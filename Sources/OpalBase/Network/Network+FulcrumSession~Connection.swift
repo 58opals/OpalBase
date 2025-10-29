@@ -5,25 +5,31 @@ import SwiftFulcrum
 
 extension Network.FulcrumSession {
     public func start() async throws {
-        guard !isSessionRunning else { throw Error.sessionAlreadyStarted }
+        guard state == .stopped else { throw Error.sessionAlreadyStarted }
         
         if try await restartExistingFulcrumIfPossible() { return }
         await resetFulcrumForRestart()
-        try await startUsingCandidateServers()
+        do {
+            try await startUsingCandidateServers()
+        } catch {
+            state = .stopped
+            throw error
+        }
     }
     
     public func stop() async throws {
-        guard isSessionRunning else { throw Error.sessionNotStarted }
+        guard state == .running else { throw Error.sessionNotStarted }
         
         await resetFulcrumForRestart()
         setActiveServerAddress(nil)
         await cancelAllStreamingCalls()
+        state = .stopped
     }
     
     public func reconnect() async throws {
-        try ensureSessionIsRunning()
+        try ensureSessionReady()
         guard let fulcrum else {
-            isSessionRunning = false
+            state = .stopped
             throw Error.sessionNotStarted
         }
         
@@ -53,7 +59,7 @@ extension Network.FulcrumSession {
             throw Error.unsupportedServerAddress
         }
         
-        if isSessionRunning {
+        if isOperational {
             if activeServerAddress == server {
                 return
             }
@@ -70,7 +76,6 @@ extension Network.FulcrumSession {
             await currentFulcrum.stop()
             fulcrum = nil
         }
-        isSessionRunning = false
     }
     
     private func startUsingCandidateServers() async throws {
@@ -81,9 +86,11 @@ extension Network.FulcrumSession {
         
         for server in serversToAttempt {
             do {
+                state = .restoring
                 try await connectAndActivateServer(server)
                 return
             } catch {
+                state = .stopped
                 lastError = error
             }
         }
@@ -101,14 +108,16 @@ extension Network.FulcrumSession {
         guard let currentFulcrum = fulcrum else { return false }
         
         do {
+            state = .restoring
             try await currentFulcrum.start()
-            isSessionRunning = true
             if activeServerAddress == nil {
                 setActiveServerAddress(candidateServerAddresses.first)
             }
             try await restoreStreamingSubscriptions(using: currentFulcrum)
+            state = .running
             return true
         } catch {
+            state = .stopped
             await prepareStreamingCallsForRestart()
             setActiveServerAddress(nil)
             return false
@@ -160,17 +169,21 @@ extension Network.FulcrumSession {
     private func connect(to server: URL?, onSuccess: () -> Void) async throws {
         let instance = try await makeFulcrum(for: server)
         
+        fulcrum = instance
         do {
             try await instance.start()
             try await restoreStreamingSubscriptions(using: instance)
+            state = .running
         } catch {
+            state = .stopped
+            fulcrum = nil
             await instance.stop()
-            await handleConnectionFailure(for: server, error: error, shouldForceStreamingPreparation: isStreamingRestorationFailure(error))
+            await handleConnectionFailure(for: server,
+                                          error: error,
+                                          shouldForceStreamingPreparation: isStreamingRestorationFailure(error))
             throw error
         }
         
-        fulcrum = instance
-        isSessionRunning = true
         onSuccess()
     }
     

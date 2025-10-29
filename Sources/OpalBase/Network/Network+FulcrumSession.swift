@@ -14,6 +14,12 @@ extension Network {
             case failedToRestoreSubscription(Swift.Error)
         }
         
+        public enum State: Sendable, Equatable {
+            case stopped
+            case restoring
+            case running
+        }
+        
         public enum Event: Sendable, Equatable {
             case didActivateServer(URL)
             case didDeactivateServer(URL)
@@ -27,10 +33,12 @@ extension Network {
         public var candidateServerAddresses: [URL]
         public var activeServerAddress: URL?
         
-        public var isRunning: Bool { isSessionRunning }
+        public var state: State = .stopped
+        
+        public var isRunning: Bool { state == .running }
+        public var isOperational: Bool { state == .running || state == .restoring }
         
         var fulcrum: SwiftFulcrum.Fulcrum?
-        var isSessionRunning = false
         
         var eventContinuations: [UUID: AsyncStream<Event>.Continuation] = .init()
         var streamingCallDescriptors: [UUID: any AnyStreamingCallDescriptor] = .init()
@@ -73,8 +81,13 @@ extension Network {
             }
         }
         
-        func ensureSessionIsRunning() throws {
-            guard isSessionRunning else { throw Error.sessionNotStarted }
+        func ensureSessionReady(allowRestoring: Bool = false) throws {
+            switch (state, allowRestoring) {
+            case (.running, _), (.restoring, true):
+                return
+            default:
+                throw Error.sessionNotStarted
+            }
         }
         
         static func makeCandidateServerAddresses(from serverAddress: URL?,
