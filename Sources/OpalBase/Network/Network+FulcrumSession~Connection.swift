@@ -14,7 +14,7 @@ extension Network.FulcrumSession {
                 if activeServerAddress == nil {
                     setActiveServerAddress(candidateServerAddresses.first)
                 }
-                await restoreStreamingSubscriptions(using: currentFulcrum)
+                try await restoreStreamingSubscriptions(using: currentFulcrum)
                 return
             } catch {
                 await prepareStreamingCallsForRestart()
@@ -44,7 +44,7 @@ extension Network.FulcrumSession {
         
         do {
             try await fulcrum.reconnect()
-            await restoreStreamingSubscriptions(using: fulcrum)
+            try await restoreStreamingSubscriptions(using: fulcrum)
         } catch {
             await prepareStreamingCallsForRestart()
             
@@ -111,12 +111,20 @@ extension Network.FulcrumSession {
                 
                 do {
                     try await instance.start()
-                    fulcrum = instance
-                    isSessionRunning = true
-                    promoteCandidate(server)
-                    setActiveServerAddress(server)
-                    await restoreStreamingSubscriptions(using: instance)
-                    return
+                    do {
+                        try await restoreStreamingSubscriptions(using: instance)
+                        fulcrum = instance
+                        isSessionRunning = true
+                        promoteCandidate(server)
+                        setActiveServerAddress(server)
+                        return
+                    } catch {
+                        await instance.stop()
+                        lastError = error
+                        emitEvent(.didFailToConnectToServer(server, failureDescription: error.localizedDescription))
+                        demoteCandidate(server)
+                        await prepareStreamingCallsForRestart()
+                    }
                 } catch {
                     await instance.stop()
                     lastError = error
@@ -135,10 +143,16 @@ extension Network.FulcrumSession {
             
             do {
                 try await instance.start()
-                fulcrum = instance
-                isSessionRunning = true
-                await restoreStreamingSubscriptions(using: instance)
-                return
+                do {
+                    try await restoreStreamingSubscriptions(using: instance)
+                    fulcrum = instance
+                    isSessionRunning = true
+                    return
+                } catch {
+                    await instance.stop()
+                    lastError = error
+                    await prepareStreamingCallsForRestart()
+                }
             } catch {
                 await instance.stop()
                 lastError = error

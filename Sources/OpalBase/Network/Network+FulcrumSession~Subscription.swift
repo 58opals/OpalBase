@@ -139,17 +139,21 @@ extension Network.FulcrumSession {
         }
     }
     
-    func restoreStreamingSubscriptions(using fulcrum: SwiftFulcrum.Fulcrum) async {
+    func restoreStreamingSubscriptions(using fulcrum: SwiftFulcrum.Fulcrum) async throws {
         guard !streamingCallDescriptors.isEmpty else { return }
+        
+        var firstError: Swift.Error?
         
         for descriptor in Array(streamingCallDescriptors.values) {
             do {
                 try await descriptor.resubscribe(using: self, fulcrum: fulcrum)
             } catch {
-                await descriptor.finish(with: error)
-                streamingCallDescriptors.removeValue(forKey: descriptor.identifier)
+                await descriptor.prepareForRestart()
+                if firstError == nil { firstError = error }
             }
         }
+        
+        if let firstError { throw Error.failedToRestoreSubscription(firstError) }
     }
     
     func cancelStreamingCall<Initial: JSONRPCConvertible, Notification: JSONRPCConvertible>(
@@ -252,12 +256,11 @@ actor StreamingCallDescriptor<Initial: JSONRPCConvertible, Notification: JSONRPC
         self.latestInitialResponse = initial
         self.cancelHandler = cancel
         
-        update(initial: initial, updates: updates, cancel: cancel)
+        await update(initial: initial, updates: updates, cancel: cancel)
     }
     
     func prepareForRestart() async {
-        forwardingTask?.cancel()
-        forwardingTask = nil
+        await cancelForwardingTaskAndWait()
         let cancelHandler = cancelHandler
         self.cancelHandler = nil
         isActive = false
@@ -265,8 +268,7 @@ actor StreamingCallDescriptor<Initial: JSONRPCConvertible, Notification: JSONRPC
     }
     
     func cancelAndFinish() async {
-        forwardingTask?.cancel()
-        forwardingTask = nil
+        await cancelForwardingTaskAndWait()
         if let cancelHandler {
             await cancelHandler()
         }
@@ -276,8 +278,7 @@ actor StreamingCallDescriptor<Initial: JSONRPCConvertible, Notification: JSONRPC
     }
     
     func finish(with error: Swift.Error) async {
-        forwardingTask?.cancel()
-        forwardingTask = nil
+        await cancelForwardingTaskAndWait()
         cancelHandler = nil
         isActive = false
         continuation.finish(throwing: error)
@@ -289,10 +290,10 @@ actor StreamingCallDescriptor<Initial: JSONRPCConvertible, Notification: JSONRPC
     
     func update(initial: Initial,
                 updates: AsyncThrowingStream<Notification, Swift.Error>,
-                cancel: @escaping @Sendable () async -> Void) {
+                cancel: @escaping @Sendable () async -> Void) async {
         latestInitialResponse = initial
         cancelHandler = cancel
-        forwardingTask?.cancel()
+        await cancelForwardingTaskAndWait()
         forwardingTask = Task { [weak self] in
             guard let self else { return }
             await self.forwardUpdates(from: updates)
@@ -322,6 +323,13 @@ actor StreamingCallDescriptor<Initial: JSONRPCConvertible, Notification: JSONRPC
     
     func readIsActive() -> Bool {
         isActive
+    }
+    
+    private func cancelForwardingTaskAndWait() async {
+        guard let currentTask = forwardingTask else { return }
+        forwardingTask = nil
+        currentTask.cancel()
+        await currentTask.value
     }
 }
 

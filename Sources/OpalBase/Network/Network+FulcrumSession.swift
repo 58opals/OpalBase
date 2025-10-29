@@ -11,6 +11,7 @@ extension Network {
             case unsupportedServerAddress
             case unexpectedResponse(SwiftFulcrum.Method)
             case subscriptionNotFound
+            case failedToRestoreSubscription(Swift.Error)
         }
         
         public enum Event: Sendable, Equatable {
