@@ -8,6 +8,7 @@ extension Network.FulcrumSession {
         guard !isSessionRunning else { throw Error.sessionAlreadyStarted }
         
         if try await restartExistingFulcrumIfPossible() { return }
+        await resetFulcrumForRestart()
         try await startUsingCandidateServers()
     }
     
@@ -32,7 +33,7 @@ extension Network.FulcrumSession {
         } catch {
             await handleConnectionFailure(for: activeServerAddress,
                                           error: error,
-                                          shouldPrepareStreamingCalls: true)
+                                          shouldForceStreamingPreparation: true)
             setActiveServerAddress(nil)
             try await start()
         }
@@ -73,15 +74,9 @@ extension Network.FulcrumSession {
     }
     
     private func startUsingCandidateServers() async throws {
-        await resetFulcrumForRestart()
         refreshCandidateServerAddressesIfNeeded()
         
-        let serversToAttempt = candidateServerAddresses
-        if serversToAttempt.isEmpty {
-                    try await connectAndActivateServer(nil)
-                    return
-                }
-        
+        let serversToAttempt = makeServersToAttempt()
         var lastError: Swift.Error?
         
         for server in serversToAttempt {
@@ -94,6 +89,12 @@ extension Network.FulcrumSession {
         }
         
         throw lastError ?? SwiftFulcrum.Fulcrum.Error.transport(.setupFailed)
+    }
+    
+    private func makeServersToAttempt() -> [URL?] {
+        let servers = candidateServerAddresses
+        guard !servers.isEmpty else { return [nil] }
+        return servers.map(Optional.some)
     }
     
     private func restartExistingFulcrumIfPossible() async throws -> Bool {
@@ -158,22 +159,13 @@ extension Network.FulcrumSession {
     
     private func connect(to server: URL?, onSuccess: () -> Void) async throws {
         let instance = try await makeFulcrum(for: server)
-        var shouldPrepareStreamingCalls = false
         
         do {
             try await instance.start()
-            
-            do {
-                try await restoreStreamingSubscriptions(using: instance)
-            } catch {
-                shouldPrepareStreamingCalls = true
-                throw error
-            }
+            try await restoreStreamingSubscriptions(using: instance)
         } catch {
             await instance.stop()
-            await handleConnectionFailure(for: server,
-                                          error: error,
-                                          shouldPrepareStreamingCalls: shouldPrepareStreamingCalls)
+            await handleConnectionFailure(for: server, error: error, shouldForceStreamingPreparation: isStreamingRestorationFailure(error))
             throw error
         }
         
@@ -186,21 +178,27 @@ extension Network.FulcrumSession {
         do {
             return try await SwiftFulcrum.Fulcrum(url: server?.absoluteString, configuration: configuration)
         } catch {
-            await handleConnectionFailure(for: server, error: error, shouldPrepareStreamingCalls: false)
+            await handleConnectionFailure(for: server, error: error)
             throw error
         }
     }
     
     private func handleConnectionFailure(for server: URL?,
                                          error: Swift.Error,
-                                         shouldPrepareStreamingCalls: Bool) async {
+                                         shouldForceStreamingPreparation: Bool = false) async {
         if let server {
             emitEvent(.didFailToConnectToServer(server, failureDescription: error.localizedDescription))
             demoteCandidate(server)
         }
         
-        if shouldPrepareStreamingCalls {
+        if shouldForceStreamingPreparation || isStreamingRestorationFailure(error) {
             await prepareStreamingCallsForRestart()
         }
+    }
+    
+    private func isStreamingRestorationFailure(_ error: Swift.Error) -> Bool {
+        guard let sessionError = error as? Network.FulcrumSession.Error else { return false }
+        if case .failedToRestoreSubscription = sessionError { return true }
+        return false
     }
 }
