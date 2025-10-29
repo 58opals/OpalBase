@@ -136,15 +136,6 @@ extension Network.FulcrumSession {
     ) async throws -> Initial {
         let identifier = descriptor.identifier
         var options = streamingCallOptions[identifier] ?? .init()
-        let cancelHandler = await descriptor.prepareForResubscription()
-        if let cancelHandler {
-            if options.token != nil {
-                internallyCancelledStreamingCallIdentifiers.insert(identifier)
-            }
-            await cancelHandler()
-        }
-        await descriptor.waitForCancellationCompletion()
-        
         try ensureSessionReady(allowRestoring: true)
         
         let activeFulcrum: SwiftFulcrum.Fulcrum
@@ -155,6 +146,15 @@ extension Network.FulcrumSession {
             guard let currentFulcrum = self.fulcrum else { throw Error.sessionNotStarted }
             activeFulcrum = currentFulcrum
         }
+        
+        let cancelHandler = await descriptor.prepareForResubscription()
+        if let cancelHandler {
+            if options.token != nil {
+                internallyCancelledStreamingCallIdentifiers.insert(identifier)
+            }
+            await cancelHandler()
+        }
+        await descriptor.waitForCancellationCompletion()
         
         if let token = options.token, await token.isCancelled {
             options.token = SwiftFulcrum.Client.Call.Token()

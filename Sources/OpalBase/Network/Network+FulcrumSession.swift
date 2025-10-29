@@ -137,9 +137,7 @@ extension Network.FulcrumSession.Error: Equatable {
             (.subscriptionNotFound, .subscriptionNotFound):
             return true
         case (.unexpectedResponse(let leftMethod), .unexpectedResponse(let rightMethod)):
-            _ = leftMethod.isSubscription
-            _ = rightMethod.isSubscription
-            return true
+            return String(reflecting: lhs) == String(reflecting: rhs)
         case (.failedToRestoreSubscription(let leftError), .failedToRestoreSubscription(let rightError)):
             return leftError.localizedDescription == rightError.localizedDescription
         default:

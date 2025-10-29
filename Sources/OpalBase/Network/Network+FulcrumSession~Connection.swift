@@ -115,9 +115,15 @@ extension Network.FulcrumSession {
     }
     
     private func makeServersToAttempt() -> [URL?] {
-        let servers = candidateServerAddresses
-        guard !servers.isEmpty else { return [nil] }
-        return servers.map(Optional.some)
+        var attempts = candidateServerAddresses.map(Optional.some)
+        
+        if attempts.isEmpty {
+            attempts.append(nil)
+        } else if preferredServerAddress == nil {
+            attempts.append(nil)
+        }
+        
+        return attempts
     }
     
     private func restartExistingFulcrumIfPossible() async throws -> Bool {
