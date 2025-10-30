@@ -33,6 +33,30 @@ public actor Storage {
                     case failed
                 }
                 
+                public enum VerificationStatus: String, Codable, Sendable {
+                    case unknown
+                    case pending
+                    case verified
+                    case conflicting
+                }
+                
+                public struct MerkleProof: Codable, Sendable, Hashable {
+                    public let blockHeight: UInt32
+                    public let position: UInt32
+                    public let branch: [Data]
+                    public let blockHash: Data?
+                    
+                    public init(blockHeight: UInt32,
+                                position: UInt32,
+                                branch: [Data],
+                                blockHash: Data?) {
+                        self.blockHeight = blockHeight
+                        self.position = position
+                        self.branch = branch
+                        self.blockHash = blockHash
+                    }
+                }
+                
                 public var transactionHash: Data
                 public var status: Status
                 public var confirmationHeight: UInt64?
@@ -41,13 +65,22 @@ public actor Storage {
                 public var label: String?
                 public var memo: String?
                 
+                public var verificationStatus: VerificationStatus
+                public var merkleProof: MerkleProof?
+                public var lastVerifiedHeight: UInt32?
+                public var lastCheckedAt: Date?
+                
                 public init(transactionHash: Data,
                             status: Status,
                             confirmationHeight: UInt64? = nil,
                             discoveredAt: Date,
                             confirmedAt: Date? = nil,
                             label: String? = nil,
-                            memo: String? = nil) {
+                            memo: String? = nil,
+                            verificationStatus: VerificationStatus = .unknown,
+                            merkleProof: MerkleProof? = nil,
+                            lastVerifiedHeight: UInt32? = nil,
+                            lastCheckedAt: Date? = nil) {
                     self.transactionHash = transactionHash
                     self.status = status
                     self.confirmationHeight = confirmationHeight
@@ -55,6 +88,54 @@ public actor Storage {
                     self.confirmedAt = confirmedAt
                     self.label = label
                     self.memo = memo
+                    self.verificationStatus = verificationStatus
+                    self.merkleProof = merkleProof
+                    self.lastVerifiedHeight = lastVerifiedHeight
+                    self.lastCheckedAt = lastCheckedAt
+                }
+                
+                private enum CodingKeys: String, CodingKey {
+                    case transactionHash
+                    case status
+                    case confirmationHeight
+                    case discoveredAt
+                    case confirmedAt
+                    case label
+                    case memo
+                    case verificationStatus
+                    case merkleProof
+                    case lastVerifiedHeight
+                    case lastCheckedAt
+                }
+                
+                public init(from decoder: Decoder) throws {
+                    let container = try decoder.container(keyedBy: CodingKeys.self)
+                    transactionHash = try container.decode(Data.self, forKey: .transactionHash)
+                    status = try container.decode(Status.self, forKey: .status)
+                    confirmationHeight = try container.decodeIfPresent(UInt64.self, forKey: .confirmationHeight)
+                    discoveredAt = try container.decode(Date.self, forKey: .discoveredAt)
+                    confirmedAt = try container.decodeIfPresent(Date.self, forKey: .confirmedAt)
+                    label = try container.decodeIfPresent(String.self, forKey: .label)
+                    memo = try container.decodeIfPresent(String.self, forKey: .memo)
+                    verificationStatus = try container.decodeIfPresent(VerificationStatus.self, forKey: .verificationStatus) ?? .unknown
+                    merkleProof = try container.decodeIfPresent(MerkleProof.self, forKey: .merkleProof)
+                    lastVerifiedHeight = try container.decodeIfPresent(UInt32.self, forKey: .lastVerifiedHeight)
+                    lastCheckedAt = try container.decodeIfPresent(Date.self, forKey: .lastCheckedAt)
+                }
+                
+                public func encode(to encoder: Encoder) throws {
+                    var container = encoder.container(keyedBy: CodingKeys.self)
+                    try container.encode(transactionHash, forKey: .transactionHash)
+                    try container.encode(status, forKey: .status)
+                    try container.encodeIfPresent(confirmationHeight, forKey: .confirmationHeight)
+                    try container.encode(discoveredAt, forKey: .discoveredAt)
+                    try container.encodeIfPresent(confirmedAt, forKey: .confirmedAt)
+                    try container.encodeIfPresent(label, forKey: .label)
+                    try container.encodeIfPresent(memo, forKey: .memo)
+                    try container.encode(verificationStatus, forKey: .verificationStatus)
+                    try container.encodeIfPresent(merkleProof, forKey: .merkleProof)
+                    try container.encodeIfPresent(lastVerifiedHeight, forKey: .lastVerifiedHeight)
+                    try container.encodeIfPresent(lastCheckedAt, forKey: .lastCheckedAt)
                 }
             }
             

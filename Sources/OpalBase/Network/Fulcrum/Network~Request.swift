@@ -147,6 +147,23 @@ extension Network.FulcrumSession {
         return merkle
     }
     
+    public func fetchBlockHeader(
+        at height: UInt,
+        options: SwiftFulcrum.Client.Call.Options = .init()
+    ) async throws -> SwiftFulcrum.Response.Result.Blockchain.Block.Header {
+        let response = try await submit(
+            method: .blockchain(.block(.header(height: height, checkpointHeight: nil))),
+            responseType: SwiftFulcrum.Response.Result.Blockchain.Block.Header.self,
+            options: options
+        )
+        
+        guard case .single(_, let header) = response else {
+            throw Error.unexpectedResponse(.blockchain(.block(.header(height: height, checkpointHeight: nil))))
+        }
+        
+        return header
+    }
+    
     public func broadcastTransaction(
         _ rawTransaction: String,
         options: SwiftFulcrum.Client.Call.Options = .init()
