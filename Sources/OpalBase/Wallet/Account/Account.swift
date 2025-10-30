@@ -241,6 +241,44 @@ extension Account {
         await addressBook.listTransactionHistory()
     }
     
+    public func loadLedgerEntries(using storage: Storage) async -> [Storage.AccountSnapshot.TransactionLedger.Entry] {
+        let accountIndex = account.unhardenedIndex
+        guard let snapshot = await storage.loadAccountSnapshot(for: accountIndex) else { return .init() }
+        return snapshot.transactionLedger.entries
+    }
+    
+    public func loadTransactionMetadata(for transactionHash: Transaction.Hash,
+                                        using storage: Storage) async -> Storage.AccountSnapshot.TransactionLedger.Entry? {
+        let accountIndex = account.unhardenedIndex
+        return await storage.loadLedgerEntry(for: transactionHash.naturalOrder, accountIndex: accountIndex)
+    }
+    
+    public func updateTransactionLabel(for transactionHash: Transaction.Hash,
+                                       to label: String?,
+                                       using storage: Storage) async throws -> Bool {
+        try await updateLedgerEntry(for: transactionHash, using: storage) { entry in
+            entry.label = label
+        }
+    }
+    
+    public func updateTransactionMemo(for transactionHash: Transaction.Hash,
+                                      to memo: String?,
+                                      using storage: Storage) async throws -> Bool {
+        try await updateLedgerEntry(for: transactionHash, using: storage) { entry in
+            entry.memo = memo
+        }
+    }
+    
+    public func updateTransactionMetadata(for transactionHash: Transaction.Hash,
+                                          label: String?,
+                                          memo: String?,
+                                          using storage: Storage) async throws -> Bool {
+        try await updateLedgerEntry(for: transactionHash, using: storage) { entry in
+            entry.label = label
+            entry.memo = memo
+        }
+    }
+    
     public func loadFeePreference() async throws -> Wallet.FeePolicy.Preference {
         do {
             if let storedPreference = try await settings.loadFeePreference(for: account.unhardenedIndex) {
@@ -267,5 +305,22 @@ extension Account {
     
     public func updateFeeEstimator(_ estimator: Wallet.FeePolicy.FeeEstimator?) {
         feeEstimator = estimator
+    }
+}
+
+extension Account {
+    func updateLedgerEntry(for transactionHash: Transaction.Hash,
+                           using storage: Storage,
+                           applying transform: (inout Storage.AccountSnapshot.TransactionLedger.Entry) -> Void) async throws -> Bool {
+        let accountIndex = account.unhardenedIndex
+        guard var entry = await storage.loadLedgerEntry(for: transactionHash.naturalOrder, accountIndex: accountIndex) else {
+            return false
+        }
+        
+        let originalEntry = entry
+        transform(&entry)
+        guard entry != originalEntry else { return true }
+        
+        return try await storage.updateLedgerEntry(entry, for: accountIndex)
     }
 }
