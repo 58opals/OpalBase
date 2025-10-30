@@ -307,6 +307,26 @@ extension Network.FulcrumSession {
         )
     }
     
+    func registerHeaderSubscriber(
+        identifier: UUID,
+        continuation: AsyncThrowingStream<SwiftFulcrum.Response.Result.Blockchain.Headers.SubscribeNotification, Swift.Error>.Continuation
+    ) async {
+        headerSubscriberContinuations[identifier] = continuation
+        activeHeaderSubscriberIdentifiers.insert(identifier)
+    }
+    
+    func readCurrentHeaderInitialResponse() async -> SwiftFulcrum.Response.Result.Blockchain.Headers.Subscribe? {
+        if let latestHeaderInitialResponse {
+            return latestHeaderInitialResponse
+        }
+        
+        guard let subscription = headerSubscription else { return nil }
+        
+        let initial = await subscription.fetchLatestInitialResponse()
+        latestHeaderInitialResponse = initial
+        return initial
+    }
+    
     func cancelHeaderSubscriber(identifier: UUID) async {
         activeHeaderSubscriberIdentifiers.remove(identifier)
         guard let continuation = headerSubscriberContinuations.removeValue(forKey: identifier) else { return }
