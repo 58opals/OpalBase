@@ -80,32 +80,55 @@ extension Network.FulcrumSession {
     }
     
     func restoreStreamingSubscriptions(using fulcrum: SwiftFulcrum.Fulcrum) async throws {
+        let previousFulcrum = self.fulcrum
+        let previousState = state
+        
+        self.fulcrum = fulcrum
+        
         guard !streamingCallDescriptors.isEmpty else { return }
-        try ensureSessionReady(allowRestoring: true)
-        
-        var firstError: Swift.Error?
-        
-        for descriptor in Array(streamingCallDescriptors.values) {
-            let identifier = descriptor.identifier
-            let options = streamingCallOptions[identifier]
-            
-            if let token = options?.token,
-               await token.isCancelled,
-               !internallyCancelledStreamingCallIdentifiers.contains(identifier) {
-                streamingCallDescriptors.removeValue(forKey: identifier)
-                streamingCallOptions.removeValue(forKey: identifier)
-                await descriptor.cancelAndFinish()
-                continue
-            }
-            do {
-                try await descriptor.resubscribe(using: self, fulcrum: fulcrum)
-            } catch {
-                await descriptor.prepareForRestart()
-                if firstError == nil { firstError = error }
-            }
+        if previousState == .stopped {
+            state = .restoring
         }
         
-        if let firstError { throw Error.failedToRestoreSubscription(firstError) }
+        do {
+            try ensureSessionReady(allowRestoring: true)
+            
+            var firstError: Swift.Error?
+            
+            for descriptor in Array(streamingCallDescriptors.values) {
+                let identifier = descriptor.identifier
+                let options = streamingCallOptions[identifier]
+                
+                if let token = options?.token,
+                   await token.isCancelled,
+                   !internallyCancelledStreamingCallIdentifiers.contains(identifier) {
+                    streamingCallDescriptors.removeValue(forKey: identifier)
+                    streamingCallOptions.removeValue(forKey: identifier)
+                    await descriptor.cancelAndFinish()
+                    continue
+                }
+                
+                do {
+                    try await descriptor.resubscribe(using: self, fulcrum: fulcrum)
+                } catch {
+                    await descriptor.prepareForRestart()
+                    if firstError == nil { firstError = error }
+                }
+            }
+            if let firstError {
+                state = previousState
+                self.fulcrum = previousFulcrum
+                throw Error.failedToRestoreSubscription(firstError)
+            }
+            
+            if previousState == .stopped {
+                state = .running
+            }
+        } catch {
+            state = previousState
+            self.fulcrum = previousFulcrum
+            throw error
+        }
     }
     
     func cancelStreamingCall<Initial: JSONRPCConvertible, Notification: JSONRPCConvertible>(
