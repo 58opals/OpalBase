@@ -24,16 +24,108 @@ public actor Storage {
     }
     
     public struct AccountSnapshot: Codable, Sendable, Hashable {
+        public struct TransactionLedger: Codable, Sendable, Hashable {
+            public struct Entry: Codable, Sendable, Hashable {
+                public enum Status: String, Codable, Sendable {
+                    case discovered
+                    case pending
+                    case confirmed
+                    case failed
+                }
+                
+                public var transactionHash: Data
+                public var status: Status
+                public var confirmationHeight: UInt64?
+                public var discoveredAt: Date
+                public var confirmedAt: Date?
+                public var label: String?
+                public var memo: String?
+                
+                public init(transactionHash: Data,
+                            status: Status,
+                            confirmationHeight: UInt64? = nil,
+                            discoveredAt: Date,
+                            confirmedAt: Date? = nil,
+                            label: String? = nil,
+                            memo: String? = nil) {
+                    self.transactionHash = transactionHash
+                    self.status = status
+                    self.confirmationHeight = confirmationHeight
+                    self.discoveredAt = discoveredAt
+                    self.confirmedAt = confirmedAt
+                    self.label = label
+                    self.memo = memo
+                }
+            }
+            
+            private var entriesByTransactionHash: [Data: Entry]
+            
+            public init(entries: [Entry] = .init()) {
+                var ledger: [Data: Entry] = .init(minimumCapacity: entries.count)
+                for entry in entries {
+                    ledger[entry.transactionHash] = entry
+                }
+                self.entriesByTransactionHash = ledger
+            }
+            
+            public var entries: [Entry] {
+                Array(entriesByTransactionHash.values)
+            }
+            
+            public func entry(for transactionHash: Data) -> Entry? {
+                entriesByTransactionHash[transactionHash]
+            }
+            
+            public mutating func insert(_ entry: Entry) -> Bool {
+                guard entriesByTransactionHash[entry.transactionHash] == nil else { return false }
+                entriesByTransactionHash[entry.transactionHash] = entry
+                return true
+            }
+            
+            public mutating func update(_ entry: Entry) -> Bool {
+                guard entriesByTransactionHash[entry.transactionHash] != nil else { return false }
+                entriesByTransactionHash[entry.transactionHash] = entry
+                return true
+            }
+            
+            public static func == (lhs: TransactionLedger, rhs: TransactionLedger) -> Bool {
+                lhs.entriesByTransactionHash == rhs.entriesByTransactionHash
+            }
+            
+            public func hash(into hasher: inout Hasher) {
+                let sortedEntries = entries.sorted { lhs, rhs in
+                    lhs.transactionHash.lexicographicallyPrecedes(rhs.transactionHash)
+                }
+                for entry in sortedEntries {
+                    hasher.combine(entry)
+                }
+            }
+            
+            public func encode(to encoder: Encoder) throws {
+                var container = encoder.singleValueContainer()
+                try container.encode(entries)
+            }
+            
+            public init(from decoder: Decoder) throws {
+                let container = try decoder.singleValueContainer()
+                let decodedEntries = try container.decode([Entry].self)
+                self.init(entries: decodedEntries)
+            }
+        }
+        
         public var accountIndex: UInt32
         public var unspentTransactionOutputs: [CachedUnspentTransactionOutput]
         public var lastUpdatedAt: Date
+        public var transactionLedger: TransactionLedger
         
         public init(accountIndex: UInt32,
                     unspentTransactionOutputs: [CachedUnspentTransactionOutput],
-                    lastUpdatedAt: Date = .now) {
+                    lastUpdatedAt: Date = .now,
+                    transactionLedger: TransactionLedger = .init()) {
             self.accountIndex = accountIndex
             self.unspentTransactionOutputs = unspentTransactionOutputs
             self.lastUpdatedAt = lastUpdatedAt
+            self.transactionLedger = transactionLedger
         }
     }
     
@@ -126,11 +218,41 @@ public actor Storage {
     public func replaceUnspentTransactionOutputs(_ unspentTransactionOutputs: [Transaction.Output.Unspent],
                                                  for accountIndex: UInt32) async throws {
         let cached = unspentTransactionOutputs.map(CachedUnspentTransactionOutput.init)
+        let transactionLedger = snapshot.accounts[accountIndex]?.transactionLedger ?? .init()
         let accountSnapshot = AccountSnapshot(accountIndex: accountIndex,
                                               unspentTransactionOutputs: cached,
-                                              lastUpdatedAt: .now)
+                                              lastUpdatedAt: .now,
+                                              transactionLedger: transactionLedger)
         snapshot.accounts[accountIndex] = accountSnapshot
         try await persistSnapshot()
+    }
+    
+    public func loadLedgerEntry(for transactionHash: Data, accountIndex: UInt32) -> AccountSnapshot.TransactionLedger.Entry? {
+        snapshot.accounts[accountIndex]?.transactionLedger.entry(for: transactionHash)
+    }
+    
+    public func insertLedgerEntry(_ entry: AccountSnapshot.TransactionLedger.Entry,
+                                  for accountIndex: UInt32) async throws -> Bool {
+        var accountSnapshot = snapshot.accounts[accountIndex] ?? AccountSnapshot(accountIndex: accountIndex,
+                                                                                 unspentTransactionOutputs: [],
+                                                                                 lastUpdatedAt: .now)
+        let didInsert = accountSnapshot.transactionLedger.insert(entry)
+        guard didInsert else { return false }
+        accountSnapshot.lastUpdatedAt = .now
+        snapshot.accounts[accountIndex] = accountSnapshot
+        try await persistSnapshot()
+        return true
+    }
+    
+    public func updateLedgerEntry(_ entry: AccountSnapshot.TransactionLedger.Entry,
+                                  for accountIndex: UInt32) async throws -> Bool {
+        guard var accountSnapshot = snapshot.accounts[accountIndex] else { return false }
+        let didUpdate = accountSnapshot.transactionLedger.update(entry)
+        guard didUpdate else { return false }
+        accountSnapshot.lastUpdatedAt = .now
+        snapshot.accounts[accountIndex] = accountSnapshot
+        try await persistSnapshot()
+        return true
     }
     
     public func removeAccount(_ accountIndex: UInt32) async throws {
