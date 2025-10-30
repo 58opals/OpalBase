@@ -134,9 +134,14 @@ extension Network.FulcrumSession {
         let timestamp = Date()
         try await addressBook.updateCache(for: address, with: balance)
         await addressBook.replaceUTXOs(for: address, with: utxos)
-        let changeSet = await addressBook.updateTransactionHistory(for: scriptHash,
+        await persistUnspentOutputs(for: account)
+        var changeSet = await addressBook.updateTransactionHistory(for: scriptHash,
                                                                    entries: historyEntries,
                                                                    timestamp: timestamp)
+        let verificationUpdates = try await verifyTransactions(for: account,
+                                                               records: changeSet.inserted + changeSet.updated,
+                                                               options: options)
+        changeSet.applyVerificationUpdates(verificationUpdates)
         await persistLedgerChanges(changeSet, for: account)
         
         if !historyEntries.isEmpty || !utxos.isEmpty || balance.uint64 > 0 {
@@ -196,5 +201,14 @@ extension Network.FulcrumSession {
                 }
             } catch {}
         }
+    }
+    
+    func persistUnspentOutputs(for account: Account) async {
+        let addressBook = await account.addressBook
+        let utxos = await addressBook.listUTXOs()
+        let accountIndex = await account.unhardenedIndex
+        do {
+            try await storage.replaceUnspentTransactionOutputs(Array(utxos), for: accountIndex)
+        } catch {}
     }
 }

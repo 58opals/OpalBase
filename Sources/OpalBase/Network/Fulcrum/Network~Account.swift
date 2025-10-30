@@ -34,31 +34,256 @@ extension Network.FulcrumSession {
 }
 
 extension Network.FulcrumSession {
+    private func usages(for scope: Address.Book.Request.Scope?) -> [DerivationPath.Usage] {
+        switch scope {
+        case .some(.receiving): return [.receiving]
+        case .some(.change): return [.change]
+        case .none: return [.receiving, .change]
+        }
+    }
+    
+    private func scriptHashes(for account: Account, usage: DerivationPath.Usage) async -> Set<String> {
+        let addressBook = await account.addressBook
+        let entries = await addressBook.listEntries(for: usage)
+        return Set(entries.map { $0.address.makeScriptHash().hexadecimalString })
+    }
+    
+    public func refreshAddressBookUTXOSet(
+        for account: Account,
+        scope: Address.Book.Request.Scope? = nil,
+        options: SwiftFulcrum.Client.Call.Options = .init()
+    ) async throws {
+        await ensureTelemetryInstalled(for: account)
+        let addressBook = await account.addressBook
+        for usage in usages(for: scope) {
+            let entries = await addressBook.listEntries(for: usage)
+            for entry in entries {
+                let scriptHash = entry.address.makeScriptHash().hexadecimalString
+                try await executeScriptHashRefresh(for: account,
+                                                   address: entry.address,
+                                                   scriptHash: scriptHash,
+                                                   usage: usage,
+                                                   options: options)
+            }
+        }
+    }
+    
+    public func scanForUsedAddresses(
+        for account: Account,
+        scope: Address.Book.Request.Scope? = nil,
+        options: SwiftFulcrum.Client.Call.Options = .init()
+    ) async throws {
+        await ensureTelemetryInstalled(for: account)
+        for usage in usages(for: scope) {
+            try await scanAddressGap(for: account, usage: usage, options: options)
+        }
+    }
+    
+    private func filteredRecords(
+        _ records: [Address.Book.History.Transaction.Record],
+        fromHeight: UInt?,
+        toHeight: UInt?,
+        includeUnconfirmed: Bool
+    ) -> [Address.Book.History.Transaction.Record] {
+        records.filter { record in
+            if !includeUnconfirmed, record.status != .confirmed { return false }
+            if record.height <= 0 { return includeUnconfirmed }
+            if let fromHeight, record.height < Int(fromHeight) { return false }
+            if let toHeight, record.height > Int(toHeight) { return false }
+            return true
+        }
+    }
+    
+    public func fetchDetailedTransactions(
+        for account: Account,
+        scope: Address.Book.Request.Scope,
+        fromHeight: UInt? = nil,
+        toHeight: UInt? = nil,
+        includeUnconfirmed: Bool = true,
+        options: SwiftFulcrum.Client.Call.Options = .init()
+    ) async throws -> [Address.Book.History.Transaction.Record] {
+        await ensureTelemetryInstalled(for: account)
+        try await refreshAddressBookUTXOSet(for: account, scope: scope, options: options)
+        let addressBook = await account.addressBook
+        let relevantHashes = await scriptHashes(for: account, usage: DerivationPath.Usage(scope: scope))
+        let history = await addressBook.listTransactionHistory()
+        let filtered = history.filter { !$0.scriptHashes.isDisjoint(with: relevantHashes) }
+        return filteredRecords(filtered,
+                               fromHeight: fromHeight,
+                               toHeight: toHeight,
+                               includeUnconfirmed: includeUnconfirmed)
+    }
+    
+    public func fetchCombinedHistory(
+        for account: Account,
+        fromHeight: UInt? = nil,
+        toHeight: UInt? = nil,
+        includeUnconfirmed: Bool = true,
+        options: SwiftFulcrum.Client.Call.Options = .init()
+    ) async throws -> [Address.Book.History.Transaction.Record] {
+        await ensureTelemetryInstalled(for: account)
+        try await refreshAddressBookUTXOSet(for: account, scope: nil, options: options)
+        let history = await account.addressBook.listTransactionHistory()
+        return filteredRecords(history,
+                               fromHeight: fromHeight,
+                               toHeight: toHeight,
+                               includeUnconfirmed: includeUnconfirmed)
+    }
+    
+    public func fetchCombinedHistoryPage(
+        for account: Account,
+        fromHeight: UInt? = nil,
+        window: UInt,
+        includeUnconfirmed: Bool = true,
+        options: SwiftFulcrum.Client.Call.Options = .init()
+    ) async throws -> [Address.Book.History.Transaction.Record] {
+        let history = try await fetchCombinedHistory(for: account,
+                                                     fromHeight: fromHeight,
+                                                     toHeight: nil,
+                                                     includeUnconfirmed: includeUnconfirmed,
+                                                     options: options)
+        let sorted = history.sorted { lhs, rhs in
+            let leftHeight = lhs.height
+            let rightHeight = rhs.height
+            if leftHeight == rightHeight { return lhs.transactionHash.naturalOrder.lexicographicallyPrecedes(rhs.transactionHash.naturalOrder) }
+            if leftHeight <= 0 { return false }
+            if rightHeight <= 0 { return true }
+            return leftHeight > rightHeight
+        }
+        return Array(sorted.prefix(Int(window)))
+    }
+    
+    @discardableResult
+    public func perform(
+        _ request: Address.Book.Request,
+        for account: Account,
+        options: SwiftFulcrum.Client.Call.Options = .init()
+    ) async throws -> Any? {
+        await ensureTelemetryInstalled(for: account)
+        switch request {
+        case .updateCache:
+            return try await refreshBalances(for: account,
+                                             scope: nil,
+                                             forceRefresh: false,
+                                             options: options)
+        case .updateCacheSubset(let scope):
+            return try await refreshBalances(for: account,
+                                             scope: scope,
+                                             forceRefresh: false,
+                                             options: options)
+        case .refreshBalances:
+            return try await refreshBalances(for: account,
+                                             scope: nil,
+                                             forceRefresh: true,
+                                             options: options)
+        case .refreshBalancesSubset(let scope):
+            return try await refreshBalances(for: account,
+                                             scope: scope,
+                                             forceRefresh: true,
+                                             options: options)
+        case .fetchBalance(let address):
+            try ensureSessionReady(allowRestoring: true)
+            let addressBook = await account.addressBook
+            return try await fetchAndCacheBalance(for: address,
+                                                  in: addressBook,
+                                                  options: options)
+        case .refreshUTXOSet:
+            try await refreshAddressBookUTXOSet(for: account, scope: nil, options: options)
+            return nil
+        case .scanForUsedAddresses:
+            try await scanForUsedAddresses(for: account, scope: nil, options: options)
+            return nil
+        case .refreshUsedStatus:
+            return try await refreshAddressUsageStatus(for: account,
+                                                       scope: nil,
+                                                       options: options,
+                                                       shouldScanGap: false)
+        case .refreshUsedStatusSubset(let scope):
+            return try await refreshAddressUsageStatus(for: account,
+                                                       scope: scope,
+                                                       options: options,
+                                                       shouldScanGap: false)
+        case .updateAddressUsageStatus:
+            return try await refreshAddressUsageStatus(for: account,
+                                                       scope: nil,
+                                                       options: options,
+                                                       shouldScanGap: true)
+        case .updateAddressUsageStatusSubset(let scope):
+            return try await refreshAddressUsageStatus(for: account,
+                                                       scope: scope,
+                                                       options: options,
+                                                       shouldScanGap: true)
+        case .checkIfUsed(let address):
+            return try await checkIfAddressIsUsed(for: account,
+                                                  address: address,
+                                                  options: options)
+        case .fetchCombinedHistory(let fromHeight, let toHeight, let includeUnconfirmed):
+            return try await fetchCombinedHistory(for: account,
+                                                  fromHeight: fromHeight,
+                                                  toHeight: toHeight,
+                                                  includeUnconfirmed: includeUnconfirmed,
+                                                  options: options)
+        case .fetchCombinedHistoryPage(let fromHeight, let window, let includeUnconfirmed):
+            return try await fetchCombinedHistoryPage(for: account,
+                                                      fromHeight: fromHeight,
+                                                      window: window,
+                                                      includeUnconfirmed: includeUnconfirmed,
+                                                      options: options)
+        case .fetchDetailedTransactions(let scope, let fromHeight, let toHeight, let includeUnconfirmed):
+            return try await fetchDetailedTransactions(for: account,
+                                                       scope: scope,
+                                                       fromHeight: fromHeight,
+                                                       toHeight: toHeight,
+                                                       includeUnconfirmed: includeUnconfirmed,
+                                                       options: options)
+        }
+    }
+}
+
+private extension DerivationPath.Usage {
+    init(scope: Address.Book.Request.Scope) {
+        switch scope {
+        case .receiving: self = .receiving
+        case .change: self = .change
+        }
+    }
+}
+
+extension Network.FulcrumSession {
     func refreshCachedBalance(
         for account: Account,
         options: SwiftFulcrum.Client.Call.Options
     ) async throws -> Satoshi {
+        try await refreshBalances(for: account,
+                                  scope: nil,
+                                  forceRefresh: false,
+                                  options: options)
+    }
+    
+    private func refreshBalances(
+        for account: Account,
+        scope: Address.Book.Request.Scope?,
+        forceRefresh: Bool,
+        options: SwiftFulcrum.Client.Call.Options
+    ) async throws -> Satoshi {
+        try ensureSessionReady(allowRestoring: true)
         let addressBook = await account.addressBook
-        let usages: [DerivationPath.Usage] = [.receiving, .change]
+        let targetUsages = usages(for: scope)
         
         var aggregate: UInt64 = 0
-        for usage in usages {
+        for usage in targetUsages {
             let entries = await addressBook.listEntries(for: usage)
             for entry in entries {
-                let resolvedBalance: Satoshi
-                if entry.cache.isValid, let cachedBalance = entry.cache.balance {
-                    resolvedBalance = cachedBalance
-                } else if entry.cache.isValid {
-                    resolvedBalance = Satoshi()
+                let balance: Satoshi
+                if !forceRefresh, entry.cache.isValid {
+                    balance = entry.cache.balance ?? Satoshi()
                 } else {
-                    resolvedBalance = try await fetchAndCacheBalance(
-                        for: entry.address,
-                        in: addressBook,
-                        options: options
-                    )
+                    balance = try await fetchAndCacheBalance(for: entry.address,
+                                                             in: addressBook,
+                                                             options: options)
                 }
                 
-                let (updated, didOverflow) = aggregate.addingReportingOverflow(resolvedBalance.uint64)
+                let (updated, didOverflow) = aggregate.addingReportingOverflow(balance.uint64)
                 if didOverflow || updated > Satoshi.maximumSatoshi {
                     throw Satoshi.Error.exceedsMaximumAmount
                 }
@@ -67,6 +292,61 @@ extension Network.FulcrumSession {
         }
         
         return try Satoshi(aggregate)
+    }
+    
+    private func refreshAddressUsageStatus(
+        for account: Account,
+        scope: Address.Book.Request.Scope?,
+        options: SwiftFulcrum.Client.Call.Options,
+        shouldScanGap: Bool
+    ) async throws -> [Address] {
+        try ensureSessionReady(allowRestoring: true)
+        let addressBook = await account.addressBook
+        let targetUsages = usages(for: scope)
+        var newlyUsed: [Address] = .init()
+        
+        for usage in targetUsages {
+            let entries = await addressBook.listEntries(for: usage)
+            for entry in entries {
+                let wasUsed = entry.isUsed
+                let scriptHash = entry.address.makeScriptHash().hexadecimalString
+                try await executeScriptHashRefresh(for: account,
+                                                   address: entry.address,
+                                                   scriptHash: scriptHash,
+                                                   usage: usage,
+                                                   options: options)
+                let isUsed = (try? await addressBook.isUsed(address: entry.address)) ?? wasUsed
+                if isUsed && !wasUsed {
+                    newlyUsed.append(entry.address)
+                }
+            }
+        }
+        
+        if shouldScanGap {
+            try await scanForUsedAddresses(for: account, scope: scope, options: options)
+        }
+        
+        return newlyUsed
+    }
+    
+    private func checkIfAddressIsUsed(
+        for account: Account,
+        address: Address,
+        options: SwiftFulcrum.Client.Call.Options
+    ) async throws -> Bool {
+        try ensureSessionReady(allowRestoring: true)
+        let addressBook = await account.addressBook
+        guard let entry = await addressBook.findEntry(for: address) else {
+            throw Address.Book.Error.addressNotFound
+        }
+        let wasUsed = entry.isUsed
+        let scriptHash = address.makeScriptHash().hexadecimalString
+        try await executeScriptHashRefresh(for: account,
+                                           address: address,
+                                           scriptHash: scriptHash,
+                                           usage: entry.derivationPath.usage,
+                                           options: options)
+        return (try? await addressBook.isUsed(address: address)) ?? wasUsed
     }
     
     func fetchAndCacheBalance(

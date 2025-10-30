@@ -43,6 +43,23 @@ extension Address.Book {
         }
         
         public struct Transaction: Codable {
+            public struct MerkleProof: Codable {
+                public let blockHeight: UInt32
+                public let position: UInt32
+                public let branch: [String]
+                public let blockHash: String?
+                
+                public init(blockHeight: UInt32,
+                            position: UInt32,
+                            branch: [String],
+                            blockHash: String?) {
+                    self.blockHeight = blockHeight
+                    self.position = position
+                    self.branch = branch
+                    self.blockHash = blockHash
+                }
+            }
+            
             public let transactionHash: String
             public let height: Int
             public let fee: UInt?
@@ -52,6 +69,10 @@ extension Address.Book {
             public let status: History.Transaction.Status
             public let confirmationHeight: UInt64?
             public let confirmedAt: Date?
+            public let verificationStatus: History.Transaction.VerificationStatus
+            public let merkleProof: MerkleProof?
+            public let lastVerifiedHeight: UInt32?
+            public let lastCheckedAt: Date?
             
             public init(transactionHash: String,
                         height: Int,
@@ -61,7 +82,11 @@ extension Address.Book {
                         lastUpdatedAt: Date,
                         status: History.Transaction.Status,
                         confirmationHeight: UInt64?,
-                        confirmedAt: Date?) {
+                        confirmedAt: Date?,
+                        verificationStatus: History.Transaction.VerificationStatus,
+                        merkleProof: MerkleProof?,
+                        lastVerifiedHeight: UInt32?,
+                        lastCheckedAt: Date?) {
                 self.transactionHash = transactionHash
                 self.height = height
                 self.fee = fee
@@ -71,6 +96,10 @@ extension Address.Book {
                 self.status = status
                 self.confirmationHeight = confirmationHeight
                 self.confirmedAt = confirmedAt
+                self.verificationStatus = verificationStatus
+                self.merkleProof = merkleProof
+                self.lastVerifiedHeight = lastVerifiedHeight
+                self.lastCheckedAt = lastCheckedAt
             }
         }
         
@@ -101,6 +130,7 @@ extension Address.Book.Snapshot: Sendable {}
 extension Address.Book.Snapshot.Entry: Sendable {}
 extension Address.Book.Snapshot.UTXO: Sendable {}
 extension Address.Book.Snapshot.Transaction: Sendable {}
+extension Address.Book.Snapshot.Transaction.MerkleProof: Sendable {}
 
 extension Address.Book {
     public func makeSnapshot() -> Snapshot {
@@ -127,15 +157,25 @@ extension Address.Book {
         }
         
         let transactionSnaps = transactionHistories.values.map { record in
-            Snapshot.Transaction(transactionHash: record.transactionHash.naturalOrder.hexadecimalString,
-                                 height: record.height,
-                                 fee: record.fee,
-                                 scriptHashes: Array(record.scriptHashes),
-                                 firstSeenAt: record.firstSeenAt,
-                                 lastUpdatedAt: record.lastUpdatedAt,
-                                 status: record.status,
-                                 confirmationHeight: record.confirmationHeight,
-                                 confirmedAt: record.confirmedAt)
+            let proof = record.merkleProof.map { proof in
+                Snapshot.Transaction.MerkleProof(blockHeight: proof.blockHeight,
+                                                 position: proof.position,
+                                                 branch: proof.branch.map { $0.hexadecimalString },
+                                                 blockHash: proof.blockHash?.hexadecimalString)
+            }
+            return Snapshot.Transaction(transactionHash: record.transactionHash.naturalOrder.hexadecimalString,
+                                        height: record.height,
+                                        fee: record.fee,
+                                        scriptHashes: Array(record.scriptHashes),
+                                        firstSeenAt: record.firstSeenAt,
+                                        lastUpdatedAt: record.lastUpdatedAt,
+                                        status: record.status,
+                                        confirmationHeight: record.confirmationHeight,
+                                        confirmedAt: record.confirmedAt,
+                                        verificationStatus: record.verificationStatus,
+                                        merkleProof: proof,
+                                        lastVerifiedHeight: record.lastVerifiedHeight,
+                                        lastCheckedAt: record.lastCheckedAt)
         }
         
         return Snapshot(receivingEntries: receiving,
@@ -161,6 +201,14 @@ extension Address.Book {
         
         for transaction in snapshot.transactions {
             let hash = Transaction.Hash(naturalOrder: try Data(hexString: transaction.transactionHash))
+            let proof = try transaction.merkleProof.map { proof -> Transaction.MerkleProof in
+                let branch = try proof.branch.map { try Data(hexString: $0) }
+                let blockHash = try proof.blockHash.map { try Data(hexString: $0) }
+                return Transaction.MerkleProof(blockHeight: proof.blockHeight,
+                                               position: proof.position,
+                                               branch: branch,
+                                               blockHash: blockHash)
+            }
             let record = History.Transaction.Record(transactionHash: hash,
                                                     height: transaction.height,
                                                     fee: transaction.fee,
@@ -169,7 +217,11 @@ extension Address.Book {
                                                     lastUpdatedAt: transaction.lastUpdatedAt,
                                                     status: transaction.status,
                                                     confirmationHeight: transaction.confirmationHeight,
-                                                    confirmedAt: transaction.confirmedAt)
+                                                    confirmedAt: transaction.confirmedAt,
+                                                    verificationStatus: transaction.verificationStatus,
+                                                    merkleProof: proof,
+                                                    lastVerifiedHeight: transaction.lastVerifiedHeight,
+                                                    lastCheckedAt: transaction.lastCheckedAt)
             transactionHistories[hash] = record
             
             for scriptHash in transaction.scriptHashes {

@@ -14,6 +14,13 @@ extension Address.Book.History.Transaction {
         case failed
     }
     
+    public enum VerificationStatus: String, Sendable, Hashable, Codable {
+        case unknown
+        case pending
+        case verified
+        case conflicting
+    }
+    
     public struct Entry: Sendable, Hashable {
         public let transactionHash: Transaction.Hash
         public let height: Int
@@ -38,6 +45,11 @@ extension Address.Book.History.Transaction {
         public var confirmationHeight: UInt64?
         public var confirmedAt: Date?
         
+        public var verificationStatus: VerificationStatus
+        public var merkleProof: Transaction.MerkleProof?
+        public var lastVerifiedHeight: UInt32?
+        public var lastCheckedAt: Date?
+        
         public var isConfirmed: Bool { status == .confirmed }
         
         public init(transactionHash: Transaction.Hash,
@@ -48,7 +60,11 @@ extension Address.Book.History.Transaction {
                     lastUpdatedAt: Date,
                     status: Status,
                     confirmationHeight: UInt64?,
-                    confirmedAt: Date?) {
+                    confirmedAt: Date?,
+                    verificationStatus: VerificationStatus,
+                    merkleProof: Transaction.MerkleProof?,
+                    lastVerifiedHeight: UInt32?,
+                    lastCheckedAt: Date?) {
             self.transactionHash = transactionHash
             self.height = height
             self.fee = fee
@@ -58,6 +74,10 @@ extension Address.Book.History.Transaction {
             self.status = status
             self.confirmationHeight = confirmationHeight
             self.confirmedAt = confirmedAt
+            self.verificationStatus = verificationStatus
+            self.merkleProof = merkleProof
+            self.lastVerifiedHeight = lastVerifiedHeight
+            self.lastCheckedAt = lastCheckedAt
         }
     }
 }
@@ -87,6 +107,23 @@ extension Address.Book.History.Transaction.Record {
             confirmationHeight = nil
             confirmedAt = nil
         }
+        
+        switch statusUpdate.status {
+        case .confirmed:
+            if verificationStatus == .unknown {
+                verificationStatus = .pending
+            }
+        case .pending:
+            verificationStatus = .pending
+        case .discovered, .failed:
+            verificationStatus = .unknown
+        }
+        
+        if statusUpdate.status != .confirmed {
+            merkleProof = nil
+            lastVerifiedHeight = nil
+        }
+        lastCheckedAt = timestamp
     }
     
     static func makeRecord(for entry: Address.Book.History.Transaction.Entry,
@@ -98,6 +135,7 @@ extension Address.Book.History.Transaction.Record {
         ? (statusUpdate.confirmationHeight ?? UInt64(entry.height))
         : nil
         let confirmedAt = statusUpdate.status == .confirmed ? timestamp : nil
+        let verificationStatus: Address.Book.History.Transaction.VerificationStatus = statusUpdate.status == .confirmed ? .pending : .unknown
         
         return Address.Book.History.Transaction.Record(transactionHash: entry.transactionHash,
                                                        height: entry.height,
@@ -107,17 +145,27 @@ extension Address.Book.History.Transaction.Record {
                                                        lastUpdatedAt: timestamp,
                                                        status: statusUpdate.status,
                                                        confirmationHeight: confirmationHeight,
-                                                       confirmedAt: confirmedAt)
+                                                       confirmedAt: confirmedAt,
+                                                       verificationStatus: verificationStatus,
+                                                       merkleProof: nil,
+                                                       lastVerifiedHeight: nil,
+                                                       lastCheckedAt: nil)
     }
     
     func makeLedgerEntry() -> Storage.AccountSnapshot.TransactionLedger.Entry {
-        Storage.AccountSnapshot.TransactionLedger.Entry(transactionHash: transactionHash.naturalOrder,
-                                                        status: status.makeStorageStatus(),
-                                                        confirmationHeight: confirmationHeight,
-                                                        discoveredAt: firstSeenAt,
-                                                        confirmedAt: confirmedAt,
-                                                        label: nil,
-                                                        memo: nil)
+        let storageVerificationStatus = verificationStatus.makeStorageStatus()
+        let storageProof = merkleProof.map(Storage.AccountSnapshot.TransactionLedger.Entry.MerkleProof.init)
+        return Storage.AccountSnapshot.TransactionLedger.Entry(transactionHash: transactionHash.naturalOrder,
+                                                               status: status.makeStorageStatus(),
+                                                               confirmationHeight: confirmationHeight,
+                                                               discoveredAt: firstSeenAt,
+                                                               confirmedAt: confirmedAt,
+                                                               label: nil,
+                                                               memo: nil,
+                                                               verificationStatus: storageVerificationStatus,
+                                                               merkleProof: storageProof,
+                                                               lastVerifiedHeight: lastVerifiedHeight,
+                                                               lastCheckedAt: lastCheckedAt)
     }
 }
 
@@ -156,5 +204,82 @@ extension Address.Book.History.Transaction.Status {
         case .failed:
             return .failed
         }
+    }
+}
+
+extension Address.Book.History.Transaction.VerificationStatus {
+    func makeStorageStatus() -> Storage.AccountSnapshot.TransactionLedger.Entry.VerificationStatus {
+        switch self {
+        case .unknown: return .unknown
+        case .pending: return .pending
+        case .verified: return .verified
+        case .conflicting: return .conflicting
+        }
+    }
+}
+
+extension Storage.AccountSnapshot.TransactionLedger.Entry.VerificationStatus {
+    func makeAddressBookVerificationStatus() -> Address.Book.History.Transaction.VerificationStatus {
+        switch self {
+        case .unknown: return .unknown
+        case .pending: return .pending
+        case .verified: return .verified
+        case .conflicting: return .conflicting
+        }
+    }
+}
+
+extension Storage.AccountSnapshot.TransactionLedger.Entry.MerkleProof {
+    init(_ proof: Transaction.MerkleProof) {
+        self.init(blockHeight: proof.blockHeight,
+                  position: proof.position,
+                  branch: proof.branch,
+                  blockHash: proof.blockHash)
+    }
+}
+
+extension Transaction.MerkleProof {
+    init?(storageProof: Storage.AccountSnapshot.TransactionLedger.Entry.MerkleProof?) {
+        guard let storageProof else { return nil }
+        self.init(blockHeight: storageProof.blockHeight,
+                  position: storageProof.position,
+                  branch: storageProof.branch,
+                  blockHash: storageProof.blockHash)
+    }
+}
+
+extension Address.Book.History.Transaction.Record {
+    mutating func resetVerification(for status: Address.Book.History.Transaction.Status,
+                                    timestamp: Date) {
+        switch status {
+        case .confirmed, .pending:
+            verificationStatus = .pending
+        case .discovered, .failed:
+            verificationStatus = .unknown
+        }
+        merkleProof = nil
+        lastVerifiedHeight = nil
+        lastCheckedAt = timestamp
+    }
+    
+    mutating func updateVerification(status: Address.Book.History.Transaction.VerificationStatus,
+                                     proof: Transaction.MerkleProof?,
+                                     verifiedHeight: UInt32?,
+                                     checkedAt: Date) {
+        verificationStatus = status
+        merkleProof = proof
+        lastVerifiedHeight = verifiedHeight
+        lastCheckedAt = checkedAt
+    }
+    
+    mutating func markAsPendingAfterReorganization(timestamp: Date) {
+        status = .pending
+        height = -1
+        confirmationHeight = nil
+        confirmedAt = nil
+        verificationStatus = .pending
+        merkleProof = nil
+        lastVerifiedHeight = nil
+        lastCheckedAt = timestamp
     }
 }

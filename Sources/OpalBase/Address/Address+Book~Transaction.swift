@@ -26,6 +26,21 @@ extension Address.Book.History.Transaction {
     }
 }
 
+extension Address.Book.History.Transaction.ChangeSet {
+    mutating func applyVerificationUpdates(_ records: [Address.Book.History.Transaction.Record]) {
+        guard !records.isEmpty else { return }
+        for record in records {
+            if let index = inserted.firstIndex(where: { $0.transactionHash == record.transactionHash }) {
+                inserted[index] = record
+            } else if let index = updated.firstIndex(where: { $0.transactionHash == record.transactionHash }) {
+                updated[index] = record
+            } else {
+                updated.append(record)
+            }
+        }
+    }
+}
+
 extension Address.Book {
     func updateTransactionHistory(for scriptHash: String,
                                   entries: [History.Transaction.Entry],
@@ -76,5 +91,39 @@ extension Address.Book {
         return History.Transaction.ChangeSet(inserted: Array(inserted.values),
                                              updated: Array(updated.values),
                                              removed: Array(removed))
+    }
+    
+    func updateTransactionVerification(for transactionHash: Transaction.Hash,
+                                       status: History.Transaction.VerificationStatus,
+                                       proof: Transaction.MerkleProof?,
+                                       verifiedHeight: UInt32?,
+                                       timestamp: Date = .now) -> History.Transaction.Record? {
+        guard var record = transactionHistories[transactionHash] else { return nil }
+        let original = record
+        record.updateVerification(status: status,
+                                  proof: proof,
+                                  verifiedHeight: verifiedHeight,
+                                  checkedAt: timestamp)
+        record.lastUpdatedAt = timestamp
+        guard record != original else { return nil }
+        transactionHistories[transactionHash] = record
+        return record
+    }
+    
+    func invalidateConfirmations(startingAt height: UInt32,
+                                 timestamp: Date = .now) -> [History.Transaction.Record] {
+        guard !transactionHistories.isEmpty else { return [] }
+        let threshold = UInt64(height)
+        var updated: [History.Transaction.Record] = .init()
+        for (hash, record) in transactionHistories {
+            guard let confirmationHeight = record.confirmationHeight,
+                  confirmationHeight >= threshold else { continue }
+            var mutableRecord = record
+            mutableRecord.markAsPendingAfterReorganization(timestamp: timestamp)
+            mutableRecord.lastUpdatedAt = timestamp
+            transactionHistories[hash] = mutableRecord
+            updated.append(mutableRecord)
+        }
+        return updated
     }
 }

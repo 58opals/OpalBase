@@ -15,6 +15,7 @@ extension Network.FulcrumSession {
         do {
             try await startUsingCandidateServers()
             recordStart(using: activeServerAddress)
+            await ensureHeaderSynchronization()
         } catch {
             state = .stopped
             pendingFallbackOrigin = nil
@@ -26,6 +27,9 @@ extension Network.FulcrumSession {
         guard state == .running || state == .restoring else { throw Error.sessionNotStarted }
         
         await cancelAllStreamingCalls()
+        headerUpdateTask?.cancel()
+        headerUpdateTask = nil
+        headerSubscription = nil
         await resetFulcrumForRestart()
         setActiveServerAddress(nil)
         await cancelAllStreamingCalls()
@@ -45,6 +49,7 @@ extension Network.FulcrumSession {
             try await fulcrum.reconnect()
             try await restoreStreamingSubscriptions(using: fulcrum)
             recordReconnect(using: activeServerAddress)
+            await ensureHeaderSynchronization()
         } catch {
             await handleConnectionFailure(for: activeServerAddress,
                                           error: error,

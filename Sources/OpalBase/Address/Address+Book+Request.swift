@@ -3,7 +3,7 @@
 import Foundation
 
 extension Address.Book {
-    enum Request: Hashable, Sendable {
+    public enum Request: Hashable, Sendable {
         case updateCache
         case updateCacheSubset(Scope)
         case refreshBalances
@@ -27,10 +27,10 @@ extension Address.Book {
         case checkIfUsed(Address)
         case scanForUsedAddresses
         
-        enum Scope: Hashable, Sendable {
+        public enum Scope: Hashable, Sendable {
             case receiving
             case change
-
+            
             init(usage: DerivationPath.Usage) {
                 switch usage {
                 case .receiving: self = .receiving

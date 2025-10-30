@@ -29,6 +29,10 @@ extension Network {
         
         var fulcrum: SwiftFulcrum.Fulcrum?
         
+        public let headerChain: Block.Header.Chain
+        var headerSubscription: Subscription<SwiftFulcrum.Response.Result.Blockchain.Headers.Subscribe, SwiftFulcrum.Response.Result.Blockchain.Headers.SubscribeNotification>?
+        var headerUpdateTask: Task<Void, Never>?
+        
         var eventContinuations: [UUID: AsyncStream<Event>.Continuation] = .init()
         var telemetryContinuations: [UUID: AsyncStream<Telemetry.Event>.Continuation] = .init()
         var telemetryAccountContexts: [Data: Telemetry.AccountContext] = .init()
@@ -54,6 +58,10 @@ extension Network {
             } else {
                 self.storage = try await Storage(configuration: .init(isMemoryOnly: true))
             }
+            
+            let checkpoint = Block.Header.Chain.Checkpoint.defaultCheckpoint
+            self.headerChain = Block.Header.Chain(checkpointHeight: checkpoint.height,
+                                                  checkpointHash: checkpoint.hash)
         }
         
         public func makeEventStream() -> AsyncStream<Event> {
