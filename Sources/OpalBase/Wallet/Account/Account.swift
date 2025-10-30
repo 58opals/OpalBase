@@ -47,7 +47,7 @@ public actor Account: Identifiable {
                                                   account: account)
         
         let folderURL = outboxPath ?? FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0].appendingPathComponent("accountOutbox")
-        self.outbox = try .init(folderURL: folderURL)
+        self.outbox = try await .init(folderURL: folderURL)
         
         self.privacyConfiguration = privacyConfiguration
         self.privacyShaper = .init(configuration: privacyConfiguration)
@@ -78,6 +78,12 @@ public actor Account: Identifiable {
 extension Account {
     public enum Error: Swift.Error {
         case balanceFetchTimeout(Address)
+        case paymentHasNoRecipients
+        case paymentExceedsMaximumAmount
+        case coinSelectionFailed(Swift.Error)
+        case transactionBuildFailed(Swift.Error)
+        case outboxPersistenceFailed(Swift.Error)
+        case broadcastFailed(Swift.Error)
     }
 }
 
