@@ -96,4 +96,29 @@ struct NetworkFulcrumSessionSubscriptionAPITests {
         
         #expect(!(await subscription.checkIsActive()))
     }
+    
+    @Test("subscribeToChainHeaders delivers current tip metadata", .timeLimit(.minutes(1)))
+    func testSubscribeToChainHeadersLifecycle() async throws {
+        let session = try await Network.FulcrumSession(serverAddress: Self.healthyServerAddress)
+        defer { Task { try? await session.stop() } }
+        
+        try await session.start()
+        
+        let subscription = try await session.subscribeToChainHeaders()
+        let initialTip = await subscription.fetchLatestInitialResponse()
+        
+        #expect(initialTip.height > 0, "Expected blockchain tip height to be positive")
+        #expect(initialTip.hex.count == 160, "Expected block header hex representation to contain 160 characters")
+        #expect(await subscription.checkIsActive())
+        
+        let resubscribedTip = try await subscription.resubscribe()
+        #expect(resubscribedTip.height == initialTip.height)
+        #expect(resubscribedTip.hex == initialTip.hex)
+        #expect(await subscription.checkIsActive())
+        
+        await subscription.cancel()
+        try await Task.sleep(for: .seconds(5))
+        
+        #expect(!(await subscription.checkIsActive()))
+    }
 }
