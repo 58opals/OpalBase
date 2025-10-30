@@ -42,7 +42,7 @@ struct NetworkFulcrumSessionTests {
             try await session.ensureSessionReady()
         }
         
-        session.state = .restoring
+        await session.updateState(.restoring)
         
         await #expect(throws: Network.FulcrumSession.Error.sessionNotStarted) {
             try await session.ensureSessionReady()
@@ -50,7 +50,7 @@ struct NetworkFulcrumSessionTests {
         
         try await session.ensureSessionReady(allowRestoring: true)
         
-        session.state = .running
+        await session.updateState(.running)
         try await session.ensureSessionReady()
     }
     

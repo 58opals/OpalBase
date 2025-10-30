@@ -11,6 +11,12 @@ extension Network.FulcrumSession {
 }
 
 extension Network.FulcrumSession {
+    func updateState(_ state: State) {
+        self.state = state
+    }
+}
+
+extension Network.FulcrumSession {
     func recordStart(using server: URL?) {
         pendingFallbackOrigin = nil
         emitEvent(.didStart(server))
