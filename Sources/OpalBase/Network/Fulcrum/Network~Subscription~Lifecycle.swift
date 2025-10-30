@@ -55,21 +55,27 @@ extension Network.FulcrumSession {
     }
     
     func prepareStreamingCallsForRestart() async {
-        for descriptor in streamingCallDescriptors.values {
+        if !streamingCallDescriptors.isEmpty {
+            preparedStreamingCallDescriptors.merge(streamingCallDescriptors) { current, _ in current }
+        }
+        
+        for descriptor in preparedStreamingCallDescriptors.values {
             if streamingCallOptions[descriptor.identifier]?.token != nil {
                 internallyCancelledStreamingCallIdentifiers.insert(descriptor.identifier)
             }
             await descriptor.prepareForRestart()
         }
         
+        streamingCallDescriptors.removeAll()
         setActiveServerAddress(nil)
         await resetFulcrumForRestart()
         state = .stopped
     }
     
     func cancelAllStreamingCalls() async {
-        let descriptors = Array(streamingCallDescriptors.values)
+        let descriptors = Array(streamingCallDescriptors.values) + Array(preparedStreamingCallDescriptors.values)
         streamingCallDescriptors.removeAll()
+        preparedStreamingCallDescriptors.removeAll()
         
         for descriptor in descriptors {
             streamingCallOptions.removeValue(forKey: descriptor.identifier)
@@ -80,6 +86,11 @@ extension Network.FulcrumSession {
     }
     
     func restoreStreamingSubscriptions(using fulcrum: SwiftFulcrum.Fulcrum) async throws {
+        if streamingCallDescriptors.isEmpty, !preparedStreamingCallDescriptors.isEmpty {
+            streamingCallDescriptors = preparedStreamingCallDescriptors
+            preparedStreamingCallDescriptors.removeAll()
+        }
+        
         let previousFulcrum = self.fulcrum
         let previousState = state
         
@@ -90,13 +101,16 @@ extension Network.FulcrumSession {
             state = .restoring
         }
         
+        let previousDescriptors = streamingCallDescriptors
+        let previousInternallyCancelledIdentifiers = internallyCancelledStreamingCallIdentifiers
+        var restoredDescriptors: [UUID: any AnyStreamingCallDescriptor] = .init()
+        
         do {
             try ensureSessionReady(allowRestoring: true)
             
             var firstError: Swift.Error?
             
-            for descriptor in Array(streamingCallDescriptors.values) {
-                let identifier = descriptor.identifier
+            for (identifier, descriptor) in previousDescriptors {
                 let options = streamingCallOptions[identifier]
                 
                 if let token = options?.token,
@@ -104,27 +118,35 @@ extension Network.FulcrumSession {
                    !internallyCancelledStreamingCallIdentifiers.contains(identifier) {
                     streamingCallDescriptors.removeValue(forKey: identifier)
                     streamingCallOptions.removeValue(forKey: identifier)
+                    internallyCancelledStreamingCallIdentifiers.remove(identifier)
                     await descriptor.cancelAndFinish()
                     continue
                 }
                 
                 do {
                     try await descriptor.resubscribe(using: self, fulcrum: fulcrum)
+                    restoredDescriptors[identifier] = descriptor
                 } catch {
                     await descriptor.prepareForRestart()
                     if firstError == nil { firstError = error }
+                    restoredDescriptors[identifier] = descriptor
                 }
             }
             if let firstError {
+                streamingCallDescriptors = previousDescriptors
+                internallyCancelledStreamingCallIdentifiers = previousInternallyCancelledIdentifiers
                 state = previousState
                 self.fulcrum = previousFulcrum
                 throw Error.failedToRestoreSubscription(firstError)
             }
             
+            streamingCallDescriptors = restoredDescriptors
             if previousState == .stopped {
                 state = .running
             }
         } catch {
+            streamingCallDescriptors = previousDescriptors
+            internallyCancelledStreamingCallIdentifiers = previousInternallyCancelledIdentifiers
             state = previousState
             self.fulcrum = previousFulcrum
             throw error
@@ -135,7 +157,9 @@ extension Network.FulcrumSession {
         for descriptor: StreamingCallDescriptor<Initial, Notification>
     ) async {
         let identifier = descriptor.identifier
-        guard streamingCallDescriptors.removeValue(forKey: identifier) != nil else { return }
+        let wasRemoved = streamingCallDescriptors.removeValue(forKey: identifier) != nil
+        || preparedStreamingCallDescriptors.removeValue(forKey: identifier) != nil
+        guard wasRemoved else { return }
         streamingCallOptions.removeValue(forKey: identifier)
         internallyCancelledStreamingCallIdentifiers.remove(identifier)
         await descriptor.cancelAndFinish()

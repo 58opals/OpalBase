@@ -43,6 +43,7 @@ extension Network {
         var telemetryAccountContexts: [Data: Telemetry.AccountContext] = .init()
         var pendingFallbackOrigin: URL?
         var streamingCallDescriptors: [UUID: any AnyStreamingCallDescriptor] = .init()
+        var preparedStreamingCallDescriptors: [UUID: any AnyStreamingCallDescriptor] = .init()
         var streamingCallOptions: [UUID: SwiftFulcrum.Client.Call.Options] = .init()
         var internallyCancelledStreamingCallIdentifiers: Set<UUID> = .init()
         var accountSynchronizationStates: [Data: AccountSynchronizationState] = .init()
