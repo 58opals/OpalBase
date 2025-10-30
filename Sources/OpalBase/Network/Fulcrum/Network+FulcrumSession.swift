@@ -31,6 +31,7 @@ extension Network {
         
         public let headerChain: Block.Header.Chain
         var headerSubscription: Subscription<SwiftFulcrum.Response.Result.Blockchain.Headers.Subscribe, SwiftFulcrum.Response.Result.Blockchain.Headers.SubscribeNotification>?
+        let headerSynchronizationCallToken = SwiftFulcrum.Client.Call.Token()
         var headerUpdateTask: Task<Void, Never>?
         
         var eventContinuations: [UUID: AsyncStream<Event>.Continuation] = .init()

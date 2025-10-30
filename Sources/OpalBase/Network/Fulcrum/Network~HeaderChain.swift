@@ -27,7 +27,8 @@ extension Network.FulcrumSession {
             return
         }
         
-        let subscription = try await subscribeToChainHeaders(options: options)
+        let subscriptionOptions = makeHeaderSubscriptionOptions(from: options)
+        let subscription = try await subscribeToChainHeaders(options: subscriptionOptions)
         headerSubscription = subscription
         
         let initial = await subscription.fetchLatestInitialResponse()
@@ -66,7 +67,8 @@ extension Network.FulcrumSession {
             headerUpdateTask = nil
             headerSubscription = nil
             do {
-                let subscription = try await subscribeToChainHeaders(options: options)
+                let subscriptionOptions = makeHeaderSubscriptionOptions(from: options)
+                let subscription = try await subscribeToChainHeaders(options: subscriptionOptions)
                 headerSubscription = subscription
                 let initial = await subscription.fetchLatestInitialResponse()
                 try await processHeader(height: initial.height, hex: initial.hex, options: options)
@@ -93,6 +95,16 @@ extension Network.FulcrumSession {
         }
         let maintenanceEvents = await headerChain.dequeueMaintenanceEvents()
         await handleHeaderMaintenanceEvents(maintenanceEvents, options: options)
+    }
+    
+    private func makeHeaderSubscriptionOptions(
+        from options: SwiftFulcrum.Client.Call.Options
+    ) -> SwiftFulcrum.Client.Call.Options {
+        var updated = options
+        if updated.token == nil {
+            updated.token = headerSynchronizationCallToken
+        }
+        return updated
     }
     
     private func ensureHeaders(upTo targetHeight: UInt32,
