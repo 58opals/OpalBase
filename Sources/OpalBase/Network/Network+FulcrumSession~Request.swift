@@ -50,6 +50,24 @@ extension Network.FulcrumSession {
         return tip
     }
     
+    public func fetchScriptHashBalance(
+        _ scriptHash: String,
+        tokenFilter: SwiftFulcrum.Method.Blockchain.CashTokens.TokenFilter? = nil,
+        options: SwiftFulcrum.Client.Call.Options = .init()
+    ) async throws -> SwiftFulcrum.Response.Result.Blockchain.ScriptHash.GetBalance {
+        let response = try await submit(
+            method: .blockchain(.scripthash(.getBalance(scripthash: scriptHash, tokenFilter: tokenFilter))),
+            responseType: SwiftFulcrum.Response.Result.Blockchain.ScriptHash.GetBalance.self,
+            options: options
+        )
+        
+        guard case .single(_, let balance) = response else {
+            throw Error.unexpectedResponse(.blockchain(.scripthash(.getBalance(scripthash: scriptHash, tokenFilter: tokenFilter))))
+        }
+        
+        return balance
+    }
+    
     public func fetchAddressBalance(
         _ address: String,
         tokenFilter: SwiftFulcrum.Method.Blockchain.CashTokens.TokenFilter? = nil,
@@ -68,22 +86,48 @@ extension Network.FulcrumSession {
         return balance
     }
     
-    public func fetchScriptHashBalance(
+    public func fetchScriptHashUnspent(
         _ scriptHash: String,
         tokenFilter: SwiftFulcrum.Method.Blockchain.CashTokens.TokenFilter? = nil,
         options: SwiftFulcrum.Client.Call.Options = .init()
-    ) async throws -> SwiftFulcrum.Response.Result.Blockchain.ScriptHash.GetBalance {
+    ) async throws -> SwiftFulcrum.Response.Result.Blockchain.ScriptHash.ListUnspent {
         let response = try await submit(
-            method: .blockchain(.scripthash(.getBalance(scripthash: scriptHash, tokenFilter: tokenFilter))),
-            responseType: SwiftFulcrum.Response.Result.Blockchain.ScriptHash.GetBalance.self,
+            method: .blockchain(.scripthash(.listUnspent(scripthash: scriptHash, tokenFilter: tokenFilter))),
+            responseType: SwiftFulcrum.Response.Result.Blockchain.ScriptHash.ListUnspent.self,
             options: options
         )
         
-        guard case .single(_, let balance) = response else {
-            throw Error.unexpectedResponse(.blockchain(.scripthash(.getBalance(scripthash: scriptHash, tokenFilter: tokenFilter))))
+        guard case .single(_, let unspent) = response else {
+            throw Error.unexpectedResponse(.blockchain(.scripthash(.listUnspent(scripthash: scriptHash, tokenFilter: tokenFilter))))
         }
         
-        return balance
+        return unspent
+    }
+    
+    public func fetchScriptHashHistory(
+        _ scriptHash: String,
+        fromHeight: UInt? = nil,
+        toHeight: UInt? = nil,
+        includeUnconfirmed: Bool = true,
+        options: SwiftFulcrum.Client.Call.Options = .init()
+    ) async throws -> SwiftFulcrum.Response.Result.Blockchain.ScriptHash.GetHistory {
+        let response = try await submit(
+            method: .blockchain(.scripthash(.getHistory(scripthash: scriptHash,
+                                                        fromHeight: fromHeight,
+                                                        toHeight: toHeight,
+                                                        includeUnconfirmed: includeUnconfirmed))),
+            responseType: SwiftFulcrum.Response.Result.Blockchain.ScriptHash.GetHistory.self,
+            options: options
+        )
+        
+        guard case .single(_, let history) = response else {
+            throw Error.unexpectedResponse(.blockchain(.scripthash(.getHistory(scripthash: scriptHash,
+                                                                               fromHeight: fromHeight,
+                                                                               toHeight: toHeight,
+                                                                               includeUnconfirmed: includeUnconfirmed))))
+        }
+        
+        return history
     }
     
     public func fetchTransactionMerkleProof(

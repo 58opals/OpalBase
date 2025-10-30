@@ -186,6 +186,13 @@ extension Address {
 }
 
 extension Address {
+    public func makeScriptHash() -> Data {
+        let scriptData = lockingScript.data
+        return SHA256.hash(scriptData).reversedData
+    }
+}
+
+extension Address {
     enum Error: Swift.Error, Equatable {
         case invalidCharacter(Character)
         case invalidCashAddressFormat

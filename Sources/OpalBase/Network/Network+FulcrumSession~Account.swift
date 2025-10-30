@@ -32,7 +32,7 @@ extension Network.FulcrumSession {
     }
 }
 
-private extension Network.FulcrumSession {
+extension Network.FulcrumSession {
     func refreshCachedBalance(
         for account: Account,
         options: SwiftFulcrum.Client.Call.Options

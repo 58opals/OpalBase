@@ -11,6 +11,10 @@ extension Address.Book {
         self.utxos.formUnion(utxos)
     }
     
+    func replaceUTXOs(_ utxos: Set<Transaction.Output.Unspent>) {
+        self.utxos = utxos
+    }
+    
     func removeUTXO(_ utxo: Transaction.Output.Unspent) {
         self.utxos.remove(utxo)
     }

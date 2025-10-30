@@ -146,6 +146,12 @@ extension Address.Book {
     }
 }
 
+// MARK: - Gap
+extension Address.Book {
+    func readGapLimit() -> Int {
+        gapLimit
+    }
+}
 
 // MARK: - Transaction
 extension Address.Book {
