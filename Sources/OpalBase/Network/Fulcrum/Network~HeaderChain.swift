@@ -98,13 +98,11 @@ extension Network.FulcrumSession {
                                options: SwiftFulcrum.Client.Call.Options) async throws {
         let height32 = try convertUInt(height)
         let header = try decodeHeader(hex: hex)
-        let result = try await headerChain.apply(header: header, at: height32)
-        await headerChain.updateTipStatus(now: Date())
-        if !result.detachedHeights.isEmpty {
-            await handleDetachedHeights(result.detachedHeights, options: options)
-        }
-        let maintenanceEvents = await headerChain.dequeueMaintenanceEvents()
-        await handleHeaderMaintenanceEvents(maintenanceEvents, options: options)
+        let timestamp = Date()
+        _ = try await applyDecodedHeader(header,
+                                         at: height32,
+                                         timestamp: timestamp,
+                                         options: options)
     }
     
     private func makeHeaderSubscriptionOptions(
@@ -126,16 +124,28 @@ extension Network.FulcrumSession {
         while nextHeight <= targetHeight {
             let response = try await fetchBlockHeader(at: UInt(nextHeight), options: options)
             let header = try decodeHeader(hex: response.hex)
-            let result = try await headerChain.apply(header: header, at: nextHeight)
-            await headerChain.updateTipStatus(now: Date())
-            if !result.detachedHeights.isEmpty {
-                await handleDetachedHeights(result.detachedHeights, options: options)
-            }
-            let events = await headerChain.dequeueMaintenanceEvents()
-            await handleHeaderMaintenanceEvents(events, options: options)
+            let timestamp = Date()
+            _ = try await applyDecodedHeader(header,
+                                             at: nextHeight,
+                                             timestamp: timestamp,
+                                             options: options)
             tip = await headerChain.currentTip()
             nextHeight = tip.height &+ 1
         }
+    }
+    
+    func applyDecodedHeader(_ header: Block.Header,
+                            at height: UInt32,
+                            timestamp: Date,
+                            options: SwiftFulcrum.Client.Call.Options) async throws -> Block.Header.Chain.UpdateResult {
+        let result = try await headerChain.apply(header: header, at: height)
+        await headerChain.updateTipStatus(now: timestamp)
+        if !result.detachedHeights.isEmpty {
+            await handleDetachedHeights(result.detachedHeights, options: options)
+        }
+        let maintenanceEvents = await headerChain.dequeueMaintenanceEvents()
+        await handleHeaderMaintenanceEvents(maintenanceEvents, options: options)
+        return result
     }
     
     private func decodeHeader(hex: String) throws -> Block.Header {
@@ -195,11 +205,10 @@ extension Network.FulcrumSession {
                 } else {
                     let headerResponse = try await fetchBlockHeader(at: UInt(proof.blockHeight), options: options)
                     let decodedHeader = try decodeHeader(hex: headerResponse.hex)
-                    let result = try await headerChain.apply(header: decodedHeader, at: proof.blockHeight)
-                    await headerChain.updateTipStatus(now: timestamp)
-                    if !result.detachedHeights.isEmpty {
-                        await handleDetachedHeights(result.detachedHeights, options: options)
-                    }
+                    _ = try await applyDecodedHeader(decodedHeader,
+                                                     at: proof.blockHeight,
+                                                     timestamp: timestamp,
+                                                     options: options)
                     header = decodedHeader
                 }
                 
@@ -261,8 +270,15 @@ extension Network.FulcrumSession {
             let updatedRecords = await addressBook.invalidateConfirmations(startingAt: minimumHeight,
                                                                            timestamp: timestamp)
             if !updatedRecords.isEmpty {
-                let accountIndex = await account.unhardenedIndex
-                await persistLedgerRecords(updatedRecords, for: accountIndex)
+                let changeSet = Address.Book.History.Transaction.ChangeSet(inserted: [],
+                                                                           updated: updatedRecords,
+                                                                           removed: [])
+                do {
+                    try await applyLedgerChangeSet(changeSet,
+                                                   for: account,
+                                                   options: options,
+                                                   shouldVerifyTransactions: false)
+                } catch {}
                 var scriptHashesToRefresh: Set<String> = .init()
                 for record in updatedRecords {
                     scriptHashesToRefresh.formUnion(record.scriptHashes)

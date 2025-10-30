@@ -53,11 +53,10 @@ extension Network.FulcrumSession {
             recordReconnect(using: activeServerAddress)
             await ensureHeaderSynchronization()
         } catch {
-            await handleConnectionFailure(for: activeServerAddress,
-                                          error: error,
-                                          shouldForceStreamingPreparation: true)
-            setActiveServerAddress(nil)
-            try await start()
+            let failedServerAddress = activeServerAddress
+            try await restartAfterConnectionFailure(origin: failedServerAddress,
+                                                    error: error,
+                                                    shouldForceStreamingPreparation: true)
         }
     }
     
@@ -113,20 +112,7 @@ extension Network.FulcrumSession {
         refreshCandidateServerAddressesIfNeeded()
         
         let serversToAttempt = makeServersToAttempt()
-        var lastError: Swift.Error?
-        
-        for server in serversToAttempt {
-            do {
-                state = .restoring
-                try await connectAndActivateServer(server)
-                return
-            } catch {
-                state = .stopped
-                lastError = error
-            }
-        }
-        
-        throw lastError ?? SwiftFulcrum.Fulcrum.Error.transport(.setupFailed)
+        try await attemptConnections(using: serversToAttempt)
     }
     
     private func makeServersToAttempt() -> [URL?] {
@@ -199,10 +185,15 @@ extension Network.FulcrumSession {
     }
     
     private func connectAndActivateServer(_ server: URL?) async throws {
-        try await connect(to: server) {
-            if let server { promoteCandidate(server) }
-            setActiveServerAddress(server)
-            recordFallbackIfNeeded(to: server)
+        state = .restoring
+        
+        do {
+            try await connect(to: server) {
+                finalizeSuccessfulConnection(to: server)
+            }
+        } catch {
+            state = .stopped
+            throw error
         }
     }
     
@@ -234,6 +225,36 @@ extension Network.FulcrumSession {
             await handleConnectionFailure(for: server, error: error)
             throw error
         }
+    }
+    
+    private func attemptConnections(using servers: [URL?]) async throws {
+        var lastError: Swift.Error?
+        
+        for server in servers {
+            do {
+                try await connectAndActivateServer(server)
+                return
+            } catch {
+                lastError = error
+            }
+        }
+        
+        throw lastError ?? SwiftFulcrum.Fulcrum.Error.transport(.setupFailed)
+    }
+    
+    private func finalizeSuccessfulConnection(to server: URL?) {
+        if let server { promoteCandidate(server) }
+        setActiveServerAddress(server)
+        recordFallbackIfNeeded(to: server)
+    }
+    
+    private func restartAfterConnectionFailure(origin: URL?,
+                                               error: Swift.Error,
+                                               shouldForceStreamingPreparation: Bool) async throws {
+        await handleConnectionFailure(for: origin,
+                                      error: error,
+                                      shouldForceStreamingPreparation: shouldForceStreamingPreparation)
+        try await start()
     }
     
     private func handleConnectionFailure(for server: URL?,

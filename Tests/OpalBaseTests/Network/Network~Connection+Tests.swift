@@ -44,6 +44,50 @@ struct NetworkFulcrumSessionConnectionTests {
         #expect(didStart)
     }
     
+    @Test("start after stop restarts the connection", .timeLimit(.minutes(1)))
+    func testRestartAfterStopRestartsConnection() async throws {
+        let session = try await Network.FulcrumSession(serverAddress: Self.healthyServerAddress)
+        defer { Task { try? await session.stop() } }
+        
+        var events = await session.makeEventStream().makeAsyncIterator()
+        
+        try await session.start()
+        
+        var startCount = 0
+        for _ in 0..<8 {
+            guard let event = await events.next() else { break }
+            
+            if case .didStart(let url) = event, url == Self.healthyServerAddress {
+                startCount += 1
+                break
+            }
+        }
+        
+        #expect(startCount == 1)
+        
+        try await session.stop()
+        
+        for _ in 0..<8 {
+            guard let event = await events.next() else { break }
+            if case .didDeactivateServer = event { break }
+        }
+        
+        try await session.start()
+        
+        for _ in 0..<12 {
+            guard let event = await events.next() else { break }
+            
+            if case .didStart(let url) = event, url == Self.healthyServerAddress {
+                startCount += 1
+                if startCount == 2 { break }
+            }
+        }
+        
+        #expect(startCount == 2)
+        #expect(await session.state == .running)
+        #expect(await session.activeServerAddress == Self.healthyServerAddress)
+    }
+    
     @Test("stop terminates active connection and clears active server", .timeLimit(.minutes(1)))
     func testStopTerminatesConnection() async throws {
         let session = try await Network.FulcrumSession(serverAddress: Self.healthyServerAddress)
@@ -152,6 +196,47 @@ struct NetworkFulcrumSessionConnectionTests {
         #expect(didActivateHealthy)
     }
     
+    @Test("start promotes the successful fallback server", .timeLimit(.minutes(1)))
+    func testStartPromotesSuccessfulFallbackServer() async throws {
+        let configuration = SwiftFulcrum.Fulcrum.Configuration(bootstrapServers: [Self.healthyServerAddress])
+        let session = try await Network.FulcrumSession(serverAddress: Self.unreachableServerAddress,
+                                                       configuration: configuration)
+        defer { Task { try? await session.stop() } }
+        
+        let initialCandidates = await session.candidateServerAddresses
+        #expect(initialCandidates.first == Self.unreachableServerAddress)
+        
+        var events = await session.makeEventStream().makeAsyncIterator()
+        
+        try await session.start()
+        
+        var didPromoteHealthy = false
+        var didFallback = false
+        
+        for _ in 0..<12 {
+            guard let event = await events.next() else { break }
+            
+            switch event {
+            case .didPromoteServer(let url) where url == Self.healthyServerAddress:
+                didPromoteHealthy = true
+            case .didFallback(let origin, let destination)
+                where origin == Self.unreachableServerAddress && destination == Self.healthyServerAddress:
+                didFallback = true
+            default:
+                continue
+            }
+            
+            if didPromoteHealthy && didFallback { break }
+        }
+        
+        let candidatesAfterStart = await session.candidateServerAddresses
+        
+        #expect(didPromoteHealthy)
+        #expect(didFallback)
+        #expect(candidatesAfterStart.first == Self.healthyServerAddress)
+        #expect(candidatesAfterStart.contains(Self.unreachableServerAddress))
+    }
+    
     @Test("start while running throws sessionAlreadyStarted", .timeLimit(.minutes(1)))
     func testStartThrowsWhenAlreadyRunning() async throws {
         let session = try await Network.FulcrumSession(serverAddress: Self.healthyServerAddress)
@@ -183,6 +268,57 @@ struct NetworkFulcrumSessionConnectionTests {
         #expect(await session.preferredServerAddress == previousPreferred)
         #expect(await session.candidateServerAddresses == previousCandidates)
         #expect(await session.activeServerAddress == previousPreferred)
+        #expect(await session.state == .running)
+    }
+    
+    @Test("activateServerAddress restores previous server after failure", .timeLimit(.minutes(1)))
+    func testActivateServerAddressRestoresPreviousServerAfterFailure() async throws {
+        let configuration = SwiftFulcrum.Fulcrum.Configuration(bootstrapServers: [])
+        let session = try await Network.FulcrumSession(serverAddress: Self.healthyServerAddress,
+                                                       configuration: configuration)
+        defer { Task { try? await session.stop() } }
+        
+        var events = await session.makeEventStream().makeAsyncIterator()
+        
+        try await session.start()
+        
+        for _ in 0..<8 {
+            guard let event = await events.next() else { break }
+            if case .didStart = event { break }
+        }
+        
+        var activationError: Swift.Error?
+        do {
+            try await session.activateServerAddress(Self.unreachableServerAddress)
+        } catch {
+            activationError = error
+        }
+        
+        #expect(activationError != nil)
+        
+        var didFailToConnect = false
+        var didRestart = false
+        
+        for _ in 0..<16 {
+            guard let event = await events.next() else { break }
+            
+            switch event {
+            case .didFailToConnectToServer(let url, _) where url == Self.unreachableServerAddress:
+                didFailToConnect = true
+            case .didStart(let url) where url == Self.healthyServerAddress:
+                if didFailToConnect { didRestart = true }
+            default:
+                continue
+            }
+            
+            if didFailToConnect && didRestart { break }
+        }
+        
+        #expect(didFailToConnect)
+        #expect(didRestart)
+        #expect(await session.preferredServerAddress == Self.healthyServerAddress)
+        #expect(await session.candidateServerAddresses == [Self.healthyServerAddress])
+        #expect(await session.activeServerAddress == Self.healthyServerAddress)
         #expect(await session.state == .running)
     }
 }

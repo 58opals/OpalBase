@@ -169,6 +169,11 @@ public actor Storage {
                 return true
             }
             
+            public mutating func removeEntry(for transactionHash: Data) -> Bool {
+                guard entriesByTransactionHash.removeValue(forKey: transactionHash) != nil else { return false }
+                return true
+            }
+            
             public static func == (lhs: TransactionLedger, rhs: TransactionLedger) -> Bool {
                 lhs.entriesByTransactionHash == rhs.entriesByTransactionHash
             }
@@ -334,6 +339,22 @@ public actor Storage {
         snapshot.accounts[accountIndex] = accountSnapshot
         try await persistSnapshot()
         return true
+    }
+    
+    public func removeLedgerEntries(_ transactionHashes: [Data],
+                                    for accountIndex: UInt32) async throws {
+        guard !transactionHashes.isEmpty else { return }
+        guard var accountSnapshot = snapshot.accounts[accountIndex] else { return }
+        var didRemoveEntry = false
+        for transactionHash in transactionHashes {
+            if accountSnapshot.transactionLedger.removeEntry(for: transactionHash) {
+                didRemoveEntry = true
+            }
+        }
+        guard didRemoveEntry else { return }
+        accountSnapshot.lastUpdatedAt = .now
+        snapshot.accounts[accountIndex] = accountSnapshot
+        try await persistSnapshot()
     }
     
     public func removeAccount(_ accountIndex: UInt32) async throws {

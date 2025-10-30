@@ -135,14 +135,13 @@ extension Network.FulcrumSession {
         try await addressBook.updateCache(for: address, with: balance)
         await addressBook.replaceUTXOs(for: address, with: utxos)
         await persistUnspentOutputs(for: account)
-        var changeSet = await addressBook.updateTransactionHistory(for: scriptHash,
+        let changeSet = await addressBook.updateTransactionHistory(for: scriptHash,
                                                                    entries: historyEntries,
                                                                    timestamp: timestamp)
-        let verificationUpdates = try await verifyTransactions(for: account,
-                                                               records: changeSet.inserted + changeSet.updated,
-                                                               options: options)
-        changeSet.applyVerificationUpdates(verificationUpdates)
-        await persistLedgerChanges(changeSet, for: account)
+        try await applyLedgerChangeSet(changeSet,
+                                       for: account,
+                                       options: options,
+                                       shouldVerifyTransactions: true)
         
         if !historyEntries.isEmpty || !utxos.isEmpty || balance.uint64 > 0 {
             try await addressBook.mark(address: address, isUsed: true)
@@ -180,12 +179,44 @@ extension Network.FulcrumSession {
 }
 
 extension Network.FulcrumSession {
-    func persistLedgerChanges(_ changeSet: Address.Book.History.Transaction.ChangeSet,
-                              for account: Account) async {
+    func applyLedgerChangeSet(
+        _ changeSet: Address.Book.History.Transaction.ChangeSet,
+        for account: Account,
+        options: SwiftFulcrum.Client.Call.Options,
+        shouldVerifyTransactions: Bool = true,
+        verifier: (@Sendable (
+            Account,
+            [Address.Book.History.Transaction.Record],
+            SwiftFulcrum.Client.Call.Options
+        ) async throws -> [Address.Book.History.Transaction.Record])? = nil
+    ) async throws {
         guard !changeSet.isEmpty else { return }
+        var mutableChangeSet = changeSet
+        if shouldVerifyTransactions {
+            let recordsToVerify = changeSet.inserted + changeSet.updated
+            if !recordsToVerify.isEmpty {
+                let verificationClosure = verifier ?? { account, records, options in
+                    try await self.verifyTransactions(for: account,
+                                                      records: records,
+                                                      options: options)
+                }
+                let verificationUpdates = try await verificationClosure(account,
+                                                                        recordsToVerify,
+                                                                        options)
+                mutableChangeSet.applyVerificationUpdates(verificationUpdates)
+            }
+        }
+        
         let accountIndex = await account.unhardenedIndex
-        await persistLedgerRecords(changeSet.inserted, for: accountIndex)
-        await persistLedgerRecords(changeSet.updated, for: accountIndex)
+        await persistLedgerRecords(mutableChangeSet.inserted, for: accountIndex)
+        await persistLedgerRecords(mutableChangeSet.updated, for: accountIndex)
+        
+        if !mutableChangeSet.removed.isEmpty {
+            let transactionHashes = mutableChangeSet.removed.map { $0.naturalOrder }
+            do {
+                try await storage.removeLedgerEntries(transactionHashes, for: accountIndex)
+            } catch {}
+        }
     }
     
     func persistLedgerRecords(_ records: [Address.Book.History.Transaction.Record],
