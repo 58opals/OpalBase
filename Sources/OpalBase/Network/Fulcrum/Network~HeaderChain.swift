@@ -17,8 +17,10 @@ extension Network.FulcrumSession {
         } catch {}
     }
     
-    private func startHeaderSynchronization(options: SwiftFulcrum.Client.Call.Options) async throws {
+    func startHeaderSynchronization(options: SwiftFulcrum.Client.Call.Options) async throws {
         try ensureSessionReady(allowRestoring: true)
+        
+        headerSynchronizationCallOptions = options
         
         if let existingSubscription = headerSubscription {
             if headerUpdateTask == nil {
@@ -28,10 +30,11 @@ extension Network.FulcrumSession {
         }
         
         let subscriptionOptions = makeHeaderSubscriptionOptions(from: options)
-        let subscription = try await subscribeToChainHeaders(options: subscriptionOptions)
+        let subscription = try await createChainHeadersSubscription(options: subscriptionOptions)
         headerSubscription = subscription
         
         let initial = await subscription.fetchLatestInitialResponse()
+        latestHeaderInitialResponse = initial
         try await processHeader(height: initial.height, hex: initial.hex, options: options)
         
         headerUpdateTask = makeHeaderUpdateTask(subscription: subscription, options: options)
@@ -45,6 +48,7 @@ extension Network.FulcrumSession {
             guard let self else { return }
             do {
                 for try await notification in subscription.updates {
+                    await self.broadcastHeaderNotification(notification)
                     for block in notification.blocks {
                         do {
                             try await self.processHeader(height: block.height, hex: block.hex, options: options)
@@ -68,18 +72,24 @@ extension Network.FulcrumSession {
             headerSubscription = nil
             do {
                 let subscriptionOptions = makeHeaderSubscriptionOptions(from: options)
-                let subscription = try await subscribeToChainHeaders(options: subscriptionOptions)
+                let subscription = try await createChainHeadersSubscription(options: subscriptionOptions)
                 headerSubscription = subscription
                 let initial = await subscription.fetchLatestInitialResponse()
+                latestHeaderInitialResponse = initial
                 try await processHeader(height: initial.height, hex: initial.hex, options: options)
                 headerUpdateTask = makeHeaderUpdateTask(subscription: subscription, options: options)
             } catch {
                 headerSubscription = nil
                 headerUpdateTask = nil
+                latestHeaderInitialResponse = nil
+                finishHeaderSubscribers(with: error)
             }
         } else {
             headerUpdateTask = nil
             headerSubscription = nil
+            let completionError = error is CancellationError ? nil : error
+            latestHeaderInitialResponse = nil
+            finishHeaderSubscribers(with: completionError)
         }
     }
     
@@ -284,5 +294,67 @@ extension Network.FulcrumSession {
                 }
             }
         }
+    }
+    
+    private func createChainHeadersSubscription(
+        options: SwiftFulcrum.Client.Call.Options
+    ) async throws -> Subscription<SwiftFulcrum.Response.Result.Blockchain.Headers.Subscribe, SwiftFulcrum.Response.Result.Blockchain.Headers.SubscribeNotification> {
+        try await makeSubscription(
+            method: .blockchain(.headers(.subscribe)),
+            initialType: SwiftFulcrum.Response.Result.Blockchain.Headers.Subscribe.self,
+            notificationType: SwiftFulcrum.Response.Result.Blockchain.Headers.SubscribeNotification.self,
+            options: options
+        )
+    }
+    
+    func cancelHeaderSubscriber(identifier: UUID) async {
+        activeHeaderSubscriberIdentifiers.remove(identifier)
+        guard let continuation = headerSubscriberContinuations.removeValue(forKey: identifier) else { return }
+        continuation.finish()
+    }
+    
+    func resubscribeHeaderSubscription(for identifier: UUID) async throws -> SwiftFulcrum.Response.Result.Blockchain.Headers.Subscribe {
+        guard activeHeaderSubscriberIdentifiers.contains(identifier) else { throw Error.subscriptionNotFound }
+        guard let subscription = headerSubscription else { throw Error.sessionNotStarted }
+        let initial = try await subscription.resubscribe()
+        latestHeaderInitialResponse = initial
+        if headerUpdateTask == nil {
+            headerUpdateTask = makeHeaderUpdateTask(subscription: subscription, options: headerSynchronizationCallOptions)
+        }
+        return initial
+    }
+    
+    func broadcastHeaderNotification(
+        _ notification: SwiftFulcrum.Response.Result.Blockchain.Headers.SubscribeNotification
+    ) {
+        guard !headerSubscriberContinuations.isEmpty else { return }
+        for continuation in headerSubscriberContinuations.values {
+            continuation.yield(notification)
+        }
+    }
+    
+    func finishHeaderSubscribers(with error: Swift.Error?) {
+        guard !headerSubscriberContinuations.isEmpty else { return }
+        let continuations = headerSubscriberContinuations.values
+        headerSubscriberContinuations.removeAll()
+        activeHeaderSubscriberIdentifiers.removeAll()
+        for continuation in continuations {
+            if let error {
+                continuation.finish(throwing: error)
+            } else {
+                continuation.finish()
+            }
+        }
+    }
+    
+    func removeHeaderSubscriber(identifier: UUID) {
+        headerSubscriberContinuations.removeValue(forKey: identifier)
+        activeHeaderSubscriberIdentifiers.remove(identifier)
+    }
+    
+    func isHeaderSubscriberActive(identifier: UUID) async -> Bool {
+        guard activeHeaderSubscriberIdentifiers.contains(identifier) else { return false }
+        guard let subscription = headerSubscription else { return false }
+        return await subscription.checkIsActive()
     }
 }

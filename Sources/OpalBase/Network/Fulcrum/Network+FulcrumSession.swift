@@ -33,6 +33,10 @@ extension Network {
         var headerSubscription: Subscription<SwiftFulcrum.Response.Result.Blockchain.Headers.Subscribe, SwiftFulcrum.Response.Result.Blockchain.Headers.SubscribeNotification>?
         let headerSynchronizationCallToken = SwiftFulcrum.Client.Call.Token()
         var headerUpdateTask: Task<Void, Never>?
+        var latestHeaderInitialResponse: SwiftFulcrum.Response.Result.Blockchain.Headers.Subscribe?
+        var headerSubscriberContinuations: [UUID: AsyncThrowingStream<SwiftFulcrum.Response.Result.Blockchain.Headers.SubscribeNotification, Swift.Error>.Continuation] = .init()
+        var headerSynchronizationCallOptions: SwiftFulcrum.Client.Call.Options = .init()
+        var activeHeaderSubscriberIdentifiers: Set<UUID> = .init()
         
         var eventContinuations: [UUID: AsyncStream<Event>.Continuation] = .init()
         var telemetryContinuations: [UUID: AsyncStream<Telemetry.Event>.Continuation] = .init()

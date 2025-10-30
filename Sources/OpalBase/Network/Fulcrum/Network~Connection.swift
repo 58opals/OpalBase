@@ -30,6 +30,8 @@ extension Network.FulcrumSession {
         headerUpdateTask?.cancel()
         headerUpdateTask = nil
         headerSubscription = nil
+        latestHeaderInitialResponse = nil
+        finishHeaderSubscribers(with: Error.sessionNotStarted)
         await resetFulcrumForRestart()
         setActiveServerAddress(nil)
         await cancelAllStreamingCalls()

@@ -170,11 +170,6 @@ extension Network.FulcrumSession {
             activeFulcrum = currentFulcrum
         }
         
-        if options.token == nil {
-            options.token = SwiftFulcrum.Client.Call.Token()
-            streamingCallOptions[identifier] = options
-        }
-        
         let cancelHandler = await descriptor.prepareForResubscription()
         if let cancelHandler {
             if options.token != nil {
@@ -184,10 +179,8 @@ extension Network.FulcrumSession {
         }
         await descriptor.waitForCancellationCompletion()
         
-        if let token = options.token, await token.isCancelled {
-            options.token = SwiftFulcrum.Client.Call.Token()
-            streamingCallOptions[identifier] = options
-        }
+        options.token = SwiftFulcrum.Client.Call.Token()
+        streamingCallOptions[identifier] = options
         
         let response = try await activeFulcrum.submit(method: descriptor.method,
                                                       initialType: Initial.self,
