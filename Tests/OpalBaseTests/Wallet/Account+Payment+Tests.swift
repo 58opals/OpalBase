@@ -15,10 +15,22 @@ struct AccountPaymentTests {
     func testPaymentInitializationStoresConfiguration() throws {
         let recipientAddress = try Address(Self.sampleRecipientAddress)
         let amount = try Satoshi(1_500)
+        let feeOverride = Wallet.FeePolicy.Override(explicitFeeRate: 12,
+                                                    preference: .priority,
+                                                    targetConfirmationBlocks: 4)
+        let networkConditions = Wallet.FeePolicy.NetworkConditions(
+            recommendedRates: [.economy: 4, .priority: 18],
+            fallbackRate: 6
+        )
+        let feeContext = Wallet.FeePolicy.RecommendationContext(
+            targetConfirmationBlocks: 8,
+            networkConditions: networkConditions
+        )
         let payment = Account.Payment(recipients: [
             .init(address: recipientAddress, amount: amount)
         ],
-                                      feePerByte: 12,
+                                      feeOverride: feeOverride,
+                                      feeContext: feeContext,
                                       coinSelection: .branchAndBound,
                                       allowDustDonation: true)
         
@@ -27,7 +39,13 @@ struct AccountPaymentTests {
             #expect(storedRecipient.address.string == recipientAddress.string)
             #expect(storedRecipient.amount.uint64 == amount.uint64)
         }
-        #expect(payment.feePerByte == 12)
+        #expect(payment.feeOverride?.explicitFeeRate == 12)
+        #expect(payment.feeOverride?.preference == .priority)
+        #expect(payment.feeOverride?.targetConfirmationBlocks == 4)
+        #expect(payment.feeContext.targetConfirmationBlocks == 8)
+        let contextConditions = payment.feeContext.networkConditions
+        #expect(contextConditions?.rate(for: .economy) == 4)
+        #expect(contextConditions?.rate(for: .standard) == 6)
         switch payment.coinSelection {
         case .branchAndBound:
             #expect(true)
