@@ -1,4 +1,4 @@
-// Network+FulcrumSession~Subscription~Lifecycle.swift
+// Network~Subscription~Lifecycle.swift
 
 import Foundation
 import SwiftFulcrum

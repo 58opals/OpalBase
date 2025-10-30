@@ -207,6 +207,7 @@ extension Account {
 extension Account {
     func handleSessionRecovery(using session: Network.FulcrumSession) async {
         await session.ensureTelemetryInstalled(for: self)
+        await session.ensureSynchronization(for: self)
         await resumeQueuedRequests()
         await resubmitPendingTransactions(using: session)
         await processQueuedRequests()
@@ -236,6 +237,10 @@ extension Account {
 }
 
 extension Account {
+    public func loadTransactionHistory() async -> [Address.Book.History.Transaction.Record] {
+        await addressBook.listTransactionHistory()
+    }
+    
     public func loadFeePreference() async throws -> Wallet.FeePolicy.Preference {
         do {
             if let storedPreference = try await settings.loadFeePreference(for: account.unhardenedIndex) {

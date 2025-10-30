@@ -19,6 +19,9 @@ extension Address {
         
         var utxos: Set<Transaction.Output.Unspent> = .init()
         
+        var transactionHistories: [Transaction.Hash: History.Transaction.Record] = .init()
+        var scriptHashToTransactions: [String: Set<Transaction.Hash>] = .init()
+        
         let gapLimit: Int
         let maxIndex = UInt32.max
         

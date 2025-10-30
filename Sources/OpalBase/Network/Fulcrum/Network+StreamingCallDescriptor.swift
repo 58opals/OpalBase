@@ -1,4 +1,4 @@
-// Network+FulcrumSession+StreamingCallDescriptor.swift
+// Network+StreamingCallDescriptor.swift
 
 import Foundation
 import SwiftFulcrum

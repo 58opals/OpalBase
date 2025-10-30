@@ -1,4 +1,4 @@
-// Network+FulcrumSession+Telemetry.swift
+// Network+Telemetry.swift
 
 import Foundation
 

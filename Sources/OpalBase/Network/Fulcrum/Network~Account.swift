@@ -1,4 +1,4 @@
-// Network+FulcrumSession~Account.swift
+// Network~Account.swift
 
 import Foundation
 import SwiftFulcrum
@@ -6,6 +6,7 @@ import SwiftFulcrum
 extension Network.FulcrumSession {
     public func resumeQueuedWork(for account: Account) async {
         await ensureTelemetryInstalled(for: account)
+        await ensureSynchronization(for: account)
         await account.resumeQueuedRequests()
         await account.resubmitPendingTransactions(using: self)
         await account.processQueuedRequests()

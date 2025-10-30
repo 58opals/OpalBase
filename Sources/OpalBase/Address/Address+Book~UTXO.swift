@@ -15,6 +15,17 @@ extension Address.Book {
         self.utxos = utxos
     }
     
+    func replaceUTXOs(for address: Address, with utxos: [Transaction.Output.Unspent]) {
+        let lockingScript = address.lockingScript.data
+        let existingMatches = self.utxos.filter { $0.lockingScript == lockingScript }
+        if !existingMatches.isEmpty {
+            self.utxos.subtract(existingMatches)
+        }
+        if !utxos.isEmpty {
+            self.utxos.formUnion(utxos)
+        }
+    }
+    
     func removeUTXO(_ utxo: Transaction.Output.Unspent) {
         self.utxos.remove(utxo)
     }

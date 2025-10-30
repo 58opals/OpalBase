@@ -1,4 +1,4 @@
-// Network+FulcrumSession~Wallet.swift
+// Network~Wallet.swift
 
 import Foundation
 import SwiftFulcrum

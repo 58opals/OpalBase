@@ -1,4 +1,4 @@
-// Network+FulcrumSession~Request.swift
+// Network~Request.swift
 
 import Foundation
 import SwiftFulcrum

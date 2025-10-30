@@ -42,16 +42,42 @@ extension Address.Book {
             }
         }
         
+        public struct Transaction: Codable {
+            public let transactionHash: String
+            public let height: Int
+            public let fee: UInt?
+            public let scriptHashes: [String]
+            public let firstSeenAt: Date
+            public let lastUpdatedAt: Date
+            
+            public init(transactionHash: String,
+                        height: Int,
+                        fee: UInt?,
+                        scriptHashes: [String],
+                        firstSeenAt: Date,
+                        lastUpdatedAt: Date) {
+                self.transactionHash = transactionHash
+                self.height = height
+                self.fee = fee
+                self.scriptHashes = scriptHashes
+                self.firstSeenAt = firstSeenAt
+                self.lastUpdatedAt = lastUpdatedAt
+            }
+        }
+        
         public let receivingEntries: [Entry]
         public let changeEntries: [Entry]
         public let utxos: [UTXO]
+        public let transactions: [Transaction]
         
         public init(receivingEntries: [Entry],
                     changeEntries: [Entry],
-                    utxos: [UTXO]) {
+                    utxos: [UTXO],
+                    transactions: [Transaction]) {
             self.receivingEntries = receivingEntries
             self.changeEntries = changeEntries
             self.utxos = utxos
+            self.transactions = transactions
         }
     }
 }
@@ -65,6 +91,7 @@ extension Address.Book.Snapshot {
 extension Address.Book.Snapshot: Sendable {}
 extension Address.Book.Snapshot.Entry: Sendable {}
 extension Address.Book.Snapshot.UTXO: Sendable {}
+extension Address.Book.Snapshot.Transaction: Sendable {}
 
 extension Address.Book {
     public func makeSnapshot() -> Snapshot {
@@ -90,7 +117,19 @@ extension Address.Book {
                           outputIndex: $0.previousTransactionOutputIndex)
         }
         
-        return Snapshot(receivingEntries: receiving, changeEntries: change, utxos: utxoSnaps)
+        let transactionSnaps = transactionHistories.values.map { record in
+            Snapshot.Transaction(transactionHash: record.transactionHash.naturalOrder.hexadecimalString,
+                                 height: record.height,
+                                 fee: record.fee,
+                                 scriptHashes: Array(record.scriptHashes),
+                                 firstSeenAt: record.firstSeenAt,
+                                 lastUpdatedAt: record.lastUpdatedAt)
+        }
+        
+        return Snapshot(receivingEntries: receiving,
+                        changeEntries: change,
+                        utxos: utxoSnaps,
+                        transactions: transactionSnaps)
     }
     
     public func applySnapshot(_ snapshot: Snapshot) throws {
@@ -104,6 +143,24 @@ extension Address.Book {
                                        previousTransactionOutputIndex: $0.outputIndex)
         }
         utxos = Set(restoredUTXOs)
+        
+        transactionHistories.removeAll()
+        scriptHashToTransactions.removeAll()
+        
+        for transaction in snapshot.transactions {
+            let hash = Transaction.Hash(naturalOrder: try Data(hexString: transaction.transactionHash))
+            let record = History.Transaction.Record(transactionHash: hash,
+                                                    height: transaction.height,
+                                                    fee: transaction.fee,
+                                                    scriptHashes: Set(transaction.scriptHashes),
+                                                    firstSeenAt: transaction.firstSeenAt,
+                                                    lastUpdatedAt: transaction.lastUpdatedAt)
+            transactionHistories[hash] = record
+            
+            for scriptHash in transaction.scriptHashes {
+                scriptHashToTransactions[scriptHash, default: .init()].insert(hash)
+            }
+        }
     }
     
     private func apply(entrySnapshots: [Snapshot.Entry], usage: DerivationPath.Usage) throws {

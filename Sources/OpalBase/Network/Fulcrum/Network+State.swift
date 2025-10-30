@@ -1,4 +1,4 @@
-// Network+FulcrumSession+State.swift
+// Network+State.swift
 
 import Foundation
 

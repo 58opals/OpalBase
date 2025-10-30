@@ -1,4 +1,4 @@
-// Network+FulcrumSession~Connection.swift
+// Network~Connection.swift
 
 import Foundation
 import SwiftFulcrum
@@ -29,6 +29,7 @@ extension Network.FulcrumSession {
         await resetFulcrumForRestart()
         setActiveServerAddress(nil)
         await cancelAllStreamingCalls()
+        await cancelAllAccountSynchronizations()
         pendingFallbackOrigin = nil
         state = .stopped
     }
