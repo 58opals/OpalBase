@@ -168,22 +168,45 @@ extension Account {
         let broadcastClosure: @Sendable (String) async throws -> Void
         if let broadcaster {
             broadcastClosure = broadcaster
+        } else if let handler = outboxBroadcastHandler {
+            broadcastClosure = handler
         } else {
             broadcastClosure = { rawTransaction in
                 _ = try await session.broadcastTransaction(rawTransaction)
             }
         }
         
-        let pending = await outbox.loadPendingTransactions()
-        guard !pending.isEmpty else { return }
+        let entries = await outbox.loadEntries()
+        guard !entries.isEmpty else { return }
         
-        for (hash, data) in pending {
-            let rawTransactionHex = data.hexadecimalString
+        for (hash, entry) in entries {
+            guard entry.status.isEligibleForEnqueue else { continue }
+            
+            await outbox.prepareForEnqueue(transactionHash: hash)
+            let rawTransactionHex = entry.transactionData.hexadecimalString
+            
             await enqueueRequest(for: .broadcast(hash),
                                  priority: nil) {
-                try await broadcastClosure(rawTransactionHex)
-                await self.outbox.remove(transactionHash: hash)
+                await self.outbox.beginBroadcast(for: hash)
+                do {
+                    try await broadcastClosure(rawTransactionHex)
+                    await self.outbox.remove(transactionHash: hash)
+                } catch {
+                    throw error
+                }
             }
         }
+    }
+}
+
+extension Account {
+    func recordOutboxRetry(for request: Request, failureDescription: String) async {
+        guard case .broadcast(let hash) = request else { return }
+        await outbox.recordRetry(for: hash, failureDescription: failureDescription)
+    }
+    
+    func recordOutboxFailure(for request: Request, failureDescription: String) async {
+        guard case .broadcast(let hash) = request else { return }
+        await outbox.recordFailure(for: hash, failureDescription: failureDescription)
     }
 }

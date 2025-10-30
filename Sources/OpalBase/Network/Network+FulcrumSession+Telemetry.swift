@@ -68,7 +68,7 @@ extension Network.FulcrumSession {
         let context = await makeTelemetryAccountContext(for: account, identifier: identifier)
         telemetryAccountContexts[identifier] = context
         
-        let instrumentation = makeAccountRequestRouterInstrumentation(for: context)
+        let instrumentation = makeAccountRequestRouterInstrumentation(for: account, context: context)
         await account.updateRequestRouterInstrumentation(instrumentation)
     }
 }
@@ -79,7 +79,9 @@ private extension Network.FulcrumSession {
         return .init(accountIdentifier: identifier, unhardenedIndex: unhardenedIndex)
     }
     
-    func makeAccountRequestRouterInstrumentation(for context: Telemetry.AccountContext) -> RequestRouter<Account.Request>.Instrumentation {
+    func makeAccountRequestRouterInstrumentation(for account: Account,
+                                                 context: Telemetry.AccountContext) -> RequestRouter<Account.Request>.Instrumentation
+    {
         RequestRouter<Account.Request>.Instrumentation(
             didChangeQueueDepth: { [weak self] depth in
                 guard let self else { return }
@@ -90,13 +92,21 @@ private extension Network.FulcrumSession {
                 guard let self else { return }
                 let failureDescription = error.localizedDescription
                 Task {
+                    await account.recordOutboxRetry(for: request,
+                                                    failureDescription: failureDescription)
                     await self.recordRequestRetry(for: context,
                                                   request: request,
                                                   attempt: attempt,
                                                   failureDescription: failureDescription)
                 }
             },
-            didFailRequest: { _, _, _ in }
+            didFailRequest: { request, _, error in
+                let failureDescription = error.localizedDescription
+                Task {
+                    await account.recordOutboxFailure(for: request,
+                                                      failureDescription: failureDescription)
+                }
+            }
         )
     }
     

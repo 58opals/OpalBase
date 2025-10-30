@@ -8,6 +8,8 @@ extension Network.FulcrumSession {
         await ensureTelemetryInstalled(for: account)
         await account.resumeQueuedRequests()
         await account.resubmitPendingTransactions(using: self)
+        await account.processQueuedRequests()
+        await account.startNetworkMonitor(using: self)
     }
     
     public func computeCachedBalance(for account: Account) async throws -> Satoshi {

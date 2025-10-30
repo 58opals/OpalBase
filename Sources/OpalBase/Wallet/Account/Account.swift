@@ -27,6 +27,7 @@ public actor Account: Identifiable {
     let privacyShaper: PrivacyShaper
     
     private var networkMonitorTask: Task<Void, Never>?
+    var outboxBroadcastHandler: (@Sendable (String) async throws -> Void)?
     let requestRouter = RequestRouter<Request>()
     private var feeEstimator: Wallet.FeePolicy.FeeEstimator?
     
@@ -175,9 +176,55 @@ extension Account {
         await requestRouter.resume()
     }
     
+    func startNetworkMonitor(using session: Network.FulcrumSession) {
+        networkMonitorTask?.cancel()
+        
+        let account = self
+        networkMonitorTask = Task { [weak session] in
+            guard let session else { return }
+            
+            var iterator = await session.makeEventStream().makeAsyncIterator()
+            while !Task.isCancelled, let event = await iterator.next() {
+                switch event {
+                case .didReconnect, .didFallback:
+                    await account.handleSessionRecovery(using: session)
+                case .didStart:
+                    await account.handleSessionRecovery(using: session)
+                default:
+                    continue
+                }
+            }
+        }
+    }
+    
     public func stopNetworkMonitor() {
         networkMonitorTask?.cancel()
         networkMonitorTask = nil
+    }
+}
+
+extension Account {
+    func handleSessionRecovery(using session: Network.FulcrumSession) async {
+        await session.ensureTelemetryInstalled(for: self)
+        await resumeQueuedRequests()
+        await resubmitPendingTransactions(using: session)
+        await processQueuedRequests()
+    }
+}
+
+extension Account {
+    public func makeOutboxStatusStream() async -> AsyncStream<Outbox.StatusUpdate> {
+        await outbox.makeStatusStream()
+    }
+    
+    public func loadOutboxStatuses() async -> [Transaction.Hash: Outbox.Status] {
+        await outbox.loadStatuses()
+    }
+}
+
+extension Account {
+    func updateOutboxBroadcastHandler(_ handler: (@Sendable (String) async throws -> Void)?) {
+        outboxBroadcastHandler = handler
     }
 }
 
