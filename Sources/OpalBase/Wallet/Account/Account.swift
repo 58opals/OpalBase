@@ -151,9 +151,10 @@ extension Account {
 extension Account {
     func enqueueRequest(for key: Request,
                         priority: TaskPriority? = nil,
+                        retryPolicy: RequestRouter<Request>.RetryPolicy = .retry,
                         operation: @escaping @Sendable () async throws -> Void) async {
         let handle = await requestRouter.handle(for: key)
-        _ = await handle.enqueue(priority: priority, retryPolicy: .retry, operation: operation)
+        _ = await handle.enqueue(priority: priority, retryPolicy: retryPolicy, operation: operation)
     }
     
     func performRequest<Value: Sendable>(for key: Request,

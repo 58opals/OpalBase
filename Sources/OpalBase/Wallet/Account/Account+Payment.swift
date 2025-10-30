@@ -186,7 +186,8 @@ extension Account {
             let rawTransactionHex = entry.transactionData.hexadecimalString
             
             await enqueueRequest(for: .broadcast(hash),
-                                 priority: nil) {
+                                 priority: nil,
+                                 retryPolicy: retryPolicy) {
                 await self.outbox.beginBroadcast(for: hash)
                 do {
                     try await broadcastClosure(rawTransactionHex)

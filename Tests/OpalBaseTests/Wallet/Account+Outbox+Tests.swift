@@ -155,9 +155,6 @@ struct AccountOutboxTests {
         }
         
         let resubmissionFailure = await statusIterator.next()
-        print()
-        print(resubmissionFailure)
-        print()
         if case .failed(let description)? = resubmissionFailure?.status {
             #expect(!description.isEmpty)
         } else {
