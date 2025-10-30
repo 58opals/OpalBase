@@ -51,6 +51,7 @@ struct NetworkFulcrumSessionSubscriptionLifecycleTests {
             #expect(status.count == 64)
         }
         
+        print(await session.streamingCallDescriptors)
         let descriptorCount = await session.streamingCallDescriptors.count
         #expect(descriptorCount == 1)
     }

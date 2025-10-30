@@ -56,7 +56,7 @@ extension Network.FulcrumSession {
     
     func prepareStreamingCallsForRestart() async {
         if !streamingCallDescriptors.isEmpty {
-            preparedStreamingCallDescriptors.merge(streamingCallDescriptors) { current, _ in current }
+            preparedStreamingCallDescriptors = streamingCallDescriptors
         }
         
         for descriptor in preparedStreamingCallDescriptors.values {
