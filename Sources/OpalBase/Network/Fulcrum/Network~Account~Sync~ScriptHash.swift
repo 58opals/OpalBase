@@ -131,9 +131,13 @@ extension Network.FulcrumSession {
         let historyEntries = try makeTransactionHistoryEntries(from: historyResponse.transactions)
         
         let addressBook = await account.addressBook
+        let timestamp = Date()
         try await addressBook.updateCache(for: address, with: balance)
         await addressBook.replaceUTXOs(for: address, with: utxos)
-        await addressBook.updateTransactionHistory(for: scriptHash, entries: historyEntries)
+        let changeSet = await addressBook.updateTransactionHistory(for: scriptHash,
+                                                                   entries: historyEntries,
+                                                                   timestamp: timestamp)
+        await persistLedgerChanges(changeSet, for: account)
         
         if !historyEntries.isEmpty || !utxos.isEmpty || balance.uint64 > 0 {
             try await addressBook.mark(address: address, isUsed: true)
@@ -166,6 +170,31 @@ extension Network.FulcrumSession {
             return Address.Book.History.Transaction.Entry(transactionHash: transactionHash,
                                                           height: transaction.height,
                                                           fee: transaction.fee)
+        }
+    }
+}
+
+extension Network.FulcrumSession {
+    func persistLedgerChanges(_ changeSet: Address.Book.History.Transaction.ChangeSet,
+                              for account: Account) async {
+        guard !changeSet.isEmpty else { return }
+        let accountIndex = await account.unhardenedIndex
+        await persistLedgerRecords(changeSet.inserted, for: accountIndex)
+        await persistLedgerRecords(changeSet.updated, for: accountIndex)
+    }
+    
+    func persistLedgerRecords(_ records: [Address.Book.History.Transaction.Record],
+                              for accountIndex: UInt32) async {
+        guard !records.isEmpty else { return }
+        for record in records {
+            let entry = record.makeLedgerEntry()
+            do {
+                if await storage.loadLedgerEntry(for: entry.transactionHash, accountIndex: accountIndex) != nil {
+                    _ = try await storage.updateLedgerEntry(entry, for: accountIndex)
+                } else {
+                    _ = try await storage.insertLedgerEntry(entry, for: accountIndex)
+                }
+            } catch {}
         }
     }
 }

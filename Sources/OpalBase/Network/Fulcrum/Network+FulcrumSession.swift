@@ -17,6 +17,7 @@ extension Network {
         }
         
         public let configuration: SwiftFulcrum.Fulcrum.Configuration
+        public let storage: Storage
         public var preferredServerAddress: URL?
         public var candidateServerAddresses: [URL]
         public var activeServerAddress: URL?
@@ -38,7 +39,8 @@ extension Network {
         var accountSynchronizationStates: [Data: AccountSynchronizationState] = .init()
         
         public init(serverAddress: URL? = nil,
-                    configuration: SwiftFulcrum.Fulcrum.Configuration = .init()) async throws {
+                    configuration: SwiftFulcrum.Fulcrum.Configuration = .init(),
+                    storage: Storage? = nil) async throws {
             let candidates = Self.makeCandidateServerAddresses(from: serverAddress,
                                                                configuration: configuration)
             if let serverAddress, !candidates.contains(serverAddress) { throw Error.unsupportedServerAddress }
@@ -47,6 +49,11 @@ extension Network {
             self.preferredServerAddress = serverAddress
             self.candidateServerAddresses = candidates
             self.activeServerAddress = nil
+            if let providedStorage = storage {
+                self.storage = providedStorage
+            } else {
+                self.storage = try await Storage(configuration: .init(isMemoryOnly: true))
+            }
         }
         
         public func makeEventStream() -> AsyncStream<Event> {

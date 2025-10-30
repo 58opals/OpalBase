@@ -49,19 +49,28 @@ extension Address.Book {
             public let scriptHashes: [String]
             public let firstSeenAt: Date
             public let lastUpdatedAt: Date
+            public let status: History.Transaction.Status
+            public let confirmationHeight: UInt64?
+            public let confirmedAt: Date?
             
             public init(transactionHash: String,
                         height: Int,
                         fee: UInt?,
                         scriptHashes: [String],
                         firstSeenAt: Date,
-                        lastUpdatedAt: Date) {
+                        lastUpdatedAt: Date,
+                        status: History.Transaction.Status,
+                        confirmationHeight: UInt64?,
+                        confirmedAt: Date?) {
                 self.transactionHash = transactionHash
                 self.height = height
                 self.fee = fee
                 self.scriptHashes = scriptHashes
                 self.firstSeenAt = firstSeenAt
                 self.lastUpdatedAt = lastUpdatedAt
+                self.status = status
+                self.confirmationHeight = confirmationHeight
+                self.confirmedAt = confirmedAt
             }
         }
         
@@ -123,7 +132,10 @@ extension Address.Book {
                                  fee: record.fee,
                                  scriptHashes: Array(record.scriptHashes),
                                  firstSeenAt: record.firstSeenAt,
-                                 lastUpdatedAt: record.lastUpdatedAt)
+                                 lastUpdatedAt: record.lastUpdatedAt,
+                                 status: record.status,
+                                 confirmationHeight: record.confirmationHeight,
+                                 confirmedAt: record.confirmedAt)
         }
         
         return Snapshot(receivingEntries: receiving,
@@ -154,7 +166,10 @@ extension Address.Book {
                                                     fee: transaction.fee,
                                                     scriptHashes: Set(transaction.scriptHashes),
                                                     firstSeenAt: transaction.firstSeenAt,
-                                                    lastUpdatedAt: transaction.lastUpdatedAt)
+                                                    lastUpdatedAt: transaction.lastUpdatedAt,
+                                                    status: transaction.status,
+                                                    confirmationHeight: transaction.confirmationHeight,
+                                                    confirmedAt: transaction.confirmedAt)
             transactionHistories[hash] = record
             
             for scriptHash in transaction.scriptHashes {
