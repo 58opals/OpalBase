@@ -15,16 +15,19 @@ extension Account {
         }
         
         public let recipients: [Recipient]
-        public let feePerByte: UInt64
+        public let feeOverride: Wallet.FeePolicy.Override?
+        public let feeContext: Wallet.FeePolicy.RecommendationContext
         public let coinSelection: Address.Book.CoinSelection
         public let allowDustDonation: Bool
         
         public init(recipients: [Recipient],
-                    feePerByte: UInt64 = Transaction.defaultFeeRate,
+                    feeOverride: Wallet.FeePolicy.Override? = nil,
+                    feeContext: Wallet.FeePolicy.RecommendationContext = .init(),
                     coinSelection: Address.Book.CoinSelection = .greedyLargestFirst,
                     allowDustDonation: Bool = false) {
             self.recipients = recipients
-            self.feePerByte = feePerByte
+            self.feeOverride = feeOverride
+            self.feeContext = feeContext
             self.coinSelection = coinSelection
             self.allowDustDonation = allowDustDonation
         }
@@ -83,12 +86,21 @@ private extension Account {
         
         let shapedOutputs = await privacyShaper.randomizeOutputs(recipientOutputs)
         
+        let feePolicy = try await makeFeePolicy()
+        
+        let resolvedFeePerByte = feePolicy.recommendedFeeRate(for: payment.feeContext,
+                                                              override: payment.feeOverride)
+        let selectionOverride = payment.feeOverride?.injecting(explicitFeeRate: resolvedFeePerByte)
+        ?? Wallet.FeePolicy.Override(explicitFeeRate: resolvedFeePerByte)
+        
         let selectedUTXOs: [Transaction.Output.Unspent]
         do {
             selectedUTXOs = try await addressBook.selectUTXOs(targetAmount: targetAmount,
+                                                              feePolicy: feePolicy,
+                                                              recommendationContext: payment.feeContext,
+                                                              override: selectionOverride,
                                                               recipientOutputs: shapedOutputs,
                                                               changeLockingScript: changeLockingScript,
-                                                              feePerByte: payment.feePerByte,
                                                               strategy: payment.coinSelection)
         } catch {
             throw Error.coinSelectionFailed(error)
@@ -114,7 +126,7 @@ private extension Account {
             transaction = try Transaction.build(utxoPrivateKeyPairs: utxoPrivateKeyPairs,
                                                 recipientOutputs: shapedOutputs,
                                                 changeOutput: changeOutput,
-                                                feePerByte: payment.feePerByte,
+                                                feePerByte: resolvedFeePerByte,
                                                 allowDustDonation: payment.allowDustDonation)
         } catch {
             throw Error.transactionBuildFailed(error)

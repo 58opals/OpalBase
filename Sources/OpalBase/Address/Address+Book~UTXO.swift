@@ -82,8 +82,11 @@ extension Address.Book {
 
 extension Address.Book {
     func selectUTXOs(targetAmount: Satoshi,
-                     feePerByte: UInt64 = 1,
+                     feePolicy: Wallet.FeePolicy,
+                     recommendationContext: Wallet.FeePolicy.RecommendationContext = .init(),
+                     override: Wallet.FeePolicy.Override? = nil,
                      strategy: CoinSelection = .greedyLargestFirst) throws -> [Transaction.Output.Unspent] {
+        let feePerByte = feePolicy.recommendedFeeRate(for: recommendationContext, override: override)
         switch strategy {
         case .greedyLargestFirst:
             var selectedUTXOs: [Transaction.Output.Unspent] = .init()
@@ -160,13 +163,16 @@ extension Address.Book {
     }
     
     func selectUTXOs(targetAmount: Satoshi,
+                     feePolicy: Wallet.FeePolicy,
+                     recommendationContext: Wallet.FeePolicy.RecommendationContext = .init(),
+                     override: Wallet.FeePolicy.Override? = nil,
                      recipientOutputs: [Transaction.Output],
                      changeLockingScript: Data,
-                     feePerByte: UInt64 = 1,
                      strategy: CoinSelection = .greedyLargestFirst) throws -> [Transaction.Output.Unspent] {
         let dust = Transaction.dustLimit
         let changeTemplate = Transaction.Output(value: 0, lockingScript: changeLockingScript)
         let withChangeOutputs = recipientOutputs + [changeTemplate]
+        let feePerByte = feePolicy.recommendedFeeRate(for: recommendationContext, override: override)
         
         switch strategy {
         case .greedyLargestFirst:

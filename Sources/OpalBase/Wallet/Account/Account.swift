@@ -14,6 +14,8 @@ public actor Account: Identifiable {
     public var addressBook: Address.Book
     let outbox: Outbox
     
+    let settings: Storage.Settings
+    
     var balanceMonitorConsumerID: UUID?
     var balanceMonitorTasks: [Task<Void, Never>] = .init()
     var balanceMonitorDebounceTask: Task<Void, Never>?
@@ -26,6 +28,7 @@ public actor Account: Identifiable {
     
     private var networkMonitorTask: Task<Void, Never>?
     let requestRouter = RequestRouter<Request>()
+    private var feeEstimator: Wallet.FeePolicy.FeeEstimator?
     
     init(fulcrumServerURLs: [String] = .init(),
          rootExtendedPrivateKey: PrivateKey.Extended,
@@ -33,7 +36,8 @@ public actor Account: Identifiable {
          coinType: DerivationPath.CoinType,
          account: DerivationPath.Account,
          privacyConfiguration: PrivacyShaper.Configuration = .standard,
-         outboxPath: URL? = nil) async throws {
+         outboxPath: URL? = nil,
+         settings: Storage.Settings = .init()) async throws {
         self.rootExtendedPrivateKey = rootExtendedPrivateKey
         self.purpose = purpose
         self.coinType = coinType
@@ -51,6 +55,7 @@ public actor Account: Identifiable {
         
         self.privacyConfiguration = privacyConfiguration
         self.privacyShaper = .init(configuration: privacyConfiguration)
+        self.settings = settings
     }
     
     init(from snapshot: Account.Snapshot,
@@ -59,14 +64,16 @@ public actor Account: Identifiable {
          purpose: DerivationPath.Purpose,
          coinType: DerivationPath.CoinType,
          privacyConfiguration: PrivacyShaper.Configuration = .standard,
-         outboxPath: URL? = nil) async throws {
+         outboxPath: URL? = nil,
+         settings: Storage.Settings = .init()) async throws {
         try await self.init(fulcrumServerURLs: fulcrumServerURLs,
                             rootExtendedPrivateKey: rootExtendedPrivateKey,
                             purpose: purpose,
                             coinType: coinType,
                             account: try .init(rawIndexInteger: snapshot.account),
                             privacyConfiguration: privacyConfiguration,
-                            outboxPath: outboxPath)
+                            outboxPath: outboxPath,
+                            settings: settings)
         try await self.addressBook.applySnapshot(snapshot.addressBook)
     }
     
@@ -76,7 +83,7 @@ public actor Account: Identifiable {
 }
 
 extension Account {
-    public enum Error: Swift.Error {
+    public enum Error: Swift.Error, Equatable {
         case balanceFetchTimeout(Address)
         case paymentHasNoRecipients
         case paymentExceedsMaximumAmount
@@ -84,6 +91,25 @@ extension Account {
         case transactionBuildFailed(Swift.Error)
         case outboxPersistenceFailed(Swift.Error)
         case broadcastFailed(Swift.Error)
+        case feePreferenceUnavailable(Swift.Error)
+        
+        public static func == (lhs: Account.Error, rhs: Account.Error) -> Bool {
+            switch (lhs, rhs) {
+            case (.paymentHasNoRecipients, .paymentHasNoRecipients),
+                (.paymentExceedsMaximumAmount, .paymentExceedsMaximumAmount):
+                return true
+            case (.balanceFetchTimeout(let leftAddress), .balanceFetchTimeout(let rightAddress)):
+                return leftAddress == rightAddress
+            case (.coinSelectionFailed(let leftError), .coinSelectionFailed(let rightError)),
+                (.transactionBuildFailed(let leftError), .transactionBuildFailed(let rightError)),
+                (.outboxPersistenceFailed(let leftError), .outboxPersistenceFailed(let rightError)),
+                (.broadcastFailed(let leftError), .broadcastFailed(let rightError)),
+                (.feePreferenceUnavailable(let leftError), .feePreferenceUnavailable(let rightError)):
+                return leftError.localizedDescription == rightError.localizedDescription
+            default:
+                return false
+            }
+        }
     }
 }
 
@@ -158,5 +184,35 @@ extension Account {
 extension Account {
     func updateRequestRouterInstrumentation(_ instrumentation: RequestRouter<Request>.Instrumentation) async {
         await requestRouter.updateInstrumentation(instrumentation)
+    }
+}
+
+extension Account {
+    public func loadFeePreference() async throws -> Wallet.FeePolicy.Preference {
+        do {
+            if let storedPreference = try await settings.loadFeePreference(for: account.unhardenedIndex) {
+                return storedPreference
+            }
+            return .standard
+        } catch {
+            throw Error.feePreferenceUnavailable(error)
+        }
+    }
+    
+    public func updateFeePreference(_ preference: Wallet.FeePolicy.Preference) async throws {
+        do {
+            try await settings.updateFeePreference(preference, for: account.unhardenedIndex)
+        } catch {
+            throw Error.feePreferenceUnavailable(error)
+        }
+    }
+    
+    public func makeFeePolicy() async throws -> Wallet.FeePolicy {
+        let preference = try await loadFeePreference()
+        return Wallet.FeePolicy(preference: preference, estimator: feeEstimator)
+    }
+    
+    public func updateFeeEstimator(_ estimator: Wallet.FeePolicy.FeeEstimator?) {
+        feeEstimator = estimator
     }
 }

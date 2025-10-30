@@ -11,6 +11,7 @@ public actor Wallet: Identifiable {
     public let id: Data
     
     var accounts: [Account] = .init()
+    public let settings: Storage.Settings
     
     var balanceLifecycleRegistrations: [Data: UUID] = .init()
     
@@ -25,17 +26,21 @@ public actor Wallet: Identifiable {
     
     public init(mnemonic: Mnemonic,
                 purpose: DerivationPath.Purpose = .bip44,
-                coinType: DerivationPath.CoinType = .bitcoinCash) {
+                coinType: DerivationPath.CoinType = .bitcoinCash,
+                settings: Storage.Settings = .init()) {
         self.mnemonic = mnemonic
         self.purpose = purpose
         self.coinType = coinType
+        self.settings = settings
         self.id = [self.mnemonic.seed, self.purpose.hardenedIndex.data, self.coinType.hardenedIndex.data].generateID()
     }
     
-    public init(from snapshot: Wallet.Snapshot) async throws {
+    public init(from snapshot: Wallet.Snapshot,
+                settings: Storage.Settings = .init()) async throws {
         self.mnemonic = try Mnemonic(words: snapshot.words, passphrase: snapshot.passphrase)
         self.purpose = snapshot.purpose
         self.coinType = snapshot.coinType
+        self.settings = settings
         self.id = [self.mnemonic.seed, self.purpose.hardenedIndex.data, self.coinType.hardenedIndex.data].generateID()
         
         let rootExtendedPrivateKey = PrivateKey.Extended(rootKey: try .init(seed: self.mnemonic.seed))
@@ -43,7 +48,8 @@ public actor Wallet: Identifiable {
             let account = try await Account(from: accountSnap,
                                             rootExtendedPrivateKey: rootExtendedPrivateKey,
                                             purpose: snapshot.purpose,
-                                            coinType: snapshot.coinType)
+                                            coinType: snapshot.coinType,
+                                            settings: settings)
             self.accounts.append(account)
         }
     }
@@ -70,7 +76,8 @@ extension Wallet {
                                         rootExtendedPrivateKey: rootExtendedPrivateKey,
                                         purpose: purpose,
                                         coinType: coinType,
-                                        account: derivationPathAccount)
+                                        account: derivationPathAccount,
+                                        settings: settings)
         self.accounts.append(account)
     }
 }
