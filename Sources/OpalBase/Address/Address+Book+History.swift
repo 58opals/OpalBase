@@ -71,7 +71,7 @@ extension Address.Book.History.Transaction.Record {
         lastUpdatedAt = timestamp
         scriptHashes.insert(scriptHash)
         
-        let statusUpdate = Address.Book.History.Transaction.Record.Status
+        let statusUpdate = Address.Book.History.Transaction.Status
             .resolve(forHeight: entry.height, previousStatus: status)
         status = statusUpdate.status
         
@@ -92,7 +92,7 @@ extension Address.Book.History.Transaction.Record {
     static func makeRecord(for entry: Address.Book.History.Transaction.Entry,
                            scriptHash: String,
                            timestamp: Date) -> Address.Book.History.Transaction.Record {
-        let statusUpdate = Address.Book.History.Transaction.Record.Status
+        let statusUpdate = Address.Book.History.Transaction.Status
             .resolve(forHeight: entry.height, previousStatus: nil)
         let confirmationHeight = statusUpdate.status == .confirmed
         ? (statusUpdate.confirmationHeight ?? UInt64(entry.height))
@@ -121,10 +121,10 @@ extension Address.Book.History.Transaction.Record {
     }
 }
 
-private extension Address.Book.History.Transaction.Record.Status {
+extension Address.Book.History.Transaction.Status {
     static func resolve(forHeight height: Int,
-                        previousStatus: Address.Book.History.Transaction.Record.Status?)
-    -> (status: Address.Book.History.Transaction.Record.Status,
+                        previousStatus: Address.Book.History.Transaction.Status?)
+    -> (status: Address.Book.History.Transaction.Status,
         confirmationHeight: UInt64?)
     {
         if height > 0 {
