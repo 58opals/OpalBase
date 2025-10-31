@@ -57,12 +57,7 @@ extension Network.FulcrumSession {
         try await refreshAddressBookUTXOSet(for: account,
                                             scope: scope,
                                             options: options,
-                                            scriptHashRefresher: { usage, entry, _ in
-            try await refreshEntryScriptHash(for: account,
-                                             usage: usage,
-                                             entry: entry,
-                                             options: options)
-        })
+                                            scriptHashRefresher: makeScriptHashRefresher(for: account, options: options))
     }
     
     public func scanForUsedAddresses(
@@ -106,12 +101,7 @@ extension Network.FulcrumSession {
                                                    toHeight: toHeight,
                                                    includeUnconfirmed: includeUnconfirmed,
                                                    options: options,
-                                                   scriptHashRefresher: { usage, entry, _ in
-            try await refreshEntryScriptHash(for: account,
-                                             usage: usage,
-                                             entry: entry,
-                                             options: options)
-        })
+                                                   scriptHashRefresher: makeScriptHashRefresher(for: account, options: options))
     }
     
     public func fetchCombinedHistory(
@@ -320,16 +310,10 @@ extension Network.FulcrumSession {
     ) async throws -> [Address] {
         try ensureSessionReady(allowRestoring: true)
         var newlyUsed: [Address] = .init()
+        let scriptHashRefresher = scriptHashRefresher ?? makeScriptHashRefresher(for: account, options: options)
         try await visitAddressEntries(for: account, scope: scope) { usage, entry, addressBook in
             let wasUsed = entry.isUsed
-            if let scriptHashRefresher {
-                try await scriptHashRefresher(usage, entry, addressBook)
-            } else {
-                try await refreshEntryScriptHash(for: account,
-                                                 usage: usage,
-                                                 entry: entry,
-                                                 options: options)
-            }
+            try await scriptHashRefresher(usage, entry, addressBook)
             let isUsed = (try? await addressBook.isUsed(address: entry.address)) ?? wasUsed
             if isUsed && !wasUsed {
                 newlyUsed.append(entry.address)
@@ -378,6 +362,18 @@ extension Network.FulcrumSession {
                                            scriptHash: scriptHash,
                                            usage: usage,
                                            options: options)
+    }
+    
+    private func makeScriptHashRefresher(
+        for account: Account,
+        options: SwiftFulcrum.Client.Call.Options
+    ) -> (_ usage: DerivationPath.Usage, _ entry: Address.Book.Entry, _ addressBook: Address.Book) async throws -> Void {
+        { usage, entry, _ in
+            try await self.refreshEntryScriptHash(for: account,
+                                                  usage: usage,
+                                                  entry: entry,
+                                                  options: options)
+        }
     }
     
     private func checkIfAddressIsUsed(
