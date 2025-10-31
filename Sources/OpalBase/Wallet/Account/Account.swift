@@ -9,27 +9,13 @@ public actor Account: Identifiable {
     let coinType: DerivationPath.CoinType
     let account: DerivationPath.Account
     
+    let storageSettings: Storage.Settings
+    
     public let id: Data
-    
     public var addressBook: Address.Book
-    let outbox: Outbox
     
-    let settings: Storage.Settings
-    
-    var balanceMonitorConsumerID: UUID?
-    var balanceMonitorTasks: [Task<Void, Never>] = .init()
-    var balanceMonitorDebounceTask: Task<Void, Never>?
-    var balanceMonitorContinuation: AsyncThrowingStream<Satoshi, Swift.Error>.Continuation?
-    var isBalanceMonitoringSuspended = false
-    let balanceMonitorDebounceInterval: UInt64 = 100_000_000
-    
-    public let privacyConfiguration: PrivacyShaper.Configuration
     let privacyShaper: PrivacyShaper
-    
-    private var networkMonitorTask: Task<Void, Never>?
-    var outboxBroadcastHandler: (@Sendable (String) async throws -> Void)?
-    let requestRouter = RequestRouter<Request>()
-    private var feeEstimator: Wallet.FeePolicy.FeeEstimator?
+    public let privacyConfiguration: PrivacyShaper.Configuration
     
     init(fulcrumServerURLs: [String] = .init(),
          rootExtendedPrivateKey: PrivateKey.Extended,
@@ -37,8 +23,7 @@ public actor Account: Identifiable {
          coinType: DerivationPath.CoinType,
          account: DerivationPath.Account,
          privacyConfiguration: PrivacyShaper.Configuration = .standard,
-         outboxPath: URL? = nil,
-         settings: Storage.Settings = .init()) async throws {
+         storageSettings: Storage.Settings = .init()) async throws {
         self.rootExtendedPrivateKey = rootExtendedPrivateKey
         self.purpose = purpose
         self.coinType = coinType
@@ -51,12 +36,9 @@ public actor Account: Identifiable {
                                                   coinType: coinType,
                                                   account: account)
         
-        let folderURL = outboxPath ?? FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0].appendingPathComponent("accountOutbox")
-        self.outbox = try await .init(folderURL: folderURL)
-        
         self.privacyConfiguration = privacyConfiguration
         self.privacyShaper = .init(configuration: privacyConfiguration)
-        self.settings = settings
+        self.storageSettings = storageSettings
     }
     
     init(from snapshot: Account.Snapshot,
@@ -65,26 +47,26 @@ public actor Account: Identifiable {
          purpose: DerivationPath.Purpose,
          coinType: DerivationPath.CoinType,
          privacyConfiguration: PrivacyShaper.Configuration = .standard,
-         outboxPath: URL? = nil,
-         settings: Storage.Settings = .init()) async throws {
+         storageSettings: Storage.Settings = .init()) async throws {
         try await self.init(fulcrumServerURLs: fulcrumServerURLs,
                             rootExtendedPrivateKey: rootExtendedPrivateKey,
                             purpose: purpose,
                             coinType: coinType,
                             account: try .init(rawIndexInteger: snapshot.account),
                             privacyConfiguration: privacyConfiguration,
-                            outboxPath: outboxPath,
-                            settings: settings)
+                            storageSettings: storageSettings)
         try await self.addressBook.applySnapshot(snapshot.addressBook)
     }
-    
-    deinit {
-        networkMonitorTask?.cancel()
+}
+
+extension Account: Equatable {
+    public static func == (lhs: Account, rhs: Account) -> Bool {
+        lhs.id == rhs.id
     }
 }
 
 extension Account {
-    public enum Error: Swift.Error, Equatable {
+    public enum Error: Swift.Error {
         case balanceFetchTimeout(Address)
         case paymentHasNoRecipients
         case paymentExceedsMaximumAmount
@@ -93,30 +75,26 @@ extension Account {
         case outboxPersistenceFailed(Swift.Error)
         case broadcastFailed(Swift.Error)
         case feePreferenceUnavailable(Swift.Error)
-        
-        public static func == (lhs: Account.Error, rhs: Account.Error) -> Bool {
-            switch (lhs, rhs) {
-            case (.paymentHasNoRecipients, .paymentHasNoRecipients),
-                (.paymentExceedsMaximumAmount, .paymentExceedsMaximumAmount):
-                return true
-            case (.balanceFetchTimeout(let leftAddress), .balanceFetchTimeout(let rightAddress)):
-                return leftAddress == rightAddress
-            case (.coinSelectionFailed(let leftError), .coinSelectionFailed(let rightError)),
-                (.transactionBuildFailed(let leftError), .transactionBuildFailed(let rightError)),
-                (.outboxPersistenceFailed(let leftError), .outboxPersistenceFailed(let rightError)),
-                (.broadcastFailed(let leftError), .broadcastFailed(let rightError)),
-                (.feePreferenceUnavailable(let leftError), .feePreferenceUnavailable(let rightError)):
-                return leftError.localizedDescription == rightError.localizedDescription
-            default:
-                return false
-            }
-        }
     }
 }
 
-extension Account: Equatable {
-    public static func == (lhs: Account, rhs: Account) -> Bool {
-        lhs.id == rhs.id
+extension Account.Error: Equatable {
+    public static func == (lhs: Account.Error, rhs: Account.Error) -> Bool {
+        switch (lhs, rhs) {
+        case (.paymentHasNoRecipients, .paymentHasNoRecipients),
+            (.paymentExceedsMaximumAmount, .paymentExceedsMaximumAmount):
+            return true
+        case (.balanceFetchTimeout(let leftAddress), .balanceFetchTimeout(let rightAddress)):
+            return leftAddress == rightAddress
+        case (.coinSelectionFailed(let leftError), .coinSelectionFailed(let rightError)),
+            (.transactionBuildFailed(let leftError), .transactionBuildFailed(let rightError)),
+            (.outboxPersistenceFailed(let leftError), .outboxPersistenceFailed(let rightError)),
+            (.broadcastFailed(let leftError), .broadcastFailed(let rightError)),
+            (.feePreferenceUnavailable(let leftError), .feePreferenceUnavailable(let rightError)):
+            return leftError.localizedDescription == rightError.localizedDescription
+        default:
+            return false
+        }
     }
 }
 
@@ -145,94 +123,6 @@ extension Account {
 extension Account {
     public func loadBalanceFromCache() async throws -> Satoshi {
         try await addressBook.calculateCachedTotalBalance()
-    }
-}
-
-extension Account {
-    func enqueueRequest(for key: Request,
-                        priority: TaskPriority? = nil,
-                        retryPolicy: RequestRouter<Request>.RetryPolicy = .retry,
-                        operation: @escaping @Sendable () async throws -> Void) async {
-        let handle = await requestRouter.handle(for: key)
-        _ = await handle.enqueue(priority: priority, retryPolicy: retryPolicy, operation: operation)
-    }
-    
-    func performRequest<Value: Sendable>(for key: Request,
-                                         priority: TaskPriority? = nil,
-                                         retryPolicy: RequestRouter<Request>.RetryPolicy = .retry,
-                                         operation: @escaping @Sendable () async throws -> Value) async throws -> Value {
-        let handle = await requestRouter.handle(for: key)
-        return try await handle.perform(priority: priority, retryPolicy: retryPolicy, operation: operation)
-    }
-    
-    public func processQueuedRequests() async {
-        await requestRouter.resume()
-    }
-    
-    func suspendQueuedRequests() async {
-        await requestRouter.suspend()
-    }
-    
-    func resumeQueuedRequests() async {
-        await requestRouter.resume()
-    }
-    
-    func startNetworkMonitor(using session: Network.FulcrumSession) {
-        networkMonitorTask?.cancel()
-        
-        let account = self
-        networkMonitorTask = Task { [weak session] in
-            guard let session else { return }
-            
-            var iterator = await session.makeEventStream().makeAsyncIterator()
-            while !Task.isCancelled, let event = await iterator.next() {
-                switch event {
-                case .didReconnect, .didFallback:
-                    await account.handleSessionRecovery(using: session)
-                case .didStart:
-                    await account.handleSessionRecovery(using: session)
-                default:
-                    continue
-                }
-            }
-        }
-    }
-    
-    public func stopNetworkMonitor() {
-        networkMonitorTask?.cancel()
-        networkMonitorTask = nil
-    }
-}
-
-extension Account {
-    func handleSessionRecovery(using session: Network.FulcrumSession) async {
-        await session.ensureTelemetryInstalled(for: self)
-        await session.ensureSynchronization(for: self)
-        await resumeQueuedRequests()
-        await resubmitPendingTransactions(using: session)
-        await processQueuedRequests()
-    }
-}
-
-extension Account {
-    public func makeOutboxStatusStream() async -> AsyncStream<Outbox.StatusUpdate> {
-        await outbox.makeStatusStream()
-    }
-    
-    public func loadOutboxStatuses() async -> [Transaction.Hash: Outbox.Status] {
-        await outbox.loadStatuses()
-    }
-}
-
-extension Account {
-    func updateOutboxBroadcastHandler(_ handler: (@Sendable (String) async throws -> Void)?) {
-        outboxBroadcastHandler = handler
-    }
-}
-
-extension Account {
-    func updateRequestRouterInstrumentation(_ instrumentation: RequestRouter<Request>.Instrumentation) async {
-        await requestRouter.updateInstrumentation(instrumentation)
     }
 }
 
@@ -281,7 +171,7 @@ extension Account {
     
     public func loadFeePreference() async throws -> Wallet.FeePolicy.Preference {
         do {
-            if let storedPreference = try await settings.loadFeePreference(for: account.unhardenedIndex) {
+            if let storedPreference = try await storageSettings.loadFeePreference(for: account.unhardenedIndex) {
                 return storedPreference
             }
             return .standard
@@ -292,19 +182,10 @@ extension Account {
     
     public func updateFeePreference(_ preference: Wallet.FeePolicy.Preference) async throws {
         do {
-            try await settings.updateFeePreference(preference, for: account.unhardenedIndex)
+            try await storageSettings.updateFeePreference(preference, for: account.unhardenedIndex)
         } catch {
             throw Error.feePreferenceUnavailable(error)
         }
-    }
-    
-    public func makeFeePolicy() async throws -> Wallet.FeePolicy {
-        let preference = try await loadFeePreference()
-        return Wallet.FeePolicy(preference: preference, estimator: feeEstimator)
-    }
-    
-    public func updateFeeEstimator(_ estimator: Wallet.FeePolicy.FeeEstimator?) {
-        feeEstimator = estimator
     }
 }
 

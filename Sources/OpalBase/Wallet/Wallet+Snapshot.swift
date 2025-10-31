@@ -79,7 +79,7 @@ extension Wallet {
                                             purpose: accountSnap.purpose,
                                             coinType: accountSnap.coinType,
                                             account: try DerivationPath.Account(rawIndexInteger: accountSnap.account),
-                                            settings: settings)
+                                            storageSettings: storageSettings)
             try await account.applySnapshot(accountSnap)
             self.accounts.append(account)
         }
