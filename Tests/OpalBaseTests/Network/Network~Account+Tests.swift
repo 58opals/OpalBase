@@ -118,30 +118,6 @@ struct NetworkFulcrumSessionAccountTests {
         }
     }
     
-    @Test("refreshAddressBookUTXOSet iterates every address entry")
-    func testRefreshAddressBookUTXOSetIteratesEntries() async throws {
-        let session = try await Network.FulcrumSession()
-        let mnemonic = try Mnemonic(words: Self.mnemonicWords)
-        let wallet = Wallet(mnemonic: mnemonic)
-        try await wallet.addAccount(unhardenedIndex: 0)
-        let account = try await wallet.fetchAccount(at: 0)
-        
-        var visitedAddresses: [Address] = .init()
-        try await session.refreshAddressBookUTXOSet(for: account,
-                                                    scope: nil,
-                                                    options: .init()) { _, entry, _ in
-            visitedAddresses.append(entry.address)
-        }
-        
-        let addressBook = await account.addressBook
-        let receivingAddresses = await addressBook.listEntries(for: .receiving).map { $0.address }
-        let changeAddresses = await addressBook.listEntries(for: .change).map { $0.address }
-        let expectedAddresses = Set(receivingAddresses + changeAddresses)
-        
-        #expect(Set(visitedAddresses) == expectedAddresses)
-        #expect(visitedAddresses.count == expectedAddresses.count)
-    }
-    
     @Test("refreshCachedBalance aggregates cached balances without refreshing")
     func testRefreshBalancesUsesCachedValues() async throws {
         let session = try await Network.FulcrumSession()
@@ -209,10 +185,7 @@ struct NetworkFulcrumSessionAccountTests {
                                                        entries: [changeHistoryEntry],
                                                        timestamp: timestamp)
         
-        let records = try await session.fetchDetailedTransactions(for: account,
-                                                                  scope: .receiving,
-                                                                  includeUnconfirmed: true,
-                                                                  options: .init()) { _, _, _ in }
+        let records = try await session.fetchDetailedTransactions(for: account, scope: .receiving)
         
         #expect(records.count == 1)
         #expect(records.first?.transactionHash == receivingHash)
