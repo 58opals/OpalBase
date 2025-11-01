@@ -5,12 +5,12 @@ import Foundation
 extension Address.Book {
     public enum Request: Hashable, Sendable {
         case updateCache
-        case updateCacheSubset(Scope)
+        case updateCacheSubset(DerivationPath.Usage)
         case refreshBalances
-        case refreshBalancesSubset(Scope)
+        case refreshBalancesSubset(DerivationPath.Usage)
         case fetchBalance(Address)
         case refreshUTXOSet
-        case fetchDetailedTransactions(scope: Scope,
+        case fetchDetailedTransactions(scope: DerivationPath.Usage,
                                        fromHeight: UInt?,
                                        toHeight: UInt?,
                                        includeUnconfirmed: Bool)
@@ -21,22 +21,10 @@ extension Address.Book {
                                       window: UInt,
                                       includeUnconfirmed: Bool)
         case refreshUsedStatus
-        case refreshUsedStatusSubset(Scope)
+        case refreshUsedStatusSubset(DerivationPath.Usage)
         case updateAddressUsageStatus
-        case updateAddressUsageStatusSubset(Scope)
+        case updateAddressUsageStatusSubset(DerivationPath.Usage)
         case checkIfUsed(Address)
         case scanForUsedAddresses
-        
-        public enum Scope: Hashable, Sendable {
-            case receiving
-            case change
-            
-            init(usage: DerivationPath.Usage) {
-                switch usage {
-                case .receiving: self = .receiving
-                case .change: self = .change
-                }
-            }
-        }
     }
 }

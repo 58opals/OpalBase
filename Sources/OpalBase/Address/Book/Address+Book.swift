@@ -10,24 +10,16 @@ extension Address {
         private let coinType: DerivationPath.CoinType
         private let account: DerivationPath.Account
         
-        var derivationPathToAddress: [DerivationPath: Address] = .init()
-        
-        var receivingEntries: [Entry] = .init()
-        var changeEntries: [Entry] = .init()
-        
-        var addressToEntry: [Address: Entry] = .init()
-        
-        var utxos: Set<Transaction.Output.Unspent> = .init()
-        
-        var transactionHistories: [Transaction.Hash: History.Transaction.Record] = .init()
-        var scriptHashToTransactions: [String: Set<Transaction.Hash>] = .init()
+        var inventory: Inventory
+        var utxoStore: UTXOStore
+        var transactionLog: TransactionLog
         
         let gapLimit: Int
         let maxIndex = UInt32.max
         
         var cacheValidityDuration: TimeInterval
         
-        var entryContinuations: [UUID: AsyncStream<Entry>.Continuation] = .init()
+        private let entryPublisher = Entry.Publisher()
         
         init(rootExtendedPrivateKey: PrivateKey.Extended? = nil,
              rootExtendedPublicKey: PublicKey.Extended? = nil,
@@ -54,12 +46,11 @@ extension Address {
             
             self.cacheValidityDuration = cacheValidityDuration
             
-            try initializeEntries()
+            self.inventory = .init()
+            self.utxoStore = .init()
+            self.transactionLog = .init()
             
-            for entry in receivingEntries + changeEntries {
-                addressToEntry[entry.address] = entry
-                derivationPathToAddress[entry.derivationPath] = entry.address
-            }
+            try await initializeEntries()
         }
     }
 }
@@ -115,7 +106,7 @@ extension Address.Book {
             let lockingScript = output.lockingScript
             let address = try Address(script: .decode(lockingScript: lockingScript))
             
-            if derivationPathToAddress.values.contains(address) {
+            if inventory.contains(address: address) {
                 let utxo = Transaction.Output.Unspent(output: output,
                                                       previousTransactionHash: detailedTransaction.hash,
                                                       previousTransactionOutputIndex: UInt32(index))
@@ -126,11 +117,7 @@ extension Address.Book {
     
     func handleOutgoingTransaction(_ transaction: Transaction) {
         for input in transaction.inputs {
-            if let utxo = utxos.first(
-                where: {
-                    $0.previousTransactionHash == input.previousTransactionHash && $0.previousTransactionOutputIndex == input.previousTransactionOutputIndex
-                }
-            ) {
+            if let utxo = utxoStore.utxo(matching: input) {
                 removeUTXO(utxo)
             }
         }
@@ -140,41 +127,16 @@ extension Address.Book {
 extension Address.Book {
     func updateCacheValidityDuration(_ newDuration: TimeInterval) {
         cacheValidityDuration = newDuration
-        
-        for index in receivingEntries.indices {
-            receivingEntries[index].cache.validityDuration = newDuration
-            addressToEntry[receivingEntries[index].address] = receivingEntries[index]
-        }
-        
-        for index in changeEntries.indices {
-            changeEntries[index].cache.validityDuration = newDuration
-            addressToEntry[changeEntries[index].address] = changeEntries[index]
-        }
+        inventory.updateCacheValidityDuration(to: newDuration)
     }
 }
 
 extension Address.Book {
-    private func addEntryContinuation(_ continuation: AsyncStream<Entry>.Continuation) -> UUID {
-        let identifier = UUID()
-        entryContinuations[identifier] = continuation
-        return identifier
+    func notifyNewEntry(_ entry: Entry) async {
+        await entryPublisher.publish(entry)
     }
     
-    private func removeEntryContinuation(_ identifier: UUID) {
-        entryContinuations.removeValue(forKey: identifier)
-    }
-    
-    func notifyNewEntry(_ entry: Entry) {
-        for continuation in entryContinuations.values { continuation.yield(entry) }
-    }
-    
-    func observeNewEntries() -> AsyncStream<Entry> {
-        AsyncStream { continuation in
-            let identifier = addEntryContinuation(continuation)
-            continuation.onTermination = { [weak self] _ in
-                guard let self else { return }
-                Task { await self.removeEntryContinuation(identifier) }
-            }
-        }
+    func observeNewEntries() async -> AsyncStream<Entry> {
+        await entryPublisher.observeEntries()
     }
 }

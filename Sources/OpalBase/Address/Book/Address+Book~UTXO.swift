@@ -4,42 +4,35 @@ import Foundation
 
 extension Address.Book {
     func addUTXO(_ utxo: Transaction.Output.Unspent) {
-        self.utxos.insert(utxo)
+        utxoStore.add(utxo)
     }
     
     func addUTXOs(_ utxos: [Transaction.Output.Unspent]) {
-        self.utxos.formUnion(utxos)
+        utxoStore.add(utxos)
     }
     
     func replaceUTXOs(_ utxos: Set<Transaction.Output.Unspent>) {
-        self.utxos = utxos
+        utxoStore.replace(with: utxos)
     }
     
     func replaceUTXOs(for address: Address, with utxos: [Transaction.Output.Unspent]) {
-        let lockingScript = address.lockingScript.data
-        let existingMatches = self.utxos.filter { $0.lockingScript == lockingScript }
-        if !existingMatches.isEmpty {
-            self.utxos.subtract(existingMatches)
-        }
-        if !utxos.isEmpty {
-            self.utxos.formUnion(utxos)
-        }
+        utxoStore.replace(for: address, with: utxos)
     }
     
     func removeUTXO(_ utxo: Transaction.Output.Unspent) {
-        self.utxos.remove(utxo)
+        utxoStore.remove(utxo)
     }
     
     func removeUTXOs(_ utxos: [Transaction.Output.Unspent]) {
-        self.utxos.subtract(utxos)
+        utxoStore.remove(utxos)
     }
     
     func clearUTXOs() {
-        self.utxos.removeAll()
+        utxoStore.clear()
     }
     
     func listUTXOs() -> Set<Transaction.Output.Unspent> {
-        return utxos
+        utxoStore.list()
     }
 }
 
@@ -106,7 +99,7 @@ extension Address.Book {
         case .greedyLargestFirst:
             var selectedUTXOs: [Transaction.Output.Unspent] = .init()
             var totalAmount: UInt64 = 0
-            let sortedUTXOs = utxos.sorted { $0.value > $1.value }
+            let sortedUTXOs = utxoStore.sorted { $0.value > $1.value }
             
             let dustLimit = Transaction.dustLimit
             let recipientOutputs = CoinSelectionTemplates.recipientOutputs
@@ -129,7 +122,7 @@ extension Address.Book {
             
             throw Error.insufficientFunds
         case .branchAndBound:
-            let sortedUTXOs = utxos.sorted { $0.value > $1.value }
+            let sortedUTXOs = utxoStore.sorted { $0.value > $1.value }
             var bestSelection: [Transaction.Output.Unspent] = .init()
             var bestExcess = UInt64.max
             
@@ -173,7 +166,7 @@ extension Address.Book {
             guard !bestSelection.isEmpty else { throw Error.insufficientFunds }
             return bestSelection
         case .sweepAll:
-            return utxos.sorted { $0.value > $1.value }
+            return utxoStore.sorted { $0.value > $1.value }
         }
     }
     
@@ -193,7 +186,7 @@ extension Address.Book {
         case .greedyLargestFirst:
             var selected: [Transaction.Output.Unspent] = .init()
             var total: UInt64 = 0
-            for utxo in utxos.sorted(by: { $0.value > $1.value }) {
+            for utxo in utxoStore.sorted(by: { $0.value > $1.value }) {
                 selected.append(utxo)
                 total &+= utxo.value
                 
@@ -210,7 +203,7 @@ extension Address.Book {
             throw Error.insufficientFunds
             
         case .branchAndBound:
-            let sorted = utxos.sorted { $0.value > $1.value }
+            let sorted = utxoStore.sorted { $0.value > $1.value }
             var bestUTXOs: [Transaction.Output.Unspent] = .init()
             var bestEvaluation: CoinSelectionEvaluation?
             
@@ -273,7 +266,7 @@ extension Address.Book {
             return bestUTXOs
             
         case .sweepAll:
-            return utxos.sorted { $0.value > $1.value }
+            return utxoStore.sorted { $0.value > $1.value }
         }
     }
 }

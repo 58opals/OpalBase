@@ -127,14 +127,14 @@ extension Address.Book.Snapshot.Transaction.MerkleProof: Sendable {}
 
 extension Address.Book {
     public func makeSnapshot() -> Snapshot {
-        let receiving = receivingEntries.map { entry in
+        let receiving = inventory.entries(for: .receiving).map { entry in
             Snapshot.Entry(usage: entry.derivationPath.usage,
                            index: entry.derivationPath.index,
                            isUsed: entry.isUsed,
                            balance: entry.cache.balance?.uint64,
                            lastUpdated: entry.cache.lastUpdated)
         }
-        let change = changeEntries.map { entry in
+        let change = inventory.entries(for: .change).map { entry in
             Snapshot.Entry(usage: entry.derivationPath.usage,
                            index: entry.derivationPath.index,
                            isUsed: entry.isUsed,
@@ -142,14 +142,14 @@ extension Address.Book {
                            lastUpdated: entry.cache.lastUpdated)
         }
         
-        let utxoSnaps = utxos.map {
+        let utxoSnaps = utxoStore.list().map {
             Snapshot.UTXO(value: $0.value,
                           lockingScript: $0.lockingScript.hexadecimalString,
                           transactionHash: $0.previousTransactionHash.naturalOrder.hexadecimalString,
                           outputIndex: $0.previousTransactionOutputIndex)
         }
         
-        let transactionSnaps = transactionHistories.values.map { record in
+        let transactionSnaps = transactionLog.listRecords().map { record in
             let proof = record.merkleProof.map { proof in
                 Snapshot.Transaction.MerkleProof(blockHeight: proof.blockHeight,
                                                  position: proof.position,
@@ -177,9 +177,9 @@ extension Address.Book {
                         transactions: transactionSnaps)
     }
     
-    public func applySnapshot(_ snapshot: Snapshot) throws {
-        try apply(entrySnapshots: snapshot.receivingEntries, usage: .receiving)
-        try apply(entrySnapshots: snapshot.changeEntries, usage: .change)
+    public func applySnapshot(_ snapshot: Snapshot) async throws {
+        try await apply(entrySnapshots: snapshot.receivingEntries, usage: .receiving)
+        try await apply(entrySnapshots: snapshot.changeEntries, usage: .change)
         
         let restoredUTXOs = try snapshot.utxos.map {
             Transaction.Output.Unspent(value: $0.value,
@@ -187,10 +187,9 @@ extension Address.Book {
                                        previousTransactionHash: .init(naturalOrder: try Data(hexString: $0.transactionHash)),
                                        previousTransactionOutputIndex: $0.outputIndex)
         }
-        utxos = Set(restoredUTXOs)
         
-        transactionHistories.removeAll()
-        scriptHashToTransactions.removeAll()
+        utxoStore.replace(with: Set(restoredUTXOs))
+        transactionLog.reset()
         
         for transaction in snapshot.transactions {
             let hash = Transaction.Hash(naturalOrder: try Data(hexString: transaction.transactionHash))
@@ -215,37 +214,29 @@ extension Address.Book {
                                                     merkleProof: proof,
                                                     lastVerifiedHeight: transaction.lastVerifiedHeight,
                                                     lastCheckedAt: transaction.lastCheckedAt)
-            transactionHistories[hash] = record
-            
-            for scriptHash in transaction.scriptHashes {
-                scriptHashToTransactions[scriptHash, default: .init()].insert(hash)
-            }
+            transactionLog.store(record)
         }
     }
     
-    private func apply(entrySnapshots: [Snapshot.Entry], usage: DerivationPath.Usage) throws {
+    private func apply(entrySnapshots: [Snapshot.Entry], usage: DerivationPath.Usage) async throws {
         for snap in entrySnapshots {
             while listEntries(for: usage).count <= snap.index {
-                try generateEntry(for: usage, isUsed: false)
+                try await generateEntry(for: usage, isUsed: false)
             }
             
             switch usage {
             case .receiving:
-                var entry = receivingEntries[Int(snap.index)]
-                entry.isUsed = snap.isUsed
-                entry.cache.balance = snap.balance.flatMap { try? Satoshi($0) }
-                entry.cache.lastUpdated = snap.lastUpdated
-                receivingEntries[Int(snap.index)] = entry
-                addressToEntry[entry.address] = entry
-                derivationPathToAddress[entry.derivationPath] = entry.address
+                inventory.updateEntry(at: Int(snap.index), usage: .receiving) { entry in
+                    entry.isUsed = snap.isUsed
+                    entry.cache.balance = snap.balance.flatMap { try? Satoshi($0) }
+                    entry.cache.lastUpdated = snap.lastUpdated
+                }
             case .change:
-                var entry = changeEntries[Int(snap.index)]
-                entry.isUsed = snap.isUsed
-                entry.cache.balance = snap.balance.flatMap { try? Satoshi($0) }
-                entry.cache.lastUpdated = snap.lastUpdated
-                changeEntries[Int(snap.index)] = entry
-                addressToEntry[entry.address] = entry
-                derivationPathToAddress[entry.derivationPath] = entry.address
+                inventory.updateEntry(at: Int(snap.index), usage: .change) { entry in
+                    entry.isUsed = snap.isUsed
+                    entry.cache.balance = snap.balance.flatMap { try? Satoshi($0) }
+                    entry.cache.lastUpdated = snap.lastUpdated
+                }
             }
         }
     }
