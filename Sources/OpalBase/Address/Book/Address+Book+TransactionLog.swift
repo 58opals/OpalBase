@@ -4,28 +4,28 @@ import Foundation
 
 extension Address.Book {
     struct TransactionLog {
-        private var records: [Transaction.Hash: History.Transaction.Record]
+        private var records: [Transaction.Hash: Transaction.History.Record]
         private var scriptHashToTransactions: [String: Set<Transaction.Hash>]
         
-        init() {
+        public init() {
             self.records = .init()
             self.scriptHashToTransactions = .init()
         }
         
-        func listRecords() -> [History.Transaction.Record] {
+        public func listRecords() -> [Transaction.History.Record] {
             Array(records.values)
         }
         
-        mutating func updateHistory(for scriptHash: String,
-                                    entries: [History.Transaction.Entry],
-                                    timestamp: Date) -> History.Transaction.ChangeSet {
+        public mutating func updateHistory(for scriptHash: String,
+                                           entries: [Transaction.History.Entry],
+                                           timestamp: Date) -> Transaction.History.ChangeSet {
             let newTransactions = Set(entries.map { $0.transactionHash })
             let previousTransactions = scriptHashToTransactions[scriptHash] ?? .init()
             
             scriptHashToTransactions[scriptHash] = newTransactions
             
-            var inserted: [Transaction.Hash: History.Transaction.Record] = .init()
-            var updated: [Transaction.Hash: History.Transaction.Record] = .init()
+            var inserted: [Transaction.Hash: Transaction.History.Record] = .init()
+            var updated: [Transaction.Hash: Transaction.History.Record] = .init()
             var removed: Set<Transaction.Hash> = .init()
             
             for entry in entries {
@@ -37,7 +37,7 @@ extension Address.Book {
                         updated[entry.transactionHash] = record
                     }
                 } else {
-                    let record = History.Transaction.Record.makeRecord(for: entry,
+                    let record = Transaction.History.Record.makeRecord(for: entry,
                                                                        scriptHash: scriptHash,
                                                                        timestamp: timestamp)
                     records[entry.transactionHash] = record
@@ -46,32 +46,32 @@ extension Address.Book {
             }
             
             let removedTransactions = previousTransactions.subtracting(newTransactions)
-            for hash in removedTransactions {
-                guard var record = records[hash] else { continue }
+            for transactionHash in removedTransactions {
+                guard var record = records[transactionHash] else { continue }
                 let original = record
                 record.scriptHashes.remove(scriptHash)
                 record.lastUpdatedAt = timestamp
                 if record.scriptHashes.isEmpty {
-                    records.removeValue(forKey: hash)
-                    removed.insert(hash)
+                    records.removeValue(forKey: transactionHash)
+                    removed.insert(transactionHash)
                 } else {
-                    records[hash] = record
+                    records[transactionHash] = record
                     if record != original {
-                        updated[hash] = record
+                        updated[transactionHash] = record
                     }
                 }
             }
             
-            return History.Transaction.ChangeSet(inserted: Array(inserted.values),
+            return Transaction.History.ChangeSet(inserted: Array(inserted.values),
                                                  updated: Array(updated.values),
                                                  removed: Array(removed))
         }
         
-        mutating func updateVerification(for transactionHash: Transaction.Hash,
-                                         status: History.Transaction.VerificationStatus,
-                                         proof: Transaction.MerkleProof?,
-                                         verifiedHeight: UInt32?,
-                                         timestamp: Date) -> History.Transaction.Record? {
+        public mutating func updateVerification(for transactionHash: Transaction.Hash,
+                                                status: Transaction.History.VerificationStatus,
+                                                proof: Transaction.MerkleProof?,
+                                                verifiedHeight: UInt32?,
+                                                timestamp: Date) -> Transaction.History.Record? {
             guard var record = records[transactionHash] else { return nil }
             let original = record
             record.updateVerification(status: status,
@@ -84,36 +84,36 @@ extension Address.Book {
             return record
         }
         
-        mutating func invalidateConfirmations(startingAt height: UInt32,
-                                              timestamp: Date) -> [History.Transaction.Record] {
+        public mutating func invalidateConfirmations(startingAt height: UInt32,
+                                                     timestamp: Date) -> [Transaction.History.Record] {
             guard !records.isEmpty else { return [] }
             let threshold = UInt64(height)
-            var updated: [History.Transaction.Record] = .init()
-            for (hash, record) in records {
+            var updated: [Transaction.History.Record] = .init()
+            for (transactionHash, record) in records {
                 guard let confirmationHeight = record.confirmationHeight,
                       confirmationHeight >= threshold else { continue }
                 var mutableRecord = record
                 mutableRecord.markAsPendingAfterReorganization(timestamp: timestamp)
                 mutableRecord.lastUpdatedAt = timestamp
-                records[hash] = mutableRecord
+                records[transactionHash] = mutableRecord
                 updated.append(mutableRecord)
             }
             return updated
         }
         
-        mutating func reset() {
+        public mutating func reset() {
             records.removeAll()
             scriptHashToTransactions.removeAll()
         }
         
-        mutating func store(_ record: History.Transaction.Record) {
+        public mutating func store(_ record: Transaction.History.Record) {
             records[record.transactionHash] = record
             for scriptHash in record.scriptHashes {
                 scriptHashToTransactions[scriptHash, default: .init()].insert(record.transactionHash)
             }
         }
         
-        var isEmpty: Bool {
+        public var isEmpty: Bool {
             records.isEmpty
         }
     }

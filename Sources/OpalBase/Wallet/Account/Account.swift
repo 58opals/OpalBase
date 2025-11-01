@@ -116,7 +116,7 @@ extension Account {
 }
 
 extension Account {
-    public func loadTransactionHistory() async -> [Address.Book.History.Transaction.Record] {
+    public func loadTransactionHistory() async -> [Transaction.History.Record] {
         await addressBook.listTransactionHistory()
     }
 }

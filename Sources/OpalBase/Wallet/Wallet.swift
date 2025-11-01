@@ -40,7 +40,7 @@ public actor Wallet: Identifiable {
 
 extension Wallet {
     public enum Error: Swift.Error {
-        case cannotGetAccount(index: UInt32)
+        case cannotFetchAccount(index: UInt32)
     }
 }
 
@@ -76,7 +76,7 @@ extension Wallet {
     }
     
     public func fetchAccount(at unhardenedIndex: UInt32) throws -> Account {
-        guard Int(unhardenedIndex) < accounts.count else { throw Error.cannotGetAccount(index: unhardenedIndex) }
+        guard Int(unhardenedIndex) < accounts.count else { throw Error.cannotFetchAccount(index: unhardenedIndex) }
         return accounts[Int(unhardenedIndex)]
     }
 }

@@ -3,6 +3,8 @@
 import Foundation
 
 extension Address.Book {
+    public typealias AddressBookSnapshotTransactionHistory = Transaction.History
+    
     public struct Snapshot: Codable {
         public struct Entry: Codable {
             public let usage: DerivationPath.Usage
@@ -65,10 +67,10 @@ extension Address.Book {
             public let scriptHashes: [String]
             public let firstSeenAt: Date
             public let lastUpdatedAt: Date
-            public let status: History.Transaction.Status
+            public let status: AddressBookSnapshotTransactionHistory.Status
             public let confirmationHeight: UInt64?
             public let confirmedAt: Date?
-            public let verificationStatus: History.Transaction.VerificationStatus
+            public let verificationStatus: AddressBookSnapshotTransactionHistory.VerificationStatus
             public let merkleProof: MerkleProof?
             public let lastVerifiedHeight: UInt32?
             public let lastCheckedAt: Date?
@@ -79,10 +81,10 @@ extension Address.Book {
                         scriptHashes: [String],
                         firstSeenAt: Date,
                         lastUpdatedAt: Date,
-                        status: History.Transaction.Status,
+                        status: AddressBookSnapshotTransactionHistory.Status,
                         confirmationHeight: UInt64?,
                         confirmedAt: Date?,
-                        verificationStatus: History.Transaction.VerificationStatus,
+                        verificationStatus: AddressBookSnapshotTransactionHistory.VerificationStatus,
                         merkleProof: MerkleProof?,
                         lastVerifiedHeight: UInt32?,
                         lastCheckedAt: Date?) {
@@ -183,8 +185,8 @@ extension Address.Book {
         
         let restoredUTXOs = try snapshot.utxos.map {
             Transaction.Output.Unspent(value: $0.value,
-                                       lockingScript: try Data(hexString: $0.lockingScript),
-                                       previousTransactionHash: .init(naturalOrder: try Data(hexString: $0.transactionHash)),
+                                       lockingScript: try Data(hexadecimalString: $0.lockingScript),
+                                       previousTransactionHash: .init(naturalOrder: try Data(hexadecimalString: $0.transactionHash)),
                                        previousTransactionOutputIndex: $0.outputIndex)
         }
         
@@ -192,16 +194,16 @@ extension Address.Book {
         transactionLog.reset()
         
         for transaction in snapshot.transactions {
-            let hash = Transaction.Hash(naturalOrder: try Data(hexString: transaction.transactionHash))
+            let hash = Transaction.Hash(naturalOrder: try Data(hexadecimalString: transaction.transactionHash))
             let proof = try transaction.merkleProof.map { proof -> Transaction.MerkleProof in
-                let branch = try proof.branch.map { try Data(hexString: $0) }
-                let blockHash = try proof.blockHash.map { try Data(hexString: $0) }
+                let branch = try proof.branch.map { try Data(hexadecimalString: $0) }
+                let blockHash = try proof.blockHash.map { try Data(hexadecimalString: $0) }
                 return Transaction.MerkleProof(blockHeight: proof.blockHeight,
                                                position: proof.position,
                                                branch: branch,
                                                blockHash: blockHash)
             }
-            let record = History.Transaction.Record(transactionHash: hash,
+            let record = Transaction.History.Record(transactionHash: hash,
                                                     height: transaction.height,
                                                     fee: transaction.fee,
                                                     scriptHashes: Set(transaction.scriptHashes),

@@ -45,8 +45,8 @@ extension Block.Header.Chain {
 
 extension Block.Header.Chain.Checkpoint {
     static var defaultCheckpoint: Block.Header.Chain.Checkpoint {
-        let hex = "000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f"
-        let hash = (try? Data(hexString: hex))?.reversedData ?? Data(repeating: 0, count: 32)
+        let hashHexadecimalString = "000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f"
+        let hash = (try? Data(hexadecimalString: hashHexadecimalString))?.reversedData ?? Data(repeating: 0, count: 32)
         return .init(height: 0, hash: hash)
     }
 }

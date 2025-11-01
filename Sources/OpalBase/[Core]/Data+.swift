@@ -4,25 +4,25 @@ import Foundation
 
 extension Data {
     enum Error: Swift.Error {
-        case cannotConvertHexStringToData
+        case cannotConvertHexadecimalStringToData
         case indexOutOfRange
     }
 }
 
 extension Data {
-    public init(hexString: String) throws {
+    public init(hexadecimalString: String) throws {
         var byteArray = [UInt8]()
-        byteArray.reserveCapacity(hexString.unicodeScalars.lazy.underestimatedCount)
+        byteArray.reserveCapacity(hexadecimalString.unicodeScalars.lazy.underestimatedCount)
         
         var byteBuffer: UInt8?
-        var charactersToSkip = hexString.hasPrefix("0x") ? 2 : 0
-        for unicodeScalar in hexString.unicodeScalars.lazy {
+        var charactersToSkip = hexadecimalString.hasPrefix("0x") ? 2 : 0
+        for unicodeScalar in hexadecimalString.unicodeScalars.lazy {
             guard charactersToSkip == 0 else {
                 charactersToSkip -= 1
                 continue
             }
             guard unicodeScalar.value >= 48 && unicodeScalar.value <= 102 else {
-                throw Error.cannotConvertHexStringToData
+                throw Error.cannotConvertHexadecimalStringToData
             }
             let currentValue: UInt8
             let scalarValue: UInt8 = UInt8(unicodeScalar.value)
@@ -34,7 +34,7 @@ extension Data {
             case let scalarValue where scalarValue >= 97:
                 currentValue = scalarValue - 87
             default:
-                throw Error.cannotConvertHexStringToData
+                throw Error.cannotConvertHexadecimalStringToData
             }
             if let bufferedValue = byteBuffer {
                 byteArray.append(bufferedValue << 4 | currentValue)

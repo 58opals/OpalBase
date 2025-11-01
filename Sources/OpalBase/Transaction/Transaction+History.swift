@@ -1,12 +1,10 @@
-// Address+Book+History.swift
+// Transaction+History.swift
 
 import Foundation
 
-extension Address.Book { public enum History {} }
+extension Transaction { public enum History {} }
 
-extension Address.Book.History { public enum Transaction {} }
-
-extension Address.Book.History.Transaction {
+extension Transaction.History {
     public enum Status: String, Sendable, Hashable, Codable {
         case discovered
         case pending
@@ -80,10 +78,50 @@ extension Address.Book.History.Transaction {
             self.lastCheckedAt = lastCheckedAt
         }
     }
+    
+    public struct ChangeSet: Sendable {
+        public var inserted: [Record]
+        public var updated: [Record]
+        public var removed: [Transaction.Hash]
+        
+        public init(inserted: [Record] = .init(),
+                    updated: [Record] = .init(),
+                    removed: [Transaction.Hash] = .init()) {
+            self.inserted = inserted
+            self.updated = updated
+            self.removed = removed
+        }
+        
+        public var isEmpty: Bool { inserted.isEmpty && updated.isEmpty && removed.isEmpty }
+    }
 }
 
-extension Address.Book.History.Transaction.Record {
-    mutating func resolveUpdate(from entry: Address.Book.History.Transaction.Entry,
+extension Transaction.History.Status {
+    static func resolve(forHeight height: Int,
+                        previousStatus: Transaction.History.Status?)
+    -> (status: Transaction.History.Status, confirmationHeight: UInt64?)
+    {
+        if height > 0 {
+            return (.confirmed, UInt64(height))
+        }
+        
+        guard let previousStatus else {
+            return (.discovered, nil)
+        }
+        
+        switch previousStatus {
+        case .confirmed:
+            return (.pending, nil)
+        case .discovered:
+            return (.pending, nil)
+        case .pending, .failed:
+            return (previousStatus, nil)
+        }
+    }
+}
+
+extension Transaction.History.Record {
+    mutating func resolveUpdate(from entry: Transaction.History.Entry,
                                 scriptHash: String,
                                 timestamp: Date) {
         height = entry.height
@@ -91,7 +129,7 @@ extension Address.Book.History.Transaction.Record {
         lastUpdatedAt = timestamp
         scriptHashes.insert(scriptHash)
         
-        let statusUpdate = Address.Book.History.Transaction.Status
+        let statusUpdate = Transaction.History.Status
             .resolve(forHeight: entry.height, previousStatus: status)
         status = statusUpdate.status
         
@@ -126,60 +164,32 @@ extension Address.Book.History.Transaction.Record {
         lastCheckedAt = timestamp
     }
     
-    static func makeRecord(for entry: Address.Book.History.Transaction.Entry,
+    static func makeRecord(for entry: Transaction.History.Entry,
                            scriptHash: String,
-                           timestamp: Date) -> Address.Book.History.Transaction.Record {
-        let statusUpdate = Address.Book.History.Transaction.Status
+                           timestamp: Date) -> Transaction.History.Record {
+        let statusUpdate = Transaction.History.Status
             .resolve(forHeight: entry.height, previousStatus: nil)
         let confirmationHeight = statusUpdate.status == .confirmed
         ? (statusUpdate.confirmationHeight ?? UInt64(entry.height))
         : nil
         let confirmedAt = statusUpdate.status == .confirmed ? timestamp : nil
-        let verificationStatus: Address.Book.History.Transaction.VerificationStatus = statusUpdate.status == .confirmed ? .pending : .unknown
-        
-        return Address.Book.History.Transaction.Record(transactionHash: entry.transactionHash,
-                                                       height: entry.height,
-                                                       fee: entry.fee,
-                                                       scriptHashes: [scriptHash],
-                                                       firstSeenAt: timestamp,
-                                                       lastUpdatedAt: timestamp,
-                                                       status: statusUpdate.status,
-                                                       confirmationHeight: confirmationHeight,
-                                                       confirmedAt: confirmedAt,
-                                                       verificationStatus: verificationStatus,
-                                                       merkleProof: nil,
-                                                       lastVerifiedHeight: nil,
-                                                       lastCheckedAt: nil)
+        let verificationStatus: Transaction.History.VerificationStatus = statusUpdate.status == .confirmed ? .pending : .unknown
+        return Transaction.History.Record(transactionHash: entry.transactionHash,
+                                          height: entry.height,
+                                          fee: entry.fee,
+                                          scriptHashes: [scriptHash],
+                                          firstSeenAt: timestamp,
+                                          lastUpdatedAt: timestamp,
+                                          status: statusUpdate.status,
+                                          confirmationHeight: confirmationHeight,
+                                          confirmedAt: confirmedAt,
+                                          verificationStatus: verificationStatus,
+                                          merkleProof: nil,
+                                          lastVerifiedHeight: nil,
+                                          lastCheckedAt: nil)
     }
-}
-
-extension Address.Book.History.Transaction.Status {
-    static func resolve(forHeight height: Int,
-                        previousStatus: Address.Book.History.Transaction.Status?)
-    -> (status: Address.Book.History.Transaction.Status,
-        confirmationHeight: UInt64?)
-    {
-        if height > 0 {
-            return (.confirmed, UInt64(height))
-        }
-        
-        guard let previousStatus else {
-            return (.discovered, nil)
-        }
-        
-        switch previousStatus {
-        case .confirmed:
-            return (.pending, nil)
-        case .discovered:
-            return (.pending, nil)
-        case .pending, .failed:
-            return (previousStatus, nil)
-        }
-    }
-}
-
-extension Address.Book.History.Transaction.Record {
-    mutating func resetVerification(for status: Address.Book.History.Transaction.Status,
+    
+    mutating func resetVerification(for status: Transaction.History.Status,
                                     timestamp: Date) {
         switch status {
         case .confirmed, .pending:
@@ -192,7 +202,7 @@ extension Address.Book.History.Transaction.Record {
         lastCheckedAt = timestamp
     }
     
-    mutating func updateVerification(status: Address.Book.History.Transaction.VerificationStatus,
+    mutating func updateVerification(status: Transaction.History.VerificationStatus,
                                      proof: Transaction.MerkleProof?,
                                      verifiedHeight: UInt32?,
                                      checkedAt: Date) {
@@ -211,5 +221,20 @@ extension Address.Book.History.Transaction.Record {
         merkleProof = nil
         lastVerifiedHeight = nil
         lastCheckedAt = timestamp
+    }
+}
+
+extension Transaction.History.ChangeSet {
+    mutating func applyVerificationUpdates(_ records: [Transaction.History.Record]) {
+        guard !records.isEmpty else { return }
+        for record in records {
+            if let index = inserted.firstIndex(where: { $0.transactionHash == record.transactionHash }) {
+                inserted[index] = record
+            } else if let index = updated.firstIndex(where: { $0.transactionHash == record.transactionHash }) {
+                updated[index] = record
+            } else {
+                updated.append(record)
+            }
+        }
     }
 }
