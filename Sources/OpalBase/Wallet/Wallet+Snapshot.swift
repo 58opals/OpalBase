@@ -1,7 +1,6 @@
 // Wallet+Snapshot.swift
 
 import Foundation
-import CryptoKit
 
 extension Wallet {
     public struct Snapshot: Codable {
@@ -25,12 +24,6 @@ extension Wallet {
     }
 }
 
-extension Wallet.Snapshot {
-    enum Error: Swift.Error {
-        case missingCombinedData
-    }
-}
-
 extension Wallet.Snapshot: Sendable {}
 
 extension Wallet {
@@ -47,40 +40,14 @@ extension Wallet {
                         accounts: accountSnaps)
     }
     
-    public func saveSnapshot(to url: URL, using key: SymmetricKey? = nil) async throws {
-        let data = try JSONEncoder().encode(await makeSnapshot())
-        let output: Data
-        if let key {
-            let sealed = try AES.GCM.seal(data, using: key)
-            guard let combined = sealed.combined else { throw Snapshot.Error.missingCombinedData }
-            output = combined
-        } else {
-            output = data
-        }
-        try output.write(to: url)
-    }
-    
-    public func loadSnapshot(from url: URL, using key: SymmetricKey? = nil) async throws {
-        let data = try Data(contentsOf: url)
-        let input: Data
-        if let key {
-            let sealed = try AES.GCM.SealedBox(combined: data)
-            input = try AES.GCM.open(sealed, using: key)
-        } else {
-            input = data
-        }
-        let snap = try JSONDecoder().decode(Snapshot.self, from: input)
-        
+    public func applySnapshot(_ snapshot: Snapshot) async throws {
         self.accounts.removeAll()
         let rootKey = PrivateKey.Extended(rootKey: try .init(seed: mnemonic.seed))
-        for accountSnap in snap.accounts {
-            let account = try await Account(fulcrumServerURLs: .init(),
+        for accountSnap in snapshot.accounts {
+            let account = try await Account(from: accountSnap,
                                             rootExtendedPrivateKey: rootKey,
                                             purpose: accountSnap.purpose,
-                                            coinType: accountSnap.coinType,
-                                            account: try DerivationPath.Account(rawIndexInteger: accountSnap.account),
-                                            storageSettings: storageSettings)
-            try await account.applySnapshot(accountSnap)
+                                            coinType: accountSnap.coinType)
             self.accounts.append(account)
         }
     }

@@ -11,34 +11,20 @@ public actor Wallet: Identifiable {
     public let id: Data
     
     var accounts: [Account] = .init()
-    public let storageSettings: Storage.Settings
-    
-    private func generateID(from inputs: [Data]) -> Data {
-        var hashInput: Data = .init()
-        for input in inputs {
-            hashInput.append(input)
-        }
-        let sha256Hash = SHA256.hash(hashInput)
-        return sha256Hash
-    }
     
     public init(mnemonic: Mnemonic,
                 purpose: DerivationPath.Purpose = .bip44,
-                coinType: DerivationPath.CoinType = .bitcoinCash,
-                storageSettings: Storage.Settings = .init()) {
+                coinType: DerivationPath.CoinType = .bitcoinCash) {
         self.mnemonic = mnemonic
         self.purpose = purpose
         self.coinType = coinType
-        self.storageSettings = storageSettings
         self.id = [self.mnemonic.seed, self.purpose.hardenedIndex.data, self.coinType.hardenedIndex.data].generateID()
     }
     
-    public init(from snapshot: Wallet.Snapshot,
-                storageSettings: Storage.Settings = .init()) async throws {
+    public init(from snapshot: Wallet.Snapshot) async throws {
         self.mnemonic = try Mnemonic(words: snapshot.words, passphrase: snapshot.passphrase)
         self.purpose = snapshot.purpose
         self.coinType = snapshot.coinType
-        self.storageSettings = storageSettings
         self.id = [self.mnemonic.seed, self.purpose.hardenedIndex.data, self.coinType.hardenedIndex.data].generateID()
         
         let rootExtendedPrivateKey = PrivateKey.Extended(rootKey: try .init(seed: self.mnemonic.seed))
@@ -46,8 +32,7 @@ public actor Wallet: Identifiable {
             let account = try await Account(from: accountSnap,
                                             rootExtendedPrivateKey: rootExtendedPrivateKey,
                                             purpose: snapshot.purpose,
-                                            coinType: snapshot.coinType,
-                                            storageSettings: storageSettings)
+                                            coinType: snapshot.coinType)
             self.accounts.append(account)
         }
     }
@@ -66,16 +51,14 @@ extension Wallet: Equatable {
 }
 
 extension Wallet {
-    public func addAccount(unhardenedIndex: UInt32, fulcrumServerURLs: [String] = .init()) async throws {
+    public func addAccount(unhardenedIndex: UInt32) async throws {
         let derivationPathAccount = try DerivationPath.Account(rawIndexInteger: unhardenedIndex)
         
         let rootExtendedPrivateKey = PrivateKey.Extended(rootKey: try .init(seed: mnemonic.seed))
-        let account = try await Account(fulcrumServerURLs: fulcrumServerURLs,
-                                        rootExtendedPrivateKey: rootExtendedPrivateKey,
+        let account = try await Account(rootExtendedPrivateKey: rootExtendedPrivateKey,
                                         purpose: purpose,
                                         coinType: coinType,
-                                        account: derivationPathAccount,
-                                        storageSettings: storageSettings)
+                                        account: derivationPathAccount)
         self.accounts.append(account)
     }
 }

@@ -151,22 +151,6 @@ extension Address.Book.History.Transaction.Record {
                                                        lastVerifiedHeight: nil,
                                                        lastCheckedAt: nil)
     }
-    
-    func makeLedgerEntry() -> Storage.AccountSnapshot.TransactionLedger.Entry {
-        let storageVerificationStatus = verificationStatus.makeStorageStatus()
-        let storageProof = merkleProof.map(Storage.AccountSnapshot.TransactionLedger.Entry.MerkleProof.init)
-        return Storage.AccountSnapshot.TransactionLedger.Entry(transactionHash: transactionHash.naturalOrder,
-                                                               status: status.makeStorageStatus(),
-                                                               confirmationHeight: confirmationHeight,
-                                                               discoveredAt: firstSeenAt,
-                                                               confirmedAt: confirmedAt,
-                                                               label: nil,
-                                                               memo: nil,
-                                                               verificationStatus: storageVerificationStatus,
-                                                               merkleProof: storageProof,
-                                                               lastVerifiedHeight: lastVerifiedHeight,
-                                                               lastCheckedAt: lastCheckedAt)
-    }
 }
 
 extension Address.Book.History.Transaction.Status {
@@ -191,60 +175,6 @@ extension Address.Book.History.Transaction.Status {
         case .pending, .failed:
             return (previousStatus, nil)
         }
-    }
-    
-    func makeStorageStatus() -> Storage.AccountSnapshot.TransactionLedger.Entry.Status {
-        switch self {
-        case .discovered:
-            return .discovered
-        case .pending:
-            return .pending
-        case .confirmed:
-            return .confirmed
-        case .failed:
-            return .failed
-        }
-    }
-}
-
-extension Address.Book.History.Transaction.VerificationStatus {
-    func makeStorageStatus() -> Storage.AccountSnapshot.TransactionLedger.Entry.VerificationStatus {
-        switch self {
-        case .unknown: return .unknown
-        case .pending: return .pending
-        case .verified: return .verified
-        case .conflicting: return .conflicting
-        }
-    }
-}
-
-extension Storage.AccountSnapshot.TransactionLedger.Entry.VerificationStatus {
-    func makeAddressBookVerificationStatus() -> Address.Book.History.Transaction.VerificationStatus {
-        switch self {
-        case .unknown: return .unknown
-        case .pending: return .pending
-        case .verified: return .verified
-        case .conflicting: return .conflicting
-        }
-    }
-}
-
-extension Storage.AccountSnapshot.TransactionLedger.Entry.MerkleProof {
-    init(_ proof: Transaction.MerkleProof) {
-        self.init(blockHeight: proof.blockHeight,
-                  position: proof.position,
-                  branch: proof.branch,
-                  blockHash: proof.blockHash)
-    }
-}
-
-extension Transaction.MerkleProof {
-    init?(storageProof: Storage.AccountSnapshot.TransactionLedger.Entry.MerkleProof?) {
-        guard let storageProof else { return nil }
-        self.init(blockHeight: storageProof.blockHeight,
-                  position: storageProof.position,
-                  branch: storageProof.branch,
-                  blockHash: storageProof.blockHash)
     }
 }
 

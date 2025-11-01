@@ -1,10 +1,10 @@
-// Storage+Secure.swift
+// Storage+Security.swift
 
 import Foundation
 import Security
 
 extension Storage {
-    public struct SecureStore: Sendable {
+    public struct Security: Sendable {
         public struct Options: Sendable {
             public var accessGroup: String?
             public var shouldUseSecureEnclave: Bool
@@ -73,7 +73,7 @@ extension Storage {
     }
 }
 
-extension Storage.SecureStore {
+extension Storage.Security {
     var keychainAccessibilityAttribute: CFString {
         options.shouldUseSecureEnclave ? kSecAttrAccessibleWhenUnlockedThisDeviceOnly : kSecAttrAccessibleAfterFirstUnlock
     }

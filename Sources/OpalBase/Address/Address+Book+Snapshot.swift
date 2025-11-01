@@ -1,7 +1,6 @@
 // Address+Book+Snapshot.swift
 
 import Foundation
-import CryptoKit
 
 extension Address.Book {
     public struct Snapshot: Codable {
@@ -117,12 +116,6 @@ extension Address.Book {
             self.utxos = utxos
             self.transactions = transactions
         }
-    }
-}
-
-extension Address.Book.Snapshot {
-    enum Error: Swift.Error {
-        case missingCombinedData
     }
 }
 
@@ -255,37 +248,5 @@ extension Address.Book {
                 derivationPathToAddress[entry.derivationPath] = entry.address
             }
         }
-    }
-}
-
-extension Address.Book {
-    public func saveSnapshot(to url: URL, using key: SymmetricKey? = nil) throws {
-        let data = try JSONEncoder().encode(makeSnapshot())
-        let output: Data
-        
-        if let key {
-            let sealed = try AES.GCM.seal(data, using: key)
-            guard let combined = sealed.combined else { throw Snapshot.Error.missingCombinedData }
-            output = combined
-        } else {
-            output = data
-        }
-        
-        try output.write(to: url)
-    }
-    
-    public func loadSnapshot(from url: URL, using key: SymmetricKey? = nil) throws {
-        let data = try Data(contentsOf: url)
-        let input: Data
-        
-        if let key {
-            let sealed = try AES.GCM.SealedBox(combined: data)
-            input = try AES.GCM.open(sealed, using: key)
-        } else {
-            input = data
-        }
-        
-        let snap = try JSONDecoder().decode(Snapshot.self, from: input)
-        try applySnapshot(snap)
     }
 }

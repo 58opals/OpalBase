@@ -9,21 +9,17 @@ public actor Account: Identifiable {
     let coinType: DerivationPath.CoinType
     let account: DerivationPath.Account
     
-    let storageSettings: Storage.Settings
-    
     public let id: Data
     public var addressBook: Address.Book
     
     let privacyShaper: PrivacyShaper
     public let privacyConfiguration: PrivacyShaper.Configuration
     
-    init(fulcrumServerURLs: [String] = .init(),
-         rootExtendedPrivateKey: PrivateKey.Extended,
+    init(rootExtendedPrivateKey: PrivateKey.Extended,
          purpose: DerivationPath.Purpose,
          coinType: DerivationPath.CoinType,
          account: DerivationPath.Account,
-         privacyConfiguration: PrivacyShaper.Configuration = .standard,
-         storageSettings: Storage.Settings = .init()) async throws {
+         privacyConfiguration: PrivacyShaper.Configuration = .standard) async throws {
         self.rootExtendedPrivateKey = rootExtendedPrivateKey
         self.purpose = purpose
         self.coinType = coinType
@@ -38,23 +34,18 @@ public actor Account: Identifiable {
         
         self.privacyConfiguration = privacyConfiguration
         self.privacyShaper = .init(configuration: privacyConfiguration)
-        self.storageSettings = storageSettings
     }
     
     init(from snapshot: Account.Snapshot,
-         fulcrumServerURLs: [String] = .init(),
          rootExtendedPrivateKey: PrivateKey.Extended,
          purpose: DerivationPath.Purpose,
          coinType: DerivationPath.CoinType,
-         privacyConfiguration: PrivacyShaper.Configuration = .standard,
-         storageSettings: Storage.Settings = .init()) async throws {
-        try await self.init(fulcrumServerURLs: fulcrumServerURLs,
-                            rootExtendedPrivateKey: rootExtendedPrivateKey,
+         privacyConfiguration: PrivacyShaper.Configuration = .standard) async throws {
+        try await self.init(rootExtendedPrivateKey: rootExtendedPrivateKey,
                             purpose: purpose,
                             coinType: coinType,
                             account: try .init(rawIndexInteger: snapshot.account),
-                            privacyConfiguration: privacyConfiguration,
-                            storageSettings: storageSettings)
+                            privacyConfiguration: privacyConfiguration)
         try await self.addressBook.applySnapshot(snapshot.addressBook)
     }
 }
@@ -72,7 +63,6 @@ extension Account {
         case paymentExceedsMaximumAmount
         case coinSelectionFailed(Swift.Error)
         case transactionBuildFailed(Swift.Error)
-        case outboxPersistenceFailed(Swift.Error)
         case broadcastFailed(Swift.Error)
         case feePreferenceUnavailable(Swift.Error)
     }
@@ -88,7 +78,6 @@ extension Account.Error: Equatable {
             return leftAddress == rightAddress
         case (.coinSelectionFailed(let leftError), .coinSelectionFailed(let rightError)),
             (.transactionBuildFailed(let leftError), .transactionBuildFailed(let rightError)),
-            (.outboxPersistenceFailed(let leftError), .outboxPersistenceFailed(let rightError)),
             (.broadcastFailed(let leftError), .broadcastFailed(let rightError)),
             (.feePreferenceUnavailable(let leftError), .feePreferenceUnavailable(let rightError)):
             return leftError.localizedDescription == rightError.localizedDescription
@@ -129,79 +118,5 @@ extension Account {
 extension Account {
     public func loadTransactionHistory() async -> [Address.Book.History.Transaction.Record] {
         await addressBook.listTransactionHistory()
-    }
-    
-    public func loadLedgerEntries(using storage: Storage) async -> [Storage.AccountSnapshot.TransactionLedger.Entry] {
-        let accountIndex = account.unhardenedIndex
-        guard let snapshot = await storage.loadAccountSnapshot(for: accountIndex) else { return .init() }
-        return snapshot.transactionLedger.entries
-    }
-    
-    public func loadTransactionMetadata(for transactionHash: Transaction.Hash,
-                                        using storage: Storage) async -> Storage.AccountSnapshot.TransactionLedger.Entry? {
-        let accountIndex = account.unhardenedIndex
-        return await storage.loadLedgerEntry(for: transactionHash.naturalOrder, accountIndex: accountIndex)
-    }
-    
-    public func updateTransactionLabel(for transactionHash: Transaction.Hash,
-                                       to label: String?,
-                                       using storage: Storage) async throws -> Bool {
-        try await updateLedgerEntry(for: transactionHash, using: storage) { entry in
-            entry.label = label
-        }
-    }
-    
-    public func updateTransactionMemo(for transactionHash: Transaction.Hash,
-                                      to memo: String?,
-                                      using storage: Storage) async throws -> Bool {
-        try await updateLedgerEntry(for: transactionHash, using: storage) { entry in
-            entry.memo = memo
-        }
-    }
-    
-    public func updateTransactionMetadata(for transactionHash: Transaction.Hash,
-                                          label: String?,
-                                          memo: String?,
-                                          using storage: Storage) async throws -> Bool {
-        try await updateLedgerEntry(for: transactionHash, using: storage) { entry in
-            entry.label = label
-            entry.memo = memo
-        }
-    }
-    
-    public func loadFeePreference() async throws -> Wallet.FeePolicy.Preference {
-        do {
-            if let storedPreference = try await storageSettings.loadFeePreference(for: account.unhardenedIndex) {
-                return storedPreference
-            }
-            return .standard
-        } catch {
-            throw Error.feePreferenceUnavailable(error)
-        }
-    }
-    
-    public func updateFeePreference(_ preference: Wallet.FeePolicy.Preference) async throws {
-        do {
-            try await storageSettings.updateFeePreference(preference, for: account.unhardenedIndex)
-        } catch {
-            throw Error.feePreferenceUnavailable(error)
-        }
-    }
-}
-
-extension Account {
-    func updateLedgerEntry(for transactionHash: Transaction.Hash,
-                           using storage: Storage,
-                           applying transform: (inout Storage.AccountSnapshot.TransactionLedger.Entry) -> Void) async throws -> Bool {
-        let accountIndex = account.unhardenedIndex
-        guard var entry = await storage.loadLedgerEntry(for: transactionHash.naturalOrder, accountIndex: accountIndex) else {
-            return false
-        }
-        
-        let originalEntry = entry
-        transform(&entry)
-        guard entry != originalEntry else { return true }
-        
-        return try await storage.updateLedgerEntry(entry, for: accountIndex)
     }
 }

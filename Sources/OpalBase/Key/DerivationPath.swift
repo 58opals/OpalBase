@@ -22,25 +22,7 @@ public struct DerivationPath {
     }
     
     public var path: String {
-        do {
-            return try "m/\(purpose.hardenedIndex.unhardened())'/\(coinType.hardenedIndex.unhardened())'/\(account.unhardenedIndex)'/\(usage.unhardenedIndex)/\(index)"
-        } catch {
-            Task {
-                await Telemetry.shared.record(
-                    name: "derivation.unharden.failure",
-                    category: .wallet,
-                    message: "Failed to unharden derivation path components",
-                    metadata: [
-                        "error.description": .string(String(describing: error)),
-                        "purpose.index": .int(Int(purpose.hardenedIndex)),
-                        "coinType.index": .int(Int(coinType.hardenedIndex)),
-                        "account.index": .int(Int(account.unhardenedIndex))
-                    ],
-                    sensitiveKeys: ["error.description"]
-                )
-            }
-            return "‼ PATH without hardening: m/\(purpose.hardenedIndex)/\(coinType.hardenedIndex)/\(account.unhardenedIndex)/\(usage.unhardenedIndex)/\(index)"
-        }
+        "m/\(purpose.unhardenedIndex)'/\(coinType.unhardenedIndex)'/\(account.unhardenedIndex)'/\(usage.unhardenedIndex)/\(index)"
     }
 }
 
