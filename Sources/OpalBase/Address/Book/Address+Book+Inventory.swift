@@ -25,26 +25,26 @@ extension Address.Book {
             receivingEntries + changeEntries
         }
         
-        func entries(for usage: DerivationPath.Usage) -> [Entry] {
+        func listEntries(for usage: DerivationPath.Usage) -> [Entry] {
             switch usage {
             case .receiving: return receivingEntries
             case .change: return changeEntries
             }
         }
         
-        func count(for usage: DerivationPath.Usage) -> Int {
-            entries(for: usage).count
+        func countEntries(for usage: DerivationPath.Usage) -> Int {
+            listEntries(for: usage).count
         }
         
-        func usedEntries(for usage: DerivationPath.Usage) -> Set<Entry> {
-            Set(entries(for: usage).filter { $0.isUsed })
+        func listUsedEntries(for usage: DerivationPath.Usage) -> Set<Entry> {
+            Set(listEntries(for: usage).filter { $0.isUsed })
         }
         
         func contains(address: Address) -> Bool {
             addressToEntry[address] != nil
         }
         
-        func entry(for address: Address) -> Entry? {
+        func findEntry(for address: Address) -> Entry? {
             addressToEntry[address]
         }
         
@@ -70,7 +70,7 @@ extension Address.Book {
             let position = Position(usage: usage, index: index)
             var entry = readEntry(at: position)
             update(&entry)
-            setEntry(entry, at: position)
+            storeEntry(entry, at: position)
         }
         
         mutating func updateCacheValidityDuration(to newDuration: TimeInterval) {
@@ -91,19 +91,19 @@ extension Address.Book {
                                   balance: Satoshi,
                                   validityDuration: TimeInterval,
                                   timestamp: Date) throws {
-            let position = try position(for: address)
+            let position = try findPosition(for: address)
             var entry = readEntry(at: position)
             entry.cache = Entry.Cache(balance: balance,
                                       lastUpdated: timestamp,
                                       validityDuration: validityDuration)
-            setEntry(entry, at: position)
+            storeEntry(entry, at: position)
         }
         
         mutating func mark(address: Address, isUsed: Bool) throws -> Entry {
-            let position = try position(for: address)
+            let position = try findPosition(for: address)
             var entry = readEntry(at: position)
             entry.isUsed = isUsed
-            setEntry(entry, at: position)
+            storeEntry(entry, at: position)
             return entry
         }
         
@@ -114,7 +114,7 @@ extension Address.Book {
             }
         }
         
-        private mutating func setEntry(_ entry: Entry, at position: Position) {
+        private mutating func storeEntry(_ entry: Entry, at position: Position) {
             switch position.usage {
             case .receiving: receivingEntries[position.index] = entry
             case .change: changeEntries[position.index] = entry
@@ -123,7 +123,7 @@ extension Address.Book {
             addressToPosition[entry.address] = position
         }
         
-        private func position(for address: Address) throws -> Position {
+        private func findPosition(for address: Address) throws -> Position {
             guard let position = addressToPosition[address] else { throw Address.Book.Error.addressNotFound }
             return position
         }

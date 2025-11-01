@@ -1,4 +1,4 @@
-// Transaction~UTXO.swift
+// Transaction~UnspentTransactionOutput.swift
 
 import Foundation
 
@@ -7,24 +7,24 @@ extension Transaction {
     static var dustLimit: UInt64 { 546 }
     
     static func build(version: UInt32 = 2,
-                      utxoPrivateKeyPairs: [Transaction.Output.Unspent: PrivateKey],
+                      unspentTransactionOutputPrivateKeyPairs: [Transaction.Output.Unspent: PrivateKey],
                       recipientOutputs: [Output],
                       changeOutput: Output,
                       signatureFormat: ECDSA.SignatureFormat = .ecdsa(.der),
                       feePerByte: UInt64 = 1,
                       sequence: UInt32 = 0xFFFFFFFF,
                       lockTime: UInt32 = 0,
-                      allowDustDonation: Bool = false,
+                      shouldAllowDustDonation: Bool = false,
                       unlockers: [Transaction.Output.Unspent: Unlocker] = .init()) throws -> Transaction {
-        let orderedUTXOs = utxoPrivateKeyPairs.keys.sorted {
+        let orderedUnspentTransactionOutputs = unspentTransactionOutputPrivateKeyPairs.keys.sorted {
             $0.previousTransactionOutputIndex < $1.previousTransactionOutputIndex
         }
         
-        let inputs = orderedUTXOs.map { utxo in
-            let unlocker = unlockers[utxo] ?? .p2pkh_CheckSig()
+        let inputs = orderedUnspentTransactionOutputs.map { unspentTransactionOutput in
+            let unlocker = unlockers[unspentTransactionOutput] ?? .p2pkh_CheckSig()
             let placeholder = unlocker.makePlaceholderUnlockingScript(signatureFormat: signatureFormat)
-            return Input(previousTransactionHash: utxo.previousTransactionHash,
-                         previousTransactionOutputIndex: utxo.previousTransactionOutputIndex,
+            return Input(previousTransactionHash: unspentTransactionOutput.previousTransactionHash,
+                         previousTransactionOutputIndex: unspentTransactionOutput.previousTransactionOutputIndex,
                          unlockingScript: placeholder,
                          sequence: sequence)
         }
@@ -40,7 +40,7 @@ extension Transaction {
         var outputs = recipientOutputs
         if newChangeAmount > 0 {
             if newChangeAmount < Transaction.dustLimit {
-                guard allowDustDonation else { throw Error.outputValueIsLessThanTheDustLimit }
+                guard shouldAllowDustDonation else { throw Error.outputValueIsLessThanTheDustLimit }
             } else {
                 outputs.append(.init(value: newChangeAmount, lockingScript: changeOutput.lockingScript))
             }
@@ -53,10 +53,10 @@ extension Transaction {
         let temporaryTransactionWithFee = Transaction(version: version, inputs: inputs, outputs: combinedOutputs, lockTime: lockTime)
         
         var transaction = temporaryTransactionWithFee
-        for (index, utxo) in orderedUTXOs.enumerated() {
-            guard let privateKey = utxoPrivateKeyPairs[utxo] else { throw Error.cannotCreateTransaction }
+        for (index, unspentTransactionOutput) in orderedUnspentTransactionOutputs.enumerated() {
+            guard let privateKey = unspentTransactionOutputPrivateKeyPairs[unspentTransactionOutput] else { throw Error.cannotCreateTransaction }
             let publicKey = try PublicKey(privateKey: privateKey)
-            let mode = unlockers[utxo] ?? .p2pkh_CheckSig()
+            let mode = unlockers[unspentTransactionOutput] ?? .p2pkh_CheckSig()
             
             switch signatureFormat {
             case .ecdsa(.raw), .ecdsa(.compact):
@@ -67,7 +67,7 @@ extension Transaction {
             
             switch mode {
             case .p2pkh_CheckSig(let hashType):
-                let outputBeingSpent = Output(value: utxo.value, lockingScript: utxo.lockingScript)
+                let outputBeingSpent = Output(value: unspentTransactionOutput.value, lockingScript: unspentTransactionOutput.lockingScript)
                 let preimage = try temporaryTransactionWithFee.generatePreimage(for: index,
                                                                                 hashType: hashType,
                                                                                 outputBeingSpent: outputBeingSpent)

@@ -19,10 +19,10 @@ struct WalletTests {
         let firstAccount = try await wallet.fetchAccount(at: 0)
         let secondAccount = try await wallet.fetchAccount(at: 1)
 
-        let firstReceivingEntry = try await firstAccount.addressBook.selectNextEntry(for: .receiving, fetchBalance: false)
+        let firstReceivingEntry = try await firstAccount.addressBook.selectNextEntry(for: .receiving, shouldFetchBalance: false)
         try await firstAccount.addressBook.updateCache(for: firstReceivingEntry.address, with: Satoshi(1_000))
 
-        let secondReceivingEntry = try await secondAccount.addressBook.selectNextEntry(for: .receiving, fetchBalance: false)
+        let secondReceivingEntry = try await secondAccount.addressBook.selectNextEntry(for: .receiving, shouldFetchBalance: false)
         try await secondAccount.addressBook.updateCache(for: secondReceivingEntry.address, with: Satoshi(2_500))
 
         let balance = try await wallet.calculateBalance()

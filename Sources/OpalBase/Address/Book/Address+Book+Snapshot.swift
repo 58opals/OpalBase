@@ -26,7 +26,7 @@ extension Address.Book {
             }
         }
         
-        public struct UTXO: Codable {
+        public struct UnspentTransactionOutput: Codable {
             public let value: UInt64
             public let lockingScript: String
             public let transactionHash: String
@@ -106,16 +106,16 @@ extension Address.Book {
         
         public let receivingEntries: [Entry]
         public let changeEntries: [Entry]
-        public let utxos: [UTXO]
+        public let unspentTransactionOutputs: [UnspentTransactionOutput]
         public let transactions: [Transaction]
         
         public init(receivingEntries: [Entry],
                     changeEntries: [Entry],
-                    utxos: [UTXO],
+                    unspentTransactionOutputs: [UnspentTransactionOutput],
                     transactions: [Transaction]) {
             self.receivingEntries = receivingEntries
             self.changeEntries = changeEntries
-            self.utxos = utxos
+            self.unspentTransactionOutputs = unspentTransactionOutputs
             self.transactions = transactions
         }
     }
@@ -123,20 +123,20 @@ extension Address.Book {
 
 extension Address.Book.Snapshot: Sendable {}
 extension Address.Book.Snapshot.Entry: Sendable {}
-extension Address.Book.Snapshot.UTXO: Sendable {}
+extension Address.Book.Snapshot.UnspentTransactionOutput: Sendable {}
 extension Address.Book.Snapshot.Transaction: Sendable {}
 extension Address.Book.Snapshot.Transaction.MerkleProof: Sendable {}
 
 extension Address.Book {
     public func makeSnapshot() -> Snapshot {
-        let receiving = inventory.entries(for: .receiving).map { entry in
+        let receiving = inventory.listEntries(for: .receiving).map { entry in
             Snapshot.Entry(usage: entry.derivationPath.usage,
                            index: entry.derivationPath.index,
                            isUsed: entry.isUsed,
                            balance: entry.cache.balance?.uint64,
                            lastUpdated: entry.cache.lastUpdated)
         }
-        let change = inventory.entries(for: .change).map { entry in
+        let change = inventory.listEntries(for: .change).map { entry in
             Snapshot.Entry(usage: entry.derivationPath.usage,
                            index: entry.derivationPath.index,
                            isUsed: entry.isUsed,
@@ -144,11 +144,11 @@ extension Address.Book {
                            lastUpdated: entry.cache.lastUpdated)
         }
         
-        let utxoSnaps = utxoStore.list().map {
-            Snapshot.UTXO(value: $0.value,
-                          lockingScript: $0.lockingScript.hexadecimalString,
-                          transactionHash: $0.previousTransactionHash.naturalOrder.hexadecimalString,
-                          outputIndex: $0.previousTransactionOutputIndex)
+        let unspentTransactionOutputSnaps = unspentTransactionOutputStore.listUnspentTransactionOutputs().map {
+            Snapshot.UnspentTransactionOutput(value: $0.value,
+                                              lockingScript: $0.lockingScript.hexadecimalString,
+                                              transactionHash: $0.previousTransactionHash.naturalOrder.hexadecimalString,
+                                              outputIndex: $0.previousTransactionOutputIndex)
         }
         
         let transactionSnaps = transactionLog.listRecords().map { record in
@@ -175,7 +175,7 @@ extension Address.Book {
         
         return Snapshot(receivingEntries: receiving,
                         changeEntries: change,
-                        utxos: utxoSnaps,
+                        unspentTransactionOutputs: unspentTransactionOutputSnaps,
                         transactions: transactionSnaps)
     }
     
@@ -183,14 +183,14 @@ extension Address.Book {
         try await apply(entrySnapshots: snapshot.receivingEntries, usage: .receiving)
         try await apply(entrySnapshots: snapshot.changeEntries, usage: .change)
         
-        let restoredUTXOs = try snapshot.utxos.map {
+        let restoredUnspentTransactionOutputs = try snapshot.unspentTransactionOutputs.map {
             Transaction.Output.Unspent(value: $0.value,
                                        lockingScript: try Data(hexadecimalString: $0.lockingScript),
                                        previousTransactionHash: .init(naturalOrder: try Data(hexadecimalString: $0.transactionHash)),
                                        previousTransactionOutputIndex: $0.outputIndex)
         }
         
-        utxoStore.replace(with: Set(restoredUTXOs))
+        unspentTransactionOutputStore.replace(with: Set(restoredUnspentTransactionOutputs))
         transactionLog.reset()
         
         for transaction in snapshot.transactions {

@@ -49,7 +49,7 @@ extension Address.Book {
     func generateEntries(for usage: DerivationPath.Usage,
                          numberOfNewEntries: Int,
                          isUsed: Bool) async throws {
-        let numberOfExistingEntries = inventory.count(for: usage)
+        let numberOfExistingEntries = inventory.countEntries(for: usage)
         
         for _ in numberOfExistingEntries ..< numberOfExistingEntries + numberOfNewEntries {
             try await generateEntry(for: usage,
@@ -64,7 +64,7 @@ extension Address.Book {
     /// - Throws: An error if entry generation fails.
     func generateEntry(for usage: DerivationPath.Usage,
                        isUsed: Bool) async throws {
-        let nextIndex = UInt32(inventory.count(for: usage))
+        let nextIndex = UInt32(inventory.countEntries(for: usage))
         
         let address = try generateAddress(at: nextIndex, for: usage)
         let derivationPath = try createDerivationPath(usage: usage,
@@ -85,13 +85,13 @@ extension Address.Book {
 // MARK: - Find
 extension Address.Book {
     func findEntry(for address: Address) -> Entry? {
-        return inventory.entry(for: address)
+        return inventory.findEntry(for: address)
     }
 }
 
 // MARK: - Get
 extension Address.Book {
-    public func selectNextEntry(for usage: DerivationPath.Usage, fetchBalance: Bool = true) async throws -> Entry {
+    public func selectNextEntry(for usage: DerivationPath.Usage, shouldFetchBalance: Bool = true) async throws -> Entry {
         try await generateEntriesIfNeeded(for: usage)
         
         let entries = listEntries(for: usage)
@@ -101,17 +101,17 @@ extension Address.Book {
     }
     
     public func listEntries(for usage: DerivationPath.Usage) -> [Entry] {
-        inventory.entries(for: usage)
+        inventory.listEntries(for: usage)
     }
     
     public func listUsedEntries(for usage: DerivationPath.Usage) -> Set<Entry> {
-        inventory.usedEntries(for: usage)
+        inventory.listUsedEntries(for: usage)
     }
 }
 
 // MARK: - Mark
 extension Address.Book {
-    func isUsed(address: Address) throws -> Bool {
+    func checkUsageStatus(of address: Address) throws -> Bool {
         guard let entry = findEntry(for: address) else { throw Error.addressNotFound }
         return entry.isUsed
     }

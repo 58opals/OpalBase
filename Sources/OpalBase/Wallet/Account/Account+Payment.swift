@@ -18,18 +18,18 @@ extension Account {
         public let feeOverride: Wallet.FeePolicy.Override?
         public let feeContext: Wallet.FeePolicy.RecommendationContext
         public let coinSelection: Address.Book.CoinSelection
-        public let allowDustDonation: Bool
+        public let shouldAllowDustDonation: Bool
         
         public init(recipients: [Recipient],
                     feeOverride: Wallet.FeePolicy.Override? = nil,
                     feeContext: Wallet.FeePolicy.RecommendationContext = .init(),
                     coinSelection: Address.Book.CoinSelection = .greedyLargestFirst,
-                    allowDustDonation: Bool = false) {
+                    shouldAllowDustDonation: Bool = false) {
             self.recipients = recipients
             self.feeOverride = feeOverride
             self.feeContext = feeContext
             self.coinSelection = coinSelection
-            self.allowDustDonation = allowDustDonation
+            self.shouldAllowDustDonation = shouldAllowDustDonation
         }
     }
 }

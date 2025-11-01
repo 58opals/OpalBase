@@ -8,7 +8,10 @@ extension Address.Book.Entry {
         var lastUpdated: Date?
         var validityDuration: TimeInterval = 10 * 60
         
-        var isValid: Bool { if let lastUpdated { return (Date().timeIntervalSince(lastUpdated) < validityDuration) } else { return false } }
+        var isValid: Bool {
+            guard let lastUpdated else { return false }
+            return Date().timeIntervalSince(lastUpdated) < validityDuration
+        }
     }
 }
 

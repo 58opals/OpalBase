@@ -9,7 +9,7 @@ extension Address.Book {
         case refreshBalances
         case refreshBalancesSubset(DerivationPath.Usage)
         case fetchBalance(Address)
-        case refreshUTXOSet
+        case refreshUnspentTransactionOutputSet
         case fetchDetailedTransactions(scope: DerivationPath.Usage,
                                        fromHeight: UInt?,
                                        toHeight: UInt?,

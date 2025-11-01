@@ -11,11 +11,10 @@ extension Address {
         private let account: DerivationPath.Account
         
         var inventory: Inventory
-        var utxoStore: UTXOStore
+        var unspentTransactionOutputStore: UnspentTransactionOutputStore
         var transactionLog: TransactionLog
         
         let gapLimit: Int
-        let maxIndex = UInt32.max
         
         var cacheValidityDuration: TimeInterval
         
@@ -47,7 +46,7 @@ extension Address {
             self.cacheValidityDuration = cacheValidityDuration
             
             self.inventory = .init()
-            self.utxoStore = .init()
+            self.unspentTransactionOutputStore = .init()
             self.transactionLog = .init()
             
             try await initializeEntries()
@@ -107,18 +106,18 @@ extension Address.Book {
             let address = try Address(script: .decode(lockingScript: lockingScript))
             
             if inventory.contains(address: address) {
-                let utxo = Transaction.Output.Unspent(output: output,
-                                                      previousTransactionHash: detailedTransaction.hash,
-                                                      previousTransactionOutputIndex: UInt32(index))
-                addUTXO(utxo)
+                let unspentTransactionOutput = Transaction.Output.Unspent(output: output,
+                                                                          previousTransactionHash: detailedTransaction.hash,
+                                                                          previousTransactionOutputIndex: UInt32(index))
+                addUnspentTransactionOutput(unspentTransactionOutput)
             }
         }
     }
     
     func handleOutgoingTransaction(_ transaction: Transaction) {
         for input in transaction.inputs {
-            if let utxo = utxoStore.utxo(matching: input) {
-                removeUTXO(utxo)
+            if let unspentTransactionOutput = unspentTransactionOutputStore.findUnspentTransactionOutput(matching: input) {
+                removeUnspentTransactionOutput(unspentTransactionOutput)
             }
         }
     }

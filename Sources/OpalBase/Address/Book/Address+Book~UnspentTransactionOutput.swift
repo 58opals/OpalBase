@@ -1,38 +1,38 @@
-// Address+Book~UTXO.swift
+// Address+Book~UnspentTransactionOutput.swift
 
 import Foundation
 
 extension Address.Book {
-    func addUTXO(_ utxo: Transaction.Output.Unspent) {
-        utxoStore.add(utxo)
+    func addUnspentTransactionOutput(_ unspentTransactionOutput: Transaction.Output.Unspent) {
+        unspentTransactionOutputStore.add(unspentTransactionOutput)
     }
     
-    func addUTXOs(_ utxos: [Transaction.Output.Unspent]) {
-        utxoStore.add(utxos)
+    func addUnspentTransactionOutputs(_ unspentTransactionOutputs: [Transaction.Output.Unspent]) {
+        unspentTransactionOutputStore.add(unspentTransactionOutputs)
     }
     
-    func replaceUTXOs(_ utxos: Set<Transaction.Output.Unspent>) {
-        utxoStore.replace(with: utxos)
+    func replaceUnspentTransactionOutputs(_ unspentTransactionOutputs: Set<Transaction.Output.Unspent>) {
+        unspentTransactionOutputStore.replace(with: unspentTransactionOutputs)
     }
     
-    func replaceUTXOs(for address: Address, with utxos: [Transaction.Output.Unspent]) {
-        utxoStore.replace(for: address, with: utxos)
+    func replaceUnspentTransactionOutputs(for address: Address, with unspentTransactionOutputs: [Transaction.Output.Unspent]) {
+        unspentTransactionOutputStore.replace(for: address, with: unspentTransactionOutputs)
     }
     
-    func removeUTXO(_ utxo: Transaction.Output.Unspent) {
-        utxoStore.remove(utxo)
+    func removeUnspentTransactionOutput(_ unspentTransactionOutput: Transaction.Output.Unspent) {
+        unspentTransactionOutputStore.remove(unspentTransactionOutput)
     }
     
-    func removeUTXOs(_ utxos: [Transaction.Output.Unspent]) {
-        utxoStore.remove(utxos)
+    func removeUnspentTransactionOutputs(_ unspentTransactionOutputs: [Transaction.Output.Unspent]) {
+        unspentTransactionOutputStore.remove(unspentTransactionOutputs)
     }
     
-    func clearUTXOs() {
-        utxoStore.clear()
+    func clearUnspentTransactionOutputs() {
+        unspentTransactionOutputStore.clear()
     }
     
-    func listUTXOs() -> Set<Transaction.Output.Unspent> {
-        utxoStore.list()
+    func listUnspentTransactionOutputs() -> Set<Transaction.Output.Unspent> {
+        unspentTransactionOutputStore.listUnspentTransactionOutputs()
     }
 }
 
@@ -89,40 +89,40 @@ extension Address.Book {
 }
 
 extension Address.Book {
-    func selectUTXOs(targetAmount: Satoshi,
-                     feePolicy: Wallet.FeePolicy,
-                     recommendationContext: Wallet.FeePolicy.RecommendationContext = .init(),
-                     override: Wallet.FeePolicy.Override? = nil,
-                     strategy: CoinSelection = .greedyLargestFirst) throws -> [Transaction.Output.Unspent] {
+    func selectUnspentTransactionOutputs(targetAmount: Satoshi,
+                                         feePolicy: Wallet.FeePolicy,
+                                         recommendationContext: Wallet.FeePolicy.RecommendationContext = .init(),
+                                         override: Wallet.FeePolicy.Override? = nil,
+                                         strategy: CoinSelection = .greedyLargestFirst) throws -> [Transaction.Output.Unspent] {
         let feePerByte = feePolicy.recommendedFeeRate(for: recommendationContext, override: override)
         switch strategy {
         case .greedyLargestFirst:
-            var selectedUTXOs: [Transaction.Output.Unspent] = .init()
+            var selectedUnspentTransactionOutputs: [Transaction.Output.Unspent] = .init()
             var totalAmount: UInt64 = 0
-            let sortedUTXOs = utxoStore.sorted { $0.value > $1.value }
+            let sortedUnspentTransactionOutputs = unspentTransactionOutputStore.sorted { $0.value > $1.value }
             
             let dustLimit = Transaction.dustLimit
             let recipientOutputs = CoinSelectionTemplates.recipientOutputs
             let outputsWithChange = CoinSelectionTemplates.outputsWithChange
             
-            for utxo in sortedUTXOs {
-                selectedUTXOs.append(utxo)
-                totalAmount += utxo.value
+            for unspentTransactionOutput in sortedUnspentTransactionOutputs {
+                selectedUnspentTransactionOutputs.append(unspentTransactionOutput)
+                totalAmount += unspentTransactionOutput.value
                 
                 if evaluateSelection(total: totalAmount,
-                                     inputCount: selectedUTXOs.count,
+                                     inputCount: selectedUnspentTransactionOutputs.count,
                                      targetAmount: targetAmount.uint64,
                                      recipientOutputs: recipientOutputs,
                                      outputsWithChange: outputsWithChange,
                                      dustLimit: dustLimit,
                                      feePerByte: feePerByte) != nil {
-                    return selectedUTXOs
+                    return selectedUnspentTransactionOutputs
                 }
             }
             
             throw Error.insufficientFunds
         case .branchAndBound:
-            let sortedUTXOs = utxoStore.sorted { $0.value > $1.value }
+            let sortedUnspentTransactionOutputs = unspentTransactionOutputStore.sorted { $0.value > $1.value }
             var bestSelection: [Transaction.Output.Unspent] = .init()
             var bestExcess = UInt64.max
             
@@ -146,9 +146,9 @@ extension Address.Book {
                     return
                 }
                 
-                guard index < sortedUTXOs.count else { return }
+                guard index < sortedUnspentTransactionOutputs.count else { return }
                 
-                let remaining = sortedUTXOs[index...].reduce(0) { $0 + $1.value }
+                let remaining = sortedUnspentTransactionOutputs[index...].reduce(0) { $0 + $1.value }
                 let estimatedFee = Transaction.estimateFee(inputCount: selection.count,
                                                            outputs: recipientOutputs,
                                                            feePerByte: feePerByte)
@@ -156,8 +156,8 @@ extension Address.Book {
                 if (total + remaining) < minimalRequirement { return }
                 
                 var nextSelection = selection
-                nextSelection.append(sortedUTXOs[index])
-                exploreCombinations(index: index + 1, selection: nextSelection, total: total + sortedUTXOs[index].value)
+                nextSelection.append(sortedUnspentTransactionOutputs[index])
+                exploreCombinations(index: index + 1, selection: nextSelection, total: total + sortedUnspentTransactionOutputs[index].value)
                 exploreCombinations(index: index + 1, selection: selection, total: total)
             }
             
@@ -166,17 +166,17 @@ extension Address.Book {
             guard !bestSelection.isEmpty else { throw Error.insufficientFunds }
             return bestSelection
         case .sweepAll:
-            return utxoStore.sorted { $0.value > $1.value }
+            return unspentTransactionOutputStore.sorted { $0.value > $1.value }
         }
     }
     
-    func selectUTXOs(targetAmount: Satoshi,
-                     feePolicy: Wallet.FeePolicy,
-                     recommendationContext: Wallet.FeePolicy.RecommendationContext = .init(),
-                     override: Wallet.FeePolicy.Override? = nil,
-                     recipientOutputs: [Transaction.Output],
-                     changeLockingScript: Data,
-                     strategy: CoinSelection = .greedyLargestFirst) throws -> [Transaction.Output.Unspent] {
+    func selectUnspentTransactionOutputs(targetAmount: Satoshi,
+                                         feePolicy: Wallet.FeePolicy,
+                                         recommendationContext: Wallet.FeePolicy.RecommendationContext = .init(),
+                                         override: Wallet.FeePolicy.Override? = nil,
+                                         recipientOutputs: [Transaction.Output],
+                                         changeLockingScript: Data,
+                                         strategy: CoinSelection = .greedyLargestFirst) throws -> [Transaction.Output.Unspent] {
         let dust = Transaction.dustLimit
         let changeTemplate = Transaction.Output(value: 0, lockingScript: changeLockingScript)
         let withChangeOutputs = recipientOutputs + [changeTemplate]
@@ -186,9 +186,9 @@ extension Address.Book {
         case .greedyLargestFirst:
             var selected: [Transaction.Output.Unspent] = .init()
             var total: UInt64 = 0
-            for utxo in utxoStore.sorted(by: { $0.value > $1.value }) {
-                selected.append(utxo)
-                total &+= utxo.value
+            for unspentTransactionOutput in unspentTransactionOutputStore.sorted(by: { $0.value > $1.value }) {
+                selected.append(unspentTransactionOutput)
+                total &+= unspentTransactionOutput.value
                 
                 if evaluateSelection(total: total,
                                      inputCount: selected.count,
@@ -203,8 +203,8 @@ extension Address.Book {
             throw Error.insufficientFunds
             
         case .branchAndBound:
-            let sorted = utxoStore.sorted { $0.value > $1.value }
-            var bestUTXOs: [Transaction.Output.Unspent] = .init()
+            let sorted = unspentTransactionOutputStore.sorted { $0.value > $1.value }
+            var bestUnspentTransactionOutputs: [Transaction.Output.Unspent] = .init()
             var bestEvaluation: CoinSelectionEvaluation?
             
             let dust = Transaction.dustLimit
@@ -228,15 +228,15 @@ extension Address.Book {
                 if let currentBest = bestEvaluation {
                     if evaluation.excess < currentBest.excess {
                         bestEvaluation = evaluation
-                        bestUTXOs = selection
+                        bestUnspentTransactionOutputs = selection
                     } else if evaluation.excess == currentBest.excess,
-                              selection.count < bestUTXOs.count {
+                              selection.count < bestUnspentTransactionOutputs.count {
                         bestEvaluation = evaluation
-                        bestUTXOs = selection
+                        bestUnspentTransactionOutputs = selection
                     }
                 } else {
                     bestEvaluation = evaluation
-                    bestUTXOs = selection
+                    bestUnspentTransactionOutputs = selection
                 }
                 
             }
@@ -262,11 +262,11 @@ extension Address.Book {
             }
             
             explore(index: 0, selection: .init(), sum: 0)
-            guard !bestUTXOs.isEmpty else { throw Error.insufficientFunds }
-            return bestUTXOs
+            guard !bestUnspentTransactionOutputs.isEmpty else { throw Error.insufficientFunds }
+            return bestUnspentTransactionOutputs
             
         case .sweepAll:
-            return utxoStore.sorted { $0.value > $1.value }
+            return unspentTransactionOutputStore.sorted { $0.value > $1.value }
         }
     }
 }
