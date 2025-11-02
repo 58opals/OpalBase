@@ -109,7 +109,7 @@ extension Address.Book {
                 let unspentTransactionOutput = Transaction.Output.Unspent(output: output,
                                                                           previousTransactionHash: detailedTransaction.hash,
                                                                           previousTransactionOutputIndex: UInt32(index))
-                addUnspentTransactionOutput(unspentTransactionOutput)
+                unspentTransactionOutputStore.add(unspentTransactionOutput)
             }
         }
     }
@@ -117,7 +117,7 @@ extension Address.Book {
     func handleOutgoingTransaction(_ transaction: Transaction) {
         for input in transaction.inputs {
             if let unspentTransactionOutput = unspentTransactionOutputStore.findUnspentTransactionOutput(matching: input) {
-                removeUnspentTransactionOutput(unspentTransactionOutput)
+                unspentTransactionOutputStore.remove(unspentTransactionOutput)
             }
         }
     }

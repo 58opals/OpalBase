@@ -3,40 +3,6 @@
 import Foundation
 
 extension Address.Book {
-    func addUnspentTransactionOutput(_ unspentTransactionOutput: Transaction.Output.Unspent) {
-        unspentTransactionOutputStore.add(unspentTransactionOutput)
-    }
-    
-    func addUnspentTransactionOutputs(_ unspentTransactionOutputs: [Transaction.Output.Unspent]) {
-        unspentTransactionOutputStore.add(unspentTransactionOutputs)
-    }
-    
-    func replaceUnspentTransactionOutputs(_ unspentTransactionOutputs: Set<Transaction.Output.Unspent>) {
-        unspentTransactionOutputStore.replace(with: unspentTransactionOutputs)
-    }
-    
-    func replaceUnspentTransactionOutputs(for address: Address, with unspentTransactionOutputs: [Transaction.Output.Unspent]) {
-        unspentTransactionOutputStore.replace(for: address, with: unspentTransactionOutputs)
-    }
-    
-    func removeUnspentTransactionOutput(_ unspentTransactionOutput: Transaction.Output.Unspent) {
-        unspentTransactionOutputStore.remove(unspentTransactionOutput)
-    }
-    
-    func removeUnspentTransactionOutputs(_ unspentTransactionOutputs: [Transaction.Output.Unspent]) {
-        unspentTransactionOutputStore.remove(unspentTransactionOutputs)
-    }
-    
-    func clearUnspentTransactionOutputs() {
-        unspentTransactionOutputStore.clear()
-    }
-    
-    func listUnspentTransactionOutputs() -> Set<Transaction.Output.Unspent> {
-        unspentTransactionOutputStore.listUnspentTransactionOutputs()
-    }
-}
-
-extension Address.Book {
     private struct CoinSelectionEvaluation {
         let excess: UInt64
     }
