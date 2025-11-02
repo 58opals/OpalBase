@@ -35,10 +35,7 @@ extension Address.Book {
 // MARK: - Generate
 extension Address.Book {
     func generateEntriesIfNeeded(for usage: DerivationPath.Usage) async throws {
-        let entries = listEntries(for: usage)
-        let usedEntries = listUsedEntries(for: usage)
-        
-        let numberOfRemainingUnusedEntries = entries.count - usedEntries.count
+        let numberOfRemainingUnusedEntries = inventory.countUnusedEntries(for: usage)
         if numberOfRemainingUnusedEntries < gapLimit {
             try await generateEntries(for: usage,
                                       numberOfNewEntries: gapLimit,
@@ -49,11 +46,8 @@ extension Address.Book {
     func generateEntries(for usage: DerivationPath.Usage,
                          numberOfNewEntries: Int,
                          isUsed: Bool) async throws {
-        let numberOfExistingEntries = inventory.countEntries(for: usage)
-        
-        for _ in numberOfExistingEntries ..< numberOfExistingEntries + numberOfNewEntries {
-            try await generateEntry(for: usage,
-                                    isUsed: isUsed)
+        for _ in 0 ..< numberOfNewEntries {
+            try await generateEntry(for: usage, isUsed: isUsed)
         }
     }
     
@@ -64,7 +58,7 @@ extension Address.Book {
     /// - Throws: An error if entry generation fails.
     func generateEntry(for usage: DerivationPath.Usage,
                        isUsed: Bool) async throws {
-        let nextIndex = UInt32(inventory.countEntries(for: usage))
+        let nextIndex = inventory.calculateNextIndex(for: usage)
         
         let address = try generateAddress(at: nextIndex, for: usage)
         let derivationPath = try createDerivationPath(usage: usage,

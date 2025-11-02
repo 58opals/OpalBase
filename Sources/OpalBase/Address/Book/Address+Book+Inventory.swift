@@ -28,6 +28,18 @@ extension Address.Book {
             Set(listEntries(for: usage).filter { $0.isUsed })
         }
         
+        func countUnusedEntries(for usage: DerivationPath.Usage) -> Int {
+            listEntries(for: usage).reduce(into: 0) { result, entry in
+                if !entry.isUsed {
+                    result += 1
+                }
+            }
+        }
+        
+        func calculateNextIndex(for usage: DerivationPath.Usage) -> UInt32 {
+            UInt32(countEntries(for: usage))
+        }
+        
         func contains(address: Address) -> Bool {
             addressToEntry[address] != nil
         }
