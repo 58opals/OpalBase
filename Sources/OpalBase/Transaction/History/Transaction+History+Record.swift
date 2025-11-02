@@ -22,6 +22,29 @@ extension Transaction.History {
             public var merkleProof: Transaction.MerkleProof?
             public var lastVerifiedHeight: UInt32?
             public var lastCheckedAt: Date?
+            
+            mutating func synchronize(with recordStatus: Transaction.History.Status,
+                                      timestamp: Date,
+                                      shouldResetExistingVerification: Bool) {
+                switch recordStatus {
+                case .confirmed:
+                    if shouldResetExistingVerification {
+                        status = .pending
+                    } else if status == .unknown {
+                        status = .pending
+                    }
+                case .pending:
+                    status = .pending
+                case .discovered, .failed:
+                    status = .unknown
+                }
+                
+                if shouldResetExistingVerification || recordStatus != .confirmed {
+                    merkleProof = nil
+                    lastVerifiedHeight = nil
+                }
+                lastCheckedAt = timestamp
+            }
         }
         
         public let transactionHash: Transaction.Hash
@@ -90,15 +113,9 @@ extension Transaction.History.Record {
     
     mutating func resetVerification(for status: Transaction.History.Status,
                                     timestamp: Date) {
-        switch status {
-        case .confirmed, .pending:
-            verificationMetadata.status = .pending
-        case .discovered, .failed:
-            verificationMetadata.status = .unknown
-        }
-        verificationMetadata.merkleProof = nil
-        verificationMetadata.lastVerifiedHeight = nil
-        verificationMetadata.lastCheckedAt = timestamp
+        verificationMetadata.synchronize(with: status,
+                                         timestamp: timestamp,
+                                         shouldResetExistingVerification: true)
     }
     
     mutating func updateVerification(status: Transaction.History.Status.Verification,
@@ -116,10 +133,9 @@ extension Transaction.History.Record {
         chainMetadata.height = -1
         confirmationMetadata.height = nil
         confirmationMetadata.confirmedAt = nil
-        verificationMetadata.status = .pending
-        verificationMetadata.merkleProof = nil
-        verificationMetadata.lastVerifiedHeight = nil
-        verificationMetadata.lastCheckedAt = timestamp
+        verificationMetadata.synchronize(with: .pending,
+                                         timestamp: timestamp,
+                                         shouldResetExistingVerification: true)
     }
     
     private mutating func applyEntryDetails(from entry: Transaction.History.Entry,
@@ -157,21 +173,8 @@ extension Transaction.History.Record {
     
     private mutating func updateVerification(afterStatusChange status: Transaction.History.Status,
                                              timestamp: Date) {
-        switch status {
-        case .confirmed:
-            if verificationMetadata.status == .unknown {
-                verificationMetadata.status = .pending
-            }
-        case .pending:
-            verificationMetadata.status = .pending
-        case .discovered, .failed:
-            verificationMetadata.status = .unknown
-        }
-        
-        if status != .confirmed {
-            verificationMetadata.merkleProof = nil
-            verificationMetadata.lastVerifiedHeight = nil
-        }
-        verificationMetadata.lastCheckedAt = timestamp
+        verificationMetadata.synchronize(with: status,
+                                         timestamp: timestamp,
+                                         shouldResetExistingVerification: false)
     }
 }
