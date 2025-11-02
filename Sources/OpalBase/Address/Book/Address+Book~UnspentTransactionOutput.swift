@@ -3,58 +3,6 @@
 import Foundation
 
 extension Address.Book {
-    private struct CoinSelectionEvaluation {
-        let excess: UInt64
-    }
-    
-    private enum CoinSelectionTemplates {
-        static var lockingScript: Data { Data(repeating: 0, count: 25) }
-        
-        static var recipientOutputs: [Transaction.Output] {
-            [Transaction.Output(value: 0, lockingScript: lockingScript)]
-        }
-        
-        static var outputsWithChange: [Transaction.Output] {
-            let recipient = Transaction.Output(value: 0, lockingScript: lockingScript)
-            let change = Transaction.Output(value: 0, lockingScript: lockingScript)
-            return [recipient, change]
-        }
-    }
-    
-    private func evaluateSelection(total: UInt64,
-                                   inputCount: Int,
-                                   targetAmount: UInt64,
-                                   recipientOutputs: [Transaction.Output],
-                                   outputsWithChange: [Transaction.Output],
-                                   dustLimit: UInt64,
-                                   feePerByte: UInt64) -> CoinSelectionEvaluation? {
-        let feeWithoutChange = Transaction.estimateFee(inputCount: inputCount,
-                                                       outputs: recipientOutputs,
-                                                       feePerByte: feePerByte)
-        let requiredWithoutChange = targetAmount &+ feeWithoutChange
-        
-        if total >= requiredWithoutChange {
-            let excess = total &- requiredWithoutChange
-            if excess == 0 || excess < dustLimit {
-                return CoinSelectionEvaluation(excess: excess)
-            }
-        }
-        
-        let feeWithChange = Transaction.estimateFee(inputCount: inputCount,
-                                                    outputs: outputsWithChange,
-                                                    feePerByte: feePerByte)
-        let requiredWithChange = targetAmount &+ feeWithChange
-        
-        guard total >= requiredWithChange else { return nil }
-        
-        let change = total &- requiredWithChange
-        guard change == 0 || change >= dustLimit else { return nil }
-        
-        return CoinSelectionEvaluation(excess: change)
-    }
-}
-
-extension Address.Book {
     func selectUnspentTransactionOutputs(targetAmount: Satoshi,
                                          feePolicy: Wallet.FeePolicy,
                                          recommendationContext: Wallet.FeePolicy.RecommendationContext = .init(),
@@ -63,8 +11,8 @@ extension Address.Book {
         let feePerByte = feePolicy.recommendedFeeRate(for: recommendationContext, override: override)
         return try selectUnspentTransactionOutputs(targetAmount: targetAmount,
                                                    feePerByte: feePerByte,
-                                                   recipientOutputs: CoinSelectionTemplates.recipientOutputs,
-                                                   outputsWithChange: CoinSelectionTemplates.outputsWithChange,
+                                                   recipientOutputs: CoinSelection.Templates.recipientOutputs,
+                                                   outputsWithChange: CoinSelection.Templates.outputsWithChange,
                                                    strategy: strategy)
     }
     
@@ -103,13 +51,13 @@ extension Address.Book {
                 selectedUnspentTransactionOutputs.append(unspentTransactionOutput)
                 totalAmount &+= unspentTransactionOutput.value
                 
-                if evaluateSelection(total: totalAmount,
-                                     inputCount: selectedUnspentTransactionOutputs.count,
-                                     targetAmount: targetAmount.uint64,
-                                     recipientOutputs: recipientOutputs,
-                                     outputsWithChange: outputsWithChange,
-                                     dustLimit: dustLimit,
-                                     feePerByte: feePerByte) != nil {
+                if CoinSelection.evaluate(total: totalAmount,
+                                          inputCount: selectedUnspentTransactionOutputs.count,
+                                          targetAmount: targetAmount.uint64,
+                                          recipientOutputs: recipientOutputs,
+                                          outputsWithChange: outputsWithChange,
+                                          dustLimit: dustLimit,
+                                          feePerByte: feePerByte) != nil {
                     return selectedUnspentTransactionOutputs
                 }
             }
@@ -118,7 +66,7 @@ extension Address.Book {
             
         case .branchAndBound:
             var bestSelection: [Transaction.Output.Unspent] = .init()
-            var bestEvaluation: CoinSelectionEvaluation?
+            var bestEvaluation: CoinSelection.Evaluation?
             
             var suffixTotals: [UInt64] = Array(repeating: 0, count: sortedUnspentTransactionOutputs.count + 1)
             if !sortedUnspentTransactionOutputs.isEmpty {
@@ -128,13 +76,13 @@ extension Address.Book {
             }
             
             func updateBest(selection: [Transaction.Output.Unspent], sum: UInt64) {
-                guard let evaluation = evaluateSelection(total: sum,
-                                                         inputCount: selection.count,
-                                                         targetAmount: targetAmount.uint64,
-                                                         recipientOutputs: recipientOutputs,
-                                                         outputsWithChange: outputsWithChange,
-                                                         dustLimit: dustLimit,
-                                                         feePerByte: feePerByte) else { return }
+                guard let evaluation = CoinSelection.evaluate(total: sum,
+                                                              inputCount: selection.count,
+                                                              targetAmount: targetAmount.uint64,
+                                                              recipientOutputs: recipientOutputs,
+                                                              outputsWithChange: outputsWithChange,
+                                                              dustLimit: dustLimit,
+                                                              feePerByte: feePerByte) else { return }
                 
                 if let currentBest = bestEvaluation {
                     if evaluation.excess < currentBest.excess {
