@@ -61,12 +61,12 @@ extension Transaction.History.Record {
         lastUpdatedAt = timestamp
         scriptHashes.insert(scriptHash)
         
-        let statusUpdate = Transaction.History.Status
-            .resolve(forHeight: entry.height, previousStatus: status)
-        status = statusUpdate.status
+        let statusTransition = Transaction.History.Status
+            .makeTransition(forHeight: entry.height, from: status)
+        status = statusTransition.status
         
-        if statusUpdate.status == .confirmed {
-            let newHeight = statusUpdate.confirmationHeight ?? UInt64(entry.height)
+        if let newHeight = statusTransition
+            .resolveConfirmationHeight(forHeight: entry.height) {
             if let existingHeight = confirmationHeight, existingHeight != newHeight {
                 confirmedAt = timestamp
             } else if confirmedAt == nil {
@@ -78,7 +78,7 @@ extension Transaction.History.Record {
             confirmedAt = nil
         }
         
-        switch statusUpdate.status {
+        switch statusTransition.status {
         case .confirmed:
             if verificationStatus == .unknown {
                 verificationStatus = .pending
@@ -89,7 +89,7 @@ extension Transaction.History.Record {
             verificationStatus = .unknown
         }
         
-        if statusUpdate.status != .confirmed {
+        if statusTransition.status != .confirmed {
             merkleProof = nil
             lastVerifiedHeight = nil
         }
@@ -99,20 +99,19 @@ extension Transaction.History.Record {
     static func makeRecord(for entry: Transaction.History.Entry,
                            scriptHash: String,
                            timestamp: Date) -> Transaction.History.Record {
-        let statusUpdate = Transaction.History.Status
-            .resolve(forHeight: entry.height, previousStatus: nil)
-        let confirmationHeight = statusUpdate.status == .confirmed
-        ? (statusUpdate.confirmationHeight ?? UInt64(entry.height))
-        : nil
-        let confirmedAt = statusUpdate.status == .confirmed ? timestamp : nil
-        let verificationStatus: Transaction.History.Status.Verification = statusUpdate.status == .confirmed ? .pending : .unknown
+        let statusTransition = Transaction.History.Status
+            .makeTransition(forHeight: entry.height, from: nil)
+        let confirmationHeight = statusTransition
+            .resolveConfirmationHeight(forHeight: entry.height)
+        let confirmedAt = statusTransition.isConfirmed ? timestamp : nil
+        let verificationStatus: Transaction.History.Status.Verification = statusTransition.isConfirmed ? .pending : .unknown
         return Transaction.History.Record(transactionHash: entry.transactionHash,
                                           height: entry.height,
                                           fee: entry.fee,
                                           scriptHashes: [scriptHash],
                                           firstSeenAt: timestamp,
                                           lastUpdatedAt: timestamp,
-                                          status: statusUpdate.status,
+                                          status: statusTransition.status,
                                           confirmationHeight: confirmationHeight,
                                           confirmedAt: confirmedAt,
                                           verificationStatus: verificationStatus,

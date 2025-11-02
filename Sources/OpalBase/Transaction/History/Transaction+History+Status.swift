@@ -19,25 +19,45 @@ extension Transaction.History {
 }
 
 extension Transaction.History.Status {
-    static func resolve(forHeight height: Int,
-                        previousStatus: Transaction.History.Status?)
-    -> (status: Transaction.History.Status, confirmationHeight: UInt64?)
+    struct Transition: Sendable, Hashable {
+        let status: Transaction.History.Status
+        private let explicitConfirmationHeight: UInt64?
+        
+        init(status: Transaction.History.Status, confirmationHeight: UInt64?) {
+            self.status = status
+            self.explicitConfirmationHeight = confirmationHeight
+        }
+        
+        var isConfirmed: Bool { status == .confirmed }
+        
+        func resolveConfirmationHeight(forHeight height: Int) -> UInt64? {
+            guard isConfirmed else { return nil }
+            if let explicitConfirmationHeight {
+                return explicitConfirmationHeight
+            }
+            guard height > 0 else { return nil }
+            return UInt64(height)
+        }
+        
+        var confirmationHeight: UInt64? { explicitConfirmationHeight }
+    }
+    
+    static func makeTransition(forHeight height: Int,
+                               from previousStatus: Transaction.History.Status?) -> Transition
     {
         if height > 0 {
-            return (.confirmed, UInt64(height))
+            return Transition(status: .confirmed, confirmationHeight: UInt64(height))
         }
         
         guard let previousStatus else {
-            return (.discovered, nil)
+            return Transition(status: .discovered, confirmationHeight: nil)
         }
         
         switch previousStatus {
-        case .confirmed:
-            return (.pending, nil)
-        case .discovered:
-            return (.pending, nil)
+        case .confirmed, .discovered:
+            return Transition(status: .pending, confirmationHeight: nil)
         case .pending, .failed:
-            return (previousStatus, nil)
+            return Transition(status: previousStatus, confirmationHeight: nil)
         }
     }
 }
