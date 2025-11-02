@@ -4,7 +4,32 @@ import Foundation
 
 extension Transaction.History {
     public struct Record: Sendable, Hashable, Equatable {
+        public struct ChainMetadata: Sendable, Hashable, Equatable {
+            var height: Int
+            var fee: UInt?
+            var scriptHashes: Set<String>
+            var firstSeenAt: Date
+            var lastUpdatedAt: Date
+        }
+        
+        public struct ConfirmationMetadata: Sendable, Hashable, Equatable {
+            var height: UInt64?
+            var confirmedAt: Date?
+        }
+        
+        public struct VerificationMetadata: Sendable, Hashable, Equatable {
+            var status: Status.Verification
+            var merkleProof: Transaction.MerkleProof?
+            var lastVerifiedHeight: UInt32?
+            var lastCheckedAt: Date?
+        }
+        
         public let transactionHash: Transaction.Hash
+        
+        public var chainMetadata: ChainMetadata
+        public var confirmationMetadata: ConfirmationMetadata
+        public var verificationMetadata: VerificationMetadata
+        
         public var height: Int
         public var fee: UInt?
         public var scriptHashes: Set<String>
@@ -36,6 +61,18 @@ extension Transaction.History {
                     lastVerifiedHeight: UInt32?,
                     lastCheckedAt: Date?) {
             self.transactionHash = transactionHash
+            self.chainMetadata = .init(height: height,
+                                       fee: fee,
+                                       scriptHashes: scriptHashes,
+                                       firstSeenAt: firstSeenAt,
+                                       lastUpdatedAt: lastUpdatedAt)
+            self.confirmationMetadata = .init(height: confirmationHeight,
+                                              confirmedAt: confirmedAt)
+            self.verificationMetadata = .init(status: verificationStatus,
+                                              merkleProof: merkleProof,
+                                              lastVerifiedHeight: lastVerifiedHeight,
+                                              lastCheckedAt: lastCheckedAt)
+            
             self.height = height
             self.fee = fee
             self.scriptHashes = scriptHashes
