@@ -61,19 +61,47 @@ extension Address.Book {
                                          override: Wallet.FeePolicy.Override? = nil,
                                          strategy: CoinSelection = .greedyLargestFirst) throws -> [Transaction.Output.Unspent] {
         let feePerByte = feePolicy.recommendedFeeRate(for: recommendationContext, override: override)
+        return try selectUnspentTransactionOutputs(targetAmount: targetAmount,
+                                                   feePerByte: feePerByte,
+                                                   recipientOutputs: CoinSelectionTemplates.recipientOutputs,
+                                                   outputsWithChange: CoinSelectionTemplates.outputsWithChange,
+                                                   strategy: strategy)
+    }
+    
+    func selectUnspentTransactionOutputs(targetAmount: Satoshi,
+                                         feePolicy: Wallet.FeePolicy,
+                                         recommendationContext: Wallet.FeePolicy.RecommendationContext = .init(),
+                                         override: Wallet.FeePolicy.Override? = nil,
+                                         recipientOutputs: [Transaction.Output],
+                                         changeLockingScript: Data,
+                                         strategy: CoinSelection = .greedyLargestFirst) throws -> [Transaction.Output.Unspent] {
+        let changeTemplate = Transaction.Output(value: 0, lockingScript: changeLockingScript)
+        let outputsWithChange = recipientOutputs + [changeTemplate]
+        let feePerByte = feePolicy.recommendedFeeRate(for: recommendationContext, override: override)
+        
+        return try selectUnspentTransactionOutputs(targetAmount: targetAmount,
+                                                   feePerByte: feePerByte,
+                                                   recipientOutputs: recipientOutputs,
+                                                   outputsWithChange: outputsWithChange,
+                                                   strategy: strategy)
+    }
+    
+    private func selectUnspentTransactionOutputs(targetAmount: Satoshi,
+                                                 feePerByte: UInt64,
+                                                 recipientOutputs: [Transaction.Output],
+                                                 outputsWithChange: [Transaction.Output],
+                                                 strategy: CoinSelection) throws -> [Transaction.Output.Unspent] {
+        let sortedUnspentTransactionOutputs = unspentTransactionOutputStore.sorted { $0.value > $1.value }
+        let dustLimit = Transaction.dustLimit
+        
         switch strategy {
         case .greedyLargestFirst:
             var selectedUnspentTransactionOutputs: [Transaction.Output.Unspent] = .init()
             var totalAmount: UInt64 = 0
-            let sortedUnspentTransactionOutputs = unspentTransactionOutputStore.sorted { $0.value > $1.value }
-            
-            let dustLimit = Transaction.dustLimit
-            let recipientOutputs = CoinSelectionTemplates.recipientOutputs
-            let outputsWithChange = CoinSelectionTemplates.outputsWithChange
             
             for unspentTransactionOutput in sortedUnspentTransactionOutputs {
                 selectedUnspentTransactionOutputs.append(unspentTransactionOutput)
-                totalAmount += unspentTransactionOutput.value
+                totalAmount &+= unspentTransactionOutput.value
                 
                 if evaluateSelection(total: totalAmount,
                                      inputCount: selectedUnspentTransactionOutputs.count,
@@ -87,98 +115,15 @@ extension Address.Book {
             }
             
             throw Error.insufficientFunds
+            
         case .branchAndBound:
-            let sortedUnspentTransactionOutputs = unspentTransactionOutputStore.sorted { $0.value > $1.value }
             var bestSelection: [Transaction.Output.Unspent] = .init()
-            var bestExcess = UInt64.max
-            
-            let dustLimit = Transaction.dustLimit
-            let recipientOutputs = CoinSelectionTemplates.recipientOutputs
-            let outputsWithChange = CoinSelectionTemplates.outputsWithChange
-            
-            func exploreCombinations(index: Int, selection: [Transaction.Output.Unspent], total: UInt64) {
-                if let evaluation = evaluateSelection(total: total,
-                                                      inputCount: selection.count,
-                                                      targetAmount: targetAmount.uint64,
-                                                      recipientOutputs: recipientOutputs,
-                                                      outputsWithChange: outputsWithChange,
-                                                      dustLimit: dustLimit,
-                                                      feePerByte: feePerByte) {
-                    let excess = evaluation.excess
-                    if excess < bestExcess {
-                        bestExcess = excess
-                        bestSelection = selection
-                    }
-                    return
-                }
-                
-                guard index < sortedUnspentTransactionOutputs.count else { return }
-                
-                let remaining = sortedUnspentTransactionOutputs[index...].reduce(0) { $0 + $1.value }
-                let estimatedFee = Transaction.estimateFee(inputCount: selection.count,
-                                                           outputs: recipientOutputs,
-                                                           feePerByte: feePerByte)
-                let minimalRequirement = targetAmount.uint64 + estimatedFee
-                if (total + remaining) < minimalRequirement { return }
-                
-                var nextSelection = selection
-                nextSelection.append(sortedUnspentTransactionOutputs[index])
-                exploreCombinations(index: index + 1, selection: nextSelection, total: total + sortedUnspentTransactionOutputs[index].value)
-                exploreCombinations(index: index + 1, selection: selection, total: total)
-            }
-            
-            exploreCombinations(index: 0, selection: .init(), total: 0)
-            
-            guard !bestSelection.isEmpty else { throw Error.insufficientFunds }
-            return bestSelection
-        case .sweepAll:
-            return unspentTransactionOutputStore.sorted { $0.value > $1.value }
-        }
-    }
-    
-    func selectUnspentTransactionOutputs(targetAmount: Satoshi,
-                                         feePolicy: Wallet.FeePolicy,
-                                         recommendationContext: Wallet.FeePolicy.RecommendationContext = .init(),
-                                         override: Wallet.FeePolicy.Override? = nil,
-                                         recipientOutputs: [Transaction.Output],
-                                         changeLockingScript: Data,
-                                         strategy: CoinSelection = .greedyLargestFirst) throws -> [Transaction.Output.Unspent] {
-        let dust = Transaction.dustLimit
-        let changeTemplate = Transaction.Output(value: 0, lockingScript: changeLockingScript)
-        let withChangeOutputs = recipientOutputs + [changeTemplate]
-        let feePerByte = feePolicy.recommendedFeeRate(for: recommendationContext, override: override)
-        
-        switch strategy {
-        case .greedyLargestFirst:
-            var selected: [Transaction.Output.Unspent] = .init()
-            var total: UInt64 = 0
-            for unspentTransactionOutput in unspentTransactionOutputStore.sorted(by: { $0.value > $1.value }) {
-                selected.append(unspentTransactionOutput)
-                total &+= unspentTransactionOutput.value
-                
-                if evaluateSelection(total: total,
-                                     inputCount: selected.count,
-                                     targetAmount: targetAmount.uint64,
-                                     recipientOutputs: recipientOutputs,
-                                     outputsWithChange: withChangeOutputs,
-                                     dustLimit: dust,
-                                     feePerByte: feePerByte) != nil {
-                    return selected
-                }
-            }
-            throw Error.insufficientFunds
-            
-        case .branchAndBound:
-            let sorted = unspentTransactionOutputStore.sorted { $0.value > $1.value }
-            var bestUnspentTransactionOutputs: [Transaction.Output.Unspent] = .init()
             var bestEvaluation: CoinSelectionEvaluation?
             
-            let dust = Transaction.dustLimit
-            
-            var suffixTotals: [UInt64] = Array(repeating: 0, count: sorted.count + 1)
-            if !sorted.isEmpty {
-                for index in stride(from: sorted.count - 1, through: 0, by: -1) {
-                    suffixTotals[index] = suffixTotals[index + 1] &+ sorted[index].value
+            var suffixTotals: [UInt64] = Array(repeating: 0, count: sortedUnspentTransactionOutputs.count + 1)
+            if !sortedUnspentTransactionOutputs.isEmpty {
+                for index in stride(from: sortedUnspentTransactionOutputs.count - 1, through: 0, by: -1) {
+                    suffixTotals[index] = suffixTotals[index + 1] &+ sortedUnspentTransactionOutputs[index].value
                 }
             }
             
@@ -187,22 +132,22 @@ extension Address.Book {
                                                          inputCount: selection.count,
                                                          targetAmount: targetAmount.uint64,
                                                          recipientOutputs: recipientOutputs,
-                                                         outputsWithChange: withChangeOutputs,
-                                                         dustLimit: dust,
+                                                         outputsWithChange: outputsWithChange,
+                                                         dustLimit: dustLimit,
                                                          feePerByte: feePerByte) else { return }
                 
                 if let currentBest = bestEvaluation {
                     if evaluation.excess < currentBest.excess {
                         bestEvaluation = evaluation
-                        bestUnspentTransactionOutputs = selection
+                        bestSelection = selection
                     } else if evaluation.excess == currentBest.excess,
-                              selection.count < bestUnspentTransactionOutputs.count {
+                              selection.count < bestSelection.count {
                         bestEvaluation = evaluation
-                        bestUnspentTransactionOutputs = selection
+                        bestSelection = selection
                     }
                 } else {
                     bestEvaluation = evaluation
-                    bestUnspentTransactionOutputs = selection
+                    bestSelection = selection
                 }
                 
             }
@@ -210,7 +155,7 @@ extension Address.Book {
             func explore(index: Int, selection: [Transaction.Output.Unspent], sum: UInt64) {
                 updateBest(selection: selection, sum: sum)
                 
-                guard index < sorted.count else { return }
+                guard index < sortedUnspentTransactionOutputs.count else { return }
                 
                 let remaining = suffixTotals[index]
                 let minimalFee = Transaction.estimateFee(inputCount: selection.count,
@@ -219,20 +164,22 @@ extension Address.Book {
                 let minimalRequirement = targetAmount.uint64 &+ minimalFee
                 if sum &+ remaining < minimalRequirement { return }
                 
-                var selectionIncluded = selection
-                selectionIncluded.append(sorted[index])
-                let sumIncluded = sum &+ sorted[index].value
+                var selectionIncludingCurrent = selection
+                selectionIncludingCurrent.append(sortedUnspentTransactionOutputs[index])
+                let sumIncludingCurrent = sum &+ sortedUnspentTransactionOutputs[index].value
                 
-                explore(index: index + 1, selection: selectionIncluded, sum: sumIncluded)
+                explore(index: index + 1,
+                        selection: selectionIncludingCurrent,
+                        sum: sumIncludingCurrent)
                 explore(index: index + 1, selection: selection, sum: sum)
             }
             
             explore(index: 0, selection: .init(), sum: 0)
-            guard !bestUnspentTransactionOutputs.isEmpty else { throw Error.insufficientFunds }
-            return bestUnspentTransactionOutputs
+            guard !bestSelection.isEmpty else { throw Error.insufficientFunds }
+            return bestSelection
             
         case .sweepAll:
-            return unspentTransactionOutputStore.sorted { $0.value > $1.value }
+            return sortedUnspentTransactionOutputs
         }
     }
 }
