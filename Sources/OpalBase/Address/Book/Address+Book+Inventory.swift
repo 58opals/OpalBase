@@ -4,16 +4,16 @@ import Foundation
 
 extension Address.Book {
     public struct Inventory {
-        private var entriesByUsage: [DerivationPath.Usage: [Entry]]
+        private var bucket: UsageBucket
         private var cacheValidityDurationValue: TimeInterval
         
         init(cacheValidityDuration: TimeInterval) {
-            self.entriesByUsage = .init(uniqueKeysWithValues: DerivationPath.Usage.allCases.map { usage in (usage, .init()) } )
+            self.bucket = .init()
             self.cacheValidityDurationValue = cacheValidityDuration
         }
         
         var allEntries: [Entry] {
-            DerivationPath.Usage.allCases.flatMap { entriesByUsage[$0, default: .init()] }
+            bucket.allEntries
         }
         
         var cacheValidityDuration: TimeInterval {
@@ -21,11 +21,11 @@ extension Address.Book {
         }
         
         func listEntries(for usage: DerivationPath.Usage) -> [Entry] {
-            entriesByUsage[usage, default: .init()]
+            bucket.fetchEntries(for: usage)
         }
         
         func countEntries(for usage: DerivationPath.Usage) -> Int {
-            listEntries(for: usage).count
+            bucket.countEntries(for: usage)
         }
         
         func listUsedEntries(for usage: DerivationPath.Usage) -> Set<Entry> {
@@ -33,15 +33,11 @@ extension Address.Book {
         }
         
         func countUnusedEntries(for usage: DerivationPath.Usage) -> Int {
-            listEntries(for: usage).reduce(into: 0) { result, entry in
-                if !entry.isUsed {
-                    result += 1
-                }
-            }
+            bucket.countUnusedEntries(for: usage)
         }
         
         func calculateNextIndex(for usage: DerivationPath.Usage) -> UInt32 {
-            UInt32(entriesByUsage[usage]?.count ?? 0)
+            UInt32(bucket.countEntries(for: usage))
         }
         
         func contains(address: Address) -> Bool {
@@ -49,38 +45,24 @@ extension Address.Book {
         }
         
         func findEntry(for address: Address) -> Entry? {
-            guard let location = locateEntry(for: address),
-                  let entries = entriesByUsage[location.usage] else {
-                return nil
-            }
-            
-            return entries[location.index]
+            guard let location = locateEntry(for: address) else { return nil }
+            return bucket.fetchEntry(at: location.index, usage: location.usage)
         }
         
         mutating func append(_ entry: Entry, usage: DerivationPath.Usage) {
-            var entries = entriesByUsage[usage, default: .init()]
-            entries.append(entry)
-            entriesByUsage[usage] = entries
+            bucket.appendEntry(entry, usage: usage)
         }
         
         mutating func updateEntry(at index: Int,
                                   usage: DerivationPath.Usage,
                                   _ update: (inout Entry) -> Void) {
-            guard var entries = entriesByUsage[usage], entries.indices.contains(index) else { return }
-            var entry = entries[index]
-            update(&entry)
-            entries[index] = entry
-            entriesByUsage[usage] = entries
+            _ = bucket.updateEntry(at: index, usage: usage, update)
         }
         
         mutating func updateCacheValidityDuration(to newDuration: TimeInterval) {
             cacheValidityDurationValue = newDuration
-            for (usage, storedEntries) in entriesByUsage {
-                var updatedEntries = storedEntries
-                for index in updatedEntries.indices {
-                    updatedEntries[index].cache.validityDuration = newDuration
-                }
-                entriesByUsage[usage] = updatedEntries
+            bucket.updateAllEntries { entry in
+                entry.cache.validityDuration = newDuration
             }
         }
         
@@ -104,28 +86,15 @@ extension Address.Book {
         private mutating func updateEntry(for address: Address,
                                           _ update: (inout Entry) -> Void) throws -> Entry {
             guard let location = locateEntry(for: address),
-                  var entries = entriesByUsage[location.usage] else {
+                  let updatedEntry = bucket.updateEntry(at: location.index, usage: location.usage, update) else {
                 throw Address.Book.Error.addressNotFound
             }
             
-            var entry = entries[location.index]
-            update(&entry)
-            entries[location.index] = entry
-            entriesByUsage[location.usage] = entries
-            return entry
+            return updatedEntry
         }
         
         private func locateEntry(for address: Address) -> (usage: DerivationPath.Usage, index: Int)? {
-            for usage in DerivationPath.Usage.allCases {
-                guard let entries = entriesByUsage[usage],
-                      let index = entries.firstIndex(where: { $0.address == address }) else {
-                    continue
-                }
-                
-                return (usage, index)
-            }
-            
-            return nil
+            bucket.locateEntry(for: address)
         }
     }
 }
