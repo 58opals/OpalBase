@@ -226,19 +226,10 @@ extension Address.Book {
                 try await generateEntry(for: usage, isUsed: false)
             }
             
-            switch usage {
-            case .receiving:
-                inventory.updateEntry(at: Int(snap.index), usage: .receiving) { entry in
-                    entry.isUsed = snap.isUsed
-                    entry.cache.balance = snap.balance.flatMap { try? Satoshi($0) }
-                    entry.cache.lastUpdated = snap.lastUpdated
-                }
-            case .change:
-                inventory.updateEntry(at: Int(snap.index), usage: .change) { entry in
-                    entry.isUsed = snap.isUsed
-                    entry.cache.balance = snap.balance.flatMap { try? Satoshi($0) }
-                    entry.cache.lastUpdated = snap.lastUpdated
-                }
+            inventory.updateEntry(at: Int(snap.index), usage: usage) { entry in
+                entry.isUsed = snap.isUsed
+                entry.cache.balance = snap.balance.flatMap { try? Satoshi($0) }
+                entry.cache.lastUpdated = snap.lastUpdated
             }
         }
     }
