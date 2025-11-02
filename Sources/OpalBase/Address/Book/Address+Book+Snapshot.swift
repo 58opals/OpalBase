@@ -152,25 +152,28 @@ extension Address.Book {
         }
         
         let transactionSnaps = transactionLog.listRecords().map { record in
-            let proof = record.merkleProof.map { proof in
+            let chainMetadata = record.chainMetadata
+            let confirmationMetadata = record.confirmationMetadata
+            let verificationMetadata = record.verificationMetadata
+            let proof = verificationMetadata.merkleProof.map { proof in
                 Snapshot.Transaction.MerkleProof(blockHeight: proof.blockHeight,
                                                  position: proof.position,
                                                  branch: proof.branch.map { $0.hexadecimalString },
                                                  blockHash: proof.blockHash?.hexadecimalString)
             }
             return Snapshot.Transaction(transactionHash: record.transactionHash.naturalOrder.hexadecimalString,
-                                        height: record.height,
-                                        fee: record.fee,
-                                        scriptHashes: Array(record.scriptHashes),
-                                        firstSeenAt: record.firstSeenAt,
-                                        lastUpdatedAt: record.lastUpdatedAt,
+                                        height: chainMetadata.height,
+                                        fee: chainMetadata.fee,
+                                        scriptHashes: Array(chainMetadata.scriptHashes),
+                                        firstSeenAt: chainMetadata.firstSeenAt,
+                                        lastUpdatedAt: chainMetadata.lastUpdatedAt,
                                         status: record.status,
-                                        confirmationHeight: record.confirmationHeight,
-                                        confirmedAt: record.confirmedAt,
-                                        verificationStatus: record.verificationStatus,
+                                        confirmationHeight: confirmationMetadata.height,
+                                        confirmedAt: confirmationMetadata.confirmedAt,
+                                        verificationStatus: verificationMetadata.status,
                                         merkleProof: proof,
-                                        lastVerifiedHeight: record.lastVerifiedHeight,
-                                        lastCheckedAt: record.lastCheckedAt)
+                                        lastVerifiedHeight: verificationMetadata.lastVerifiedHeight,
+                                        lastCheckedAt: verificationMetadata.lastCheckedAt)
         }
         
         return Snapshot(receivingEntries: receiving,
@@ -203,19 +206,22 @@ extension Address.Book {
                                                branch: branch,
                                                blockHash: blockHash)
             }
+            let chainMetadata = Transaction.History.Record.ChainMetadata(height: transaction.height,
+                                                                         fee: transaction.fee,
+                                                                         scriptHashes: Set(transaction.scriptHashes),
+                                                                         firstSeenAt: transaction.firstSeenAt,
+                                                                         lastUpdatedAt: transaction.lastUpdatedAt)
+            let confirmationMetadata = Transaction.History.Record.ConfirmationMetadata(height: transaction.confirmationHeight,
+                                                                                       confirmedAt: transaction.confirmedAt)
+            let verificationMetadata = Transaction.History.Record.VerificationMetadata(status: transaction.verificationStatus,
+                                                                                       merkleProof: proof,
+                                                                                       lastVerifiedHeight: transaction.lastVerifiedHeight,
+                                                                                       lastCheckedAt: transaction.lastCheckedAt)
             let record = Transaction.History.Record(transactionHash: hash,
-                                                    height: transaction.height,
-                                                    fee: transaction.fee,
-                                                    scriptHashes: Set(transaction.scriptHashes),
-                                                    firstSeenAt: transaction.firstSeenAt,
-                                                    lastUpdatedAt: transaction.lastUpdatedAt,
                                                     status: transaction.status,
-                                                    confirmationHeight: transaction.confirmationHeight,
-                                                    confirmedAt: transaction.confirmedAt,
-                                                    verificationStatus: transaction.verificationStatus,
-                                                    merkleProof: proof,
-                                                    lastVerifiedHeight: transaction.lastVerifiedHeight,
-                                                    lastCheckedAt: transaction.lastCheckedAt)
+                                                    chainMetadata: chainMetadata,
+                                                    confirmationMetadata: confirmationMetadata,
+                                                    verificationMetadata: verificationMetadata)
             transactionLog.store(record)
         }
     }

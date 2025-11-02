@@ -49,9 +49,9 @@ extension Address.Book {
             for transactionHash in removedTransactions {
                 guard var record = records[transactionHash] else { continue }
                 let original = record
-                record.scriptHashes.remove(scriptHash)
-                record.lastUpdatedAt = timestamp
-                if record.scriptHashes.isEmpty {
+                record.chainMetadata.scriptHashes.remove(scriptHash)
+                record.chainMetadata.lastUpdatedAt = timestamp
+                if record.chainMetadata.scriptHashes.isEmpty {
                     records.removeValue(forKey: transactionHash)
                     removed.insert(transactionHash)
                 } else {
@@ -78,7 +78,7 @@ extension Address.Book {
                                       proof: proof,
                                       verifiedHeight: verifiedHeight,
                                       checkedAt: timestamp)
-            record.lastUpdatedAt = timestamp
+            record.chainMetadata.lastUpdatedAt = timestamp
             guard record != original else { return nil }
             records[transactionHash] = record
             return record
@@ -90,11 +90,11 @@ extension Address.Book {
             let threshold = UInt64(height)
             var updated: [Transaction.History.Record] = .init()
             for (transactionHash, record) in records {
-                guard let confirmationHeight = record.confirmationHeight,
+                guard let confirmationHeight = record.confirmationMetadata.height,
                       confirmationHeight >= threshold else { continue }
                 var mutableRecord = record
                 mutableRecord.markAsPendingAfterReorganization(timestamp: timestamp)
-                mutableRecord.lastUpdatedAt = timestamp
+                mutableRecord.chainMetadata.lastUpdatedAt = timestamp
                 records[transactionHash] = mutableRecord
                 updated.append(mutableRecord)
             }
@@ -108,7 +108,7 @@ extension Address.Book {
         
         public mutating func store(_ record: Transaction.History.Record) {
             records[record.transactionHash] = record
-            for scriptHash in record.scriptHashes {
+            for scriptHash in record.chainMetadata.scriptHashes {
                 scriptHashToTransactions[scriptHash, default: .init()].insert(record.transactionHash)
             }
         }
