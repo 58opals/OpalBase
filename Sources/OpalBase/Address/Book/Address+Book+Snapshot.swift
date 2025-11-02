@@ -221,11 +221,23 @@ extension Address.Book {
     }
     
     private func apply(entrySnapshots: [Snapshot.Entry], usage: DerivationPath.Usage) async throws {
-        for snap in entrySnapshots {
-            while inventory.listEntries(for: usage).count <= snap.index {
-                try await generateEntry(for: usage, isUsed: false)
+        guard !entrySnapshots.isEmpty else { return }
+        
+        guard let highestIndex = entrySnapshots.map(\.index).max() else { return }
+        
+        let highestIndexValue = Int(highestIndex)
+        let currentCount = inventory.countEntries(for: usage)
+        if currentCount <= highestIndexValue {
+            let desiredCount = highestIndexValue + 1
+            let numberOfMissingEntries = desiredCount - currentCount
+            if numberOfMissingEntries > 0 {
+                try await generateEntries(for: usage,
+                                          numberOfNewEntries: numberOfMissingEntries,
+                                          isUsed: false)
             }
-            
+        }
+        
+        for snap in entrySnapshots {
             inventory.updateEntry(at: Int(snap.index), usage: usage) { entry in
                 entry.isUsed = snap.isUsed
                 entry.cache.balance = snap.balance.flatMap { try? Satoshi($0) }
