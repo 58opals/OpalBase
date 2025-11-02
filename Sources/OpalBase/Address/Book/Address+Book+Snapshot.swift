@@ -70,7 +70,7 @@ extension Address.Book {
             public let status: AddressBookSnapshotTransactionHistory.Status
             public let confirmationHeight: UInt64?
             public let confirmedAt: Date?
-            public let verificationStatus: AddressBookSnapshotTransactionHistory.VerificationStatus
+            public let verificationStatus: AddressBookSnapshotTransactionHistory.Status.Verification
             public let merkleProof: MerkleProof?
             public let lastVerifiedHeight: UInt32?
             public let lastCheckedAt: Date?
@@ -84,7 +84,7 @@ extension Address.Book {
                         status: AddressBookSnapshotTransactionHistory.Status,
                         confirmationHeight: UInt64?,
                         confirmedAt: Date?,
-                        verificationStatus: AddressBookSnapshotTransactionHistory.VerificationStatus,
+                        verificationStatus: AddressBookSnapshotTransactionHistory.Status.Verification,
                         merkleProof: MerkleProof?,
                         lastVerifiedHeight: UInt32?,
                         lastCheckedAt: Date?) {

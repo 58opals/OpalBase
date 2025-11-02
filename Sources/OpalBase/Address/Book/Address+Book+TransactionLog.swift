@@ -68,7 +68,7 @@ extension Address.Book {
         }
         
         public mutating func updateVerification(for transactionHash: Transaction.Hash,
-                                                status: Transaction.History.VerificationStatus,
+                                                status: Transaction.History.Status.Verification,
                                                 proof: Transaction.MerkleProof?,
                                                 verifiedHeight: UInt32?,
                                                 timestamp: Date) -> Transaction.History.Record? {

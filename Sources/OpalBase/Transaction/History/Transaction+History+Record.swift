@@ -1,36 +1,8 @@
-// Transaction+History.swift
+// Transaction+History+Record.swift
 
 import Foundation
 
-extension Transaction { public enum History {} }
-
 extension Transaction.History {
-    public enum Status: String, Sendable, Hashable, Codable {
-        case discovered
-        case pending
-        case confirmed
-        case failed
-    }
-    
-    public enum VerificationStatus: String, Sendable, Hashable, Codable {
-        case unknown
-        case pending
-        case verified
-        case conflicting
-    }
-    
-    public struct Entry: Sendable, Hashable {
-        public let transactionHash: Transaction.Hash
-        public let height: Int
-        public let fee: UInt?
-        
-        public init(transactionHash: Transaction.Hash, height: Int, fee: UInt?) {
-            self.transactionHash = transactionHash
-            self.height = height
-            self.fee = fee
-        }
-    }
-    
     public struct Record: Sendable, Hashable, Equatable {
         public let transactionHash: Transaction.Hash
         public var height: Int
@@ -43,7 +15,7 @@ extension Transaction.History {
         public var confirmationHeight: UInt64?
         public var confirmedAt: Date?
         
-        public var verificationStatus: VerificationStatus
+        public var verificationStatus: Status.Verification
         public var merkleProof: Transaction.MerkleProof?
         public var lastVerifiedHeight: UInt32?
         public var lastCheckedAt: Date?
@@ -59,7 +31,7 @@ extension Transaction.History {
                     status: Status,
                     confirmationHeight: UInt64?,
                     confirmedAt: Date?,
-                    verificationStatus: VerificationStatus,
+                    verificationStatus: Status.Verification,
                     merkleProof: Transaction.MerkleProof?,
                     lastVerifiedHeight: UInt32?,
                     lastCheckedAt: Date?) {
@@ -76,46 +48,6 @@ extension Transaction.History {
             self.merkleProof = merkleProof
             self.lastVerifiedHeight = lastVerifiedHeight
             self.lastCheckedAt = lastCheckedAt
-        }
-    }
-    
-    public struct ChangeSet: Sendable {
-        public var inserted: [Record]
-        public var updated: [Record]
-        public var removed: [Transaction.Hash]
-        
-        public init(inserted: [Record] = .init(),
-                    updated: [Record] = .init(),
-                    removed: [Transaction.Hash] = .init()) {
-            self.inserted = inserted
-            self.updated = updated
-            self.removed = removed
-        }
-        
-        public var isEmpty: Bool { inserted.isEmpty && updated.isEmpty && removed.isEmpty }
-    }
-}
-
-extension Transaction.History.Status {
-    static func resolve(forHeight height: Int,
-                        previousStatus: Transaction.History.Status?)
-    -> (status: Transaction.History.Status, confirmationHeight: UInt64?)
-    {
-        if height > 0 {
-            return (.confirmed, UInt64(height))
-        }
-        
-        guard let previousStatus else {
-            return (.discovered, nil)
-        }
-        
-        switch previousStatus {
-        case .confirmed:
-            return (.pending, nil)
-        case .discovered:
-            return (.pending, nil)
-        case .pending, .failed:
-            return (previousStatus, nil)
         }
     }
 }
@@ -173,7 +105,7 @@ extension Transaction.History.Record {
         ? (statusUpdate.confirmationHeight ?? UInt64(entry.height))
         : nil
         let confirmedAt = statusUpdate.status == .confirmed ? timestamp : nil
-        let verificationStatus: Transaction.History.VerificationStatus = statusUpdate.status == .confirmed ? .pending : .unknown
+        let verificationStatus: Transaction.History.Status.Verification = statusUpdate.status == .confirmed ? .pending : .unknown
         return Transaction.History.Record(transactionHash: entry.transactionHash,
                                           height: entry.height,
                                           fee: entry.fee,
@@ -202,7 +134,7 @@ extension Transaction.History.Record {
         lastCheckedAt = timestamp
     }
     
-    mutating func updateVerification(status: Transaction.History.VerificationStatus,
+    mutating func updateVerification(status: Transaction.History.Status.Verification,
                                      proof: Transaction.MerkleProof?,
                                      verifiedHeight: UInt32?,
                                      checkedAt: Date) {
@@ -221,20 +153,5 @@ extension Transaction.History.Record {
         merkleProof = nil
         lastVerifiedHeight = nil
         lastCheckedAt = timestamp
-    }
-}
-
-extension Transaction.History.ChangeSet {
-    mutating func applyVerificationUpdates(_ records: [Transaction.History.Record]) {
-        guard !records.isEmpty else { return }
-        for record in records {
-            if let index = inserted.firstIndex(where: { $0.transactionHash == record.transactionHash }) {
-                inserted[index] = record
-            } else if let index = updated.firstIndex(where: { $0.transactionHash == record.transactionHash }) {
-                updated[index] = record
-            } else {
-                updated.append(record)
-            }
-        }
     }
 }
