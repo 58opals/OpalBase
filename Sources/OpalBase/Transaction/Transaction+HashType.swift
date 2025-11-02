@@ -3,7 +3,7 @@
 import Foundation
 
 extension Transaction {
-    enum HashType {
+    public enum HashType {
         case all(anyoneCanPay: Bool)
         case none(anyoneCanPay: Bool)
         case single(anyoneCanPay: Bool)

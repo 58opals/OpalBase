@@ -3,7 +3,7 @@
 import Foundation
 
 extension Transaction {
-    enum Unlocker {
+    public enum Unlocker {
         case p2pkh_CheckSig(hashType: Transaction.HashType = .all(anyoneCanPay: false))
         case p2pkh_CheckDataSig(message: Data)
     }

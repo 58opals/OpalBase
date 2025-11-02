@@ -4,7 +4,7 @@ import Foundation
 import BigInt
 import P256K
 
-struct ECDSA {
+public struct ECDSA {
     static let numberOfPointsOnTheCurveWeCanHit = BigUInt("115792089237316195423570985008687907852837564279074904382605163141518161494337")
     
     static func add(to compressedPublicKey: Data, tweak: Data) throws -> Data {
@@ -36,7 +36,7 @@ extension ECDSA {
 }
 
 extension ECDSA {
-    enum SignatureFormat {
+    public enum SignatureFormat {
         /// Signature wire-format used by signing and verification.
         /// - Note:
         ///   - **OP_CHECKSIG + ECDSA requires DER**. Using `.raw` or `.compact` with CHECKSIG is invalid at consensus.
@@ -44,7 +44,7 @@ extension ECDSA {
         case ecdsa(ECDSA)
         case schnorr
         
-        enum ECDSA {
+        public enum ECDSA {
             case raw
             case compact
             case der
