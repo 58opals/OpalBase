@@ -56,44 +56,13 @@ extension Transaction.History.Record {
     mutating func resolveUpdate(from entry: Transaction.History.Entry,
                                 scriptHash: String,
                                 timestamp: Date) {
-        height = entry.height
-        fee = entry.fee
-        lastUpdatedAt = timestamp
-        scriptHashes.insert(scriptHash)
+        applyEntryDetails(from: entry, scriptHash: scriptHash, timestamp: timestamp)
         
         let statusTransition = Transaction.History.Status
             .makeTransition(forHeight: entry.height, from: status)
-        status = statusTransition.status
-        
-        if let newHeight = statusTransition
-            .resolveConfirmationHeight(forHeight: entry.height) {
-            if let existingHeight = confirmationHeight, existingHeight != newHeight {
-                confirmedAt = timestamp
-            } else if confirmedAt == nil {
-                confirmedAt = timestamp
-            }
-            confirmationHeight = newHeight
-        } else {
-            confirmationHeight = nil
-            confirmedAt = nil
-        }
-        
-        switch statusTransition.status {
-        case .confirmed:
-            if verificationStatus == .unknown {
-                verificationStatus = .pending
-            }
-        case .pending:
-            verificationStatus = .pending
-        case .discovered, .failed:
-            verificationStatus = .unknown
-        }
-        
-        if statusTransition.status != .confirmed {
-            merkleProof = nil
-            lastVerifiedHeight = nil
-        }
-        lastCheckedAt = timestamp
+        applyStatusTransition(statusTransition,
+                              entryHeight: entry.height,
+                              timestamp: timestamp)
     }
     
     static func makeRecord(for entry: Transaction.History.Entry,
@@ -151,6 +120,59 @@ extension Transaction.History.Record {
         verificationStatus = .pending
         merkleProof = nil
         lastVerifiedHeight = nil
+        lastCheckedAt = timestamp
+    }
+    
+    private mutating func applyEntryDetails(from entry: Transaction.History.Entry,
+                                            scriptHash: String,
+                                            timestamp: Date) {
+        height = entry.height
+        fee = entry.fee
+        lastUpdatedAt = timestamp
+        scriptHashes.insert(scriptHash)
+    }
+    
+    private mutating func applyStatusTransition(_ transition: Transaction.History.Status.Transition,
+                                                entryHeight: Int,
+                                                timestamp: Date) {
+        status = transition.status
+        updateConfirmation(for: transition, entryHeight: entryHeight, timestamp: timestamp)
+        updateVerification(afterStatusChange: transition.status, timestamp: timestamp)
+    }
+    
+    private mutating func updateConfirmation(for transition: Transaction.History.Status.Transition,
+                                             entryHeight: Int,
+                                             timestamp: Date) {
+        if let newHeight = transition.resolveConfirmationHeight(forHeight: entryHeight) {
+            if let existingHeight = confirmationHeight, existingHeight != newHeight {
+                confirmedAt = timestamp
+            } else if confirmedAt == nil {
+                confirmedAt = timestamp
+            }
+            confirmationHeight = newHeight
+        } else {
+            confirmationHeight = nil
+            confirmedAt = nil
+        }
+    }
+    
+    private mutating func updateVerification(afterStatusChange status: Transaction.History.Status,
+                                             timestamp: Date) {
+        switch status {
+        case .confirmed:
+            if verificationStatus == .unknown {
+                verificationStatus = .pending
+            }
+        case .pending:
+            verificationStatus = .pending
+        case .discovered, .failed:
+            verificationStatus = .unknown
+        }
+        
+        if status != .confirmed {
+            merkleProof = nil
+            lastVerifiedHeight = nil
+        }
         lastCheckedAt = timestamp
     }
 }
