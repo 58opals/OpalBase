@@ -23,12 +23,24 @@ extension Transaction.History {
 extension Transaction.History.ChangeSet {
     mutating func applyVerificationUpdates(_ records: [Transaction.History.Record]) {
         guard !records.isEmpty else { return }
+        
+        var insertedIndicesByHash: [Transaction.Hash: Int] = .init()
+        for (index, record) in inserted.enumerated() {
+            insertedIndicesByHash[record.transactionHash] = index
+        }
+        
+        var updatedIndicesByHash: [Transaction.Hash: Int] = .init()
+        for (index, record) in updated.enumerated() {
+            updatedIndicesByHash[record.transactionHash] = index
+        }
+        
         for record in records {
-            if let index = inserted.firstIndex(where: { $0.transactionHash == record.transactionHash }) {
+            if let index = insertedIndicesByHash[record.transactionHash] {
                 inserted[index] = record
-            } else if let index = updated.firstIndex(where: { $0.transactionHash == record.transactionHash }) {
+            } else if let index = updatedIndicesByHash[record.transactionHash] {
                 updated[index] = record
             } else {
+                updatedIndicesByHash[record.transactionHash] = updated.count
                 updated.append(record)
             }
         }
