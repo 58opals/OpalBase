@@ -75,12 +75,12 @@ extension Address.Book {
         
         mutating func updateCacheValidityDuration(to newDuration: TimeInterval) {
             cacheValidityDurationValue = newDuration
-            for usage in DerivationPath.Usage.allCases {
-                guard var entries = entriesByUsage[usage] else { continue }
-                for index in entries.indices {
-                    entries[index].cache.validityDuration = newDuration
+            for (usage, storedEntries) in entriesByUsage {
+                var updatedEntries = storedEntries
+                for index in updatedEntries.indices {
+                    updatedEntries[index].cache.validityDuration = newDuration
                 }
-                entriesByUsage[usage] = entries
+                entriesByUsage[usage] = updatedEntries
             }
         }
         
