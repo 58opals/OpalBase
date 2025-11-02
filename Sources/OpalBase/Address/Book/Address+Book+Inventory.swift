@@ -5,12 +5,10 @@ import Foundation
 extension Address.Book {
     public struct Inventory {
         private var entriesByUsage: [DerivationPath.Usage: [Entry]]
-        private var addressToEntry: [Address: Entry]
         private var cacheValidityDurationValue: TimeInterval
         
         init(cacheValidityDuration: TimeInterval) {
             self.entriesByUsage = .init(uniqueKeysWithValues: DerivationPath.Usage.allCases.map { usage in (usage, .init()) } )
-            self.addressToEntry = .init()
             self.cacheValidityDurationValue = cacheValidityDuration
         }
         
@@ -43,20 +41,26 @@ extension Address.Book {
         }
         
         func calculateNextIndex(for usage: DerivationPath.Usage) -> UInt32 {
-            UInt32(countEntries(for: usage))
+            UInt32(entriesByUsage[usage]?.count ?? 0)
         }
         
         func contains(address: Address) -> Bool {
-            addressToEntry[address] != nil
+            locateEntry(for: address) != nil
         }
         
         func findEntry(for address: Address) -> Entry? {
-            addressToEntry[address]
+            guard let location = locateEntry(for: address),
+                  let entries = entriesByUsage[location.usage] else {
+                return nil
+            }
+            
+            return entries[location.index]
         }
         
         mutating func append(_ entry: Entry, usage: DerivationPath.Usage) {
-            entriesByUsage[usage, default: .init()].append(entry)
-            addressToEntry[entry.address] = entry
+            var entries = entriesByUsage[usage, default: .init()]
+            entries.append(entry)
+            entriesByUsage[usage] = entries
         }
         
         mutating func updateEntry(at index: Int,
@@ -67,18 +71,16 @@ extension Address.Book {
             update(&entry)
             entries[index] = entry
             entriesByUsage[usage] = entries
-            addressToEntry[entry.address] = entry
         }
         
         mutating func updateCacheValidityDuration(to newDuration: TimeInterval) {
             cacheValidityDurationValue = newDuration
             for usage in DerivationPath.Usage.allCases {
-                guard let indices = entriesByUsage[usage]?.indices else { return }
-                for index in indices {
-                    updateEntry(at: index, usage: usage) { entry in
-                        entry.cache.validityDuration = newDuration
-                    }
+                guard var entries = entriesByUsage[usage] else { continue }
+                for index in entries.indices {
+                    entries[index].cache.validityDuration = newDuration
                 }
+                entriesByUsage[usage] = entries
             }
         }
         
@@ -101,20 +103,29 @@ extension Address.Book {
         
         private mutating func updateEntry(for address: Address,
                                           _ update: (inout Entry) -> Void) throws -> Entry {
-            guard let existingEntry = addressToEntry[address] else { throw Address.Book.Error.addressNotFound }
-            
-            let usage = existingEntry.derivationPath.usage
-            guard var entries = entriesByUsage[usage],
-                  let index = entries.firstIndex(where: { $0.address == address }) else {
+            guard let location = locateEntry(for: address),
+                  var entries = entriesByUsage[location.usage] else {
                 throw Address.Book.Error.addressNotFound
             }
             
-            var entry = entries[index]
+            var entry = entries[location.index]
             update(&entry)
-            entries[index] = entry
-            entriesByUsage[usage] = entries
-            addressToEntry[address] = entry
+            entries[location.index] = entry
+            entriesByUsage[location.usage] = entries
             return entry
+        }
+        
+        private func locateEntry(for address: Address) -> (usage: DerivationPath.Usage, index: Int)? {
+            for usage in DerivationPath.Usage.allCases {
+                guard let entries = entriesByUsage[usage],
+                      let index = entries.firstIndex(where: { $0.address == address }) else {
+                    continue
+                }
+                
+                return (usage, index)
+            }
+            
+            return nil
         }
     }
 }
