@@ -4,7 +4,7 @@ import Foundation
 
 extension Address.Book {
     private func loadPrivateKey(for address: Address) throws -> PrivateKey {
-        guard let entry = findEntry(for: address) else { throw Error.entryNotFound }
+        guard let entry = inventory.findEntry(for: address) else { throw Error.entryNotFound }
         let privateKey = try generatePrivateKey(at: entry.derivationPath.index,
                                                 for: entry.derivationPath.usage)
         return privateKey

@@ -16,8 +16,6 @@ extension Address {
         
         let gapLimit: Int
         
-        var cacheValidityDuration: TimeInterval
-        
         private let entryPublisher = Entry.Publisher()
         
         init(rootExtendedPrivateKey: PrivateKey.Extended? = nil,
@@ -43,14 +41,26 @@ extension Address {
             
             self.gapLimit = gapLimit
             
-            self.cacheValidityDuration = cacheValidityDuration
-            
-            self.inventory = .init()
+            self.inventory = .init(cacheValidityDuration: cacheValidityDuration)
             self.unspentTransactionOutputStore = .init()
             self.transactionLog = .init()
             
             try await initializeEntries()
         }
+    }
+}
+
+extension Address.Book {
+    public func accessInventory<T>(_ access: (inout Inventory) throws -> T) rethrows -> T {
+        try access(&inventory)
+    }
+
+    public func accessUnspentTransactionOutputs<T>(_ access: (inout UnspentTransactionOutputStore) throws -> T) rethrows -> T {
+        try access(&unspentTransactionOutputStore)
+    }
+
+    public func accessTransactionLog<T>(_ access: (inout TransactionLog) throws -> T) rethrows -> T {
+        try access(&transactionLog)
     }
 }
 
@@ -125,7 +135,6 @@ extension Address.Book {
 
 extension Address.Book {
     func updateCacheValidityDuration(_ newDuration: TimeInterval) {
-        cacheValidityDuration = newDuration
         inventory.updateCacheValidityDuration(to: newDuration)
     }
 }

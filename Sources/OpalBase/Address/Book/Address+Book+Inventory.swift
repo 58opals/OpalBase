@@ -3,17 +3,23 @@
 import Foundation
 
 extension Address.Book {
-    struct Inventory {
+    public struct Inventory {
         private var entriesByUsage: [DerivationPath.Usage: [Entry]]
         private var addressToEntry: [Address: Entry]
+        private var cacheValidityDurationValue: TimeInterval
         
-        init() {
+        init(cacheValidityDuration: TimeInterval) {
             self.entriesByUsage = .init(uniqueKeysWithValues: DerivationPath.Usage.allCases.map { usage in (usage, .init()) } )
             self.addressToEntry = .init()
+            self.cacheValidityDurationValue = cacheValidityDuration
         }
         
         var allEntries: [Entry] {
             DerivationPath.Usage.allCases.flatMap { entriesByUsage[$0, default: .init()] }
+        }
+        
+        var cacheValidityDuration: TimeInterval {
+            cacheValidityDurationValue
         }
         
         func listEntries(for usage: DerivationPath.Usage) -> [Entry] {
@@ -65,6 +71,7 @@ extension Address.Book {
         }
         
         mutating func updateCacheValidityDuration(to newDuration: TimeInterval) {
+            cacheValidityDurationValue = newDuration
             for usage in DerivationPath.Usage.allCases {
                 guard let indices = entriesByUsage[usage]?.indices else { return }
                 for index in indices {
@@ -77,8 +84,8 @@ extension Address.Book {
         
         mutating func updateCache(for address: Address,
                                   balance: Satoshi,
-                                  validityDuration: TimeInterval,
                                   timestamp: Date) throws {
+            let validityDuration = cacheValidityDurationValue
             _ = try updateEntry(for: address) { entry in
                 entry.cache = Entry.Cache(balance: balance,
                                           lastUpdated: timestamp,

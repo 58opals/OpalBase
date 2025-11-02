@@ -64,49 +64,34 @@ extension Address.Book {
         let derivationPath = try createDerivationPath(usage: usage,
                                                       index: nextIndex)
         
-        if let existingEntry = findEntry(for: address) { throw Error.entryDuplicated(existingEntry) }
+        if let existingEntry = inventory.findEntry(for: address) { throw Error.entryDuplicated(existingEntry) }
         
         let newEntry = Entry(address: address,
                              derivationPath: derivationPath,
                              isUsed: isUsed,
-                             cache: .init(validityDuration: cacheValidityDuration))
+                             cache: .init(validityDuration: inventory.cacheValidityDuration))
         
         inventory.append(newEntry, usage: usage)
         await notifyNewEntry(newEntry)
     }
 }
 
-// MARK: - Find
-extension Address.Book {
-    func findEntry(for address: Address) -> Entry? {
-        return inventory.findEntry(for: address)
-    }
-}
-
 // MARK: - Get
 extension Address.Book {
-    public func selectNextEntry(for usage: DerivationPath.Usage, shouldFetchBalance: Bool = true) async throws -> Entry {
+    public func selectNextEntry(for usage: DerivationPath.Usage) async throws -> Entry {
         try await generateEntriesIfNeeded(for: usage)
         
-        let entries = listEntries(for: usage)
+        let entries = inventory.listEntries(for: usage)
         guard let nextEntry = entries.first(where: { !$0.isUsed }) else { throw Error.entryNotFound }
         
         return nextEntry
-    }
-    
-    public func listEntries(for usage: DerivationPath.Usage) -> [Entry] {
-        inventory.listEntries(for: usage)
-    }
-    
-    public func listUsedEntries(for usage: DerivationPath.Usage) -> Set<Entry> {
-        inventory.listUsedEntries(for: usage)
     }
 }
 
 // MARK: - Mark
 extension Address.Book {
     func checkUsageStatus(of address: Address) throws -> Bool {
-        guard let entry = findEntry(for: address) else { throw Error.addressNotFound }
+        guard let entry = inventory.findEntry(for: address) else { throw Error.addressNotFound }
         return entry.isUsed
     }
     

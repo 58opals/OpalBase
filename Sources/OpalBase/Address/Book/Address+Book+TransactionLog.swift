@@ -3,7 +3,7 @@
 import Foundation
 
 extension Address.Book {
-    struct TransactionLog {
+    public struct TransactionLog {
         private var records: [Transaction.Hash: Transaction.History.Record]
         private var scriptHashToTransactions: [String: Set<Transaction.Hash>]
         

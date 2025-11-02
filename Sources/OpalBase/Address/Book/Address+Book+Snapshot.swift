@@ -222,7 +222,7 @@ extension Address.Book {
     
     private func apply(entrySnapshots: [Snapshot.Entry], usage: DerivationPath.Usage) async throws {
         for snap in entrySnapshots {
-            while listEntries(for: usage).count <= snap.index {
+            while inventory.listEntries(for: usage).count <= snap.index {
                 try await generateEntry(for: usage, isUsed: false)
             }
             

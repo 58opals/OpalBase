@@ -3,7 +3,7 @@
 import Foundation
 
 extension Address.Book {
-    struct UnspentTransactionOutputStore {
+    public struct UnspentTransactionOutputStore {
         private var unspentTransactionOutputs: Set<Transaction.Output.Unspent>
         
         init() {

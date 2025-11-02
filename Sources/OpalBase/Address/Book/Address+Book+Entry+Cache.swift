@@ -15,18 +15,4 @@ extension Address.Book.Entry {
     }
 }
 
-extension Address.Book {
-    func updateCache(for address: Address,
-                     with balance: Satoshi) throws {
-        do {
-            try inventory.updateCache(for: address,
-                                      balance: balance,
-                                      validityDuration: cacheValidityDuration,
-                                      timestamp: .now)
-        } catch Error.addressNotFound {
-            throw Error.entryNotFound
-        }
-    }
-}
-
 extension Address.Book.Entry.Cache: Hashable {}
