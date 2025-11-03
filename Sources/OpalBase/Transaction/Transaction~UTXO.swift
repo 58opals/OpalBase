@@ -16,61 +16,84 @@ extension Transaction {
                       lockTime: UInt32 = 0,
                       shouldAllowDustDonation: Bool = false,
                       unlockers: [Transaction.Output.Unspent: Unlocker] = .init()) throws -> Transaction {
-        let orderedUTXOs = utxoPrivateKeyPairs.keys.sorted {
-            $0.previousTransactionOutputIndex < $1.previousTransactionOutputIndex
-        }
+        let builder = Builder(utxoPrivateKeyPairs: utxoPrivateKeyPairs,
+                              signatureFormat: signatureFormat,
+                              sequence: sequence,
+                              unlockers: unlockers)
         
-        let inputs = orderedUTXOs.map { utxo in
-            let unlocker = unlockers[utxo] ?? .p2pkh_CheckSig()
-            let placeholder = unlocker.makePlaceholderUnlockingScript(signatureFormat: signatureFormat)
-            return Input(previousTransactionHash: utxo.previousTransactionHash,
-                         previousTransactionOutputIndex: utxo.previousTransactionOutputIndex,
-                         unlockingScript: placeholder,
-                         sequence: sequence)
-        }
+        let inputs = builder.makeInputs()
         
-        let temporaryTransactionWithoutFee = Transaction(version: version, inputs: inputs, outputs: recipientOutputs + [changeOutput], lockTime: lockTime)
+        let (outputs, _) = try computeOutputsAndFee(version: version,
+                                                    inputs: inputs,
+                                                    recipientOutputs: recipientOutputs,
+                                                    changeOutput: changeOutput,
+                                                    feePerByte: feePerByte,
+                                                    lockTime: lockTime,
+                                                    shouldAllowDustDonation: shouldAllowDustDonation)
         
-        let estimatedFee = temporaryTransactionWithoutFee.calculateFee(feePerByte: feePerByte)
-        let oldChangeAmount = changeOutput.value
-        guard oldChangeAmount >= estimatedFee else { throw Error.insufficientFunds(required: oldChangeAmount) }
+        let unsignedTransaction = Transaction(version: version, inputs: inputs, outputs: outputs, lockTime: lockTime)
+        let signedTransaction = try signTransaction(unsignedTransaction, using: builder)
         
-        let newChangeAmount = oldChangeAmount - estimatedFee
+        return signedTransaction
+    }
+    
+    private static func computeOutputsAndFee(version: UInt32,
+                                             inputs: [Input],
+                                             recipientOutputs: [Output],
+                                             changeOutput: Output,
+                                             feePerByte: UInt64,
+                                             lockTime: UInt32,
+                                             shouldAllowDustDonation: Bool) throws -> ([Output], UInt64) {
+        let transactionWithChange = Transaction(version: version,
+                                                inputs: inputs,
+                                                outputs: recipientOutputs + [changeOutput],
+                                                lockTime: lockTime)
+        
+        let estimatedFee = transactionWithChange.calculateFee(feePerByte: feePerByte)
+        let changeAmount = changeOutput.value
+        guard changeAmount >= estimatedFee else { throw Error.insufficientFunds(required: changeAmount) }
+        
+        let remainingChange = changeAmount - estimatedFee
         
         var outputs = recipientOutputs
-        if newChangeAmount > 0 {
-            if newChangeAmount < Transaction.dustLimit {
+        if remainingChange > 0 {
+            if remainingChange < Transaction.dustLimit {
                 guard shouldAllowDustDonation else { throw Error.outputValueIsLessThanTheDustLimit }
             } else {
-                outputs.append(.init(value: newChangeAmount, lockingScript: changeOutput.lockingScript))
+                outputs.append(.init(value: remainingChange, lockingScript: changeOutput.lockingScript))
             }
         }
         
-        let combinedOutputs = outputs.filter { $0.value > 0 }
-        guard !combinedOutputs.isEmpty else { throw Error.insufficientFunds(required: combinedOutputs.map{$0.value}.reduce(0, +)) }
-        guard !combinedOutputs.contains(where: { $0.value < Transaction.dustLimit }) else { throw Error.outputValueIsLessThanTheDustLimit }
+        let prunedOutputs = outputs.filter { $0.value > 0 }
+        let totalPrunedOutput = prunedOutputs.map(\.value).reduce(0, +)
+        guard !prunedOutputs.isEmpty else { throw Error.insufficientFunds(required: totalPrunedOutput) }
+        guard !prunedOutputs.contains(where: { $0.value < Transaction.dustLimit }) else { throw Error.outputValueIsLessThanTheDustLimit }
         
-        let temporaryTransactionWithFee = Transaction(version: version, inputs: inputs, outputs: combinedOutputs, lockTime: lockTime)
+        return (prunedOutputs, estimatedFee)
+    }
+    
+    private static func signTransaction(_ unsignedTransaction: Transaction,
+                                        using builder: Builder) throws -> Transaction {
+        switch builder.signatureFormat {
+        case .ecdsa(.raw), .ecdsa(.compact):
+            throw Error.unsupportedSignatureFormat
+        default:
+            break
+        }
         
-        var transaction = temporaryTransactionWithFee
-        for (index, utxo) in orderedUTXOs.enumerated() {
-            guard let privateKey = utxoPrivateKeyPairs[utxo] else { throw Error.cannotCreateTransaction }
+        var transaction = unsignedTransaction
+        
+        for (index, unspentOutput) in builder.orderedUnspentOutputs.enumerated() {
+            guard let privateKey = builder.privateKey(for: unspentOutput) else { throw Error.cannotCreateTransaction }
             let publicKey = try PublicKey(privateKey: privateKey)
-            let mode = unlockers[utxo] ?? .p2pkh_CheckSig()
+            let unlocker = builder.unlocker(for: unspentOutput)
             
-            switch signatureFormat {
-            case .ecdsa(.raw), .ecdsa(.compact):
-                throw Error.unsupportedSignatureFormat
-            default:
-                break
-            }
-            
-            switch mode {
+            switch unlocker {
             case .p2pkh_CheckSig(let hashType):
-                let outputBeingSpent = Output(value: utxo.value, lockingScript: utxo.lockingScript)
-                let preimage = try temporaryTransactionWithFee.generatePreimage(for: index,
-                                                                                hashType: hashType,
-                                                                                outputBeingSpent: outputBeingSpent)
+                let outputBeingSpent = Output(value: unspentOutput.value, lockingScript: unspentOutput.lockingScript)
+                let preimage = try unsignedTransaction.generatePreimage(for: index,
+                                                                        hashType: hashType,
+                                                                        outputBeingSpent: outputBeingSpent)
                 
                 let message = SHA256.hash(preimage)
                 // MARK: ↑ We hash the preimage "ONCE" here.
@@ -79,7 +102,7 @@ extension Transaction {
                 
                 let signature = try ECDSA.sign(message: message,
                                                with: privateKey,
-                                               in: signatureFormat)
+                                               in: builder.signatureFormat)
                 let signatureWithType = signature + Data([UInt8(hashType.value)])
                 let unlockingScript = Data.push(signatureWithType) + Data.push(publicKey.compressedData)
                 
@@ -92,7 +115,7 @@ extension Transaction {
                 
                 let signature = try ECDSA.sign(message: message,
                                                with: privateKey,
-                                               in: signatureFormat)
+                                               in: builder.signatureFormat)
                 let unlockingSignature = Data.push(signature) + Data.push(message) + Data.push(publicKey.compressedData)
                 
                 transaction = transaction.injectUnlockingScript(unlockingSignature, inputIndex: index)
