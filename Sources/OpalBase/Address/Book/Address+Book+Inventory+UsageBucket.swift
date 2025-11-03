@@ -3,9 +3,9 @@
 import Foundation
 
 extension Address.Book.Inventory {
-    public struct UsageBucket {
-        public var receivingEntries: [Address.Book.Entry]
-        public var changeEntries: [Address.Book.Entry]
+    struct UsageBucket {
+        var receivingEntries: [Address.Book.Entry]
+        var changeEntries: [Address.Book.Entry]
         
         init() {
             self.receivingEntries = .init()

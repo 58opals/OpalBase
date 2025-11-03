@@ -86,6 +86,6 @@ extension Account {
 
 extension Account {
     public func loadTransactionHistory() async -> [Transaction.History.Record] {
-        await addressBook.transactionLog.listRecords()
+        await addressBook.listTransactionRecords()
     }
 }

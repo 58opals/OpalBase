@@ -11,22 +11,55 @@ extension Address.Book {
 }
 
 extension Address.Book.CoinSelection {
+    struct Configuration {
+        let recipientOutputs: [Transaction.Output]
+        let outputsWithChange: [Transaction.Output]
+        let strategy: Address.Book.CoinSelection
+        
+        init(recipientOutputs: [Transaction.Output],
+             outputsWithChange: [Transaction.Output],
+             strategy: Address.Book.CoinSelection) {
+            self.recipientOutputs = recipientOutputs
+            self.outputsWithChange = outputsWithChange
+            self.strategy = strategy
+        }
+        
+        init(recipientOutputs: [Transaction.Output],
+             changeLockingScript: Data?,
+             strategy: Address.Book.CoinSelection = .greedyLargestFirst) {
+            let outputsWithChange: [Transaction.Output]
+            if let changeLockingScript {
+                let changeTemplate = Transaction.Output(value: 0, lockingScript: changeLockingScript)
+                outputsWithChange = recipientOutputs + [changeTemplate]
+            } else {
+                outputsWithChange = recipientOutputs
+            }
+            
+            self.init(recipientOutputs: recipientOutputs,
+                      outputsWithChange: outputsWithChange,
+                      strategy: strategy)
+        }
+        
+        static func makeTemplateConfiguration(strategy: Address.Book.CoinSelection = .greedyLargestFirst) -> Self {
+            Self(recipientOutputs: Address.Book.CoinSelection.Templates.recipientOutputs,
+                 outputsWithChange: Address.Book.CoinSelection.Templates.outputsWithChange,
+                 strategy: strategy)
+        }
+    }
+    
     struct Evaluation {
         let excess: UInt64
     }
     
     enum Templates {
-        static var lockingScript: Data { Data(repeating: 0, count: 25) }
-        
-        static var recipientOutputs: [Transaction.Output] {
-            [Transaction.Output(value: 0, lockingScript: lockingScript)]
-        }
-        
-        static var outputsWithChange: [Transaction.Output] {
+        static let lockingScript: Data = Data(repeating: 0, count: 25)
+        static let recipientOutputs: [Transaction.Output] = [Transaction.Output(value: 0,
+                                                                                lockingScript: lockingScript)]
+        static let outputsWithChange: [Transaction.Output] = {
             let recipient = Transaction.Output(value: 0, lockingScript: lockingScript)
             let change = Transaction.Output(value: 0, lockingScript: lockingScript)
             return [recipient, change]
-        }
+        }()
     }
     
     static func evaluate(total: UInt64,

@@ -134,15 +134,17 @@ extension Account {
         
         let changeEntry = try await addressBook.selectNextEntry(for: .change)
         
+        let coinSelectionConfiguration = Address.Book.CoinSelection.Configuration(recipientOutputs: randomizedRecipientOutputs,
+                                                                                  changeLockingScript: changeEntry.address.lockingScript.data,
+                                                                                  strategy: payment.coinSelection)
+        
         let selectedUnspentTransactionOutputs: [Transaction.Output.Unspent]
         do {
             selectedUnspentTransactionOutputs = try await addressBook.selectUnspentTransactionOutputs(targetAmount: targetAmount,
                                                                                                       feePolicy: feePolicy,
                                                                                                       recommendationContext: payment.feeContext,
                                                                                                       override: payment.feeOverride,
-                                                                                                      recipientOutputs: randomizedRecipientOutputs,
-                                                                                                      changeLockingScript: changeEntry.address.lockingScript.data,
-                                                                                                      strategy: payment.coinSelection)
+                                                                                                      configuration: coinSelectionConfiguration)
         } catch {
             throw Error.coinSelectionFailed(error)
         }

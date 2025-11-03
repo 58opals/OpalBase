@@ -3,7 +3,7 @@
 import Foundation
 
 extension Address.Book {
-    public struct Inventory {
+    struct Inventory {
         private var bucket: UsageBucket
         private var cacheValidityDurationValue: TimeInterval
         
@@ -100,3 +100,55 @@ extension Address.Book {
 }
 
 extension Address.Book.Inventory: Sendable {}
+
+extension Address.Book {
+    public func listEntries(for usage: DerivationPath.Usage) -> [Entry] {
+        inventory.listEntries(for: usage)
+    }
+    
+    public func updateCachedBalance(for address: Address,
+                                    balance: Satoshi,
+                                    timestamp: Date) throws {
+        try inventory.updateCache(for: address,
+                                  balance: balance,
+                                  timestamp: timestamp)
+    }
+    
+    func countEntries(for usage: DerivationPath.Usage) -> Int {
+        inventory.countEntries(for: usage)
+    }
+    
+    func countUnusedEntries(for usage: DerivationPath.Usage) -> Int {
+        inventory.countUnusedEntries(for: usage)
+    }
+    
+    func readCacheValidityDuration() -> TimeInterval {
+        inventory.cacheValidityDuration
+    }
+    
+    func appendEntry(_ entry: Entry, usage: DerivationPath.Usage) {
+        inventory.append(entry, usage: usage)
+    }
+    
+    func findEntry(for address: Address) -> Entry? {
+        inventory.findEntry(for: address)
+    }
+    
+    func contains(address: Address) -> Bool {
+        inventory.contains(address: address)
+    }
+    
+    func listAllEntries() -> [Entry] {
+        inventory.allEntries
+    }
+    
+    func updateEntry(at index: Int,
+                     usage: DerivationPath.Usage,
+                     _ update: (inout Entry) -> Void) {
+        inventory.updateEntry(at: index, usage: usage, update)
+    }
+    
+    func markEntry(address: Address, isUsed: Bool) throws -> Entry {
+        try inventory.mark(address: address, isUsed: isUsed)
+    }
+}

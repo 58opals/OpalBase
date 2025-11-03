@@ -21,9 +21,7 @@ extension Account {
         var balancesByUsage: [DerivationPath.Usage: [Address: Satoshi]] = .init()
         
         for currentUsage in targetUsages {
-            let entries = await addressBook.accessInventory { inventory in
-                inventory.listEntries(for: currentUsage)
-            }
+            let entries = await addressBook.listEntries(for: currentUsage)
             
             guard !entries.isEmpty else {
                 balancesByUsage[currentUsage] = [:]
@@ -47,9 +45,9 @@ extension Account {
                 for try await (address, balance, timestamp) in group {
                     usageBalances[address] = balance
                     do {
-                        try await addressBook.accessInventory { inventory in
-                            try inventory.updateCache(for: address, balance: balance, timestamp: timestamp)
-                        }
+                        try await addressBook.updateCachedBalance(for: address,
+                                                                  balance: balance,
+                                                                  timestamp: timestamp)
                     } catch {
                         throw Error.balanceRefreshFailed(address, error)
                     }

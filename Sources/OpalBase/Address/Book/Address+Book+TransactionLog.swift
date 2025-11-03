@@ -120,3 +120,17 @@ extension Address.Book {
 }
 
 extension Address.Book.TransactionLog: Sendable {}
+
+extension Address.Book {
+    func listTransactionRecords() -> [Transaction.History.Record] {
+        transactionLog.listRecords()
+    }
+    
+    func resetTransactionLog() {
+        transactionLog.reset()
+    }
+    
+    func storeTransactionRecord(_ record: Transaction.History.Record) {
+        transactionLog.store(record)
+    }
+}

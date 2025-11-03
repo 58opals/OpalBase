@@ -51,20 +51,6 @@ extension Address {
 }
 
 extension Address.Book {
-    public func accessInventory<T>(_ access: (inout Inventory) throws -> T) rethrows -> T {
-        try access(&inventory)
-    }
-
-    public func accessUnspentTransactionOutputs<T>(_ access: (inout UnspentTransactionOutputStore) throws -> T) rethrows -> T {
-        try access(&unspentTransactionOutputStore)
-    }
-
-    public func accessTransactionLog<T>(_ access: (inout TransactionLog) throws -> T) rethrows -> T {
-        try access(&transactionLog)
-    }
-}
-
-extension Address.Book {
     func createDerivationPath(usage: DerivationPath.Usage,
                               index: UInt32) throws -> DerivationPath {
         let derivationPath = try DerivationPath(purpose: self.purpose,
@@ -119,7 +105,7 @@ extension Address.Book {
                 let unspentTransactionOutput = Transaction.Output.Unspent(output: output,
                                                                           previousTransactionHash: detailedTransaction.hash,
                                                                           previousTransactionOutputIndex: UInt32(index))
-                unspentTransactionOutputStore.add(unspentTransactionOutput)
+                addUnspentTransactionOutput(unspentTransactionOutput)
             }
         }
     }
@@ -127,7 +113,7 @@ extension Address.Book {
     func handleOutgoingTransaction(_ transaction: Transaction) {
         for input in transaction.inputs {
             if let unspentTransactionOutput = unspentTransactionOutputStore.findUnspentTransactionOutput(matching: input) {
-                unspentTransactionOutputStore.remove(unspentTransactionOutput)
+                removeUnspentTransactionOutput(unspentTransactionOutput)
             }
         }
     }

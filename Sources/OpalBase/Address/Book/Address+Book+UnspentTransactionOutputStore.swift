@@ -110,3 +110,35 @@ extension Address.Book {
 }
 
 extension Address.Book.UnspentTransactionOutputStore: Sendable {}
+
+extension Address.Book {
+    func addUnspentTransactionOutput(_ unspentTransactionOutput: Transaction.Output.Unspent) {
+        unspentTransactionOutputStore.add(unspentTransactionOutput)
+    }
+    
+    func addUnspentTransactionOutputs(_ unspentTransactionOutputs: [Transaction.Output.Unspent]) {
+        unspentTransactionOutputStore.add(unspentTransactionOutputs)
+    }
+    
+    func listUnspentTransactionOutputs() -> Set<Transaction.Output.Unspent> {
+        unspentTransactionOutputStore.listUnspentTransactionOutputs()
+    }
+    
+    func replaceUnspentTransactionOutputs(with unspentTransactionOutputs: Set<Transaction.Output.Unspent>) {
+        unspentTransactionOutputStore.replace(with: unspentTransactionOutputs)
+    }
+    
+    func removeUnspentTransactionOutput(_ unspentTransactionOutput: Transaction.Output.Unspent) {
+        unspentTransactionOutputStore.remove(unspentTransactionOutput)
+    }
+    
+    func findUnspentTransactionOutput(matching input: Transaction.Input) -> Transaction.Output.Unspent? {
+        unspentTransactionOutputStore.findUnspentTransactionOutput(matching: input)
+    }
+    
+    func sortedUnspentTransactionOutputs(by areInIncreasingOrder: (Transaction.Output.Unspent,
+                                                                   Transaction.Output.Unspent) -> Bool)
+    -> [Transaction.Output.Unspent] {
+        unspentTransactionOutputStore.sorted(by: areInIncreasingOrder)
+    }
+}

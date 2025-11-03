@@ -7,42 +7,20 @@ extension Address.Book {
                                          feePolicy: Wallet.FeePolicy,
                                          recommendationContext: Wallet.FeePolicy.RecommendationContext = .init(),
                                          override: Wallet.FeePolicy.Override? = nil,
-                                         strategy: CoinSelection = .greedyLargestFirst) throws -> [Transaction.Output.Unspent] {
+                                         configuration: CoinSelection.Configuration = .makeTemplateConfiguration()) throws -> [Transaction.Output.Unspent] {
         let feePerByte = feePolicy.recommendedFeeRate(for: recommendationContext, override: override)
         return try selectUnspentTransactionOutputs(targetAmount: targetAmount,
                                                    feePerByte: feePerByte,
-                                                   recipientOutputs: CoinSelection.Templates.recipientOutputs,
-                                                   outputsWithChange: CoinSelection.Templates.outputsWithChange,
-                                                   strategy: strategy)
-    }
-    
-    func selectUnspentTransactionOutputs(targetAmount: Satoshi,
-                                         feePolicy: Wallet.FeePolicy,
-                                         recommendationContext: Wallet.FeePolicy.RecommendationContext = .init(),
-                                         override: Wallet.FeePolicy.Override? = nil,
-                                         recipientOutputs: [Transaction.Output],
-                                         changeLockingScript: Data,
-                                         strategy: CoinSelection = .greedyLargestFirst) throws -> [Transaction.Output.Unspent] {
-        let changeTemplate = Transaction.Output(value: 0, lockingScript: changeLockingScript)
-        let outputsWithChange = recipientOutputs + [changeTemplate]
-        let feePerByte = feePolicy.recommendedFeeRate(for: recommendationContext, override: override)
-        
-        return try selectUnspentTransactionOutputs(targetAmount: targetAmount,
-                                                   feePerByte: feePerByte,
-                                                   recipientOutputs: recipientOutputs,
-                                                   outputsWithChange: outputsWithChange,
-                                                   strategy: strategy)
+                                                   configuration: configuration)
     }
     
     private func selectUnspentTransactionOutputs(targetAmount: Satoshi,
                                                  feePerByte: UInt64,
-                                                 recipientOutputs: [Transaction.Output],
-                                                 outputsWithChange: [Transaction.Output],
-                                                 strategy: CoinSelection) throws -> [Transaction.Output.Unspent] {
-        let sortedUnspentTransactionOutputs = unspentTransactionOutputStore.sorted { $0.value > $1.value }
+                                                 configuration: CoinSelection.Configuration) throws -> [Transaction.Output.Unspent] {
+        let sortedUnspentTransactionOutputs = sortedUnspentTransactionOutputs(by: { $0.value > $1.value })
         let dustLimit = Transaction.dustLimit
         
-        switch strategy {
+        switch configuration.strategy {
         case .greedyLargestFirst:
             var selectedUnspentTransactionOutputs: [Transaction.Output.Unspent] = .init()
             var totalAmount: UInt64 = 0
@@ -54,8 +32,8 @@ extension Address.Book {
                 if CoinSelection.evaluate(total: totalAmount,
                                           inputCount: selectedUnspentTransactionOutputs.count,
                                           targetAmount: targetAmount.uint64,
-                                          recipientOutputs: recipientOutputs,
-                                          outputsWithChange: outputsWithChange,
+                                          recipientOutputs: configuration.recipientOutputs,
+                                          outputsWithChange: configuration.outputsWithChange,
                                           dustLimit: dustLimit,
                                           feePerByte: feePerByte) != nil {
                     return selectedUnspentTransactionOutputs
@@ -79,8 +57,8 @@ extension Address.Book {
                 guard let evaluation = CoinSelection.evaluate(total: sum,
                                                               inputCount: selection.count,
                                                               targetAmount: targetAmount.uint64,
-                                                              recipientOutputs: recipientOutputs,
-                                                              outputsWithChange: outputsWithChange,
+                                                              recipientOutputs: configuration.recipientOutputs,
+                                                              outputsWithChange: configuration.outputsWithChange,
                                                               dustLimit: dustLimit,
                                                               feePerByte: feePerByte) else { return }
                 
@@ -107,7 +85,7 @@ extension Address.Book {
                 
                 let remaining = suffixTotals[index]
                 let minimalFee = Transaction.estimateFee(inputCount: selection.count,
-                                                         outputs: recipientOutputs,
+                                                         outputs: configuration.recipientOutputs,
                                                          feePerByte: feePerByte)
                 let minimalRequirement = targetAmount.uint64 &+ minimalFee
                 if sum &+ remaining < minimalRequirement { return }
