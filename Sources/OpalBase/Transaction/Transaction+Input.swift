@@ -6,9 +6,12 @@ extension Transaction {
     public struct Input {
         public let previousTransactionHash: Transaction.Hash
         public let previousTransactionOutputIndex: UInt32
-        let unlockingScriptLength: CompactSize
         public let unlockingScript: Data
         public let sequence: UInt32
+        
+        private var unlockingScriptLength: CompactSize {
+            CompactSize(value: UInt64(unlockingScript.count))
+        }
         
         /// Initializes a Transaction.Input instance.
         /// - Parameters:
@@ -19,7 +22,6 @@ extension Transaction {
         init(previousTransactionHash: Transaction.Hash, previousTransactionOutputIndex: UInt32, unlockingScript: Data, sequence: UInt32 = 0xFFFFFFFF) {
             self.previousTransactionHash = previousTransactionHash
             self.previousTransactionOutputIndex = previousTransactionOutputIndex
-            self.unlockingScriptLength = CompactSize(value: UInt64(unlockingScript.count))
             self.unlockingScript = unlockingScript
             self.sequence = sequence
         }

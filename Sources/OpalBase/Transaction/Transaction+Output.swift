@@ -5,8 +5,11 @@ import Foundation
 extension Transaction {
     public struct Output {
         public let value: UInt64
-        let lockingScriptLength: CompactSize
         public let lockingScript: Data
+        
+        private var lockingScriptLength: CompactSize {
+            CompactSize(value: UInt64(lockingScript.count))
+        }
         
         /// Initializes a Transaction.Output instance.
         /// - Parameters:
@@ -14,7 +17,6 @@ extension Transaction {
         ///   - lockingScript: The contents of the locking script.
         public init(value: UInt64, lockingScript: Data) {
             self.value = value
-            self.lockingScriptLength = CompactSize(value: UInt64(lockingScript.count))
             self.lockingScript = lockingScript
         }
         
@@ -25,7 +27,6 @@ extension Transaction {
         public init(value: UInt64, address: Address) {
             self.value = value
             self.lockingScript = address.lockingScript.data
-            self.lockingScriptLength = CompactSize(value: UInt64(lockingScript.count))
         }
         
         /// Encodes the Transaction.Output into Data.
