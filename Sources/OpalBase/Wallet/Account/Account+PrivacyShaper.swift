@@ -59,9 +59,9 @@ extension Account.PrivacyShaper {
         }
     }
     
-    func applyCoinSelectionHeuristics(to unspentTransactionOutputs: [Transaction.Output.Unspent]) -> [Transaction.Output.Unspent] {
-        guard configuration.shouldRandomizeUnspentTransactionOutputOrdering, unspentTransactionOutputs.count > 1 else { return unspentTransactionOutputs }
-        return unspentTransactionOutputs.shuffled(using: &generator)
+    func applyCoinSelectionHeuristics(to utxos: [Transaction.Output.Unspent]) -> [Transaction.Output.Unspent] {
+        guard configuration.shouldRandomizeUTXOOrdering, utxos.count > 1 else { return utxos }
+        return utxos.shuffled(using: &generator)
     }
     
     func randomizeOutputs(_ outputs: [Transaction.Output]) -> [Transaction.Output] {

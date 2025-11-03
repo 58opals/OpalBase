@@ -10,15 +10,15 @@ extension Address.Book {
         return privateKey
     }
     
-    func derivePrivateKeys(for unspentTransactionOutputs: [Transaction.Output.Unspent]) throws -> [Transaction.Output.Unspent: PrivateKey] {
+    func derivePrivateKeys(for utxos: [Transaction.Output.Unspent]) throws -> [Transaction.Output.Unspent: PrivateKey] {
         var pair: [Transaction.Output.Unspent: PrivateKey] = .init()
         
-        for unspentTransactionOutput in unspentTransactionOutputs {
-            let lockingScript = unspentTransactionOutput.lockingScript
+        for utxo in utxos {
+            let lockingScript = utxo.lockingScript
             let script = try Script.decode(lockingScript: lockingScript)
             let address = try Address(script: script)
             let privateKey = try loadPrivateKey(for: address)
-            pair[unspentTransactionOutput] = privateKey
+            pair[utxo] = privateKey
         }
         
         return pair

@@ -49,7 +49,6 @@ extension Address.Book {
         guard numberOfNewEntries > 0 else { return }
         
         let currentCount = inventory.countEntries(for: usage)
-        let cacheValidityDuration = inventory.cacheValidityDuration
         let desiredCount = currentCount + numberOfNewEntries
         
         for nextIndexValue in currentCount ..< desiredCount {
@@ -57,8 +56,7 @@ extension Address.Book {
             
             let newEntry = try makeEntry(for: usage,
                                          index: nextIndex,
-                                         isUsed: isUsed,
-                                         cacheValidityDuration: cacheValidityDuration)
+                                         isUsed: isUsed)
             inventory.append(newEntry, usage: usage)
             await notifyNewEntry(newEntry)
         }
@@ -66,8 +64,7 @@ extension Address.Book {
     
     private func makeEntry(for usage: DerivationPath.Usage,
                            index: UInt32,
-                           isUsed: Bool,
-                           cacheValidityDuration: TimeInterval) throws -> Entry {
+                           isUsed: Bool) throws -> Entry {
         let address = try generateAddress(at: index, for: usage)
         let derivationPath = try createDerivationPath(usage: usage, index: index)
         
@@ -75,8 +72,7 @@ extension Address.Book {
         
         return Entry(address: address,
                      derivationPath: derivationPath,
-                     isUsed: isUsed,
-                     cache: .init(validityDuration: cacheValidityDuration))
+                     isUsed: isUsed)
     }
 }
 

@@ -14,7 +14,7 @@
 - **BIP‑39 Wallets**: Generate and restore wallets from mnemonic phrases.
 - **SwiftFulcrum Integration**: `async`/`await` APIs for live blockchain data, broadcasts, and subscriptions.
 - **Balance Caching**: Quickly read cached balances and update them on demand.
-- **Transaction & UnspentTransactionOutput Management**: Create transactions, select UnspentTransactionOutputs, and refresh sets as needed.
+- **Transaction & UTXO Management**: Create transactions, select UTXOs, and refresh sets as needed.
 - **Transaction History**: Fetch simple or detailed transaction lists for any address.
 - **Open Source**: Community driven and open to contributions.
 
@@ -109,13 +109,13 @@ let service = account.fulcrumService
 try await account.addressBook.updateAddressUsageStatus(using: service)
 ```
 
-### Refreshing UnspentTransactionOutput Set
+### Refreshing UTXO Set
 
-To refresh the UnspentTransactionOutput set for an account:
+To refresh the UTXO set for an account:
 
 ```swift
 let service = account.fulcrumService
-try await account.addressBook.refreshUnspentTransactionOutputSet(service: service)
+try await account.addressBook.refreshUTXOSet(service: service)
 ```
 ### Monitoring Balance Updates
 

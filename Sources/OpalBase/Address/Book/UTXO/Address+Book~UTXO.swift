@@ -1,42 +1,42 @@
-// Address+Book~UnspentTransactionOutput.swift
+// Address+Book~UTXO.swift
 
 import Foundation
 
 extension Address.Book {
-    func selectUnspentTransactionOutputs(targetAmount: Satoshi,
-                                         feePolicy: Wallet.FeePolicy,
-                                         recommendationContext: Wallet.FeePolicy.RecommendationContext = .init(),
-                                         override: Wallet.FeePolicy.Override? = nil,
-                                         configuration: CoinSelection.Configuration = .makeTemplateConfiguration()) throws -> [Transaction.Output.Unspent] {
+    func selectUTXOs(targetAmount: Satoshi,
+                     feePolicy: Wallet.FeePolicy,
+                     recommendationContext: Wallet.FeePolicy.RecommendationContext = .init(),
+                     override: Wallet.FeePolicy.Override? = nil,
+                     configuration: CoinSelection.Configuration = .makeTemplateConfiguration()) throws -> [Transaction.Output.Unspent] {
         let feePerByte = feePolicy.recommendedFeeRate(for: recommendationContext, override: override)
-        return try selectUnspentTransactionOutputs(targetAmount: targetAmount,
-                                                   feePerByte: feePerByte,
-                                                   configuration: configuration)
+        return try selectUTXOs(targetAmount: targetAmount,
+                               feePerByte: feePerByte,
+                               configuration: configuration)
     }
     
-    private func selectUnspentTransactionOutputs(targetAmount: Satoshi,
-                                                 feePerByte: UInt64,
-                                                 configuration: CoinSelection.Configuration) throws -> [Transaction.Output.Unspent] {
-        let sortedUnspentTransactionOutputs = sortedUnspentTransactionOutputs(by: { $0.value > $1.value })
+    private func selectUTXOs(targetAmount: Satoshi,
+                             feePerByte: UInt64,
+                             configuration: CoinSelection.Configuration) throws -> [Transaction.Output.Unspent] {
+        let sortedUTXOs = sortedUTXOs(by: { $0.value > $1.value })
         let dustLimit = Transaction.dustLimit
         
         switch configuration.strategy {
         case .greedyLargestFirst:
-            var selectedUnspentTransactionOutputs: [Transaction.Output.Unspent] = .init()
+            var selectedUTXOs: [Transaction.Output.Unspent] = .init()
             var totalAmount: UInt64 = 0
             
-            for unspentTransactionOutput in sortedUnspentTransactionOutputs {
-                selectedUnspentTransactionOutputs.append(unspentTransactionOutput)
-                totalAmount &+= unspentTransactionOutput.value
+            for utxo in sortedUTXOs {
+                selectedUTXOs.append(utxo)
+                totalAmount &+= utxo.value
                 
                 if CoinSelection.evaluate(total: totalAmount,
-                                          inputCount: selectedUnspentTransactionOutputs.count,
+                                          inputCount: selectedUTXOs.count,
                                           targetAmount: targetAmount.uint64,
                                           recipientOutputs: configuration.recipientOutputs,
                                           outputsWithChange: configuration.outputsWithChange,
                                           dustLimit: dustLimit,
                                           feePerByte: feePerByte) != nil {
-                    return selectedUnspentTransactionOutputs
+                    return selectedUTXOs
                 }
             }
             
@@ -46,10 +46,10 @@ extension Address.Book {
             var bestSelection: [Transaction.Output.Unspent] = .init()
             var bestEvaluation: CoinSelection.Evaluation?
             
-            var suffixTotals: [UInt64] = Array(repeating: 0, count: sortedUnspentTransactionOutputs.count + 1)
-            if !sortedUnspentTransactionOutputs.isEmpty {
-                for index in stride(from: sortedUnspentTransactionOutputs.count - 1, through: 0, by: -1) {
-                    suffixTotals[index] = suffixTotals[index + 1] &+ sortedUnspentTransactionOutputs[index].value
+            var suffixTotals: [UInt64] = Array(repeating: 0, count: sortedUTXOs.count + 1)
+            if !sortedUTXOs.isEmpty {
+                for index in stride(from: sortedUTXOs.count - 1, through: 0, by: -1) {
+                    suffixTotals[index] = suffixTotals[index + 1] &+ sortedUTXOs[index].value
                 }
             }
             
@@ -81,7 +81,7 @@ extension Address.Book {
             func explore(index: Int, selection: [Transaction.Output.Unspent], sum: UInt64) {
                 updateBest(selection: selection, sum: sum)
                 
-                guard index < sortedUnspentTransactionOutputs.count else { return }
+                guard index < sortedUTXOs.count else { return }
                 
                 let remaining = suffixTotals[index]
                 let minimalFee = Transaction.estimateFee(inputCount: selection.count,
@@ -91,8 +91,8 @@ extension Address.Book {
                 if sum &+ remaining < minimalRequirement { return }
                 
                 var selectionIncludingCurrent = selection
-                selectionIncludingCurrent.append(sortedUnspentTransactionOutputs[index])
-                let sumIncludingCurrent = sum &+ sortedUnspentTransactionOutputs[index].value
+                selectionIncludingCurrent.append(sortedUTXOs[index])
+                let sumIncludingCurrent = sum &+ sortedUTXOs[index].value
                 
                 explore(index: index + 1,
                         selection: selectionIncludingCurrent,
@@ -105,7 +105,7 @@ extension Address.Book {
             return bestSelection
             
         case .sweepAll:
-            return sortedUnspentTransactionOutputs
+            return sortedUTXOs
         }
     }
 }

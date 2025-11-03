@@ -26,7 +26,7 @@ extension Address.Book {
             }
         }
         
-        public struct UnspentTransactionOutput: Codable {
+        public struct UTXO: Codable {
             public let value: UInt64
             public let lockingScript: String
             public let transactionHash: String
@@ -106,16 +106,16 @@ extension Address.Book {
         
         public let receivingEntries: [Entry]
         public let changeEntries: [Entry]
-        public let unspentTransactionOutputs: [UnspentTransactionOutput]
+        public let utxos: [UTXO]
         public let transactions: [Transaction]
         
         public init(receivingEntries: [Entry],
                     changeEntries: [Entry],
-                    unspentTransactionOutputs: [UnspentTransactionOutput],
+                    utxos: [UTXO],
                     transactions: [Transaction]) {
             self.receivingEntries = receivingEntries
             self.changeEntries = changeEntries
-            self.unspentTransactionOutputs = unspentTransactionOutputs
+            self.utxos = utxos
             self.transactions = transactions
         }
     }
@@ -123,7 +123,7 @@ extension Address.Book {
 
 extension Address.Book.Snapshot: Sendable {}
 extension Address.Book.Snapshot.Entry: Sendable {}
-extension Address.Book.Snapshot.UnspentTransactionOutput: Sendable {}
+extension Address.Book.Snapshot.UTXO: Sendable {}
 extension Address.Book.Snapshot.Transaction: Sendable {}
 extension Address.Book.Snapshot.Transaction.MerkleProof: Sendable {}
 
@@ -144,11 +144,11 @@ extension Address.Book {
                            lastUpdated: entry.cache.lastUpdated)
         }
         
-        let unspentTransactionOutputSnaps = unspentTransactionOutputStore.listUnspentTransactionOutputs().map {
-            Snapshot.UnspentTransactionOutput(value: $0.value,
-                                              lockingScript: $0.lockingScript.hexadecimalString,
-                                              transactionHash: $0.previousTransactionHash.naturalOrder.hexadecimalString,
-                                              outputIndex: $0.previousTransactionOutputIndex)
+        let utxoSnaps = utxoStore.listUTXOs().map {
+            Snapshot.UTXO(value: $0.value,
+                          lockingScript: $0.lockingScript.hexadecimalString,
+                          transactionHash: $0.previousTransactionHash.naturalOrder.hexadecimalString,
+                          outputIndex: $0.previousTransactionOutputIndex)
         }
         
         let transactionSnaps = transactionLog.listRecords().map { record in
@@ -178,7 +178,7 @@ extension Address.Book {
         
         return Snapshot(receivingEntries: receiving,
                         changeEntries: change,
-                        unspentTransactionOutputs: unspentTransactionOutputSnaps,
+                        utxos: utxoSnaps,
                         transactions: transactionSnaps)
     }
     
@@ -186,14 +186,14 @@ extension Address.Book {
         try await apply(entrySnapshots: snapshot.receivingEntries, usage: .receiving)
         try await apply(entrySnapshots: snapshot.changeEntries, usage: .change)
         
-        let restoredUnspentTransactionOutputs = try snapshot.unspentTransactionOutputs.map {
+        let restoredUTXOs = try snapshot.utxos.map {
             Transaction.Output.Unspent(value: $0.value,
                                        lockingScript: try Data(hexadecimalString: $0.lockingScript),
                                        previousTransactionHash: .init(naturalOrder: try Data(hexadecimalString: $0.transactionHash)),
                                        previousTransactionOutputIndex: $0.outputIndex)
         }
         
-        unspentTransactionOutputStore.replace(with: Set(restoredUnspentTransactionOutputs))
+        utxoStore.replace(with: Set(restoredUTXOs))
         transactionLog.reset()
         
         for transaction in snapshot.transactions {

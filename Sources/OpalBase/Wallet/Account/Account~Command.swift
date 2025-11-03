@@ -64,7 +64,7 @@ extension Account {
                                      unlockers: [Transaction.Output.Unspent: Transaction.Unlocker] = .init()) throws -> TransactionResult {
             let transaction: Transaction
             do {
-                transaction = try Transaction.build(unspentTransactionOutputPrivateKeyPairs: privateKeys,
+                transaction = try Transaction.build(utxoPrivateKeyPairs: privateKeys,
                                                     recipientOutputs: recipientOutputs,
                                                     changeOutput: changeOutput,
                                                     signatureFormat: signatureFormat,
@@ -138,18 +138,18 @@ extension Account {
                                                                                   changeLockingScript: changeEntry.address.lockingScript.data,
                                                                                   strategy: payment.coinSelection)
         
-        let selectedUnspentTransactionOutputs: [Transaction.Output.Unspent]
+        let selectedUTXOs: [Transaction.Output.Unspent]
         do {
-            selectedUnspentTransactionOutputs = try await addressBook.selectUnspentTransactionOutputs(targetAmount: targetAmount,
-                                                                                                      feePolicy: feePolicy,
-                                                                                                      recommendationContext: payment.feeContext,
-                                                                                                      override: payment.feeOverride,
-                                                                                                      configuration: coinSelectionConfiguration)
+            selectedUTXOs = try await addressBook.selectUTXOs(targetAmount: targetAmount,
+                                                              feePolicy: feePolicy,
+                                                              recommendationContext: payment.feeContext,
+                                                              override: payment.feeOverride,
+                                                              configuration: coinSelectionConfiguration)
         } catch {
             throw Error.coinSelectionFailed(error)
         }
         
-        let heuristicallyOrderedInputs = await privacyShaper.applyCoinSelectionHeuristics(to: selectedUnspentTransactionOutputs)
+        let heuristicallyOrderedInputs = await privacyShaper.applyCoinSelectionHeuristics(to: selectedUTXOs)
         
         let totalSelectedValue = heuristicallyOrderedInputs.reduce(into: UInt64(0)) { partial, input in
             partial &+= input.value

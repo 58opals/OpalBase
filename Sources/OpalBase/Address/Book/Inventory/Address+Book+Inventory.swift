@@ -20,6 +20,11 @@ extension Address.Book {
             cacheValidityDurationValue
         }
         
+        func isCacheValid(_ cache: Entry.Cache) -> Bool {
+            guard let lastUpdated = cache.lastUpdated else { return false }
+            return Date().timeIntervalSince(lastUpdated) < cacheValidityDurationValue
+        }
+        
         func listEntries(for usage: DerivationPath.Usage) -> [Entry] {
             bucket.fetchEntries(for: usage)
         }
@@ -61,19 +66,14 @@ extension Address.Book {
         
         mutating func updateCacheValidityDuration(to newDuration: TimeInterval) {
             cacheValidityDurationValue = newDuration
-            bucket.updateAllEntries { entry in
-                entry.cache.validityDuration = newDuration
-            }
         }
         
         mutating func updateCache(for address: Address,
                                   balance: Satoshi,
                                   timestamp: Date) throws {
-            let validityDuration = cacheValidityDurationValue
             _ = try updateEntry(for: address) { entry in
                 entry.cache = Entry.Cache(balance: balance,
-                                          lastUpdated: timestamp,
-                                          validityDuration: validityDuration)
+                                          lastUpdated: timestamp)
             }
         }
         
@@ -104,6 +104,10 @@ extension Address.Book.Inventory: Sendable {}
 extension Address.Book {
     public func listEntries(for usage: DerivationPath.Usage) -> [Entry] {
         inventory.listEntries(for: usage)
+    }
+    
+    func isCacheValid(_ cache: Entry.Cache) -> Bool {
+        inventory.isCacheValid(cache)
     }
     
     public func updateCachedBalance(for address: Address,

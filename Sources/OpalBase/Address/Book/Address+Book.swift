@@ -11,7 +11,7 @@ extension Address {
         private let account: DerivationPath.Account
         
         var inventory: Inventory
-        var unspentTransactionOutputStore: UnspentTransactionOutputStore
+        var utxoStore: UTXOStore
         var transactionLog: TransactionLog
         
         let gapLimit: Int
@@ -42,7 +42,7 @@ extension Address {
             self.gapLimit = gapLimit
             
             self.inventory = .init(cacheValidityDuration: cacheValidityDuration)
-            self.unspentTransactionOutputStore = .init()
+            self.utxoStore = .init()
             self.transactionLog = .init()
             
             try await initializeEntries()
@@ -102,18 +102,18 @@ extension Address.Book {
             let address = try Address(script: .decode(lockingScript: lockingScript))
             
             if inventory.contains(address: address) {
-                let unspentTransactionOutput = Transaction.Output.Unspent(output: output,
-                                                                          previousTransactionHash: detailedTransaction.hash,
-                                                                          previousTransactionOutputIndex: UInt32(index))
-                addUnspentTransactionOutput(unspentTransactionOutput)
+                let utxo = Transaction.Output.Unspent(output: output,
+                                                      previousTransactionHash: detailedTransaction.hash,
+                                                      previousTransactionOutputIndex: UInt32(index))
+                addUTXO(utxo)
             }
         }
     }
     
     func handleOutgoingTransaction(_ transaction: Transaction) {
         for input in transaction.inputs {
-            if let unspentTransactionOutput = unspentTransactionOutputStore.findUnspentTransactionOutput(matching: input) {
-                removeUnspentTransactionOutput(unspentTransactionOutput)
+            if let utxo = utxoStore.findUTXO(matching: input) {
+                removeUTXO(utxo)
             }
         }
     }

@@ -7,7 +7,7 @@ extension Address.Book {
         case updateCache(usage: DerivationPath.Usage? = nil)
         case refreshBalances(usage: DerivationPath.Usage? = nil)
         case fetchBalance(Address)
-        case refreshUnspentTransactionOutputSet
+        case refreshUTXOSet
         case fetchDetailedTransactions(scope: DerivationPath.Usage,
                                        fromHeight: UInt?,
                                        toHeight: UInt?,
