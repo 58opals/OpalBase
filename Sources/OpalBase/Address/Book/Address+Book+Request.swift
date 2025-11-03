@@ -4,10 +4,8 @@ import Foundation
 
 extension Address.Book {
     public enum Request: Hashable, Sendable {
-        case updateCache
-        case updateCacheSubset(DerivationPath.Usage)
-        case refreshBalances
-        case refreshBalancesSubset(DerivationPath.Usage)
+        case updateCache(usage: DerivationPath.Usage? = nil)
+        case refreshBalances(usage: DerivationPath.Usage? = nil)
         case fetchBalance(Address)
         case refreshUnspentTransactionOutputSet
         case fetchDetailedTransactions(scope: DerivationPath.Usage,
@@ -20,10 +18,8 @@ extension Address.Book {
         case fetchCombinedHistoryPage(fromHeight: UInt?,
                                       window: UInt,
                                       includeUnconfirmed: Bool)
-        case refreshUsedStatus
-        case refreshUsedStatusSubset(DerivationPath.Usage)
-        case updateAddressUsageStatus
-        case updateAddressUsageStatusSubset(DerivationPath.Usage)
+        case refreshUsedStatus(usage: DerivationPath.Usage? = nil)
+        case updateAddressUsageStatus(usage: DerivationPath.Usage? = nil)
         case checkIfUsed(Address)
         case scanForUsedAddresses
     }
