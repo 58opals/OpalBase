@@ -5,11 +5,9 @@ import Foundation
 extension Address.Book {
     public struct TransactionLog {
         private var records: [Transaction.Hash: Transaction.History.Record]
-        private var scriptHashToTransactions: [String: Set<Transaction.Hash>]
         
         public init() {
             self.records = .init()
-            self.scriptHashToTransactions = .init()
         }
         
         public func listRecords() -> [Transaction.History.Record] {
@@ -20,10 +18,7 @@ extension Address.Book {
                                            entries: [Transaction.History.Entry],
                                            timestamp: Date) -> Transaction.History.ChangeSet {
             let newTransactions = Set(entries.map { $0.transactionHash })
-            let previousTransactions = scriptHashToTransactions[scriptHash] ?? .init()
-            
-            scriptHashToTransactions[scriptHash] = newTransactions
-            
+            let previousTransactions = listTransactions(for: scriptHash)
             var inserted: [Transaction.Hash: Transaction.History.Record] = .init()
             var updated: [Transaction.Hash: Transaction.History.Record] = .init()
             var removed: Set<Transaction.Hash> = .init()
@@ -103,18 +98,21 @@ extension Address.Book {
         
         public mutating func reset() {
             records.removeAll()
-            scriptHashToTransactions.removeAll()
         }
         
         public mutating func store(_ record: Transaction.History.Record) {
             records[record.transactionHash] = record
-            for scriptHash in record.chainMetadata.scriptHashes {
-                scriptHashToTransactions[scriptHash, default: .init()].insert(record.transactionHash)
-            }
         }
         
         public var isEmpty: Bool {
             records.isEmpty
+        }
+        
+        private func listTransactions(for scriptHash: String) -> Set<Transaction.Hash> {
+            records.values.reduce(into: Set<Transaction.Hash>()) { transactions, record in
+                guard record.chainMetadata.scriptHashes.contains(scriptHash) else { return }
+                transactions.insert(record.transactionHash)
+            }
         }
     }
 }

@@ -23,12 +23,11 @@ extension Address.Book {
 // MARK: - Initialize
 extension Address.Book {
     func initializeEntries() async throws {
-        try await generateEntries(for: .receiving,
-                                  numberOfNewEntries: gapLimit,
-                                  isUsed: false)
-        try await generateEntries(for: .change,
-                                  numberOfNewEntries: gapLimit,
-                                  isUsed: false)
+        for usage in DerivationPath.Usage.allCases {
+            try await generateEntries(for: usage,
+                                      numberOfNewEntries: gapLimit,
+                                      isUsed: false)
+        }
     }
 }
 
