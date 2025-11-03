@@ -10,3 +10,10 @@ extension Address.Book.Entry {
 }
 
 extension Address.Book.Entry.Cache: Hashable {}
+
+extension Address.Book.Entry.Cache {
+    func isValid(currentDate: Date, validityDuration: TimeInterval) -> Bool {
+        guard let lastUpdated else { return false }
+        return currentDate.timeIntervalSince(lastUpdated) < validityDuration
+    }
+}

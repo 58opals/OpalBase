@@ -24,14 +24,6 @@ extension Address.Book {
     }
 }
 
-extension Address.Book {
-    public enum CoinSelection: Sendable {
-        case greedyLargestFirst
-        case branchAndBound
-        case sweepAll
-    }
-}
-
 extension Address.Book.CoinSelector {
     func select() throws -> [Transaction.Output.Unspent] {
         switch configuration.strategy {
@@ -130,6 +122,15 @@ extension Address.Book.CoinSelector {
         }
         
         return suffixTotals
+    }
+}
+
+// MARK: - Coin Selection
+extension Address.Book {
+    public enum CoinSelection: Sendable {
+        case greedyLargestFirst
+        case branchAndBound
+        case sweepAll
     }
 }
 

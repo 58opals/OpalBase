@@ -20,9 +20,8 @@ extension Address.Book {
             cacheValidityDurationValue
         }
         
-        func isCacheValid(_ cache: Entry.Cache) -> Bool {
-            guard let lastUpdated = cache.lastUpdated else { return false }
-            return Date().timeIntervalSince(lastUpdated) < cacheValidityDurationValue
+        func isCacheValid(_ cache: Entry.Cache, currentDate: Date) -> Bool {
+            cache.isValid(currentDate: currentDate, validityDuration: cacheValidityDurationValue)
         }
         
         func listEntries(for usage: DerivationPath.Usage) -> [Entry] {
@@ -106,8 +105,8 @@ extension Address.Book {
         inventory.listEntries(for: usage)
     }
     
-    func isCacheValid(_ cache: Entry.Cache) -> Bool {
-        inventory.isCacheValid(cache)
+    func isCacheValid(_ cache: Entry.Cache, currentDate: Date) -> Bool {
+        inventory.isCacheValid(cache, currentDate: currentDate)
     }
     
     public func updateCachedBalance(for address: Address,
