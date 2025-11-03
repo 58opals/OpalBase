@@ -46,33 +46,37 @@ extension Address.Book {
     func generateEntries(for usage: DerivationPath.Usage,
                          numberOfNewEntries: Int,
                          isUsed: Bool) async throws {
-        for _ in 0 ..< numberOfNewEntries {
-            try await generateEntry(for: usage, isUsed: isUsed)
+        guard numberOfNewEntries > 0 else { return }
+        
+        let currentCount = inventory.countEntries(for: usage)
+        let cacheValidityDuration = inventory.cacheValidityDuration
+        let desiredCount = currentCount + numberOfNewEntries
+        
+        for nextIndexValue in currentCount ..< desiredCount {
+            guard let nextIndex = UInt32(exactly: nextIndexValue) else { throw Error.indexOutOfBounds }
+            
+            let newEntry = try makeEntry(for: usage,
+                                         index: nextIndex,
+                                         isUsed: isUsed,
+                                         cacheValidityDuration: cacheValidityDuration)
+            inventory.append(newEntry, usage: usage)
+            await notifyNewEntry(newEntry)
         }
     }
     
-    /// Generates a new entry for the specified usage.
-    /// - Parameters:
-    ///   - usage: The usage type (`.receiving` or `.change`).
-    ///   - isUsed: Indicates whether the address is already used.
-    /// - Throws: An error if entry generation fails.
-    func generateEntry(for usage: DerivationPath.Usage,
-                       isUsed: Bool) async throws {
-        let nextIndex = inventory.calculateNextIndex(for: usage)
-        
-        let address = try generateAddress(at: nextIndex, for: usage)
-        let derivationPath = try createDerivationPath(usage: usage,
-                                                      index: nextIndex)
+    private func makeEntry(for usage: DerivationPath.Usage,
+                           index: UInt32,
+                           isUsed: Bool,
+                           cacheValidityDuration: TimeInterval) throws -> Entry {
+        let address = try generateAddress(at: index, for: usage)
+        let derivationPath = try createDerivationPath(usage: usage, index: index)
         
         if let existingEntry = inventory.findEntry(for: address) { throw Error.entryDuplicated(existingEntry) }
         
-        let newEntry = Entry(address: address,
-                             derivationPath: derivationPath,
-                             isUsed: isUsed,
-                             cache: .init(validityDuration: inventory.cacheValidityDuration))
-        
-        inventory.append(newEntry, usage: usage)
-        await notifyNewEntry(newEntry)
+        return Entry(address: address,
+                     derivationPath: derivationPath,
+                     isUsed: isUsed,
+                     cache: .init(validityDuration: cacheValidityDuration))
     }
 }
 
