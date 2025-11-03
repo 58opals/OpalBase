@@ -10,7 +10,7 @@ extension Transaction {
     ///   - outputBeingSpent: The output being spent by this input.
     /// - Returns: The preimage data.
     func generatePreimage(for index: Int, hashType: HashType, outputBeingSpent: Output) throws -> Data {
-        if case .single = hashType, index >= outputs.count { throw Transaction.Error.sighashSingleIndexOutOfRange }
+        if hashType.mode == .single, index >= outputs.count { throw Transaction.Error.sighashSingleIndexOutOfRange }
         
         var preimage = Data()
         
@@ -30,7 +30,7 @@ extension Transaction {
         preimage.append(previousOutputsHash)
         
         var sequenceNumbersHash = Data()
-        if hashType.isNotAnyoneCanPayWithAllHashType {
+        if hashType.isAllWithoutAnyoneCanPay {
             var data = Data()
             for input in inputs {
                 data.append(input.sequence.littleEndianData)
@@ -59,7 +59,7 @@ extension Transaction {
         preimage.append(inputSequenceNumber)
         
         var transactionOutputsHash = Data()
-        switch hashType {
+        switch hashType.mode {
         case .all:
             var data = Data()
             for output in outputs {

@@ -7,7 +7,7 @@ extension Transaction {
         public let value: UInt64
         public let lockingScript: Data
         
-        private var lockingScriptLength: CompactSize {
+        var lockingScriptLength: CompactSize {
             CompactSize(value: UInt64(lockingScript.count))
         }
         

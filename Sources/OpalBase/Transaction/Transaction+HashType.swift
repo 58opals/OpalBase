@@ -3,53 +3,78 @@
 import Foundation
 
 extension Transaction {
-    public enum HashType {
-        case all(anyoneCanPay: Bool)
-        case none(anyoneCanPay: Bool)
-        case single(anyoneCanPay: Bool)
+    public struct HashType {
+        public enum Mode {
+            case all
+            case none
+            case single
+        }
         
-        enum Modifier: UInt32 {
+        private enum Modifier: UInt32 {
             case forkId = 0x40
             case anyoneCanPay = 0x80
         }
         
-        var value: UInt32 {
-            var value: UInt32 = 0
-            switch self {
-            case .all(let anyoneCanPay):
-                value = 0x01 | Modifier.forkId.rawValue | (anyoneCanPay ? Modifier.anyoneCanPay.rawValue : 0)
-            case .none(let anyoneCanPay):
-                value = 0x02 | Modifier.forkId.rawValue | (anyoneCanPay ? Modifier.anyoneCanPay.rawValue : 0)
-            case .single(let anyoneCanPay):
-                value = 0x03 | Modifier.forkId.rawValue | (anyoneCanPay ? Modifier.anyoneCanPay.rawValue : 0)
+        private struct Options {
+            let modifierBitMask: UInt32
+            
+            init(isAnyoneCanPayEnabled: Bool) {
+                var bitMask = Modifier.forkId.rawValue
+                if isAnyoneCanPayEnabled {
+                    bitMask |= Modifier.anyoneCanPay.rawValue
+                }
+                self.modifierBitMask = bitMask
             }
-            return value
+            
+            var isAnyoneCanPayEnabled: Bool {
+                (modifierBitMask & Modifier.anyoneCanPay.rawValue) == Modifier.anyoneCanPay.rawValue
+            }
+        }
+        
+        public let mode: Mode
+        private let options: Options
+        
+        private init(mode: Mode, options: Options) {
+            self.mode = mode
+            self.options = options
+        }
+        
+        public init(mode: Mode, isAnyoneCanPayEnabled: Bool = false) {
+            self.init(mode: mode, options: Options(isAnyoneCanPayEnabled: isAnyoneCanPayEnabled))
+        }
+        
+        public static func all(anyoneCanPay: Bool = false) -> HashType {
+            HashType(mode: .all, isAnyoneCanPayEnabled: anyoneCanPay)
+        }
+        
+        public static func none(anyoneCanPay: Bool = false) -> HashType {
+            HashType(mode: .none, isAnyoneCanPayEnabled: anyoneCanPay)
+        }
+        
+        public static func single(anyoneCanPay: Bool = false) -> HashType {
+            HashType(mode: .single, isAnyoneCanPayEnabled: anyoneCanPay)
+        }
+        
+        var value: UInt32 {
+            let base: UInt32
+            switch mode {
+            case .all:
+                base = 0x01
+            case .none:
+                base = 0x02
+            case .single:
+                base = 0x03
+            }
+            
+            return base | options.modifierBitMask
         }
         
         var isAnyoneCanPay: Bool {
-            switch self {
-            case .all(let anyoneCanPay):
-                if anyoneCanPay { return true }
-                else { return false }
-            case .none(let anyoneCanPay):
-                if anyoneCanPay { return true }
-                else { return false }
-            case .single(let anyoneCanPay):
-                if anyoneCanPay { return true }
-                else { return false }
-            }
+            options.isAnyoneCanPayEnabled
         }
         
-        var isNotAnyoneCanPayWithAllHashType: Bool {
-            switch self {
-            case .all(let anyoneCanPay):
-                if anyoneCanPay { return false }
-                else { return true }
-            case .none(_):
-                return false
-            case .single(_):
-                return false
-            }
+        var isAllWithoutAnyoneCanPay: Bool {
+            mode == .all && !options.isAnyoneCanPayEnabled
         }
     }
 }
