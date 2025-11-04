@@ -38,7 +38,8 @@ extension Network {
         }
         
         deinit {
-            Task { await fulcrum.stop() }
+            let fulcrumClient = fulcrum
+            Task { await fulcrumClient.stop() }
         }
         
         public func stop() async {
