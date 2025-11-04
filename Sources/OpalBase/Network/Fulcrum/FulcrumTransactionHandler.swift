@@ -6,9 +6,9 @@ import SwiftFulcrum
 extension Network {
     public struct FulcrumTransactionHandler: TransactionHandling {
         private let client: FulcrumClient
-        private let timeouts: FulcrumRequestTimeouts
+        private let timeouts: FulcrumRequestTimeout
         
-        public init(client: FulcrumClient, timeouts: FulcrumRequestTimeouts = .init()) {
+        public init(client: FulcrumClient, timeouts: FulcrumRequestTimeout = .init()) {
             self.client = client
             self.timeouts = timeouts
         }
@@ -42,18 +42,16 @@ extension Network {
                 let transactionHeightResult = try await transactionHeightResponse
                 let tipHeightResult = try await tipHeightResponse
                 
-                guard transactionHeightResult.height != 0 else {
-                    return nil
-                }
+                let transactionHeight = transactionHeightResult.height
+                let tipHeight = tipHeightResult.height
                 
-                let transactionHeight = UInt(transactionHeightResult.height)
-                let tipHeight = UInt(tipHeightResult.height)
+                let confirmationCount = tipHeight - transactionHeight + 1
                 
-                if tipHeight < transactionHeight {
-                    return 1
-                }
+                guard transactionHeight > 0 else { return nil }
+                guard confirmationCount > 0 else { return 1 }
+                if tipHeight < transactionHeight { return 1 }
                 
-                return tipHeight - transactionHeight + 1
+                return UInt(confirmationCount)
             } catch {
                 throw FulcrumErrorTranslator.translate(error)
             }

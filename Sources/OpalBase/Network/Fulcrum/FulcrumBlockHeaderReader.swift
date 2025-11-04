@@ -6,9 +6,9 @@ import SwiftFulcrum
 extension Network {
     public struct FulcrumBlockHeaderReader: BlockHeaderReadable {
         private let client: FulcrumClient
-        private let timeouts: FulcrumRequestTimeouts
+        private let timeouts: FulcrumRequestTimeout
 
-        public init(client: FulcrumClient, timeouts: FulcrumRequestTimeouts = .init()) {
+        public init(client: FulcrumClient, timeouts: FulcrumRequestTimeout = .init()) {
             self.client = client
             self.timeouts = timeouts
         }

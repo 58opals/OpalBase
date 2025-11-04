@@ -3,7 +3,7 @@
 import Foundation
 
 extension Network {
-    public struct FulcrumRequestTimeouts: Sendable, Equatable {
+    public struct FulcrumRequestTimeout: Sendable, Equatable {
         public var headersTip: Duration
         public var headersSubscription: Duration
         public var addressBalance: Duration

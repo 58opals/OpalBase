@@ -6,9 +6,9 @@ import SwiftFulcrum
 extension Network {
     public struct FulcrumAddressReader: AddressReadable {
         private let client: FulcrumClient
-        private let timeouts: FulcrumRequestTimeouts
+        private let timeouts: FulcrumRequestTimeout
         
-        public init(client: FulcrumClient, timeouts: FulcrumRequestTimeouts = .init()) {
+        public init(client: FulcrumClient, timeouts: FulcrumRequestTimeout = .init()) {
             self.client = client
             self.timeouts = timeouts
         }
@@ -109,10 +109,12 @@ extension Network {
                     let initialUpdate = AddressSubscriptionUpdate(kind: .initialSnapshot, address: address, status: initial.status)
                     continuation.yield(initialUpdate)
                     
+                    let subscribedAddress = address
                     let task = Task {
                         do {
                             for try await notification in updates {
-                                let update = AddressSubscriptionUpdate(kind: .change, address: notification.subscriptionIdentifier, status: notification.status)
+                                guard subscribedAddress == notification.subscriptionIdentifier else { continue }
+                                let update = AddressSubscriptionUpdate(kind: .change, address: subscribedAddress, status: notification.status)
                                 guard update.status != lastStatus else { continue }
                                 lastStatus = update.status
                                 continuation.yield(update)
