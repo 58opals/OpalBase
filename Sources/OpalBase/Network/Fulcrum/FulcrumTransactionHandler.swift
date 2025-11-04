@@ -45,12 +45,10 @@ extension Network {
                 let transactionHeight = transactionHeightResult.height
                 let tipHeight = tipHeightResult.height
                 
-                let confirmationCount = tipHeight - transactionHeight + 1
-                
                 guard transactionHeight > 0 else { return nil }
-                guard confirmationCount > 0 else { return 1 }
                 if tipHeight < transactionHeight { return 1 }
                 
+                let confirmationCount = tipHeight - transactionHeight + 1
                 return UInt(confirmationCount)
             } catch {
                 throw FulcrumErrorTranslator.translate(error)
