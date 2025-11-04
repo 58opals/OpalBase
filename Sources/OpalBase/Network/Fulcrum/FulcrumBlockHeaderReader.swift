@@ -6,9 +6,9 @@ import SwiftFulcrum
 extension Network {
     public struct FulcrumBlockHeaderReader: BlockHeaderReadable {
         private let client: FulcrumClient
-        private let timeouts: FulcrumServiceTimeouts
+        private let timeouts: FulcrumRequestTimeouts
 
-        public init(client: FulcrumClient, timeouts: FulcrumServiceTimeouts = .init()) {
+        public init(client: FulcrumClient, timeouts: FulcrumRequestTimeouts = .init()) {
             self.client = client
             self.timeouts = timeouts
         }
@@ -22,11 +22,11 @@ extension Network {
                 )
                 return BlockHeaderSnapshot(height: result.height, headerHexadecimal: result.hex)
             } catch {
-                throw NetworkFulcrumErrorTranslator.translate(error)
+                throw FulcrumErrorTranslator.translate(error)
             }
         }
 
-        public func subscribeToTip() async throws -> AsyncThrowingStream<BlockHeaderSnapshot, Network.Failure> {
+        public func subscribeToTip() async throws -> AsyncThrowingStream<BlockHeaderSnapshot, any Error> {
             do {
                 let (initial, updates, cancel) = try await client.subscribe(
                     method: .blockchain(.headers(.subscribe)),
@@ -49,7 +49,7 @@ extension Network {
                             }
                             continuation.finish()
                         } catch {
-                            continuation.finish(throwing: NetworkFulcrumErrorTranslator.translate(error))
+                            continuation.finish(throwing: FulcrumErrorTranslator.translate(error))
                         }
                     }
 
@@ -59,7 +59,7 @@ extension Network {
                     }
                 }
             } catch {
-                throw NetworkFulcrumErrorTranslator.translate(error)
+                throw FulcrumErrorTranslator.translate(error)
             }
         }
     }

@@ -10,6 +10,6 @@ extension Network {
     }
     
     public protocol BlockHeaderSubscribing: Sendable {
-        func subscribeToTip() async throws -> AsyncThrowingStream<BlockHeaderSnapshot, Network.Failure>
+        func subscribeToTip() async throws -> AsyncThrowingStream<BlockHeaderSnapshot, any Swift.Error>
     }
 }

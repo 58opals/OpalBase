@@ -6,9 +6,9 @@ import SwiftFulcrum
 extension Network {
     public struct FulcrumAddressReader: AddressReadable {
         private let client: FulcrumClient
-        private let timeouts: FulcrumServiceTimeouts
+        private let timeouts: FulcrumRequestTimeouts
         
-        public init(client: FulcrumClient, timeouts: FulcrumServiceTimeouts = .init()) {
+        public init(client: FulcrumClient, timeouts: FulcrumRequestTimeouts = .init()) {
             self.client = client
             self.timeouts = timeouts
         }
@@ -22,7 +22,7 @@ extension Network {
                 )
                 return AddressBalance(confirmed: result.confirmed, unconfirmed: result.unconfirmed)
             } catch {
-                throw NetworkFulcrumErrorTranslator.translate(error)
+                throw FulcrumErrorTranslator.translate(error)
             }
         }
         
@@ -62,7 +62,7 @@ extension Network {
             } catch let error as Data.Error {
                 throw Network.Failure(reason: .decoding, message: error.localizedDescription)
             } catch {
-                throw NetworkFulcrumErrorTranslator.translate(error)
+                throw FulcrumErrorTranslator.translate(error)
             }
         }
         
@@ -91,11 +91,11 @@ extension Network {
                     )
                 }
             } catch {
-                throw NetworkFulcrumErrorTranslator.translate(error)
+                throw FulcrumErrorTranslator.translate(error)
             }
         }
         
-        public func subscribeToAddress(_ address: String) async throws -> AsyncThrowingStream<AddressSubscriptionUpdate, Network.Failure> {
+        public func subscribeToAddress(_ address: String) async throws -> AsyncThrowingStream<AddressSubscriptionUpdate, any Error> {
             do {
                 let (initial, updates, cancel) = try await client.subscribe(
                     method: .blockchain(.address(.subscribe(address: address))),
@@ -119,7 +119,7 @@ extension Network {
                             }
                             continuation.finish()
                         } catch {
-                            continuation.finish(throwing: NetworkFulcrumErrorTranslator.translate(error))
+                            continuation.finish(throwing: FulcrumErrorTranslator.translate(error))
                         }
                     }
                     
@@ -129,7 +129,7 @@ extension Network {
                     }
                 }
             } catch {
-                throw NetworkFulcrumErrorTranslator.translate(error)
+                throw FulcrumErrorTranslator.translate(error)
             }
         }
     }

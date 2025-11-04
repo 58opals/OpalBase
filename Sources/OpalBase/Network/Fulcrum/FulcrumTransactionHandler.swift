@@ -22,7 +22,7 @@ extension Network {
                 )
                 return response.transactionHash.hexadecimalString
             } catch {
-                throw NetworkFulcrumErrorTranslator.translate(error)
+                throw FulcrumErrorTranslator.translate(error)
             }
         }
 
@@ -35,7 +35,7 @@ extension Network {
                 )
                 return response.height == 0 ? nil : response.height
             } catch {
-                throw NetworkFulcrumErrorTranslator.translate(error)
+                throw FulcrumErrorTranslator.translate(error)
             }
         }
     }

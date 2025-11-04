@@ -12,6 +12,6 @@ extension Network {
     }
     
     public protocol AddressSubscribing: Sendable {
-        func subscribeToAddress(_ address: String) async throws -> AsyncThrowingStream<AddressSubscriptionUpdate, Network.Failure>
+        func subscribeToAddress(_ address: String) async throws -> AsyncThrowingStream<AddressSubscriptionUpdate, any Swift.Error>
     }
 }
