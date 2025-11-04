@@ -24,7 +24,7 @@ extension Account {
             let entries = await addressBook.listEntries(for: currentUsage)
             
             guard !entries.isEmpty else {
-                balancesByUsage[currentUsage] = [:]
+                balancesByUsage[currentUsage] = .init()
                 continue
             }
             
