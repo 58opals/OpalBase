@@ -8,6 +8,10 @@ extension Network {
         static func translate(_ error: Swift.Error) -> Network.Failure {
             if let failure = error as? Network.Failure { return failure }
             
+            if error is CancellationError {
+                return Network.Failure(reason: .cancelled, message: "Operation cancelled")
+            }
+            
             guard let fulcrumError = error as? Fulcrum.Error else {
                 return Network.Failure(reason: .unknown, message: error.localizedDescription)
             }

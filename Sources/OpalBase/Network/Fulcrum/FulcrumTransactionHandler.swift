@@ -7,12 +7,12 @@ extension Network {
     public struct FulcrumTransactionHandler: TransactionHandling {
         private let client: FulcrumClient
         private let timeouts: FulcrumRequestTimeouts
-
+        
         public init(client: FulcrumClient, timeouts: FulcrumRequestTimeouts = .init()) {
             self.client = client
             self.timeouts = timeouts
         }
-
+        
         public func broadcastTransaction(rawTransactionHexadecimal: String) async throws -> String {
             do {
                 let response = try await client.request(
@@ -25,15 +25,35 @@ extension Network {
                 throw FulcrumErrorTranslator.translate(error)
             }
         }
-
+        
         public func fetchConfirmations(forTransactionIdentifier transactionIdentifier: String) async throws -> UInt? {
             do {
-                let response = try await client.request(
+                async let transactionHeightResponse = client.request(
                     method: .blockchain(.transaction(.getHeight(transactionHash: transactionIdentifier))),
                     responseType: Response.Result.Blockchain.Transaction.GetHeight.self,
                     options: .init(timeout: timeouts.transactionConfirmations)
                 )
-                return response.height == 0 ? nil : response.height
+                async let tipHeightResponse = client.request(
+                    method: .blockchain(.headers(.getTip)),
+                    responseType: Response.Result.Blockchain.Headers.GetTip.self,
+                    options: .init(timeout: timeouts.headersTip)
+                )
+                
+                let transactionHeightResult = try await transactionHeightResponse
+                let tipHeightResult = try await tipHeightResponse
+                
+                guard transactionHeightResult.height != 0 else {
+                    return nil
+                }
+                
+                let transactionHeight = UInt(transactionHeightResult.height)
+                let tipHeight = UInt(tipHeightResult.height)
+                
+                if tipHeight < transactionHeight {
+                    return 1
+                }
+                
+                return tipHeight - transactionHeight + 1
             } catch {
                 throw FulcrumErrorTranslator.translate(error)
             }
