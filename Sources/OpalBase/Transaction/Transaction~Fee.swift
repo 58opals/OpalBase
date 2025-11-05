@@ -37,55 +37,23 @@ extension Transaction {
 }
 
 extension Transaction {
-    func estimateSize() -> Int {
-        var size = 0
-        
-        size += 4 // version (4 bytes)
-        size += 4 // locktime (4 bytes)
-        size += CompactSize(value: UInt64(inputs.count)).encodedSize
-        size += CompactSize(value: UInt64(outputs.count)).encodedSize
-        
-        inputs.forEach { size += $0.estimateSize() }
-        outputs.forEach { size += $0.estimateSize() }
-        
-        return size
+    private enum EstimationPlaceholder {
+        static let unlockingScript: Data = Transaction.Unlocker.p2pkh_CheckSig()
+            .makePlaceholderUnlockingScript(signatureFormat: .ecdsa(.der))
     }
-}
-
-extension Transaction.Input {
+    
     func estimateSize() -> Int {
-        var size = 0
-        
-        size += 32 // previous transaction hash (32 bytes)
-        size += 4 // previous transaction output index (4 bytes)
-        size += 4 // sequence (4 bytes)
-        let unlockingScriptSize = unlockingScript.isEmpty ? (1 + 72 + 1 + 33) : unlockingScript.count
-        size += CompactSize(value: UInt64(unlockingScriptSize)).encodedSize
-        size += unlockingScriptSize
-        
-        return size
+        makeSerializedTransaction(with: makeInputsForEstimation()).count
     }
-}
-
-extension Transaction.Output {
-    func estimateSize() -> Int {
-        var size = 0
-        
-        size += 8 // value (8 bytes)
-        size += CompactSize(value: UInt64(lockingScript.count)).encodedSize
-        size += lockingScript.count
-        
-        return size
-    }
-}
-
-extension CompactSize {
-    var encodedSize: Int {
-        switch self {
-        case .uint8: return 1
-        case .uint16: return 3
-        case .uint32: return 5
-        case .uint64: return 9
+    
+    private func makeInputsForEstimation() -> [Input] {
+        inputs.map { input in
+            guard input.unlockingScript.isEmpty else { return input }
+            return Input(previousTransactionHash: input.previousTransactionHash,
+                         previousTransactionOutputIndex: input.previousTransactionOutputIndex,
+                         unlockingScript: EstimationPlaceholder.unlockingScript,
+                         sequence: input.sequence)
         }
+        
     }
 }

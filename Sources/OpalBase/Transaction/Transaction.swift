@@ -31,19 +31,7 @@ public struct Transaction {
     /// Encodes the Transaction into Data.
     /// - Returns: The encoded data.
     public func encode() -> Data {
-        var data = Data()
-        
-        data.append(version.littleEndianData)
-        
-        data.append(CompactSize(value: UInt64(inputs.count)).encode())
-        inputs.forEach { data.append($0.encode()) }
-        
-        data.append(CompactSize(value: UInt64(outputs.count)).encode())
-        outputs.forEach { data.append($0.encode()) }
-        
-        data.append(lockTime.littleEndianData)
-        
-        return data
+        makeSerializedTransaction(with: inputs)
     }
     
     /// Decodes a Transaction instance from Data.
@@ -80,6 +68,24 @@ public struct Transaction {
         let transaction = Transaction(version: version, inputs: inputs, outputs: outputs, lockTime: lockTime)
         
         return (transaction, index)
+    }
+}
+
+extension Transaction {
+    func makeSerializedTransaction(with inputs: [Input]) -> Data {
+        var data = Data()
+        
+        data.append(version.littleEndianData)
+        
+        data.append(CompactSize(value: UInt64(inputs.count)).encode())
+        inputs.forEach { data.append($0.encode()) }
+        
+        data.append(CompactSize(value: UInt64(outputs.count)).encode())
+        outputs.forEach { data.append($0.encode()) }
+        
+        data.append(lockTime.littleEndianData)
+        
+        return data
     }
 }
 
