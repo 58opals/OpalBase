@@ -10,7 +10,7 @@ public actor Wallet: Identifiable {
     
     public let id: Data
     
-    var accounts: [Account] = .init()
+    var accounts: [UInt32: Account] = .init()
     
     public init(mnemonic: Mnemonic,
                 purpose: DerivationPath.Purpose = .bip44,
@@ -33,7 +33,8 @@ public actor Wallet: Identifiable {
                                             rootExtendedPrivateKey: rootExtendedPrivateKey,
                                             purpose: snapshot.purpose,
                                             coinType: snapshot.coinType)
-            self.accounts.append(account)
+            let index = await account.unhardenedIndex
+            self.accounts[index] = account
         }
     }
 }
@@ -59,14 +60,20 @@ extension Wallet {
                                         purpose: purpose,
                                         coinType: coinType,
                                         account: derivationPathAccount)
-        self.accounts.append(account)
+        let index = await account.unhardenedIndex
+        self.accounts[index] = account
     }
 }
 
 extension Wallet {
     public var numberOfAccounts: Int { self.accounts.count }
-    public func updateAccounts(_ accounts: [Account]) {
-        self.accounts = accounts
+    public func updateAccounts(_ accounts: [Account]) async {
+        var updatedAccounts: [UInt32: Account] = .init(minimumCapacity: accounts.count)
+        for account in accounts {
+            let index = await account.unhardenedIndex
+            updatedAccounts[index] = account
+        }
+        self.accounts = updatedAccounts
     }
 }
 
@@ -75,16 +82,19 @@ extension Wallet {
         return (self.purpose, self.coinType)
     }
     
-    public func fetchAccount(at unhardenedIndex: UInt32) throws -> Account {
-        guard Int(unhardenedIndex) < accounts.count else { throw Error.cannotFetchAccount(index: unhardenedIndex) }
-        return accounts[Int(unhardenedIndex)]
+    public func fetchAccount(at unhardenedIndex: UInt32) async throws -> Account {
+        guard let account = accounts[unhardenedIndex] else {
+            throw Error.cannotFetchAccount(index: unhardenedIndex)
+        }
+        
+        return account
     }
 }
 
 extension Wallet {
     public func calculateCachedBalance() async throws -> Satoshi {
         var totalBalance: Satoshi = .init()
-        for account in accounts {
+        for account in accounts.values {
             let balance = try await account.addressBook.calculateCachedTotalBalance()
             totalBalance = try totalBalance + balance
         }
@@ -96,7 +106,7 @@ extension Wallet {
         guard !accounts.isEmpty else { return try Satoshi(0) }
         
         let total: UInt64 = try await withThrowingTaskGroup(of: UInt64.self) { group in
-            for account in accounts {
+            for account in accounts.values {
                 group.addTask {
                     let balance = try await account.loadBalanceFromCache()
                     return balance.uint64

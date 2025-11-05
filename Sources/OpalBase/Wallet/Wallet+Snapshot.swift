@@ -29,7 +29,7 @@ extension Wallet.Snapshot: Sendable {}
 extension Wallet {
     public func makeSnapshot() async -> Snapshot {
         var accountSnaps: [Account.Snapshot] = .init()
-        for account in accounts {
+        for (_, account) in accounts.sorted(by: { $0.key < $1.key }) {
             let snap = await account.makeSnapshot()
             accountSnaps.append(snap)
         }
@@ -48,7 +48,8 @@ extension Wallet {
                                             rootExtendedPrivateKey: rootKey,
                                             purpose: accountSnap.purpose,
                                             coinType: accountSnap.coinType)
-            self.accounts.append(account)
+            let index = await account.unhardenedIndex
+            self.accounts[index] = account
         }
     }
 }

@@ -41,9 +41,10 @@ extension Satoshi: CustomStringConvertible {
 
 extension Satoshi: Hashable {
     public static func + (lhs: Satoshi, rhs: Satoshi) throws -> Satoshi {
-        let result = lhs.uint64 + rhs.uint64
-        guard result <= Satoshi.maximumSatoshi else { throw Error.exceedsMaximumAmount }
-        return try Satoshi(result)
+        let (sum, didOverflow) = lhs.uint64.addingReportingOverflow(rhs.uint64)
+        guard didOverflow == false else { throw Error.exceedsMaximumAmount }
+        guard sum <= Satoshi.maximumSatoshi else { throw Error.exceedsMaximumAmount }
+        return try Satoshi(sum)
     }
     
     public static func - (lhs: Satoshi, rhs: Satoshi) throws -> Satoshi {
@@ -52,10 +53,10 @@ extension Satoshi: Hashable {
     }
     
     public static func * (lhs: Satoshi, rhs: UInt64) throws -> Satoshi {
-        let (product, didOverflow) = lhs.uint64.multipliedReportingOverflow(by: rhs)
+        let (multiplication, didOverflow) = lhs.uint64.multipliedReportingOverflow(by: rhs)
         guard didOverflow == false else { throw Error.exceedsMaximumAmount }
-        guard product <= Satoshi.maximumSatoshi else { throw Error.exceedsMaximumAmount }
-        return try Satoshi(product)
+        guard multiplication <= Satoshi.maximumSatoshi else { throw Error.exceedsMaximumAmount }
+        return try Satoshi(multiplication)
     }
     
     public static func / (lhs: Satoshi, rhs: UInt64) throws -> Satoshi {
