@@ -57,3 +57,60 @@ extension Transaction {
         
     }
 }
+
+// MARK: - Legacy reference implementation
+/// Retained for documentation, this version of the fee utilities omits helper placeholders so readers can see the raw sizing logic. It works alongside the legacy `Transaction` snippet above to paint a complete picture of how virtual sizes and fees were previously calculated.
+
+private extension Transaction {
+    func estimateSize_Legacy() -> Int {
+        var size = 0
+        
+        size += 4 // version (4 bytes)
+        size += 4 // locktime (4 bytes)
+        size += CompactSize(value: UInt64(inputs.count)).encodedSize_Legacy
+        size += CompactSize(value: UInt64(outputs.count)).encodedSize_Legacy
+        
+        inputs.forEach { size += $0.estimateSize_Legacy() }
+        outputs.forEach { size += $0.estimateSize_Legacy() }
+        
+        return size
+    }
+}
+
+private extension Transaction.Input {
+    func estimateSize_Legacy() -> Int {
+        var size = 0
+        
+        size += 32 // previous transaction hash (32 bytes)
+        size += 4 // previous transaction output index (4 bytes)
+        size += 4 // sequence (4 bytes)
+        let unlockingScriptSize = unlockingScript.isEmpty ? (1 + 72 + 1 + 33) : unlockingScript.count
+        size += CompactSize(value: UInt64(unlockingScriptSize)).encodedSize_Legacy
+        size += unlockingScriptSize
+        
+        return size
+    }
+}
+
+private extension Transaction.Output {
+    func estimateSize_Legacy() -> Int {
+        var size = 0
+        
+        size += 8 // value (8 bytes)
+        size += CompactSize(value: UInt64(lockingScript.count)).encodedSize_Legacy
+        size += lockingScript.count
+        
+        return size
+    }
+}
+
+private extension CompactSize {
+    var encodedSize_Legacy: Int {
+        switch self {
+        case .uint8: return 1
+        case .uint16: return 3
+        case .uint32: return 5
+        case .uint64: return 9
+        }
+    }
+}

@@ -171,3 +171,23 @@ extension Transaction.Simple: CustomStringConvertible {
         return description
     }
 }
+
+// MARK: - Legacy reference implementation
+/// The following implementation is preserved for educational purposes. It mirrors an earlier iteration of `Transaction` that demonstrated how Bitcoin Cash transactions are serialized and sized without relying on helper methods. The snippet highlights each field that becomes part of the payload so readers can follow the binary layout step by step.
+private extension Transaction {
+    func encode_Legacy() -> Data {
+        var data = Data()
+        
+        data.append(version.littleEndianData)
+        
+        data.append(CompactSize(value: UInt64(inputs.count)).encode())
+        inputs.forEach { data.append($0.encode()) }
+        
+        data.append(CompactSize(value: UInt64(outputs.count)).encode())
+        outputs.forEach { data.append($0.encode()) }
+        
+        data.append(lockTime.littleEndianData)
+        
+        return data
+    }
+}
