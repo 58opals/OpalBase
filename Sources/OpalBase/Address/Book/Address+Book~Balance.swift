@@ -5,9 +5,16 @@ import Foundation
 extension Address.Book {
     func calculateCachedTotalBalance() throws -> Satoshi {
         let allEntries = listAllEntries()
-        let allBalances = allEntries.map { $0.cache.balance }
-        let totalBalance = allBalances.map({$0?.uint64 ?? 0}).reduce(0, +)
-        return try Satoshi(totalBalance)
+        let allBalances = allEntries.map { $0.cache.balance?.uint64 ?? 0 }
+        
+        var aggregate: UInt64 = 0
+        for balance in allBalances {
+            let (updated, didOverflow) = aggregate.addingReportingOverflow(balance)
+            if didOverflow { throw Satoshi.Error.exceedsMaximumAmount }
+            aggregate = updated
+        }
+        
+        return try Satoshi(aggregate)
     }
     
     func readCachedBalance(for address: Address) throws -> Satoshi? {

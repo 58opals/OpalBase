@@ -45,4 +45,37 @@ struct AddressTests {
             _ = try Address(invalid)
         }
     }
+    
+    @Test("address book only replenishes the gap deficit")
+    func testAddressBookMaintainsGapLimit() async throws {
+        let mnemonic = try Mnemonic(
+            words: [
+                "abandon", "abandon", "abandon", "abandon", "abandon", "abandon",
+                "abandon", "abandon", "abandon", "abandon", "abandon", "about"
+            ]
+        )
+        let rootExtendedPrivateKey = PrivateKey.Extended(rootKey: try .init(seed: mnemonic.seed))
+        let account = try DerivationPath.Account(rawIndexInteger: 0)
+        let gapLimit = 5
+        let book = try await Address.Book(
+            rootExtendedPrivateKey: rootExtendedPrivateKey,
+            purpose: .bip44,
+            coinType: .bitcoinCash,
+            account: account,
+            gapLimit: gapLimit
+        )
+        
+        let initialTotal = await book.countEntries(for: .receiving)
+        #expect(initialTotal == gapLimit)
+        
+        let entries = await book.listEntries(for: .receiving)
+        let firstEntry = try #require(entries.first)
+        try await book.mark(address: firstEntry.address, isUsed: true)
+        
+        let updatedTotal = await book.countEntries(for: .receiving)
+        let updatedUnused = await book.countUnusedEntries(for: .receiving)
+        
+        #expect(updatedTotal == initialTotal + 1)
+        #expect(updatedUnused == gapLimit)
+    }
 }

@@ -35,11 +35,14 @@ extension Address.Book {
 extension Address.Book {
     func generateEntriesIfNeeded(for usage: DerivationPath.Usage) async throws {
         let numberOfRemainingUnusedEntries = inventory.countUnusedEntries(for: usage)
-        if numberOfRemainingUnusedEntries < gapLimit {
-            try await generateEntries(for: usage,
-                                      numberOfNewEntries: gapLimit,
-                                      isUsed: false)
-        }
+        guard numberOfRemainingUnusedEntries < gapLimit else { return }
+        
+        let numberOfMissingEntries = gapLimit - numberOfRemainingUnusedEntries
+        guard numberOfMissingEntries > 0 else { return }
+        
+        try await generateEntries(for: usage,
+                                  numberOfNewEntries: numberOfMissingEntries,
+                                  isUsed: false)
     }
     
     func generateEntries(for usage: DerivationPath.Usage,

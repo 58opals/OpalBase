@@ -20,8 +20,23 @@ extension Transaction {
             self.sequence = sequence
             self.unlockersByUnspent = unlockers
             
-            self.orderedUnspentOutputs = utxoPrivateKeyPairs.keys.sorted {
-                $0.previousTransactionOutputIndex < $1.previousTransactionOutputIndex
+            self.orderedUnspentOutputs = utxoPrivateKeyPairs.keys.sorted { lhs, rhs in
+                let lhsHash = lhs.previousTransactionHash.naturalOrder
+                let rhsHash = rhs.previousTransactionHash.naturalOrder
+                
+                if lhsHash != rhsHash {
+                    return lhsHash.lexicographicallyPrecedes(rhsHash)
+                }
+                
+                if lhs.previousTransactionOutputIndex != rhs.previousTransactionOutputIndex {
+                    return lhs.previousTransactionOutputIndex < rhs.previousTransactionOutputIndex
+                }
+                
+                if lhs.value != rhs.value {
+                    return lhs.value < rhs.value
+                }
+                
+                return lhs.lockingScript.lexicographicallyPrecedes(rhs.lockingScript)
             }
         }
         
