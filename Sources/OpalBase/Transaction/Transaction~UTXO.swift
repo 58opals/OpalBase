@@ -51,7 +51,10 @@ extension Transaction {
         
         let estimatedFee = transactionWithChange.calculateFee(feePerByte: feePerByte)
         let changeAmount = changeOutput.value
-        guard changeAmount >= estimatedFee else { throw Error.insufficientFunds(required: changeAmount) }
+        guard changeAmount >= estimatedFee else {
+            let requiredAdditionalAmount = estimatedFee - changeAmount
+            throw Error.insufficientFunds(required: requiredAdditionalAmount)
+        }
         
         let remainingChange = changeAmount - estimatedFee
         
