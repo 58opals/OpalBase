@@ -49,13 +49,18 @@ extension DerivationPath {
     public enum Purpose {
         case bip44
         
-        init?(hardenedIndex: UInt32) {
-            switch hardenedIndex {
+        init?(unhardenedIndex: UInt32) {
+            switch unhardenedIndex {
             case 44:
                 self = .bip44
             default:
                 return nil
             }
+        }
+        
+        init?(hardenedIndex: UInt32) {
+            guard let unhardenedIndex = try? hardenedIndex.unhardened() else { return nil }
+            self.init(unhardenedIndex: unhardenedIndex)
         }
         
         var unhardenedIndex: UInt32 {
@@ -78,8 +83,8 @@ extension DerivationPath {
         case bitcoin
         case bitcoinCash
         
-        init?(hardenedIndex: UInt32) {
-            switch hardenedIndex {
+        init?(unhardenedIndex: UInt32) {
+            switch unhardenedIndex {
             case 0:
                 self = .bitcoin
             case 145:
@@ -87,6 +92,11 @@ extension DerivationPath {
             default:
                 return nil
             }
+        }
+        
+        init?(hardenedIndex: UInt32) {
+            guard let unhardenedIndex = try? hardenedIndex.unhardened() else { return nil }
+            self.init(unhardenedIndex: unhardenedIndex)
         }
         
         var unhardenedIndex: UInt32 {
@@ -174,7 +184,7 @@ extension DerivationPath.Purpose: Codable {
     
     public func encode(to encoder: Encoder) throws {
         var container = encoder.singleValueContainer()
-        try container.encode(unhardenedIndex)
+        try container.encode(hardenedIndex)
     }
 }
 
@@ -198,7 +208,7 @@ extension DerivationPath.CoinType: Codable {
     
     public func encode(to encoder: Encoder) throws {
         var container = encoder.singleValueContainer()
-        try container.encode(unhardenedIndex)
+        try container.encode(hardenedIndex)
     }
 }
 

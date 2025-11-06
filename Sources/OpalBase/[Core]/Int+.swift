@@ -39,3 +39,9 @@ extension BigUInt {
         return Data(repeating: 0, count: size - bytes.count) + bytes
     }
 }
+
+enum Harden {
+    static let bit: UInt32 = 0x8000_0000
+    static func isHardened(_ i: UInt32) -> Bool { (i & bit) != 0 }
+    static func unharden(_ i: UInt32) -> UInt32 { i & ~bit }
+}

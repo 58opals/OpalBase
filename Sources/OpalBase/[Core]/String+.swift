@@ -4,12 +4,10 @@ import Foundation
 
 extension String {
     func padLeft(to length: Int, with character: Character = "0") -> String {
-        switch count < length {
-        case true:
-            return String(repeatElement(character, count: length - count)) + self
-        case false:
-            return String(suffix(length))
-        }
+        guard length > count else { return self }
+        let padCount = length - count
+        let padding = String(repeating: String(character), count: padCount)
+        return padding + self
     }
     
     func convertBitsToData() -> Data {
