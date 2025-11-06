@@ -67,8 +67,8 @@ extension PublicKey.Extended: CustomDebugStringConvertible {
 
 extension PublicKey.Extended {
     private func deriveChildPublicKey(at index: UInt32) throws -> PublicKey.Extended {
-        let hardened = (index >= 0x80000000)
-        guard !hardened else { throw PublicKey.Error.hardenedDerivation }
+        let isHardened = Harden.isHardened(index)
+        guard !isHardened else { throw PublicKey.Error.hardenedDerivation }
         
         var data = Data()
         
@@ -100,7 +100,7 @@ extension PublicKey.Extended {
         let startingDepth = Int(self.depth)
         
         for index in indices.dropFirst(startingDepth) {
-            guard index < 0x8000_0000 else { throw PublicKey.Error.hardenedDerivation }
+            guard !Harden.isHardened(index) else { throw PublicKey.Error.hardenedDerivation }
             extendedKey = try extendedKey.deriveChildPublicKey(at: index)
         }
         

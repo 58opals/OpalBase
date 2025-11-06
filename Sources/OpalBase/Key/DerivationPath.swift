@@ -124,7 +124,7 @@ extension DerivationPath {
         private(set) var unhardenedIndex: UInt32
         
         init(rawIndexInteger: UInt32) throws {
-            guard rawIndexInteger < 0x80000000 else { throw Error.indexOverflow }
+            guard rawIndexInteger <= Harden.maxUnhardenedValue else { throw Error.indexOverflow }
             self.init(unhardenedIndex: rawIndexInteger)
         }
         
@@ -137,7 +137,7 @@ extension DerivationPath {
         }
         
         mutating func increase() throws {
-            guard unhardenedIndex < 0x7FFFFFFF else { throw Error.indexOverflow }
+            guard unhardenedIndex < Harden.maxUnhardenedValue else { throw Error.indexOverflow }
             unhardenedIndex += 1
         }
     }

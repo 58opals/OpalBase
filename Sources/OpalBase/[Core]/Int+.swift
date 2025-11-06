@@ -22,13 +22,13 @@ extension FixedWidthInteger {
 
 extension UInt32 {
     func hardened() throws -> UInt32 {
-        guard self < 0x80000000 else { throw DerivationPath.Error.indexTooLargeForHardening }
-        return self | 0x80000000
+        guard self <= Harden.maxUnhardenedValue else { throw DerivationPath.Error.indexTooLargeForHardening }
+        return Harden.harden(self)
     }
     
     func unhardened() throws -> UInt32 {
-        guard self >= 0x80000000 else { throw DerivationPath.Error.indexTooSmallForUnhardening }
-        return self & ~0x80000000
+        guard Harden.isHardened(self) else { throw DerivationPath.Error.indexTooSmallForUnhardening }
+        return Harden.unharden(self)
     }
 }
 
@@ -42,6 +42,8 @@ extension BigUInt {
 
 enum Harden {
     static let bit: UInt32 = 0x8000_0000
-    static func isHardened(_ i: UInt32) -> Bool { (i & bit) != 0 }
-    static func unharden(_ i: UInt32) -> UInt32 { i & ~bit }
+    static let maxUnhardenedValue: UInt32 = bit &- 1
+    static func isHardened(_ value: UInt32) -> Bool { (value & bit) != 0 }
+    static func harden(_ value: UInt32) -> UInt32 { value | bit }
+    static func unharden(_ value: UInt32) -> UInt32 { value & ~bit }
 }
