@@ -40,7 +40,8 @@ public actor Wallet: Identifiable {
 }
 
 extension Wallet {
-    public enum Error: Swift.Error {
+    public enum Error: Swift.Error, Equatable {
+        case snapshotDoesNotMatchWallet
         case cannotFetchAccount(index: UInt32)
     }
 }

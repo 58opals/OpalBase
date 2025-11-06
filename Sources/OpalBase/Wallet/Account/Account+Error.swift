@@ -4,6 +4,7 @@ import Foundation
 
 extension Account {
     public enum Error: Swift.Error {
+        case snapshotDoesNotMatchAccount
         case balanceFetchTimeout(Address)
         case balanceRefreshFailed(Address, Swift.Error)
         case paymentHasNoRecipients
@@ -18,7 +19,8 @@ extension Account {
 extension Account.Error: Equatable {
     public static func == (lhs: Account.Error, rhs: Account.Error) -> Bool {
         switch (lhs, rhs) {
-        case (.paymentHasNoRecipients, .paymentHasNoRecipients),
+        case (.snapshotDoesNotMatchAccount, .snapshotDoesNotMatchAccount),
+            (.paymentHasNoRecipients, .paymentHasNoRecipients),
             (.paymentExceedsMaximumAmount, .paymentExceedsMaximumAmount):
             return true
         case (.balanceFetchTimeout(let leftAddress), .balanceFetchTimeout(let rightAddress)):

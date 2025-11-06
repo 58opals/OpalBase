@@ -19,21 +19,35 @@ public actor Account: Identifiable {
          purpose: DerivationPath.Purpose,
          coinType: DerivationPath.CoinType,
          account: DerivationPath.Account,
-         privacyConfiguration: PrivacyShaper.Configuration = .standard) async throws {
+         addressBook: Address.Book,
+         privacyConfiguration: PrivacyShaper.Configuration = .standard) throws {
         self.rootExtendedPrivateKey = rootExtendedPrivateKey
         self.purpose = purpose
         self.coinType = coinType
         self.account = account
         
         self.id = try [self.rootExtendedPrivateKey.serialize(), self.purpose.hardenedIndex.data, self.coinType.hardenedIndex.data, self.account.deriveHardenedIndex().data].generateID()
-        
-        self.addressBook = try await Address.Book(rootExtendedPrivateKey: rootExtendedPrivateKey,
-                                                  purpose: purpose,
-                                                  coinType: coinType,
-                                                  account: account)
-        
+        self.addressBook = addressBook
         self.privacyConfiguration = privacyConfiguration
         self.privacyShaper = .init(configuration: privacyConfiguration)
+    }
+    
+    init(rootExtendedPrivateKey: PrivateKey.Extended,
+         purpose: DerivationPath.Purpose,
+         coinType: DerivationPath.CoinType,
+         account: DerivationPath.Account,
+         privacyConfiguration: PrivacyShaper.Configuration = .standard) async throws {
+        let addressBook = try await Address.Book(rootExtendedPrivateKey: rootExtendedPrivateKey,
+                                                 purpose: purpose,
+                                                 coinType: coinType,
+                                                 account: account)
+        
+        try self.init(rootExtendedPrivateKey: rootExtendedPrivateKey,
+                      purpose: purpose,
+                      coinType: coinType,
+                      account: account,
+                      addressBook: addressBook,
+                      privacyConfiguration: privacyConfiguration)
     }
     
     init(from snapshot: Account.Snapshot,
@@ -41,12 +55,19 @@ public actor Account: Identifiable {
          purpose: DerivationPath.Purpose,
          coinType: DerivationPath.CoinType,
          privacyConfiguration: PrivacyShaper.Configuration = .standard) async throws {
-        try await self.init(rootExtendedPrivateKey: rootExtendedPrivateKey,
-                            purpose: purpose,
-                            coinType: coinType,
-                            account: try .init(rawIndexInteger: snapshot.account),
-                            privacyConfiguration: privacyConfiguration)
-        try await self.addressBook.applySnapshot(snapshot.addressBook)
+        let accountPath = try DerivationPath.Account(rawIndexInteger: snapshot.accountUnhardenedIndex)
+        let addressBook = try await Address.Book(from: snapshot.addressBook,
+                                                 rootExtendedPrivateKey: rootExtendedPrivateKey,
+                                                 purpose: purpose,
+                                                 coinType: coinType,
+                                                 account: accountPath)
+        
+        try self.init(rootExtendedPrivateKey: rootExtendedPrivateKey,
+                      purpose: purpose,
+                      coinType: coinType,
+                      account: accountPath,
+                      addressBook: addressBook,
+                      privacyConfiguration: privacyConfiguration)
     }
 }
 

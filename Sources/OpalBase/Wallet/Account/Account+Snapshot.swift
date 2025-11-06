@@ -6,16 +6,16 @@ extension Account {
     public struct Snapshot: Codable {
         public let purpose: DerivationPath.Purpose
         public let coinType: DerivationPath.CoinType
-        public let account: UInt32
+        public let accountUnhardenedIndex: UInt32
         public let addressBook: Address.Book.Snapshot
         
         public init(purpose: DerivationPath.Purpose,
                     coinType: DerivationPath.CoinType,
-                    account: UInt32,
+                    accountUnhardenedIndex: UInt32,
                     addressBook: Address.Book.Snapshot) {
             self.purpose = purpose
             self.coinType = coinType
-            self.account = account
+            self.accountUnhardenedIndex = accountUnhardenedIndex
             self.addressBook = addressBook
         }
     }
@@ -28,11 +28,16 @@ extension Account {
         let bookSnap = await addressBook.makeSnapshot()
         return Snapshot(purpose: purpose,
                         coinType: coinType,
-                        account: self.account.unhardenedIndex,
+                        accountUnhardenedIndex: self.account.unhardenedIndex,
                         addressBook: bookSnap)
     }
     
-    public func applySnapshot(_ snapshot: Snapshot) async throws {
-        try await addressBook.applySnapshot(snapshot.addressBook)
+    public func refresh(with snapshot: Snapshot) async throws {
+        guard snapshot.purpose == purpose,
+              snapshot.coinType == coinType,
+              snapshot.accountUnhardenedIndex == self.account.unhardenedIndex else {
+            throw Error.snapshotDoesNotMatchAccount
+        }
+        try await addressBook.refresh(with: snapshot.addressBook)
     }
 }

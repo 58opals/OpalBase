@@ -57,10 +57,13 @@ public struct Mnemonic {
     }
     
     static func generateSeed(from mnemonicWords: [String], passphrase: String = "") throws -> Data {
-        let words = mnemonicWords.joined(separator: " ")
+        let mnemonicSentence = mnemonicWords.joined(separator: " ")
+        let normalizedMnemonic = mnemonicSentence.decomposedStringWithCompatibilityMapping
+        let normalizedPassphrase = passphrase.decomposedStringWithCompatibilityMapping
         
-        let password = Array(Data(words.utf8).bytes)
-        let salt = Array(Data(("mnemonic" + passphrase).utf8).bytes)
+        let password = Array(normalizedMnemonic.utf8)
+        let saltString = "mnemonic" + normalizedPassphrase
+        let salt = Array(saltString.utf8)
         let iterations = 2048
         let keyLength = 64
         

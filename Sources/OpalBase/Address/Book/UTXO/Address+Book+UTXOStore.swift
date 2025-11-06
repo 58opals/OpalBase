@@ -89,8 +89,9 @@ extension Address.Book {
         }
         
         private mutating func store(_ utxo: Transaction.Output.Unspent) {
-            utxosByLockingScript[utxo.lockingScript, default: []]
-                .insert(utxo)
+            var utxos = utxosByLockingScript[utxo.lockingScript] ?? []
+            utxos.insert(utxo)
+            utxosByLockingScript[utxo.lockingScript] = utxos
         }
         
         private mutating func discard(_ utxo: Transaction.Output.Unspent) {

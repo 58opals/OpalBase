@@ -41,6 +41,13 @@ extension Wallet {
     }
     
     public func applySnapshot(_ snapshot: Snapshot) async throws {
+        guard snapshot.words == mnemonic.words,
+              snapshot.passphrase == mnemonic.passphrase,
+              snapshot.purpose == purpose,
+              snapshot.coinType == coinType else {
+            throw Error.snapshotDoesNotMatchWallet
+        }
+        
         self.accounts.removeAll()
         let rootKey = PrivateKey.Extended(rootKey: try .init(seed: mnemonic.seed))
         for accountSnap in snapshot.accounts {

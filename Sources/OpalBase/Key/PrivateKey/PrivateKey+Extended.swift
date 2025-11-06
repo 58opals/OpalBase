@@ -102,17 +102,14 @@ extension PrivateKey.Extended {
     }
     
     func deriveChild(at path: DerivationPath) throws -> PrivateKey.Extended {
+        try deriveChild(at: path.makeIndices())
+    }
+    
+    func deriveChild(at indices: [UInt32]) throws -> PrivateKey.Extended {
         var extendedKey = self
+        let startingDepth = Int(self.depth)
         
-        let indices = [
-            path.purpose.hardenedIndex,
-            path.coinType.hardenedIndex,
-            try path.account.deriveHardenedIndex(),
-            path.usage.unhardenedIndex,
-            path.index
-        ]
-        
-        for index in indices {
+        for index in indices.dropFirst(startingDepth) {
             extendedKey = try extendedKey.deriveChildPrivateKey(at: index)
         }
         
@@ -124,21 +121,8 @@ extension PrivateKey.Extended {
     func deriveExtendedPublicKey() throws -> PublicKey.Extended { try .init(extendedPrivateKey: self) }
     
     func deriveChildPublicKey(at path: DerivationPath) throws -> PublicKey.Extended {
-        var extendedKey = self
-        
-        let indices = [
-            path.purpose.hardenedIndex,
-            path.coinType.hardenedIndex,
-            try path.account.deriveHardenedIndex(),
-            path.usage.unhardenedIndex,
-            path.index
-        ]
-        
-        for index in indices {
-            extendedKey = try extendedKey.deriveChildPrivateKey(at: index)
-        }
-        
-        return try .init(extendedPrivateKey: extendedKey)
+        let child = try deriveChild(at: path)
+        return try .init(extendedPrivateKey: child)
     }
 }
 

@@ -21,6 +21,17 @@ public struct DerivationPath {
         self.index = index
     }
     
+    func makeIndices() throws -> [UInt32] {
+        let accountIndex = try account.deriveHardenedIndex()
+        return [
+            purpose.hardenedIndex,
+            coinType.hardenedIndex,
+            accountIndex,
+            usage.unhardenedIndex,
+            index
+        ]
+    }
+    
     public var path: String {
         "m/\(purpose.unhardenedIndex)'/\(coinType.unhardenedIndex)'/\(account.unhardenedIndex)'/\(usage.unhardenedIndex)/\(index)"
     }

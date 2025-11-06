@@ -128,6 +128,24 @@ extension Address.Book.Snapshot.Transaction: Sendable {}
 extension Address.Book.Snapshot.Transaction.MerkleProof: Sendable {}
 
 extension Address.Book {
+    init(from snapshot: Snapshot,
+         rootExtendedPrivateKey: PrivateKey.Extended? = nil,
+         rootExtendedPublicKey: PublicKey.Extended? = nil,
+         purpose: DerivationPath.Purpose,
+         coinType: DerivationPath.CoinType,
+         account: DerivationPath.Account,
+         gapLimit: Int = 20,
+         cacheValidityDuration: TimeInterval = 10 * 60) async throws {
+        try await self.init(rootExtendedPrivateKey: rootExtendedPrivateKey,
+                            rootExtendedPublicKey: rootExtendedPublicKey,
+                            purpose: purpose,
+                            coinType: coinType,
+                            account: account,
+                            gapLimit: gapLimit,
+                            cacheValidityDuration: cacheValidityDuration)
+        try await refresh(with: snapshot)
+    }
+    
     public func makeSnapshot() -> Snapshot {
         let receiving = inventory.listEntries(for: .receiving).map { entry in
             Snapshot.Entry(usage: entry.derivationPath.usage,
@@ -182,7 +200,7 @@ extension Address.Book {
                         transactions: transactionSnaps)
     }
     
-    public func applySnapshot(_ snapshot: Snapshot) async throws {
+    public func refresh(with snapshot: Snapshot) async throws {
         try await apply(entrySnapshots: snapshot.receivingEntries, usage: .receiving)
         try await apply(entrySnapshots: snapshot.changeEntries, usage: .change)
         

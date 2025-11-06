@@ -92,17 +92,15 @@ extension PublicKey.Extended {
     }
     
     func deriveChild(at path: DerivationPath) throws -> PublicKey.Extended {
+        try deriveChild(at: path.makeIndices())
+    }
+    
+    func deriveChild(at indices: [UInt32]) throws -> PublicKey.Extended {
         var extendedKey = self
+        let startingDepth = Int(self.depth)
         
-        let indices = [
-            path.purpose.hardenedIndex,
-            path.coinType.hardenedIndex,
-            try path.account.deriveHardenedIndex(),
-            path.usage.unhardenedIndex,
-            path.index
-        ]
-        
-        for index in indices {
+        for index in indices.dropFirst(startingDepth) {
+            guard index < 0x8000_0000 else { throw PublicKey.Error.hardenedDerivation }
             extendedKey = try extendedKey.deriveChildPublicKey(at: index)
         }
         
