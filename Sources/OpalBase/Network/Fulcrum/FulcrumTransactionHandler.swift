@@ -45,14 +45,28 @@ extension Network {
                 let transactionHeight = transactionHeightResult.height
                 let tipHeight = tipHeightResult.height
                 
-                guard transactionHeight > 0 else { return nil }
-                if tipHeight < transactionHeight { return 1 }
+                guard let confirmationCount = Self.calculateConfirmationCount(
+                    transactionHeight: transactionHeight,
+                    tipHeight: tipHeight
+                ) else {
+                    return nil
+                }
                 
-                let confirmationCount = tipHeight - transactionHeight + 1
-                return UInt(confirmationCount)
+                return confirmationCount
             } catch {
                 throw FulcrumErrorTranslator.translate(error)
             }
+        }
+        
+        static func calculateConfirmationCount<Height: BinaryInteger>(
+            transactionHeight: Height,
+            tipHeight: Height
+        ) -> UInt? {
+            guard transactionHeight > 0 else { return nil }
+            guard tipHeight >= transactionHeight else { return nil }
+            
+            let confirmationCount = tipHeight - transactionHeight + 1
+            return UInt(confirmationCount)
         }
     }
 }
