@@ -137,6 +137,7 @@ extension Transaction {
         case outputValueIsLessThanTheDustLimit
         case sighashSingleIndexOutOfRange
         case transactionNotFound
+        case feeCalculationOverflow(size: Int, feePerByte: UInt64)
     }
 }
 

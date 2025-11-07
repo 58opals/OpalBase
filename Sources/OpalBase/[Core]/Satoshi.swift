@@ -38,6 +38,7 @@ extension Satoshi {
         case exceedsMaximumAmount
         case negativeResult
         case invalidPrecision
+        case divisionByZero
     }
 }
 
@@ -68,6 +69,7 @@ extension Satoshi: Hashable {
     }
     
     public static func / (lhs: Satoshi, rhs: UInt64) throws -> Satoshi {
+        guard rhs != 0 else { throw Error.divisionByZero }
         return try Satoshi(lhs.uint64 / rhs)
     }
     

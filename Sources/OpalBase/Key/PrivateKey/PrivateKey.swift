@@ -48,5 +48,6 @@ extension PrivateKey {
         case invalidChecksum
         case invalidKeyPrefix
         case invalidStringKey
+        case invalidDerivedKey
     }
 }

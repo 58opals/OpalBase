@@ -48,15 +48,20 @@ extension Wallet {
             throw Error.snapshotDoesNotMatchWallet
         }
         
-        self.accounts.removeAll()
         let rootKey = PrivateKey.Extended(rootKey: try .init(seed: mnemonic.seed))
+        var updatedAccounts: [UInt32: Account] = .init(minimumCapacity: snapshot.accounts.count)
         for accountSnap in snapshot.accounts {
+            guard accountSnap.purpose == purpose,
+                  accountSnap.coinType == coinType else {
+                throw Error.snapshotDoesNotMatchWallet
+            }
             let account = try await Account(from: accountSnap,
                                             rootExtendedPrivateKey: rootKey,
-                                            purpose: accountSnap.purpose,
-                                            coinType: accountSnap.coinType)
+                                            purpose: purpose,
+                                            coinType: coinType)
             let index = await account.unhardenedIndex
-            self.accounts[index] = account
+            updatedAccounts[index] = account
         }
+        self.accounts = updatedAccounts
     }
 }

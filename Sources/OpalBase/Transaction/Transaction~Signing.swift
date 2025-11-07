@@ -14,13 +14,23 @@ extension Transaction {
         hashType: HashType,
         outputBeingSpent: Output
     ) throws -> Data {
-        //if hashType.mode == .single, index >= outputs.count { throw Transaction.Error.sighashSingleIndexOutOfRange }
-
+        guard inputs.indices.contains(index) else {
+            throw Transaction.Error.sighashSingleIndexOutOfRange
+        }
+        
+        let inputBeingSigned = inputs[index]
+        
+        if hashType.mode == .single, index >= outputs.count {
+            var invalidIndexHash = Data(repeating: 0x00, count: 31)
+            invalidIndexHash.append(0x01)
+            return invalidIndexHash
+        }
+        
         var preimage = Data()
-
+        
         let transactionVersion = version.littleEndianData
         preimage.append(transactionVersion)
-
+        
         var previousOutputsHash = Data()
         if hashType.isAnyoneCanPay {
             previousOutputsHash = Data(repeating: 0x00, count: 32)
@@ -35,7 +45,7 @@ extension Transaction {
             previousOutputsHash = HASH256.hash(data)
         }
         preimage.append(previousOutputsHash)
-
+        
         var sequenceNumbersHash = Data()
         if hashType.isAllWithoutAnyoneCanPay {
             var data = Data()
@@ -46,27 +56,27 @@ extension Transaction {
         } else {
             sequenceNumbersHash = Data(repeating: 0x00, count: 32)
         }
-
+        
         preimage.append(sequenceNumbersHash)
-
-        let previousOutputHash = inputs[index].previousTransactionHash
+        
+        let previousOutputHash = inputBeingSigned.previousTransactionHash
         preimage.append(previousOutputHash.naturalOrder)
-        let previousOutputIndex = inputs[index].previousTransactionOutputIndex
+        let previousOutputIndex = inputBeingSigned.previousTransactionOutputIndex
             .littleEndianData
         preimage.append(previousOutputIndex)
-
+        
         let modifiedLockingScriptLength = outputBeingSpent.lockingScriptLength
             .encode()
         preimage.append(modifiedLockingScriptLength)
         let modifiedLockingScript = outputBeingSpent.lockingScript
         preimage.append(modifiedLockingScript)
-
+        
         let previousOutputValue = outputBeingSpent.value.littleEndianData
         preimage.append(previousOutputValue)
-
-        let inputSequenceNumber = inputs[index].sequence.littleEndianData
+        
+        let inputSequenceNumber = inputBeingSigned.sequence.littleEndianData
         preimage.append(inputSequenceNumber)
-
+        
         var transactionOutputsHash = Data()
         switch hashType.mode {
         case .all:
@@ -78,25 +88,17 @@ extension Transaction {
         case .none:
             transactionOutputsHash = Data(repeating: 0x00, count: 32)
         case .single:
-            if index < outputs.count {
-                let outputWithTheSameIndexAsTheInputBeingSigned = outputs[index]
-                    .encode()
-                transactionOutputsHash = HASH256.hash(
-                    outputWithTheSameIndexAsTheInputBeingSigned
-                )
-            } else {
-                // BIP-0143: when the input index exceeds the number of outputs the hashOutputs field must be all zeroes instead of aborting the signature calculation.
-                transactionOutputsHash = Data(repeating: 0x00, count: 32)
-            }
+            let outputWithTheSameIndexAsTheInputBeingSigned = outputs[index].encode()
+            transactionOutputsHash = HASH256.hash(outputWithTheSameIndexAsTheInputBeingSigned)
         }
         preimage.append(transactionOutputsHash)
-
+        
         let transactionLockTime = lockTime.littleEndianData
         preimage.append(transactionLockTime)
-
+        
         let signatureHashType = hashType.value.littleEndianData
         preimage.append(signatureHashType)
-
+        
         return preimage
     }
 }
@@ -108,10 +110,10 @@ extension Transaction {
     ///   - index: The index of the input to modify.
     /// - Returns: A new transaction with the updated input.
     func injectUnlockingScript(_ unlockingScript: Data, inputIndex: Int)
-        -> Transaction
+    -> Transaction
     {
         var newInputs = inputs
-
+        
         let originalInput = newInputs[inputIndex]
         let newInput = Input(
             previousTransactionHash: originalInput.previousTransactionHash,
@@ -121,7 +123,7 @@ extension Transaction {
             sequence: originalInput.sequence
         )
         newInputs[inputIndex] = newInput
-
+        
         return Transaction(
             version: self.version,
             inputs: newInputs,

@@ -3,9 +3,9 @@
 import Foundation
 
 extension Transaction {
-    func calculateFee(feePerByte: UInt64 = 1) -> UInt64 {
-        let size = self.estimateSize()
-        return UInt64(size) * feePerByte
+    func calculateFee(feePerByte: UInt64 = 1) throws -> UInt64 {
+        let size = estimateSize()
+        return try Self.makeFee(size: size, feePerByte: feePerByte)
     }
 }
 
@@ -30,9 +30,9 @@ extension Transaction {
                             outputs: [Output],
                             feePerByte: UInt64,
                             version: UInt32 = 2,
-                            lockTime: UInt32 = 0) -> UInt64 {
+                            lockTime: UInt32 = 0) throws -> UInt64 {
         let size = estimateSize(inputCount: inputCount, outputs: outputs, version: version, lockTime: lockTime)
-        return UInt64(size) * feePerByte
+        return try makeFee(size: size, feePerByte: feePerByte)
     }
 }
 
@@ -55,6 +55,18 @@ extension Transaction {
                          sequence: input.sequence)
         }
         
+    }
+}
+
+private extension Transaction {
+    static func makeFee(size: Int, feePerByte: UInt64) throws -> UInt64 {
+        guard size >= 0 else { throw Transaction.Error.feeCalculationOverflow(size: size, feePerByte: feePerByte) }
+        
+        let byteCount = UInt64(size)
+        let (fee, overflow) = byteCount.multipliedReportingOverflow(by: feePerByte)
+        guard !overflow else { throw Transaction.Error.feeCalculationOverflow(size: size, feePerByte: feePerByte) }
+        
+        return fee
     }
 }
 

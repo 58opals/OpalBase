@@ -44,7 +44,7 @@ extension Address.Book.CoinSelector {
             selection.append(utxo)
             total &+= utxo.value
             
-            if evaluate(selection: selection, sum: total) != nil {
+            if try evaluate(selection: selection, sum: total) != nil {
                 return selection
             }
         }
@@ -57,8 +57,8 @@ extension Address.Book.CoinSelector {
         var bestEvaluation: Address.Book.CoinSelection.Evaluation?
         let suffixTotals = makeSuffixTotals()
         
-        func updateBest(selection: [Transaction.Output.Unspent], sum: UInt64) {
-            guard let evaluation = evaluate(selection: selection, sum: sum) else { return }
+        func updateBest(selection: [Transaction.Output.Unspent], sum: UInt64) throws {
+            guard let evaluation = try evaluate(selection: selection, sum: sum) else { return }
             
             if let currentBest = bestEvaluation {
                 if evaluation.excess < currentBest.excess {
@@ -75,15 +75,15 @@ extension Address.Book.CoinSelector {
             }
         }
         
-        func explore(index: Int, selection: [Transaction.Output.Unspent], sum: UInt64) {
-            updateBest(selection: selection, sum: sum)
+        func explore(index: Int, selection: [Transaction.Output.Unspent], sum: UInt64) throws {
+            try updateBest(selection: selection, sum: sum)
             
             guard index < utxos.count else { return }
             
             let remaining = suffixTotals[index]
-            let minimalFee = Transaction.estimateFee(inputCount: selection.count,
-                                                     outputs: configuration.recipientOutputs,
-                                                     feePerByte: feePerByte)
+            let minimalFee = try Transaction.estimateFee(inputCount: selection.count,
+                                                         outputs: configuration.recipientOutputs,
+                                                         feePerByte: feePerByte)
             let minimalRequirement = targetAmount &+ minimalFee
             if sum &+ remaining < minimalRequirement { return }
             
@@ -91,26 +91,26 @@ extension Address.Book.CoinSelector {
             selectionIncludingCurrent.append(utxos[index])
             let sumIncludingCurrent = sum &+ utxos[index].value
             
-            explore(index: index + 1,
-                    selection: selectionIncludingCurrent,
-                    sum: sumIncludingCurrent)
-            explore(index: index + 1, selection: selection, sum: sum)
+            try explore(index: index + 1,
+                        selection: selectionIncludingCurrent,
+                        sum: sumIncludingCurrent)
+            try explore(index: index + 1, selection: selection, sum: sum)
         }
         
-        explore(index: 0, selection: .init(), sum: 0)
+        try explore(index: 0, selection: .init(), sum: 0)
         guard !bestSelection.isEmpty else { throw Address.Book.Error.insufficientFunds }
         return bestSelection
     }
     
     private func evaluate(selection: [Transaction.Output.Unspent],
-                          sum: UInt64) -> Address.Book.CoinSelection.Evaluation? {
-        Address.Book.CoinSelection.evaluate(total: sum,
-                                            inputCount: selection.count,
-                                            targetAmount: targetAmount,
-                                            recipientOutputs: configuration.recipientOutputs,
-                                            outputsWithChange: configuration.outputsWithChange,
-                                            dustLimit: dustLimit,
-                                            feePerByte: feePerByte)
+                          sum: UInt64) throws -> Address.Book.CoinSelection.Evaluation? {
+        try Address.Book.CoinSelection.evaluate(total: sum,
+                                                inputCount: selection.count,
+                                                targetAmount: targetAmount,
+                                                recipientOutputs: configuration.recipientOutputs,
+                                                outputsWithChange: configuration.outputsWithChange,
+                                                dustLimit: dustLimit,
+                                                feePerByte: feePerByte)
     }
     
     private func makeSuffixTotals() -> [UInt64] {
@@ -192,10 +192,10 @@ extension Address.Book.CoinSelection {
                          recipientOutputs: [Transaction.Output],
                          outputsWithChange: [Transaction.Output],
                          dustLimit: UInt64,
-                         feePerByte: UInt64) -> Evaluation? {
-        let feeWithoutChange = Transaction.estimateFee(inputCount: inputCount,
-                                                       outputs: recipientOutputs,
-                                                       feePerByte: feePerByte)
+                         feePerByte: UInt64) throws -> Evaluation? {
+        let feeWithoutChange = try Transaction.estimateFee(inputCount: inputCount,
+                                                           outputs: recipientOutputs,
+                                                           feePerByte: feePerByte)
         let requiredWithoutChange = targetAmount &+ feeWithoutChange
         
         if total >= requiredWithoutChange {
@@ -205,9 +205,9 @@ extension Address.Book.CoinSelection {
             }
         }
         
-        let feeWithChange = Transaction.estimateFee(inputCount: inputCount,
-                                                    outputs: outputsWithChange,
-                                                    feePerByte: feePerByte)
+        let feeWithChange = try Transaction.estimateFee(inputCount: inputCount,
+                                                        outputs: outputsWithChange,
+                                                        feePerByte: feePerByte)
         let requiredWithChange = targetAmount &+ feeWithChange
         
         guard total >= requiredWithChange else { return nil }

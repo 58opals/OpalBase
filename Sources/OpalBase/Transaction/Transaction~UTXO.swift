@@ -49,7 +49,7 @@ extension Transaction {
                                                 outputs: recipientOutputs + [changeOutput],
                                                 lockTime: lockTime)
         
-        let estimatedFee = transactionWithChange.calculateFee(feePerByte: feePerByte)
+        let estimatedFee = try transactionWithChange.calculateFee(feePerByte: feePerByte)
         let changeAmount = changeOutput.value
         guard changeAmount >= estimatedFee else {
             let requiredAdditionalAmount = estimatedFee - changeAmount
@@ -76,7 +76,7 @@ extension Transaction {
                                                inputs: inputs,
                                                outputs: prunedOutputs,
                                                lockTime: lockTime)
-        let finalizedFee = finalizedTransaction.calculateFee(feePerByte: feePerByte)
+        let finalizedFee = try finalizedTransaction.calculateFee(feePerByte: feePerByte)
         
         return (prunedOutputs, finalizedFee)
     }
