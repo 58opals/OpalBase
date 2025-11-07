@@ -62,7 +62,7 @@ extension Network {
             transactionHeight: Height,
             tipHeight: Height
         ) -> UInt? {
-            guard transactionHeight > 0 else { return nil }
+            guard transactionHeight >= 0 else { return nil }
             guard tipHeight >= transactionHeight else { return nil }
             
             let confirmationCount = tipHeight - transactionHeight + 1

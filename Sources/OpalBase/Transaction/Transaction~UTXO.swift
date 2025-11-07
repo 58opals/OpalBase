@@ -72,7 +72,13 @@ extension Transaction {
         guard !prunedOutputs.isEmpty else { throw Error.insufficientFunds(required: totalPrunedOutput) }
         guard !prunedOutputs.contains(where: { $0.value < Transaction.dustLimit }) else { throw Error.outputValueIsLessThanTheDustLimit }
         
-        return (prunedOutputs, estimatedFee)
+        let finalizedTransaction = Transaction(version: version,
+                                               inputs: inputs,
+                                               outputs: prunedOutputs,
+                                               lockTime: lockTime)
+        let finalizedFee = finalizedTransaction.calculateFee(feePerByte: feePerByte)
+        
+        return (prunedOutputs, finalizedFee)
     }
     
     private static func signTransaction(_ unsignedTransaction: Transaction,

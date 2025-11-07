@@ -262,9 +262,21 @@ extension Address.Book {
         }
         
         for snap in entrySnapshots {
+            let restoredBalance: Satoshi?
+            if let balanceValue = snap.balance {
+                do {
+                    restoredBalance = try Satoshi(balanceValue)
+                } catch {
+                    
+                    throw Address.Book.Error.invalidSnapshotBalance(value: balanceValue, reason: error)
+                }
+            } else {
+                restoredBalance = nil
+            }
+            
             inventory.updateEntry(at: Int(snap.index), usage: usage) { entry in
                 entry.isUsed = snap.isUsed
-                entry.cache.balance = snap.balance.flatMap { try? Satoshi($0) }
+                entry.cache.balance = restoredBalance
                 entry.cache.lastUpdated = snap.lastUpdated
             }
         }

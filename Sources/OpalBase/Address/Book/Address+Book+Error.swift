@@ -18,5 +18,6 @@ extension Address.Book {
         
         case cacheInvalid
         case cacheUpdateFailed
+        case invalidSnapshotBalance(value: UInt64, reason: Swift.Error)
     }
 }
