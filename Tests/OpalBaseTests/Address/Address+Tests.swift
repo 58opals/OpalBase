@@ -31,6 +31,20 @@ struct AddressTests {
         }
     }
     
+    @Test("cash address accepts uppercase prefix")
+    func testDecodeCashAddressWithUppercasePrefix() throws {
+        let cashaddr = "BITCOINCASH:qpm2qsznhks23z7629mms6s4cwef74vcwvy22gdx6a"
+        let address = try Address(cashaddr)
+        #expect(address.string == cashaddr)
+        
+        switch address.lockingScript {
+        case .p2pkh_OPCHECKSIG(let hash):
+            #expect(hash.data.count == 20)
+        default:
+            #expect(Bool(false), "Expected P2PKH locking script")
+        }
+    }
+    
     @Test("filter removes invalid characters")
     func testFilterRemovesInvalidCharacters() {
         let noisy = "BITCOINCASH:QPM2-QSZN HK S23Z7629MMS6S4CWEF74VCWVY22GDX6A"

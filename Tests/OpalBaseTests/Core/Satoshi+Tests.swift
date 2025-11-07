@@ -4,7 +4,7 @@ import Testing
 
 @Suite("Satoshi", .tags(.unit))
 struct SatoshiTests {
-    @Test("initialisation from integer")
+    @Test("initialization from integer")
     func testInitializeFromInteger() throws {
         let value = try Satoshi(42)
         #expect(value.uint64 == 42)
@@ -35,6 +35,13 @@ struct SatoshiTests {
         
         #expect(throws: Satoshi.Error.negativeResult) {
             _ = try Satoshi(1) - Satoshi(2)
+        }
+    }
+    
+    @Test("initialisation from BCH rejects negative values")
+    func testInitialiseFromBCHRejectsNegativeValues() throws {
+        #expect(throws: Satoshi.Error.negativeResult) {
+            _ = try Satoshi(bch: -0.0001)
         }
     }
 }

@@ -20,8 +20,15 @@ public struct Satoshi {
     }
     
     public init(bch: Double) throws {
-        let satoshi = UInt64((bch * Double(Satoshi.perBCH)).rounded())
-        guard satoshi <= Satoshi.maximumSatoshi else { throw Error.exceedsMaximumAmount }
+        guard bch.isFinite else { throw Error.exceedsMaximumAmount }
+        guard bch >= 0 else { throw Error.negativeResult }
+        
+        let scaledValue = (bch * Double(Satoshi.perBCH)).rounded()
+        guard scaledValue.isFinite else { throw Error.exceedsMaximumAmount }
+        guard scaledValue >= 0 else { throw Error.negativeResult }
+        guard scaledValue <= Double(Satoshi.maximumSatoshi) else { throw Error.exceedsMaximumAmount }
+        
+        let satoshi = UInt64(scaledValue)
         self.uint64 = satoshi
     }
 }

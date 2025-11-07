@@ -28,9 +28,13 @@ public struct Mnemonic {
     static func generateEntropy(numberOfBits: Int) throws -> Data {
         guard numberOfBits % 32 == 0, numberOfBits >= 128, numberOfBits <= 256 else { throw Error.entropyGenerationFailed }
         
-        var randomBytes = [UInt8](repeating: 0, count: numberOfBits / 8)
-        let result = SecRandomCopyBytes(kSecRandomDefault, randomBytes.count, &randomBytes)
-        guard result == errSecSuccess else { throw Error.entropyGenerationFailed }
+        let byteCount = numberOfBits / 8
+        let randomBytes: [UInt8]
+        do {
+            randomBytes = try SecureRandom.makeBytes(count: byteCount)
+        } catch {
+            throw Error.entropyGenerationFailed
+        }
         
         return Data(randomBytes)
     }

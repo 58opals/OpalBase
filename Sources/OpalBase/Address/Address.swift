@@ -16,8 +16,10 @@ public struct Address {
         if string.contains(Address.separator) {
             let splitComponents = string.split(separator: Address.separator)
             guard splitComponents.count == 2 else { throw Error.invalidCashAddressFormat }
-            prefix = String(splitComponents[0])
-            guard prefix == Address.prefix else { throw Error.invalidCashAddressFormat }
+            let providedPrefix = String(splitComponents[0])
+            guard providedPrefix.caseInsensitiveCompare(Address.prefix) == .orderedSame else { throw Error.invalidCashAddressFormat }
+            
+            prefix = Address.prefix
             encodedPayload = String(splitComponents[1])
         } else {
             prefix = Address.prefix

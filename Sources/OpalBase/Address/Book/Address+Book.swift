@@ -99,7 +99,9 @@ extension Address.Book {
     func handleIncomingTransaction(_ detailedTransaction: Transaction.Detailed) throws {
         for (index, output) in detailedTransaction.transaction.outputs.enumerated() {
             let lockingScript = output.lockingScript
-            let address = try Address(script: .decode(lockingScript: lockingScript))
+            
+            guard let script = try? Script.decode(lockingScript: lockingScript) else { continue }
+            guard let address = try? Address(script: script) else { continue }
             
             if inventory.contains(address: address) {
                 let utxo = Transaction.Output.Unspent(output: output,
