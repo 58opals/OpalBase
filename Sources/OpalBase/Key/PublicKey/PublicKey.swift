@@ -46,6 +46,7 @@ extension PublicKey {
         case invalidFormat
         case invalidLength
         case invalidVersion
+        case invalidChecksum
         case hardenedDerivation
         case publicKeyDerivationFailed
     }

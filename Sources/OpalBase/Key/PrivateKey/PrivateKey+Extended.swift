@@ -30,15 +30,22 @@ extension PrivateKey {
         init(xprv: String) throws {
             guard let data = Base58.decode(xprv) else { throw Error.invalidFormat }
             guard data.count == 82 else { throw Error.invalidLength }
-            let version = data[0..<4].withUnsafeBytes { UInt32(bigEndian: $0.loadUnaligned(as: UInt32.self)) }
-            guard version == 0x0488ade4 else { throw Error.invalidVersion } // xprv main‑net
-            self.depth = data[4]
-            self.parentFingerprint = Data(data[5..<9])
-            self.childIndexNumber = data[9..<13].withUnsafeBytes { UInt32(bigEndian: $0.loadUnaligned(as: UInt32.self)) }
-            self.chainCode = Data(data[13..<45])
             
-            guard data[45] == 0 else { throw Error.invalidKeyPrefix }
-            self.privateKey = Data(data[46..<78])
+            let payload = data.prefix(data.count - 4)
+            let checksum = data.suffix(4)
+            let computedChecksum = HASH256.computeChecksum(for: payload)
+            guard checksum.elementsEqual(computedChecksum) else { throw Error.invalidChecksum }
+            
+            let version = payload[0..<4].withUnsafeBytes { UInt32(bigEndian: $0.loadUnaligned(as: UInt32.self)) }
+            guard version == 0x0488ade4 else { throw Error.invalidVersion } // xprv main‑net
+            
+            self.depth = payload[4]
+            self.parentFingerprint = Data(payload[5..<9])
+            self.childIndexNumber = payload[9..<13].withUnsafeBytes { UInt32(bigEndian: $0.loadUnaligned(as: UInt32.self)) }
+            self.chainCode = Data(payload[13..<45])
+            
+            guard payload[45] == 0 else { throw Error.invalidKeyPrefix }
+            self.privateKey = Data(payload[46..<78])
         }
     }
 }

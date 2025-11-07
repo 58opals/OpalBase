@@ -38,8 +38,8 @@ struct SatoshiTests {
         }
     }
     
-    @Test("initialisation from BCH rejects negative values")
-    func testInitialiseFromBCHRejectsNegativeValues() throws {
+    @Test("initialization from BCH rejects negative values")
+    func testInitializeFromBCHRejectsNegativeValues() throws {
         #expect(throws: Satoshi.Error.negativeResult) {
             _ = try Satoshi(bch: -0.0001)
         }

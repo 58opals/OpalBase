@@ -37,6 +37,7 @@ extension Satoshi {
     enum Error: Swift.Error {
         case exceedsMaximumAmount
         case negativeResult
+        case invalidPrecision
     }
 }
 
