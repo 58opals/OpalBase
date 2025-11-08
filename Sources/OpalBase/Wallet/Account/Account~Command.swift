@@ -75,16 +75,30 @@ extension Account {
                 throw Account.Error.transactionBuildFailed(error)
             }
             
-            let totalOutputValue = transaction.outputs.reduce(into: UInt64(0)) { partial, output in
-                partial &+= output.value
+            var computedTotalOutputValue: UInt64 = 0
+            for output in transaction.outputs {
+                let result = computedTotalOutputValue.addingReportingOverflow(output.value)
+                guard !result.overflow else { throw Account.Error.paymentExceedsMaximumAmount }
+                computedTotalOutputValue = result.partialValue
             }
-            let inputTotal = inputs.reduce(into: UInt64(0)) { partial, input in
-                partial &+= input.value
+            
+            let totalOutputValue = computedTotalOutputValue
+            
+            var computedInputTotal: UInt64 = 0
+            for input in inputs {
+                let result = computedInputTotal.addingReportingOverflow(input.value)
+                guard !result.overflow else { throw Account.Error.paymentExceedsMaximumAmount }
+                computedInputTotal = result.partialValue
             }
+            
+            let inputTotal = computedInputTotal
+            
+            let feeDifference = inputTotal.subtractingReportingOverflow(totalOutputValue)
+            guard !feeDifference.overflow else { throw Account.Error.paymentExceedsMaximumAmount }
             
             let fee: Satoshi
             do {
-                fee = try Satoshi(inputTotal &- totalOutputValue)
+                fee = try Satoshi(feeDifference.partialValue)
             } catch {
                 throw Account.Error.transactionBuildFailed(error)
             }
@@ -151,9 +165,13 @@ extension Account {
         
         let heuristicallyOrderedInputs = await privacyShaper.applyCoinSelectionHeuristics(to: selectedUTXOs)
         
-        let totalSelectedValue = heuristicallyOrderedInputs.reduce(into: UInt64(0)) { partial, input in
-            partial &+= input.value
+        var computedTotalSelectedValue: UInt64 = 0
+        for input in heuristicallyOrderedInputs {
+            let result = computedTotalSelectedValue.addingReportingOverflow(input.value)
+            guard !result.overflow else { throw Error.paymentExceedsMaximumAmount }
+            computedTotalSelectedValue = result.partialValue
         }
+        let totalSelectedValue = computedTotalSelectedValue
         guard totalSelectedValue >= targetAmount.uint64 else {
             throw Error.paymentExceedsMaximumAmount
         }
@@ -164,7 +182,9 @@ extension Account {
         } catch {
             throw Error.paymentExceedsMaximumAmount
         }
-        let initialChangeValue = totalSelectedValue &- targetAmount.uint64
+        let changeResult = totalSelectedValue.subtractingReportingOverflow(targetAmount.uint64)
+        guard !changeResult.overflow else { throw Error.paymentExceedsMaximumAmount }
+        let initialChangeValue = changeResult.partialValue
         let changeOutput = Transaction.Output(value: initialChangeValue, address: changeEntry.address)
         
         let privateKeys: [Transaction.Output.Unspent: PrivateKey]

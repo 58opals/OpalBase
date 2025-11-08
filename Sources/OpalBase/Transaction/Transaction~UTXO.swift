@@ -51,41 +51,41 @@ extension Transaction {
         
         let estimatedFeeWithChange = try transactionWithChange.calculateFee(feePerByte: feePerByte)
         let changeAmount = changeOutput.value
+        
+        var outputs = recipientOutputs
+        var didRemoveChangeOutput = false
+        
         if changeAmount < estimatedFeeWithChange {
+            didRemoveChangeOutput = true
+            
             let transactionWithoutChange = Transaction(version: version,
                                                        inputs: inputs,
                                                        outputs: recipientOutputs,
                                                        lockTime: lockTime)
             let estimatedFeeWithoutChange = try transactionWithoutChange.calculateFee(feePerByte: feePerByte)
             
-            guard changeAmount >= estimatedFeeWithoutChange else {
-                let requiredAdditionalAmount = estimatedFeeWithoutChange - changeAmount
-                throw Error.insufficientFunds(required: requiredAdditionalAmount)
-            }
-            
-            let donation = changeAmount - estimatedFeeWithoutChange
-            if donation > 0 {
-                let additionalRequired = estimatedFeeWithChange - changeAmount
-                guard donation < Transaction.dustLimit else { throw Error.insufficientFunds(required: additionalRequired) }
-                guard shouldAllowDustDonation else { throw Error.outputValueIsLessThanTheDustLimit }
-            }
-            
-            let prunedOutputs = recipientOutputs.filter { $0.value > 0 }
-            let totalPrunedOutput = prunedOutputs.map(\.value).reduce(0, +)
-            guard !prunedOutputs.isEmpty else { throw Error.insufficientFunds(required: totalPrunedOutput) }
-            guard !prunedOutputs.contains(where: { $0.value < Transaction.dustLimit }) else { throw Error.outputValueIsLessThanTheDustLimit }
-            
-            return (prunedOutputs, estimatedFeeWithoutChange)
-        }
-        
-        let remainingChange = changeAmount - estimatedFeeWithChange
-        
-        var outputs = recipientOutputs
-        if remainingChange > 0 {
-            if remainingChange < Transaction.dustLimit {
-                guard shouldAllowDustDonation else { throw Error.outputValueIsLessThanTheDustLimit }
+            if changeAmount < estimatedFeeWithoutChange {
+                if !shouldAllowDustDonation {
+                    let requiredAdditionalAmount = estimatedFeeWithoutChange - changeAmount
+                    throw Error.insufficientFunds(required: requiredAdditionalAmount)
+                }
             } else {
-                outputs.append(.init(value: remainingChange, lockingScript: changeOutput.lockingScript))
+                let donation = changeAmount - estimatedFeeWithoutChange
+                if donation > 0 {
+                    let additionalRequired = estimatedFeeWithChange - changeAmount
+                    guard donation < Transaction.dustLimit else { throw Error.insufficientFunds(required: additionalRequired) }
+                    guard shouldAllowDustDonation else { throw Error.outputValueIsLessThanTheDustLimit }
+                }
+            }
+        } else {
+            let remainingChange = changeAmount - estimatedFeeWithChange
+            
+            if remainingChange > 0 {
+                if remainingChange < Transaction.dustLimit {
+                    guard shouldAllowDustDonation else { throw Error.outputValueIsLessThanTheDustLimit }
+                } else {
+                    outputs.append(.init(value: remainingChange, lockingScript: changeOutput.lockingScript))
+                }
             }
         }
         
@@ -99,6 +99,13 @@ extension Transaction {
                                                outputs: prunedOutputs,
                                                lockTime: lockTime)
         let finalizedFee = try finalizedTransaction.calculateFee(feePerByte: feePerByte)
+        
+        if shouldAllowDustDonation && didRemoveChangeOutput {
+            guard changeAmount >= finalizedFee else {
+                let requiredAdditionalAmount = finalizedFee - changeAmount
+                throw Error.insufficientFunds(required: requiredAdditionalAmount)
+            }
+        }
         
         return (prunedOutputs, finalizedFee)
     }
