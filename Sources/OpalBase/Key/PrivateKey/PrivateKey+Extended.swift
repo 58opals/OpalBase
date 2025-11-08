@@ -99,11 +99,11 @@ extension PrivateKey.Extended {
         let leftHMACPartBigUInt = BigUInt(leftHMACPart)
         let curveOrder = ECDSA.numberOfPointsOnTheCurveWeCanHit
         
-        guard leftHMACPartBigUInt < curveOrder else { throw Error.derivedKeyInvalid }
+        guard leftHMACPartBigUInt < curveOrder else { throw PrivateKey.Error.invalidDerivedKey }
         
         let parentKeyInteger = BigUInt(parentPrivateKey)
         let childKeyInteger = (parentKeyInteger + leftHMACPartBigUInt) % curveOrder
-        guard childKeyInteger > 0 else { throw Error.derivedKeyInvalid }
+        guard childKeyInteger > 0 else { throw PrivateKey.Error.invalidDerivedKey }
         
         let childPrivateKey = childKeyInteger.serialize()
         let paddedChildPrivateKey = (childPrivateKey.count < 32) ? (Data(repeating: 0, count: 32 - childPrivateKey.count) + childPrivateKey) : childPrivateKey

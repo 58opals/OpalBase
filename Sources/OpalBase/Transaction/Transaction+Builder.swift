@@ -21,8 +21,9 @@ extension Transaction {
             self.unlockersByUnspent = unlockers
             
             self.orderedUnspentOutputs = utxoPrivateKeyPairs.keys.sorted { lhs, rhs in
-                let lhsHash = lhs.previousTransactionHash.naturalOrder
-                let rhsHash = rhs.previousTransactionHash.naturalOrder
+                let lhsHash = lhs.previousTransactionHash.reverseOrder
+                let rhsHash = rhs.previousTransactionHash.reverseOrder
+                // BIP-69 specifies ordering inputs by the transaction hash as displayed externally (big-endian). `Transaction.Hash.reverseOrder` exposes that representation, while `naturalOrder` returns the little-endian form used internally. Sorting by the wrong byte order would invert the expected ordering for inputs whose hashes differ only in high-order bytes, producing non-deterministic builders across implementations.
                 
                 if lhsHash != rhsHash {
                     return lhsHash.lexicographicallyPrecedes(rhsHash)

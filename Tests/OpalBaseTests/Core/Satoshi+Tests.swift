@@ -44,4 +44,11 @@ struct SatoshiTests {
             _ = try Satoshi(bch: -0.0001)
         }
     }
+    
+    @Test("initialization from BCH rejects fractional satoshis")
+    func testInitializeFromBCHRejectsFractionalSatoshis() throws {
+        #expect(throws: Satoshi.Error.invalidPrecision) {
+            _ = try Satoshi(bch: 0.000000015)
+        }
+    }
 }

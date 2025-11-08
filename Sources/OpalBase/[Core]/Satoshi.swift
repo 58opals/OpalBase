@@ -23,12 +23,17 @@ public struct Satoshi {
         guard bch.isFinite else { throw Error.exceedsMaximumAmount }
         guard bch >= 0 else { throw Error.negativeResult }
         
-        let scaledValue = (bch * Double(Satoshi.perBCH)).rounded()
+        let scaledValue = bch * Double(Satoshi.perBCH)
         guard scaledValue.isFinite else { throw Error.exceedsMaximumAmount }
         guard scaledValue >= 0 else { throw Error.negativeResult }
-        guard scaledValue <= Double(Satoshi.maximumSatoshi) else { throw Error.exceedsMaximumAmount }
         
-        let satoshi = UInt64(scaledValue)
+        let roundedValue = scaledValue.rounded()
+        let roundingError = abs(roundedValue - scaledValue)
+        let tolerance = Double.ulpOfOne * roundedValue.magnitude
+        guard roundingError <= tolerance else { throw Error.invalidPrecision }
+        guard roundedValue <= Double(Satoshi.maximumSatoshi) else { throw Error.exceedsMaximumAmount }
+        
+        let satoshi = UInt64(roundedValue)
         self.uint64 = satoshi
     }
 }
