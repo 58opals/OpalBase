@@ -3,8 +3,8 @@
 import Foundation
 
 extension Network {
-    public struct Failure: Swift.Error, Sendable {
-        public enum Reason: Sendable {
+    public struct Failure: Swift.Error, Sendable, Equatable {
+        public enum Reason: Sendable, Equatable {
             case transport
             case network
             case server(code: Int)
