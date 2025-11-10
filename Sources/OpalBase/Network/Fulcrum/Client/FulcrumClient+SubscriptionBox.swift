@@ -15,7 +15,8 @@ extension Network {
         private var continuation: AsyncThrowingStream<Notification, Swift.Error>.Continuation
         private var cancelHandler: (@Sendable () async -> Void)?
         private var forwardingTask: Task<Void, Never>?
-        private var isCancelled = false
+        private var forwardingGeneration: UInt64 = 0
+        private var isTerminated = false
         private var isExpectingResubscribe = false
         private var hasNotifiedTermination = false
         
@@ -51,13 +52,13 @@ extension Network {
         }
         
         func prepareForReconnect() async {
-            guard !isCancelled else { return }
+            guard !isTerminated else { return }
             isExpectingResubscribe = true
             forwardingTask?.cancel()
         }
         
         func resubscribe(using fulcrum: Fulcrum) async {
-            guard !isCancelled else { return }
+            guard !isTerminated else { return }
             do {
                 await tearDownCurrentHandler()
                 let response = try await fulcrum.submit(
@@ -73,16 +74,16 @@ extension Network {
                 }
                 let (_, updates, cancel) = stream
                 cancelHandler = cancel
-                isExpectingResubscribe = false
                 startForwarding(with: updates)
+                isExpectingResubscribe = false
             } catch {
                 await fail(with: error)
             }
         }
         
         func cancel() async {
-            guard !isCancelled else { return }
-            isCancelled = true
+            guard !isTerminated else { return }
+            isTerminated = true
             forwardingTask?.cancel()
             await forwardingTask?.value
             continuation.finish()
@@ -91,8 +92,8 @@ extension Network {
         }
         
         func fail(with error: Swift.Error) async {
-            guard !isCancelled else { return }
-            isCancelled = true
+            guard !isTerminated else { return }
+            isTerminated = true
             forwardingTask?.cancel()
             await forwardingTask?.value
             continuation.finish(throwing: error)
@@ -102,39 +103,61 @@ extension Network {
         
         private func startForwarding(with updates: AsyncThrowingStream<Notification, Swift.Error>) {
             forwardingTask?.cancel()
+            forwardingGeneration &+= 1
+            let generation = forwardingGeneration
             forwardingTask = Task {
-                await self.forward(updates: updates)
+                await self.forward(updates: updates, generation: generation)
             }
         }
         
-        private func forward(updates: AsyncThrowingStream<Notification, Swift.Error>) async {
+        private func forward(updates: AsyncThrowingStream<Notification, Swift.Error>, generation: UInt64) async {
             do {
                 for try await update in updates {
                     continuation.yield(update)
                 }
                 
-                if isExpectingResubscribe && !isCancelled {
+                if await shouldDeferTerminationForRecovery() {
                     return
                 }
                 
-                await finishStream()
+                await finishStream(for: generation)
             } catch is CancellationError {
-                if isCancelled {
-                    await finishStream()
-                } else if !isExpectingResubscribe {
-                    await finishStream()
+                if await shouldDeferTerminationForRecovery() {
+                    return
                 }
+                
+                await finishStream(for: generation)
             } catch {
                 if isExpectingResubscribe && isRecoverable(error) {
                     return
                 }
-                await finishStream(with: error)
+                
+                if await shouldDeferTerminationForRecovery() {
+                    return
+                }
+                
+                await finishStream(for: generation, with: error)
             }
         }
         
-        private func finishStream(with error: Swift.Error? = nil) async {
-            guard !isCancelled else { return }
-            isCancelled = true
+        private func shouldDeferTerminationForRecovery() async -> Bool {
+            await Task.yield()
+            
+            if isTerminated {
+                return true
+            }
+            
+            if isExpectingResubscribe {
+                return true
+            }
+            
+            return false
+        }
+        
+        private func finishStream(for generation: UInt64, with error: Swift.Error? = nil) async {
+            guard generation == forwardingGeneration else { return }
+            guard !isTerminated else { return }
+            isTerminated = true
             forwardingTask?.cancel()
             if let error {
                 continuation.finish(throwing: error)
