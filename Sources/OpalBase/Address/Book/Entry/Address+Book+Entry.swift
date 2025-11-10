@@ -105,3 +105,4 @@ extension Address.Book {
 
 extension Address.Book.Entry: Hashable {}
 extension Address.Book.Entry: Sendable {}
+extension Address.Book.Entry: Equatable {}

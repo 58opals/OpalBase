@@ -42,7 +42,12 @@ extension Address.Book.CoinSelector {
         
         for utxo in utxos {
             selection.append(utxo)
-            total &+= utxo.value
+            
+            let (updatedTotal, overflow) = total.addingReportingOverflow(utxo.value)
+            if overflow {
+                throw Address.Book.Error.paymentExceedsMaximumAmount
+            }
+            total = updatedTotal
             
             if try evaluate(selection: selection, sum: total) != nil {
                 return selection
@@ -104,7 +109,8 @@ extension Address.Book.CoinSelector {
     
     private func evaluate(selection: [Transaction.Output.Unspent],
                           sum: UInt64) throws -> Address.Book.CoinSelection.Evaluation? {
-        try Address.Book.CoinSelection.evaluate(total: sum,
+        try Address.Book.CoinSelection.evaluate(configuration: configuration,
+                                                total: sum,
                                                 inputCount: selection.count,
                                                 targetAmount: targetAmount,
                                                 recipientOutputs: configuration.recipientOutputs,
@@ -139,18 +145,22 @@ extension Address.Book.CoinSelection {
         let recipientOutputs: [Transaction.Output]
         let outputsWithChange: [Transaction.Output]
         let strategy: Address.Book.CoinSelection
+        let shouldAllowDustDonation: Bool
         
         init(recipientOutputs: [Transaction.Output],
              outputsWithChange: [Transaction.Output],
-             strategy: Address.Book.CoinSelection) {
+             strategy: Address.Book.CoinSelection,
+             shouldAllowDustDonation: Bool = false) {
             self.recipientOutputs = recipientOutputs
             self.outputsWithChange = outputsWithChange
             self.strategy = strategy
+            self.shouldAllowDustDonation = shouldAllowDustDonation
         }
         
         init(recipientOutputs: [Transaction.Output],
              changeLockingScript: Data?,
-             strategy: Address.Book.CoinSelection = .greedyLargestFirst) {
+             strategy: Address.Book.CoinSelection = .greedyLargestFirst,
+             shouldAllowDustDonation: Bool = false) {
             let outputsWithChange: [Transaction.Output]
             if let changeLockingScript {
                 let changeTemplate = Transaction.Output(value: 0, lockingScript: changeLockingScript)
@@ -161,13 +171,16 @@ extension Address.Book.CoinSelection {
             
             self.init(recipientOutputs: recipientOutputs,
                       outputsWithChange: outputsWithChange,
-                      strategy: strategy)
+                      strategy: strategy,
+                      shouldAllowDustDonation: shouldAllowDustDonation)
         }
         
-        static func makeTemplateConfiguration(strategy: Address.Book.CoinSelection = .greedyLargestFirst) -> Self {
+        static func makeTemplateConfiguration(strategy: Address.Book.CoinSelection = .greedyLargestFirst,
+                                              shouldAllowDustDonation: Bool = false) -> Self {
             Self(recipientOutputs: Address.Book.CoinSelection.Templates.recipientOutputs,
                  outputsWithChange: Address.Book.CoinSelection.Templates.outputsWithChange,
-                 strategy: strategy)
+                 strategy: strategy,
+                 shouldAllowDustDonation: shouldAllowDustDonation)
         }
     }
     
@@ -186,7 +199,8 @@ extension Address.Book.CoinSelection {
         }()
     }
     
-    static func evaluate(total: UInt64,
+    static func evaluate(configuration: Configuration,
+                         total: UInt64,
                          inputCount: Int,
                          targetAmount: UInt64,
                          recipientOutputs: [Transaction.Output],
@@ -200,7 +214,10 @@ extension Address.Book.CoinSelection {
         
         if total >= requiredWithoutChange {
             let excess = total &- requiredWithoutChange
-            if excess == 0 || excess < dustLimit {
+            if excess == 0 {
+                return Evaluation(excess: excess)
+            }
+            if configuration.shouldAllowDustDonation && excess < dustLimit {
                 return Evaluation(excess: excess)
             }
         }

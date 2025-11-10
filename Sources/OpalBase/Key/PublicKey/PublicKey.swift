@@ -38,8 +38,10 @@ extension PublicKey {
 
 extension PublicKey: Hashable {}
 extension PublicKey: Sendable {}
+extension PublicKey: Equatable {}
 extension PublicKey.Hash: Hashable {}
 extension PublicKey.Hash: Sendable {}
+extension PublicKey.Hash: Equatable {}
 
 extension PublicKey {
     enum Error: Swift.Error {

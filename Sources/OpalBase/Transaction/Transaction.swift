@@ -67,7 +67,7 @@ public struct Transaction {
         
         let transaction = Transaction(version: version, inputs: inputs, outputs: outputs, lockTime: lockTime)
         
-        return (transaction, index)
+        return (transaction, index - data.startIndex)
     }
 }
 

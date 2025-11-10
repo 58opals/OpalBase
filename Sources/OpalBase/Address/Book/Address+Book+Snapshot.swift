@@ -280,5 +280,17 @@ extension Address.Book {
                 entry.cache.lastUpdated = snap.lastUpdated
             }
         }
+        
+        let entries = inventory.listEntries(for: usage)
+        let unusedEntriesBeyondHighestIndex = entries.filter { entry in
+            Int(entry.derivationPath.index) > highestIndexValue && !entry.isUsed
+        }.count
+        
+        let numberOfMissingUnusedEntries = gapLimit - unusedEntriesBeyondHighestIndex
+        if numberOfMissingUnusedEntries > 0 {
+            try await generateEntries(for: usage,
+                                      numberOfNewEntries: numberOfMissingUnusedEntries,
+                                      isUsed: false)
+        }
     }
 }

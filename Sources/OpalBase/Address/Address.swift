@@ -180,7 +180,7 @@ extension Address {
             guard Base32.characters.contains(normalizedCharacter)
             else { return }
             
-            partialResult.append(candidate)
+            partialResult.append(normalizedCharacter)
         }
         
         return filteredString
@@ -221,3 +221,4 @@ extension Address: Hashable {
 }
 
 extension Address: Sendable {}
+extension Address: Equatable {}

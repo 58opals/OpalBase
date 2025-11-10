@@ -49,7 +49,35 @@ struct AddressTests {
     func testFilterRemovesInvalidCharacters() {
         let noisy = "BITCOINCASH:QPM2-QSZN HK S23Z7629MMS6S4CWEF74VCWVY22GDX6A"
         let filtered = Address.filterBase32(from: noisy)
-        #expect(filtered == "QPM2QSZNHKS23Z7629MMS6S4CWEF74VCWVY22GDX6A")
+        #expect(filtered == "qpm2qsznhks23z7629mms6s4cwef74vcwvy22gdx6a")
+    }
+    
+    @Test("filter lowercases uppercase characters")
+    func testFilterLowercasesUppercaseCharacters1() {
+        let noisy = "BITCOINCASH:QPY0"
+        let filtered = Address.filterBase32(from: noisy)
+        #expect(filtered == "qpy0")
+    }
+    
+    @Test("filter normalizes uppercase Base32 characters", .tags(.unit))
+    func testFilterBase32LowercasesUppercaseCharacters() {
+        let uppercaseCandidate = "BITCOINCASH:QPZA"
+        let filtered = Address.filterBase32(from: uppercaseCandidate)
+        #expect(filtered == "qpza")
+    }
+    
+    @Test("filter normalizes uppercase characters to lowercase")
+    func testFilterNormalizesUppercaseCharactersToLowercase() {
+        let uppercasePayload = "BITCOINCASH:QPM2QSZNHKS23Z7629MMS6S4CWEF74VCWVY22GDX6A"
+        let filtered = Address.filterBase32(from: uppercasePayload)
+        #expect(filtered == "qpm2qsznhks23z7629mms6s4cwef74vcwvy22gdx6a")
+    }
+    
+    @Test("filter lowercases uppercase characters")
+    func testFilterLowercasesUppercaseCharacters2() {
+        let uppercase = "BITCOINCASH:QPM2QSZNHKS23Z7629MMS6S4CWEF74VCWVY22GDX6A"
+        let filtered = Address.filterBase32(from: uppercase)
+        #expect(filtered == "qpm2qsznhks23z7629mms6s4cwef74vcwvy22gdx6a")
     }
     
     @Test("invalid checksum is rejected")
@@ -64,8 +92,7 @@ struct AddressTests {
     func testAddressBookMaintainsGapLimit() async throws {
         let mnemonic = try Mnemonic(
             words: [
-                "abandon", "abandon", "abandon", "abandon", "abandon", "abandon",
-                "abandon", "abandon", "abandon", "abandon", "abandon", "about"
+                "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "about"
             ]
         )
         let rootExtendedPrivateKey = PrivateKey.Extended(rootKey: try .init(seed: mnemonic.seed))

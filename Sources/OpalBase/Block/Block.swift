@@ -31,6 +31,6 @@ public struct Block {
             return transaction
         }
         let block = Block(header: header, transactions: transactions)
-        return (block, index)
+        return (block, index - data.startIndex)
     }
 }

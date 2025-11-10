@@ -59,11 +59,12 @@ extension Data {
     }
     
     var reversedData: Data {
-        var reversedData = Data()
-        for byte in self {
-            reversedData.insert(byte, at: 0)
-        }
-        return reversedData
+        return Data(self.reversed())
+        //var reversedData = Data()
+        //for byte in self {
+        //    reversedData.insert(byte, at: 0)
+        //}
+        //return reversedData
     }
 }
 

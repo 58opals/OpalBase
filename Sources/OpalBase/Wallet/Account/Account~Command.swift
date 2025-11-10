@@ -150,7 +150,8 @@ extension Account {
         
         let coinSelectionConfiguration = Address.Book.CoinSelection.Configuration(recipientOutputs: randomizedRecipientOutputs,
                                                                                   changeLockingScript: changeEntry.address.lockingScript.data,
-                                                                                  strategy: payment.coinSelection)
+                                                                                  strategy: payment.coinSelection,
+                                                                                  shouldAllowDustDonation: payment.shouldAllowDustDonation)
         
         let selectedUTXOs: [Transaction.Output.Unspent]
         do {

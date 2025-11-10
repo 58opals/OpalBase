@@ -8,8 +8,7 @@ struct AddressBookBalanceTests {
     func testCalculateCachedTotalBalanceDetectsOverflow() async throws {
         let mnemonic = try Mnemonic(
             words: [
-                "abandon", "abandon", "abandon", "abandon", "abandon", "abandon",
-                "abandon", "abandon", "abandon", "abandon", "abandon", "about"
+                "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "about"
             ]
         )
         let rootExtendedPrivateKey = PrivateKey.Extended(rootKey: try .init(seed: mnemonic.seed))
