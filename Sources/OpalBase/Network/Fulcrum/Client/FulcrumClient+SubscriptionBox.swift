@@ -59,6 +59,7 @@ extension Network {
         func resubscribe(using fulcrum: Fulcrum) async {
             guard !isCancelled else { return }
             do {
+                await tearDownCurrentHandler()
                 let response = try await fulcrum.submit(
                     method: method,
                     initialType: Initial.self,
@@ -85,7 +86,7 @@ extension Network {
             forwardingTask?.cancel()
             await forwardingTask?.value
             continuation.finish()
-            if let cancelHandler { await cancelHandler() }
+            await tearDownCurrentHandler()
             await notifyTermination()
         }
         
@@ -95,7 +96,7 @@ extension Network {
             forwardingTask?.cancel()
             await forwardingTask?.value
             continuation.finish(throwing: error)
-            if let cancelHandler { await cancelHandler() }
+            await tearDownCurrentHandler()
             await notifyTermination()
         }
         
@@ -140,7 +141,7 @@ extension Network {
             } else {
                 continuation.finish()
             }
-            if let cancelHandler { await cancelHandler() }
+            await tearDownCurrentHandler()
             await notifyTermination()
         }
         
@@ -148,6 +149,12 @@ extension Network {
             guard !hasNotifiedTermination else { return }
             hasNotifiedTermination = true
             await onTermination(id)
+        }
+        
+        private func tearDownCurrentHandler() async {
+            guard let handler = cancelHandler else { return }
+            cancelHandler = nil
+            await handler()
         }
         
         private func isRecoverable(_ error: Swift.Error) -> Bool {
