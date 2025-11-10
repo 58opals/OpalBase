@@ -19,7 +19,7 @@ extension Transaction {
         ///   - previousTransactionOutputIndex: The index of the previous output.
         ///   - unlockingScript: The contents of the unlocking script.
         ///   - sequence: The sequence number.
-        init(previousTransactionHash: Transaction.Hash, previousTransactionOutputIndex: UInt32, unlockingScript: Data, sequence: UInt32 = 0xFFFFFFFF) {
+        public init(previousTransactionHash: Transaction.Hash, previousTransactionOutputIndex: UInt32, unlockingScript: Data, sequence: UInt32 = 0xFFFFFFFF) {
             self.previousTransactionHash = previousTransactionHash
             self.previousTransactionOutputIndex = previousTransactionOutputIndex
             self.unlockingScript = unlockingScript

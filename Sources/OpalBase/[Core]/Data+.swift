@@ -43,9 +43,8 @@ extension Data {
                 byteBuffer = currentValue
             }
         }
-        if let bufferedValue = byteBuffer {
-            byteArray.append(bufferedValue)
-        }
+        
+        guard byteBuffer == nil else { throw Error.cannotConvertHexadecimalStringToData}
         
         self = Data(byteArray)
     }

@@ -21,7 +21,7 @@ public struct Transaction {
     ///   - inputs: The list of inputs.
     ///   - outputs: The list of outputs.
     ///   - lockTime: The lock time.
-    init(version: UInt32, inputs: [Input], outputs: [Output], lockTime: UInt32) {
+    public init(version: UInt32, inputs: [Input], outputs: [Output], lockTime: UInt32) {
         self.version = version
         self.inputs = inputs
         self.outputs = outputs

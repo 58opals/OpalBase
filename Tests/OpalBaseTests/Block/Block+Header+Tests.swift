@@ -38,4 +38,21 @@ struct BlockHeaderTests {
         #expect(decoded.bits == header.bits)
         #expect(decoded.nonce == header.nonce)
     }
+    
+    @Test("proof-of-work hash uses little-endian order")
+    func testProofOfWorkHashUsesLittleEndianOrder() {
+        let header = Block.Header(
+            version: 1,
+            previousBlockHash: Data(repeating: 0x11, count: 32),
+            merkleRoot: Data(repeating: 0x22, count: 32),
+            time: 0x12345678,
+            bits: 0x1d00ffff,
+            nonce: 0x42
+        )
+        
+        let headerEncoding = header.encode()
+        let expectedHash = HASH256.hash(headerEncoding).reversedData
+        
+        #expect(header.proofOfWorkHash == expectedHash)
+    }
 }

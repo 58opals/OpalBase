@@ -60,7 +60,7 @@ extension Address.Book.CoinSelector {
     private func selectBranchAndBound() throws -> [Transaction.Output.Unspent] {
         var bestSelection: [Transaction.Output.Unspent] = .init()
         var bestEvaluation: Address.Book.CoinSelection.Evaluation?
-        let suffixTotals = makeSuffixTotals()
+        let suffixTotals = try makeSuffixTotals()
         
         func updateBest(selection: [Transaction.Output.Unspent], sum: UInt64) throws {
             guard let evaluation = try evaluate(selection: selection, sum: sum) else { return }
@@ -89,12 +89,23 @@ extension Address.Book.CoinSelector {
             let minimalFee = try Transaction.estimateFee(inputCount: selection.count,
                                                          outputs: configuration.recipientOutputs,
                                                          feePerByte: feePerByte)
-            let minimalRequirement = targetAmount &+ minimalFee
-            if sum &+ remaining < minimalRequirement { return }
+            let (minimalRequirement, minimalRequirementOverflow) = targetAmount.addingReportingOverflow(minimalFee)
+            if minimalRequirementOverflow {
+                throw Address.Book.Error.paymentExceedsMaximumAmount
+            }
+            
+            let (sumWithRemaining, sumWithRemainingOverflow) = sum.addingReportingOverflow(remaining)
+            if sumWithRemainingOverflow {
+                throw Address.Book.Error.paymentExceedsMaximumAmount
+            }
+            if sumWithRemaining < minimalRequirement { return }
             
             var selectionIncludingCurrent = selection
             selectionIncludingCurrent.append(utxos[index])
-            let sumIncludingCurrent = sum &+ utxos[index].value
+            let (sumIncludingCurrent, sumIncludingCurrentOverflow) = sum.addingReportingOverflow(utxos[index].value)
+            if sumIncludingCurrentOverflow {
+                throw Address.Book.Error.paymentExceedsMaximumAmount
+            }
             
             try explore(index: index + 1,
                         selection: selectionIncludingCurrent,
@@ -119,12 +130,16 @@ extension Address.Book.CoinSelector {
                                                 feePerByte: feePerByte)
     }
     
-    private func makeSuffixTotals() -> [UInt64] {
+    private func makeSuffixTotals() throws -> [UInt64] {
         guard !utxos.isEmpty else { return [0] }
         
         var suffixTotals: [UInt64] = Array(repeating: 0, count: utxos.count + 1)
         for index in stride(from: utxos.count - 1, through: 0, by: -1) {
-            suffixTotals[index] = suffixTotals[index + 1] &+ utxos[index].value
+            let (total, overflow) = suffixTotals[index + 1].addingReportingOverflow(utxos[index].value)
+            if overflow {
+                throw Address.Book.Error.paymentExceedsMaximumAmount
+            }
+            suffixTotals[index] = total
         }
         
         return suffixTotals

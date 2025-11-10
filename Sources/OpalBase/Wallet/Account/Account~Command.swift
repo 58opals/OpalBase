@@ -173,15 +173,24 @@ extension Account {
             computedTotalSelectedValue = result.partialValue
         }
         let totalSelectedValue = computedTotalSelectedValue
-        guard totalSelectedValue >= targetAmount.uint64 else {
-            throw Error.paymentExceedsMaximumAmount
-        }
         
         let totalSelectedAmount: Satoshi
         do {
             totalSelectedAmount = try Satoshi(totalSelectedValue)
         } catch {
             throw Error.paymentExceedsMaximumAmount
+        }
+        
+        guard totalSelectedAmount >= targetAmount else {
+            let requiredAdditionalAmount: UInt64
+            do {
+                let shortfall = try targetAmount - totalSelectedAmount
+                requiredAdditionalAmount = shortfall.uint64
+            } catch {
+                requiredAdditionalAmount = targetAmount.uint64
+            }
+            
+            throw Error.coinSelectionFailed(Transaction.Error.insufficientFunds(required: requiredAdditionalAmount))
         }
         let changeResult = totalSelectedValue.subtractingReportingOverflow(targetAmount.uint64)
         guard !changeResult.overflow else { throw Error.paymentExceedsMaximumAmount }

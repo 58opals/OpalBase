@@ -29,6 +29,48 @@ struct TransactionDecodeTests {
         #expect(bytesRead == encoded.count)
     }
     
+    @Test("decode fails when bytes are missing")
+    func testTransactionDecodeThrowsForTruncatedPayload() {
+        let previousHash = Transaction.Hash(naturalOrder: Data(repeating: 3, count: 32))
+        let input = Transaction.Input(previousTransactionHash: previousHash,
+                                      previousTransactionOutputIndex: 2,
+                                      unlockingScript: Data([0x51]))
+        let output = Transaction.Output(value: 1_000,
+                                        lockingScript: Data([0x51]))
+        let transaction = Transaction(version: 1,
+                                      inputs: [input],
+                                      outputs: [output],
+                                      lockTime: 0)
+        
+        let encoded = transaction.encode()
+        let truncated = encoded.dropLast()
+        
+        #expect(throws: Data.Error.indexOutOfRange) {
+            _ = try Transaction.decode(from: Data(truncated))
+        }
+    }
+    
+    @Test("decode rejects truncated transaction payloads")
+    func testTransactionDecodeRejectsTruncatedPayload() {
+        let previousHash = Transaction.Hash(naturalOrder: Data(repeating: 1, count: 32))
+        let input = Transaction.Input(previousTransactionHash: previousHash,
+                                      previousTransactionOutputIndex: 1,
+                                      unlockingScript: Data([0x51]))
+        let output = Transaction.Output(value: 546,
+                                        lockingScript: Data([0x76, 0xa9, 0x14]) + Data(repeating: 0x00, count: 20))
+        let transaction = Transaction(version: 2,
+                                      inputs: [input],
+                                      outputs: [output],
+                                      lockTime: 0)
+        
+        let encoded = transaction.encode()
+        let truncated = Data(encoded.dropLast())
+        
+        #expect(throws: Data.Error.indexOutOfRange) {
+            _ = try Transaction.decode(from: truncated)
+        }
+    }
+    
     @Test("block decoding returns relative byte count")
     func testBlockDecodeBytesReadMatchesSliceLength() throws {
         let header = Block.Header(version: 2,

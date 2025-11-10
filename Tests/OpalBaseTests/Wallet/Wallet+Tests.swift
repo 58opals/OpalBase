@@ -22,4 +22,34 @@ struct WalletTests {
         #expect(await thirdAccount.unhardenedIndex == 3)
         #expect(await zerothAccount.unhardenedIndex == 0)
     }
+    
+    @Test("fetchAccount throws when the index is missing")
+    func testFetchAccountRejectsMissingAccount() async throws {
+        let mnemonic = try Mnemonic(
+            words: [
+                "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "about"
+            ]
+        )
+        let wallet = Wallet(mnemonic: mnemonic)
+        
+        await #expect(throws: Wallet.Error.cannotFetchAccount(index: 0)) {
+            _ = try await wallet.fetchAccount(at: 0)
+        }
+    }
+    
+    @Test("fetchAccount rejects unknown account indices")
+    func testFetchAccountRejectsUnknownAccountIndices() async throws {
+        let mnemonic = try Mnemonic(
+            words: [
+                "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "about"
+            ]
+        )
+        let wallet = Wallet(mnemonic: mnemonic)
+        
+        let missingIndex: UInt32 = 7
+        
+        await #expect(throws: Wallet.Error.cannotFetchAccount(index: missingIndex)) {
+            _ = try await wallet.fetchAccount(at: missingIndex)
+        }
+    }
 }

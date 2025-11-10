@@ -21,8 +21,8 @@ extension Transaction {
         let inputBeingSigned = inputs[index]
         
         if hashType.mode == .single, index >= outputs.count {
-            var invalidIndexHash = Data(repeating: 0x00, count: 31)
-            invalidIndexHash.append(0x01)
+            var invalidIndexHash = Data(repeating: 0x00, count: 32)
+            invalidIndexHash[0] = 0x01
             return invalidIndexHash
         }
         
@@ -109,9 +109,12 @@ extension Transaction {
     ///   - signature: The signature to insert.
     ///   - index: The index of the input to modify.
     /// - Returns: A new transaction with the updated input.
-    func injectUnlockingScript(_ unlockingScript: Data, inputIndex: Int)
-    -> Transaction
-    {
+    /// - Throws: `Transaction.Error.sighashSingleIndexOutOfRange` when the input index is invalid.
+    func injectUnlockingScript(_ unlockingScript: Data, inputIndex: Int) throws -> Transaction {
+        guard inputs.indices.contains(inputIndex) else {
+            throw Transaction.Error.sighashSingleIndexOutOfRange
+        }
+        
         var newInputs = inputs
         
         let originalInput = newInputs[inputIndex]

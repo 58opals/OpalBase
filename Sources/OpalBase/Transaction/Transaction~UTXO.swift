@@ -89,14 +89,15 @@ extension Transaction {
             }
         }
         
-        let prunedOutputs = outputs.filter { $0.value > 0 }
-        let totalPrunedOutput = prunedOutputs.map(\.value).reduce(0, +)
-        guard !prunedOutputs.isEmpty else { throw Error.insufficientFunds(required: totalPrunedOutput) }
-        guard !prunedOutputs.contains(where: { $0.value < Transaction.dustLimit }) else { throw Error.outputValueIsLessThanTheDustLimit }
+        let positiveValueOutputs = outputs.filter { $0.value > 0 }
+        let totalPositiveOutput = positiveValueOutputs.map(\.value).reduce(0, +)
+        guard !positiveValueOutputs.isEmpty else { throw Error.insufficientFunds(required: totalPositiveOutput) }
+        guard !outputs.contains(where: { !$0.isOpReturnScript && $0.value < Transaction.dustLimit })
+        else { throw Error.outputValueIsLessThanTheDustLimit }
         
         let finalizedTransaction = Transaction(version: version,
                                                inputs: inputs,
-                                               outputs: prunedOutputs,
+                                               outputs: outputs,
                                                lockTime: lockTime)
         let finalizedFee = try finalizedTransaction.calculateFee(feePerByte: feePerByte)
         
@@ -107,7 +108,7 @@ extension Transaction {
             }
         }
         
-        return (prunedOutputs, finalizedFee)
+        return (outputs, finalizedFee)
     }
     
     private static func signTransaction(_ unsignedTransaction: Transaction,
@@ -144,7 +145,7 @@ extension Transaction {
                 let signatureWithType = signature + Data([UInt8(hashType.value)])
                 let unlockingScript = Data.push(signatureWithType) + Data.push(publicKey.compressedData)
                 
-                transaction = transaction.injectUnlockingScript(unlockingScript, inputIndex: index)
+                transaction = try transaction.injectUnlockingScript(unlockingScript, inputIndex: index)
             case .p2pkh_CheckDataSig(let message):
                 let message = message
                 // MARK: ↑ We DO NOT hash the message here.
@@ -156,10 +157,17 @@ extension Transaction {
                                                in: builder.signatureFormat)
                 let unlockingSignature = Data.push(signature) + Data.push(message) + Data.push(publicKey.compressedData)
                 
-                transaction = transaction.injectUnlockingScript(unlockingSignature, inputIndex: index)
+                transaction = try transaction.injectUnlockingScript(unlockingSignature, inputIndex: index)
             }
         }
         
         return transaction
+    }
+}
+
+private extension Transaction.Output {
+    var isOpReturnScript: Bool {
+        guard let opcode = lockingScript.first else { return false }
+        return opcode == OP._RETURN.rawValue
     }
 }
