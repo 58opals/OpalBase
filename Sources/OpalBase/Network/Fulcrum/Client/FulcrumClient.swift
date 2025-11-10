@@ -7,6 +7,7 @@ extension Network {
     public actor FulcrumClient {
         private let fulcrum: Fulcrum
         public let configuration: Network.Configuration
+        private var subscriptions: [UUID: any FulcrumSubscription]
         
         public init(
             configuration: Network.Configuration,
@@ -15,6 +16,7 @@ extension Network {
             urlSession: URLSession? = nil
         ) async throws {
             self.configuration = configuration
+            self.subscriptions = .init()
             
             let reconnectConfiguration = WebSocket.Reconnector.Configuration(
                 maximumReconnectionAttempts: configuration.reconnect.maximumAttempts,
@@ -47,7 +49,21 @@ extension Network {
         }
         
         public func reconnect() async throws {
-            try await fulcrum.reconnect()
+            let activeSubscriptions = Array(subscriptions.values)
+            for subscription in activeSubscriptions {
+                await subscription.prepareForReconnect()
+            }
+            
+            do {
+                try await fulcrum.reconnect()
+            } catch {
+                await failSubscriptions(activeSubscriptions, error: error)
+                throw error
+            }
+            
+            for subscription in activeSubscriptions {
+                await subscription.resubscribe(using: fulcrum)
+            }
         }
         
         public func request<Result: JSONRPCConvertible>(
@@ -68,16 +84,43 @@ extension Network {
             notificationType: Notification.Type = Notification.self,
             options: Client.Call.Options = .init()
         ) async throws -> (Initial, AsyncThrowingStream<Notification, Swift.Error>, @Sendable () async -> Void) {
-            let response = try await fulcrum.submit(
+            let subscription = FulcrumSubscriptionBox<Initial, Notification>(
                 method: method,
-                initialType: initialType,
-                notificationType: notificationType,
                 options: options
-            )
-            guard let stream = response.extractSubscriptionStream() else {
-                throw Fulcrum.Error.client(.protocolMismatch("Expected subscription stream for method: \(method)"))
+            ) { [self] identifier in
+                await self.removeSubscription(withID: identifier)
             }
-            return stream
+            
+            let initial: Initial
+            do {
+                initial = try await subscription.establish(using: fulcrum)
+            } catch {
+                await subscription.fail(with: error)
+                throw error
+            }
+            
+            subscriptions[subscription.id] = subscription
+            
+            let cancel: @Sendable () async -> Void = { [self] in
+                await self.cancelSubscription(withID: subscription.id)
+            }
+            
+            return (initial, subscription.stream, cancel)
+        }
+        
+        private func cancelSubscription(withID identifier: UUID) async {
+            guard let subscription = subscriptions.removeValue(forKey: identifier) else { return }
+            await subscription.cancel()
+        }
+        
+        private func removeSubscription(withID identifier: UUID) async {
+            subscriptions.removeValue(forKey: identifier)
+        }
+        
+        private func failSubscriptions(_ subscriptions: [any FulcrumSubscription], error: Swift.Error) async {
+            for subscription in subscriptions {
+                await subscription.fail(with: error)
+            }
         }
     }
 }
