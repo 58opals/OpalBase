@@ -75,11 +75,11 @@ extension Account {
         let rawRecipientOutputs = payment.recipients.map { recipient in
             Transaction.Output(value: recipient.amount.uint64, address: recipient.address)
         }
-        let randomizedRecipientOutputs = await privacyShaper.randomizeOutputs(rawRecipientOutputs)
+        let organizedRecipientOutputs = await privacyShaper.organizeOutputs(rawRecipientOutputs)
         
         let changeEntry = try await addressBook.selectNextEntry(for: .change)
         
-        let coinSelectionConfiguration = Address.Book.CoinSelection.Configuration(recipientOutputs: randomizedRecipientOutputs,
+        let coinSelectionConfiguration = Address.Book.CoinSelection.Configuration(recipientOutputs: organizedRecipientOutputs,
                                                                                   changeLockingScript: changeEntry.address.lockingScript.data,
                                                                                   strategy: payment.coinSelection,
                                                                                   shouldAllowDustDonation: payment.shouldAllowDustDonation)
@@ -143,8 +143,9 @@ extension Account {
                          shouldAllowDustDonation: payment.shouldAllowDustDonation,
                          changeEntry: changeEntry,
                          changeOutput: changeOutput,
-                         recipientOutputs: randomizedRecipientOutputs,
-                         privateKeys: privateKeys)
+                         recipientOutputs: organizedRecipientOutputs,
+                         privateKeys: privateKeys,
+                         shouldRandomizeRecipientOrdering: privacyConfiguration.shouldRandomizeRecipientOrdering)
     }
 }
 

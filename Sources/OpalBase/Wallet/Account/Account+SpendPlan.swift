@@ -37,6 +37,7 @@ extension Account {
         fileprivate let changeOutput: Transaction.Output
         fileprivate let recipientOutputs: [Transaction.Output]
         fileprivate let privateKeys: [Transaction.Output.Unspent: PrivateKey]
+        fileprivate let shouldRandomizeRecipientOrdering: Bool
         
         init(payment: Payment,
              feeRate: UInt64,
@@ -47,7 +48,8 @@ extension Account {
              changeEntry: Address.Book.Entry,
              changeOutput: Transaction.Output,
              recipientOutputs: [Transaction.Output],
-             privateKeys: [Transaction.Output.Unspent: PrivateKey]) {
+             privateKeys: [Transaction.Output.Unspent: PrivateKey],
+             shouldRandomizeRecipientOrdering: Bool) {
             self.payment = payment
             self.feeRate = feeRate
             self.inputs = inputs
@@ -58,15 +60,18 @@ extension Account {
             self.changeOutput = changeOutput
             self.recipientOutputs = recipientOutputs
             self.privateKeys = privateKeys
+            self.shouldRandomizeRecipientOrdering = shouldRandomizeRecipientOrdering
         }
         
         public func buildTransaction(signatureFormat: ECDSA.SignatureFormat = .ecdsa(.der),
                                      unlockers: [Transaction.Output.Unspent: Transaction.Unlocker] = .init()) throws -> TransactionResult {
             let transaction: Transaction
             do {
+                let outputOrderingStrategy: Transaction.OutputOrderingStrategy = shouldRandomizeRecipientOrdering ? .privacyRandomized : .canonicalBIP69
                 transaction = try Transaction.build(utxoPrivateKeyPairs: privateKeys,
                                                     recipientOutputs: recipientOutputs,
                                                     changeOutput: changeOutput,
+                                                    outputOrderingStrategy: outputOrderingStrategy,
                                                     signatureFormat: signatureFormat,
                                                     feePerByte: feeRate,
                                                     shouldAllowDustDonation: shouldAllowDustDonation,
@@ -103,14 +108,14 @@ extension Account {
                 throw Account.Error.transactionBuildFailed(error)
             }
             
-            let potentialChange = transaction.outputs.last
+            let changeCandidate = transaction.outputs.first { output in
+                output.lockingScript == changeOutput.lockingScript && output.value > 0
+            }
             let change: TransactionResult.Change?
-            if let potentialChange,
-               potentialChange.lockingScript == changeOutput.lockingScript,
-               potentialChange.value > 0 {
+            if let changeCandidate {
                 let changeAmount: Satoshi
                 do {
-                    changeAmount = try Satoshi(potentialChange.value)
+                    changeAmount = try Satoshi(changeCandidate.value)
                 } catch {
                     throw Account.Error.transactionBuildFailed(error)
                 }

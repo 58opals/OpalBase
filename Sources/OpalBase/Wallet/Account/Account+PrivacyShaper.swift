@@ -64,9 +64,14 @@ extension Account.PrivacyShaper {
         return utxos.shuffled(using: &generator)
     }
     
-    func randomizeOutputs(_ outputs: [Transaction.Output]) -> [Transaction.Output] {
-        guard configuration.shouldRandomizeRecipientOrdering, outputs.count > 1 else { return outputs }
-        return outputs.shuffled(using: &generator)
+    func organizeOutputs(_ outputs: [Transaction.Output]) -> [Transaction.Output] {
+        guard outputs.count > 1 else { return outputs }
+        
+        if configuration.shouldRandomizeRecipientOrdering {
+            return outputs.shuffled(using: &generator)
+        }
+        
+        return Transaction.Output.bip69Ordered(outputs)
     }
     
     private func enqueueDecoys(_ decoys: [@Sendable () async -> Void]) {

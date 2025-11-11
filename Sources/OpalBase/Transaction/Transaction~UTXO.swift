@@ -6,10 +6,16 @@ extension Transaction {
     public static let defaultFeeRate = UInt64(1)
     static var dustLimit: UInt64 { 546 }
     
+    public enum OutputOrderingStrategy: Sendable {
+        case privacyRandomized
+        case canonicalBIP69
+    }
+    
     static func build(version: UInt32 = 2,
                       utxoPrivateKeyPairs: [Transaction.Output.Unspent: PrivateKey],
                       recipientOutputs: [Output],
                       changeOutput: Output,
+                      outputOrderingStrategy: OutputOrderingStrategy = .privacyRandomized,
                       signatureFormat: ECDSA.SignatureFormat = .ecdsa(.der),
                       feePerByte: UInt64 = 1,
                       sequence: UInt32 = 0xFFFFFFFF,
@@ -27,6 +33,7 @@ extension Transaction {
                                                     inputs: inputs,
                                                     recipientOutputs: recipientOutputs,
                                                     changeOutput: changeOutput,
+                                                    outputOrderingStrategy: outputOrderingStrategy,
                                                     feePerByte: feePerByte,
                                                     lockTime: lockTime,
                                                     shouldAllowDustDonation: shouldAllowDustDonation)
@@ -41,6 +48,7 @@ extension Transaction {
                                              inputs: [Input],
                                              recipientOutputs: [Output],
                                              changeOutput: Output,
+                                             outputOrderingStrategy: OutputOrderingStrategy,
                                              feePerByte: UInt64,
                                              lockTime: UInt32,
                                              shouldAllowDustDonation: Bool) throws -> ([Output], UInt64) {
@@ -89,15 +97,23 @@ extension Transaction {
             }
         }
         
-        let positiveValueOutputs = outputs.filter { $0.value > 0 }
+        let orderedOutputs: [Output]
+        switch outputOrderingStrategy {
+        case .privacyRandomized:
+            orderedOutputs = outputs
+        case .canonicalBIP69:
+            orderedOutputs = Output.bip69Ordered(outputs)
+        }
+        
+        let positiveValueOutputs = orderedOutputs.filter { $0.value > 0 }
         let totalPositiveOutput = positiveValueOutputs.map(\.value).reduce(0, +)
         guard !positiveValueOutputs.isEmpty else { throw Error.insufficientFunds(required: totalPositiveOutput) }
-        guard !outputs.contains(where: { !$0.isOpReturnScript && $0.value < Transaction.dustLimit })
+        guard !orderedOutputs.contains(where: { !$0.isOpReturnScript && $0.value < Transaction.dustLimit })
         else { throw Error.outputValueIsLessThanTheDustLimit }
         
         let finalizedTransaction = Transaction(version: version,
                                                inputs: inputs,
-                                               outputs: outputs,
+                                               outputs: orderedOutputs,
                                                lockTime: lockTime)
         let finalizedFee = try finalizedTransaction.calculateFee(feePerByte: feePerByte)
         
@@ -108,7 +124,7 @@ extension Transaction {
             }
         }
         
-        return (outputs, finalizedFee)
+        return (orderedOutputs, finalizedFee)
     }
     
     private static func signTransaction(_ unsignedTransaction: Transaction,
