@@ -101,8 +101,8 @@ extension Storage.Security {
         }
         guard status == errSecSuccess else { throw Error.keychainFailure(status) }
         guard let anyRef = output else { throw Error.secureEnclaveFailure }
-        let privateKey = anyRef as! SecKey
-        return privateKey
+        guard CFGetTypeID(anyRef) == SecKeyGetTypeID() else { throw Error.secureEnclaveFailure }
+        return unsafeDowncast(anyRef, to: SecKey.self)
     }
     
     func makeSecureEnclaveAccessControl() throws -> SecAccessControl {
