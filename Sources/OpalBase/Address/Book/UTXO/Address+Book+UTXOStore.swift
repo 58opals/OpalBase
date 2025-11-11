@@ -129,6 +129,10 @@ extension Address.Book {
         utxoStore.replace(with: utxos)
     }
     
+    func replaceUTXOs(for address: Address, with utxos: [Transaction.Output.Unspent]) {
+        utxoStore.replace(for: address, with: utxos)
+    }
+    
     func removeUTXO(_ utxo: Transaction.Output.Unspent) {
         utxoStore.remove(utxo)
     }

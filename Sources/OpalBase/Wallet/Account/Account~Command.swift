@@ -2,129 +2,14 @@
 
 import Foundation
 
+// MARK: - UTXO
 extension Account {
-    public struct SpendPlan: Sendable {
-        public struct TransactionResult: Sendable {
-            public struct Change: Sendable {
-                public let entry: Address.Book.Entry
-                public let amount: Satoshi
-                
-                public init(entry: Address.Book.Entry, amount: Satoshi) {
-                    self.entry = entry
-                    self.amount = amount
-                }
-            }
-            
-            public let transaction: Transaction
-            public let fee: Satoshi
-            public let change: Change?
-            
-            public init(transaction: Transaction, fee: Satoshi, change: Change?) {
-                self.transaction = transaction
-                self.fee = fee
-                self.change = change
-            }
-        }
-        
-        public let payment: Payment
-        public let feeRate: UInt64
-        public let inputs: [Transaction.Output.Unspent]
-        public let totalSelectedAmount: Satoshi
-        public let targetAmount: Satoshi
-        public let shouldAllowDustDonation: Bool
-        
-        fileprivate let changeEntry: Address.Book.Entry
-        fileprivate let changeOutput: Transaction.Output
-        fileprivate let recipientOutputs: [Transaction.Output]
-        fileprivate let privateKeys: [Transaction.Output.Unspent: PrivateKey]
-        
-        init(payment: Payment,
-             feeRate: UInt64,
-             inputs: [Transaction.Output.Unspent],
-             totalSelectedAmount: Satoshi,
-             targetAmount: Satoshi,
-             shouldAllowDustDonation: Bool,
-             changeEntry: Address.Book.Entry,
-             changeOutput: Transaction.Output,
-             recipientOutputs: [Transaction.Output],
-             privateKeys: [Transaction.Output.Unspent: PrivateKey]) {
-            self.payment = payment
-            self.feeRate = feeRate
-            self.inputs = inputs
-            self.totalSelectedAmount = totalSelectedAmount
-            self.targetAmount = targetAmount
-            self.shouldAllowDustDonation = shouldAllowDustDonation
-            self.changeEntry = changeEntry
-            self.changeOutput = changeOutput
-            self.recipientOutputs = recipientOutputs
-            self.privateKeys = privateKeys
-        }
-        
-        public func buildTransaction(signatureFormat: ECDSA.SignatureFormat = .ecdsa(.der),
-                                     unlockers: [Transaction.Output.Unspent: Transaction.Unlocker] = .init()) throws -> TransactionResult {
-            let transaction: Transaction
-            do {
-                transaction = try Transaction.build(utxoPrivateKeyPairs: privateKeys,
-                                                    recipientOutputs: recipientOutputs,
-                                                    changeOutput: changeOutput,
-                                                    signatureFormat: signatureFormat,
-                                                    feePerByte: feeRate,
-                                                    shouldAllowDustDonation: shouldAllowDustDonation,
-                                                    unlockers: unlockers)
-            } catch {
-                throw Account.Error.transactionBuildFailed(error)
-            }
-            
-            var computedTotalOutputValue: UInt64 = 0
-            for output in transaction.outputs {
-                let result = computedTotalOutputValue.addingReportingOverflow(output.value)
-                guard !result.overflow else { throw Account.Error.paymentExceedsMaximumAmount }
-                computedTotalOutputValue = result.partialValue
-            }
-            
-            let totalOutputValue = computedTotalOutputValue
-            
-            var computedInputTotal: UInt64 = 0
-            for input in inputs {
-                let result = computedInputTotal.addingReportingOverflow(input.value)
-                guard !result.overflow else { throw Account.Error.paymentExceedsMaximumAmount }
-                computedInputTotal = result.partialValue
-            }
-            
-            let inputTotal = computedInputTotal
-            
-            let feeDifference = inputTotal.subtractingReportingOverflow(totalOutputValue)
-            guard !feeDifference.overflow else { throw Account.Error.paymentExceedsMaximumAmount }
-            
-            let fee: Satoshi
-            do {
-                fee = try Satoshi(feeDifference.partialValue)
-            } catch {
-                throw Account.Error.transactionBuildFailed(error)
-            }
-            
-            let potentialChange = transaction.outputs.last
-            let change: TransactionResult.Change?
-            if let potentialChange,
-               potentialChange.lockingScript == changeOutput.lockingScript,
-               potentialChange.value > 0 {
-                let changeAmount: Satoshi
-                do {
-                    changeAmount = try Satoshi(potentialChange.value)
-                } catch {
-                    throw Account.Error.transactionBuildFailed(error)
-                }
-                change = TransactionResult.Change(entry: changeEntry, amount: changeAmount)
-            } else {
-                change = nil
-            }
-            
-            return TransactionResult(transaction: transaction, fee: fee, change: change)
-        }
+    public func refreshUTXOSet(using service: Network.AddressReadable, usage: DerivationPath.Usage? = nil) async throws -> Address.Book.UTXORefresh {
+        try await addressBook.refreshUTXOSet(using: service, usage: usage)
     }
-    
 }
 
+// MARK: - Spend
 extension Account {
     public func prepareSpend(_ payment: Payment,
                              feePolicy: Wallet.FeePolicy = .init()) async throws -> SpendPlan {
@@ -214,5 +99,85 @@ extension Account {
                          changeOutput: changeOutput,
                          recipientOutputs: randomizedRecipientOutputs,
                          privateKeys: privateKeys)
+    }
+}
+
+// MARK: - Broadcast
+extension Account {
+    public func broadcast(_ transaction: Transaction,
+                          via handler: Network.TransactionHandling) async throws -> Transaction.Hash {
+        let rawTransaction = transaction.encode()
+        let rawTransactionHexadecimal = rawTransaction.hexadecimalString
+        
+        let transactionIdentifier: String
+        do {
+            transactionIdentifier = try await handler.broadcastTransaction(rawTransactionHexadecimal: rawTransactionHexadecimal)
+        } catch {
+            throw Account.Error.broadcastFailed(error)
+        }
+        
+        let identifierData: Data
+        do {
+            identifierData = try Data(hexadecimalString: transactionIdentifier)
+        } catch {
+            throw Account.Error.broadcastFailed(error)
+        }
+        
+        return Transaction.Hash(dataFromRPC: identifierData)
+    }
+    
+    public func monitorConfirmations(for transactionHash: Transaction.Hash,
+                                     via handler: Network.TransactionHandling,
+                                     pollInterval: Duration = .seconds(5)) -> AsyncThrowingStream<UInt?, Swift.Error> {
+        let identifier = transactionHash.reverseOrder.hexadecimalString
+        let fallbackInterval: Duration = .milliseconds(100)
+        let effectiveInterval = pollInterval > .zero ? pollInterval : fallbackInterval
+        
+        return AsyncThrowingStream { continuation in
+            let task = Task {
+                var lastStatus: UInt?? = nil
+                
+                while !Task.isCancelled {
+                    do {
+                        try Task.checkCancellation()
+                        
+                        let confirmations: UInt?
+                        do {
+                            confirmations = try await handler.fetchConfirmations(forTransactionIdentifier: identifier)
+                        } catch {
+                            throw Account.Error.confirmationQueryFailed(error)
+                        }
+                        
+                        let currentStatus: UInt?? = .some(confirmations)
+                        if lastStatus == nil || lastStatus! != currentStatus {
+                            lastStatus = currentStatus
+                            continuation.yield(confirmations)
+                        }
+                        
+                        do {
+                            try await Task.sleep(for: effectiveInterval)
+                        } catch is CancellationError {
+                            continuation.finish()
+                            return
+                        }
+                    } catch is CancellationError {
+                        continuation.finish()
+                        return
+                    } catch let error as Account.Error {
+                        continuation.finish(throwing: error)
+                        return
+                    } catch {
+                        continuation.finish(throwing: Account.Error.confirmationQueryFailed(error))
+                        return
+                    }
+                }
+                
+                continuation.finish()
+            }
+            
+            continuation.onTermination = { _ in
+                task.cancel()
+            }
+        }
     }
 }

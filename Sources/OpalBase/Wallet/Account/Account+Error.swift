@@ -12,6 +12,7 @@ extension Account {
         case coinSelectionFailed(Swift.Error)
         case transactionBuildFailed(Swift.Error)
         case broadcastFailed(Swift.Error)
+        case confirmationQueryFailed(Swift.Error)
         case feePreferenceUnavailable(Swift.Error)
     }
 }
@@ -31,6 +32,7 @@ extension Account.Error: Equatable {
         case (.coinSelectionFailed(let leftError), .coinSelectionFailed(let rightError)),
             (.transactionBuildFailed(let leftError), .transactionBuildFailed(let rightError)),
             (.broadcastFailed(let leftError), .broadcastFailed(let rightError)),
+            (.confirmationQueryFailed(let leftError), .confirmationQueryFailed(let rightError)),
             (.feePreferenceUnavailable(let leftError), .feePreferenceUnavailable(let rightError)):
             return leftError.localizedDescription == rightError.localizedDescription
         default:

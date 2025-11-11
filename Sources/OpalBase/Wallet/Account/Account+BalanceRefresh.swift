@@ -1,4 +1,4 @@
-// Account~Command~Balance.swift
+// Account+BalanceRefresh.swift
 
 import Foundation
 
