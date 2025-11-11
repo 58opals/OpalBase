@@ -76,7 +76,10 @@ extension Storage {
     }
     
     func fetchEntry(for key: Storage.Key) throws -> Storage.Value? {
-        let predicate = #Predicate<Storage.Value> { $0.key == key.rawValue }
+        let expectedKey = key.rawValue
+        let predicate = #Predicate<Storage.Value> { value in
+            value.key == expectedKey
+        }
         var descriptor = FetchDescriptor<Storage.Value>(predicate: predicate)
         descriptor.fetchLimit = 1
         
