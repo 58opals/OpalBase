@@ -75,6 +75,32 @@ extension Address.Book {
 }
 
 extension Address.Book {
+    public func refreshTransactionHistory(for address: Address,
+                                          using service: Network.AddressReadable,
+                                          includeUnconfirmed: Bool) async throws -> Transaction.History.ChangeSet {
+        do {
+            let history = try await service.fetchHistory(for: address.string,
+                                                         includeUnconfirmed: includeUnconfirmed)
+            let entries = try history.map { try $0.makeHistoryEntry() }
+            
+            if !entries.isEmpty {
+                try await mark(address: address, isUsed: true)
+            }
+            
+            let scriptHash = address.makeScriptHash().hexadecimalString
+            let timestamp = Date()
+            return transactionLog.updateHistory(for: scriptHash,
+                                                entries: entries,
+                                                timestamp: timestamp)
+        } catch let error as Address.Book.Error {
+            throw error
+        } catch {
+            throw Address.Book.Error.transactionHistoryRefreshFailed(address, error)
+        }
+    }
+}
+
+extension Address.Book {
     public func updateTransactionConfirmations(using handler: Network.TransactionConfirming,
                                                for transactionHashes: [Transaction.Hash]) async throws -> Transaction.History.ChangeSet {
         guard !transactionHashes.isEmpty else { return .init() }

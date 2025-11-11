@@ -227,3 +227,52 @@ extension Account {
         }
     }
 }
+
+// MARK: - Monitor
+
+extension Account {
+    public func listTrackedEntries() async -> [Address.Book.Entry] {
+        await addressBook.listAllEntries()
+    }
+}
+
+extension Account {
+    public func observeNewEntries() async -> AsyncStream<Address.Book.Entry> {
+        await addressBook.observeNewEntries()
+    }
+}
+
+extension Account {
+    public func replaceUTXOs(for address: Address,
+                             with utxos: [Transaction.Output.Unspent],
+                             timestamp: Date = .now) async throws -> Satoshi {
+        await addressBook.replaceUTXOs(for: address, with: utxos)
+        
+        if !utxos.isEmpty {
+            try await addressBook.mark(address: address, isUsed: true)
+        }
+        
+        var aggregateValue: UInt64 = 0
+        for utxo in utxos {
+            let (updated, didOverflow) = aggregateValue.addingReportingOverflow(utxo.value)
+            if didOverflow { throw Satoshi.Error.exceedsMaximumAmount }
+            aggregateValue = updated
+        }
+        
+        let balance = try Satoshi(aggregateValue)
+        try await addressBook.updateCachedBalance(for: address,
+                                                  balance: balance,
+                                                  timestamp: timestamp)
+        return balance
+    }
+}
+
+extension Account {
+    public func refreshTransactionHistory(for address: Address,
+                                          using service: Network.AddressReadable,
+                                          includeUnconfirmed: Bool = true) async throws -> Transaction.History.ChangeSet {
+        try await addressBook.refreshTransactionHistory(for: address,
+                                                        using: service,
+                                                        includeUnconfirmed: includeUnconfirmed)
+    }
+}

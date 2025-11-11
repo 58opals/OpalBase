@@ -69,6 +69,18 @@ extension Wallet {
             let account = try await wallet.fetchAccount(at: unhardenedIndex)
             return try await refreshTransactionConfirmations(for: account)
         }
+        
+        public func makeMonitor(for account: Account,
+                                blockHeaderReader: Network.FulcrumBlockHeaderReader,
+                                includeUnconfirmed: Bool = true,
+                                retryDelay: Duration = .seconds(2)) -> Monitor {
+            Monitor(account: account,
+                    addressReader: addressReader,
+                    blockHeaderReader: blockHeaderReader,
+                    transactionHandler: transactionHandler,
+                    includeUnconfirmed: includeUnconfirmed,
+                    retryDelay: retryDelay)
+        }
     }
 }
 
