@@ -9,6 +9,52 @@ extension Account {
     }
 }
 
+// MARK: - History
+extension Account {
+    public func refreshTransactionHistory(using service: Network.AddressReadable,
+                                          usage: DerivationPath.Usage? = nil,
+                                          includeUnconfirmed: Bool = true) async throws -> Transaction.History.ChangeSet {
+        do {
+            return try await addressBook.refreshTransactionHistory(using: service,
+                                                                   usage: usage,
+                                                                   includeUnconfirmed: includeUnconfirmed)
+        } catch let error as Address.Book.Error {
+            switch error {
+            case .transactionHistoryRefreshFailed(let address, let underlying):
+                throw Account.Error.transactionHistoryRefreshFailed(address, underlying)
+            default:
+                throw error
+            }
+        } catch {
+            throw error
+        }
+    }
+    
+    public func updateTransactionConfirmations(using handler: Network.TransactionConfirming,
+                                               for transactionHashes: [Transaction.Hash]) async throws -> Transaction.History.ChangeSet {
+        do {
+            return try await addressBook.updateTransactionConfirmations(using: handler,
+                                                                        for: transactionHashes)
+        } catch let error as Address.Book.Error {
+            switch error {
+            case .transactionConfirmationRefreshFailed(let hash, let underlying):
+                throw Account.Error.transactionConfirmationRefreshFailed(hash, underlying)
+            default:
+                throw error
+            }
+        } catch {
+            throw error
+        }
+    }
+    
+    public func refreshTransactionConfirmations(using handler: Network.TransactionConfirming) async throws -> Transaction.History.ChangeSet {
+        let records = await addressBook.listTransactionRecords()
+        let hashes = records.map(\.transactionHash)
+        guard !hashes.isEmpty else { return .init() }
+        return try await updateTransactionConfirmations(using: handler, for: hashes)
+    }
+}
+
 // MARK: - Spend
 extension Account {
     public func prepareSpend(_ payment: Payment,

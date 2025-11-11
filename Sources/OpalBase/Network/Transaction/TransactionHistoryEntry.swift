@@ -15,3 +15,20 @@ extension Network {
         }
     }
 }
+
+extension Network.TransactionHistoryEntry {
+    func makeHistoryEntry() throws -> Transaction.History.Entry {
+        let identifierData: Data
+        do {
+            identifierData = try Data(hexadecimalString: transactionIdentifier)
+        } catch {
+            throw Network.Failure(reason: .decoding,
+                                  message: "Cannot decode transaction identifier: \(transactionIdentifier)")
+        }
+        
+        let hash = Transaction.Hash(dataFromRPC: identifierData)
+        return Transaction.History.Entry(transactionHash: hash,
+                                         height: blockHeight,
+                                         fee: fee)
+    }
+}

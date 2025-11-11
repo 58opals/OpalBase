@@ -14,6 +14,10 @@ extension Address.Book {
             Array(records.values)
         }
         
+        public func loadRecord(for transactionHash: Transaction.Hash) -> Transaction.History.Record? {
+            records[transactionHash]
+        }
+        
         public mutating func updateHistory(for scriptHash: String,
                                            entries: [Transaction.History.Entry],
                                            timestamp: Date) -> Transaction.History.ChangeSet {

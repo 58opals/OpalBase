@@ -27,9 +27,25 @@ extension Network {
         }
         
         public func fetchConfirmations(forTransactionIdentifier transactionIdentifier: String) async throws -> UInt? {
+            let hash: Transaction.Hash
+            do {
+                let identifierData = try Data(hexadecimalString: transactionIdentifier)
+                hash = Transaction.Hash(dataFromRPC: identifierData)
+            } catch {
+                throw Network.Failure(reason: .decoding,
+                                      message: "Invalid transaction identifier: \(transactionIdentifier)")
+            }
+            
+            let status = try await fetchConfirmationStatus(for: hash)
+            return status.confirmations
+        }
+        
+        public func fetchConfirmationStatus(for transactionHash: Transaction.Hash) async throws -> Network.TransactionConfirmationStatus {
+            let identifier = transactionHash.reverseOrder.hexadecimalString
+            
             do {
                 async let transactionHeightResponse = client.request(
-                    method: .blockchain(.transaction(.getHeight(transactionHash: transactionIdentifier))),
+                    method: .blockchain(.transaction(.getHeight(transactionHash: identifier))),
                     responseType: Response.Result.Blockchain.Transaction.GetHeight.self,
                     options: .init(timeout: timeouts.transactionConfirmations)
                 )
@@ -45,14 +61,20 @@ extension Network {
                 let transactionHeight = transactionHeightResult.height
                 let tipHeight = tipHeightResult.height
                 
-                guard let confirmationCount = Self.calculateConfirmationCount(
+                let confirmationCount = Self.calculateConfirmationCount(
                     transactionHeight: transactionHeight,
                     tipHeight: tipHeight
-                ) else {
-                    return nil
-                }
+                )
                 
-                return confirmationCount
+                let resolvedHeight = Self.resolveTransactionHeight(transactionHeight)
+                let resolvedTipHeight = Self.resolveTipHeight(tipHeight)
+                
+                return Network.TransactionConfirmationStatus(transactionHash: transactionHash,
+                                                             transactionHeight: resolvedHeight,
+                                                             tipHeight: resolvedTipHeight,
+                                                             confirmations: confirmationCount)
+            } catch let failure as Network.Failure {
+                throw failure
             } catch {
                 throw FulcrumErrorTranslator.translate(error)
             }
@@ -67,6 +89,22 @@ extension Network {
             
             let confirmationCount = tipHeight - transactionHeight + 1
             return UInt(confirmationCount)
+        }
+        
+        private static func resolveTransactionHeight<Height: BinaryInteger>(_ height: Height) -> Int? {
+            guard height >= 0 else { return nil }
+            if let resolved = Int(exactly: height) {
+                return resolved
+            }
+            return Int.max
+        }
+        
+        private static func resolveTipHeight<Height: BinaryInteger>(_ height: Height) -> UInt64 {
+            if let resolved = UInt64(exactly: height) {
+                return resolved
+            }
+            if height < 0 { return 0 }
+            return UInt64.max
         }
     }
 }

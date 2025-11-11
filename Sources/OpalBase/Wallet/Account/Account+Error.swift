@@ -7,6 +7,8 @@ extension Account {
         case snapshotDoesNotMatchAccount
         case balanceFetchTimeout(Address)
         case balanceRefreshFailed(Address, Swift.Error)
+        case transactionHistoryRefreshFailed(Address, Swift.Error)
+        case transactionConfirmationRefreshFailed(Transaction.Hash, Swift.Error)
         case paymentHasNoRecipients
         case paymentExceedsMaximumAmount
         case coinSelectionFailed(Swift.Error)
@@ -29,6 +31,12 @@ extension Account.Error: Equatable {
         case (.balanceRefreshFailed(let leftAddress, let leftError),
               .balanceRefreshFailed(let rightAddress, let rightError)):
             return leftAddress == rightAddress && leftError.localizedDescription == rightError.localizedDescription
+        case (.transactionHistoryRefreshFailed(let leftAddress, let leftError),
+              .transactionHistoryRefreshFailed(let rightAddress, let rightError)):
+            return leftAddress == rightAddress && leftError.localizedDescription == rightError.localizedDescription
+        case (.transactionConfirmationRefreshFailed(let leftHash, let leftError),
+              .transactionConfirmationRefreshFailed(let rightHash, let rightError)):
+            return leftHash == rightHash && leftError.localizedDescription == rightError.localizedDescription
         case (.coinSelectionFailed(let leftError), .coinSelectionFailed(let rightError)),
             (.transactionBuildFailed(let leftError), .transactionBuildFailed(let rightError)),
             (.broadcastFailed(let leftError), .broadcastFailed(let rightError)),
