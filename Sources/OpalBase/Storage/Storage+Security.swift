@@ -7,11 +7,9 @@ extension Storage {
     public struct Security: Sendable {
         public struct Options: Sendable {
             public var accessGroup: String?
-            public var shouldUseSecureEnclave: Bool
             
-            public init(accessGroup: String? = nil, shouldUseSecureEnclave: Bool = false) {
+            public init(accessGroup: String? = nil) {
                 self.accessGroup = accessGroup
-                self.shouldUseSecureEnclave = shouldUseSecureEnclave
             }
         }
         public enum Error: Swift.Error {
@@ -20,110 +18,46 @@ extension Storage {
         }
         
         private let options: Options
-        private let serviceName = "com.58opals.opal.storage.secure"
         private let secureEnclaveKeyIdentifier = "secure-enclave-key.v1"
         
         public init(options: Options = .init()) {
             self.options = options
         }
         
-        public func saveValue(_ value: Data, forAccount account: String) throws {
-            let preparedData = try prepareDataForStorage(value)
-            var addAttributes = makeKeychainAttributes(forAccount: account)
-            addAttributes[kSecValueData as String] = preparedData
-            addAttributes[kSecAttrAccessible as String] = keychainAccessibilityAttribute
-            
-            let addStatus = SecItemAdd(addAttributes as CFDictionary, nil)
-            if addStatus == errSecDuplicateItem {
-                let updateQuery = makeKeychainAttributes(forAccount: account)
-                let updateAttributes: [String: Any] = [
-                    kSecValueData as String: preparedData,
-                    kSecAttrAccessible as String: keychainAccessibilityAttribute
-                ]
-                let updateStatus = SecItemUpdate(updateQuery as CFDictionary, updateAttributes as CFDictionary)
-                guard updateStatus == errSecSuccess else { throw Error.keychainFailure(updateStatus) }
-            } else if addStatus != errSecSuccess {
-                throw Error.keychainFailure(addStatus)
+        public func encrypt(_ value: Data) throws -> Data {
+            let privateKey = try loadOrCreateSecureEnclavePrivateKey()
+            guard let publicKey = SecKeyCopyPublicKey(privateKey) else { throw Error.secureEnclaveFailure }
+            let algorithm = SecKeyAlgorithm.eciesEncryptionStandardX963SHA256AESGCM
+            guard SecKeyIsAlgorithmSupported(publicKey, .encrypt, algorithm) else { throw Error.secureEnclaveFailure }
+            guard let encryptedData = SecKeyCreateEncryptedData(publicKey, algorithm, value as CFData, nil) as Data? else {
+                throw Error.secureEnclaveFailure
             }
+            return encryptedData
         }
         
-        public func loadValue(forAccount account: String) throws -> Data? {
-            var query = makeKeychainAttributes(forAccount: account)
-            query[kSecReturnData as String] = true
-            query[kSecMatchLimit as String] = kSecMatchLimitOne
-            
-            var output: CFTypeRef?
-            let status = SecItemCopyMatching(query as CFDictionary, &output)
-            if status == errSecItemNotFound {
-                return nil
+        public func decrypt(_ value: Data) throws -> Data {
+            let privateKey = try loadOrCreateSecureEnclavePrivateKey()
+            let algorithm = SecKeyAlgorithm.eciesEncryptionStandardX963SHA256AESGCM
+            guard SecKeyIsAlgorithmSupported(privateKey, .decrypt, algorithm) else { throw Error.secureEnclaveFailure }
+            guard let decryptedData = SecKeyCreateDecryptedData(privateKey, algorithm, value as CFData, nil) as Data? else {
+                throw Error.secureEnclaveFailure
             }
-            guard status == errSecSuccess else { throw Error.keychainFailure(status) }
-            guard let storedData = output as? Data else { return nil }
-            return try recoverStoredData(storedData)
-        }
-        
-        public func removeValue(forAccount account: String) throws {
-            let query = makeKeychainAttributes(forAccount: account)
-            let status = SecItemDelete(query as CFDictionary)
-            guard status == errSecSuccess || status == errSecItemNotFound else { throw Error.keychainFailure(status) }
-        }
-        public func hasValue(forAccount account: String) throws -> Bool {
-            return try loadValue(forAccount: account) != nil
+            return decryptedData
         }
     }
 }
 
 extension Storage.Security {
     var keychainAccessibilityAttribute: CFString {
-        options.shouldUseSecureEnclave ? kSecAttrAccessibleWhenUnlockedThisDeviceOnly : kSecAttrAccessibleAfterFirstUnlock
-    }
-    
-    func makeKeychainAttributes(forAccount account: String) -> [String: Any] {
-        var attributes: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: serviceName,
-            kSecAttrAccount as String: account
-        ]
-        if let accessGroup = options.accessGroup {
-            attributes[kSecAttrAccessGroup as String] = accessGroup
-        }
-        
-        return attributes
-    }
-    
-    func prepareDataForStorage(_ value: Data) throws -> Data {
-        guard options.shouldUseSecureEnclave else { return value }
-        let privateKey = try loadOrCreateSecureEnclavePrivateKey()
-        guard let publicKey = SecKeyCopyPublicKey(privateKey) else { throw Error.secureEnclaveFailure }
-        let algorithm = SecKeyAlgorithm.eciesEncryptionCofactorX963SHA256AESGCM
-        guard SecKeyIsAlgorithmSupported(publicKey, .encrypt, algorithm) else { throw Error.secureEnclaveFailure }
-        guard let encryptedData = SecKeyCreateEncryptedData(publicKey, algorithm, value as CFData, nil) as Data? else {
-            throw Error.secureEnclaveFailure
-        }
-        return encryptedData
-    }
-    
-    func recoverStoredData(_ data: Data) throws -> Data {
-        guard options.shouldUseSecureEnclave else { return data }
-        let privateKey = try loadOrCreateSecureEnclavePrivateKey()
-        let algorithm = SecKeyAlgorithm.eciesEncryptionCofactorX963SHA256AESGCM
-        guard SecKeyIsAlgorithmSupported(privateKey, .decrypt, algorithm) else { throw Error.secureEnclaveFailure }
-        guard let decryptedData = SecKeyCreateDecryptedData(privateKey, algorithm, data as CFData, nil) as Data? else {
-            throw Error.secureEnclaveFailure
-        }
-        return decryptedData
+        kSecAttrAccessibleWhenUnlockedThisDeviceOnly
     }
     
     func loadOrCreateSecureEnclavePrivateKey() throws -> SecKey {
-        if let existingKey = copySecureEnclavePrivateKey() {
+        if let existingKey = try copySecureEnclavePrivateKey() {
             return existingKey
         }
         
-        guard let accessControl = SecAccessControlCreateWithFlags(nil,
-                                                                  kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
-                                                                  [.privateKeyUsage],
-                                                                  nil) else { throw Error.secureEnclaveFailure }
-        
+        let accessControl = try makeSecureEnclaveAccessControl()
         var privateKeyAttributes: [String: Any] = [
             kSecAttrIsPermanent as String: true,
             kSecAttrApplicationTag as String: secureEnclaveApplicationTag(),
@@ -146,20 +80,37 @@ extension Storage.Security {
         return privateKey
     }
     
-    func copySecureEnclavePrivateKey() -> SecKey? {
+    func copySecureEnclavePrivateKey() throws -> SecKey? {
         var query: [String: Any] = [
             kSecClass as String: kSecClassKey,
             kSecAttrKeyType as String: kSecAttrKeyTypeECSECPrimeRandom,
             kSecAttrApplicationTag as String: secureEnclaveApplicationTag(),
-            kSecReturnRef as String: true
+            kSecReturnRef as String: true,
+            kSecAttrKeyClass as String: kSecAttrKeyClassPrivate,
+            kSecAttrAccessible as String: keychainAccessibilityAttribute,
+            kSecAttrTokenID as String: kSecAttrTokenIDSecureEnclave
         ]
         if let accessGroup = options.accessGroup {
             query[kSecAttrAccessGroup as String] = accessGroup
         }
+        
         var output: CFTypeRef?
         let status = SecItemCopyMatching(query as CFDictionary, &output)
-        guard status == errSecSuccess else { return nil }
-        return (output as! SecKey)
+        if status == errSecItemNotFound {
+            return nil
+        }
+        guard status == errSecSuccess else { throw Error.keychainFailure(status) }
+        guard let anyRef = output else { throw Error.secureEnclaveFailure }
+        let privateKey = anyRef as! SecKey
+        return privateKey
+    }
+    
+    func makeSecureEnclaveAccessControl() throws -> SecAccessControl {
+        guard let accessControl = SecAccessControlCreateWithFlags(nil,
+                                                                  keychainAccessibilityAttribute,
+                                                                  [.privateKeyUsage],
+                                                                  nil) else { throw Error.secureEnclaveFailure }
+        return accessControl
     }
     
     func secureEnclaveApplicationTag() -> Data {
