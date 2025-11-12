@@ -17,6 +17,9 @@ extension Address.Book {
         case insufficientFunds
         case paymentExceedsMaximumAmount
         
+        case utxoNotFound
+        case utxoAlreadyReserved(Transaction.Output.Unspent)
+        
         case cacheInvalid
         case cacheUpdateFailed
         case invalidSnapshotBalance(value: UInt64, reason: Swift.Error)
@@ -34,6 +37,7 @@ extension Address.Book.Error: Equatable {
             (.entryNotFound, .entryNotFound),
             (.insufficientFunds, .insufficientFunds),
             (.paymentExceedsMaximumAmount, .paymentExceedsMaximumAmount),
+            (.utxoNotFound, .utxoNotFound),
             (.cacheInvalid, .cacheInvalid),
             (.cacheUpdateFailed, .cacheUpdateFailed):
             return true
@@ -43,6 +47,8 @@ extension Address.Book.Error: Equatable {
             return leftAddress == rightAddress
         case (.entryDuplicated(let leftEntry), .entryDuplicated(let rightEntry)):
             return leftEntry == rightEntry
+        case (.utxoAlreadyReserved(let leftUTXO), .utxoAlreadyReserved(let rightUTXO)):
+            return leftUTXO == rightUTXO
         case (.invalidSnapshotBalance(let leftValue, let leftError),
               .invalidSnapshotBalance(let rightValue, let rightError)):
             return leftValue == rightValue && leftError.localizedDescription == rightError.localizedDescription

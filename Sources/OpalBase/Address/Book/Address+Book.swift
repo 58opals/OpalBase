@@ -16,6 +16,8 @@ extension Address {
         
         let gapLimit: Int
         
+        var spendReservationStates: [UUID: SpendReservation.State]
+        
         private let entryPublisher = Entry.Publisher()
         
         init(rootExtendedPrivateKey: PrivateKey.Extended? = nil,
@@ -44,6 +46,7 @@ extension Address {
             self.inventory = .init(cacheValidityDuration: cacheValidityDuration)
             self.utxoStore = .init()
             self.transactionLog = .init()
+            self.spendReservationStates = .init()
             
             try await initializeEntries()
         }

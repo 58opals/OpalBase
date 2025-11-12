@@ -10,17 +10,20 @@ extension Address.Book {
             public let usage: DerivationPath.Usage
             public let index: UInt32
             public let isUsed: Bool
+            public let isReserved: Bool
             public let balance: UInt64?
             public let lastUpdated: Date?
             
             public init(usage: DerivationPath.Usage,
                         index: UInt32,
                         isUsed: Bool,
+                        isReserved: Bool,
                         balance: UInt64?,
                         lastUpdated: Date?) {
                 self.usage = usage
                 self.index = index
                 self.isUsed = isUsed
+                self.isReserved = isReserved
                 self.balance = balance
                 self.lastUpdated = lastUpdated
             }
@@ -151,6 +154,7 @@ extension Address.Book {
             Snapshot.Entry(usage: entry.derivationPath.usage,
                            index: entry.derivationPath.index,
                            isUsed: entry.isUsed,
+                           isReserved: entry.isReserved,
                            balance: entry.cache.balance?.uint64,
                            lastUpdated: entry.cache.lastUpdated)
         }
@@ -158,6 +162,7 @@ extension Address.Book {
             Snapshot.Entry(usage: entry.derivationPath.usage,
                            index: entry.derivationPath.index,
                            isUsed: entry.isUsed,
+                           isReserved: entry.isReserved,
                            balance: entry.cache.balance?.uint64,
                            lastUpdated: entry.cache.lastUpdated)
         }
@@ -212,6 +217,7 @@ extension Address.Book {
         }
         
         utxoStore.replace(with: Set(restoredUTXOs))
+        spendReservationStates.removeAll()
         transactionLog.reset()
         
         for transaction in snapshot.transactions {
@@ -276,6 +282,7 @@ extension Address.Book {
             
             inventory.updateEntry(at: Int(snap.index), usage: usage) { entry in
                 entry.isUsed = snap.isUsed
+                entry.isReserved = snap.isReserved
                 entry.cache.balance = restoredBalance
                 entry.cache.lastUpdated = snap.lastUpdated
             }

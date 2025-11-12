@@ -126,12 +126,26 @@ extension Account {
         let changeResult = totalSelectedValue.subtractingReportingOverflow(targetAmount.uint64)
         guard !changeResult.overflow else { throw Error.paymentExceedsMaximumAmount }
         let initialChangeValue = changeResult.partialValue
-        let changeOutput = Transaction.Output(value: initialChangeValue, address: changeEntry.address)
+        let reservation: Address.Book.SpendReservation
+        do {
+            reservation = try await addressBook.reserveSpend(utxos: heuristicallyOrderedInputs, changeEntry: changeEntry)
+        } catch {
+            throw Error.coinSelectionFailed(error)
+        }
+        
+        let reservedChangeEntry = reservation.changeEntry
+        let changeOutput = Transaction.Output(value: initialChangeValue, address: reservedChangeEntry.address)
         
         let privateKeys: [Transaction.Output.Unspent: PrivateKey]
         do {
             privateKeys = try await addressBook.derivePrivateKeys(for: heuristicallyOrderedInputs)
         } catch {
+            do {
+                try await addressBook.releaseSpendReservation(reservation, outcome: .cancelled)
+            } catch let releaseError {
+                throw Error.transactionBuildFailed(releaseError)
+            }
+            
             throw Error.transactionBuildFailed(error)
         }
         
@@ -141,7 +155,9 @@ extension Account {
                          totalSelectedAmount: totalSelectedAmount,
                          targetAmount: targetAmount,
                          shouldAllowDustDonation: payment.shouldAllowDustDonation,
-                         changeEntry: changeEntry,
+                         addressBook: addressBook,
+                         changeEntry: reservedChangeEntry,
+                         reservation: reservation,
                          changeOutput: changeOutput,
                          recipientOutputs: organizedRecipientOutputs,
                          privateKeys: privateKeys,
@@ -230,7 +246,6 @@ extension Account {
 }
 
 // MARK: - Monitor
-
 extension Account {
     public func listTrackedEntries() async -> [Address.Book.Entry] {
         await addressBook.listAllEntries()

@@ -33,7 +33,9 @@ extension Account {
         public let targetAmount: Satoshi
         public let shouldAllowDustDonation: Bool
         
+        fileprivate let addressBook: Address.Book
         fileprivate let changeEntry: Address.Book.Entry
+        fileprivate let reservation: Address.Book.SpendReservation
         fileprivate let changeOutput: Transaction.Output
         fileprivate let recipientOutputs: [Transaction.Output]
         fileprivate let privateKeys: [Transaction.Output.Unspent: PrivateKey]
@@ -45,7 +47,9 @@ extension Account {
              totalSelectedAmount: Satoshi,
              targetAmount: Satoshi,
              shouldAllowDustDonation: Bool,
+             addressBook: Address.Book,
              changeEntry: Address.Book.Entry,
+             reservation: Address.Book.SpendReservation,
              changeOutput: Transaction.Output,
              recipientOutputs: [Transaction.Output],
              privateKeys: [Transaction.Output.Unspent: PrivateKey],
@@ -56,7 +60,9 @@ extension Account {
             self.totalSelectedAmount = totalSelectedAmount
             self.targetAmount = targetAmount
             self.shouldAllowDustDonation = shouldAllowDustDonation
+            self.addressBook = addressBook
             self.changeEntry = changeEntry
+            self.reservation = reservation
             self.changeOutput = changeOutput
             self.recipientOutputs = recipientOutputs
             self.privateKeys = privateKeys
@@ -125,6 +131,14 @@ extension Account {
             }
             
             return TransactionResult(transaction: transaction, fee: fee, change: change)
+        }
+        
+        public func completeReservation() async throws {
+            try await addressBook.releaseSpendReservation(reservation, outcome: .completed)
+        }
+        
+        public func cancelReservation() async throws {
+            try await addressBook.releaseSpendReservation(reservation, outcome: .cancelled)
         }
     }
 }

@@ -79,6 +79,21 @@ extension Address.Book {
         mutating func mark(address: Address, isUsed: Bool) throws -> Entry {
             try updateEntry(for: address) { entry in
                 entry.isUsed = isUsed
+                entry.isReserved = false
+            }
+        }
+        
+        mutating func reserve(address: Address) throws -> Entry {
+            try updateEntry(for: address) { entry in
+                entry.isUsed = true
+                entry.isReserved = true
+            }
+        }
+        
+        mutating func releaseReservation(address: Address, shouldKeepUsed: Bool) throws -> Entry {
+            try updateEntry(for: address) { entry in
+                entry.isUsed = shouldKeepUsed
+                entry.isReserved = false
             }
         }
         
@@ -153,5 +168,13 @@ extension Address.Book {
     
     func markEntry(address: Address, isUsed: Bool) throws -> Entry {
         try inventory.mark(address: address, isUsed: isUsed)
+    }
+    
+    func reserveEntry(address: Address) throws -> Entry {
+        try inventory.reserve(address: address)
+    }
+    
+    func releaseReservation(address: Address, shouldKeepUsed: Bool) throws -> Entry {
+        try inventory.releaseReservation(address: address, shouldKeepUsed: shouldKeepUsed)
     }
 }

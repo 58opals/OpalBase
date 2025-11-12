@@ -8,13 +8,20 @@ extension Address.Book {
         public let derivationPath: DerivationPath
         public let createdAt: Date
         var isUsed: Bool
+        var isReserved: Bool
         var cache: Cache
         
-        init(address: Address, derivationPath: DerivationPath, createdAt: Date = .init(), isUsed: Bool, cache: Cache = .init()) {
+        init(address: Address,
+             derivationPath: DerivationPath,
+             createdAt: Date = .init(),
+             isUsed: Bool,
+             isReserved: Bool,
+             cache: Cache = .init()) {
             self.address = address
             self.derivationPath = derivationPath
             self.createdAt = createdAt
             self.isUsed = isUsed
+            self.isReserved = isReserved
             self.cache = cache
         }
     }
@@ -74,7 +81,8 @@ extension Address.Book {
         
         return Entry(address: address,
                      derivationPath: derivationPath,
-                     isUsed: isUsed)
+                     isUsed: isUsed,
+                     isReserved: false)
     }
 }
 

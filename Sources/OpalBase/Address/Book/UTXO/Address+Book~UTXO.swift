@@ -17,7 +17,7 @@ extension Address.Book {
     private func selectUTXOs(targetAmount: Satoshi,
                              feePerByte: UInt64,
                              configuration: CoinSelection.Configuration) throws -> [Transaction.Output.Unspent] {
-        let sortedUTXOs = sortedUTXOs(by: { $0.value > $1.value })
+        let sortedUTXOs = sortedSpendableUTXOs(by: { $0.value > $1.value } )
         let selector = CoinSelector(utxos: sortedUTXOs,
                                     configuration: configuration,
                                     targetAmount: targetAmount.uint64,
