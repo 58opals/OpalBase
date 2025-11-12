@@ -92,7 +92,7 @@ extension Address.Book {
         try await generateEntriesIfNeeded(for: usage)
         
         let entries = inventory.listEntries(for: usage)
-        guard let nextEntry = entries.first(where: { !$0.isUsed }) else { throw Error.entryNotFound }
+        guard let nextEntry = entries.first(where: { !$0.isUsed && !$0.isReserved }) else { throw Error.entryNotFound }
         
         return nextEntry
     }

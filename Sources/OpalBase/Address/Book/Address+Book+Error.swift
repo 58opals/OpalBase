@@ -13,6 +13,7 @@ extension Address.Book {
         case privateKeyDuplicated(PrivateKey)
         case addressDuplicated(Address)
         case entryDuplicated(Address.Book.Entry)
+        case entryAlreadyReserved(Address.Book.Entry)
         
         case insufficientFunds
         case paymentExceedsMaximumAmount
@@ -45,7 +46,8 @@ extension Address.Book.Error: Equatable {
             return leftPrivateKey == rightPrivateKey
         case (.addressDuplicated(let leftAddress), .addressDuplicated(let rightAddress)):
             return leftAddress == rightAddress
-        case (.entryDuplicated(let leftEntry), .entryDuplicated(let rightEntry)):
+        case (.entryDuplicated(let leftEntry), .entryDuplicated(let rightEntry)),
+            (.entryAlreadyReserved(let leftEntry), .entryAlreadyReserved(let rightEntry)):
             return leftEntry == rightEntry
         case (.utxoAlreadyReserved(let leftUTXO), .utxoAlreadyReserved(let rightUTXO)):
             return leftUTXO == rightUTXO

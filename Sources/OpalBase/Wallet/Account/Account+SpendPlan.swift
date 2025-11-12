@@ -32,6 +32,7 @@ extension Account {
         public let totalSelectedAmount: Satoshi
         public let targetAmount: Satoshi
         public let shouldAllowDustDonation: Bool
+        public let reservationDate: Date
         
         fileprivate let addressBook: Address.Book
         fileprivate let changeEntry: Address.Book.Entry
@@ -60,6 +61,7 @@ extension Account {
             self.totalSelectedAmount = totalSelectedAmount
             self.targetAmount = targetAmount
             self.shouldAllowDustDonation = shouldAllowDustDonation
+            self.reservationDate = reservation.reservationDate
             self.addressBook = addressBook
             self.changeEntry = changeEntry
             self.reservation = reservation

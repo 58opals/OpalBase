@@ -84,7 +84,10 @@ extension Address.Book {
         }
         
         mutating func reserve(address: Address) throws -> Entry {
-            try updateEntry(for: address) { entry in
+            guard let currentEntry = findEntry(for: address) else { throw Address.Book.Error.addressNotFound }
+            guard !currentEntry.isReserved else { throw Address.Book.Error.entryAlreadyReserved(currentEntry) }
+            
+            return try updateEntry(for: address) { entry in
                 entry.isUsed = true
                 entry.isReserved = true
             }
