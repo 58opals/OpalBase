@@ -16,6 +16,8 @@ extension Address {
         
         let gapLimit: Int
         
+        let spendReservationExpirationInterval: TimeInterval
+        var spendReservationReleaseTasks: [UUID: Task<Void, Never>]
         var spendReservationStates: [UUID: SpendReservation.State]
         
         private let entryPublisher = Entry.Publisher()
@@ -26,7 +28,8 @@ extension Address {
              coinType: DerivationPath.CoinType,
              account: DerivationPath.Account,
              gapLimit: Int = 20,
-             cacheValidityDuration: TimeInterval = 10 * 60) async throws {
+             cacheValidityDuration: TimeInterval = 10 * 60,
+             spendReservationExpirationInterval: TimeInterval = 10 * 60) async throws {
             self.rootExtendedPrivateKey = rootExtendedPrivateKey
             
             if let extendedPrivateKey = rootExtendedPrivateKey {
@@ -46,9 +49,17 @@ extension Address {
             self.inventory = .init(cacheValidityDuration: cacheValidityDuration)
             self.utxoStore = .init()
             self.transactionLog = .init()
+            self.spendReservationExpirationInterval = spendReservationExpirationInterval
             self.spendReservationStates = .init()
+            self.spendReservationReleaseTasks = .init()
             
             try await initializeEntries()
+        }
+        
+        deinit {
+            for task in spendReservationReleaseTasks.values {
+                task.cancel()
+            }
         }
     }
 }

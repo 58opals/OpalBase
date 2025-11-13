@@ -142,5 +142,34 @@ extension Account {
         public func cancelReservation() async throws {
             try await addressBook.releaseSpendReservation(reservation, outcome: .cancelled)
         }
+        
+        public func buildAndBroadcast(via handler: Network.TransactionHandling,
+                                      signatureFormat: ECDSA.SignatureFormat = .ecdsa(.der),
+                                      unlockers: [Transaction.Output.Unspent: Transaction.Unlocker] = .init()) async throws -> (hash: Transaction.Hash, result: TransactionResult) {
+            let transactionResult = try buildTransaction(signatureFormat: signatureFormat, unlockers: unlockers)
+            
+            let rawTransaction = transactionResult.transaction.encode()
+            let rawTransactionHexadecimal = rawTransaction.hexadecimalString
+            
+            let transactionIdentifier: String
+            do {
+                transactionIdentifier = try await handler.broadcastTransaction(rawTransactionHexadecimal: rawTransactionHexadecimal)
+            } catch {
+                throw Account.Error.broadcastFailed(error)
+            }
+            
+            let identifierData: Data
+            do {
+                identifierData = try Data(hexadecimalString: transactionIdentifier)
+            } catch {
+                throw Account.Error.broadcastFailed(error)
+            }
+            
+            let hash = Transaction.Hash(dataFromRPC: identifierData)
+            
+            try await addressBook.releaseSpendReservation(reservation, outcome: .completed)
+            
+            return (hash: hash, result: transactionResult)
+        }
     }
 }

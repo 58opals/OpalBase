@@ -138,14 +138,16 @@ extension Address.Book {
          coinType: DerivationPath.CoinType,
          account: DerivationPath.Account,
          gapLimit: Int = 20,
-         cacheValidityDuration: TimeInterval = 10 * 60) async throws {
+         cacheValidityDuration: TimeInterval = 10 * 60,
+         spendReservationExpirationInterval: TimeInterval = 10 * 60) async throws {
         try await self.init(rootExtendedPrivateKey: rootExtendedPrivateKey,
                             rootExtendedPublicKey: rootExtendedPublicKey,
                             purpose: purpose,
                             coinType: coinType,
                             account: account,
                             gapLimit: gapLimit,
-                            cacheValidityDuration: cacheValidityDuration)
+                            cacheValidityDuration: cacheValidityDuration,
+                            spendReservationExpirationInterval: spendReservationExpirationInterval)
         try await refresh(with: snapshot)
     }
     
@@ -217,7 +219,7 @@ extension Address.Book {
         }
         
         utxoStore.replace(with: Set(restoredUTXOs))
-        spendReservationStates.removeAll()
+        clearSpendReservationState()
         transactionLog.reset()
         
         for transaction in snapshot.transactions {
