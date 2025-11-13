@@ -36,7 +36,7 @@ extension Storage {
         return try decodeSnapshot(Address.Book.Snapshot.self, from: data)
     }
     
-    public func saveMnemonic(_ mnemonic: Mnemonic) async throws {
+    public func saveMnemonic(_ mnemonic: Mnemonic, fallbackToPlaintext: Bool = false) async throws -> Security.ProtectionMode {
         let payload = Mnemonic.Payload(words: mnemonic.words, passphrase: mnemonic.passphrase)
         let plaintext: Data
         do {
@@ -45,23 +45,53 @@ extension Storage {
             throw Error.encodingFailure(error)
         }
         
-        let ciphertext: Data
+        let storedCiphertext: Storage.Security.Ciphertext
         do {
-            ciphertext = try security.encrypt(plaintext)
+            let ciphertext = try security.encrypt(plaintext)
+            if fallbackToPlaintext && ciphertext.mode != .secureEnclave {
+                storedCiphertext = .init(mode: .plaintext, payload: plaintext)
+            } else {
+                storedCiphertext = ciphertext
+            }
         } catch {
-            throw Error.secureStoreFailure(error)
+            if fallbackToPlaintext && security.isRecoverableSecureEnclaveError(error) {
+                storedCiphertext = .init(mode: .plaintext, payload: plaintext)
+            } else {
+                throw Error.secureStoreFailure(error)
+            }
         }
         
-        try storeValue(ciphertext, for: .mnemonicCiphertext)
+        let encodedCiphertext: Data
+        do {
+            encodedCiphertext = try encoder.encode(storedCiphertext)
+        } catch {
+            throw Error.encodingFailure(error)
+        }
+        
+        try storeValue(encodedCiphertext, for: .mnemonicCiphertext)
+        return storedCiphertext.mode
     }
     
     public func loadMnemonic() async throws -> Mnemonic? {
-        guard let ciphertext = try loadValue(for: .mnemonicCiphertext) else { return nil }
-        let decryptedData: Data
+        guard let storedCiphertext = try loadValue(for: .mnemonicCiphertext) else { return nil }
+        
+        let ciphertext: Storage.Security.Ciphertext
         do {
-            decryptedData = try security.decrypt(ciphertext)
+            ciphertext = try decoder.decode(Storage.Security.Ciphertext.self, from: storedCiphertext)
         } catch {
-            throw Error.secureStoreFailure(error)
+            ciphertext = .init(mode: .secureEnclave, payload: storedCiphertext)
+        }
+        
+        let decryptedData: Data
+        switch ciphertext.mode {
+        case .plaintext:
+            decryptedData = ciphertext.payload
+        default:
+            do {
+                decryptedData = try security.decrypt(ciphertext)
+            } catch {
+                throw Error.secureStoreFailure(error)
+            }
         }
         
         let payload: Mnemonic.Payload
@@ -71,6 +101,21 @@ extension Storage {
             throw Error.decodingFailure(error)
         }
         return Mnemonic(words: payload.words, passphrase: payload.passphrase)
+    }
+    
+    public func persistState(for wallet: Wallet) async throws -> Security.ProtectionMode {
+        let walletSnapshot = await wallet.makeSnapshot()
+        try await saveWalletSnapshot(walletSnapshot)
+        
+        for accountSnapshot in walletSnapshot.accounts {
+            let account = try await wallet.fetchAccount(at: accountSnapshot.accountUnhardenedIndex)
+            let accountIdentifier = account.id
+            try await saveAccountSnapshot(accountSnapshot, accountIdentifier: accountIdentifier)
+            try await saveAddressBookSnapshot(accountSnapshot.addressBook, accountIdentifier: accountIdentifier)
+        }
+        
+        let mnemonic = Storage.Mnemonic(words: walletSnapshot.words, passphrase: walletSnapshot.passphrase)
+        return try await saveMnemonic(mnemonic, fallbackToPlaintext: true)
     }
     
     public func delete(key: String) async throws {
