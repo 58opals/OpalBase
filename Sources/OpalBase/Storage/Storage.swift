@@ -37,5 +37,6 @@ extension Storage {
         case encodingFailure(Swift.Error)
         case decodingFailure(Swift.Error)
         case secureStoreFailure(Swift.Error)
+        case missingAccountIdentifier(UInt32)
     }
 }

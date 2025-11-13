@@ -72,7 +72,7 @@ extension Storage {
         return storedCiphertext.mode
     }
     
-    public func loadMnemonic() async throws -> Mnemonic? {
+    public func loadMnemonicState() async throws -> (mnemonic: Mnemonic, protectionMode: Security.ProtectionMode)? {
         guard let storedCiphertext = try loadValue(for: .mnemonicCiphertext) else { return nil }
         
         let ciphertext: Storage.Security.Ciphertext
@@ -100,22 +100,18 @@ extension Storage {
         } catch {
             throw Error.decodingFailure(error)
         }
-        return Mnemonic(words: payload.words, passphrase: payload.passphrase)
+        let mnemonic = Mnemonic(words: payload.words, passphrase: payload.passphrase)
+        return (mnemonic: mnemonic, protectionMode: ciphertext.mode)
+    }
+    
+    public func loadMnemonic() async throws -> Mnemonic? {
+        guard let state = try await loadMnemonicState() else { return nil }
+        return state.mnemonic
     }
     
     public func persistState(for wallet: Wallet) async throws -> Security.ProtectionMode {
-        let walletSnapshot = await wallet.makeSnapshot()
-        try await saveWalletSnapshot(walletSnapshot)
-        
-        for accountSnapshot in walletSnapshot.accounts {
-            let account = try await wallet.fetchAccount(at: accountSnapshot.accountUnhardenedIndex)
-            let accountIdentifier = account.id
-            try await saveAccountSnapshot(accountSnapshot, accountIdentifier: accountIdentifier)
-            try await saveAddressBookSnapshot(accountSnapshot.addressBook, accountIdentifier: accountIdentifier)
-        }
-        
-        let mnemonic = Storage.Mnemonic(words: walletSnapshot.words, passphrase: walletSnapshot.passphrase)
-        return try await saveMnemonic(mnemonic, fallbackToPlaintext: true)
+        let session = PersistenceSession(storage: self)
+        return try await session.save(wallet: wallet, fallbackToPlaintext: true)
     }
     
     public func delete(key: String) async throws {
