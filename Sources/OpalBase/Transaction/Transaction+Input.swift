@@ -3,12 +3,15 @@
 import Foundation
 
 extension Transaction {
-    struct Input {
-        let previousTransactionHash: Transaction.Hash
-        let previousTransactionOutputIndex: UInt32
-        let unlockingScriptLength: CompactSize
-        let unlockingScript: Data
-        let sequence: UInt32
+    public struct Input {
+        public let previousTransactionHash: Transaction.Hash
+        public let previousTransactionOutputIndex: UInt32
+        public let unlockingScript: Data
+        public let sequence: UInt32
+        
+        private var unlockingScriptLength: CompactSize {
+            CompactSize(value: UInt64(unlockingScript.count))
+        }
         
         /// Initializes a Transaction.Input instance.
         /// - Parameters:
@@ -16,10 +19,9 @@ extension Transaction {
         ///   - previousTransactionOutputIndex: The index of the previous output.
         ///   - unlockingScript: The contents of the unlocking script.
         ///   - sequence: The sequence number.
-        init(previousTransactionHash: Transaction.Hash, previousTransactionOutputIndex: UInt32, unlockingScript: Data, sequence: UInt32 = 0xFFFFFFFF) {
+        public init(previousTransactionHash: Transaction.Hash, previousTransactionOutputIndex: UInt32, unlockingScript: Data, sequence: UInt32 = 0xFFFFFFFF) {
             self.previousTransactionHash = previousTransactionHash
             self.previousTransactionOutputIndex = previousTransactionOutputIndex
-            self.unlockingScriptLength = CompactSize(value: UInt64(unlockingScript.count))
             self.unlockingScript = unlockingScript
             self.sequence = sequence
         }
@@ -43,8 +45,10 @@ extension Transaction {
         static func decode(from data: Data) throws -> (input: Input, bytesRead: Int) {
             var index = data.startIndex
             
-            let previousTransactionHash = data[index..<index + 32]
-            index += 32
+            let hashUpperBound = index.advanced(by: 32)
+            guard hashUpperBound <= data.endIndex else { throw Data.Error.indexOutOfRange }
+            let previousTransactionHash = Data(data[index..<hashUpperBound])
+            index = hashUpperBound
             
             let (previousTransactionIndex, newIndex1): (UInt32, Data.Index) = try data.extractValue(from: index)
             index = newIndex1
@@ -52,8 +56,11 @@ extension Transaction {
             let (unlockingScriptLength, unlockingScriptLengthSize) = try CompactSize.decode(from: data[index...])
             index += unlockingScriptLengthSize
             
-            let unlockingScript = data[index..<index + Int(unlockingScriptLength.value)]
-            index += unlockingScript.count
+            let scriptLength = Int(unlockingScriptLength.value)
+            let scriptUpperBound = index.advanced(by: scriptLength)
+            guard scriptUpperBound <= data.endIndex else { throw Data.Error.indexOutOfRange }
+            let unlockingScript = Data(data[index..<scriptUpperBound])
+            index = scriptUpperBound
             
             let (sequence, newIndex2): (UInt32, Data.Index) = try data.extractValue(from: index)
             index = newIndex2
@@ -68,7 +75,7 @@ extension Transaction {
 extension Transaction.Input: Sendable {}
 
 extension Transaction.Input: CustomStringConvertible {
-    var description: String {
+    public var description: String {
         """
         Transaction Input (sequence: \(sequence)):
             Previous Transaction Hash: \(previousTransactionHash.naturalOrder.hexadecimalString) (↔︎: \(previousTransactionHash.reverseOrder.hexadecimalString))

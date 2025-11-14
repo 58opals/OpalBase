@@ -3,34 +3,35 @@
 import Foundation
 
 extension Transaction {
-    struct Output {
-        let value: UInt64
-        let lockingScriptLength: CompactSize
-        let lockingScript: Data
+    public struct Output {
+        public let value: UInt64
+        public let lockingScript: Data
+        
+        var lockingScriptLength: CompactSize {
+            CompactSize(value: UInt64(lockingScript.count))
+        }
         
         /// Initializes a Transaction.Output instance.
         /// - Parameters:
         ///   - value: The number of satoshis to be transferred.
         ///   - lockingScript: The contents of the locking script.
-        init(value: UInt64, lockingScript: Data) {
+        public init(value: UInt64, lockingScript: Data) {
             self.value = value
-            self.lockingScriptLength = CompactSize(value: UInt64(lockingScript.count))
             self.lockingScript = lockingScript
         }
         
         /// Initializes a Transaction.Output instance.
         /// - Parameters:
         ///   - value: The number of satoshis to be transferred.
-        ///   - address: The address of output's recipient.
-        init(value: UInt64, address: Address) {
+        ///   - address: The address of the output's recipient.
+        public init(value: UInt64, address: Address) {
             self.value = value
             self.lockingScript = address.lockingScript.data
-            self.lockingScriptLength = CompactSize(value: UInt64(lockingScript.count))
         }
         
         /// Encodes the Transaction.Output into Data.
         /// - Returns: The encoded data.
-        func encode() -> Data {
+        public func encode() -> Data {
             var data = Data()
             data.append(value.littleEndianData)
             data.append(lockingScriptLength.encode())
@@ -51,8 +52,11 @@ extension Transaction {
             let (lockingScriptLength, lockingScriptLengthSize) = try CompactSize.decode(from: data[index...])
             index += lockingScriptLengthSize
             
-            let lockingScript = data[index..<index + Int(lockingScriptLength.value)]
-            index += lockingScript.count
+            let scriptLength = Int(lockingScriptLength.value)
+            let scriptUpperBound = index.advanced(by: scriptLength)
+            guard scriptUpperBound <= data.endIndex else { throw Data.Error.indexOutOfRange }
+            let lockingScript = Data(data[index..<scriptUpperBound])
+            index = scriptUpperBound
             
             let output = Output(value: value, lockingScript: lockingScript)
             
@@ -62,9 +66,10 @@ extension Transaction {
 }
 
 extension Transaction.Output: Sendable {}
+extension Transaction.Output: Equatable {}
 
 extension Transaction.Output: CustomStringConvertible {
-    var description: String {
+    public var description: String {
         """
         Transaction Output:
             Value: \(value)

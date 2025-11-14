@@ -10,10 +10,10 @@ import Foundation
 ///   - outputs: The transaction outputs.
 ///   - lockTime: The transaction lock time.
 public struct Transaction {
-    let version: UInt32
-    let inputs: [Input]
-    let outputs: [Output]
-    let lockTime: UInt32
+    public let version: UInt32
+    public let inputs: [Input]
+    public let outputs: [Output]
+    public let lockTime: UInt32
     
     /// Initializes a Transaction instance.
     /// - Parameters:
@@ -21,7 +21,7 @@ public struct Transaction {
     ///   - inputs: The list of inputs.
     ///   - outputs: The list of outputs.
     ///   - lockTime: The lock time.
-    init(version: UInt32, inputs: [Input], outputs: [Output], lockTime: UInt32) {
+    public init(version: UInt32, inputs: [Input], outputs: [Output], lockTime: UInt32) {
         self.version = version
         self.inputs = inputs
         self.outputs = outputs
@@ -30,27 +30,15 @@ public struct Transaction {
     
     /// Encodes the Transaction into Data.
     /// - Returns: The encoded data.
-    func encode() -> Data {
-        var data = Data()
-        
-        data.append(version.littleEndianData)
-        
-        data.append(CompactSize(value: UInt64(inputs.count)).encode())
-        inputs.forEach { data.append($0.encode()) }
-        
-        data.append(CompactSize(value: UInt64(outputs.count)).encode())
-        outputs.forEach { data.append($0.encode()) }
-        
-        data.append(lockTime.littleEndianData)
-        
-        return data
+    public func encode() -> Data {
+        makeSerializedTransaction(with: inputs)
     }
     
     /// Decodes a Transaction instance from Data.
     /// - Parameter data: The data to decode from.
     /// - Returns: A tuple containing the decoded Transaction and the number of bytes read.
     /// - Throws: `CompactSize.Error` if decoding fails.
-    static func decode(from data: Data) throws -> (transaction: Transaction, bytesRead: Int) {
+    public static func decode(from data: Data) throws -> (transaction: Transaction, bytesRead: Int) {
         var index = data.startIndex
         
         let (version, newIndex1): (UInt32, Data.Index) = try data.extractValue(from: index)
@@ -79,7 +67,25 @@ public struct Transaction {
         
         let transaction = Transaction(version: version, inputs: inputs, outputs: outputs, lockTime: lockTime)
         
-        return (transaction, index)
+        return (transaction, index - data.startIndex)
+    }
+}
+
+extension Transaction {
+    func makeSerializedTransaction(with inputs: [Input]) -> Data {
+        var data = Data()
+        
+        data.append(version.littleEndianData)
+        
+        data.append(CompactSize(value: UInt64(inputs.count)).encode())
+        inputs.forEach { data.append($0.encode()) }
+        
+        data.append(CompactSize(value: UInt64(outputs.count)).encode())
+        outputs.forEach { data.append($0.encode()) }
+        
+        data.append(lockTime.littleEndianData)
+        
+        return data
     }
 }
 
@@ -90,10 +96,10 @@ extension Transaction {
     ///   - transactionHash: The transaction hash.
     ///   - height: The block height if confirmed.
     ///   - fee: The transaction fee.
-    struct Simple {
-        let transactionHash: Transaction.Hash
-        let height: UInt32?
-        let fee: UInt64?
+    public struct Simple {
+        public let transactionHash: Transaction.Hash
+        public let height: UInt32?
+        public let fee: UInt64?
     }
     
     /// A detailed representation of a transaction.
@@ -104,19 +110,34 @@ extension Transaction {
     ///   - blockTime: The block time if confirmed.
     ///   - confirmations: The number of confirmations.
     ///   - hash: The transaction hash.
-    ///   - hex: The raw transaction data in hex.
+    ///   - raw: The raw transaction payload as returned by the network.
     ///   - size: The transaction size in bytes.
     ///   - time: The transaction time if available.
     public struct Detailed {
-        let transaction: Transaction
+        public let transaction: Transaction
         
-        let blockHash: Data?
-        let blockTime: UInt32?
-        let confirmations: UInt32?
-        let hash: Data
-        let raw: Data
-        let size: UInt32
-        let time: UInt32?
+        public let blockHash: Data?
+        public let blockTime: UInt32?
+        public let confirmations: UInt32?
+        public let hash: Transaction.Hash
+        public let raw: Data
+        public let size: UInt32
+        public let time: UInt32?
+    }
+}
+
+extension Transaction {
+    public enum Error: Swift.Error {
+        case insufficientFunds(required: UInt64)
+        case accountNotFound
+        case cannotCreateTransaction
+        case cannotBroadcastTransaction
+        case unsupportedHashType
+        case unsupportedSignatureFormat
+        case outputValueIsLessThanTheDustLimit
+        case sighashSingleIndexOutOfRange
+        case transactionNotFound
+        case feeCalculationOverflow(size: Int, feePerByte: UInt64)
     }
 }
 
@@ -135,7 +156,39 @@ extension Transaction: CustomStringConvertible {
 }
 
 extension Transaction.Simple: CustomStringConvertible {
-    var description: String {
-        "Simplified Transaction: \(self.transactionHash.naturalOrder.hexadecimalString)" + ((self.height != nil) ? " at \(self.height!)" : "(unconfirmed)") + ((self.fee != nil) ? " with \(self.fee!.description) fee" : "")
+    public var description: String {
+        var description = "Simplified Transaction: \(transactionHash.naturalOrder.hexadecimalString)"
+        
+        if let height {
+            description += " at \(height)"
+        } else {
+            description += " (unconfirmed)"
+        }
+        
+        if let fee {
+            description += " with \(fee) fee"
+        }
+        
+        return description
+    }
+}
+
+// MARK: - Legacy reference implementation
+/// The following implementation is preserved for educational purposes. It mirrors an earlier iteration of `Transaction` that demonstrated how Bitcoin Cash transactions are serialized and sized without relying on helper methods. The snippet highlights each field that becomes part of the payload so readers can follow the binary layout step by step.
+private extension Transaction {
+    func encode_Legacy() -> Data {
+        var data = Data()
+        
+        data.append(version.littleEndianData)
+        
+        data.append(CompactSize(value: UInt64(inputs.count)).encode())
+        inputs.forEach { data.append($0.encode()) }
+        
+        data.append(CompactSize(value: UInt64(outputs.count)).encode())
+        outputs.forEach { data.append($0.encode()) }
+        
+        data.append(lockTime.littleEndianData)
+        
+        return data
     }
 }

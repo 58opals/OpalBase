@@ -3,86 +3,187 @@
 import Foundation
 
 extension Transaction {
-    static let defaultFeeRate = UInt64(1)
+    public static let defaultFeeRate = UInt64(1)
     static var dustLimit: UInt64 { 546 }
     
-    static func createTransaction(version: UInt32 = 2,
-                                  utxoPrivateKeyPairs: [Transaction.Output.Unspent: PrivateKey],
-                                  recipientOutputs: [Output],
-                                  changeOutput: Output,
-                                  signatureFormat: ECDSA.SignatureFormat = .ecdsa(.der),
-                                  feePerByte: UInt64 = 1,
-                                  sequence: UInt32 = 0xFFFFFFFF,
-                                  lockTime: UInt32 = 0,
-                                  allowDustDonation: Bool = false) throws -> Transaction {
-        var inputs: [Input] = []
+    public enum OutputOrderingStrategy: Sendable {
+        case privacyRandomized
+        case canonicalBIP69
+    }
+    
+    static func build(version: UInt32 = 2,
+                      utxoPrivateKeyPairs: [Transaction.Output.Unspent: PrivateKey],
+                      recipientOutputs: [Output],
+                      changeOutput: Output,
+                      outputOrderingStrategy: OutputOrderingStrategy = .privacyRandomized,
+                      signatureFormat: ECDSA.SignatureFormat = .ecdsa(.der),
+                      feePerByte: UInt64 = 1,
+                      sequence: UInt32 = 0xFFFFFFFF,
+                      lockTime: UInt32 = 0,
+                      shouldAllowDustDonation: Bool = false,
+                      unlockers: [Transaction.Output.Unspent: Unlocker] = .init()) throws -> Transaction {
+        let builder = Builder(utxoPrivateKeyPairs: utxoPrivateKeyPairs,
+                              signatureFormat: signatureFormat,
+                              sequence: sequence,
+                              unlockers: unlockers)
         
-        let utxos = utxoPrivateKeyPairs.keys
-        for utxo in utxos {
-            let temporaryInput = Input(previousTransactionHash: utxo.previousTransactionHash,
-                                       previousTransactionOutputIndex: utxo.previousTransactionOutputIndex,
-                                       unlockingScript: Data(),
-                                       sequence: sequence)
-            inputs.append(temporaryInput)
-        }
+        let inputs = builder.makeInputs()
         
-        let temporaryTransactionWithoutFee = Transaction(version: version, inputs: inputs, outputs: recipientOutputs + [changeOutput], lockTime: lockTime)
+        let (outputs, _) = try computeOutputsAndFee(version: version,
+                                                    inputs: inputs,
+                                                    recipientOutputs: recipientOutputs,
+                                                    changeOutput: changeOutput,
+                                                    outputOrderingStrategy: outputOrderingStrategy,
+                                                    feePerByte: feePerByte,
+                                                    lockTime: lockTime,
+                                                    shouldAllowDustDonation: shouldAllowDustDonation)
         
-        let estimatedFee = temporaryTransactionWithoutFee.calculateFee(feePerByte: feePerByte)
-        let oldChangeAmount = changeOutput.value
-        guard oldChangeAmount >= estimatedFee else { throw Error.insufficientFunds(required: oldChangeAmount) }
+        let unsignedTransaction = Transaction(version: version, inputs: inputs, outputs: outputs, lockTime: lockTime)
+        let signedTransaction = try signTransaction(unsignedTransaction, using: builder)
         
-        let newChangeAmount = oldChangeAmount - estimatedFee
+        return signedTransaction
+    }
+    
+    private static func computeOutputsAndFee(version: UInt32,
+                                             inputs: [Input],
+                                             recipientOutputs: [Output],
+                                             changeOutput: Output,
+                                             outputOrderingStrategy: OutputOrderingStrategy,
+                                             feePerByte: UInt64,
+                                             lockTime: UInt32,
+                                             shouldAllowDustDonation: Bool) throws -> ([Output], UInt64) {
+        let transactionWithChange = Transaction(version: version,
+                                                inputs: inputs,
+                                                outputs: recipientOutputs + [changeOutput],
+                                                lockTime: lockTime)
+        
+        let estimatedFeeWithChange = try transactionWithChange.calculateFee(feePerByte: feePerByte)
+        let changeAmount = changeOutput.value
         
         var outputs = recipientOutputs
-        if newChangeAmount > 0 {
-            if newChangeAmount < Transaction.dustLimit {
-                guard allowDustDonation else { throw Error.outputValueIsLessThanTheDustLimit }
+        var didRemoveChangeOutput = false
+        
+        if changeAmount < estimatedFeeWithChange {
+            didRemoveChangeOutput = true
+            
+            let transactionWithoutChange = Transaction(version: version,
+                                                       inputs: inputs,
+                                                       outputs: recipientOutputs,
+                                                       lockTime: lockTime)
+            let estimatedFeeWithoutChange = try transactionWithoutChange.calculateFee(feePerByte: feePerByte)
+            
+            if changeAmount < estimatedFeeWithoutChange {
+                if !shouldAllowDustDonation {
+                    let requiredAdditionalAmount = estimatedFeeWithoutChange - changeAmount
+                    throw Error.insufficientFunds(required: requiredAdditionalAmount)
+                }
             } else {
-                outputs.append(.init(value: newChangeAmount, lockingScript: changeOutput.lockingScript))
+                let donation = changeAmount - estimatedFeeWithoutChange
+                if donation > 0 {
+                    let additionalRequired = estimatedFeeWithChange - changeAmount
+                    guard donation < Transaction.dustLimit else { throw Error.insufficientFunds(required: additionalRequired) }
+                    guard shouldAllowDustDonation else { throw Error.outputValueIsLessThanTheDustLimit }
+                }
+            }
+        } else {
+            let remainingChange = changeAmount - estimatedFeeWithChange
+            
+            if remainingChange > 0 {
+                if remainingChange < Transaction.dustLimit {
+                    guard shouldAllowDustDonation else { throw Error.outputValueIsLessThanTheDustLimit }
+                } else {
+                    outputs.append(.init(value: remainingChange, lockingScript: changeOutput.lockingScript))
+                }
             }
         }
         
-        let combinedOutputs = outputs.filter { $0.value > 0 }
-        guard !combinedOutputs.isEmpty else { throw Error.insufficientFunds(required: combinedOutputs.map{$0.value}.reduce(0, +)) }
-        guard !combinedOutputs.contains(where: { $0.value < Transaction.dustLimit }) else { throw Error.outputValueIsLessThanTheDustLimit }
+        let orderedOutputs: [Output]
+        switch outputOrderingStrategy {
+        case .privacyRandomized:
+            orderedOutputs = outputs
+        case .canonicalBIP69:
+            orderedOutputs = Output.bip69Ordered(outputs)
+        }
         
-        let temporaryTransactionWithFee = Transaction(version: version, inputs: inputs, outputs: combinedOutputs, lockTime: lockTime)
+        let positiveValueOutputs = orderedOutputs.filter { $0.value > 0 }
+        let totalPositiveOutput = positiveValueOutputs.map(\.value).reduce(0, +)
+        guard !positiveValueOutputs.isEmpty else { throw Error.insufficientFunds(required: totalPositiveOutput) }
+        guard !orderedOutputs.contains(where: { !$0.isOpReturnScript && $0.value < Transaction.dustLimit })
+        else { throw Error.outputValueIsLessThanTheDustLimit }
         
-        var transaction = temporaryTransactionWithFee
-        for (index, pair) in utxoPrivateKeyPairs.enumerated() {
-            let utxo = pair.key
-            let privateKey = pair.value
-            let outputBeingSpent = Output(value: utxo.value, lockingScript: utxo.lockingScript)
-            
-            let hashType = HashType.all(anyoneCanPay: false)
-            let signature = try temporaryTransactionWithFee.signInput(privateKey: privateKey.rawData,
-                                                                      index: index,
-                                                                      hashType: hashType,
-                                                                      outputBeingSpent: outputBeingSpent,
-                                                                      format: signatureFormat)
-            
-            let appendedHashType = switch signatureFormat {
-            case .ecdsa(let ecdsa):
-                switch ecdsa {
-                case .der: Data([UInt8(hashType.value)])
-                default: throw Error.unsupportedHashType
-                }
-            case .schnorr:
-                throw Error.unsupportedSignatureFormat
+        let finalizedTransaction = Transaction(version: version,
+                                               inputs: inputs,
+                                               outputs: orderedOutputs,
+                                               lockTime: lockTime)
+        let finalizedFee = try finalizedTransaction.calculateFee(feePerByte: feePerByte)
+        
+        if shouldAllowDustDonation && didRemoveChangeOutput {
+            guard changeAmount >= finalizedFee else {
+                let requiredAdditionalAmount = finalizedFee - changeAmount
+                throw Error.insufficientFunds(required: requiredAdditionalAmount)
             }
+        }
+        
+        return (orderedOutputs, finalizedFee)
+    }
+    
+    private static func signTransaction(_ unsignedTransaction: Transaction,
+                                        using builder: Builder) throws -> Transaction {
+        switch builder.signatureFormat {
+        case .ecdsa(.raw), .ecdsa(.compact):
+            throw Error.unsupportedSignatureFormat
+        default:
+            break
+        }
+        
+        var transaction = unsignedTransaction
+        
+        for (index, unspentOutput) in builder.orderedUnspentOutputs.enumerated() {
+            guard let privateKey = builder.privateKey(for: unspentOutput) else { throw Error.cannotCreateTransaction }
+            let publicKey = try PublicKey(privateKey: privateKey)
+            let unlocker = builder.unlocker(for: unspentOutput)
             
-            let signatureWithHashType = signature + appendedHashType
-            let sizeOfSignatureWithHashType = CompactSize(value: .init(signatureWithHashType.count)).encode()
-            
-            let compressedPublicKeyData = try PublicKey(privateKey: privateKey).compressedData
-            let sizeOfPublicKey = CompactSize(value: .init(compressedPublicKeyData.count)).encode()
-            
-            let unlockingScript = sizeOfSignatureWithHashType + signatureWithHashType + sizeOfPublicKey + compressedPublicKeyData
-            
-            transaction = transaction.injectUnlockingScript(unlockingScript, inputIndex: index)
+            switch unlocker {
+            case .p2pkh_CheckSig(let hashType):
+                let outputBeingSpent = Output(value: unspentOutput.value, lockingScript: unspentOutput.lockingScript)
+                let preimage = try unsignedTransaction.generatePreimage(for: index,
+                                                                        hashType: hashType,
+                                                                        outputBeingSpent: outputBeingSpent)
+                
+                let message = SHA256.hash(preimage)
+                // MARK: ↑ We hash the preimage "ONCE" here.
+                /// The signer `(P256K.Signing.PrivateKey.signature(for:))` applies SHA256 again internally.
+                /// Final digest signed = double‑SHA256(preimage).
+                
+                let signature = try ECDSA.sign(message: message,
+                                               with: privateKey,
+                                               in: builder.signatureFormat)
+                let signatureWithType = signature + Data([UInt8(hashType.value)])
+                let unlockingScript = Data.push(signatureWithType) + Data.push(publicKey.compressedData)
+                
+                transaction = try transaction.injectUnlockingScript(unlockingScript, inputIndex: index)
+            case .p2pkh_CheckDataSig(let message):
+                let message = message
+                // MARK: ↑ We DO NOT hash the message here.
+                /// The signer `(P256K.Signing.PrivateKey.signature(for:))` applies SHA256 once internally.
+                /// Final digest signed = single‑SHA256(preimage).
+                
+                let signature = try ECDSA.sign(message: message,
+                                               with: privateKey,
+                                               in: builder.signatureFormat)
+                let unlockingSignature = Data.push(signature) + Data.push(message) + Data.push(publicKey.compressedData)
+                
+                transaction = try transaction.injectUnlockingScript(unlockingSignature, inputIndex: index)
+            }
         }
         
         return transaction
+    }
+}
+
+private extension Transaction.Output {
+    var isOpReturnScript: Bool {
+        guard let opcode = lockingScript.first else { return false }
+        return opcode == OP._RETURN.rawValue
     }
 }

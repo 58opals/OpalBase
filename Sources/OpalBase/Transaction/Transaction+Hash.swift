@@ -55,7 +55,7 @@ extension Transaction {
         }
         
         // Alias for compatibility with block explorers
-        public var capableWithBlockExplorerOrder: Data {
+        public var compatibleWithBlockExplorerOrder: Data {
             return reverseOrder
         }
     }

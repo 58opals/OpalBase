@@ -1,4 +1,4 @@
-![Swift 6.0](https://img.shields.io/badge/swift-6.0-orange)
+![Swift 6.2](https://img.shields.io/badge/swift-6.2-orange)
 ![SPM](https://img.shields.io/badge/Package%20Manager-SPM-informational)
 ![Platforms](https://img.shields.io/badge/platforms-iOS%20|%20macOS%20|%20watchOS%20|%20tvOS%20|%20visionOS-blue)
 
@@ -6,7 +6,7 @@
 
 ## Introduction
 
-**Opal Base** is an open-source Swift library designed to help developers within the Apple ecosystem seamlessly integrate Bitcoin Cash (BCH) transactions into their applications. Leveraging modern Swift features, Opal Base offers a robust, efficient, and secure solution for handling BCH transactions. It also stays true to the vision of Satoshi Nakamoto's original white paper on a peer-to-peer electronic cash system. Opal Base supports the BIP-39 standard for mnemonic seed address generation. It also integrates the powerful SwiftFulcrum framework, providing advanced capabilities for interacting with the Bitcoin Cash network.
+**Opal Base** is an open-source Swift library designed to help developers within the Apple ecosystem seamlessly integrate Bitcoin Cash (BCH) transactions into their applications. Leveraging modern Swift features, Opal Base offers a robust, efficient, and secure solution for handling BCH transactions. It also stays true to the vision of Satoshi Nakamoto's original white paper on a peer-to-peer electronic cash system. Opal Base supports the BIP-39 standard for mnemonic seed address generation and integrates the powerful SwiftFulcrum framework, providing advanced capabilities for interacting with the Bitcoin Cash network.
 
 ## Features
 
@@ -49,9 +49,9 @@ let mnemonic = try Mnemonic(words: [
 let wallet = Wallet(mnemonic: mnemonic)
 try await wallet.addAccount(unhardenedIndex: 0)
 let account = try wallet.getAccount(unhardenedIndex: 0)
-let fulcrum = try await account.fulcrumPool.getFulcrum()
-try await account.addressBook.refreshBalances(using: fulcrum)
-let history = try await account.addressBook.fetchDetailedTransactions(for: .receiving, using: fulcrum)
+let service = account.fulcrumService
+try await account.addressBook.refreshBalances(using: service)
+let history = try await account.addressBook.fetchDetailedTransactions(for: .receiving, using: service)
 ```
 
 ### Generating and Using an Address in the Account
@@ -94,10 +94,10 @@ print("Transaction successfully sent with hash: \(transactionHash)")
 Retrieve detailed transaction information for your receiving addresses:
 
 ```swift
-let fulcrum = try await account.fulcrumPool.getFulcrum()
+let service = account.fulcrumService
 let history = try await account.addressBook.fetchDetailedTransactions(
     for: .receiving,
-    using: fulcrum
+    using: service
 )
 print("Found \(history.count) transactions")
 ```
@@ -105,8 +105,8 @@ print("Found \(history.count) transactions")
 ### Updating Address Usage Status
 
 ```swift
-let fulcrum = try await account.fulcrumPool.getFulcrum()
-try await account.addressBook.updateAddressUsageStatus(using: fulcrum)
+let service = account.fulcrumService
+try await account.addressBook.updateAddressUsageStatus(using: service)
 ```
 
 ### Refreshing UTXO Set
@@ -114,8 +114,18 @@ try await account.addressBook.updateAddressUsageStatus(using: fulcrum)
 To refresh the UTXO set for an account:
 
 ```swift
-let fulcrum = try await account.fulcrumPool.getFulcrum()
-try await account.addressBook.refreshUTXOSet(fulcrum: fulcrum)
+let service = account.fulcrumService
+try await account.addressBook.refreshUTXOSet(service: service)
+```
+### Monitoring Balance Updates
+
+Receive live account balance updates by observing the monitoring stream:
+
+```swift
+let updates = try await account.monitorBalances()
+for try await balance in updates {
+    print("Latest balance: \(balance)")
+}
 ```
 
 ## Contributing
