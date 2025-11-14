@@ -22,30 +22,37 @@
 
 ### Swift Package Manager
 
-To integrate Opal Base into your Xcode project using Swift Package Manager, add it to your project's package dependencies by including the following URL:
+Add Opal Base as a dependency in Xcode or by editing your `Package.swift`:
 
 ```swift
-https://github.com/58opals/OpalBase.git
+// swift-tools-version: 6.2
+import PackageDescription
+
+let package = Package(
+    name: "YourApp",
+    dependencies: [
+        .package(url: "https://github.com/58opals/OpalBase.git", from: "0.2.0")
+    ],
+    targets: [
+        .target(
+            name: "YourApp",
+            dependencies: [
+                .product(name: "OpalBase", package: "OpalBase")
+            ])
+    ]
+)
 ```
 
-Follow the on-screen instructions to add the package to your project.
+## Getting started
 
-## Usage
+The snippets below run inside an async context such as `Task` or `@main struct` with `await` support.
 
-To get started with Opal Base, import the library into your Swift file:
+### 1. Create a mnemonic, wallet, and account
 
 ```swift
 import OpalBase
-```
 
-### Creating a New Wallet with BIP-39 Mnemonic Seed
-
-This example demonstrates how to generate a new wallet using a BIP-39 mnemonic seed, providing an easy and secure way for users to manage their BCH transactions.
-
-```swift
-let mnemonic = try Mnemonic(words: [
-    "kitchen", "stadium", "depth", "camp", "opera", "keen", "power", "cinnamon", "unfair", "west", "panda", "popular", "source", "category", "truth", "dial", "panel", "garden", "above", "top", "glue", "kidney", "effort", "rubber"
-])
+let mnemonic = try Mnemonic(length: .long)
 let wallet = Wallet(mnemonic: mnemonic)
 try await wallet.addAccount(unhardenedIndex: 0)
 let account = try wallet.getAccount(unhardenedIndex: 0)
@@ -128,19 +135,26 @@ for try await balance in updates {
 }
 ```
 
+Events cover new addresses, UTXO set refreshes, history changes, confirmation updates, and fatal failures. Stop the monitor when leaving scope with `await monitor.stop()` or automatically on deallocation.
+
+## Persisting state
+
+Generate and later restore a wallet snapshot to persist address indexes, cached balances, and transaction history:
+
+```swift
+let snapshot = await wallet.makeSnapshot()
+// Store `snapshot` with your persistence layer
+
+// Restoring later
+let restoredWallet = try await Wallet(from: snapshot)
+```
+
+`Wallet.applySnapshot(_:)` can merge a snapshot back into an existing actor instance when the mnemonic and derivation path match.
+
 ## Contributing
 
-We welcome contributions from everyone who aims to enhance and expand the capabilities of Opal Base. Here's how you can contribute:
-- Reporting Bugs: Submit an issue to report any bugs or propose feature enhancements.
-- Submitting Pull Requests: If you've fixed a bug or added a new feature, submit a pull request for review.
-- Documentation: Help improve our documentation, from typos to additional content that makes Opal Base more accessible.
+Issues and pull requests are welcome. Please open a discussion for large-scale proposals so we can align on direction before coding.
 
 ## License
 
-Opal Base is released under the MIT License.
-
-## Acknowledgements
-
-This project is inspired by the vision of Satoshi Nakamoto and the dedication of the Bitcoin Cash community. Special thanks to everyone who contributes to making Opal Base robust and reliable for developers and users alike.
-
-We hope Opal Base accelerates your development process and helps you integrate Bitcoin Cash transactions into your applications effortlessly. For more information, support, or to contribute, please visit our GitHub repository.
+Opal Base is available under the MIT license.
