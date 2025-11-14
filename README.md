@@ -4,19 +4,17 @@
 
 # Opal Base
 
-## Introduction
+## Overview
 
-**Opal Base** is an open-source Swift library designed to help developers within the Apple ecosystem seamlessly integrate Bitcoin Cash (BCH) transactions into their applications. Leveraging modern Swift features, Opal Base offers a robust, efficient, and secure solution for handling BCH transactions. It also stays true to the vision of Satoshi Nakamoto's original white paper on a peer-to-peer electronic cash system. Opal Base supports the BIP-39 standard for mnemonic seed address generation and integrates the powerful SwiftFulcrum framework, providing advanced capabilities for interacting with the Bitcoin Cash network.
+Opal Base is a Swift package that assembles everything you need to build modern Bitcoin Cash (BCH) experiences on Apple platforms. The package ships with actor-based wallet and account models, an address book that automates derivation, coin selection, and caching, a rich transaction toolchain, and battle-tested Fulcrum (ElectrumX) networking built on top of [SwiftFulcrum](https://github.com/58opals/SwiftFulcrum). The library is designed with Swift concurrency from the ground up, making it straightforward to integrate in SwiftUI, SwiftData, or server-side Swift applications.
 
-## Features
+## Highlights
 
-- **Cross-Platform Support**: Ready for iOS, iPadOS, macOS, watchOS, and visionOS apps.
-- **BIP‑39 Wallets**: Generate and restore wallets from mnemonic phrases.
-- **SwiftFulcrum Integration**: `async`/`await` APIs for live blockchain data, broadcasts, and subscriptions.
-- **Balance Caching**: Quickly read cached balances and update them on demand.
-- **Transaction & UTXO Management**: Create transactions, select UTXOs, and refresh sets as needed.
-- **Transaction History**: Fetch simple or detailed transaction lists for any address.
-- **Open Source**: Community driven and open to contributions.
+- **Actor-isolated wallet core** – `Wallet` and `Account` actors wrap BIP-39/BIP-44 derivation, privacy shaping, and address management so mutation is always serialized.
+- **Deterministic address book with caching** – Track receiving and change paths, refresh balances through pluggable loaders, and persist cached values for offline reads.
+- **Flexible spend planning** – Assemble transactions with `Account.Payment`, privacy-aware coin selection, configurable fee policies, and reservation-aware `SpendPlan` builders.
+- **First-class Fulcrum integration** – Async Fulcrum client, address reader, transaction handler, and header reader make it easy to refresh balances, history, and confirmations or broadcast transactions.
+- **Streaming monitors & snapshots** – Subscribe to address, UTXO, and confirmation updates or persist actor state with `Wallet.Snapshot` for restoration.
 
 ## Installation
 
@@ -55,83 +53,84 @@ import OpalBase
 let mnemonic = try Mnemonic(length: .long)
 let wallet = Wallet(mnemonic: mnemonic)
 try await wallet.addAccount(unhardenedIndex: 0)
-let account = try wallet.getAccount(unhardenedIndex: 0)
-let service = account.fulcrumService
-try await account.addressBook.refreshBalances(using: service)
-let history = try await account.addressBook.fetchDetailedTransactions(for: .receiving, using: service)
+let account = try await wallet.fetchAccount(at: 0)
 ```
 
-### Generating and Using an Address in the Account
-
-After creating an account, you can generate and use an address for transactions.
+### 2. Connect to Fulcrum services
 
 ```swift
-let nextReceivingAddress = try await account.addressBook.getNextEntry(for: .receiving).address
-print("Next receiving address: \(nextReceivingAddress)")
-```
-
-### Checking Balance from Cache or Blockchain
-
-To check the balance of an account, you can use the cached balance or update it from the blockchain.
-
-```swift
-let cachedBalance = try await account.getBalanceFromCache()
-print("Cached account balance: \(cachedBalance)")
-
-let blockchainBalance = try await account.calculateBalance()
-print("Blockchain account balance: \(blockchainBalance)")
-```
-
-### Creating a New Transaction
-
-Here's a quick example to create and send a BCH transaction:
-
-```swift
-let recipientAddress = try Address("qrtlrv292x9dz5a24wg6a2a7pntu8am7hyyjjwy0hk")
-let transactionHash = try await account.send(
-    [
-        (value: .init(565), recipientAddress: recipientAddress)
-    ]
+let configuration = Network.Configuration(
+    serverURLs: [URL(string: "wss://fulcrum.example.org:50002")!]
 )
-print("Transaction successfully sent with hash: \(transactionHash)")
+let client = try await Network.FulcrumClient(configuration: configuration)
+let addressReader = Network.FulcrumAddressReader(client: client)
+let transactionHandler = Network.FulcrumTransactionHandler(client: client)
+let blockHeaderReader = Network.FulcrumBlockHeaderReader(client: client)
+let fulcrum = Wallet.FulcrumAddress(addressReader: addressReader,
+                                    transactionHandler: transactionHandler)
 ```
 
-### Fetching Transaction History
-
-Retrieve detailed transaction information for your receiving addresses:
+### 3. Refresh balances and transaction history
 
 ```swift
-let service = account.fulcrumService
-let history = try await account.addressBook.fetchDetailedTransactions(
-    for: .receiving,
-    using: service
+let cached = try await account.loadBalanceFromCache()
+print("Cached BCH balance: \(cached.bch)")
+
+let refresh = try await fulcrum.refreshBalances(for: account, usage: .receiving)
+print("Latest BCH balance: \(refresh.total.bch)")
+
+let historyChangeSet = try await fulcrum.refreshTransactionHistory(for: account)
+print("Fetched \(historyChangeSet.updated.count) history entries")
+```
+
+## Managing balances and history
+
+- `Account.loadBalanceFromCache()` reads the aggregated cached amount without making a network call.
+- `Account.refreshBalances(for:loader:)` lets you plug in any async loader, while `Wallet.FulcrumAddress.refreshBalances` handles Fulcrum wiring.
+- Use `Account.refreshTransactionHistory(using:includeUnconfirmed:)` (or the Fulcrum helper) to keep cached history synchronized, and `Account.refreshTransactionConfirmations` to poll confirmations on demand.
+- `Account.loadTransactionHistory()` returns the current cached list of history records for quick display.
+
+## Planning and broadcasting payments
+
+```swift
+let recipient = Account.Payment.Recipient(
+    address: try Address("bitcoincash:qr..."),
+    amount: try Satoshi(5_000)
 )
-print("Found \(history.count) transactions")
+let payment = Account.Payment(
+    recipients: [recipient],
+    feeContext: .init(networkConditions: .init(fallbackRate: 1_000))
+)
+
+let spendPlan = try await account.prepareSpend(payment)
+let (hash, result) = try await spendPlan.buildAndBroadcast(via: transactionHandler)
+print("Broadcast \(hash.reverseOrder.hexadecimalString) with fee \(result.fee.uint64) satoshis")
 ```
 
-### Updating Address Usage Status
+- Customize fee policy defaults with `Wallet.FeePolicy` or pass an override in `Account.Payment`.
+- Inspect `SpendPlan.TransactionResult` for the signed transaction, applied fee, and any change output metadata.
+- Call `spendPlan.completeReservation()` or `spendPlan.cancelReservation()` when coordinating with external broadcast flows.
+
+## Streaming updates
+
+`Wallet.FulcrumAddress.Monitor` keeps accounts synchronized by combining address subscriptions and block header updates.
 
 ```swift
-let service = account.fulcrumService
-try await account.addressBook.updateAddressUsageStatus(using: service)
-```
+let monitor = fulcrum.makeMonitor(for: account,
+                                  blockHeaderReader: blockHeaderReader)
+await monitor.start()
 
-### Refreshing UTXO Set
-
-To refresh the UTXO set for an account:
-
-```swift
-let service = account.fulcrumService
-try await account.addressBook.refreshUTXOSet(service: service)
-```
-### Monitoring Balance Updates
-
-Receive live account balance updates by observing the monitoring stream:
-
-```swift
-let updates = try await account.monitorBalances()
-for try await balance in updates {
-    print("Latest balance: \(balance)")
+Task.detached {
+    for await event in monitor.observeEvents() {
+        switch event {
+        case .utxosUpdated(let address, let balance, _):
+            print("Updated \(address.string) to \(balance.uint64) satoshis")
+        case .encounteredFailure(let failure):
+            print("Monitor error: \(failure.message)")
+        default:
+            break
+        }
+    }
 }
 ```
 
