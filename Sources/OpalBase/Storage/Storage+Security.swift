@@ -1,7 +1,6 @@
 // Storage+Security.swift
 
 import Foundation
-import Security
 
 extension Storage {
     public struct Security: Sendable {

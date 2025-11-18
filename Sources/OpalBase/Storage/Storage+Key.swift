@@ -3,7 +3,7 @@
 import Foundation
 
 extension Storage {
-    enum Key {
+    public enum Key {
         case walletSnapshot
         case accountSnapshot(Data)
         case addressBookSnapshot(Data)
