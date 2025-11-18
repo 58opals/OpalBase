@@ -26,3 +26,5 @@ extension Storage {
         }
     }
 }
+
+extension Storage.Key: Sendable {}
