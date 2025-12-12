@@ -96,6 +96,14 @@ extension Address.Book {
         
         return nextEntry
     }
+    
+    public func reserveNextEntry(for usage: DerivationPath.Usage) async throws -> Entry {
+        let nextEntry = try await selectNextEntry(for: usage)
+        let reservedEntry = try reserveEntry(address: nextEntry.address)
+        try await generateEntriesIfNeeded(for: reservedEntry.derivationPath.usage)
+        
+        return reservedEntry
+    }
 }
 
 // MARK: - Mark

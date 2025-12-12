@@ -9,6 +9,13 @@ extension Account {
     }
 }
 
+// MARK: - Receive
+extension Account {
+    public func reserveNextReceivingEntry() async throws -> Address.Book.Entry {
+        try await addressBook.reserveNextEntry(for: .receiving)
+    }
+}
+
 // MARK: - History
 extension Account {
     public func refreshTransactionHistory(using service: Network.AddressReadable,

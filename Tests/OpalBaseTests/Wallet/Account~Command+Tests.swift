@@ -120,4 +120,32 @@ struct AccountCommandTests {
         let reusablePlan = try await account.prepareSpend(payment)
         try await reusablePlan.cancelReservation()
     }
+    
+    @Test("reserveNextReceivingEntry advances receiving entries")
+    func testReserveNextReceivingEntryAdvancesReceivingEntries() async throws {
+        let mnemonic = try Mnemonic(
+            words: [
+                "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "about"
+            ]
+        )
+        let wallet = Wallet(mnemonic: mnemonic)
+        try await wallet.addAccount(unhardenedIndex: 0)
+        let account = try await wallet.fetchAccount(at: 0)
+        
+        let firstReservedEntry = try await account.reserveNextReceivingEntry()
+        #expect(firstReservedEntry.derivationPath.index == 0)
+        #expect(firstReservedEntry.isReserved == true)
+        #expect(firstReservedEntry.isUsed == true)
+        
+        let secondReservedEntry = try await account.reserveNextReceivingEntry()
+        #expect(secondReservedEntry.derivationPath.index == 1)
+        #expect(secondReservedEntry.isReserved == true)
+        #expect(secondReservedEntry.isUsed == true)
+        #expect(secondReservedEntry.address != firstReservedEntry.address)
+        
+        let nextAvailableEntry = try await account.addressBook.selectNextEntry(for: .receiving)
+        #expect(nextAvailableEntry.derivationPath.index == 2)
+        #expect(nextAvailableEntry.isReserved == false)
+        #expect(nextAvailableEntry.isUsed == false)
+    }
 }
