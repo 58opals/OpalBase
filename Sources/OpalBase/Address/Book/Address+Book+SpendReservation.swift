@@ -17,8 +17,8 @@ extension Address.Book {
         }
         
         let id: UUID
-        public let changeEntry: Entry
-        public let reservationDate: Date
+        let changeEntry: Entry
+        let reservationDate: Date
         
         init(id: UUID, changeEntry: Entry, reservedAt: Date) {
             self.id = id

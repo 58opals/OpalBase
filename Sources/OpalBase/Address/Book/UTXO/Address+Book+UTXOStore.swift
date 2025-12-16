@@ -3,7 +3,7 @@
 import Foundation
 
 extension Address.Book {
-    public struct UTXOStore {
+    struct UTXOStore {
         private var utxosByLockingScript: [Data: Set<Transaction.Output.Unspent>]
         private var reservedUTXOs: Set<Transaction.Output.Unspent>
         

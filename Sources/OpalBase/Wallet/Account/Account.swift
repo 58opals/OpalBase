@@ -10,7 +10,7 @@ public actor Account: Identifiable {
     let account: DerivationPath.Account
     
     public let id: Data
-    public var addressBook: Address.Book
+    let addressBook: Address.Book
     
     let privacyShaper: PrivacyShaper
     public let privacyConfiguration: PrivacyShaper.Configuration
@@ -107,6 +107,21 @@ extension Account {
 
 extension Account {
     public func loadTransactionHistory() async -> [Transaction.History.Record] {
-        await addressBook.listTransactionRecords()
+        await listTransactions()
+    }
+}
+
+// MARK: - Address Book Accessors
+extension Account {
+    public func listEntries(for usage: DerivationPath.Usage) async -> [Address.Book.Entry] {
+        await addressBook.listEntries(for: usage)
+    }
+    
+    public func selectNextEntry(for usage: DerivationPath.Usage) async throws -> Address.Book.Entry {
+        try await addressBook.selectNextEntry(for: usage)
+    }
+    
+    public func readGapLimit() async -> Int {
+        await addressBook.readGapLimit()
     }
 }

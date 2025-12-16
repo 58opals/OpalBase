@@ -4,11 +4,11 @@ import Foundation
 
 extension Wallet {
     public actor FulcrumAddress {
-        private let addressReader: Network.FulcrumAddressReader
-        private let transactionHandler: Network.FulcrumTransactionHandler
+        private let addressReader: Network.AddressReadable
+        private let transactionHandler: Network.TransactionConfirming
         
-        public init(addressReader: Network.FulcrumAddressReader,
-                    transactionHandler: Network.FulcrumTransactionHandler) {
+        public init(addressReader: Network.AddressReadable,
+                    transactionHandler: Network.TransactionConfirming) {
             self.addressReader = addressReader
             self.transactionHandler = transactionHandler
         }
@@ -71,7 +71,7 @@ extension Wallet {
         }
         
         public func makeMonitor(for account: Account,
-                                blockHeaderReader: Network.FulcrumBlockHeaderReader,
+                                blockHeaderReader: Network.BlockHeaderReadable,
                                 includeUnconfirmed: Bool = true,
                                 retryDelay: Duration = .seconds(2)) -> Monitor {
             Monitor(account: account,
@@ -80,6 +80,18 @@ extension Wallet {
                     transactionHandler: transactionHandler,
                     includeUnconfirmed: includeUnconfirmed,
                     retryDelay: retryDelay)
+        }
+        
+        public func makeMonitor(forAccountAt unhardenedIndex: UInt32,
+                                in wallet: Wallet,
+                                blockHeaderReader: Network.BlockHeaderReadable,
+                                includeUnconfirmed: Bool = true,
+                                retryDelay: Duration = .seconds(2)) async throws -> Monitor {
+            let account = try await wallet.fetchAccount(at: unhardenedIndex)
+            return makeMonitor(for: account,
+                               blockHeaderReader: blockHeaderReader,
+                               includeUnconfirmed: includeUnconfirmed,
+                               retryDelay: retryDelay)
         }
     }
 }

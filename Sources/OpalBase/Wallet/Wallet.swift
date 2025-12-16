@@ -68,7 +68,7 @@ extension Wallet {
 
 extension Wallet {
     public var numberOfAccounts: Int { self.accounts.count }
-    public func updateAccounts(_ accounts: [Account]) async {
+    func updateAccounts(_ accounts: [Account]) async {
         var updatedAccounts: [UInt32: Account] = .init(minimumCapacity: accounts.count)
         for account in accounts {
             let index = await account.unhardenedIndex

@@ -24,9 +24,9 @@ extension Wallet.FulcrumAddress {
         }
         
         let account: Account
-        let addressReader: Network.FulcrumAddressReader
-        let blockHeaderReader: Network.FulcrumBlockHeaderReader
-        let transactionHandler: Network.FulcrumTransactionHandler
+        let addressReader: Network.AddressReadable
+        let blockHeaderReader: Network.BlockHeaderReadable
+        let transactionHandler: Network.TransactionConfirming
         let includeUnconfirmed: Bool
         let retryDelay: Duration
         
@@ -37,9 +37,9 @@ extension Wallet.FulcrumAddress {
         private var isRunning: Bool
         
         public init(account: Account,
-                    addressReader: Network.FulcrumAddressReader,
-                    blockHeaderReader: Network.FulcrumBlockHeaderReader,
-                    transactionHandler: Network.FulcrumTransactionHandler,
+                    addressReader: Network.AddressReadable,
+                    blockHeaderReader: Network.BlockHeaderReadable,
+                    transactionHandler: Network.TransactionConfirming,
                     includeUnconfirmed: Bool = true,
                     retryDelay: Duration = .seconds(2)) {
             self.account = account

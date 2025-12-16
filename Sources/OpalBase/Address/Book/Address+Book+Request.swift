@@ -3,7 +3,7 @@
 import Foundation
 
 extension Address.Book {
-    public enum Request: Hashable, Sendable {
+    enum Request: Hashable, Sendable {
         case updateCache(usage: DerivationPath.Usage? = nil)
         case refreshBalances(usage: DerivationPath.Usage? = nil)
         case fetchBalance(Address)

@@ -3,24 +3,24 @@
 import Foundation
 
 extension Address.Book {
-    public struct TransactionLog {
+    struct TransactionLog {
         private var records: [Transaction.Hash: Transaction.History.Record]
         
-        public init() {
+        init() {
             self.records = .init()
         }
         
-        public func listRecords() -> [Transaction.History.Record] {
+        func listRecords() -> [Transaction.History.Record] {
             Array(records.values)
         }
         
-        public func loadRecord(for transactionHash: Transaction.Hash) -> Transaction.History.Record? {
+        func loadRecord(for transactionHash: Transaction.Hash) -> Transaction.History.Record? {
             records[transactionHash]
         }
         
-        public mutating func updateHistory(for scriptHash: String,
-                                           entries: [Transaction.History.Entry],
-                                           timestamp: Date) -> Transaction.History.ChangeSet {
+        mutating func updateHistory(for scriptHash: String,
+                                    entries: [Transaction.History.Entry],
+                                    timestamp: Date) -> Transaction.History.ChangeSet {
             let newTransactions = Set(entries.map { $0.transactionHash })
             let previousTransactions = listTransactions(for: scriptHash)
             var inserted: [Transaction.Hash: Transaction.History.Record] = .init()
@@ -66,11 +66,11 @@ extension Address.Book {
                                                  removed: Array(removed))
         }
         
-        public mutating func updateVerification(for transactionHash: Transaction.Hash,
-                                                status: Transaction.History.Status.Verification,
-                                                proof: Transaction.MerkleProof?,
-                                                verifiedHeight: UInt32?,
-                                                timestamp: Date) -> Transaction.History.Record? {
+        mutating func updateVerification(for transactionHash: Transaction.Hash,
+                                         status: Transaction.History.Status.Verification,
+                                         proof: Transaction.MerkleProof?,
+                                         verifiedHeight: UInt32?,
+                                         timestamp: Date) -> Transaction.History.Record? {
             guard var record = records[transactionHash] else { return nil }
             let original = record
             record.updateVerification(status: status,
@@ -83,8 +83,8 @@ extension Address.Book {
             return record
         }
         
-        public mutating func invalidateConfirmations(startingAt height: UInt32,
-                                                     timestamp: Date) -> [Transaction.History.Record] {
+        mutating func invalidateConfirmations(startingAt height: UInt32,
+                                              timestamp: Date) -> [Transaction.History.Record] {
             guard !records.isEmpty else { return .init() }
             let threshold = UInt64(height)
             var updated: [Transaction.History.Record] = .init()
@@ -100,15 +100,15 @@ extension Address.Book {
             return updated
         }
         
-        public mutating func reset() {
+        mutating func reset() {
             records.removeAll()
         }
         
-        public mutating func store(_ record: Transaction.History.Record) {
+        mutating func store(_ record: Transaction.History.Record) {
             records[record.transactionHash] = record
         }
         
-        public var isEmpty: Bool {
+        var isEmpty: Bool {
             records.isEmpty
         }
         

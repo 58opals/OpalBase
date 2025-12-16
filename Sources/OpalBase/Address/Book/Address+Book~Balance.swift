@@ -32,3 +32,22 @@ extension Address.Book {
         return balance
     }
 }
+
+extension Address.Book {
+    func calculateTotalUnspentBalance() -> Satoshi {
+        let utxos = utxoStore.listUTXOs()
+        var aggregateValue: UInt64 = 0
+        
+        for unspent in utxos {
+            let (updatedValue, didOverflow) = aggregateValue.addingReportingOverflow(unspent.value)
+            precondition(!didOverflow, "Total unspent balance exceeds representable range")
+            aggregateValue = updatedValue
+        }
+        
+        guard let balance = try? Satoshi(aggregateValue) else {
+            preconditionFailure("Total unspent balance exceeds supported maximum")
+        }
+        
+        return balance
+    }
+}
