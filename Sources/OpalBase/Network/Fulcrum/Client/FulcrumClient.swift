@@ -11,12 +11,15 @@ extension Network {
         
         public init(
             configuration: Network.Configuration,
-            metrics: MetricsCollectable? = nil,
-            logger: Log.Handler? = nil,
+            metrics: MetricsCollector? = nil,
+            logger: LogHandler? = nil,
             urlSession: URLSession? = nil
         ) async throws {
             self.configuration = configuration
             self.subscriptions = .init()
+            
+            let fulcrumMetrics = metrics.map { FulcrumMetricsAdapter(collector: $0) }
+            let fulcrumLogger = logger.map(FulcrumLogHandlerAdapter.init(handler:))
             
             let reconnectConfiguration = Fulcrum.Configuration.Reconnect(
                 maximumReconnectionAttempts: configuration.reconnect.maximumAttempts,
@@ -27,13 +30,13 @@ extension Network {
             
             let fulcrumConfiguration = Fulcrum.Configuration(
                 reconnect: reconnectConfiguration,
-                metrics: metrics,
-                logger: logger,
+                metrics: fulcrumMetrics,
+                logger: fulcrumLogger,
                 urlSession: urlSession,
                 connectionTimeout: configuration.connectionTimeout.totalSeconds,
                 maximumMessageSize: configuration.maximumMessageSize,
                 bootstrapServers: configuration.serverURLs.isEmpty ? nil : configuration.serverURLs,
-                network: configuration.network
+                network: configuration.network.fulcrumNetwork
             )
             
             self.fulcrum = try await Fulcrum(url: configuration.serverURLs.randomElement()?.absoluteString,
@@ -68,7 +71,7 @@ extension Network {
             }
         }
         
-        public func request<Result: JSONRPCConvertible>(
+        func request<Result: JSONRPCConvertible>(
             method: SwiftFulcrum.Method,
             responseType: Result.Type = Result.self,
             options: Fulcrum.Call.Options = .init()
@@ -80,7 +83,7 @@ extension Network {
             return value
         }
         
-        public func subscribe<Initial: JSONRPCConvertible, Notification: JSONRPCConvertible>(
+        func subscribe<Initial: JSONRPCConvertible, Notification: JSONRPCConvertible>(
             method: SwiftFulcrum.Method,
             initialType: Initial.Type = Initial.self,
             notificationType: Notification.Type = Notification.self,
@@ -124,5 +127,58 @@ extension Network {
                 await subscription.fail(with: error)
             }
         }
+    }
+}
+
+private struct FulcrumMetricsAdapter: SwiftFulcrum.MetricsCollectable {
+    private let collector: any Network.MetricsCollector
+    
+    init(collector: any Network.MetricsCollector) {
+        self.collector = collector
+    }
+    
+    func didConnect(url: URL, network: Fulcrum.Configuration.Network) async {
+        await collector.didConnect(url: url, network: .init(network))
+    }
+    
+    func didDisconnect(url: URL, closeCode: URLSessionWebSocketTask.CloseCode?, reason: String?) async {
+        await collector.didDisconnect(url: url, closeCode: closeCode, reason: reason)
+    }
+    
+    func didSend(url: URL, message: URLSessionWebSocketTask.Message) async {
+        await collector.didSend(url: url, message: message)
+    }
+    
+    func didReceive(url: URL, message: URLSessionWebSocketTask.Message) async {
+        await collector.didReceive(url: url, message: message)
+    }
+    
+    func didPing(url: URL, error: Swift.Error?) async {
+        await collector.didPing(url: url, error: error)
+    }
+    
+    func didUpdateDiagnostics(url: URL, snapshot: Fulcrum.Diagnostics.Snapshot) async {
+        await collector.didUpdateDiagnostics(url: url, snapshot: .init(snapshot))
+    }
+    
+    func didUpdateSubscriptionRegistry(url: URL, subscriptions: [Fulcrum.Diagnostics.Subscription]) async {
+        await collector.didUpdateSubscriptionRegistry(url: url, subscriptions: subscriptions.map(Network.DiagnosticsSubscription.init(_:)))
+    }
+}
+
+private struct FulcrumLogHandlerAdapter: SwiftFulcrum.Log.Handler {
+    private let handler: any Network.LogHandler
+    
+    init(handler: any Network.LogHandler) {
+        self.handler = handler
+    }
+    
+    func log(_ level: SwiftFulcrum.Log.Level,
+             _ message: @autoclosure () -> String,
+             metadata: [String : String]?,
+             file: String,
+             function: String,
+             line: UInt) {
+        handler.log(.init(level), message(), metadata: metadata, file: file, function: function, line: line)
     }
 }

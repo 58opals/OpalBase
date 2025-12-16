@@ -1,7 +1,6 @@
 // Network+Configuration.swift
 
 import Foundation
-import SwiftFulcrum
 
 extension Network {
     public struct Configuration: Sendable, Equatable {
@@ -9,14 +8,14 @@ extension Network {
         public var connectionTimeout: Duration
         public var maximumMessageSize: Int
         public var reconnect: ReconnectConfiguration
-        public var network: Fulcrum.Configuration.Network
+        public var network: Environment
         
         public init(
             serverURLs: [URL],
             connectionTimeout: Duration = .seconds(10),
             maximumMessageSize: Int = 64 * 1_024 * 1_024,
             reconnect: ReconnectConfiguration = .default,
-            network: Fulcrum.Configuration.Network = .mainnet
+            network: Environment = .mainnet
         ) {
             self.serverURLs = serverURLs
             self.connectionTimeout = connectionTimeout

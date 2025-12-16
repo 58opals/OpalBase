@@ -1,5 +1,4 @@
 import Foundation
-import SwiftFulcrum
 import Testing
 @testable import OpalBase
 

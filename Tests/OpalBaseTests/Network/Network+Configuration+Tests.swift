@@ -1,16 +1,12 @@
 import Foundation
 import Testing
-import SwiftFulcrum
 @testable import OpalBase
 
 @Suite("Network.Configuration", .tags(.network))
 struct NetworkConfigurationTests {
     private static let primaryServerAddress = URL(string: "wss://bch.imaginary.cash:50004")!
     private static let backupServerAddress = URL(string: "wss://bch.loping.net:50002")!
-    private static let faultyServerAddress = URL(string: "wss://fulcrum.jettscythe.xyz:50004")!
-    private static let invalidServerAddress = URL(string: "not a url")!
     private static let sampleCashAddress = "bitcoincash:qpm2qsznhks23z7629mms6s4cwef74vcwvy22gdx6a"
-    private static let invalidCashAddress = "bitcoincash:qpm2qsznhks23z7629mms6s4cwef74vcwvy22gdx6z"
     
     @Test("initializes with default connection values")
     func testInitializeConfigurationWithDefaults() {
@@ -20,6 +16,7 @@ struct NetworkConfigurationTests {
         #expect(configuration.connectionTimeout == .seconds(10))
         #expect(configuration.maximumMessageSize == 64 * 1_024 * 1_024)
         #expect(configuration.reconnect == .default)
+        #expect(configuration.network == .mainnet)
     }
     
     @Test("Provides wallet-friendly defaults")
@@ -35,6 +32,7 @@ struct NetworkConfigurationTests {
         #expect(configuration.reconnect.initialDelay == .seconds(1.5))
         #expect(configuration.reconnect.maximumDelay == .seconds(30))
         #expect(configuration.reconnect.jitterMultiplierRange.lowerBound < configuration.reconnect.jitterMultiplierRange.upperBound)
+        #expect(configuration.network == .mainnet)
     }
     
     @Test("default reconnect strategy matches recommended jitter and delays")
@@ -66,15 +64,13 @@ struct NetworkConfigurationTests {
         )
         
         let client = try await Network.FulcrumClient(configuration: configuration)
+        let headerReader = Network.FulcrumBlockHeaderReader(client: client)
         defer { Task { await client.stop() } }
         
-        let tip = try await client.request(
-            method: .blockchain(.headers(.getTip)),
-            responseType: Response.Result.Blockchain.Headers.GetTip.self
-        )
+        let tip = try await headerReader.fetchTip()
         
         #expect(tip.height > 0)
-        #expect(!tip.hex.isEmpty)
+        #expect(!tip.headerHexadecimal.isEmpty)
     }
     
     @Test("connects to fulcrum using wallet centric configuration", .timeLimit(.minutes(1)))
@@ -93,30 +89,14 @@ struct NetworkConfigurationTests {
         
         let client = try await Network.FulcrumClient(configuration: configuration)
         do {
-            let balance: SwiftFulcrum.Response.Result.Blockchain.Address.GetBalance = try await client.request(
-                method: .blockchain(
-                    .address(
-                        .getBalance(address: Self.sampleCashAddress, tokenFilter: nil)
-                    )
-                )
-            )
+            let addressReader = Network.FulcrumAddressReader(client: client)
+            let balance = try await addressReader.fetchBalance(for: Self.sampleCashAddress)
             #expect(balance.confirmed >= 0)
             
             try await client.reconnect()
             
-            let history: SwiftFulcrum.Response.Result.Blockchain.Address.GetHistory = try await client.request(
-                method: .blockchain(
-                    .address(
-                        .getHistory(
-                            address: Self.sampleCashAddress,
-                            fromHeight: nil,
-                            toHeight: nil,
-                            includeUnconfirmed: true
-                        )
-                    )
-                )
-            )
-            #expect(!history.transactions.isEmpty)
+            let history = try await addressReader.fetchHistory(for: Self.sampleCashAddress, includeUnconfirmed: true)
+            #expect(!history.isEmpty)
             
             await client.stop()
         } catch {
@@ -130,15 +110,12 @@ struct NetworkConfigurationTests {
         let configuration = Network.Configuration(serverURLs: .init())
         
         let client = try await Network.FulcrumClient(configuration: configuration)
+        let headerReader = Network.FulcrumBlockHeaderReader(client: client)
         do {
-            let tip: SwiftFulcrum.Response.Result.Blockchain.Headers.GetTip = try await client.request(
-                method: .blockchain(
-                    .headers(.getTip)
-                )
-            )
+            let tip = try await headerReader.fetchTip()
             
             #expect(tip.height > 0)
-            #expect(!tip.hex.isEmpty)
+            #expect(!tip.headerHexadecimal.isEmpty)
             
             await client.stop()
         } catch {
