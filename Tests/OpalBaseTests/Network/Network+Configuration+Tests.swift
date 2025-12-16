@@ -127,7 +127,7 @@ struct NetworkConfigurationTests {
     
     @Test("connects with empty server list by falling back to bundled bootstrap", .timeLimit(.minutes(1)))
     func testConnectFulcrumUsingBundledBootstrapServers() async throws {
-        let configuration = Network.Configuration(serverURLs: [])
+        let configuration = Network.Configuration(serverURLs: .init())
         
         let client = try await Network.FulcrumClient(configuration: configuration)
         do {

@@ -85,7 +85,7 @@ extension Address.Book {
         
         public mutating func invalidateConfirmations(startingAt height: UInt32,
                                                      timestamp: Date) -> [Transaction.History.Record] {
-            guard !records.isEmpty else { return [] }
+            guard !records.isEmpty else { return .init() }
             let threshold = UInt64(height)
             var updated: [Transaction.History.Record] = .init()
             for (transactionHash, record) in records {

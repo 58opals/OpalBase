@@ -26,7 +26,7 @@ extension Storage {
 extension Storage.ValueStore {
     public static func makeInMemory() -> Self {
         actor Box {
-            var values: [String: Data] = [:]
+            var values: [String: Data] = .init()
 
             func store(_ data: Data, key: Storage.Key) {
                 values[key.rawValue] = data

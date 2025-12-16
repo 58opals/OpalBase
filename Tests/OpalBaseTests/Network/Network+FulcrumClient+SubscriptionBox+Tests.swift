@@ -11,7 +11,7 @@ struct NetworkFulcrumClientSubscriptionBoxTests {
     
     @Test("establishes live subscription, resubscribes, and cancels", .timeLimit(.minutes(1)))
     func testSubscriptionLifecycleResubscribesAndCancels() async throws {
-        let reconnectConfiguration = WebSocket.Reconnector.Configuration(
+        let reconnectConfiguration = Fulcrum.Configuration.Reconnect(
             maximumReconnectionAttempts: 2,
             reconnectionDelay: 1,
             maximumDelay: 5,
@@ -97,7 +97,7 @@ struct NetworkFulcrumClientSubscriptionBoxTests {
         do {
             let (terminationStream, terminationContinuation) = AsyncStream<UUID>.makeStream()
             let terminationTask = Task { () -> [UUID] in
-                var identifiers: [UUID] = []
+                var identifiers: [UUID] = .init()
                 for await identifier in terminationStream {
                     identifiers.append(identifier)
                 }

@@ -43,11 +43,21 @@ extension Network {
                     metadata: ["closeCode": String(code.rawValue)]
                 )
             case .network(let networkError):
-                return Network.Failure(reason: .network, message: networkError.localizedDescription)
+                return translateNetwork(networkError)
             case .reconnectFailed:
                 return Network.Failure(reason: .transport, message: "Reconnection attempts exhausted")
             case .heartbeatTimeout:
                 return Network.Failure(reason: .timeout, message: "Heartbeat timed out")
+            }
+        }
+        
+        private static func translateNetwork(_ network: Fulcrum.Error.Network) -> Network.Failure {
+            switch network {
+            case .tlsNegotiationFailed(let underlying):
+                return Network.Failure(
+                    reason: .network,
+                    message: underlying?.localizedDescription ?? "TLS negotiation failed"
+                )
             }
         }
         
@@ -76,8 +86,10 @@ extension Network {
                     message: "Operation timed out",
                     metadata: ["timeoutSeconds": String(duration.totalSeconds)]
                 )
-            case .emptyResponse:
-                return Network.Failure(reason: .protocolViolation, message: "Empty response from server")
+            case .emptyResponse(let identifier):
+                return Network.Failure(reason: .protocolViolation,
+                                       message: "Empty response from server",
+                                       metadata: identifier.map { ["requestIdentifier": $0.uuidString] } ?? .init())
             case .protocolMismatch(let message):
                 return Network.Failure(reason: .protocolViolation, message: message)
             case .unknown(let underlying):

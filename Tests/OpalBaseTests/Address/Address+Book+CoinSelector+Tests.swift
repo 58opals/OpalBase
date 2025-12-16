@@ -24,8 +24,8 @@ struct AddressBookCoinSelectorTests {
         )
         
         let configuration = Address.Book.CoinSelection.Configuration(
-            recipientOutputs: [],
-            outputsWithChange: [],
+            recipientOutputs: .init(),
+            outputsWithChange: .init(),
             strategy: .greedyLargestFirst
         )
         
@@ -167,8 +167,8 @@ struct AddressBookCoinSelectorTests {
         )
         
         let configuration = Address.Book.CoinSelection.Configuration(
-            recipientOutputs: [],
-            outputsWithChange: [],
+            recipientOutputs: .init(),
+            outputsWithChange: .init(),
             strategy: .branchAndBound
         )
         

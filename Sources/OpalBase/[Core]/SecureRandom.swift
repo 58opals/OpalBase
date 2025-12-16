@@ -10,7 +10,7 @@ enum SecureRandom {
     
     static func makeBytes(count: Int) throws -> [UInt8] {
         precondition(count >= 0)
-        guard count > 0 else { return [] }
+        guard count > 0 else { return .init() }
         
         var bytes = [UInt8](repeating: 0, count: count)
         

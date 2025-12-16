@@ -18,7 +18,7 @@ extension Network {
             self.configuration = configuration
             self.subscriptions = .init()
             
-            let reconnectConfiguration = WebSocket.Reconnector.Configuration(
+            let reconnectConfiguration = Fulcrum.Configuration.Reconnect(
                 maximumReconnectionAttempts: configuration.reconnect.maximumAttempts,
                 reconnectionDelay: configuration.reconnect.initialDelay.totalSeconds,
                 maximumDelay: configuration.reconnect.maximumDelay.totalSeconds,
@@ -32,10 +32,12 @@ extension Network {
                 urlSession: urlSession,
                 connectionTimeout: configuration.connectionTimeout.totalSeconds,
                 maximumMessageSize: configuration.maximumMessageSize,
-                bootstrapServers: configuration.serverURLs.isEmpty ? nil : configuration.serverURLs
+                bootstrapServers: configuration.serverURLs.isEmpty ? nil : configuration.serverURLs,
+                network: configuration.network
             )
             
-            self.fulcrum = try await Fulcrum(configuration: fulcrumConfiguration)
+            self.fulcrum = try await Fulcrum(url: configuration.serverURLs.randomElement()?.absoluteString,
+                                             configuration: fulcrumConfiguration)
             try await self.fulcrum.start()
         }
         
@@ -69,7 +71,7 @@ extension Network {
         public func request<Result: JSONRPCConvertible>(
             method: SwiftFulcrum.Method,
             responseType: Result.Type = Result.self,
-            options: Client.Call.Options = .init()
+            options: Fulcrum.Call.Options = .init()
         ) async throws -> Result {
             let response = try await fulcrum.submit(method: method, responseType: responseType, options: options)
             guard let value = response.extractRegularResponse() else {
@@ -82,7 +84,7 @@ extension Network {
             method: SwiftFulcrum.Method,
             initialType: Initial.Type = Initial.self,
             notificationType: Notification.Type = Notification.self,
-            options: Client.Call.Options = .init()
+            options: Fulcrum.Call.Options = .init()
         ) async throws -> (Initial, AsyncThrowingStream<Notification, Swift.Error>, @Sendable () async -> Void) {
             let subscription = FulcrumSubscriptionBox<Initial, Notification>(
                 method: method,

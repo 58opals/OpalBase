@@ -9,7 +9,7 @@ extension Network {
         let stream: AsyncThrowingStream<Notification, Swift.Error>
         
         private let method: SwiftFulcrum.Method
-        private let options: Client.Call.Options
+        private let options: Fulcrum.Call.Options
         private let onTermination: @Sendable (UUID) async -> Void
         
         private var continuation: AsyncThrowingStream<Notification, Swift.Error>.Continuation
@@ -22,7 +22,7 @@ extension Network {
         
         init(
             method: SwiftFulcrum.Method,
-            options: Client.Call.Options,
+            options: Fulcrum.Call.Options,
             onTermination: @escaping @Sendable (UUID) async -> Void
         ) {
             self.id = UUID()

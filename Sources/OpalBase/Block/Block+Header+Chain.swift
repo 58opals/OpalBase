@@ -87,7 +87,7 @@ extension Block.Header.Chain {
     }
     
     func dequeueMaintenanceEvents() -> [MaintenanceEvent] {
-        guard !queuedMaintenanceEvents.isEmpty else { return [] }
+        guard !queuedMaintenanceEvents.isEmpty else { return .init() }
         let events = queuedMaintenanceEvents
         queuedMaintenanceEvents.removeAll()
         return events
@@ -109,7 +109,7 @@ extension Block.Header.Chain {
             if height >= tipHeight {
                 tipTimestamp = header.time
             }
-            return UpdateResult(detachedHeights: [], newTip: currentTip())
+            return UpdateResult(detachedHeights: .init(), newTip: currentTip())
         }
         
         var detachedHeights: [UInt32] = .init()

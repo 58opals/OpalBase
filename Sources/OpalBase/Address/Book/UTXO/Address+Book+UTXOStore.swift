@@ -28,7 +28,7 @@ extension Address.Book {
         
         mutating func replace(with utxos: Set<Transaction.Output.Unspent>) {
             utxosByLockingScript = utxos.reduce(into: [Data: Set<Transaction.Output.Unspent>]()) { result, unspent in
-                result[unspent.lockingScript, default: []].insert(unspent)
+                result[unspent.lockingScript, default: .init()].insert(unspent)
             }
             
             reservedUTXOs = reservedUTXOs.intersection(utxos)
@@ -124,7 +124,7 @@ extension Address.Book {
         }
         
         private mutating func store(_ utxo: Transaction.Output.Unspent) {
-            var utxos = utxosByLockingScript[utxo.lockingScript] ?? []
+            var utxos = utxosByLockingScript[utxo.lockingScript] ?? .init()
             utxos.insert(utxo)
             utxosByLockingScript[utxo.lockingScript] = utxos
         }
