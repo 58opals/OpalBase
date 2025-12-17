@@ -350,7 +350,7 @@ struct StoragePersistenceTests {
                     serverURLs: [url],
                     connectionTimeout: .seconds(10),
                     maximumMessageSize: 1024 * 1024,
-                    reconnect: .default,
+                    reconnect: .defaultValue,
                     network: .mainnet
                 )
                 client = try await Network.FulcrumClient(configuration: config)

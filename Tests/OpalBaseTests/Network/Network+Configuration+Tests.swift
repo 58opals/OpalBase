@@ -15,7 +15,7 @@ struct NetworkConfigurationTests {
         #expect(configuration.serverURLs == [Self.primaryServerAddress])
         #expect(configuration.connectionTimeout == .seconds(10))
         #expect(configuration.maximumMessageSize == 64 * 1_024 * 1_024)
-        #expect(configuration.reconnect == .default)
+        #expect(configuration.reconnect == .defaultValue)
         #expect(configuration.network == .mainnet)
     }
     
@@ -27,7 +27,7 @@ struct NetworkConfigurationTests {
         #expect(configuration.serverURLs == [primaryServer])
         #expect(configuration.connectionTimeout == .seconds(10))
         #expect(configuration.maximumMessageSize == 64 * 1_024 * 1_024)
-        #expect(configuration.reconnect == .default)
+        #expect(configuration.reconnect == .defaultValue)
         #expect(configuration.reconnect.maximumAttempts == 8)
         #expect(configuration.reconnect.initialDelay == .seconds(1.5))
         #expect(configuration.reconnect.maximumDelay == .seconds(30))
@@ -37,7 +37,7 @@ struct NetworkConfigurationTests {
     
     @Test("default reconnect strategy matches recommended jitter and delays")
     func testReconnectDefaultConfigurationValues() {
-        let reconnect = Network.ReconnectConfiguration.default
+        let reconnect = Network.ReconnectConfiguration.defaultValue
         
         #expect(reconnect.maximumAttempts == 8)
         #expect(reconnect.initialDelay == .seconds(1.5))

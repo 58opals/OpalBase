@@ -14,7 +14,7 @@ extension Network {
             serverURLs: [URL],
             connectionTimeout: Duration = .seconds(10),
             maximumMessageSize: Int = 64 * 1_024 * 1_024,
-            reconnect: ReconnectConfiguration = .default,
+            reconnect: ReconnectConfiguration = .defaultValue,
             network: Environment = .mainnet
         ) {
             self.serverURLs = serverURLs
@@ -31,7 +31,7 @@ extension Network {
         public var maximumDelay: Duration
         public var jitterMultiplierRange: ClosedRange<Double>
         
-        public static let `default` = Self(
+        public static let defaultValue = Self(
             maximumAttempts: 8,
             initialDelay: .seconds(1.5),
             maximumDelay: .seconds(30),
