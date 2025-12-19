@@ -10,7 +10,7 @@ extension Storage {
         case mnemonicCiphertext
         case custom(String)
         
-        var rawValue: String {
+        public var rawValue: String {
             switch self {
             case .walletSnapshot:
                 return "wallet.snapshot"
