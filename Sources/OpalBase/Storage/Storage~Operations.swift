@@ -53,7 +53,7 @@ extension Storage {
                 storedCiphertext = ciphertext
             }
         } catch {
-            if fallbackToPlaintext && security.isRecoverableSecureEnclaveError(error) {
+            if fallbackToPlaintext && isRecoverableCiphertextError(error) {
                 storedCiphertext = .init(mode: .plaintext, payload: plaintext)
             } else {
                 throw Error.secureStoreFailure(error)
@@ -119,5 +119,22 @@ extension Storage {
     
     public func wipeAll() async throws {
         try await removeAllEntries()
+    }
+}
+
+private extension Storage {
+    func isRecoverableCiphertextError(_ error: Swift.Error) -> Bool {
+        if security.isRecoverableSecureEnclaveError(error) {
+            return true
+        }
+        guard let securityError = error as? Storage.Security.Error else { return false }
+        switch securityError {
+        case .protectionUnavailable:
+            return true
+        case .encryptionFailure(let underlying):
+            return security.isRecoverableSecureEnclaveError(underlying)
+        case .decryptionFailure:
+            return false
+        }
     }
 }

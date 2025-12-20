@@ -36,16 +36,13 @@ extension Network {
         }
         
         func establish(using fulcrum: Fulcrum) async throws -> Initial {
-            let response = try await fulcrum.submit(
+            let (initial, updates, cancel) = try await fulcrum.subscribe(
                 method: method,
                 initialType: Initial.self,
                 notificationType: Notification.self,
                 options: options
             )
-            guard let stream = response.extractSubscriptionStream() else {
-                throw Fulcrum.Error.client(.protocolMismatch("Expected subscription stream for method: \(method)"))
-            }
-            let (initial, updates, cancel) = stream
+            
             cancelHandler = cancel
             startForwarding(with: updates)
             return initial
@@ -61,18 +58,13 @@ extension Network {
             guard !isTerminated else { return }
             do {
                 await tearDownCurrentHandler()
-                let response = try await fulcrum.submit(
+                let (_, updates, cancel) = try await fulcrum.subscribe(
                     method: method,
                     initialType: Initial.self,
                     notificationType: Notification.self,
                     options: options
                 )
-                guard let stream = response.extractSubscriptionStream() else {
-                    let mismatch = Fulcrum.Error.client(.protocolMismatch("Expected subscription stream for method: \(method)"))
-                    await fail(with: mismatch)
-                    return
-                }
-                let (_, updates, cancel) = stream
+                
                 cancelHandler = cancel
                 startForwarding(with: updates)
                 isExpectingResubscribe = false

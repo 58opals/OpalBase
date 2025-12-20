@@ -10,10 +10,10 @@ public actor Storage {
     
     public init(
         valueStore: ValueStore = .makeInMemory(),
-        securityOptions: Security.Options = .init()
+        security: Security = .makePlaintextOnly()
     ) throws {
         self.valueStore = valueStore
-        self.security = Security(options: securityOptions)
+        self.security = security
         self.encoder = JSONEncoder()
         self.decoder = JSONDecoder()
         self.encoder.dateEncodingStrategy = .iso8601
