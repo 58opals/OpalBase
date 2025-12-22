@@ -5,10 +5,14 @@ import Foundation
 extension Address.Book {
     public struct UTXORefresh {
         public let utxosByAddress: [Address: [Transaction.Output.Unspent]]
+        public let changeSets: [UTXOChangeSet]
         public let totalBalance: Satoshi
         
-        public init(utxosByAddress: [Address : [Transaction.Output.Unspent]], totalBalance: Satoshi) {
+        public init(utxosByAddress: [Address : [Transaction.Output.Unspent]],
+                    changeSets: [UTXOChangeSet],
+                    totalBalance: Satoshi) {
             self.utxosByAddress = utxosByAddress
+            self.changeSets = changeSets
             self.totalBalance = totalBalance
         }
     }
@@ -22,6 +26,7 @@ extension Address.Book {
                                usage: DerivationPath.Usage? = nil) async throws -> UTXORefresh {
         let targetUsages = usage.map { [$0] } ?? DerivationPath.Usage.allCases
         var refreshedUTXOs: [Address: [Transaction.Output.Unspent]] = .init()
+        var changeSets: [UTXOChangeSet] = .init()
         
         for currentUsage in targetUsages {
             let entries = listEntries(for: currentUsage)
@@ -47,7 +52,11 @@ extension Address.Book {
             
             for (address, utxos) in usageResults {
                 refreshedUTXOs[address] = utxos
-                replaceUTXOs(for: address, with: utxos)
+                let timestamp = Date()
+                let changeSet = try replaceUTXOs(for: address,
+                                                 with: utxos,
+                                                 timestamp: timestamp)
+                changeSets.append(changeSet)
                 
                 if !utxos.isEmpty {
                     try await mark(address: address, isUsed: true)
@@ -56,15 +65,15 @@ extension Address.Book {
         }
         
         var aggregateValue: UInt64 = 0
-        for utxos in refreshedUTXOs.values {
-            for utxo in utxos {
-                let (updated, didOverflow) = aggregateValue.addingReportingOverflow(utxo.value)
-                if didOverflow { throw Satoshi.Error.exceedsMaximumAmount }
-                aggregateValue = updated
-            }
+        for changeSet in changeSets {
+            let (updated, didOverflow) = aggregateValue.addingReportingOverflow(changeSet.balance.uint64)
+            if didOverflow { throw Satoshi.Error.exceedsMaximumAmount }
+            aggregateValue = updated
         }
         
         let totalBalance = try Satoshi(aggregateValue)
-        return UTXORefresh(utxosByAddress: refreshedUTXOs, totalBalance: totalBalance)
+        return UTXORefresh(utxosByAddress: refreshedUTXOs,
+                           changeSets: changeSets,
+                           totalBalance: totalBalance)
     }
 }

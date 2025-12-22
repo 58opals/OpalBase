@@ -6,7 +6,7 @@ extension Wallet.FulcrumAddress.Monitor {
     func registerEntry(_ entry: Address.Book.Entry) {
         let address = entry.address
         ensureSubscription(for: address)
-        publish(.addressMonitored(address))
+        publish(.addressTracked(address))
     }
     
     func startEntryObservation() async {
@@ -61,16 +61,17 @@ extension Wallet.FulcrumAddress.Monitor {
     private func handleAddressUpdate(for address: Address) async {
         do {
             let utxos = try await addressReader.fetchUnspentOutputs(for: address.string)
-            let balance = try await account.replaceUTXOs(for: address,
-                                                         with: utxos,
-                                                         timestamp: .now)
-            publish(.utxosUpdated(address: address, balance: balance, utxos: utxos))
+            let timestamp = Date()
+            let changeSet = try await account.replaceUTXOs(for: address,
+                                                           with: utxos,
+                                                           timestamp: timestamp)
+            publish(.utxosChanged(changeSet))
             
-            let changeSet = try await account.refreshTransactionHistory(for: address,
-                                                                        using: addressReader,
-                                                                        includeUnconfirmed: includeUnconfirmed)
-            if !changeSet.isEmpty {
-                publish(.historyChanged(changeSet))
+            let historyChangeSet = try await account.refreshTransactionHistory(for: address,
+                                                                               using: addressReader,
+                                                                               includeUnconfirmed: includeUnconfirmed)
+            if !historyChangeSet.isEmpty {
+                publish(.historyChanged(historyChangeSet))
             }
         } catch {
             await handleIncrementalFailure(for: address, error: error)

@@ -268,25 +268,19 @@ extension Account {
 extension Account {
     public func replaceUTXOs(for address: Address,
                              with utxos: [Transaction.Output.Unspent],
-                             timestamp: Date = .now) async throws -> Satoshi {
-        await addressBook.replaceUTXOs(for: address, with: utxos)
+                             timestamp: Date = .now) async throws -> Address.Book.UTXOChangeSet {
+        let changeSet = try await addressBook.replaceUTXOs(for: address,
+                                                           with: utxos,
+                                                           timestamp: timestamp)
         
-        if !utxos.isEmpty {
+        if !changeSet.updated.isEmpty {
             try await addressBook.mark(address: address, isUsed: true)
         }
         
-        var aggregateValue: UInt64 = 0
-        for utxo in utxos {
-            let (updated, didOverflow) = aggregateValue.addingReportingOverflow(utxo.value)
-            if didOverflow { throw Satoshi.Error.exceedsMaximumAmount }
-            aggregateValue = updated
-        }
-        
-        let balance = try Satoshi(aggregateValue)
         try await addressBook.updateCachedBalance(for: address,
-                                                  balance: balance,
+                                                  balance: changeSet.balance,
                                                   timestamp: timestamp)
-        return balance
+        return changeSet
     }
 }
 

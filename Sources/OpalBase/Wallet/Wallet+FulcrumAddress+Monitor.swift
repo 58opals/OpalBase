@@ -14,13 +14,27 @@ extension Wallet.FulcrumAddress {
             }
         }
         
+        public struct Termination: Sendable {
+            public enum Reason: Sendable {
+                case stopped
+                case cancelled
+            }
+            
+            public let reason: Reason
+            
+            public init(reason: Reason) {
+                self.reason = reason
+            }
+        }
+        
         public enum Event: Sendable {
-            case addressMonitored(Address)
-            case utxosUpdated(address: Address, balance: Satoshi, utxos: [Transaction.Output.Unspent])
+            case addressTracked(Address)
+            case utxosChanged(Address.Book.UTXOChangeSet)
             case historyChanged(Transaction.History.ChangeSet)
             case confirmationsChanged(Transaction.History.ChangeSet)
             case performedFullRefresh(Address.Book.UTXORefresh, Transaction.History.ChangeSet)
             case encounteredFailure(Failure)
+            case terminated(Termination)
         }
         
         let account: Account
@@ -33,7 +47,7 @@ extension Wallet.FulcrumAddress {
         var addressSubscriptions: [Address: Task<Void, Never>]
         var newEntryTask: Task<Void, Never>?
         var headerTask: Task<Void, Never>?
-        private var eventContinuations: [UUID: AsyncStream<Event>.Continuation]
+        private var eventContinuations: [UUID: AsyncThrowingStream<Event, Swift.Error>.Continuation]
         private var isRunning: Bool
         
         public init(account: Account,
@@ -57,6 +71,7 @@ extension Wallet.FulcrumAddress {
             for task in addressSubscriptions.values { task.cancel() }
             newEntryTask?.cancel()
             headerTask?.cancel()
+            finishContinuations()
         }
         
         public func start() async {
@@ -72,32 +87,46 @@ extension Wallet.FulcrumAddress {
             await startHeaderSubscription()
         }
         
-        public func stop() {
+        public func stop(reason: Termination.Reason = .stopped) {
             guard isRunning else { return }
             isRunning = false
             cancelSubscriptions()
             cancelEntryTask()
             cancelHeaderTask()
+            publish(.terminated(.init(reason: reason)))
             finishContinuations()
         }
         
-        public func observeEvents() -> AsyncStream<Event> {
-            AsyncStream { continuation in
+        public func makeEventStream(autoStart: Bool = true) -> AsyncThrowingStream<Event, Swift.Error> {
+            AsyncThrowingStream { continuation in
                 let identifier = UUID()
-                Task { storeContinuation(continuation, identifier: identifier) }
-                continuation.onTermination = { _ in
-                    Task { await self.removeContinuation(withIdentifier: identifier) }
+                Task { await storeContinuation(continuation, identifier: identifier, autoStart: autoStart) }
+                continuation.onTermination = { termination in
+                    Task { await self.removeContinuation(withIdentifier: identifier, termination: termination) }
                 }
             }
         }
         
-        private func storeContinuation(_ continuation: AsyncStream<Event>.Continuation,
-                                       identifier: UUID) {
+        private func storeContinuation(_ continuation: AsyncThrowingStream<Event, Swift.Error>.Continuation,
+                                       identifier: UUID,
+                                       autoStart: Bool) async {
             eventContinuations[identifier] = continuation
+            
+            guard autoStart else { return }
+            await start()
         }
         
-        private func removeContinuation(withIdentifier identifier: UUID) {
+        private func removeContinuation(withIdentifier identifier: UUID,
+                                        termination: AsyncStream<Event>.Continuation.Termination?) async {
             eventContinuations.removeValue(forKey: identifier)
+            
+            guard eventContinuations.isEmpty else { return }
+            switch termination {
+            case .cancelled?:
+                stop(reason: .cancelled)
+            default:
+                stop()
+            }
         }
         
         func publishFailure(address: Address?, error: Swift.Error) async {

@@ -88,6 +88,14 @@ extension Address.Book {
             allUTXOs
         }
         
+        func listUTXOs(for address: Address) -> [Transaction.Output.Unspent] {
+            let lockingScript = address.lockingScript.data
+            guard let utxos = utxosByLockingScript[lockingScript] else {
+                return []
+            }
+            return Array(utxos)
+        }
+        
         func sorted(by areInIncreasingOrder: (Transaction.Output.Unspent, Transaction.Output.Unspent) -> Bool)
         -> [Transaction.Output.Unspent] {
             allUTXOs.sorted(by: areInIncreasingOrder)
@@ -168,12 +176,23 @@ extension Address.Book {
         utxoStore.listUTXOs()
     }
     
+    func listUTXOs(for address: Address) -> [Transaction.Output.Unspent] {
+        utxoStore.listUTXOs(for: address)
+    }
+    
     func replaceUTXOs(with utxos: Set<Transaction.Output.Unspent>) {
         utxoStore.replace(with: utxos)
     }
     
-    func replaceUTXOs(for address: Address, with utxos: [Transaction.Output.Unspent]) {
+    func replaceUTXOs(for address: Address,
+                      with utxos: [Transaction.Output.Unspent],
+                      timestamp: Date = .now) throws -> Address.Book.UTXOChangeSet {
+        let previous = listUTXOs(for: address)
         utxoStore.replace(for: address, with: utxos)
+        return try Address.Book.UTXOChangeSet(address: address,
+                                              previous: previous,
+                                              updated: utxos,
+                                              timestamp: timestamp)
     }
     
     func removeUTXO(_ utxo: Transaction.Output.Unspent) {
