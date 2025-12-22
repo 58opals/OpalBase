@@ -68,10 +68,7 @@ extension Wallet.FulcrumAddress {
         }
         
         deinit {
-            for task in addressSubscriptions.values { task.cancel() }
-            newEntryTask?.cancel()
-            headerTask?.cancel()
-            finishContinuations()
+            performDeinitCleanup()
         }
         
         public func start() async {
@@ -117,7 +114,7 @@ extension Wallet.FulcrumAddress {
         }
         
         private func removeContinuation(withIdentifier identifier: UUID,
-                                        termination: AsyncStream<Event>.Continuation.Termination?) async {
+                                        termination: AsyncThrowingStream<Event, Swift.Error>.Continuation.Termination?) async {
             eventContinuations.removeValue(forKey: identifier)
             
             guard eventContinuations.isEmpty else { return }
@@ -149,6 +146,13 @@ extension Wallet.FulcrumAddress {
         private func cancelHeaderTask() {
             headerTask?.cancel()
             headerTask = nil
+        }
+        
+        private func performDeinitCleanup() {
+            cancelSubscriptions()
+            cancelEntryTask()
+            cancelHeaderTask()
+            finishContinuations()
         }
         
         private func finishContinuations() {

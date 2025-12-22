@@ -97,12 +97,12 @@ extension Wallet {
         public func makeEventStream(for account: Account,
                                     blockHeaderReader: Network.BlockHeaderReadable,
                                     includeUnconfirmed: Bool = true,
-                                    retryDelay: Duration = .seconds(2)) -> AsyncThrowingStream<Monitor.Event, Swift.Error> {
+                                    retryDelay: Duration = .seconds(2)) async -> AsyncThrowingStream<Monitor.Event, Swift.Error> {
             let monitor = makeMonitor(for: account,
                                       blockHeaderReader: blockHeaderReader,
                                       includeUnconfirmed: includeUnconfirmed,
                                       retryDelay: retryDelay)
-            return monitor.makeEventStream()
+            return await monitor.makeEventStream()
         }
         
         public func makeEventStream(forAccountAt unhardenedIndex: UInt32,
@@ -111,10 +111,10 @@ extension Wallet {
                                     includeUnconfirmed: Bool = true,
                                     retryDelay: Duration = .seconds(2)) async throws -> AsyncThrowingStream<Monitor.Event, Swift.Error> {
             let account = try await wallet.fetchAccount(at: unhardenedIndex)
-            return makeEventStream(for: account,
-                                   blockHeaderReader: blockHeaderReader,
-                                   includeUnconfirmed: includeUnconfirmed,
-                                   retryDelay: retryDelay)
+            return await makeEventStream(for: account,
+                                         blockHeaderReader: blockHeaderReader,
+                                         includeUnconfirmed: includeUnconfirmed,
+                                         retryDelay: retryDelay)
         }
     }
 }
