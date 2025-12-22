@@ -425,7 +425,7 @@ struct StoragePersistenceTests {
         // Apply network state to the account using deterministic timestamps for persistence checks.
         let fixedTimestamp = Date(timeIntervalSince1970: 1_700_000_000)
         let cachedBalance = try await account.replaceUTXOs(for: receivingAddress, with: utxos, timestamp: fixedTimestamp)
-        #expect(cachedBalance.uint64 == utxos.reduce(0) { $0 + $1.value })
+        #expect(cachedBalance.balance.uint64 == utxos.reduce(0) { $0 + $1.value })
         
         _ = try await account.refreshTransactionHistory(for: receivingAddress, using: addressReader, includeUnconfirmed: true)
         

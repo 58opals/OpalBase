@@ -18,7 +18,7 @@ extension Network {
             self.configuration = configuration
             self.subscriptions = .init()
             
-            let fulcrumMetrics = metrics.map { FulcrumMetricsAdapter(collector: $0) }
+            let fulcrumMetrics = metrics.map { FulcrumMetricsAdapter(environment: configuration.network, collector: $0) }
             let fulcrumLogger = logger.map(FulcrumLogHandlerAdapter.init(handler:))
             
             let reconnectConfiguration = Fulcrum.Configuration.Reconnect(
@@ -28,6 +28,7 @@ extension Network {
                 jitterRange: configuration.reconnect.jitterMultiplierRange.lowerBound ... configuration.reconnect.jitterMultiplierRange.upperBound
             )
             
+            let bootstrapServers = configuration.fulcrumBootstrapServers
             let fulcrumConfiguration = Fulcrum.Configuration(
                 reconnect: reconnectConfiguration,
                 metrics: fulcrumMetrics,
@@ -35,11 +36,12 @@ extension Network {
                 urlSession: urlSession,
                 connectionTimeout: configuration.connectionTimeout.totalSeconds,
                 maximumMessageSize: configuration.maximumMessageSize,
-                bootstrapServers: configuration.serverURLs.isEmpty ? nil : configuration.serverURLs,
+                bootstrapServers: bootstrapServers.isEmpty ? nil : bootstrapServers,
+                serverCatalogLoader: configuration.makeFulcrumServerCatalogLoader(),
                 network: configuration.network.fulcrumNetwork
             )
             
-            self.fulcrum = try await Fulcrum(url: configuration.serverURLs.randomElement()?.absoluteString,
+            self.fulcrum = try await Fulcrum(url: nil,
                                              configuration: fulcrumConfiguration)
             try await self.fulcrum.start()
         }
@@ -131,14 +133,16 @@ extension Network {
 }
 
 private struct FulcrumMetricsAdapter: SwiftFulcrum.MetricsCollectable {
+    private let environment: Network.Environment
     private let collector: any Network.MetricsCollector
     
-    init(collector: any Network.MetricsCollector) {
+    init(environment: Network.Environment, collector: any Network.MetricsCollector) {
+        self.environment = environment
         self.collector = collector
     }
     
-    func didConnect(url: URL, network: Fulcrum.Configuration.Network) async {
-        await collector.didConnect(url: url, network: .init(network))
+    func didConnect(url: URL, network _: Fulcrum.Configuration.Network) async {
+        await collector.didConnect(url: url, network: environment)
     }
     
     func didDisconnect(url: URL, closeCode: URLSessionWebSocketTask.CloseCode?, reason: String?) async {
