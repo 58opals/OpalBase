@@ -68,7 +68,10 @@ extension Wallet.FulcrumAddress {
         }
         
         deinit {
-            performDeinitCleanup()
+            Task { [weak weakSelf = self] in
+                guard let monitor = weakSelf else { return }
+                await monitor.performDeinitCleanup()
+            }
         }
         
         public func start() async {
