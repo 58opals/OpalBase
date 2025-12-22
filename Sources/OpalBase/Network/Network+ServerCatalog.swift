@@ -35,20 +35,7 @@ extension Network.ServerCatalog {
     public static let opalDefault = Self()
     
     static func makeMergedServers(primary: [URL], secondary: [URL], fallback: [URL]) -> [URL] {
-        let normalizedFallback = makeNormalizedServers(fallback)
-        let merged = primary + secondary + normalizedFallback
-        var seen = Set<String>()
-        var uniqueServers: [URL] = .init()
-        uniqueServers.reserveCapacity(merged.count)
-        
-        for server in merged {
-            let key = server.absoluteString.lowercased()
-            if seen.insert(key).inserted {
-                uniqueServers.append(server)
-            }
-        }
-        
-        return uniqueServers
+        makeNormalizedServers(primary + secondary + fallback)
     }
     
     static func makeNormalizedServers(_ servers: [URL]) -> [URL] {
