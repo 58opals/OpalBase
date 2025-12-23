@@ -4,15 +4,6 @@ import Foundation
 
 extension Storage {
     public struct Security: Sendable {
-        public struct Options: Sendable {
-            public var accessGroup: String?
-            public var label: String?
-            
-            public init(accessGroup: String? = nil, label: String? = nil) {
-                self.accessGroup = accessGroup
-                self.label = label
-            }
-        }
         public enum Error: Swift.Error {
             case protectionUnavailable
             case encryptionFailure(Swift.Error)
@@ -39,25 +30,20 @@ extension Storage {
         public typealias Decrypt = @Sendable (Ciphertext) throws -> Data
         public typealias RecoverableSecureFailure = @Sendable (Swift.Error) -> Bool
         
-        public let options: Options
-        
         private let encryptValue: Encrypt?
         private let decryptValue: Decrypt?
         private let recoverableSecureFailure: RecoverableSecureFailure
         
-        public init(options: Options = .init(),
-                    encrypt: Encrypt? = nil,
+        public init(encrypt: Encrypt? = nil,
                     decrypt: Decrypt? = nil,
                     isRecoverableSecureEnclaveError: @escaping RecoverableSecureFailure = { _ in false }) {
-            self.options = options
             self.encryptValue = encrypt
             self.decryptValue = decrypt
             self.recoverableSecureFailure = isRecoverableSecureEnclaveError
         }
         
-        public static func makePlaintextOnly(options: Options = .init()) -> Self {
-            .init(options: options,
-                  encrypt: { value in
+        public static func makePlaintextOnly() -> Self {
+            .init(encrypt: { value in
                 Ciphertext(mode: .plaintext, payload: value)
             }, decrypt: { ciphertext in
                 ciphertext.payload
