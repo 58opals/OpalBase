@@ -14,8 +14,12 @@ extension Wallet {
         }
         
         public func refreshBalances(for account: Account,
-                                    usage: DerivationPath.Usage? = nil) async throws -> Account.BalanceRefresh {
-            try await account.refreshBalances(for: usage) { address in
+                                    usage: DerivationPath.Usage? = nil,
+                                    includeUnconfirmedHistory: Bool = true) async throws -> Account.BalanceRefresh {
+            _ = try await account.scanForUsedAddresses(using: addressReader,
+                                                       usage: usage,
+                                                       includeUnconfirmed: includeUnconfirmedHistory)
+            return try await account.refreshBalances(for: usage) { address in
                 let balance = try await self.addressReader.fetchBalance(for: address.string)
                 return try Self.makeBalance(from: balance)
             }
@@ -23,9 +27,12 @@ extension Wallet {
         
         public func refreshBalances(forAccountAt unhardenedIndex: UInt32,
                                     in wallet: Wallet,
-                                    usage: DerivationPath.Usage? = nil) async throws -> Account.BalanceRefresh {
+                                    usage: DerivationPath.Usage? = nil,
+                                    includeUnconfirmedHistory: Bool = true) async throws -> Account.BalanceRefresh {
             let account = try await wallet.fetchAccount(at: unhardenedIndex)
-            return try await refreshBalances(for: account, usage: usage)
+            return try await refreshBalances(for: account,
+                                             usage: usage,
+                                             includeUnconfirmedHistory: includeUnconfirmedHistory)
         }
         
         public func refreshTransactionHistory(for account: Account,

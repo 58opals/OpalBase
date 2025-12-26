@@ -16,6 +16,17 @@ extension Account {
     }
 }
 
+// MARK: - Usage
+extension Account {
+    public func scanForUsedAddresses(using service: Network.AddressReadable,
+                                     usage: DerivationPath.Usage? = nil,
+                                     includeUnconfirmed: Bool = true) async throws -> Address.Book.UsageScan {
+        try await addressBook.scanForUsedAddresses(using: service,
+                                                   usage: usage,
+                                                   includeUnconfirmed: includeUnconfirmed)
+    }
+}
+
 // MARK: - History
 extension Account {
     public func refreshTransactionHistory(using service: Network.AddressReadable,
