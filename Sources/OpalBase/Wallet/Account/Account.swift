@@ -10,7 +10,7 @@ public actor Account: Identifiable {
     let account: DerivationPath.Account
     
     public let id: Data
-    let addressBook: Address.Book
+    public let addressBook: Address.Book
     
     let privacyShaper: PrivacyShaper
     public let privacyConfiguration: PrivacyShaper.Configuration
