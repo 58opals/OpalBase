@@ -209,7 +209,7 @@ extension Address: CustomStringConvertible {
         return string
     }
     
-    func generateString(withPrefix: Bool = false) -> String {
+    public func generateString(withPrefix: Bool = false) -> String {
         withPrefix ? (Address.prefix + Address.separator + string) : string
     }
 }
