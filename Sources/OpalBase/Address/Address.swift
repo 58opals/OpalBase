@@ -50,7 +50,7 @@ public struct Address {
             throw Error.unsupportedVersionByte(versionByte)
         }
         
-        self.string = string
+        self.string = encodedPayload
     }
     
     public init(script: Script) throws {
@@ -63,7 +63,7 @@ public struct Address {
             let payload5BitValues = Address.convertPayloadToFiveBitValues(payload: payload)
             let checksum = try Address.generateChecksum(prefix: Address.prefix, payload5BitValues: payload5BitValues)
             let combined = payload5BitValues + checksum
-            self.string = Address.prefix + Address.separator + Base32.encode(Data(combined), interpretedAs5Bit: true)
+            self.string = Base32.encode(Data(combined), interpretedAs5Bit: true)
             
         default:
             throw Address.Legacy.Error.invalidScriptType
@@ -210,7 +210,7 @@ extension Address: CustomStringConvertible {
     }
     
     func generateString(withPrefix: Bool = false) -> String {
-        
+        withPrefix ? (Address.prefix + Address.separator + string) : string
     }
 }
 
