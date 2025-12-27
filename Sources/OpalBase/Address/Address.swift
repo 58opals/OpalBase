@@ -208,6 +208,10 @@ extension Address: CustomStringConvertible {
     public var description: String {
         return string
     }
+    
+    func generateString(withPrefix: Bool = false) -> String {
+        
+    }
 }
 
 extension Address: Hashable {
