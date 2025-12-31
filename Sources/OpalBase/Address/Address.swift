@@ -46,6 +46,12 @@ public struct Address {
             let script = Script.p2pkh_OPCHECKSIG(hash: hash)
             self.lockingScript = script
             
+        case 0x08: // P2SH
+            guard hashData.count == 20 else { throw Error.invalidPayloadLength }
+            let scriptHash = Data(hashData)
+            let script = Script.p2sh(scriptHash: scriptHash)
+            self.lockingScript = script
+            
         default:
             throw Error.unsupportedVersionByte(versionByte)
         }
@@ -60,6 +66,15 @@ public struct Address {
         case .p2pkh_OPCHECKSIG(let hash), .p2pkh_OPCHECKDATASIG(hash: let hash):
             let versionByte = Data([0x00])
             let payload = versionByte + hash.data
+            let payload5BitValues = Address.convertPayloadToFiveBitValues(payload: payload)
+            let checksum = try Address.generateChecksum(prefix: Address.prefix, payload5BitValues: payload5BitValues)
+            let combined = payload5BitValues + checksum
+            self.string = Base32.encode(Data(combined), interpretedAs5Bit: true)
+            
+        case .p2sh(let scriptHash):
+            guard scriptHash.count == 20 else { throw Address.Legacy.Error.invalidScriptType }
+            let versionByte = Data([0x08])
+            let payload = versionByte + scriptHash
             let payload5BitValues = Address.convertPayloadToFiveBitValues(payload: payload)
             let checksum = try Address.generateChecksum(prefix: Address.prefix, payload5BitValues: payload5BitValues)
             let combined = payload5BitValues + checksum

@@ -110,7 +110,7 @@ extension Transaction {
     ///   - blockTime: The block time if confirmed.
     ///   - confirmations: The number of confirmations.
     ///   - hash: The transaction hash.
-    ///   - raw: The raw transaction payload as returned by the network.
+    ///   - rawTransactionData: The raw transaction payload as returned by the network.
     ///   - size: The transaction size in bytes.
     ///   - time: The transaction time if available.
     public struct Detailed {
@@ -120,7 +120,7 @@ extension Transaction {
         public let blockTime: UInt32?
         public let confirmations: UInt32?
         public let hash: Transaction.Hash
-        public let raw: Data
+        public let rawTransactionData: Data
         public let size: UInt32
         public let time: UInt32?
     }
