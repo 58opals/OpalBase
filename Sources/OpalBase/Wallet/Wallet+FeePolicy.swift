@@ -89,7 +89,7 @@ extension Wallet {
         private let estimator: FeeEstimator?
         
         public init(defaultFeeRate: UInt64 = Transaction.defaultFeeRate,
-                    preference: Preference = .standard,
+                    preference: Preference = .economy,
                     estimator: FeeEstimator? = nil) {
             self.defaultFeeRate = defaultFeeRate
             self.preference = preference
