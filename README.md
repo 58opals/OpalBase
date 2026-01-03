@@ -104,7 +104,7 @@ let payment = Account.Payment(
 
 let spendPlan = try await account.prepareSpend(payment)
 let (hash, result) = try await spendPlan.buildAndBroadcast(via: transactionHandler)
-print("Broadcast \(hash.reverseOrder.hexadecimalString) with fee \(result.fee.uint64) satoshis")
+print("Broadcast \(hash.reverseOrder.hexadecimalString) with fee \(result.fee.uint64) satoshi")
 ```
 
 - Customize fee policy defaults with `Wallet.FeePolicy` or pass an override in `Account.Payment`.
@@ -124,7 +124,7 @@ Task.detached {
     for await event in monitor.observeEvents() {
         switch event {
         case .utxosUpdated(let address, let balance, _):
-            print("Updated \(address.string) to \(balance.uint64) satoshis")
+            print("Updated \(address.string) to \(balance.uint64) satoshi")
         case .encounteredFailure(let failure):
             print("Monitor error: \(failure.message)")
         default:

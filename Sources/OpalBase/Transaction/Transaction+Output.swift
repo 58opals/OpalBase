@@ -13,7 +13,7 @@ extension Transaction {
         
         /// Initializes a Transaction.Output instance.
         /// - Parameters:
-        ///   - value: The number of satoshis to be transferred.
+        ///   - value: The number of satoshi to be transferred.
         ///   - lockingScript: The contents of the locking script.
         public init(value: UInt64, lockingScript: Data) {
             self.value = value
@@ -22,7 +22,7 @@ extension Transaction {
         
         /// Initializes a Transaction.Output instance.
         /// - Parameters:
-        ///   - value: The number of satoshis to be transferred.
+        ///   - value: The number of satoshi to be transferred.
         ///   - address: The address of the output's recipient.
         public init(value: UInt64, address: Address) {
             self.value = value
