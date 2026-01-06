@@ -3,6 +3,36 @@ import Testing
 
 @Suite("CashAddr", .tags(.unit, .address))
 struct AddressTests {
+    @Test("create")
+    func testRandomCreateCashAddress() throws {
+        let word: String = "q"
+        var count: Int = 0
+        var detected: Bool = false
+        repeat {
+            let privateKey = try PrivateKey()
+            let wif = privateKey.wif
+            let publicKey = try PublicKey(privateKey: privateKey)
+            let hash = PublicKey.Hash(publicKey: publicKey)
+            let script = Script.p2pkh_OPCHECKSIG(hash: hash)
+            let legacyAddress = try Address.Legacy(script)
+            let address = try Address(script: script)
+            let lockingScript = address.lockingScript.data.hexadecimalString
+            if address.string.contains(word) {
+                print("Private Key - Raw Data Hexadecimal: \(privateKey.rawData.hexadecimalString)")
+                print("Private Key - WIF: \(wif)")
+                print("Public Key - Compressed Data Hexadecimal: \(publicKey.compressedData.hexadecimalString)")
+                print("Public Key - Hash Hexadecimal: \(hash.data.hexadecimalString)")
+                print("Script: \(script.data.hexadecimalString)")
+                print("Legacy Script: \(legacyAddress.string)")
+                print("Address: \(address.string)")
+                print("Address - Locking Script Hexadecimal: \(lockingScript)")
+                detected = true
+            }
+            count += 1
+            print(count)
+        } while !detected
+    }
+    
     @Test("cash address decodes to P2PKH script")
     func testDecodeCashAddressToP2PKHScript() throws {
         let cashaddr = "bitcoincash:qpm2qsznhks23z7629mms6s4cwef74vcwvy22gdx6a"

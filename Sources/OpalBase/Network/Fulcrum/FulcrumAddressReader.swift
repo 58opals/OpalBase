@@ -95,6 +95,61 @@ extension Network {
             }
         }
         
+        public func fetchFirstUse(for address: String) async throws -> AddressFirstUse? {
+            do {
+                let result = try await client.request(
+                    method: .blockchain(.address(.getFirstUse(address: address))),
+                    responseType: Response.Result.Blockchain.Address.GetFirstUse.self,
+                    options: .init(timeout: timeouts.addressFirstUse)
+                )
+                
+                guard let blockHash = result.blockHash,
+                      let blockHeight = result.height,
+                      let transactionHash = result.transactionHash else {
+                    return nil
+                }
+                
+                return AddressFirstUse(blockHeight: blockHeight,
+                                       blockHash: blockHash,
+                                       transactionIdentifier: transactionHash)
+            } catch {
+                throw FulcrumErrorTranslator.translate(error)
+            }
+        }
+        
+        public func fetchMempoolTransactions(for address: String) async throws -> [TransactionHistoryEntry] {
+            do {
+                let result = try await client.request(
+                    method: .blockchain(.address(.getMempool(address: address))),
+                    responseType: Response.Result.Blockchain.Address.GetMempool.self,
+                    options: .init(timeout: timeouts.addressMempool)
+                )
+                
+                return result.transactions.map { transaction in
+                    TransactionHistoryEntry(
+                        transactionIdentifier: transaction.transactionHash,
+                        blockHeight: transaction.height,
+                        fee: transaction.fee
+                    )
+                }
+            } catch {
+                throw FulcrumErrorTranslator.translate(error)
+            }
+        }
+        
+        public func fetchScriptHash(for address: String) async throws -> String {
+            do {
+                let result = try await client.request(
+                    method: .blockchain(.address(.getScriptHash(address: address))),
+                    responseType: Response.Result.Blockchain.Address.GetScriptHash.self,
+                    options: .init(timeout: timeouts.addressScriptHash)
+                )
+                return result.scriptHash
+            } catch {
+                throw FulcrumErrorTranslator.translate(error)
+            }
+        }
+        
         public func subscribeToAddress(_ address: String) async throws -> AsyncThrowingStream<AddressSubscriptionUpdate, any Error> {
             do {
                 let (initial, updates, cancel) = try await client.subscribe(
