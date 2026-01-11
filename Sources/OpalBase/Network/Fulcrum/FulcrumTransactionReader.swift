@@ -136,3 +136,5 @@ extension Network {
         }
     }
 }
+
+extension Network.FulcrumTransactionReader: Sendable {}
