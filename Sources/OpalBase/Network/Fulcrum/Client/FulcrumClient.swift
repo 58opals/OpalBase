@@ -141,31 +141,31 @@ private struct FulcrumMetricsAdapter: SwiftFulcrum.MetricsCollectable {
         self.collector = collector
     }
     
-    func didConnect(url: URL, network _: Fulcrum.Configuration.Network) async {
+    func recordConnect(url: URL, network _: Fulcrum.Configuration.Network) async {
         await collector.didConnect(url: url, network: environment)
     }
     
-    func didDisconnect(url: URL, closeCode: URLSessionWebSocketTask.CloseCode?, reason: String?) async {
+    func recordDisconnect(url: URL, closeCode: URLSessionWebSocketTask.CloseCode?, reason: String?) async {
         await collector.didDisconnect(url: url, closeCode: closeCode, reason: reason)
     }
     
-    func didSend(url: URL, message: URLSessionWebSocketTask.Message) async {
+    func recordSend(url: URL, message: URLSessionWebSocketTask.Message) async {
         await collector.didSend(url: url, message: message)
     }
     
-    func didReceive(url: URL, message: URLSessionWebSocketTask.Message) async {
+    func recordReceive(url: URL, message: URLSessionWebSocketTask.Message) async {
         await collector.didReceive(url: url, message: message)
     }
     
-    func didPing(url: URL, error: Swift.Error?) async {
+    func recordPing(url: URL, error: Swift.Error?) async {
         await collector.didPing(url: url, error: error)
     }
     
-    func didUpdateDiagnostics(url: URL, snapshot: Fulcrum.Diagnostics.Snapshot) async {
+    func recordDiagnosticsUpdate(url: URL, snapshot: Fulcrum.Diagnostics.Snapshot) async {
         await collector.didUpdateDiagnostics(url: url, snapshot: .init(snapshot))
     }
     
-    func didUpdateSubscriptionRegistry(url: URL, subscriptions: [Fulcrum.Diagnostics.Subscription]) async {
+    func recordSubscriptionRegistryUpdate(url: URL, subscriptions: [Fulcrum.Diagnostics.Subscription]) async {
         await collector.didUpdateSubscriptionRegistry(url: url, subscriptions: subscriptions.map(Network.DiagnosticsSubscription.init(_:)))
     }
 }
