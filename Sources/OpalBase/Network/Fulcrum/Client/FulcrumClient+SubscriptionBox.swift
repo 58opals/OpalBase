@@ -109,25 +109,17 @@ extension Network {
                     continuation.yield(update)
                 }
                 
-                if await evaluateTerminationDeferralForRecovery() {
-                    return
-                }
+                if await evaluateTerminationDeferralForRecovery() { return }
                 
                 await finishStream(for: generation)
             } catch is CancellationError {
-                if await evaluateTerminationDeferralForRecovery() {
-                    return
-                }
+                if await evaluateTerminationDeferralForRecovery() { return }
                 
                 await finishStream(for: generation)
             } catch {
-                if isExpectingResubscribe && checkRecoverability(error) {
-                    return
-                }
-                
-                if await evaluateTerminationDeferralForRecovery() {
-                    return
-                }
+                if shouldSuppressTerminationError(error) { return }
+                if isExpectingResubscribe && checkRecoverability(error) { return }
+                if await evaluateTerminationDeferralForRecovery() { return }
                 
                 await finishStream(for: generation, with: error)
             }
@@ -144,6 +136,15 @@ extension Network {
                 return true
             }
             
+            return false
+        }
+        
+        private func shouldSuppressTerminationError(_ error: Swift.Error) -> Bool {
+            guard isTerminated else { return false }
+            guard let fulcrumError = error as? Fulcrum.Error else { return false }
+            if case .client(.cancelled) = fulcrumError {
+                return true
+            }
             return false
         }
         
