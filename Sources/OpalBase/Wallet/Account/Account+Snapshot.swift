@@ -23,6 +23,8 @@ extension Account {
 
 extension Account.Snapshot: Sendable {}
 
+extension Account.Snapshot: Equatable {}
+
 extension Account {
     public func makeSnapshot() async -> Snapshot {
         let bookSnap = await addressBook.makeSnapshot()
