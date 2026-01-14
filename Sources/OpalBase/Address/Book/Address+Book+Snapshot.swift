@@ -124,17 +124,11 @@ extension Address.Book {
     }
 }
 
-extension Address.Book.Snapshot: Sendable {}
-extension Address.Book.Snapshot.Entry: Sendable {}
-extension Address.Book.Snapshot.UTXO: Sendable {}
-extension Address.Book.Snapshot.Transaction: Sendable {}
-extension Address.Book.Snapshot.Transaction.MerkleProof: Sendable {}
-
-extension Address.Book.Snapshot: Equatable {}
-extension Address.Book.Snapshot.Entry: Equatable {}
-extension Address.Book.Snapshot.UTXO: Equatable {}
-extension Address.Book.Snapshot.Transaction: Equatable {}
-extension Address.Book.Snapshot.Transaction.MerkleProof: Equatable {}
+extension Address.Book.Snapshot: Equatable, Hashable, Sendable {}
+extension Address.Book.Snapshot.Entry: Equatable, Hashable, Sendable {}
+extension Address.Book.Snapshot.UTXO: Equatable, Hashable, Sendable {}
+extension Address.Book.Snapshot.Transaction: Equatable, Hashable, Sendable {}
+extension Address.Book.Snapshot.Transaction.MerkleProof: Equatable, Hashable, Sendable {}
 
 extension Address.Book {
     init(from snapshot: Snapshot,

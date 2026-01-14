@@ -21,9 +21,7 @@ extension Account {
     }
 }
 
-extension Account.Snapshot: Sendable {}
-
-extension Account.Snapshot: Equatable {}
+extension Account.Snapshot: Equatable, Hashable, Sendable {}
 
 extension Account {
     public func makeSnapshot() async -> Snapshot {
