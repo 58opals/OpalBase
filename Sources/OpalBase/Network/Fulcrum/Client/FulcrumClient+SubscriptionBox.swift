@@ -51,16 +51,26 @@ extension Network {
         func prepareForReconnect() async {
             guard !isTerminated else { return }
             isExpectingResubscribe = true
-            await stopForwardingAndWait()
+            let didHaveCancellationHandler = cancellationHandler != nil
             await tearDownCurrentHandler()
+            if didHaveCancellationHandler {
+                await waitForForwardingCompletion()
+            } else {
+                await stopForwardingAndWait()
+            }
         }
         
         func resubscribe(using fulcrum: Fulcrum) async {
             guard !isTerminated else { return }
             do {
                 isExpectingResubscribe = true
-                await stopForwardingAndWait()
+                let didHaveCancellationHandler = cancellationHandler != nil
                 await tearDownCurrentHandler()
+                if didHaveCancellationHandler {
+                    await waitForForwardingCompletion()
+                } else {
+                    await stopForwardingAndWait()
+                }
                 let (_, updates, cancel) = try await fulcrum.subscribe(
                     method: method,
                     initialType: Initial.self,
@@ -179,6 +189,12 @@ extension Network {
             forwardingTask?.cancel()
             await forwardingTask?.value
             forwardingTask = nil
+        }
+        
+        private func waitForForwardingCompletion() async {
+            guard let forwardingTask else { return }
+            await forwardingTask.value
+            self.forwardingTask = nil
         }
         
         private func tearDownCurrentHandler() async {
