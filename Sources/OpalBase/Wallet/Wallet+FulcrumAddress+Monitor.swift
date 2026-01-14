@@ -41,7 +41,7 @@ extension Wallet.FulcrumAddress {
         let addressReader: Network.AddressReadable
         let blockHeaderReader: Network.BlockHeaderReadable
         let transactionHandler: Network.TransactionConfirming
-        let includeUnconfirmed: Bool
+        let shouldIncludeUnconfirmed: Bool
         let retryDelay: Duration
         
         var addressSubscriptions: [Address: Task<Void, Never>]
@@ -60,7 +60,7 @@ extension Wallet.FulcrumAddress {
             self.addressReader = addressReader
             self.blockHeaderReader = blockHeaderReader
             self.transactionHandler = transactionHandler
-            self.includeUnconfirmed = includeUnconfirmed
+            self.shouldIncludeUnconfirmed = includeUnconfirmed
             self.retryDelay = retryDelay
             self.addressSubscriptions = .init()
             self.eventContinuations = .init()

@@ -109,36 +109,36 @@ extension Storage {
 
 extension Storage.PersistenceSession {
     public struct Operations: Sendable {
-        public var saveWalletSnapshot: @Sendable (Wallet.Snapshot) async throws -> Void
-        public var loadWalletSnapshot: @Sendable () async throws -> Wallet.Snapshot?
-        public var saveAccountSnapshot: @Sendable (Account.Snapshot, Data) async throws -> Void
-        public var loadAccountSnapshot: @Sendable (Data) async throws -> Account.Snapshot?
-        public var saveAddressBookSnapshot: @Sendable (Address.Book.Snapshot, Data) async throws -> Void
-        public var loadAddressBookSnapshot: @Sendable (Data) async throws -> Address.Book.Snapshot?
-        public var saveMnemonic: @Sendable (Storage.Mnemonic, Bool) async throws -> Storage.Security.ProtectionMode
-        public var loadMnemonicState: @Sendable () async throws -> (mnemonic: Storage.Mnemonic, protectionMode: Storage.Security.ProtectionMode)?
-        public var wipeAll: @Sendable () async throws -> Void
+        public var walletSnapshotSaver: @Sendable (Wallet.Snapshot) async throws -> Void
+        public var walletSnapshotLoader: @Sendable () async throws -> Wallet.Snapshot?
+        public var accountSnapshotSaver: @Sendable (Account.Snapshot, Data) async throws -> Void
+        public var accountSnapshotLoader: @Sendable (Data) async throws -> Account.Snapshot?
+        public var addressBookSnapshotSaver: @Sendable (Address.Book.Snapshot, Data) async throws -> Void
+        public var addressBookSnapshotLoader: @Sendable (Data) async throws -> Address.Book.Snapshot?
+        public var mnemonicSaver: @Sendable (Storage.Mnemonic, Bool) async throws -> Storage.Security.ProtectionMode
+        public var mnemonicStateLoader: @Sendable () async throws -> (mnemonic: Storage.Mnemonic, protectionMode: Storage.Security.ProtectionMode)?
+        public var wipeAllOperation: @Sendable () async throws -> Void
         
         public init(
-            saveWalletSnapshot: @escaping @Sendable (Wallet.Snapshot) async throws -> Void,
-            loadWalletSnapshot: @escaping @Sendable () async throws -> Wallet.Snapshot?,
-            saveAccountSnapshot: @escaping @Sendable (Account.Snapshot, Data) async throws -> Void,
-            loadAccountSnapshot: @escaping @Sendable (Data) async throws -> Account.Snapshot?,
-            saveAddressBookSnapshot: @escaping @Sendable (Address.Book.Snapshot, Data) async throws -> Void,
-            loadAddressBookSnapshot: @escaping @Sendable (Data) async throws -> Address.Book.Snapshot?,
-            saveMnemonic: @escaping @Sendable (Storage.Mnemonic, Bool) async throws -> Storage.Security.ProtectionMode,
-            loadMnemonicState: @escaping @Sendable () async throws -> (mnemonic: Storage.Mnemonic, protectionMode: Storage.Security.ProtectionMode)?,
-            wipeAll: @escaping @Sendable () async throws -> Void
+            walletSnapshotSaver: @escaping @Sendable (Wallet.Snapshot) async throws -> Void,
+            walletSnapshotLoader: @escaping @Sendable () async throws -> Wallet.Snapshot?,
+            accountSnapshotSaver: @escaping @Sendable (Account.Snapshot, Data) async throws -> Void,
+            accountSnapshotLoader: @escaping @Sendable (Data) async throws -> Account.Snapshot?,
+            addressBookSnapshotSaver: @escaping @Sendable (Address.Book.Snapshot, Data) async throws -> Void,
+            addressBookSnapshotLoader: @escaping @Sendable (Data) async throws -> Address.Book.Snapshot?,
+            mnemonicSaver: @escaping @Sendable (Storage.Mnemonic, Bool) async throws -> Storage.Security.ProtectionMode,
+            mnemonicStateLoader: @escaping @Sendable () async throws -> (mnemonic: Storage.Mnemonic, protectionMode: Storage.Security.ProtectionMode)?,
+            wipeAllOperation: @escaping @Sendable () async throws -> Void
         ) {
-            self.saveWalletSnapshot = saveWalletSnapshot
-            self.loadWalletSnapshot = loadWalletSnapshot
-            self.saveAccountSnapshot = saveAccountSnapshot
-            self.loadAccountSnapshot = loadAccountSnapshot
-            self.saveAddressBookSnapshot = saveAddressBookSnapshot
-            self.loadAddressBookSnapshot = loadAddressBookSnapshot
-            self.saveMnemonic = saveMnemonic
-            self.loadMnemonicState = loadMnemonicState
-            self.wipeAll = wipeAll
+            self.walletSnapshotSaver = walletSnapshotSaver
+            self.walletSnapshotLoader = walletSnapshotLoader
+            self.accountSnapshotSaver = accountSnapshotSaver
+            self.accountSnapshotLoader = accountSnapshotLoader
+            self.addressBookSnapshotSaver = addressBookSnapshotSaver
+            self.addressBookSnapshotLoader = addressBookSnapshotLoader
+            self.mnemonicSaver = mnemonicSaver
+            self.mnemonicStateLoader = mnemonicStateLoader
+            self.wipeAllOperation = wipeAllOperation
         }
     }
     

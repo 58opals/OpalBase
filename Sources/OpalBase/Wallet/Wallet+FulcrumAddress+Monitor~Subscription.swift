@@ -69,7 +69,7 @@ extension Wallet.FulcrumAddress.Monitor {
             
             let historyChangeSet = try await account.refreshTransactionHistory(for: address,
                                                                                using: addressReader,
-                                                                               includeUnconfirmed: includeUnconfirmed)
+                                                                               includeUnconfirmed: shouldIncludeUnconfirmed)
             if !historyChangeSet.isEmpty {
                 publish(.historyChanged(historyChangeSet))
             }
@@ -85,7 +85,7 @@ extension Wallet.FulcrumAddress.Monitor {
         do {
             let utxoRefresh = try await account.refreshUTXOSet(using: addressReader)
             let historyChangeSet = try await account.refreshTransactionHistory(using: addressReader,
-                                                                               includeUnconfirmed: includeUnconfirmed)
+                                                                               includeUnconfirmed: shouldIncludeUnconfirmed)
             publish(.performedFullRefresh(utxoRefresh, historyChangeSet))
         } catch {
             await publishFailure(address: address, error: error)

@@ -20,8 +20,8 @@ extension Address.Book {
             cacheValidityDurationValue
         }
         
-        func isCacheValid(_ cache: Entry.Cache, currentDate: Date) -> Bool {
-            cache.isValid(currentDate: currentDate, validityDuration: cacheValidityDurationValue)
+        func checkCacheValidity(_ cache: Entry.Cache, currentDate: Date) -> Bool {
+            cache.checkValidity(currentDate: currentDate, validityDuration: cacheValidityDurationValue)
         }
         
         func listEntries(for usage: DerivationPath.Usage) -> [Entry] {
@@ -123,8 +123,8 @@ extension Address.Book {
         inventory.listEntries(for: usage)
     }
     
-    func isCacheValid(_ cache: Entry.Cache, currentDate: Date) -> Bool {
-        inventory.isCacheValid(cache, currentDate: currentDate)
+    func checkCacheValidity(_ cache: Entry.Cache, currentDate: Date) -> Bool {
+        inventory.checkCacheValidity(cache, currentDate: currentDate)
     }
     
     public func updateCachedBalance(for address: Address,

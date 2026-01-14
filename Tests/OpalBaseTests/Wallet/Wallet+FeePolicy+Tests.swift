@@ -24,7 +24,7 @@ struct WalletFeePolicyTests {
             targetConfirmationBlocks: 2
         )
         
-        let recommendation = policy.recommendedFeeRate(for: context, override: override)
+        let recommendation = policy.recommendFeeRate(for: context, override: override)
         #expect(recommendation == 99)
     }
     
@@ -33,13 +33,13 @@ struct WalletFeePolicyTests {
         let defaultRate = UInt64.max
         let policy = Wallet.FeePolicy(defaultFeeRate: defaultRate, preference: .economy, estimator: nil)
         
-        let baseline = policy.recommendedFeeRate()
+        let baseline = policy.recommendFeeRate()
         #expect(baseline == defaultRate)
         
-        let standardRecommendation = policy.recommendedFeeRate(override: .init(preference: .standard))
+        let standardRecommendation = policy.recommendFeeRate(override: .init(preference: .standard))
         #expect(standardRecommendation == UInt64.max)
         
-        let priorityRecommendation = policy.recommendedFeeRate(override: .init(preference: .priority))
+        let priorityRecommendation = policy.recommendFeeRate(override: .init(preference: .priority))
         #expect(priorityRecommendation == UInt64.max)
     }
     
@@ -48,7 +48,7 @@ struct WalletFeePolicyTests {
         let policy = Wallet.FeePolicy(defaultFeeRate: 2)
         let override = Wallet.FeePolicy.Override(explicitFeeRate: 42)
         
-        let rate = policy.recommendedFeeRate(override: override)
+        let rate = policy.recommendFeeRate(override: override)
         
         #expect(rate == 42)
     }
@@ -59,7 +59,7 @@ struct WalletFeePolicyTests {
         let networkConditions = Wallet.FeePolicy.NetworkConditions(recommendedRates: [.economy: 55], fallbackRate: 12)
         let context = Wallet.FeePolicy.RecommendationContext(targetConfirmationBlocks: nil, networkConditions: networkConditions)
         
-        let rate = policy.recommendedFeeRate(for: context)
+        let rate = policy.recommendFeeRate(for: context)
         
         #expect(rate == 55)
     }
@@ -72,8 +72,8 @@ struct WalletFeePolicyTests {
         let standardOverride = Wallet.FeePolicy.Override(preference: .standard)
         let priorityOverride = Wallet.FeePolicy.Override(preference: .priority)
         
-        let standardRate = policy.recommendedFeeRate(for: context, override: standardOverride)
-        let priorityRate = policy.recommendedFeeRate(for: context, override: priorityOverride)
+        let standardRate = policy.recommendFeeRate(for: context, override: standardOverride)
+        let priorityRate = policy.recommendFeeRate(for: context, override: priorityOverride)
         
         #expect(standardRate == 20)
         #expect(priorityRate == 30)
@@ -84,7 +84,7 @@ struct WalletFeePolicyTests {
         let highDefault = UInt64.max / 2 + 1
         let policy = Wallet.FeePolicy(defaultFeeRate: highDefault, preference: .priority, estimator: nil)
         
-        let rate = policy.recommendedFeeRate()
+        let rate = policy.recommendFeeRate()
         
         #expect(rate == UInt64.max)
     }

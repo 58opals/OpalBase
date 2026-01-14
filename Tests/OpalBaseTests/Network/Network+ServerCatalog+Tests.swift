@@ -9,9 +9,9 @@ struct NetworkServerCatalogTests {
     func testOpalDefaultsProvidePerEnvironmentCatalogs() {
         let catalog = Network.ServerCatalog.opalDefault
         
-        let mainnetServers = catalog.servers(for: .mainnet)
-        let chipnetServers = catalog.servers(for: .chipnet)
-        let testnetServers = catalog.servers(for: .testnet)
+        let mainnetServers = catalog.listServers(for: .mainnet)
+        let chipnetServers = catalog.listServers(for: .chipnet)
+        let testnetServers = catalog.listServers(for: .testnet)
         
         #expect(mainnetServers.contains(URL(string: "wss://bch.imaginary.cash:50004")!))
         #expect(chipnetServers == [URL(string: "wss://chipnet.imaginary.cash:50004")!])

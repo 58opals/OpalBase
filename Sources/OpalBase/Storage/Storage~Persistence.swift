@@ -21,7 +21,7 @@ extension Storage {
     
     func storeValue(_ data: Data, for key: Storage.Key) async throws {
         do {
-            try await valueStore.storeValue(data, key)
+            try await valueStore.valueWriter(data, key)
         } catch {
             throw Error.persistenceFailure(error)
         }
@@ -29,7 +29,7 @@ extension Storage {
     
     func loadValue(for key: Storage.Key) async throws -> Data? {
         do {
-            return try await valueStore.loadValue(key)
+            return try await valueStore.valueReader(key)
         } catch {
             throw Error.persistenceFailure(error)
         }
@@ -37,7 +37,7 @@ extension Storage {
     
     func removeValue(for key: Storage.Key) async throws {
         do {
-            try await valueStore.removeValue(key)
+            try await valueStore.valueDeleter(key)
         } catch {
             throw Error.persistenceFailure(error)
         }
@@ -45,7 +45,7 @@ extension Storage {
     
     func removeAllEntries() async throws {
         do {
-            try await valueStore.removeAllValues()
+            try await valueStore.allValuesDeleter()
         } catch {
             throw Error.persistenceFailure(error)
         }

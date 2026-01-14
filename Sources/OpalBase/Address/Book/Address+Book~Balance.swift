@@ -7,7 +7,7 @@ extension Address.Book {
         let allEntries = listAllEntries()
         let validBalances = allEntries.compactMap { entry -> UInt64? in
             guard let balance = entry.cache.balance,
-                  isCacheValid(entry.cache, currentDate: .now) else {
+                  checkCacheValidity(entry.cache, currentDate: .now) else {
                 return nil
             }
             return balance.uint64
@@ -26,7 +26,7 @@ extension Address.Book {
     func readCachedBalance(for address: Address) throws -> Satoshi? {
         guard let entry = findEntry(for: address) else { throw Error.entryNotFound }
         
-        guard isCacheValid(entry.cache, currentDate: .now) else { return nil }
+        guard checkCacheValidity(entry.cache, currentDate: .now) else { return nil }
         guard let balance = entry.cache.balance else { return nil }
         
         return balance

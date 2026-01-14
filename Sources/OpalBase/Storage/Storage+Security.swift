@@ -30,16 +30,16 @@ extension Storage {
         public typealias Decrypt = @Sendable (Ciphertext) throws -> Data
         public typealias RecoverableSecureFailure = @Sendable (Swift.Error) -> Bool
         
-        private let encryptValue: Encrypt?
-        private let decryptValue: Decrypt?
+        private let encryptor: Encrypt?
+        private let decryptor: Decrypt?
         private let recoverableSecureFailure: RecoverableSecureFailure
         
         public init(encrypt: Encrypt? = nil,
                     decrypt: Decrypt? = nil,
-                    isRecoverableSecureEnclaveError: @escaping RecoverableSecureFailure = { _ in false }) {
-            self.encryptValue = encrypt
-            self.decryptValue = decrypt
-            self.recoverableSecureFailure = isRecoverableSecureEnclaveError
+                    checkSecureEnclaveErrorRecoverability: @escaping RecoverableSecureFailure = { _ in false }) {
+            self.encryptor = encrypt
+            self.decryptor = decrypt
+            self.recoverableSecureFailure = checkSecureEnclaveErrorRecoverability
         }
         
         public static func makePlaintextOnly() -> Self {
@@ -47,31 +47,31 @@ extension Storage {
                 Ciphertext(mode: .plaintext, payload: value)
             }, decrypt: { ciphertext in
                 ciphertext.payload
-            }, isRecoverableSecureEnclaveError: { error in
+            }, checkSecureEnclaveErrorRecoverability: { error in
                 guard case Error.protectionUnavailable = error else { return false }
                 return true
             })
         }
         
         public func encrypt(_ value: Data) throws -> Ciphertext {
-            guard let encryptValue else { throw Error.protectionUnavailable }
+            guard let encryptor else { throw Error.protectionUnavailable }
             do {
-                return try encryptValue(value)
+                return try encryptor(value)
             } catch {
                 throw Error.encryptionFailure(error)
             }
         }
         
         public func decrypt(_ ciphertext: Ciphertext) throws -> Data {
-            guard let decryptValue else { throw Error.protectionUnavailable }
+            guard let decryptor else { throw Error.protectionUnavailable }
             do {
-                return try decryptValue(ciphertext)
+                return try decryptor(ciphertext)
             } catch {
                 throw Error.decryptionFailure(error)
             }
         }
         
-        public func isRecoverableSecureEnclaveError(_ error: Swift.Error) -> Bool {
+        public func checkSecureEnclaveErrorRecoverability(_ error: Swift.Error) -> Bool {
             recoverableSecureFailure(error)
         }
     }

@@ -35,7 +35,7 @@ struct AddressTests {
     
     @Test("cash address decodes to P2PKH script")
     func testDecodeCashAddressToP2PKHScript() throws {
-        let cashaddr = "bitcoincash:qpm2qsznhks23z7629mms6s4cwef74vcwvy22gdx6a"
+        let cashaddr = "qpm2qsznhks23z7629mms6s4cwef74vcwvy22gdx6a"
         let address = try Address(cashaddr)
         #expect(address.string == cashaddr)
         
@@ -49,7 +49,7 @@ struct AddressTests {
     
     @Test("cash address accepts uppercase payload")
     func testDecodeCashAddressWithUppercasePayload() throws {
-        let cashaddr = "bitcoincash:QPM2QSZNHKS23Z7629MMS6S4CWEF74VCWVY22GDX6A"
+        let cashaddr = "QPM2QSZNHKS23Z7629MMS6S4CWEF74VCWVY22GDX6A"
         let address = try Address(cashaddr)
         #expect(address.string == cashaddr)
         
@@ -63,7 +63,7 @@ struct AddressTests {
     
     @Test("cash address accepts uppercase prefix")
     func testDecodeCashAddressWithUppercasePrefix() throws {
-        let cashaddr = "BITCOINCASH:qpm2qsznhks23z7629mms6s4cwef74vcwvy22gdx6a"
+        let cashaddr = "qpm2qsznhks23z7629mms6s4cwef74vcwvy22gdx6a"
         let address = try Address(cashaddr)
         #expect(address.string == cashaddr)
         

@@ -81,7 +81,7 @@ extension PrivateKey.Extended {
         
         var data = Data()
         
-        let isHardened = Harden.isHardened(index)
+        let isHardened = Harden.checkHardened(index)
         switch isHardened {
         case false:
             data.append(parentPublicKey)

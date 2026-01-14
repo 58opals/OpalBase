@@ -13,31 +13,31 @@ private struct SnapshotOperationsPort: SnapshotPersistencePort {
     let operations: Storage.PersistenceSession.Operations
     
     func saveWalletSnapshot(_ snapshot: Wallet.Snapshot) async throws {
-        try await operations.saveWalletSnapshot(snapshot)
+        try await operations.walletSnapshotSaver(snapshot)
     }
     
     func loadWalletSnapshot() async throws -> Wallet.Snapshot? {
-        try await operations.loadWalletSnapshot()
+        try await operations.walletSnapshotLoader()
     }
     
     func saveAccountSnapshot(_ snapshot: Account.Snapshot, accountIdentifier: Data) async throws {
-        try await operations.saveAccountSnapshot(snapshot, accountIdentifier)
+        try await operations.accountSnapshotSaver(snapshot, accountIdentifier)
     }
     
     func loadAccountSnapshot(accountIdentifier: Data) async throws -> Account.Snapshot? {
-        try await operations.loadAccountSnapshot(accountIdentifier)
+        try await operations.accountSnapshotLoader(accountIdentifier)
     }
     
     func saveAddressBookSnapshot(_ snapshot: Address.Book.Snapshot, accountIdentifier: Data) async throws {
-        try await operations.saveAddressBookSnapshot(snapshot, accountIdentifier)
+        try await operations.addressBookSnapshotSaver(snapshot, accountIdentifier)
     }
     
     func loadAddressBookSnapshot(accountIdentifier: Data) async throws -> Address.Book.Snapshot? {
-        try await operations.loadAddressBookSnapshot(accountIdentifier)
+        try await operations.addressBookSnapshotLoader(accountIdentifier)
     }
     
     func wipeAll() async throws {
-        try await operations.wipeAll()
+        try await operations.wipeAllOperation()
     }
 }
 
@@ -46,10 +46,10 @@ private struct SecureSecretOperationsPort: SecureSecretAccessPort {
     
     func saveMnemonic(_ mnemonic: Storage.Mnemonic,
                       fallbackToPlaintext: Bool) async throws -> Storage.Security.ProtectionMode {
-        try await operations.saveMnemonic(mnemonic, fallbackToPlaintext)
+        try await operations.mnemonicSaver(mnemonic, fallbackToPlaintext)
     }
     
     func loadMnemonicState() async throws -> (mnemonic: Storage.Mnemonic, protectionMode: Storage.Security.ProtectionMode)? {
-        try await operations.loadMnemonicState()
+        try await operations.mnemonicStateLoader()
     }
 }

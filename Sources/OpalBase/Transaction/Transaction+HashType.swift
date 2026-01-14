@@ -43,15 +43,15 @@ extension Transaction {
             self.init(mode: mode, options: Options(isAnyoneCanPayEnabled: isAnyoneCanPayEnabled))
         }
         
-        public static func all(anyoneCanPay: Bool = false) -> HashType {
+        public static func makeAll(anyoneCanPay: Bool = false) -> HashType {
             HashType(mode: .all, isAnyoneCanPayEnabled: anyoneCanPay)
         }
         
-        public static func none(anyoneCanPay: Bool = false) -> HashType {
+        public static func makeNone(anyoneCanPay: Bool = false) -> HashType {
             HashType(mode: .none, isAnyoneCanPayEnabled: anyoneCanPay)
         }
         
-        public static func single(anyoneCanPay: Bool = false) -> HashType {
+        public static func makeSingle(anyoneCanPay: Bool = false) -> HashType {
             HashType(mode: .single, isAnyoneCanPayEnabled: anyoneCanPay)
         }
         

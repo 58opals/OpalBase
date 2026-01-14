@@ -13,7 +13,7 @@ extension Network {
         private let onTermination: @Sendable (UUID) async -> Void
         
         private var continuation: AsyncThrowingStream<Notification, Swift.Error>.Continuation
-        private var cancelHandler: (@Sendable () async -> Void)?
+        private var cancellationHandler: (@Sendable () async -> Void)?
         private var forwardingTask: Task<Void, Never>?
         private var forwardingGeneration: UInt64 = 0
         private var isTerminated = false
@@ -43,7 +43,7 @@ extension Network {
                 options: options
             )
             
-            cancelHandler = cancel
+            cancellationHandler = cancel
             startForwarding(with: updates)
             return initial
         }
@@ -51,12 +51,15 @@ extension Network {
         func prepareForReconnect() async {
             guard !isTerminated else { return }
             isExpectingResubscribe = true
-            forwardingTask?.cancel()
+            await stopForwardingAndWait()
+            await tearDownCurrentHandler()
         }
         
         func resubscribe(using fulcrum: Fulcrum) async {
             guard !isTerminated else { return }
             do {
+                isExpectingResubscribe = true
+                await stopForwardingAndWait()
                 await tearDownCurrentHandler()
                 let (_, updates, cancel) = try await fulcrum.subscribe(
                     method: method,
@@ -65,7 +68,7 @@ extension Network {
                     options: options
                 )
                 
-                cancelHandler = cancel
+                cancellationHandler = cancel
                 startForwarding(with: updates)
                 isExpectingResubscribe = false
             } catch {
@@ -76,8 +79,7 @@ extension Network {
         func cancel() async {
             guard !isTerminated else { return }
             isTerminated = true
-            forwardingTask?.cancel()
-            await forwardingTask?.value
+            await stopForwardingAndWait()
             continuation.finish()
             await tearDownCurrentHandler()
             await notifyTermination()
@@ -86,8 +88,7 @@ extension Network {
         func fail(with error: Swift.Error) async {
             guard !isTerminated else { return }
             isTerminated = true
-            forwardingTask?.cancel()
-            await forwardingTask?.value
+            await stopForwardingAndWait()
             continuation.finish(throwing: error)
             await tearDownCurrentHandler()
             await notifyTermination()
@@ -108,23 +109,23 @@ extension Network {
                     continuation.yield(update)
                 }
                 
-                if await shouldDeferTerminationForRecovery() {
+                if await evaluateTerminationDeferralForRecovery() {
                     return
                 }
                 
                 await finishStream(for: generation)
             } catch is CancellationError {
-                if await shouldDeferTerminationForRecovery() {
+                if await evaluateTerminationDeferralForRecovery() {
                     return
                 }
                 
                 await finishStream(for: generation)
             } catch {
-                if isExpectingResubscribe && isRecoverable(error) {
+                if isExpectingResubscribe && checkRecoverability(error) {
                     return
                 }
                 
-                if await shouldDeferTerminationForRecovery() {
+                if await evaluateTerminationDeferralForRecovery() {
                     return
                 }
                 
@@ -132,7 +133,7 @@ extension Network {
             }
         }
         
-        private func shouldDeferTerminationForRecovery() async -> Bool {
+        private func evaluateTerminationDeferralForRecovery() async -> Bool {
             await Task.yield()
             
             if isTerminated {
@@ -150,7 +151,7 @@ extension Network {
             guard generation == forwardingGeneration else { return }
             guard !isTerminated else { return }
             isTerminated = true
-            forwardingTask?.cancel()
+            requestForwardingStop()
             if let error {
                 continuation.finish(throwing: error)
             } else {
@@ -166,13 +167,24 @@ extension Network {
             await onTermination(id)
         }
         
+        private func requestForwardingStop() {
+            forwardingTask?.cancel()
+            forwardingTask = nil
+        }
+        
+        private func stopForwardingAndWait() async {
+            forwardingTask?.cancel()
+            await forwardingTask?.value
+            forwardingTask = nil
+        }
+        
         private func tearDownCurrentHandler() async {
-            guard let handler = cancelHandler else { return }
-            cancelHandler = nil
+            guard let handler = cancellationHandler else { return }
+            cancellationHandler = nil
             await handler()
         }
         
-        private func isRecoverable(_ error: Swift.Error) -> Bool {
+        private func checkRecoverability(_ error: Swift.Error) -> Bool {
             guard let fulcrumError = error as? Fulcrum.Error else { return false }
             switch fulcrumError {
             case .transport(.connectionClosed),

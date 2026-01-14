@@ -8,7 +8,7 @@ extension Address.Book {
                      recommendationContext: Wallet.FeePolicy.RecommendationContext = .init(),
                      override: Wallet.FeePolicy.Override? = nil,
                      configuration: CoinSelection.Configuration = .makeTemplateConfiguration()) throws -> [Transaction.Output.Unspent] {
-        let feePerByte = feePolicy.recommendedFeeRate(for: recommendationContext, override: override)
+        let feePerByte = feePolicy.recommendFeeRate(for: recommendationContext, override: override)
         return try selectUTXOs(targetAmount: targetAmount,
                                feePerByte: feePerByte,
                                configuration: configuration)
@@ -17,7 +17,7 @@ extension Address.Book {
     private func selectUTXOs(targetAmount: Satoshi,
                              feePerByte: UInt64,
                              configuration: CoinSelection.Configuration) throws -> [Transaction.Output.Unspent] {
-        let sortedUTXOs = sortedSpendableUTXOs(by: { $0.value > $1.value } )
+        let sortedUTXOs = sortSpendableUTXOs(by: { $0.value > $1.value } )
         let selector = CoinSelector(utxos: sortedUTXOs,
                                     configuration: configuration,
                                     targetAmount: targetAmount.uint64,
@@ -26,4 +26,3 @@ extension Address.Book {
         return try selector.select()
     }
 }
-

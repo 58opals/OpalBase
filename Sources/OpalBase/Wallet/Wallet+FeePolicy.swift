@@ -61,7 +61,7 @@ extension Wallet {
                 self.targetConfirmationBlocks = targetConfirmationBlocks
             }
             
-            func injecting(explicitFeeRate: UInt64) -> Override {
+            func applyExplicitFeeRate(explicitFeeRate: UInt64) -> Override {
                 Override(explicitFeeRate: explicitFeeRate,
                          preference: preference,
                          targetConfirmationBlocks: targetConfirmationBlocks)
@@ -96,8 +96,8 @@ extension Wallet {
             self.estimator = estimator
         }
         
-        public func recommendedFeeRate(for context: RecommendationContext = .init(),
-                                       override: Override? = nil) -> UInt64 {
+        public func recommendFeeRate(for context: RecommendationContext = .init(),
+                                     override: Override? = nil) -> UInt64 {
             if let explicitFeeRate = override?.explicitFeeRate {
                 return explicitFeeRate
             }
@@ -121,11 +121,11 @@ extension Wallet {
                 return networkRate
             }
             
-            return fallbackRate(for: effectivePreference)
+            return determineFallbackRate(for: effectivePreference)
         }
         
-        public func updating(preference newPreference: Preference? = nil,
-                             estimator newEstimator: FeeEstimator? = nil) -> FeePolicy {
+        public func update(preference newPreference: Preference? = nil,
+                           estimator newEstimator: FeeEstimator? = nil) -> FeePolicy {
             FeePolicy(defaultFeeRate: defaultFeeRate,
                       preference: newPreference ?? preference,
                       estimator: newEstimator ?? estimator)
@@ -148,18 +148,18 @@ private extension Wallet.FeePolicy {
         return preference.defaultTargetConfirmationBlocks
     }
     
-    func fallbackRate(for preference: Preference) -> UInt64 {
+    func determineFallbackRate(for preference: Preference) -> UInt64 {
         switch preference {
         case .economy:
             return defaultFeeRate
         case .standard:
-            return safeMultiply(defaultFeeRate, by: 2)
+            return multiplySafely(defaultFeeRate, by: 2)
         case .priority:
-            return safeMultiply(defaultFeeRate, by: 3)
+            return multiplySafely(defaultFeeRate, by: 3)
         }
     }
     
-    func safeMultiply(_ value: UInt64, by multiplier: UInt64) -> UInt64 {
+    func multiplySafely(_ value: UInt64, by multiplier: UInt64) -> UInt64 {
         let (product, didOverflow) = value.multipliedReportingOverflow(by: multiplier)
         return didOverflow ? UInt64.max : product
     }

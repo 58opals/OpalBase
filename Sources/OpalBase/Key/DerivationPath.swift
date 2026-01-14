@@ -59,7 +59,7 @@ extension DerivationPath {
         }
         
         public init?(hardenedIndex: UInt32) {
-            guard let unhardenedIndex = try? hardenedIndex.unhardened() else { return nil }
+            guard let unhardenedIndex = try? hardenedIndex.unharden() else { return nil }
             self.init(unhardenedIndex: unhardenedIndex)
         }
         
@@ -73,7 +73,7 @@ extension DerivationPath {
         public var hardenedIndex: UInt32 {
             switch self {
             case .bip44:
-                do { return try UInt32(44).hardened() }
+                do { return try UInt32(44).harden() }
                 catch { fatalError("The index number 44 failed to be hardened.") }
             }
         }
@@ -95,7 +95,7 @@ extension DerivationPath {
         }
         
         public init?(hardenedIndex: UInt32) {
-            guard let unhardenedIndex = try? hardenedIndex.unhardened() else { return nil }
+            guard let unhardenedIndex = try? hardenedIndex.unharden() else { return nil }
             self.init(unhardenedIndex: unhardenedIndex)
         }
         
@@ -111,10 +111,10 @@ extension DerivationPath {
         public var hardenedIndex: UInt32 {
             switch self {
             case .bitcoin:
-                do { return try UInt32(0).hardened() }
+                do { return try UInt32(0).harden() }
                 catch { fatalError("The index number 0 failed to be hardened.") }
             case .bitcoinCash:
-                do { return try UInt32(145).hardened() }
+                do { return try UInt32(145).harden() }
                 catch { fatalError("The index number 145 failed to be hardened.") }
             }
         }
@@ -133,7 +133,7 @@ extension DerivationPath {
         public var unhardenedIndex: UInt32
         
         public func deriveHardenedIndex() throws -> UInt32 {
-            return try self.unhardenedIndex.hardened()
+            return try self.unhardenedIndex.harden()
         }
         
         mutating func increase() throws {

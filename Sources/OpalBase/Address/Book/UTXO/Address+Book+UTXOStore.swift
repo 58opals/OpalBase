@@ -96,13 +96,11 @@ extension Address.Book {
             return Array(utxos)
         }
         
-        func sorted(by areInIncreasingOrder: (Transaction.Output.Unspent, Transaction.Output.Unspent) -> Bool)
-        -> [Transaction.Output.Unspent] {
+        func sortUTXOs(by areInIncreasingOrder: (Transaction.Output.Unspent, Transaction.Output.Unspent) -> Bool) -> [Transaction.Output.Unspent] {
             allUTXOs.sorted(by: areInIncreasingOrder)
         }
         
-        func sortedSpendable(by areInIncreasingOrder: (Transaction.Output.Unspent, Transaction.Output.Unspent) -> Bool)
-        -> [Transaction.Output.Unspent] {
+        func sortSpendableUTXOs(by areInIncreasingOrder: (Transaction.Output.Unspent, Transaction.Output.Unspent) -> Bool) -> [Transaction.Output.Unspent] {
             spendableUTXOs.sorted(by: areInIncreasingOrder)
         }
         
@@ -203,14 +201,11 @@ extension Address.Book {
         utxoStore.findUTXO(matching: input)
     }
     
-    func sortedUTXOs(by areInIncreasingOrder: (Transaction.Output.Unspent,
-                                               Transaction.Output.Unspent) -> Bool)
-    -> [Transaction.Output.Unspent] {
-        utxoStore.sorted(by: areInIncreasingOrder)
+    func sortUTXOs(by areInIncreasingOrder: (Transaction.Output.Unspent, Transaction.Output.Unspent) -> Bool) -> [Transaction.Output.Unspent] {
+        utxoStore.sortUTXOs(by: areInIncreasingOrder)
     }
     
-    func sortedSpendableUTXOs(by areInIncreasingOrder: ((Transaction.Output.Unspent, Transaction.Output.Unspent) -> Bool))
-    -> [Transaction.Output.Unspent] {
-        utxoStore.sortedSpendable(by: areInIncreasingOrder)
+    func sortSpendableUTXOs(by areInIncreasingOrder: ((Transaction.Output.Unspent, Transaction.Output.Unspent) -> Bool)) -> [Transaction.Output.Unspent] {
+        utxoStore.sortSpendableUTXOs(by: areInIncreasingOrder)
     }
 }

@@ -102,7 +102,7 @@ extension Transaction {
         case .privacyRandomized:
             orderedOutputs = outputs
         case .canonicalBIP69:
-            orderedOutputs = Output.bip69Ordered(outputs)
+            orderedOutputs = Output.applyBIP69Ordering(outputs)
         }
         
         let positiveValueOutputs = orderedOutputs.filter { $0.value > 0 }
@@ -139,9 +139,9 @@ extension Transaction {
         var transaction = unsignedTransaction
         
         for (index, unspentOutput) in builder.orderedUnspentOutputs.enumerated() {
-            guard let privateKey = builder.privateKey(for: unspentOutput) else { throw Error.cannotCreateTransaction }
+            guard let privateKey = builder.findPrivateKey(for: unspentOutput) else { throw Error.cannotCreateTransaction }
             let publicKey = try PublicKey(privateKey: privateKey)
-            let unlocker = builder.unlocker(for: unspentOutput)
+            let unlocker = builder.makeUnlocker(for: unspentOutput)
             
             switch unlocker {
             case .p2pkh_CheckSig(let hashType):

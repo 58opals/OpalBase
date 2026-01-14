@@ -71,7 +71,7 @@ extension Account.PrivacyShaper {
             return outputs.shuffled(using: &generator)
         }
         
-        return Transaction.Output.bip69Ordered(outputs)
+        return Transaction.Output.applyBIP69Ordering(outputs)
     }
     
     private func enqueueDecoys(_ decoys: [@Sendable () async -> Void]) {

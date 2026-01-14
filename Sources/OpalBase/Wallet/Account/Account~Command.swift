@@ -88,8 +88,8 @@ extension Account {
             }
         }
         
-        let feeRate = feePolicy.recommendedFeeRate(for: payment.feeContext,
-                                                   override: payment.feeOverride)
+        let feeRate = feePolicy.recommendFeeRate(for: payment.feeContext,
+                                                 override: payment.feeOverride)
         let rawRecipientOutputs = payment.recipients.map { recipient in
             Transaction.Output(value: recipient.amount.uint64, address: recipient.address)
         }

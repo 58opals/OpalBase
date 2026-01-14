@@ -7,12 +7,12 @@ extension Network.Configuration {
     var fulcrumBootstrapServers: [URL] {
         let overrides = Network.ServerCatalog.makeNormalizedServers(serverURLs)
         if !overrides.isEmpty { return overrides }
-        return serverCatalog.servers(for: network)
+        return serverCatalog.listServers(for: network)
     }
     
     func makeFulcrumServerCatalogLoader() -> FulcrumServerCatalogLoader {
         let overrides = Network.ServerCatalog.makeNormalizedServers(serverURLs)
-        let defaults = serverCatalog.servers(for: network)
+        let defaults = serverCatalog.listServers(for: network)
         let expectedFulcrumNetwork = network.fulcrumNetwork
         
         return FulcrumServerCatalogLoader { fulcrumNetwork, fallback in

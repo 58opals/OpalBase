@@ -18,7 +18,7 @@ extension Network {
             self.testnetServers = Self.makeNormalizedServers(testnetServers)
         }
         
-        public func servers(for environment: Network.Environment) -> [URL] {
+        public func listServers(for environment: Network.Environment) -> [URL] {
             switch environment {
             case .mainnet:
                 return mainnetServers
