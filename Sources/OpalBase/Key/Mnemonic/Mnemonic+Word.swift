@@ -104,7 +104,7 @@ private extension Mnemonic.Word {
     }
 }
 
-private final class WordListCache {
+private final class WordListCache: Sendable {
     private var wordLists: [Mnemonic.Language: [String]] = .init()
     private var wordSets: [Mnemonic.Language: Set<String>] = .init()
     private let lock = NSLock()
