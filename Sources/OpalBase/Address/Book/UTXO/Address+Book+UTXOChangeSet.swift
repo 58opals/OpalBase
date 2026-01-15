@@ -23,9 +23,12 @@ extension Address.Book {
             
             let previousSet = Set(previous)
             let updatedSet = Set(updated)
-            self.inserted = Array(updatedSet.subtracting(previousSet))
-            self.removed = Array(previousSet.subtracting(updatedSet))
-            self.retained = Array(previousSet.intersection(updatedSet))
+            let insertedSet = updatedSet.subtracting(previousSet)
+            self.inserted = insertedSet.sorted { $0.isOrdered(before: $1) }
+            let removedSet = previousSet.subtracting(updatedSet)
+            self.removed = removedSet.sorted { $0.isOrdered(before: $1) }
+            let retainedSet = previousSet.intersection(updatedSet)
+            self.retained = retainedSet.sorted { $0.isOrdered(before: $1) }
             self.balance = try Self.makeBalance(from: updatedSet)
             self.timestamp = timestamp
         }
@@ -37,13 +40,11 @@ extension Address.Book.UTXOChangeSet: Equatable {}
 
 private extension Address.Book.UTXOChangeSet {
     static func makeBalance(from utxos: Set<Transaction.Output.Unspent>) throws -> Satoshi {
-        var aggregateValue: UInt64 = 0
+        var total: Satoshi = .init()
         for utxo in utxos {
-            let (updated, didOverflow) = aggregateValue.addingReportingOverflow(utxo.value)
-            if didOverflow { throw Satoshi.Error.exceedsMaximumAmount }
-            aggregateValue = updated
+            total = try total + Satoshi(utxo.value)
         }
         
-        return try Satoshi(aggregateValue)
+        return total
     }
 }

@@ -115,20 +115,17 @@ extension Account {
         
         let heuristicallyOrderedInputs = await privacyShaper.applyCoinSelectionHeuristics(to: selectedUTXOs)
         
-        var computedTotalSelectedValue: UInt64 = 0
+        var totalSelectedAmount: Satoshi = .init()
         for input in heuristicallyOrderedInputs {
-            let result = computedTotalSelectedValue.addingReportingOverflow(input.value)
-            guard !result.overflow else { throw Error.paymentExceedsMaximumAmount }
-            computedTotalSelectedValue = result.partialValue
+            do {
+                totalSelectedAmount = try totalSelectedAmount + Satoshi(input.value)
+            } catch {
+                throw Error.paymentExceedsMaximumAmount
+            }
         }
-        let totalSelectedValue = computedTotalSelectedValue
         
-        let totalSelectedAmount: Satoshi
-        do {
-            totalSelectedAmount = try Satoshi(totalSelectedValue)
-        } catch {
-            throw Error.paymentExceedsMaximumAmount
-        }
+        let totalSelectedValue = totalSelectedAmount.uint64
+        _ = totalSelectedValue
         
         guard totalSelectedAmount >= targetAmount else {
             let requiredAdditionalAmount: UInt64
@@ -141,9 +138,15 @@ extension Account {
             
             throw Error.coinSelectionFailed(Transaction.Error.insufficientFunds(required: requiredAdditionalAmount))
         }
-        let changeResult = totalSelectedValue.subtractingReportingOverflow(targetAmount.uint64)
-        guard !changeResult.overflow else { throw Error.paymentExceedsMaximumAmount }
-        let initialChangeValue = changeResult.partialValue
+        
+        let initialChangeAmount: Satoshi
+        do {
+            initialChangeAmount = try totalSelectedAmount - targetAmount
+        } catch {
+            throw Error.paymentExceedsMaximumAmount
+        }
+        let initialChangeValue = initialChangeAmount.uint64
+        
         let reservation: Address.Book.SpendReservation
         do {
             reservation = try await addressBook.reserveSpend(utxos: heuristicallyOrderedInputs, changeEntry: changeEntry)

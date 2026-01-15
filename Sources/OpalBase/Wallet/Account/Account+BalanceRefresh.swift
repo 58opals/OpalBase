@@ -17,7 +17,7 @@ extension Account {
 extension Account {
     public func refreshBalances(for usage: DerivationPath.Usage? = nil,
                                 loader: @escaping @Sendable (Address) async throws -> Satoshi) async throws -> BalanceRefresh {
-        let targetUsages = usage.map { [$0] } ?? DerivationPath.Usage.allCases
+        let targetUsages = DerivationPath.Usage.targets(for: usage)
         var balancesByUsage: [DerivationPath.Usage: [Address: Satoshi]] = .init()
         
         for currentUsage in targetUsages {
@@ -28,32 +28,28 @@ extension Account {
                 continue
             }
             
-            var usageBalances: [Address: Satoshi] = .init()
-            try await withThrowingTaskGroup(of: (Address, Satoshi, Date).self) { group in
-                for entry in entries {
-                    group.addTask {
-                        let balance: Satoshi
-                        do {
-                            balance = try await loader(entry.address)
-                        } catch {
-                            throw Error.balanceRefreshFailed(entry.address, error)
-                        }
-                        return (entry.address, balance, Date())
-                    }
-                }
-                
-                for try await (address, balance, timestamp) in group {
-                    usageBalances[address] = balance
-                    do {
-                        try await addressBook.updateCachedBalance(for: address,
-                                                                  balance: balance,
-                                                                  timestamp: timestamp)
-                    } catch {
-                        throw Error.balanceRefreshFailed(address, error)
-                    }
+            let addresses = entries.map(\.address)
+            let usageResults = try await addresses.mapConcurrently(limit: Concurrency.Tuning.maximumConcurrentNetworkRequests) { address in
+                do {
+                    let balance = try await loader(address)
+                    return (address, balance)
+                } catch {
+                    throw Error.balanceRefreshFailed(address, error)
                 }
             }
             
+            var usageBalances: [Address: Satoshi] = .init()
+            let refreshTimestamp = Date()
+            for (address, balance) in usageResults {
+                usageBalances[address] = balance
+                do {
+                    try await addressBook.updateCachedBalance(for: address,
+                                                              balance: balance,
+                                                              timestamp: refreshTimestamp)
+                } catch {
+                    throw Error.balanceRefreshFailed(address, error)
+                }
+            }
             balancesByUsage[currentUsage] = usageBalances
         }
         

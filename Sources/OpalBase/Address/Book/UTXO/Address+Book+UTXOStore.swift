@@ -91,9 +91,9 @@ extension Address.Book {
         func listUTXOs(for address: Address) -> [Transaction.Output.Unspent] {
             let lockingScript = address.lockingScript.data
             guard let utxos = utxosByLockingScript[lockingScript] else {
-                return []
+                return .init()
             }
-            return Array(utxos)
+            return utxos.sorted { $0.isOrdered(before: $1) }
         }
         
         func sortUTXOs(by areInIncreasingOrder: (Transaction.Output.Unspent, Transaction.Output.Unspent) -> Bool) -> [Transaction.Output.Unspent] {

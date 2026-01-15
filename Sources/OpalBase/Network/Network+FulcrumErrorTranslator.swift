@@ -32,6 +32,10 @@ extension Network {
             }
         }
         
+        static func isFailureEquivalent(_ left: Swift.Error, _ right: Swift.Error) -> Bool {
+            translate(left) == translate(right)
+        }
+        
         private static func translateTransport(_ transport: Fulcrum.Error.Transport) -> Network.Failure {
             switch transport {
             case .setupFailed:

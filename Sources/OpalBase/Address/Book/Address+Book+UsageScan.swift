@@ -19,7 +19,7 @@ extension Address.Book {
     public func scanForUsedAddresses(using service: Network.AddressReadable,
                                      usage: DerivationPath.Usage? = nil,
                                      includeUnconfirmed: Bool = true) async throws -> UsageScan {
-        let targetUsages = usage.map { [$0] } ?? DerivationPath.Usage.allCases
+        let targetUsages = DerivationPath.Usage.targets(for: usage)
         var discovered: [DerivationPath.Usage: [Entry]] = .init()
         var scannedCountByUsage: [DerivationPath.Usage: Int] = .init()
         

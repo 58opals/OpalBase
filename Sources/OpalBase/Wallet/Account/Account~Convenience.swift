@@ -15,8 +15,8 @@ extension Account {
 }
 
 extension Account {
-    public func calculateTotalBalance() async -> Satoshi {
-        await addressBook.calculateTotalUnspentBalance()
+    public func calculateTotalBalance() async throws -> Satoshi {
+        try await addressBook.calculateTotalUnspentBalance()
     }
 }
 

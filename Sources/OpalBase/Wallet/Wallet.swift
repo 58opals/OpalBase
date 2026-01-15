@@ -106,24 +106,22 @@ extension Wallet {
     public func calculateBalance(loader: @escaping @Sendable (Address) async throws -> Satoshi) async throws -> Satoshi {
         guard !accounts.isEmpty else { return try Satoshi(0) }
         
-        let total: UInt64 = try await withThrowingTaskGroup(of: UInt64.self) { group in
+        let total: Satoshi = try await withThrowingTaskGroup(of: Satoshi.self) { group in
             for account in accounts.values {
                 group.addTask {
                     let refresh = try await account.refreshBalances(loader: loader)
-                    return refresh.total.uint64
+                    return refresh.total
                 }
             }
             
-            var aggregate: UInt64 = 0
+            var aggregate: Satoshi = .init()
             for try await partial in group {
-                let (updated, didOverflow) = aggregate.addingReportingOverflow(partial)
-                if didOverflow { throw Satoshi.Error.exceedsMaximumAmount }
-                aggregate = updated
+                aggregate = try aggregate + partial
             }
             
             return aggregate
         }
         
-        return try Satoshi(total)
+        return total
     }
 }

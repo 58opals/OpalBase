@@ -138,10 +138,7 @@ private extension Wallet.FulcrumAddress {
             positiveUnconfirmed = 0
         }
         
-        let (sum, overflow) = balance.confirmed.addingReportingOverflow(positiveUnconfirmed)
-        if overflow {
-            throw Satoshi.Error.exceedsMaximumAmount
-        }
-        return try Satoshi(sum)
+        let confirmed = try Satoshi(balance.confirmed)
+        return try confirmed + Satoshi(positiveUnconfirmed)
     }
 }

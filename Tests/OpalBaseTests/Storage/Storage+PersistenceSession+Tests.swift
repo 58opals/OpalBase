@@ -114,7 +114,7 @@ struct StoragePersistenceTests {
         let storage = try Storage(valueStore: valueStore)
         let session = Storage.PersistenceSession(storage: storage)
         
-        let restored = try await session.restore(accountIdentifiers: [])
+        let restored = try await session.restore(accountIdentifiers: .init())
         
         #expect(restored.walletSnapshot == nil)
         #expect(restored.accountSnapshots.isEmpty)
@@ -148,7 +148,7 @@ struct StoragePersistenceTests {
         do {
             _ = try await session.save(
                 snapshot: snapshot,
-                accountIdentifiers: [:],
+                accountIdentifiers: .init(),
                 fallbackToPlaintext: true
             )
             Issue.record("Expected Storage.Error.missingAccountIdentifier(\(missingIndex)) but save completed.")
@@ -267,7 +267,7 @@ struct StoragePersistenceTests {
         try await wallet.addAccount(unhardenedIndex: 0)
         
         let account = try await wallet.fetchAccount(at: 0)
-        let payment = Account.Payment(recipients: [])
+        let payment = Account.Payment(recipients: .init())
         
         await #expect(throws: Account.Error.paymentHasNoRecipients) {
             _ = try await account.prepareSpend(payment)

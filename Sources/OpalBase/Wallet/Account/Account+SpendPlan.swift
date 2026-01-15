@@ -88,32 +88,29 @@ extension Account {
                 throw Account.Error.transactionBuildFailed(error)
             }
             
-            var computedTotalOutputValue: UInt64 = 0
+            var totalOutputAmount: Satoshi = .init()
             for output in transaction.outputs {
-                let result = computedTotalOutputValue.addingReportingOverflow(output.value)
-                guard !result.overflow else { throw Account.Error.paymentExceedsMaximumAmount }
-                computedTotalOutputValue = result.partialValue
+                do {
+                    totalOutputAmount = try totalOutputAmount + Satoshi(output.value)
+                } catch {
+                    throw Account.Error.paymentExceedsMaximumAmount
+                }
             }
             
-            let totalOutputValue = computedTotalOutputValue
-            
-            var computedInputTotal: UInt64 = 0
+            var inputTotal: Satoshi = .init()
             for input in inputs {
-                let result = computedInputTotal.addingReportingOverflow(input.value)
-                guard !result.overflow else { throw Account.Error.paymentExceedsMaximumAmount }
-                computedInputTotal = result.partialValue
+                do {
+                    inputTotal = try inputTotal + Satoshi(input.value)
+                } catch {
+                    throw Account.Error.paymentExceedsMaximumAmount
+                }
             }
-            
-            let inputTotal = computedInputTotal
-            
-            let feeDifference = inputTotal.subtractingReportingOverflow(totalOutputValue)
-            guard !feeDifference.overflow else { throw Account.Error.paymentExceedsMaximumAmount }
             
             let fee: Satoshi
             do {
-                fee = try Satoshi(feeDifference.partialValue)
+                fee = try inputTotal - totalOutputAmount
             } catch {
-                throw Account.Error.transactionBuildFailed(error)
+                throw Account.Error.paymentExceedsMaximumAmount
             }
             
             let changeCandidate = transaction.outputs.first { output in

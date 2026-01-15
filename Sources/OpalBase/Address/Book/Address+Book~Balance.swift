@@ -5,22 +5,20 @@ import Foundation
 extension Address.Book {
     func calculateCachedTotalBalance() throws -> Satoshi {
         let allEntries = listAllEntries()
-        let validBalances = allEntries.compactMap { entry -> UInt64? in
+        let validBalances = allEntries.compactMap { entry -> Satoshi? in
             guard let balance = entry.cache.balance,
                   checkCacheValidity(entry.cache, currentDate: .now) else {
                 return nil
             }
-            return balance.uint64
+            return balance
         }
         
-        var aggregate: UInt64 = 0
+        var aggregate: Satoshi = .init()
         for balance in validBalances {
-            let (updated, didOverflow) = aggregate.addingReportingOverflow(balance)
-            if didOverflow { throw Satoshi.Error.exceedsMaximumAmount }
-            aggregate = updated
+            aggregate = try aggregate + balance
         }
         
-        return try Satoshi(aggregate)
+        return aggregate
     }
     
     func readCachedBalance(for address: Address) throws -> Satoshi? {
@@ -34,20 +32,14 @@ extension Address.Book {
 }
 
 extension Address.Book {
-    func calculateTotalUnspentBalance() -> Satoshi {
+    func calculateTotalUnspentBalance() throws -> Satoshi {
         let utxos = utxoStore.listUTXOs()
-        var aggregateValue: UInt64 = 0
+        var total: Satoshi = .init()
         
         for unspent in utxos {
-            let (updatedValue, didOverflow) = aggregateValue.addingReportingOverflow(unspent.value)
-            precondition(!didOverflow, "Total unspent balance exceeds representable range")
-            aggregateValue = updatedValue
+            total = try total + Satoshi(unspent.value)
         }
         
-        guard let balance = try? Satoshi(aggregateValue) else {
-            preconditionFailure("Total unspent balance exceeds supported maximum")
-        }
-        
-        return balance
+        return total
     }
 }

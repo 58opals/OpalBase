@@ -21,6 +21,12 @@ extension Transaction.History {
 }
 
 extension Transaction.History.ChangeSet {
+    mutating func merge(_ other: Self) {
+        inserted.append(contentsOf: other.inserted)
+        updated.append(contentsOf: other.updated)
+        removed.append(contentsOf: other.removed)
+    }
+    
     mutating func applyVerificationUpdates(_ records: [Transaction.History.Record]) {
         guard !records.isEmpty else { return }
         
