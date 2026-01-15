@@ -14,32 +14,28 @@ extension Mnemonic.Word {
         return words
     }
     
-    static func detectLanguage(of words: [String]) throws -> Language {
+    static func detectLanguage(of words: [String]) throws -> (language: Language, wordList: [String]) {
         for language in Language.allCases {
             let wordList = try loadWordList(language: language)
             let wordSet = Set(wordList)
             if words.allSatisfy({ wordSet.contains($0) }) {
-                return language
+                return (language, wordList)
             }
         }
         throw Error.unknownLanguage
     }
     
     static func validateMnemonicWords(_ words: [String]) throws -> Bool {
-        let language = try detectLanguage(of: words)
-        let wordList = try loadWordList(language: language)
-        let wordSet = Set(wordList)
+        let (_, wordList) = try detectLanguage(of: words)
+        let wordToIndex = Dictionary(uniqueKeysWithValues: wordList.enumerated().map { ($0.element, $0.offset) })
+        
+        var bitString = String()
+        bitString.reserveCapacity(words.count * 11)
         
         for word in words {
-            if !wordSet.contains(word) {
-                throw Error.invalidMnemonicWord(word)
-            }
+            guard let index = wordToIndex[word] else { throw Error.invalidMnemonicWord(word) }
+            bitString.append(contentsOf: String(index, radix: 2).padLeft(to: 11))
         }
-        
-        let bitString = try words.map { word -> String in
-            guard let index = wordList.firstIndex(of: word) else { throw Error.invalidMnemonicWord(word) }
-            return String(index, radix: 2).padLeft(to: 11)
-        }.joined()
         
         let checksumLength = bitString.count / 33
         let entropyBits = bitString.prefix(bitString.count - checksumLength)

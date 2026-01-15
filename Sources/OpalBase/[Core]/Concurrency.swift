@@ -22,8 +22,9 @@ extension Collection where Element: Sendable {
         guard !isEmpty else { return .init() }
         
         let maximumConcurrentTasks = Swift.max(1, limit)
+        let elementCount = count
         var iterator = self.enumerated().makeIterator()
-        let initialTaskCount = Swift.min(maximumConcurrentTasks, count)
+        let initialTaskCount = Swift.min(maximumConcurrentTasks, elementCount)
         
         return try await withThrowingTaskGroup(of: (Int, Transformed).self) { group in
             for _ in 0..<initialTaskCount {
@@ -34,7 +35,7 @@ extension Collection where Element: Sendable {
                 }
             }
             
-            var results = Array<Transformed?>(repeating: nil, count: count)
+            var results = Array<Transformed?>(repeating: nil, count: elementCount)
             
             while let (index, value) = try await group.next() {
                 results[index] = value

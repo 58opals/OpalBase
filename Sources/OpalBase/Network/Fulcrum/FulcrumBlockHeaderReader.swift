@@ -14,20 +14,18 @@ extension Network {
         }
 
         public func fetchTip() async throws -> BlockHeaderSnapshot {
-            do {
+            try await Network.withFailureTranslation {
                 let result = try await client.request(
                     method: .blockchain(.headers(.getTip)),
                     responseType: Response.Result.Blockchain.Headers.GetTip.self,
                     options: .init(timeout: timeouts.headersTip)
                 )
                 return BlockHeaderSnapshot(height: result.height, headerHexadecimal: result.hex)
-            } catch {
-                throw FulcrumErrorTranslator.translate(error)
             }
         }
 
         public func subscribeToTip() async throws -> AsyncThrowingStream<BlockHeaderSnapshot, any Error> {
-            do {
+            try await Network.withFailureTranslation {
                 let (initial, updates, cancel) = try await client.subscribe(
                     method: .blockchain(.headers(.subscribe)),
                     initialType: Response.Result.Blockchain.Headers.Subscribe.self,
@@ -58,8 +56,6 @@ extension Network {
                         Task { await cancel() }
                     }
                 }
-            } catch {
-                throw FulcrumErrorTranslator.translate(error)
             }
         }
     }

@@ -14,19 +14,17 @@ extension Network {
         }
         
         public func ping() async throws {
-            do {
+            try await Network.withFailureTranslation {
                 _ = try await client.request(
                     method: .server(.ping),
                     responseType: Response.Result.Server.Ping.self,
                     options: .init(timeout: timeouts.serverPing)
                 )
-            } catch {
-                throw FulcrumErrorTranslator.translate(error)
             }
         }
         
         public func fetchServerVersion(clientName: String, protocolNegotiation: Fulcrum.Configuration.ProtocolNegotiation.Argument) async throws -> FulcrumServerVersion {
-            do {
+            try await Network.withFailureTranslation {
                 let result = try await client.request(
                     method: .server(.version(clientName: clientName, protocolNegotiation: protocolNegotiation)),
                     responseType: Response.Result.Server.Version.self,
@@ -37,13 +35,11 @@ extension Network {
                     serverVersion: result.serverVersion,
                     negotiatedProtocolVersion: result.negotiatedProtocolVersion
                 )
-            } catch {
-                throw FulcrumErrorTranslator.translate(error)
             }
         }
         
         public func fetchServerFeatures() async throws -> FulcrumServerFeatures {
-            do {
+            try await Network.withFailureTranslation {
                 let result = try await client.request(
                     method: .server(.features),
                     responseType: Response.Result.Server.Features.self,
@@ -78,34 +74,28 @@ extension Network {
                     },
                     hasBroadcastPackageSupport: result.hasBroadcastPackageSupport
                 )
-            } catch {
-                throw FulcrumErrorTranslator.translate(error)
             }
         }
         
         public func fetchRelayFee() async throws -> Double {
-            do {
+            try await Network.withFailureTranslation {
                 let result = try await client.request(
                     method: .blockchain(.relayFee),
                     responseType: Response.Result.Blockchain.RelayFee.self,
                     options: .init(timeout: timeouts.relayFee)
                 )
                 return result.fee
-            } catch {
-                throw FulcrumErrorTranslator.translate(error)
             }
         }
         
         public func estimateFee(forConfirmationTarget confirmationTarget: Int) async throws -> Double {
-            do {
+            try await Network.withFailureTranslation {
                 let result = try await client.request(
                     method: .blockchain(.estimateFee(numberOfBlocks: confirmationTarget)),
                     responseType: Response.Result.Blockchain.EstimateFee.self,
                     options: .init(timeout: timeouts.feeEstimation)
                 )
                 return result.fee
-            } catch {
-                throw FulcrumErrorTranslator.translate(error)
             }
         }
     }

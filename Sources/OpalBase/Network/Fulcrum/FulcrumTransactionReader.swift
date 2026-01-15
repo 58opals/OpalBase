@@ -55,7 +55,7 @@ extension Network {
             } catch let failure as Network.Failure {
                 throw failure
             } catch {
-                do {
+                return try await Network.withFailureTranslation {
                     let rawTransactionData = try await fetchRawTransaction(for: transactionHash)
                     let (transaction, _) = try Transaction.decode(from: rawTransactionData)
                     
@@ -72,10 +72,6 @@ extension Network {
                     
                     await Transaction.Cache.shared.put(detailed, at: transactionHash)
                     return detailed
-                } catch let fallbackFailure as Network.Failure {
-                    throw fallbackFailure
-                } catch {
-                    throw FulcrumErrorTranslator.translate(error)
                 }
             }
         }
@@ -87,7 +83,7 @@ extension Network {
             
             let identifier = transactionHash.reverseOrder.hexadecimalString
             
-            do {
+            return try await Network.withFailureTranslation {
                 let result = try await client.request(
                     method: .blockchain(.transaction(.get(transactionHash: identifier, verbose: false))),
                     responseType: Response.Result.Blockchain.Transaction.Get.self,
@@ -95,19 +91,13 @@ extension Network {
                 )
                 
                 return try Data(hexadecimalString: result.hex)
-            } catch let failure as Network.Failure {
-                throw failure
-            } catch let error as Data.Error {
-                throw Network.Failure(reason: .decoding, message: error.localizedDescription)
-            } catch {
-                throw FulcrumErrorTranslator.translate(error)
             }
         }
         
         private func fetchVerboseTransaction(for transactionHash: Transaction.Hash) async throws -> TransactionGetVerbose {
             let identifier = transactionHash.reverseOrder.hexadecimalString
             
-            do {
+            return try await Network.withFailureTranslation {
                 let result = try await client.request(
                     method: .blockchain(.transaction(.get(transactionHash: identifier, verbose: true))),
                     responseType: Response.Result.Blockchain.Transaction.Get.self,
@@ -119,10 +109,6 @@ extension Network {
                              confirmations: UInt32(result.confirmations),
                              size: UInt32(result.size),
                              time: UInt32(result.time))
-            } catch let failure as Network.Failure {
-                throw failure
-            } catch {
-                throw FulcrumErrorTranslator.translate(error)
             }
         }
         

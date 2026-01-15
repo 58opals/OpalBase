@@ -14,20 +14,18 @@ extension Network {
         }
         
         public func fetchBalance(for address: String) async throws -> AddressBalance {
-            do {
+            try await Network.withFailureTranslation {
                 let result = try await client.request(
                     method: .blockchain(.address(.getBalance(address: address, tokenFilter: nil))),
                     responseType: Response.Result.Blockchain.Address.GetBalance.self,
                     options: .init(timeout: timeouts.addressBalance)
                 )
                 return AddressBalance(confirmed: result.confirmed, unconfirmed: result.unconfirmed)
-            } catch {
-                throw FulcrumErrorTranslator.translate(error)
             }
         }
         
         public func fetchUnspentOutputs(for address: String) async throws -> [Transaction.Output.Unspent] {
-            do {
+            try await Network.withFailureTranslation {
                 let lockingScriptData: Data
                 do {
                     lockingScriptData = try Address(address).lockingScript.data
@@ -57,17 +55,11 @@ extension Network {
                         previousTransactionOutputIndex: index
                     )
                 }
-            } catch let failure as Network.Failure {
-                throw failure
-            } catch let error as Data.Error {
-                throw Network.Failure(reason: .decoding, message: error.localizedDescription)
-            } catch {
-                throw FulcrumErrorTranslator.translate(error)
             }
         }
         
         public func fetchHistory(for address: String, includeUnconfirmed: Bool) async throws -> [TransactionHistoryEntry] {
-            do {
+            try await Network.withFailureTranslation {
                 let result = try await client.request(
                     method: .blockchain(
                         .address(
@@ -90,13 +82,11 @@ extension Network {
                         fee: transaction.fee
                     )
                 }
-            } catch {
-                throw FulcrumErrorTranslator.translate(error)
             }
         }
         
         public func fetchFirstUse(for address: String) async throws -> AddressFirstUse? {
-            do {
+            try await Network.withFailureTranslation {
                 let result = try await client.request(
                     method: .blockchain(.address(.getFirstUse(address: address))),
                     responseType: Response.Result.Blockchain.Address.GetFirstUse.self,
@@ -112,13 +102,11 @@ extension Network {
                 return AddressFirstUse(blockHeight: blockHeight,
                                        blockHash: blockHash,
                                        transactionIdentifier: transactionHash)
-            } catch {
-                throw FulcrumErrorTranslator.translate(error)
             }
         }
         
         public func fetchMempoolTransactions(for address: String) async throws -> [TransactionHistoryEntry] {
-            do {
+            try await Network.withFailureTranslation {
                 let result = try await client.request(
                     method: .blockchain(.address(.getMempool(address: address))),
                     responseType: Response.Result.Blockchain.Address.GetMempool.self,
@@ -132,26 +120,22 @@ extension Network {
                         fee: transaction.fee
                     )
                 }
-            } catch {
-                throw FulcrumErrorTranslator.translate(error)
             }
         }
         
         public func fetchScriptHash(for address: String) async throws -> String {
-            do {
+            try await Network.withFailureTranslation {
                 let result = try await client.request(
                     method: .blockchain(.address(.getScriptHash(address: address))),
                     responseType: Response.Result.Blockchain.Address.GetScriptHash.self,
                     options: .init(timeout: timeouts.addressScriptHash)
                 )
                 return result.scriptHash
-            } catch {
-                throw FulcrumErrorTranslator.translate(error)
             }
         }
         
         public func subscribeToAddress(_ address: String) async throws -> AsyncThrowingStream<AddressSubscriptionUpdate, any Error> {
-            do {
+            try await Network.withFailureTranslation {
                 let (initial, updates, cancel) = try await client.subscribe(
                     method: .blockchain(.address(.subscribe(address: address))),
                     initialType: Response.Result.Blockchain.Address.Subscribe.self,
@@ -185,8 +169,6 @@ extension Network {
                         Task { await cancel() }
                     }
                 }
-            } catch {
-                throw FulcrumErrorTranslator.translate(error)
             }
         }
     }

@@ -16,7 +16,7 @@ extension Network {
         public func fetchMerkleProof(for transactionHash: Transaction.Hash) async throws -> TransactionMerkleProof {
             let identifier = transactionHash.reverseOrder.hexadecimalString
             
-            do {
+            return try await Network.withFailureTranslation {
                 let result = try await client.request(
                     method: .blockchain(.transaction(.getMerkle(transactionHash: identifier))),
                     responseType: Response.Result.Blockchain.Transaction.GetMerkle.self,
@@ -28,15 +28,11 @@ extension Network {
                     position: result.position,
                     merkle: result.merkle
                 )
-            } catch let failure as Network.Failure {
-                throw failure
-            } catch {
-                throw FulcrumErrorTranslator.translate(error)
             }
         }
         
         public func fetchTransactionIdentifier(atHeight blockHeight: UInt, position: UInt, includeMerkleProof: Bool) async throws -> TransactionPositionResolution {
-            do {
+            try await Network.withFailureTranslation {
                 let result = try await client.request(
                     method: .blockchain(.transaction(.idFromPos(blockHeight: blockHeight,
                                                                 transactionPosition: position,
@@ -50,10 +46,6 @@ extension Network {
                     transactionIdentifier: result.transactionHash,
                     merkle: result.merkle
                 )
-            } catch let failure as Network.Failure {
-                throw failure
-            } catch {
-                throw FulcrumErrorTranslator.translate(error)
             }
         }
     }

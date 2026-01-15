@@ -14,15 +14,13 @@ extension Network {
         }
         
         public func broadcastTransaction(rawTransactionHexadecimal: String) async throws -> String {
-            do {
+            try await Network.withFailureTranslation {
                 let response = try await client.request(
                     method: .blockchain(.transaction(.broadcast(rawTransaction: rawTransactionHexadecimal))),
                     responseType: Response.Result.Blockchain.Transaction.Broadcast.self,
                     options: .init(timeout: timeouts.transactionBroadcast)
                 )
                 return response.transactionHash.hexadecimalString
-            } catch {
-                throw FulcrumErrorTranslator.translate(error)
             }
         }
         
@@ -43,7 +41,7 @@ extension Network {
         public func fetchConfirmationStatus(for transactionHash: Transaction.Hash) async throws -> Network.TransactionConfirmationStatus {
             let identifier = transactionHash.reverseOrder.hexadecimalString
             
-            do {
+            return try await Network.withFailureTranslation {
                 async let transactionHeightResponse = client.request(
                     method: .blockchain(.transaction(.getHeight(transactionHash: identifier))),
                     responseType: Response.Result.Blockchain.Transaction.GetHeight.self,
@@ -73,10 +71,6 @@ extension Network {
                                                              transactionHeight: resolvedHeight,
                                                              tipHeight: resolvedTipHeight,
                                                              confirmations: confirmationCount)
-            } catch let failure as Network.Failure {
-                throw failure
-            } catch {
-                throw FulcrumErrorTranslator.translate(error)
             }
         }
         

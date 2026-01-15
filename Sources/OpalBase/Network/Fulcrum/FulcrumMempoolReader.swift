@@ -14,7 +14,7 @@ extension Network {
         }
         
         public func fetchMempoolInfo() async throws -> MempoolInfo {
-            do {
+            try await Network.withFailureTranslation {
                 let response = try await client.request(
                     method: .mempool(.getInfo),
                     responseType: Response.Result.Mempool.GetInfo.self,
@@ -28,13 +28,11 @@ extension Network {
                     unbroadcastCount: response.unbroadcastCount,
                     isFullReplaceByFeeEnabled: response.isFullReplaceByFeeEnabled
                 )
-            } catch {
-                throw FulcrumErrorTranslator.translate(error)
             }
         }
         
         public func fetchFeeHistogram() async throws -> [MempoolFeeHistogramBin] {
-            do {
+            try await Network.withFailureTranslation {
                 let response = try await client.request(
                     method: .mempool(.getFeeHistogram),
                     responseType: Response.Result.Mempool.GetFeeHistogram.self,
@@ -44,8 +42,6 @@ extension Network {
                 return response.histogram.map { result in
                     MempoolFeeHistogramBin(fee: result.fee, virtualSize: result.virtualSize)
                 }
-            } catch {
-                throw FulcrumErrorTranslator.translate(error)
             }
         }
     }

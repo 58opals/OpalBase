@@ -13,21 +13,25 @@ struct Base32 {
     private static let baseNumber: Int = characters.count
     
     static func encode(_ data: Data, interpretedAs5Bit: Bool) -> String {
-        var result = ""
         switch interpretedAs5Bit {
         case true:
+            var result = String()
+            result.reserveCapacity(data.count)
             for value in data {
-                result += String(characters[Int(value)])
+                result.append(characters[Int(value)])
             }
+            return result
         case false:
             var value = BigUInt(data)
+            var charactersResult: [Character] = .init()
+            charactersResult.reserveCapacity(Swift.max(1, data.count * 2))
             while value > 0 {
                 let remainder = Int(value % BigUInt(baseNumber))
                 value /= BigUInt(baseNumber)
-                result = String(characters[remainder]) + result
+                charactersResult.append(characters[remainder])
             }
+            return String(charactersResult.reversed())
         }
-        return result
     }
     
     static func decode(_ string: String, interpretedAs5Bit: Bool) throws -> Data {

@@ -16,17 +16,20 @@ struct Base58 {
     
     static func encode(_ data: Data) -> String {
         var value = BigUInt(data)
-        var result = ""
+        var charactersResult: [Character] = .init()
+        charactersResult.reserveCapacity(Swift.max(1, data.count * 2))
         while value > 0 {
             let remainder = Int(value % BigUInt(baseNumber))
             value /= BigUInt(baseNumber)
-            result = String(characters[remainder]) + result
+            charactersResult.append(characters[remainder])
         }
         
         let leadingZeroBytes = data.prefix { $0 == 0 }.count
-        result = String(repeating: characters.first!, count: leadingZeroBytes) + result
+        if leadingZeroBytes > 0 {
+            charactersResult.append(contentsOf: repeatElement(characters.first!, count: leadingZeroBytes))
+        }
         
-        return result
+        return String(charactersResult.reversed())
     }
     
     static func decode(_ base58: String) -> Data? {
@@ -39,15 +42,19 @@ struct Base58 {
             total = total * BigUInt(baseNumber) + value
         }
         
-        var bytes = [UInt8]()
+        var bytes: [UInt8] = .init()
         while total > 0 {
-            let byte = UInt8(total & 0xff)
-            bytes.insert(byte, at: 0)
+            bytes.append(UInt8(total & 0xff))
             total >>= 8
         }
+        bytes.reverse()
         
         let leadingOnes = base58.prefix { $0 == characters.first! }.count
-        bytes.insert(contentsOf: Array(repeating: 0, count: leadingOnes), at: 0)
+        if leadingOnes > 0 {
+            var prefixed: [UInt8] = .init(repeating: 0, count: leadingOnes)
+            prefixed.append(contentsOf: bytes)
+            return Data(prefixed)
+        }
         
         return Data(bytes)
     }

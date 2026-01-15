@@ -4,6 +4,20 @@ import Foundation
 import SwiftFulcrum
 
 extension Network {
+    static func withFailureTranslation<T>(
+        _ work: () async throws -> T
+    ) async throws -> T {
+        do {
+            return try await work()
+        } catch let failure as Network.Failure {
+            throw failure
+        } catch let dataError as Data.Error {
+            throw Network.Failure(reason: .decoding, message: dataError.localizedDescription)
+        } catch {
+            throw FulcrumErrorTranslator.translate(error)
+        }
+    }
+    
     enum FulcrumErrorTranslator {
         static func translate(_ error: Swift.Error) -> Network.Failure {
             if let failure = error as? Network.Failure { return failure }

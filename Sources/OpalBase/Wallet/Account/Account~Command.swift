@@ -104,9 +104,6 @@ extension Account {
             try Satoshi(input.value)
         }
         
-        let totalSelectedValue = totalSelectedAmount.uint64
-        _ = totalSelectedValue
-        
         guard totalSelectedAmount >= targetAmount else {
             let requiredAdditionalAmount: UInt64
             do {
