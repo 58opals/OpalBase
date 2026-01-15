@@ -7,22 +7,17 @@ extension Mnemonic {
 }
 
 extension Mnemonic.Word {
-    private static let wordListCache = WordListCache()
-    
     static func loadWordList(language: Language = .english) throws -> [String] {
-        try wordListCache.loadWordList(for: language) {
-            guard let filePath = language.filePath else { throw Error.cannotLoadMnemonicWords }
-            let contents = try String(contentsOfFile: filePath, encoding: .utf8)
-            let words = contents.components(separatedBy: .newlines).filter { !$0.isEmpty }
-            return words
-        }
+        guard let filePath = language.filePath else { throw Error.cannotLoadMnemonicWords }
+        let contents = try String(contentsOfFile: filePath, encoding: .utf8)
+        let words = contents.components(separatedBy: .newlines).filter { !$0.isEmpty }
+        return words
     }
     
     static func detectLanguage(of words: [String]) throws -> Language {
         for language in Language.allCases {
-            let wordSet = try wordListCache.loadWordSet(for: language) {
-                try loadWordList(language: language)
-            }
+            let wordList = try loadWordList(language: language)
+            let wordSet = Set(wordList)
             if words.allSatisfy({ wordSet.contains($0) }) {
                 return language
             }
@@ -33,9 +28,7 @@ extension Mnemonic.Word {
     static func validateMnemonicWords(_ words: [String]) throws -> Bool {
         let language = try detectLanguage(of: words)
         let wordList = try loadWordList(language: language)
-        let wordSet = try wordListCache.loadWordSet(for: language) {
-            wordList
-        }
+        let wordSet = Set(wordList)
         
         for word in words {
             if !wordSet.contains(word) {
@@ -43,22 +36,18 @@ extension Mnemonic.Word {
             }
         }
         
-        var bitValues: [UInt8] = .init()
-        bitValues.reserveCapacity(words.count * 11)
-        
-        for word in words {
+        let bitString = try words.map { word -> String in
             guard let index = wordList.firstIndex(of: word) else { throw Error.invalidMnemonicWord(word) }
-            bitValues.append(contentsOf: makeBitValues(from: index, bitCount: 11))
-        }
+            return String(index, radix: 2).padLeft(to: 11)
+        }.joined()
         
-        let checksumLength = bitValues.count / 33
-        let entropyBitCount = bitValues.count - checksumLength
-        let entropyBits = Array(bitValues.prefix(entropyBitCount))
-        let checksumBits = Array(bitValues.suffix(checksumLength))
-        guard entropyBitCount % 8 == 0 else { throw Error.invalidChecksum }
+        let checksumLength = bitString.count / 33
+        let entropyBits = bitString.prefix(bitString.count - checksumLength)
+        let checksumBits = bitString.suffix(checksumLength)
         
-        let entropyData = try makeData(from: entropyBits)
-        let calculatedChecksum = Mnemonic.makeBitValues(from: SHA256.hash(entropyData), limit: checksumLength)
+        let entropyData = String(entropyBits).convertBitsToData()
+        let calculatedChecksum = SHA256.hash(entropyData).convertToBitString().prefix(checksumLength)
+        
         if checksumBits != calculatedChecksum {
             throw Error.invalidChecksum
         }
@@ -101,49 +90,5 @@ private extension Mnemonic.Word {
             bytes.append(value)
         }
         return Data(bytes)
-    }
-}
-
-private final class WordListCache: Sendable {
-    private var wordLists: [Mnemonic.Language: [String]] = .init()
-    private var wordSets: [Mnemonic.Language: Set<String>] = .init()
-    private let lock = NSLock()
-    
-    func loadWordList(for language: Mnemonic.Language,
-                      loader: () throws -> [String]) rethrows -> [String] {
-        lock.lock()
-        if let wordList = wordLists[language] {
-            lock.unlock()
-            return wordList
-        }
-        lock.unlock()
-        
-        let wordList = try loader()
-        let wordSet = Set(wordList)
-        
-        lock.lock()
-        wordLists[language] = wordList
-        wordSets[language] = wordSet
-        lock.unlock()
-        return wordList
-    }
-    
-    func loadWordSet(for language: Mnemonic.Language,
-                     loader: () throws -> [String]) rethrows -> Set<String> {
-        lock.lock()
-        if let wordSet = wordSets[language] {
-            lock.unlock()
-            return wordSet
-        }
-        lock.unlock()
-        
-        let wordList = try loader()
-        let wordSet = Set(wordList)
-        
-        lock.lock()
-        wordLists[language] = wordList
-        wordSets[language] = wordSet
-        lock.unlock()
-        return wordSet
     }
 }

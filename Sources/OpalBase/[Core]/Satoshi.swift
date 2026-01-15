@@ -121,10 +121,14 @@ extension Sequence where Element == Satoshi {
 }
 
 extension Sequence {
+    func sumSatoshi(_ transform: (Element) throws -> Satoshi) throws -> Satoshi {
+        try reduce(Satoshi()) { try $0 + transform($1) }
+    }
+    
     func sumSatoshi(or overflowError: @autoclosure () -> Swift.Error,
                     _ transform: (Element) throws -> Satoshi) throws -> Satoshi {
         do {
-            return try reduce(Satoshi()) { try $0 + transform($1) }
+            return try sumSatoshi(transform)
         } catch let error as Satoshi.Error {
             switch error {
             case .exceedsMaximumAmount:
