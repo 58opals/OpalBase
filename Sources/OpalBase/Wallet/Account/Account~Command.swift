@@ -37,12 +37,7 @@ extension Account {
                                                                    usage: usage,
                                                                    includeUnconfirmed: includeUnconfirmed)
         } catch let error as Address.Book.Error {
-            switch error {
-            case .transactionHistoryRefreshFailed(let address, let underlying):
-                throw Account.Error.transactionHistoryRefreshFailed(address, underlying)
-            default:
-                throw error
-            }
+            throw makeAccountError(from: error)
         } catch {
             throw error
         }
@@ -54,12 +49,7 @@ extension Account {
             return try await addressBook.updateTransactionConfirmations(using: handler,
                                                                         for: transactionHashes)
         } catch let error as Address.Book.Error {
-            switch error {
-            case .transactionConfirmationRefreshFailed(let hash, let underlying):
-                throw Account.Error.transactionConfirmationRefreshFailed(hash, underlying)
-            default:
-                throw error
-            }
+            throw makeAccountError(from: error)
         } catch {
             throw error
         }
@@ -79,13 +69,8 @@ extension Account {
                              feePolicy: Wallet.FeePolicy = .init()) async throws -> SpendPlan {
         guard !payment.recipients.isEmpty else { throw Error.paymentHasNoRecipients }
         
-        var targetAmount = try Satoshi(0)
-        for recipient in payment.recipients {
-            do {
-                targetAmount = try targetAmount + recipient.amount
-            } catch {
-                throw Error.paymentExceedsMaximumAmount
-            }
+        let targetAmount = try payment.recipients.sumSatoshi(or: Error.paymentExceedsMaximumAmount) { recipient in
+            recipient.amount
         }
         
         let feeRate = feePolicy.recommendFeeRate(for: payment.feeContext,
@@ -115,13 +100,8 @@ extension Account {
         
         let heuristicallyOrderedInputs = await privacyShaper.applyCoinSelectionHeuristics(to: selectedUTXOs)
         
-        var totalSelectedAmount: Satoshi = .init()
-        for input in heuristicallyOrderedInputs {
-            do {
-                totalSelectedAmount = try totalSelectedAmount + Satoshi(input.value)
-            } catch {
-                throw Error.paymentExceedsMaximumAmount
-            }
+        let totalSelectedAmount = try heuristicallyOrderedInputs.sumSatoshi(or: Error.paymentExceedsMaximumAmount) { input in
+            try Satoshi(input.value)
         }
         
         let totalSelectedValue = totalSelectedAmount.uint64
@@ -190,24 +170,11 @@ extension Account {
 extension Account {
     public func broadcast(_ transaction: Transaction,
                           via handler: Network.TransactionHandling) async throws -> Transaction.Hash {
-        let rawTransaction = transaction.encode()
-        let rawTransactionHexadecimal = rawTransaction.hexadecimalString
-        
-        let transactionIdentifier: String
         do {
-            transactionIdentifier = try await handler.broadcastTransaction(rawTransactionHexadecimal: rawTransactionHexadecimal)
+            return try await handler.broadcast(transaction: transaction)
         } catch {
             throw Account.Error.broadcastFailed(error)
         }
-        
-        let identifierData: Data
-        do {
-            identifierData = try Data(hexadecimalString: transactionIdentifier)
-        } catch {
-            throw Account.Error.broadcastFailed(error)
-        }
-        
-        return Transaction.Hash(dataFromRPC: identifierData)
     }
     
     public func monitorConfirmations(for transactionHash: Transaction.Hash,
@@ -305,5 +272,16 @@ extension Account {
         try await addressBook.refreshTransactionHistory(for: address,
                                                         using: service,
                                                         includeUnconfirmed: includeUnconfirmed)
+    }
+}
+
+private func makeAccountError(from error: Address.Book.Error) -> Swift.Error {
+    switch error {
+    case .transactionHistoryRefreshFailed(let address, let underlying):
+        return Account.Error.transactionHistoryRefreshFailed(address, underlying)
+    case .transactionConfirmationRefreshFailed(let hash, let underlying):
+        return Account.Error.transactionConfirmationRefreshFailed(hash, underlying)
+    default:
+        return error
     }
 }

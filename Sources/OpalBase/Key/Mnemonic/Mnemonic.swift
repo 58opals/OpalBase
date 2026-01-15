@@ -40,20 +40,24 @@ public struct Mnemonic {
     }
     
     static func generateMnemonicWords(from entropy: Data) throws -> [String] {
-        let sha256 = SHA256.hash(entropy)
         let checksumLength = (entropy.count * 8) / 32
-        let checksumBits = sha256.prefix(1).convertToBitString().prefix(checksumLength)
-        let entropyWithChecksumBits = entropy.convertToBitString() + checksumBits
-        let entropyBits = entropyWithChecksumBits
+        let checksumBits = Mnemonic.makeBitValues(from: SHA256.hash(entropy), limit: checksumLength)
+        let entropyBits = Mnemonic.makeBitValues(from: entropy)
+        let bitValues = entropyBits + checksumBits
+        guard bitValues.count % 11 == 0 else { throw Error.cannotConvertStringToData }
         
         let wordList = try Word.loadWordList()
         
-        var mnemonicWords = [String]()
-        for bitIndex in stride(from: 0, to: entropyBits.count, by: 11) {
-            let startIndex = entropyBits.index(entropyBits.startIndex, offsetBy: bitIndex)
-            let endIndex = entropyBits.index(startIndex, offsetBy: 11, limitedBy: entropyBits.endIndex) ?? entropyBits.endIndex
-            let bitRange = entropyBits[startIndex..<endIndex]
-            let index = Int(bitRange, radix: 2)!
+        var mnemonicWords: [String] = .init()
+        mnemonicWords.reserveCapacity(bitValues.count / 11)
+        
+        for offset in stride(from: 0, to: bitValues.count, by: 11) {
+            let endOffset = offset + 11
+            let bitSlice = bitValues[offset..<endOffset]
+            var index = 0
+            for bit in bitSlice {
+                index = (index << 1) | Int(bit)
+            }
             mnemonicWords.append(wordList[index])
         }
         
@@ -72,6 +76,25 @@ public struct Mnemonic {
         let keyLength = 64
         
         return try PBKDF2(password: password, saltBytes: salt, iterationCount: iterations, derivedKeyLength: keyLength).deriveKey()
+    }
+    
+    static func makeBitValues(from data: Data, limit: Int? = nil) -> [UInt8] {
+        let totalBitCount = data.count * 8
+        let limitBitCount = limit ?? totalBitCount
+        var bitValues: [UInt8] = .init()
+        bitValues.reserveCapacity(limitBitCount)
+        
+        var remainingBits = limitBitCount
+        for byte in data {
+            for bitIndex in stride(from: 7, through: 0, by: -1) {
+                guard remainingBits > 0 else { return bitValues }
+                let bitValue = (byte >> UInt8(bitIndex)) & 1
+                bitValues.append(bitValue)
+                remainingBits -= 1
+            }
+        }
+        
+        return bitValues
     }
 }
 

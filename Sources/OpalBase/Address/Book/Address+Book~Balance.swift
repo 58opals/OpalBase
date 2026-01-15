@@ -13,12 +13,7 @@ extension Address.Book {
             return balance
         }
         
-        var aggregate: Satoshi = .init()
-        for balance in validBalances {
-            aggregate = try aggregate + balance
-        }
-        
-        return aggregate
+        return try validBalances.sumSatoshi()
     }
     
     func readCachedBalance(for address: Address) throws -> Satoshi? {
@@ -34,12 +29,6 @@ extension Address.Book {
 extension Address.Book {
     func calculateTotalUnspentBalance() throws -> Satoshi {
         let utxos = utxoStore.listUTXOs()
-        var total: Satoshi = .init()
-        
-        for unspent in utxos {
-            total = try total + Satoshi(unspent.value)
-        }
-        
-        return total
+        return try utxos.sumSatoshi { try Satoshi($0.value) }
     }
 }

@@ -96,3 +96,51 @@ extension Satoshi: Hashable {
 }
 
 extension Satoshi: Sendable {}
+
+// MARK: - Sequence_+
+
+extension Sequence where Element == Satoshi {
+    func sumSatoshi() throws -> Satoshi {
+        try reduce(Satoshi()) { try $0 + $1 }
+    }
+    
+    func sumSatoshi(or overflowError: @autoclosure () -> Swift.Error) throws -> Satoshi {
+        do {
+            return try sumSatoshi()
+        } catch let error as Satoshi.Error {
+            switch error {
+            case .exceedsMaximumAmount:
+                throw overflowError()
+            default:
+                throw error
+            }
+        } catch {
+            throw error
+        }
+    }
+}
+
+extension Sequence {
+    func sumSatoshi(or overflowError: @autoclosure () -> Swift.Error,
+                    _ transform: (Element) throws -> Satoshi) throws -> Satoshi {
+        do {
+            return try reduce(Satoshi()) { try $0 + transform($1) }
+        } catch let error as Satoshi.Error {
+            switch error {
+            case .exceedsMaximumAmount:
+                throw overflowError()
+            default:
+                throw error
+            }
+        } catch {
+            throw error
+        }
+    }
+}
+
+extension Sequence where Element: Hashable {
+    func uniqued() -> [Element] {
+        var seen = Set<Element>()
+        return filter { seen.insert($0).inserted }
+    }
+}

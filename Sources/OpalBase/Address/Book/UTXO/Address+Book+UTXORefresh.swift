@@ -24,21 +24,17 @@ extension Address.Book.UTXORefresh: Equatable {}
 extension Address.Book {
     public func refreshUTXOSet(using service: Network.AddressReadable,
                                usage: DerivationPath.Usage? = nil) async throws -> UTXORefresh {
-        let targetUsages = DerivationPath.Usage.targets(for: usage)
         var refreshedUTXOs: [Address: [Transaction.Output.Unspent]] = .init()
         var changeSets: [UTXOChangeSet] = .init()
         
-        for currentUsage in targetUsages {
-            let entries = listEntries(for: currentUsage)
-            guard !entries.isEmpty else { continue }
-            
+        let refreshTimestamp = Date()
+        try await forEachTargetUsage(usage) { _, entries in
             let addresses = entries.map(\.address)
             let usageResults = try await addresses.mapConcurrently(limit: Concurrency.Tuning.maximumConcurrentNetworkRequests) { address in
                 let utxos = try await service.fetchUnspentOutputs(for: address.string)
                 return (address, utxos)
             }
             
-            let refreshTimestamp = Date()
             for (address, utxos) in usageResults {
                 refreshedUTXOs[address] = utxos
                 let changeSet = try replaceUTXOs(for: address,
@@ -52,10 +48,7 @@ extension Address.Book {
             }
         }
         
-        var totalBalance: Satoshi = .init()
-        for changeSet in changeSets {
-            totalBalance = try totalBalance + changeSet.balance
-        }
+        let totalBalance = try changeSets.sumSatoshi { $0.balance }
         
         return UTXORefresh(utxosByAddress: refreshedUTXOs,
                            changeSets: changeSets,

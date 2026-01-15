@@ -71,3 +71,14 @@ extension Address.Book {
         return refreshedEntries[index]
     }
 }
+
+extension Address.Book {
+    func forEachTargetUsage(_ usage: DerivationPath.Usage?,
+                            perform action: (DerivationPath.Usage, [Address.Book.Entry]) async throws -> Void) async rethrows {
+        for currentUsage in DerivationPath.Usage.targets(for: usage) {
+            let entries = listEntries(for: currentUsage)
+            guard !entries.isEmpty else { continue }
+            try await action(currentUsage, entries)
+        }
+    }
+}

@@ -23,13 +23,10 @@ extension Address.Book {
     public func refreshTransactionHistory(using service: Network.AddressReadable,
                                           usage: DerivationPath.Usage? = nil,
                                           includeUnconfirmed: Bool = true) async throws -> Transaction.History.ChangeSet {
-        let targetUsages = DerivationPath.Usage.targets(for: usage)
         var aggregatedChangeSet = Transaction.History.ChangeSet()
         
-        for currentUsage in targetUsages {
-            let entries = listEntries(for: currentUsage)
-            guard !entries.isEmpty else { continue }
-            
+        let refreshTimestamp = Date()
+        try await forEachTargetUsage(usage) { _, entries in
             let addresses = entries.map(\.address)
             let usageResults = try await addresses.mapConcurrently(limit: Concurrency.Tuning.maximumConcurrentNetworkRequests) { address in
                 do {
@@ -45,7 +42,6 @@ extension Address.Book {
                 }
             }
             
-            let refreshTimestamp = Date()
             for result in usageResults {
                 if !result.entries.isEmpty {
                     try await mark(address: result.address, isUsed: true)
@@ -93,8 +89,7 @@ extension Address.Book {
                                                for transactionHashes: [Transaction.Hash]) async throws -> Transaction.History.ChangeSet {
         guard !transactionHashes.isEmpty else { return .init() }
         
-        var seenHashes = Set<Transaction.Hash>()
-        let uniqueHashes = transactionHashes.filter { seenHashes.insert($0).inserted }
+        let uniqueHashes = transactionHashes.uniqued()
         var recordsToUpdate: [Transaction.History.Record] = .init()
         for transactionHash in uniqueHashes {
             guard let record = transactionLog.loadRecord(for: transactionHash) else { continue }

@@ -34,7 +34,12 @@ public struct Address {
         let checksumValues = payload5BitValuesWithChecksum.suffix(8)
         let checksumInput = try Address.convertPrefixToFiveBitValues(prefix: prefix) + [0x00] + Array(payload5BitValues) + Array(checksumValues)
         guard Polymod.compute(checksumInput) == 0 else { throw Error.invalidChecksum }
-        let payload = Address.convertFiveBitValuesToData(fiveBitValues: Array(payload5BitValues))
+        let payload: Data
+        do {
+            payload = try Address.convertFiveBitValuesToData(fiveBitValues: Array(payload5BitValues))
+        } catch {
+            throw Error.invalidPayloadLength
+        }
         guard !payload.isEmpty else { throw Error.invalidPayloadLength }
         let versionByte = payload[0]
         let hashData = payload[1...]
@@ -66,7 +71,7 @@ public struct Address {
         case .p2pkh_OPCHECKSIG(let hash), .p2pkh_OPCHECKDATASIG(hash: let hash):
             let versionByte = Data([0x00])
             let payload = versionByte + hash.data
-            let payload5BitValues = Address.convertPayloadToFiveBitValues(payload: payload)
+            let payload5BitValues = try Address.convertPayloadToFiveBitValues(payload: payload)
             let checksum = try Address.generateChecksum(prefix: Address.prefix, payload5BitValues: payload5BitValues)
             let combined = payload5BitValues + checksum
             self.string = Base32.encode(Data(combined), interpretedAs5Bit: true)
@@ -75,7 +80,7 @@ public struct Address {
             guard scriptHash.count == 20 else { throw Address.Legacy.Error.invalidScriptType }
             let versionByte = Data([0x08])
             let payload = versionByte + scriptHash
-            let payload5BitValues = Address.convertPayloadToFiveBitValues(payload: payload)
+            let payload5BitValues = try Address.convertPayloadToFiveBitValues(payload: payload)
             let checksum = try Address.generateChecksum(prefix: Address.prefix, payload5BitValues: payload5BitValues)
             let combined = payload5BitValues + checksum
             self.string = Base32.encode(Data(combined), interpretedAs5Bit: true)
@@ -97,54 +102,13 @@ extension Address {
         return values
     }
     
-    private static func convertPayloadToFiveBitValues(payload: Data) -> [UInt8] {
-        var values = [UInt8]()
-        
-        var bitString = payload.convertToBitString()
-        while bitString.count % 5 != 0 { bitString.append("0") }
-        
-        var index = bitString.startIndex
-        while index < bitString.endIndex {
-            let nextIndex = bitString.index(index, offsetBy: 5, limitedBy: bitString.endIndex) ?? bitString.endIndex
-            let chunk = String(bitString[index..<nextIndex])
-            
-            if let value = UInt8(chunk, radix: 2) {
-                values.append(value)
-            }
-            
-            index = nextIndex
-        }
-        
-        return values
+    private static func convertPayloadToFiveBitValues(payload: Data) throws -> [UInt8] {
+        try BitConversion.convertBits([UInt8](payload), from: 8, to: 5, pad: true)
     }
     
-    static func convertFiveBitValuesToData(fiveBitValues: [UInt8]) -> Data {
-        var bitString = ""
-        
-        for value in fiveBitValues {
-            let binaryString = String(value, radix: 2)
-            let paddedBinaryString = String(repeating: "0", count: 5 - binaryString.count) + binaryString
-            bitString += paddedBinaryString
-        }
-        
-        let usefulBits = (fiveBitValues.count * 5 / 8) * 8
-        
-        bitString = String(bitString.prefix(usefulBits))
-        
-        var data = Data()
-        var index = bitString.startIndex
-        while index < bitString.endIndex {
-            let nextIndex = bitString.index(index, offsetBy: 8, limitedBy: bitString.endIndex) ?? bitString.endIndex
-            let byteChunk = String(bitString[index..<nextIndex])
-            
-            if let byte = UInt8(byteChunk, radix: 2) {
-                data.append(byte)
-            }
-            
-            index = nextIndex
-        }
-        
-        return data
+    static func convertFiveBitValuesToData(fiveBitValues: [UInt8]) throws -> Data {
+        let bytes = try BitConversion.convertBits(fiveBitValues, from: 5, to: 8, pad: false)
+        return Data(bytes)
     }
     
     private static func generateChecksum(prefix: String, payload5BitValues: [UInt8]) throws -> [UInt8] {

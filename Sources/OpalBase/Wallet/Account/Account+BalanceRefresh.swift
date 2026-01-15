@@ -19,6 +19,7 @@ extension Account {
                                 loader: @escaping @Sendable (Address) async throws -> Satoshi) async throws -> BalanceRefresh {
         let targetUsages = DerivationPath.Usage.targets(for: usage)
         var balancesByUsage: [DerivationPath.Usage: [Address: Satoshi]] = .init()
+        let refreshTimestamp = Date()
         
         for currentUsage in targetUsages {
             let entries = await addressBook.listEntries(for: currentUsage)
@@ -39,7 +40,6 @@ extension Account {
             }
             
             var usageBalances: [Address: Satoshi] = .init()
-            let refreshTimestamp = Date()
             for (address, balance) in usageResults {
                 usageBalances[address] = balance
                 do {
@@ -53,15 +53,9 @@ extension Account {
             balancesByUsage[currentUsage] = usageBalances
         }
         
-        var total = try Satoshi(0)
-        for usageBalances in balancesByUsage.values {
-            for balance in usageBalances.values {
-                do {
-                    total = try total + balance
-                } catch {
-                    throw Error.paymentExceedsMaximumAmount
-                }
-            }
+        let total = try balancesByUsage.values.reduce(Satoshi()) { partial, balances in
+            let usageTotal = try balances.values.sumSatoshi(or: Error.paymentExceedsMaximumAmount)
+            return try partial + usageTotal
         }
         
         return BalanceRefresh(balancesByUsage: balancesByUsage, total: total)

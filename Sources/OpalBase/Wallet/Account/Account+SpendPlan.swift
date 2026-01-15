@@ -88,22 +88,12 @@ extension Account {
                 throw Account.Error.transactionBuildFailed(error)
             }
             
-            var totalOutputAmount: Satoshi = .init()
-            for output in transaction.outputs {
-                do {
-                    totalOutputAmount = try totalOutputAmount + Satoshi(output.value)
-                } catch {
-                    throw Account.Error.paymentExceedsMaximumAmount
-                }
+            let totalOutputAmount = try transaction.outputs.sumSatoshi(or: Account.Error.paymentExceedsMaximumAmount) {
+                try Satoshi($0.value)
             }
             
-            var inputTotal: Satoshi = .init()
-            for input in inputs {
-                do {
-                    inputTotal = try inputTotal + Satoshi(input.value)
-                } catch {
-                    throw Account.Error.paymentExceedsMaximumAmount
-                }
+            let inputTotal = try inputs.sumSatoshi(or: Account.Error.paymentExceedsMaximumAmount) {
+                try Satoshi($0.value)
             }
             
             let fee: Satoshi
@@ -145,24 +135,12 @@ extension Account {
                                       unlockers: [Transaction.Output.Unspent: Transaction.Unlocker] = .init()) async throws -> (hash: Transaction.Hash, result: TransactionResult) {
             let transactionResult = try buildTransaction(signatureFormat: signatureFormat, unlockers: unlockers)
             
-            let rawTransaction = transactionResult.transaction.encode()
-            let rawTransactionHexadecimal = rawTransaction.hexadecimalString
-            
-            let transactionIdentifier: String
+            let hash: Transaction.Hash
             do {
-                transactionIdentifier = try await handler.broadcastTransaction(rawTransactionHexadecimal: rawTransactionHexadecimal)
+                hash = try await handler.broadcast(transaction: transactionResult.transaction)
             } catch {
                 throw Account.Error.broadcastFailed(error)
             }
-            
-            let identifierData: Data
-            do {
-                identifierData = try Data(hexadecimalString: transactionIdentifier)
-            } catch {
-                throw Account.Error.broadcastFailed(error)
-            }
-            
-            let hash = Transaction.Hash(dataFromRPC: identifierData)
             
             try await addressBook.releaseSpendReservation(reservation, outcome: .completed)
             

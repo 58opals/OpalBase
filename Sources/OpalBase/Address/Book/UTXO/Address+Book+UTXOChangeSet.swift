@@ -40,11 +40,6 @@ extension Address.Book.UTXOChangeSet: Equatable {}
 
 private extension Address.Book.UTXOChangeSet {
     static func makeBalance(from utxos: Set<Transaction.Output.Unspent>) throws -> Satoshi {
-        var total: Satoshi = .init()
-        for utxo in utxos {
-            total = try total + Satoshi(utxo.value)
-        }
-        
-        return total
+        return try utxos.sumSatoshi { try Satoshi($0.value) }
     }
 }

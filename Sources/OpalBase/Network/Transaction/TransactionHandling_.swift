@@ -14,3 +14,12 @@ extension Network {
         func fetchConfirmationStatus(for transactionHash: Transaction.Hash) async throws -> Network.TransactionConfirmationStatus
     }
 }
+
+extension Network.TransactionBroadcasting {
+    func broadcast(transaction: Transaction) async throws -> Transaction.Hash {
+        let rawHexadecimal = transaction.encode().hexadecimalString
+        let transactionIdentifier = try await broadcastTransaction(rawTransactionHexadecimal: rawHexadecimal)
+        let identifierData = try Data(hexadecimalString: transactionIdentifier)
+        return Transaction.Hash(dataFromRPC: identifierData)
+    }
+}

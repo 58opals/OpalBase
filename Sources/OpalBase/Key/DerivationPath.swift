@@ -73,8 +73,7 @@ extension DerivationPath {
         public var hardenedIndex: UInt32 {
             switch self {
             case .bip44:
-                do { return try UInt32(44).harden() }
-                catch { fatalError("The index number 44 failed to be hardened.") }
+                return Harden.harden(44)
             }
         }
     }
@@ -111,11 +110,9 @@ extension DerivationPath {
         public var hardenedIndex: UInt32 {
             switch self {
             case .bitcoin:
-                do { return try UInt32(0).harden() }
-                catch { fatalError("The index number 0 failed to be hardened.") }
+                return Harden.harden(0)
             case .bitcoinCash:
-                do { return try UInt32(145).harden() }
-                catch { fatalError("The index number 145 failed to be hardened.") }
+                return Harden.harden(145)
             }
         }
     }
