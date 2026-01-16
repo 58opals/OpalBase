@@ -12,7 +12,7 @@ extension Network {
         public init(
             client: FulcrumClient,
             timeouts: FulcrumRequestTimeout = .init(),
-            cache: Transaction.Cache
+            cache: Transaction.Cache = .init()
         ) {
             self.client = client
             self.timeouts = timeouts
