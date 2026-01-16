@@ -20,6 +20,7 @@ extension ECDSA {
         case invalidCompressedPublicKeyPrefix
         case invalidDigestLength(expected: Int, actual: Int)
         case invalidHashIterationCount
+        case schnorrBCHNotImplementedYet
     }
 }
 
@@ -67,8 +68,9 @@ extension ECDSA {
             case .der:
                 return try ecdsaSignature.derRepresentation
             }
-            
-        case .schnorr, .schnorrBIP340:
+        case .schnorr:
+            throw Error.schnorrBCHNotImplementedYet
+        case .schnorrBIP340:
             let schnorrPrivateKey = try P256K.Schnorr.PrivateKey(dataRepresentation: privateKey.rawData)
             let schnorrSignature = try schnorrPrivateKey.signature(for: message)
             return schnorrSignature.dataRepresentation
@@ -97,7 +99,9 @@ extension ECDSA {
                 let ecdsaSignature = try P256K.Signing.ECDSASignature(derRepresentation: signature)
                 return ecdsaPublicKey.isValidSignature(ecdsaSignature, for: message)
             }
-        case .schnorr, .schnorrBIP340:
+        case .schnorr:
+            throw Error.schnorrBCHNotImplementedYet
+        case .schnorrBIP340:
             let xCoordinate = compressedPublicKey[1..<33]
             let schnorrPublicKey = P256K.Schnorr.XonlyKey(dataRepresentation: xCoordinate)
             let schnorrSignature = try P256K.Schnorr.SchnorrSignature(dataRepresentation: signature)
