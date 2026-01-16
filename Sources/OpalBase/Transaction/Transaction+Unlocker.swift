@@ -23,7 +23,7 @@ extension Transaction.Unlocker {
             switch signatureFormat {
             case .ecdsa(.der):
                 return 72
-            case .schnorr:
+            case .schnorr, .schnorrBIP340:
                 return 64
             case .ecdsa(.raw), .ecdsa(.compact):
                 assertionFailure("Unsupported ECDSA format. Use .ecdsa(.der) or .schnorr.")

@@ -42,7 +42,8 @@ extension ECDSA {
         ///   - **OP_CHECKSIG + ECDSA requires DER**. Using `.raw` or `.compact` with CHECKSIG is invalid at consensus.
         ///   - Schnorr is allowed for CHECKSIG as per BCH consensus.
         case ecdsa(ECDSA)
-        case schnorr
+        case schnorr // Bitcoin Cash Schnorr (May 2019+).
+        case schnorrBIP340 // BIP340/x-only Schnorr. Not valid for BCH consensus signing.
         
         public enum ECDSA {
             case raw
@@ -67,7 +68,7 @@ extension ECDSA {
                 return try ecdsaSignature.derRepresentation
             }
             
-        case .schnorr:
+        case .schnorr, .schnorrBIP340:
             let schnorrPrivateKey = try P256K.Schnorr.PrivateKey(dataRepresentation: privateKey.rawData)
             let schnorrSignature = try schnorrPrivateKey.signature(for: message)
             return schnorrSignature.dataRepresentation
@@ -96,7 +97,7 @@ extension ECDSA {
                 let ecdsaSignature = try P256K.Signing.ECDSASignature(derRepresentation: signature)
                 return ecdsaPublicKey.isValidSignature(ecdsaSignature, for: message)
             }
-        case .schnorr:
+        case .schnorr, .schnorrBIP340:
             let xCoordinate = compressedPublicKey[1..<33]
             let schnorrPublicKey = P256K.Schnorr.XonlyKey(dataRepresentation: xCoordinate)
             let schnorrSignature = try P256K.Schnorr.SchnorrSignature(dataRepresentation: signature)
