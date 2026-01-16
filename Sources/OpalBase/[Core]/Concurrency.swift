@@ -17,39 +17,43 @@ enum Concurrency {
 extension Collection where Element: Sendable {
     func mapConcurrently<Transformed: Sendable>(
         limit: Int,
+        transformError: @escaping @Sendable (Element, Swift.Error) -> Swift.Error = { _, error in error },
         _ transform: @escaping @Sendable (Element) async throws -> Transformed
     ) async throws -> [Transformed] {
         guard !isEmpty else { return .init() }
         
-        let maximumConcurrentTasks = Swift.max(1, limit)
+        let maximumConcurrentTasks = Swift.max(1, Swift.min(limit, count))
         let elementCount = count
         var iterator = self.enumerated().makeIterator()
         let initialTaskCount = Swift.min(maximumConcurrentTasks, elementCount)
         
-        return try await withThrowingTaskGroup(of: (Int, Transformed).self) { group in
-            for _ in 0..<initialTaskCount {
-                guard let (index, element) = iterator.next() else { break }
+        var results: [Transformed?] = Array(repeating: nil, count: elementCount)
+        
+        try await withThrowingTaskGroup(of: (Int, Transformed).self) { group in
+            func addTask() {
+                guard let (index, element) = iterator.next() else { return }
                 group.addTask {
                     try Task.checkCancellation()
-                    return (index, try await transform(element))
-                }
-            }
-            
-            var results = Array<Transformed?>(repeating: nil, count: elementCount)
-            
-            while let (index, value) = try await group.next() {
-                results[index] = value
-                
-                if let (nextIndex, nextElement) = iterator.next() {
-                    group.addTask {
-                        try Task.checkCancellation()
-                        return (nextIndex, try await transform(nextElement))
+                    do {
+                        return (index, try await transform(element))
+                    } catch {
+                        throw transformError(element, error)
                     }
                 }
             }
             
-            return try unwrapResults(results)
+            for _ in 0..<initialTaskCount {
+                addTask()
+            }
+            
+            while let (index, value) = try await group.next() {
+                results[index] = value
+                
+                addTask()
+            }
         }
+        
+        return try unwrapResults(results)
     }
     
     private func unwrapResults<Transformed>(_ results: [Transformed?]) throws -> [Transformed] {

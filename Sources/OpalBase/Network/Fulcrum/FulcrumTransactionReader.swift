@@ -7,29 +7,25 @@ extension Network {
     public struct FulcrumTransactionReader {
         private let client: FulcrumClient
         private let timeouts: FulcrumRequestTimeout
+        private let cache: Transaction.Cache
         
-        public init(client: FulcrumClient, timeouts: FulcrumRequestTimeout = .init()) {
+        public init(
+            client: FulcrumClient,
+            timeouts: FulcrumRequestTimeout = .init(),
+            cache: Transaction.Cache
+        ) {
             self.client = client
             self.timeouts = timeouts
+            self.cache = cache
         }
         
         public func fetchDetailedTransaction(forTransactionIdentifier transactionIdentifier: String) async throws -> Transaction.Detailed {
-            let identifierData: Data
-            do {
-                identifierData = try Data(hexadecimalString: transactionIdentifier)
-            } catch {
-                throw Network.Failure(
-                    reason: .decoding,
-                    message: "Invalid transaction identifier: \(transactionIdentifier)"
-                )
-            }
-            
-            let hash = Transaction.Hash(dataFromRPC: identifierData)
+            let hash = try Network.decodeTransactionHash(from: transactionIdentifier)
             return try await fetchDetailedTransaction(for: hash)
         }
         
         public func fetchDetailedTransaction(for transactionHash: Transaction.Hash) async throws -> Transaction.Detailed {
-            if let cached = await Transaction.Cache.shared.loadTransaction(at: transactionHash) {
+            if let cached = await cache.loadTransaction(at: transactionHash) {
                 return cached
             }
             
@@ -50,7 +46,7 @@ extension Network {
                     time: verbose.time
                 )
                 
-                await Transaction.Cache.shared.put(detailed, at: transactionHash)
+                await cache.put(detailed, at: transactionHash)
                 return detailed
             } catch let failure as Network.Failure {
                 throw failure
@@ -70,14 +66,14 @@ extension Network {
                         time: nil
                     )
                     
-                    await Transaction.Cache.shared.put(detailed, at: transactionHash)
+                    await cache.put(detailed, at: transactionHash)
                     return detailed
                 }
             }
         }
         
         public func fetchRawTransaction(for transactionHash: Transaction.Hash) async throws -> Data {
-            if let cached = await Transaction.Cache.shared.loadTransaction(at: transactionHash) {
+            if let cached = await cache.loadTransaction(at: transactionHash) {
                 return cached.rawTransactionData
             }
             

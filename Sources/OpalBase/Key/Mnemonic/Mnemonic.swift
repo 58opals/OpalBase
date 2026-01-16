@@ -25,6 +25,30 @@ public struct Mnemonic {
         self.passphrase = passphrase
     }
     
+    public init(
+        words: [String],
+        passphrase: String = "",
+        wordList: Mnemonic.WordList
+    ) throws {
+        guard try Word.validateMnemonicWords(words, wordList: wordList) else { throw Error.invalidMnemonicWords }
+        
+        self.words = words
+        self.seed = try Mnemonic.generateSeed(from: words, passphrase: passphrase)
+        self.passphrase = passphrase
+    }
+    
+    public init(
+        words: [String],
+        passphrase: String = "",
+        wordLists: [Mnemonic.Word.Language: Mnemonic.WordList]
+    ) throws {
+        guard try Word.validateMnemonicWords(words, wordLists: wordLists) else { throw Error.invalidMnemonicWords }
+        
+        self.words = words
+        self.seed = try Mnemonic.generateSeed(from: words, passphrase: passphrase)
+        self.passphrase = passphrase
+    }
+    
     static func generateEntropy(numberOfBits: Int) throws -> Data {
         guard numberOfBits % 32 == 0, numberOfBits >= 128, numberOfBits <= 256 else { throw Error.entropyGenerationFailed }
         

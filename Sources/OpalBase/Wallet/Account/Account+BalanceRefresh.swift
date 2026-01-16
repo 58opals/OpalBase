@@ -30,13 +30,14 @@ extension Account {
             }
             
             let addresses = entries.map(\.address)
-            let usageResults = try await addresses.mapConcurrently(limit: Concurrency.Tuning.maximumConcurrentNetworkRequests) { address in
-                do {
-                    let balance = try await loader(address)
-                    return (address, balance)
-                } catch {
-                    throw Error.balanceRefreshFailed(address, error)
+            let usageResults = try await addresses.mapConcurrently(
+                limit: Concurrency.Tuning.maximumConcurrentNetworkRequests,
+                transformError: { address, error in
+                    Error.balanceRefreshFailed(address, error)
                 }
+            ) { address in
+                let balance = try await loader(address)
+                return (address, balance)
             }
             
             var usageBalances: [Address: Satoshi] = .init()

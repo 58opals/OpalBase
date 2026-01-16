@@ -160,7 +160,11 @@ extension Network {
                             }
                             continuation.finish()
                         } catch {
-                            continuation.finish(throwing: FulcrumErrorTranslator.translate(error))
+                            if FulcrumErrorTranslator.isCancellation(error) {
+                                continuation.finish()
+                            } else {
+                                continuation.finish(throwing: FulcrumErrorTranslator.translate(error))
+                            }
                         }
                     }
                     

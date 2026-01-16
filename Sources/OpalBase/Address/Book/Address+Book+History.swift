@@ -27,9 +27,14 @@ extension Address.Book {
         
         let refreshTimestamp = Date()
         try await forEachTargetUsage(usage) { _, entries in
-            let addresses = entries.map(\.address)
-            let usageResults = try await addresses.mapConcurrently(limit: Concurrency.Tuning.maximumConcurrentNetworkRequests) { address in
-                try await self.fetchHistoryQueryResult(for: address,
+            let targets = entries.map { entry in
+                let address = entry.address
+                let scriptHash = address.makeScriptHash().hexadecimalString
+                return (address: address, scriptHash: scriptHash)
+            }
+            let usageResults = try await targets.mapConcurrently(limit: Concurrency.Tuning.maximumConcurrentNetworkRequests) { target in
+                try await self.fetchHistoryQueryResult(for: target.address,
+                                                       scriptHash: target.scriptHash,
                                                        using: service,
                                                        includeUnconfirmed: includeUnconfirmed)
             }
@@ -55,7 +60,9 @@ extension Address.Book {
                                           using service: Network.AddressReadable,
                                           includeUnconfirmed: Bool) async throws -> Transaction.History.ChangeSet {
         do {
+            let scriptHash = address.makeScriptHash().hexadecimalString
             let result = try await fetchHistoryQueryResult(for: address,
+                                                           scriptHash: scriptHash,
                                                            using: service,
                                                            includeUnconfirmed: includeUnconfirmed)
             if !result.entries.isEmpty {
@@ -77,6 +84,7 @@ extension Address.Book {
 private extension Address.Book {
     func fetchHistoryQueryResult(
         for address: Address,
+        scriptHash: String,
         using service: Network.AddressReadable,
         includeUnconfirmed: Bool
     ) async throws -> Address.Book.History.QueryResult {
@@ -84,7 +92,6 @@ private extension Address.Book {
             let history = try await service.fetchHistory(for: address.string,
                                                          includeUnconfirmed: includeUnconfirmed)
             let mappedEntries = try history.map { try $0.makeHistoryEntry() }
-            let scriptHash = address.makeScriptHash().hexadecimalString
             return Address.Book.History.QueryResult(address: address,
                                                     scriptHash: scriptHash,
                                                     entries: mappedEntries)
@@ -107,13 +114,14 @@ extension Address.Book {
         }
         guard !recordsToUpdate.isEmpty else { return .init() }
         
-        let updates = try await recordsToUpdate.mapConcurrently(limit: Concurrency.Tuning.maximumConcurrentNetworkRequests) { record in
-            do {
-                let status = try await handler.fetchConfirmationStatus(for: record.transactionHash)
-                return Address.Book.History.ConfirmationUpdate(record: record, status: status)
-            } catch {
-                throw Address.Book.Error.transactionConfirmationRefreshFailed(record.transactionHash, error)
+        let updates = try await recordsToUpdate.mapConcurrently(
+            limit: Concurrency.Tuning.maximumConcurrentNetworkRequests,
+            transformError: { record, error in
+                Address.Book.Error.transactionConfirmationRefreshFailed(record.transactionHash, error)
             }
+        ) { record in
+            let status = try await handler.fetchConfirmationStatus(for: record.transactionHash)
+            return Address.Book.History.ConfirmationUpdate(record: record, status: status)
         }
         
         var aggregatedChangeSet = Transaction.History.ChangeSet()

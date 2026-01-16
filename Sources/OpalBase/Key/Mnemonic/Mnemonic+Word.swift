@@ -3,7 +3,7 @@
 import Foundation
 
 extension Mnemonic {
-    enum Word {}
+    public enum Word {}
 }
 
 extension Mnemonic.Word {
@@ -14,20 +14,31 @@ extension Mnemonic.Word {
         return words
     }
     
-    static func detectLanguage(of words: [String]) throws -> (language: Language, wordList: [String]) {
+    static func detectLanguage(of words: [String]) throws -> Mnemonic.WordList {
+        let wordLists = try loadWordLists()
+        return try detectLanguage(of: words, wordLists: wordLists)
+    }
+    
+    static func detectLanguage(
+        of words: [String],
+        wordLists: [Language: Mnemonic.WordList]
+    ) throws -> Mnemonic.WordList {
         for language in Language.allCases {
-            let wordList = try loadWordList(language: language)
-            let wordSet = Set(wordList)
-            if words.allSatisfy({ wordSet.contains($0) }) {
-                return (language, wordList)
+            guard let wordList = wordLists[language] else { continue }
+            if words.allSatisfy({ wordList.wordSet.contains($0) }) {
+                return wordList
             }
         }
         throw Error.unknownLanguage
     }
     
     static func validateMnemonicWords(_ words: [String]) throws -> Bool {
-        let (_, wordList) = try detectLanguage(of: words)
-        let wordToIndex = Dictionary(uniqueKeysWithValues: wordList.enumerated().map { ($0.element, $0.offset) })
+        let wordList = try detectLanguage(of: words)
+        return try validateMnemonicWords(words, wordList: wordList)
+    }
+    
+    static func validateMnemonicWords(_ words: [String], wordList: Mnemonic.WordList) throws -> Bool {
+        let wordToIndex = wordList.indexByWord
         
         var bitString = String()
         bitString.reserveCapacity(words.count * 11)
@@ -50,6 +61,14 @@ extension Mnemonic.Word {
         
         return true
     }
+    
+    static func validateMnemonicWords(
+        _ words: [String],
+        wordLists: [Language: Mnemonic.WordList]
+    ) throws -> Bool {
+        let wordList = try detectLanguage(of: words, wordLists: wordLists)
+        return try validateMnemonicWords(words, wordList: wordList)
+    }
 }
 
 extension Mnemonic.Word {
@@ -62,6 +81,14 @@ extension Mnemonic.Word {
 }
 
 private extension Mnemonic.Word {
+    static func loadWordLists() throws -> [Language: Mnemonic.WordList] {
+        var wordListsByLanguage: [Language: Mnemonic.WordList] = .init()
+        for language in Language.allCases {
+            wordListsByLanguage[language] = try Mnemonic.WordList(language: language)
+        }
+        return wordListsByLanguage
+    }
+    
     static func makeBitValues(from index: Int, bitCount: Int) -> [UInt8] {
         var values: [UInt8] = .init(repeating: 0, count: bitCount)
         for position in 0..<bitCount {

@@ -3,7 +3,7 @@
 import Foundation
 
 extension Mnemonic.Word {
-    enum Language: CaseIterable {
+    public enum Language: Sendable, CaseIterable {
         case english
         case korean
         

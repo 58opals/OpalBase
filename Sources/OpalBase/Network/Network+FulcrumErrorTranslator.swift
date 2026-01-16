@@ -9,10 +9,6 @@ extension Network {
     ) async throws -> T {
         do {
             return try await work()
-        } catch let failure as Network.Failure {
-            throw failure
-        } catch let dataError as Data.Error {
-            throw Network.Failure(reason: .decoding, message: dataError.localizedDescription)
         } catch {
             throw FulcrumErrorTranslator.translate(error)
         }
@@ -22,12 +18,24 @@ extension Network {
         static func translate(_ error: Swift.Error) -> Network.Failure {
             if let failure = error as? Network.Failure { return failure }
             
+            if let dataError = error as? Data.Error {
+                return Network.Failure(reason: .decoding, message: dataError.localizedDescription)
+            }
+            
+            if let decodingError = error as? DecodingError {
+                return Network.Failure(reason: .decoding, message: String(describing: decodingError))
+            }
+            
+            if let encodingError = error as? EncodingError {
+                return Network.Failure(reason: .encoding, message: String(describing: encodingError))
+            }
+            
             if error is CancellationError {
                 return Network.Failure(reason: .cancelled, message: "Operation cancelled")
             }
             
             guard let fulcrumError = error as? Fulcrum.Error else {
-                return Network.Failure(reason: .unknown, message: error.localizedDescription)
+                return Network.Failure(reason: .unknown, message: String(describing: error))
             }
             
             switch fulcrumError {
@@ -48,6 +56,16 @@ extension Network {
         
         static func isFailureEquivalent(_ left: Swift.Error, _ right: Swift.Error) -> Bool {
             translate(left) == translate(right)
+        }
+        
+        static func isCancellation(_ error: Swift.Error) -> Bool {
+            if error is CancellationError { return true }
+            if let failure = error as? Network.Failure { return failure.reason == .cancelled }
+            if let fulcrumError = error as? Fulcrum.Error,
+               case .client(.cancelled) = fulcrumError {
+                return true
+            }
+            return false
         }
         
         private static func translateTransport(_ transport: Fulcrum.Error.Transport) -> Network.Failure {

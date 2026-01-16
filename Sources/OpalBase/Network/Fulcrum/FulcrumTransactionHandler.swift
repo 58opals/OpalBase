@@ -25,15 +25,7 @@ extension Network {
         }
         
         public func fetchConfirmations(forTransactionIdentifier transactionIdentifier: String) async throws -> UInt? {
-            let hash: Transaction.Hash
-            do {
-                let identifierData = try Data(hexadecimalString: transactionIdentifier)
-                hash = Transaction.Hash(dataFromRPC: identifierData)
-            } catch {
-                throw Network.Failure(reason: .decoding,
-                                      message: "Invalid transaction identifier: \(transactionIdentifier)")
-            }
-            
+            let hash = try Network.decodeTransactionHash(from: transactionIdentifier)
             let status = try await fetchConfirmationStatus(for: hash)
             return status.confirmations
         }

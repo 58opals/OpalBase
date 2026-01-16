@@ -204,17 +204,22 @@ extension Account {
                         
                         do {
                             try await Task.sleep(for: effectiveInterval)
-                        } catch is CancellationError {
+                        } catch {
+                            if Network.FulcrumErrorTranslator.isCancellation(error) {
+                                continuation.finish()
+                                return
+                            }
+                            throw error
+                        }
+                    } catch {
+                        if Network.FulcrumErrorTranslator.isCancellation(error) {
                             continuation.finish()
                             return
                         }
-                    } catch is CancellationError {
-                        continuation.finish()
-                        return
-                    } catch let error as Account.Error {
-                        continuation.finish(throwing: error)
-                        return
-                    } catch {
+                        if let accountError = error as? Account.Error {
+                            continuation.finish(throwing: accountError)
+                            return
+                        }
                         continuation.finish(throwing: Account.Error.confirmationQueryFailed(error))
                         return
                     }
