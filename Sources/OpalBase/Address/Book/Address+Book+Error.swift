@@ -22,7 +22,7 @@ extension Address.Book {
         case utxoAlreadyReserved(Transaction.Output.Unspent)
         
         case cacheInvalid
-        case cacheUpdateFailed
+        case cacheUpdateFailed(Address, Swift.Error)
         case invalidSnapshotBalance(value: UInt64, reason: Swift.Error)
         case transactionHistoryRefreshFailed(Address, Swift.Error)
         case transactionConfirmationRefreshFailed(Transaction.Hash, Swift.Error)
@@ -39,8 +39,7 @@ extension Address.Book.Error: Equatable {
             (.insufficientFunds, .insufficientFunds),
             (.paymentExceedsMaximumAmount, .paymentExceedsMaximumAmount),
             (.utxoNotFound, .utxoNotFound),
-            (.cacheInvalid, .cacheInvalid),
-            (.cacheUpdateFailed, .cacheUpdateFailed):
+            (.cacheInvalid, .cacheInvalid):
             return true
         case (.privateKeyDuplicated(let leftPrivateKey), .privateKeyDuplicated(let rightPrivateKey)):
             return leftPrivateKey == rightPrivateKey
@@ -51,6 +50,9 @@ extension Address.Book.Error: Equatable {
             return leftEntry == rightEntry
         case (.utxoAlreadyReserved(let leftUTXO), .utxoAlreadyReserved(let rightUTXO)):
             return leftUTXO == rightUTXO
+        case (.cacheUpdateFailed(let leftAddress, let leftError),
+              .cacheUpdateFailed(let rightAddress, let rightError)):
+            return leftAddress == rightAddress && Network.FulcrumErrorTranslator.isFailureEquivalent(leftError, rightError)
         case (.invalidSnapshotBalance(let leftValue, let leftError),
               .invalidSnapshotBalance(let rightValue, let rightError)):
             return leftValue == rightValue && Network.FulcrumErrorTranslator.isFailureEquivalent(leftError, rightError)

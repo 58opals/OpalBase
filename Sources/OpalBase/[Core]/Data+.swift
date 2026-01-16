@@ -83,7 +83,11 @@ extension Data {
 
 extension Array<Data> {
     func generateID() -> Data {
+        let totalBytes = reduce(0) { total, input in
+            total + input.count
+        }
         var hashInput: Data = .init()
+        hashInput.reserveCapacity(totalBytes)
         for input in self {
             hashInput.append(input)
         }

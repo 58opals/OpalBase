@@ -5,9 +5,11 @@ import Foundation
 extension Address.Book {
     struct TransactionLog {
         private var records: [Transaction.Hash: Transaction.History.Record]
+        private var transactionHashesByScriptHash: [String: Set<Transaction.Hash>]
         
         init() {
             self.records = .init()
+            self.transactionHashesByScriptHash = .init()
         }
         
         func listRecords() -> [Transaction.History.Record] {
@@ -18,11 +20,11 @@ extension Address.Book {
             records[transactionHash]
         }
         
-        mutating func updateHistory(for scriptHash: String,
-                                    entries: [Transaction.History.Entry],
-                                    timestamp: Date) -> Transaction.History.ChangeSet {
+        mutating func replaceHistory(for scriptHash: String,
+                                     entries: [Transaction.History.Entry],
+                                     timestamp: Date) -> Transaction.History.ChangeSet {
             let newTransactions = Set(entries.map { $0.transactionHash })
-            let previousTransactions = listTransactions(for: scriptHash)
+            let previousTransactions = transactionHashesByScriptHash[scriptHash] ?? .init()
             var inserted: [Transaction.Hash: Transaction.History.Record] = .init()
             var updated: [Transaction.Hash: Transaction.History.Record] = .init()
             var removed: Set<Transaction.Hash> = .init()
@@ -61,9 +63,47 @@ extension Address.Book {
                 }
             }
             
+            if newTransactions.isEmpty {
+                transactionHashesByScriptHash.removeValue(forKey: scriptHash)
+            } else {
+                transactionHashesByScriptHash[scriptHash] = newTransactions
+            }
+            
             return Transaction.History.ChangeSet(inserted: Array(inserted.values),
                                                  updated: Array(updated.values),
                                                  removed: Array(removed))
+        }
+        
+        mutating func mergeHistoryEntries(for scriptHash: String,
+                                          entries: [Transaction.History.Entry],
+                                          timestamp: Date) -> Transaction.History.ChangeSet {
+            guard !entries.isEmpty else { return .init() }
+            
+            var inserted: [Transaction.Hash: Transaction.History.Record] = .init()
+            var updated: [Transaction.Hash: Transaction.History.Record] = .init()
+            
+            for entry in entries {
+                if var record = records[entry.transactionHash] {
+                    let original = record
+                    record.resolveUpdate(from: entry, scriptHash: scriptHash, timestamp: timestamp)
+                    records[entry.transactionHash] = record
+                    if record != original {
+                        updated[entry.transactionHash] = record
+                    }
+                } else {
+                    let record = Transaction.History.Record.makeRecord(for: entry,
+                                                                       scriptHash: scriptHash,
+                                                                       timestamp: timestamp)
+                    records[entry.transactionHash] = record
+                    inserted[entry.transactionHash] = record
+                }
+                
+                transactionHashesByScriptHash[scriptHash, default: .init()].insert(entry.transactionHash)
+            }
+            
+            return Transaction.History.ChangeSet(inserted: Array(inserted.values),
+                                                 updated: Array(updated.values),
+                                                 removed: .init())
         }
         
         mutating func updateVerification(for transactionHash: Transaction.Hash,
@@ -102,21 +142,18 @@ extension Address.Book {
         
         mutating func reset() {
             records.removeAll()
+            transactionHashesByScriptHash.removeAll()
         }
         
         mutating func store(_ record: Transaction.History.Record) {
             records[record.transactionHash] = record
+            for scriptHash in record.chainMetadata.scriptHashes {
+                transactionHashesByScriptHash[scriptHash, default: .init()].insert(record.transactionHash)
+            }
         }
         
         var isEmpty: Bool {
             records.isEmpty
-        }
-        
-        private func listTransactions(for scriptHash: String) -> Set<Transaction.Hash> {
-            records.values.reduce(into: Set<Transaction.Hash>()) { transactions, record in
-                guard record.chainMetadata.scriptHashes.contains(scriptHash) else { return }
-                transactions.insert(record.transactionHash)
-            }
         }
     }
 }

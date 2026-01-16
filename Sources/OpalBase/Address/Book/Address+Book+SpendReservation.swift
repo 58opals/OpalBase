@@ -33,7 +33,7 @@ extension Address.Book {
         let utxoSet = Set(utxos)
         
         if let existingReservation = findMatchingReservation(for: utxoSet) {
-            let refreshedDate = Date()
+            let refreshedDate = Date.now
             let refreshedState = SpendReservation.State(utxos: existingReservation.state.utxos,
                                                         entry: existingReservation.state.entry,
                                                         previousUsageStatus: existingReservation.state.previousUsageStatus,
@@ -47,7 +47,7 @@ extension Address.Book {
         }
         
         let identifier = UUID()
-        let reservationDate = Date()
+        let reservationDate = Date.now
         
         do {
             try utxoStore.reserve(utxoSet)
@@ -92,7 +92,7 @@ extension Address.Book {
     }
     
     func releaseExpiredSpendReservations(olderThan tolerance: TimeInterval,
-                                         currentDate: Date = Date()) async throws -> [SpendReservation] {
+                                         currentDate: Date = Date.now) async throws -> [SpendReservation] {
         let expiredStates = spendReservationStates.filter { _, state in
             currentDate.timeIntervalSince(state.reservedAt) >= tolerance
         }

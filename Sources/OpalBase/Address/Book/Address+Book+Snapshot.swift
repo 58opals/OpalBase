@@ -152,22 +152,8 @@ extension Address.Book {
     }
     
     public func makeSnapshot() -> Snapshot {
-        let receiving = inventory.listEntries(for: .receiving).map { entry in
-            Snapshot.Entry(usage: entry.derivationPath.usage,
-                           index: entry.derivationPath.index,
-                           isUsed: entry.isUsed,
-                           isReserved: entry.isReserved,
-                           balance: entry.cache.balance?.uint64,
-                           lastUpdated: entry.cache.lastUpdated)
-        }
-        let change = inventory.listEntries(for: .change).map { entry in
-            Snapshot.Entry(usage: entry.derivationPath.usage,
-                           index: entry.derivationPath.index,
-                           isUsed: entry.isUsed,
-                           isReserved: entry.isReserved,
-                           balance: entry.cache.balance?.uint64,
-                           lastUpdated: entry.cache.lastUpdated)
-        }
+        let receiving = makeEntrySnapshots(for: .receiving)
+        let change = makeEntrySnapshots(for: .change)
         
         let utxoSnaps = utxoStore.listUTXOs().map {
             Snapshot.UTXO(value: $0.value,
@@ -205,6 +191,17 @@ extension Address.Book {
                         changeEntries: change,
                         utxos: utxoSnaps,
                         transactions: transactionSnaps)
+    }
+    
+    private func makeEntrySnapshots(for usage: DerivationPath.Usage) -> [Snapshot.Entry] {
+        inventory.listEntries(for: usage).map { entry in
+            Snapshot.Entry(usage: entry.derivationPath.usage,
+                           index: entry.derivationPath.index,
+                           isUsed: entry.isUsed,
+                           isReserved: entry.isReserved,
+                           balance: entry.cache.balance?.uint64,
+                           lastUpdated: entry.cache.lastUpdated)
+        }
     }
     
     public func refresh(with snapshot: Snapshot) async throws {

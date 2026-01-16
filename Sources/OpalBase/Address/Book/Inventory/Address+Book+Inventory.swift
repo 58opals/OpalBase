@@ -135,6 +135,18 @@ extension Address.Book {
                                   timestamp: timestamp)
     }
     
+    func updateCachedBalances(_ balances: [Address: Satoshi], timestamp: Date) throws {
+        for (address, balance) in balances {
+            do {
+                try inventory.updateCache(for: address,
+                                          balance: balance,
+                                          timestamp: timestamp)
+            } catch {
+                throw Error.cacheUpdateFailed(address, error)
+            }
+        }
+    }
+    
     func countEntries(for usage: DerivationPath.Usage) -> Int {
         inventory.countEntries(for: usage)
     }

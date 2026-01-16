@@ -4,11 +4,28 @@ import Foundation
 
 extension Address.Book {
     struct UTXOStore {
+        struct Outpoint: Hashable, Sendable {
+            let transactionHash: Transaction.Hash
+            let outputIndex: UInt32
+            
+            init(_ input: Transaction.Input) {
+                self.transactionHash = input.previousTransactionHash
+                self.outputIndex = input.previousTransactionOutputIndex
+            }
+            
+            init(_ utxo: Transaction.Output.Unspent) {
+                self.transactionHash = utxo.previousTransactionHash
+                self.outputIndex = utxo.previousTransactionOutputIndex
+            }
+        }
+        
         private var utxosByLockingScript: [Data: Set<Transaction.Output.Unspent>]
+        private var utxosByOutpoint: [Outpoint: Transaction.Output.Unspent]
         private var reservedUTXOs: Set<Transaction.Output.Unspent>
         
         init() {
             self.utxosByLockingScript = .init()
+            self.utxosByOutpoint = .init()
             self.reservedUTXOs = .init()
         }
         
@@ -30,7 +47,9 @@ extension Address.Book {
             utxosByLockingScript = utxos.reduce(into: [Data: Set<Transaction.Output.Unspent>]()) { result, unspent in
                 result[unspent.lockingScript, default: .init()].insert(unspent)
             }
-            
+            utxosByOutpoint = utxos.reduce(into: .init()) { result, unspent in
+                result[Outpoint(unspent)] = unspent
+            }
             reservedUTXOs = reservedUTXOs.intersection(utxos)
         }
         
@@ -38,10 +57,20 @@ extension Address.Book {
             let lockingScript = address.lockingScript.data
             let newUTXOs = Set(utxos)
             
+            if let oldUTXOs = utxosByLockingScript[lockingScript] {
+                for utxo in oldUTXOs {
+                    utxosByOutpoint.removeValue(forKey: Outpoint(utxo))
+                    reservedUTXOs.remove(utxo)
+                }
+            }
+            
             if newUTXOs.isEmpty {
                 utxosByLockingScript.removeValue(forKey: lockingScript)
             } else {
                 utxosByLockingScript[lockingScript] = newUTXOs
+                for utxo in newUTXOs {
+                    utxosByOutpoint[Outpoint(utxo)] = utxo
+                }
             }
             
             reservedUTXOs = reservedUTXOs.intersection(allUTXOs)
@@ -66,6 +95,7 @@ extension Address.Book {
         
         mutating func clear() {
             utxosByLockingScript.removeAll()
+            utxosByOutpoint.removeAll()
             reservedUTXOs.removeAll()
         }
         
@@ -105,22 +135,11 @@ extension Address.Book {
         }
         
         func findUTXO(matching input: Transaction.Input) -> Transaction.Output.Unspent? {
-            for utxos in utxosByLockingScript.values {
-                if let match = utxos.first(where: { unspent in
-                    unspent.previousTransactionHash == input.previousTransactionHash &&
-                    unspent.previousTransactionOutputIndex == input.previousTransactionOutputIndex
-                }) {
-                    return match
-                }
-            }
-            
-            return nil
+            utxosByOutpoint[Outpoint(input)]
         }
         
         private var allUTXOs: Set<Transaction.Output.Unspent> {
-            utxosByLockingScript.values.reduce(into: Set<Transaction.Output.Unspent>()) { result, utxos in
-                result.formUnion(utxos)
-            }
+            Set(utxosByOutpoint.values)
         }
         
         private var spendableUTXOs: Set<Transaction.Output.Unspent> {
@@ -133,6 +152,7 @@ extension Address.Book {
             var utxos = utxosByLockingScript[utxo.lockingScript] ?? .init()
             utxos.insert(utxo)
             utxosByLockingScript[utxo.lockingScript] = utxos
+            utxosByOutpoint[Outpoint(utxo)] = utxo
         }
         
         private mutating func discard(_ utxo: Transaction.Output.Unspent) {
@@ -147,6 +167,8 @@ extension Address.Book {
             } else {
                 utxosByLockingScript[utxo.lockingScript] = indexedUTXOs
             }
+            
+            utxosByOutpoint.removeValue(forKey: Outpoint(utxo))
         }
     }
 }

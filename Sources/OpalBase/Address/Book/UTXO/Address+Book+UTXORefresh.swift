@@ -27,7 +27,7 @@ extension Address.Book {
         var refreshedUTXOs: [Address: [Transaction.Output.Unspent]] = .init()
         var changeSets: [UTXOChangeSet] = .init()
         
-        let refreshTimestamp = Date()
+        let refreshTimestamp = Date.now
         try await forEachTargetUsage(usage) { _, entries in
             let addresses = entries.map(\.address)
             let usageResults = try await addresses.mapConcurrently(limit: Concurrency.Tuning.maximumConcurrentNetworkRequests) { address in

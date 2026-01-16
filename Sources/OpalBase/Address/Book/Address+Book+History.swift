@@ -25,7 +25,7 @@ extension Address.Book {
                                           includeUnconfirmed: Bool = true) async throws -> Transaction.History.ChangeSet {
         var aggregatedChangeSet = Transaction.History.ChangeSet()
         
-        let refreshTimestamp = Date()
+        let refreshTimestamp = Date.now
         try await forEachTargetUsage(usage) { _, entries in
             let targets = entries.map { entry in
                 let address = entry.address
@@ -44,9 +44,9 @@ extension Address.Book {
                     try await mark(address: result.address, isUsed: true)
                 }
                 
-                let changeSet = transactionLog.updateHistory(for: result.scriptHash,
-                                                             entries: result.entries,
-                                                             timestamp: refreshTimestamp)
+                let changeSet = transactionLog.replaceHistory(for: result.scriptHash,
+                                                              entries: result.entries,
+                                                              timestamp: refreshTimestamp)
                 aggregatedChangeSet.merge(changeSet)
             }
         }
@@ -59,25 +59,19 @@ extension Address.Book {
     public func refreshTransactionHistory(for address: Address,
                                           using service: Network.AddressReadable,
                                           includeUnconfirmed: Bool) async throws -> Transaction.History.ChangeSet {
-        do {
-            let scriptHash = address.makeScriptHash().hexadecimalString
-            let result = try await fetchHistoryQueryResult(for: address,
-                                                           scriptHash: scriptHash,
-                                                           using: service,
-                                                           includeUnconfirmed: includeUnconfirmed)
-            if !result.entries.isEmpty {
-                try await mark(address: address, isUsed: true)
-            }
-            
-            let timestamp = Date()
-            return transactionLog.updateHistory(for: result.scriptHash,
-                                                entries: result.entries,
-                                                timestamp: timestamp)
-        } catch let error as Address.Book.Error {
-            throw error
-        } catch {
-            throw Address.Book.Error.transactionHistoryRefreshFailed(address, error)
+        let scriptHash = address.makeScriptHash().hexadecimalString
+        let result = try await fetchHistoryQueryResult(for: address,
+                                                       scriptHash: scriptHash,
+                                                       using: service,
+                                                       includeUnconfirmed: includeUnconfirmed)
+        if !result.entries.isEmpty {
+            try await mark(address: address, isUsed: true)
         }
+        
+        let timestamp = Date.now
+        return transactionLog.replaceHistory(for: result.scriptHash,
+                                             entries: result.entries,
+                                             timestamp: timestamp)
     }
 }
 
@@ -125,16 +119,16 @@ extension Address.Book {
         }
         
         var aggregatedChangeSet = Transaction.History.ChangeSet()
-        let refreshTimestamp = Date()
+        let refreshTimestamp = Date.now
         for update in updates {
             let resolvedHeight = update.status.transactionHeight ?? -1
             let entry = Transaction.History.Entry(transactionHash: update.record.transactionHash,
                                                   height: resolvedHeight,
                                                   fee: update.record.chainMetadata.fee)
             for scriptHash in update.record.chainMetadata.scriptHashes {
-                let changeSet = transactionLog.updateHistory(for: scriptHash,
-                                                             entries: [entry],
-                                                             timestamp: refreshTimestamp)
+                let changeSet = transactionLog.mergeHistoryEntries(for: scriptHash,
+                                                                   entries: [entry],
+                                                                   timestamp: refreshTimestamp)
                 aggregatedChangeSet.merge(changeSet)
             }
         }

@@ -38,8 +38,6 @@ extension Account {
                                                                    includeUnconfirmed: includeUnconfirmed)
         } catch let error as Address.Book.Error {
             throw makeAccountError(from: error)
-        } catch {
-            throw error
         }
     }
     
@@ -50,8 +48,6 @@ extension Account {
                                                                         for: transactionHashes)
         } catch let error as Address.Book.Error {
             throw makeAccountError(from: error)
-        } catch {
-            throw error
         }
     }
     

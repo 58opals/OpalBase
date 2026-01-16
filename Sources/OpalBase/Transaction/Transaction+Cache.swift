@@ -11,7 +11,7 @@ extension Transaction {
         public init() {}
         
         func loadTransaction(at key: Transaction.Hash) -> Transaction.Detailed? {
-            if let (time, transaction) = store[key], Date().timeIntervalSince(time) < timeToLive { return transaction }
+            if let (time, transaction) = store[key], Date.now.timeIntervalSince(time) < timeToLive { return transaction }
             store[key] = nil
             return nil
         }

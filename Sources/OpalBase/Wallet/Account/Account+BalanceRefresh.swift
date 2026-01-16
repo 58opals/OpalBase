@@ -19,7 +19,7 @@ extension Account {
                                 loader: @escaping @Sendable (Address) async throws -> Satoshi) async throws -> BalanceRefresh {
         let targetUsages = DerivationPath.Usage.targets(for: usage)
         var balancesByUsage: [DerivationPath.Usage: [Address: Satoshi]] = .init()
-        let refreshTimestamp = Date()
+        let refreshTimestamp = Date.now
         
         for currentUsage in targetUsages {
             let entries = await addressBook.listEntries(for: currentUsage)
@@ -43,12 +43,16 @@ extension Account {
             var usageBalances: [Address: Satoshi] = .init()
             for (address, balance) in usageResults {
                 usageBalances[address] = balance
-                do {
-                    try await addressBook.updateCachedBalance(for: address,
-                                                              balance: balance,
-                                                              timestamp: refreshTimestamp)
-                } catch {
-                    throw Error.balanceRefreshFailed(address, error)
+            }
+            
+            do {
+                try await addressBook.updateCachedBalances(usageBalances, timestamp: refreshTimestamp)
+            } catch let error as Address.Book.Error {
+                switch error {
+                case .cacheUpdateFailed(let address, let underlying):
+                    throw Error.balanceRefreshFailed(address, underlying)
+                default:
+                    throw error
                 }
             }
             balancesByUsage[currentUsage] = usageBalances
