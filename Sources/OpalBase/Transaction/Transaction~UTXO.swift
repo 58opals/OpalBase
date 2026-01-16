@@ -41,7 +41,15 @@ extension Transaction {
         let unsignedTransaction = Transaction(version: version, inputs: inputs, outputs: outputs, lockTime: lockTime)
         let signedTransaction = try signTransaction(unsignedTransaction, using: builder)
         
-        return signedTransaction
+        return try correctFeeAfterSigning(signedTransaction: signedTransaction,
+                                          inputs: inputs,
+                                          builder: builder,
+                                          recipientOutputs: recipientOutputs,
+                                          changeOutput: changeOutput,
+                                          outputOrderingStrategy: outputOrderingStrategy,
+                                          feePerByte: feePerByte,
+                                          lockTime: lockTime,
+                                          shouldAllowDustDonation: shouldAllowDustDonation)
     }
     
     private static func computeOutputsAndFee(version: UInt32,
@@ -127,8 +135,8 @@ extension Transaction {
         return (orderedOutputs, finalizedFee)
     }
     
-    private static func signTransaction(_ unsignedTransaction: Transaction,
-                                        using builder: Builder) throws -> Transaction {
+    static func signTransaction(_ unsignedTransaction: Transaction,
+                                using builder: Builder) throws -> Transaction {
         switch builder.signatureFormat {
         case .ecdsa(.raw), .ecdsa(.compact):
             throw Error.unsupportedSignatureFormat
@@ -178,12 +186,5 @@ extension Transaction {
         }
         
         return transaction
-    }
-}
-
-private extension Transaction.Output {
-    var isOpReturnScript: Bool {
-        guard let opcode = lockingScript.first else { return false }
-        return opcode == OP._RETURN.rawValue
     }
 }

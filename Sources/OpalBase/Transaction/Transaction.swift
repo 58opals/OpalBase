@@ -127,7 +127,7 @@ extension Transaction {
 }
 
 extension Transaction {
-    public enum Error: Swift.Error {
+    public enum Error: Swift.Error, Equatable {
         case insufficientFunds(required: UInt64)
         case accountNotFound
         case cannotCreateTransaction
