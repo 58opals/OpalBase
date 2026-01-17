@@ -76,6 +76,16 @@ extension ECDSA {
             return schnorrSignature.dataRepresentation
         }
     }
+    
+    static func sign(message: ECDSA.Message, with privateKey: PrivateKey, in format: SignatureFormat) throws -> Data {
+        switch format {
+        case .ecdsa, .schnorrBIP340:
+            let signerInput = try message.makeDataForSignerHashingOnceSHA256Internally()
+            return try sign(message: signerInput, with: privateKey, in: format)
+        case .schnorr:
+            throw Error.schnorrBCHNotImplementedYet
+        }
+    }
 }
 
 extension ECDSA {
@@ -106,6 +116,16 @@ extension ECDSA {
             let schnorrPublicKey = P256K.Schnorr.XonlyKey(dataRepresentation: xCoordinate)
             let schnorrSignature = try P256K.Schnorr.SchnorrSignature(dataRepresentation: signature)
             return schnorrPublicKey.isValidSignature(schnorrSignature, for: message)
+        }
+    }
+    
+    static func verify(signature: Data, message: ECDSA.Message, publicKey: PublicKey, format: SignatureFormat) throws -> Bool {
+        switch format {
+        case .ecdsa, .schnorrBIP340:
+            let signerInput = try message.makeDataForSignerHashingOnceSHA256Internally()
+            return try verify(signature: signature, message: signerInput, publicKey: publicKey, format: format)
+        case .schnorr:
+            throw Error.schnorrBCHNotImplementedYet
         }
     }
 }
