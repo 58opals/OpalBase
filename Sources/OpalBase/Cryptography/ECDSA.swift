@@ -55,7 +55,10 @@ extension ECDSA {
 }
 
 extension ECDSA {
-    static func sign(message: Data, with privateKey: PrivateKey, in format: SignatureFormat) throws -> Data {
+    static func sign(message: Data,
+                     with privateKey: PrivateKey,
+                     in format: SignatureFormat,
+                     nonceFunction: NonceFunction = .rfc6979BchDefault) throws -> Data {
         switch format {
         case .ecdsa(let ecdsa):
             let ecdsaPrivateKey = try P256K.Signing.PrivateKey(dataRepresentation: privateKey.rawData)
@@ -72,7 +75,11 @@ extension ECDSA {
             guard message.count == 32 else {
                 throw Error.invalidDigestLength(expected: 32, actual: message.count)
             }
-            let signature = try BCHSchnorr.sign(digest32: message, privateKey32: privateKey.rawData)
+            let signature = try BCHSchnorr.sign(
+                digest32: message,
+                privateKey32: privateKey.rawData,
+                nonce: nonceFunction
+            )
             return signature.raw64
         case .schnorrBIP340:
             let schnorrPrivateKey = try P256K.Schnorr.PrivateKey(dataRepresentation: privateKey.rawData)
@@ -81,14 +88,17 @@ extension ECDSA {
         }
     }
     
-    static func sign(message: ECDSA.Message, with privateKey: PrivateKey, in format: SignatureFormat) throws -> Data {
+    static func sign(message: ECDSA.Message,
+                     with privateKey: PrivateKey,
+                     in format: SignatureFormat,
+                     nonceFunction: NonceFunction = .rfc6979BchDefault) throws -> Data {
         switch format {
         case .ecdsa, .schnorrBIP340:
             let signerInput = try message.makeDataForSignerHashingOnceSHA256Internally()
-            return try sign(message: signerInput, with: privateKey, in: format)
+            return try sign(message: signerInput, with: privateKey, in: format, nonceFunction: nonceFunction)
         case .schnorr:
             let digest32 = try message.makeConsensusDigest32()
-            return try sign(message: digest32, with: privateKey, in: .schnorr)
+            return try sign(message: digest32, with: privateKey, in: .schnorr, nonceFunction: nonceFunction)
         }
     }
 }
@@ -144,6 +154,20 @@ extension ECDSA {
         case .schnorr:
             let digest32 = try message.makeConsensusDigest32()
             return try verify(signature: signature, message: digest32, publicKey: publicKey, format: .schnorr)
+        }
+    }
+}
+
+extension ECDSA {
+    static func detectFormat(signatureCore: Data) -> SignatureFormat? {
+        if signatureCore.count == 64 {
+            return .schnorr
+        }
+        do {
+            _ = try P256K.Signing.ECDSASignature(derRepresentation: signatureCore)
+            return .ecdsa(.der)
+        } catch {
+            return nil
         }
     }
 }
