@@ -21,7 +21,6 @@ extension ECDSA {
         case invalidCompressedPublicKeyPrefix
         case invalidDigestLength(expected: Int, actual: Int)
         case invalidHashIterationCount
-        case schnorrBCHNotImplementedYet
     }
 }
 
@@ -88,7 +87,8 @@ extension ECDSA {
             let signerInput = try message.makeDataForSignerHashingOnceSHA256Internally()
             return try sign(message: signerInput, with: privateKey, in: format)
         case .schnorr:
-            throw Error.schnorrBCHNotImplementedYet
+            let digest32 = try message.makeConsensusDigest32()
+            return try sign(message: digest32, with: privateKey, in: .schnorr)
         }
     }
 }
@@ -142,7 +142,8 @@ extension ECDSA {
             let signerInput = try message.makeDataForSignerHashingOnceSHA256Internally()
             return try verify(signature: signature, message: signerInput, publicKey: publicKey, format: format)
         case .schnorr:
-            throw Error.schnorrBCHNotImplementedYet
+            let digest32 = try message.makeConsensusDigest32()
+            return try verify(signature: signature, message: digest32, publicKey: publicKey, format: .schnorr)
         }
     }
 }
