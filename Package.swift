@@ -18,6 +18,7 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/58opals/SwiftFulcrum.git", from: "0.5.0"),
+        .package(url: "https://github.com/58opals/SwiftSchnorr.git", branch: "draft"),
         .package(url: "https://github.com/attaswift/BigInt.git", from: "5.7.0"),
         .package(url: "https://github.com/21-DOT-DEV/swift-secp256k1.git", from: "0.21.0")
     ],
@@ -25,6 +26,7 @@ let package = Package(
         .target(name: "OpalBase",
                 dependencies: [
                     .product(name: "SwiftFulcrum", package: "SwiftFulcrum"),
+                    .product(name: "SwiftSchnorr", package: "SwiftSchnorr"),
                     .product(name: "BigInt", package: "BigInt"),
                     .product(name: "P256K", package: "swift-secp256k1")
                 ],

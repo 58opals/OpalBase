@@ -2,6 +2,7 @@
 
 import Foundation
 import BigInt
+import SwiftSchnorr
 import P256K
 
 public struct ECDSA {
@@ -69,7 +70,11 @@ extension ECDSA {
                 return try ecdsaSignature.derRepresentation
             }
         case .schnorr:
-            throw Error.schnorrBCHNotImplementedYet
+            guard message.count == 32 else {
+                throw Error.invalidDigestLength(expected: 32, actual: message.count)
+            }
+            let signature = try BCHSchnorr.sign(digest32: message, privateKey32: privateKey.rawData)
+            return signature.raw64
         case .schnorrBIP340:
             let schnorrPrivateKey = try P256K.Schnorr.PrivateKey(dataRepresentation: privateKey.rawData)
             let schnorrSignature = try schnorrPrivateKey.signature(for: message)
@@ -110,7 +115,19 @@ extension ECDSA {
                 return ecdsaPublicKey.isValidSignature(ecdsaSignature, for: message)
             }
         case .schnorr:
-            throw Error.schnorrBCHNotImplementedYet
+            do {
+                guard message.count == 32 else {
+                    throw Error.invalidDigestLength(expected: 32, actual: message.count)
+                }
+                let schnorrSignature = try BCHSchnorr.Signature(raw64: signature)
+                return try BCHSchnorr.verify(
+                    signature: schnorrSignature,
+                    digest32: message,
+                    publicKey: publicKey.compressedData
+                )
+            } catch {
+                return false
+            }
         case .schnorrBIP340:
             let xCoordinate = compressedPublicKey[1..<33]
             let schnorrPublicKey = P256K.Schnorr.XonlyKey(dataRepresentation: xCoordinate)

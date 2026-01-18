@@ -1,5 +1,5 @@
 {
-  "originHash" : "e0e8fe5c58bcfef673939d61e6656a0f357a92f8f61bf23e4614b9a91a8ff214",
+  "originHash" : "761a19ae63ffa5e868d73dcfc2ca66d9c4bb3ebde10b3bf278c12002486226f5",
   "pins" : [
     {
       "identity" : "bigint",
@@ -26,6 +26,15 @@
       "state" : {
         "revision" : "a9133948cd2589bfb5ca2d8ed82d78a4f091d209",
         "version" : "0.5.3"
+      }
+    },
+    {
+      "identity" : "swiftschnorr",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/58opals/SwiftSchnorr.git",
+      "state" : {
+        "branch" : "draft",
+        "revision" : "26b05660512ce583ddff2e29111f0000ec4a0010"
       }
     }
   ],
