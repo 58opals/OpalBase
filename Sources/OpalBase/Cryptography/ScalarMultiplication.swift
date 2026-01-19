@@ -3,8 +3,8 @@
 import Foundation
 
 enum ScalarMultiplication {
-    private static let generatorMultiples4BitAffine: [AffinePoint] = {
-        var jacobianTable = Array(repeating: JacobianPoint.infinity, count: 16)
+    private static let generatorMultiples8BitAffine: [AffinePoint] = {
+        var jacobianTable = Array(repeating: JacobianPoint.infinity, count: 256)
         jacobianTable[1] = JacobianPoint(affine: generator)
         if jacobianTable.count > 2 {
             for index in 2..<jacobianTable.count {
@@ -13,7 +13,7 @@ enum ScalarMultiplication {
         }
         
         let affineOptionals = JacobianPoint.batchToAffine(jacobianTable)
-        var affineTable = Array(repeating: generator, count: 16)
+        var affineTable = Array(repeating: generator, count: 256)
         for index in 1..<affineTable.count {
             guard let affinePoint = affineOptionals[index] else {
                 preconditionFailure("Unexpected infinity in generator table at index \(index).")
@@ -41,16 +41,10 @@ enum ScalarMultiplication {
     static func mulG(_ scalar: Scalar) -> JacobianPoint {
         var result = JacobianPoint.infinity
         scalar.forEachBigEndianByte { byte in
-            result = result.doubleFourTimes()
-            let highHalfByte = Int(byte >> 4)
-            if highHalfByte != 0 {
-                result = result.addAffine(generatorMultiples4BitAffine[highHalfByte])
-            }
-            
-            result = result.doubleFourTimes()
-            let lowHalfByte = Int(byte & 0x0F)
-            if lowHalfByte != 0 {
-                result = result.addAffine(generatorMultiples4BitAffine[lowHalfByte])
+            result = result.doubleEightTimes()
+            let byteValue = Int(byte)
+            if byteValue != 0 {
+                result = result.addAffine(generatorMultiples8BitAffine[byteValue])
             }
         }
         return result

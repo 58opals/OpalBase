@@ -68,6 +68,19 @@ struct JacobianPoint: Sendable, Equatable {
         return result
     }
     
+    func doubleEightTimes() -> JacobianPoint {
+        var result = self
+        result = result.double()
+        result = result.double()
+        result = result.double()
+        result = result.double()
+        result = result.double()
+        result = result.double()
+        result = result.double()
+        result = result.double()
+        return result
+    }
+    
     func add(_ other: JacobianPoint) -> JacobianPoint {
         guard !isInfinity else {
             return other
