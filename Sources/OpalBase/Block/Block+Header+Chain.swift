@@ -1,7 +1,6 @@
 // Block+Header+Chain.swift
 
 import Foundation
-import BigInt
 
 extension Block.Header {
     public actor Chain {

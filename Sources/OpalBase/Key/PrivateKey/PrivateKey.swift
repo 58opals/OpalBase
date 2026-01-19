@@ -1,7 +1,6 @@
 // PrivateKey.swift
 
 import Foundation
-import BigInt
 
 public struct PrivateKey {
     let rawData: Data

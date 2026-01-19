@@ -1,9 +1,7 @@
 // ECDSA.swift
 
 import Foundation
-import BigInt
 import SwiftSchnorr
-import P256K
 
 public struct ECDSA {
     static let numberOfPointsOnTheCurveWeCanHit = BigUInt("115792089237316195423570985008687907852837564279074904382605163141518161494337")

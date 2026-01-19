@@ -1,7 +1,6 @@
 // Base32.swift
 
 import Foundation
-import BigInt
 
 struct Base32 {
     static let characters: [Character] = [

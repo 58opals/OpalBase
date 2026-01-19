@@ -61,8 +61,6 @@ extension Block {
 extension Block.Header: Sendable {}
 extension Block.Header: Equatable {}
 
-import BigInt
-
 extension Block.Header {
     var proofOfWorkHash: Data { return HASH256.hash(encode()).reversedData }
     

@@ -1,7 +1,6 @@
 // PrivateKey+Extended.swift
 
 import Foundation
-import BigInt
 
 extension PrivateKey {
     struct Extended {

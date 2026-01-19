@@ -1,7 +1,6 @@
 // Base58.swift
 
 import Foundation
-import BigInt
 
 struct Base58 {
     static let characters: [Character] = [

@@ -1,7 +1,6 @@
 // PublicKey+Extended.swift
 
 import Foundation
-import BigInt
 
 extension PublicKey {
     struct Extended {

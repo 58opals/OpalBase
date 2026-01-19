@@ -1,7 +1,6 @@
 // Int+.swift
 
 import Foundation
-import BigInt
 
 extension FixedWidthInteger {
     var data: Data {
