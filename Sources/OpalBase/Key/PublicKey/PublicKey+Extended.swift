@@ -1,7 +1,6 @@
 // PublicKey+Extended.swift
 
 import Foundation
-import SwiftSchnorr
 
 extension PublicKey {
     struct Extended {
@@ -88,9 +87,9 @@ extension PublicKey.Extended {
         
         let childPublicKey: Data
         do {
-            childPublicKey = try Secp256k1KeyOperations.tweakAddPublicKey(publicKey,
-                                                                          tweak32: leftHMACPart,
-                                                                          format: .compressed)
+            childPublicKey = try Secp256k1.Operation.tweakAddPublicKey(publicKey,
+                                                                       tweak32: leftHMACPart,
+                                                                       format: .compressed)
         } catch {
             throw PublicKey.Error.publicKeyDerivationFailed
         }

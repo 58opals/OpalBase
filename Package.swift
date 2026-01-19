@@ -17,14 +17,12 @@ let package = Package(
             targets: ["OpalBase"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/58opals/SwiftFulcrum.git", from: "0.5.0"),
-        .package(url: "https://github.com/58opals/SwiftSchnorr.git", branch: "draft")
+        .package(url: "https://github.com/58opals/SwiftFulcrum.git", from: "0.5.0")
     ],
     targets: [
         .target(name: "OpalBase",
                 dependencies: [
-                    .product(name: "SwiftFulcrum", package: "SwiftFulcrum"),
-                    .product(name: "SwiftSchnorr", package: "SwiftSchnorr")
+                    .product(name: "SwiftFulcrum", package: "SwiftFulcrum")
                 ],
                 resources: [
                     .process("(Resource)/BIP-0039/English.txt"),

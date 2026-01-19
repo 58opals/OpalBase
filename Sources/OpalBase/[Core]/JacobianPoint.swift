@@ -1,0 +1,97 @@
+// JacobianPoint.swift
+
+import Foundation
+
+struct JacobianPoint: Sendable, Equatable {
+    let X: FieldElement
+    let Y: FieldElement
+    let Z: FieldElement
+    
+    static let infinity = JacobianPoint(X: .zero, Y: .one, Z: .zero)
+    
+    var isInfinity: Bool {
+        Z.isZero
+    }
+    
+    init(X: FieldElement, Y: FieldElement, Z: FieldElement) {
+        self.X = X
+        self.Y = Y
+        self.Z = Z
+    }
+    
+    init(affine: AffinePoint) {
+        X = affine.x
+        Y = affine.y
+        Z = .one
+    }
+    
+    func toAffine() -> AffinePoint? {
+        guard !isInfinity else {
+            return nil
+        }
+        let zInverse = Z.invert()
+        let zInverseSquared = zInverse.square()
+        let x = X.mul(zInverseSquared)
+        let y = Y.mul(zInverseSquared.mul(zInverse))
+        return AffinePoint(x: x, y: y)
+    }
+    
+    func negate() -> JacobianPoint {
+        guard !isInfinity else {
+            return self
+        }
+        return JacobianPoint(X: X, Y: Y.negate(), Z: Z)
+    }
+    
+    func double() -> JacobianPoint {
+        guard !isInfinity, !Y.isZero else {
+            return .infinity
+        }
+        let xCoordinateSquared = X.square()
+        let yCoordinateSquared = Y.square()
+        let yCoordinateFourth = yCoordinateSquared.square()
+        let xCoordinatePlusYSquared = X.add(yCoordinateSquared)
+        let delta = xCoordinatePlusYSquared.square().sub(xCoordinateSquared).sub(yCoordinateFourth).double()
+        let threeXCoordinate = xCoordinateSquared.double().add(xCoordinateSquared)
+        let xCoordinateResult = threeXCoordinate.square().sub(delta.double())
+        let yCoordinateResult = threeXCoordinate.mul(delta.sub(xCoordinateResult)).sub(yCoordinateFourth.mul(.eight))
+        let zCoordinateResult = Y.mul(Z).double()
+        return JacobianPoint(X: xCoordinateResult, Y: yCoordinateResult, Z: zCoordinateResult)
+    }
+    
+    func add(_ other: JacobianPoint) -> JacobianPoint {
+        guard !isInfinity else {
+            return other
+        }
+        guard !other.isInfinity else {
+            return self
+        }
+        
+        let firstZSquared = Z.square()
+        let secondZSquared = other.Z.square()
+        let firstXAdjusted = X.mul(secondZSquared)
+        let secondXAdjusted = other.X.mul(firstZSquared)
+        let firstZCubed = firstZSquared.mul(Z)
+        let secondZCubed = secondZSquared.mul(other.Z)
+        let firstYAdjusted = Y.mul(secondZCubed)
+        let secondYAdjusted = other.Y.mul(firstZCubed)
+        
+        if firstXAdjusted == secondXAdjusted {
+            if firstYAdjusted != secondYAdjusted {
+                return .infinity
+            }
+            return double()
+        }
+        
+        let xDifference = secondXAdjusted.sub(firstXAdjusted)
+        let xDifferenceSquared = xDifference.double().square()
+        let xDifferenceCubed = xDifference.mul(xDifferenceSquared)
+        let yDifference = secondYAdjusted.sub(firstYAdjusted).double()
+        let firstProduct = firstXAdjusted.mul(xDifferenceSquared)
+        let xCoordinateResult = yDifference.square().sub(xDifferenceCubed).sub(firstProduct.double())
+        let yCoordinateResult = yDifference.mul(firstProduct.sub(xCoordinateResult)).sub(firstYAdjusted.mul(xDifferenceCubed).double())
+        let zCoordinateResult = Z.add(other.Z).square().sub(firstZSquared).sub(secondZSquared).mul(xDifference)
+        return JacobianPoint(X: xCoordinateResult, Y: yCoordinateResult, Z: zCoordinateResult)
+    }
+}
+

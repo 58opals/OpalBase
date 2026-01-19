@@ -1,7 +1,6 @@
 // PrivateKey.swift
 
 import Foundation
-import SwiftSchnorr
 
 public struct PrivateKey {
     let rawData: Data
@@ -17,14 +16,14 @@ public struct PrivateKey {
                 throw Error.randomBytesGenerationFailed
             }
             
-            isValidPrivateKey = Secp256k1KeyOperations.isValidPrivateKey32(Data(randomBytes))
+            isValidPrivateKey = Secp256k1.Operation.isValidPrivateKey32(Data(randomBytes))
         } while !isValidPrivateKey
         
         self.rawData = Data(randomBytes)
     }
     
     public init(data: Data) throws {
-        guard Secp256k1KeyOperations.isValidPrivateKey32(data) else { throw Error.outOfBounds }
+        guard Secp256k1.Operation.isValidPrivateKey32(data) else { throw Error.outOfBounds }
         self.rawData = data
     }
 }

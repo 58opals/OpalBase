@@ -1,13 +1,12 @@
 // ECDSA.swift
 
 import Foundation
-import SwiftSchnorr
 
 public struct ECDSA {
     static func add(to compressedPublicKey: Data, tweak: Data) throws -> Data {
-        try Secp256k1KeyOperations.tweakAddPublicKey(compressedPublicKey,
-                                                     tweak32: tweak,
-                                                     format: .compressed)
+        try Secp256k1.Operation.tweakAddPublicKey(compressedPublicKey,
+                                                  tweak32: tweak,
+                                                  format: .compressed)
     }
 }
 
@@ -22,7 +21,7 @@ extension ECDSA {
 
 extension ECDSA {
     static func derivePublicKey(from privateKey: Data) throws -> Data {
-        try Secp256k1KeyOperations.publicKey(fromPrivateKey32: privateKey, format: .compressed)
+        try Secp256k1.Operation.publicKey(fromPrivateKey32: privateKey, format: .compressed)
     }
 }
 
@@ -51,9 +50,9 @@ extension ECDSA {
         switch format {
         case .ecdsa(let ecdsa):
             let digest32 = SHA256.hash(message)
-            let ecdsaSignature = try Secp256k1ECDSA.sign(digest32: digest32,
-                                                         privateKey32: privateKey.rawData,
-                                                         nonce: makeEcdsaNonce(from: nonceFunction))
+            let ecdsaSignature = try Secp256k1.sign(digest32: digest32,
+                                                    privateKey32: privateKey.rawData,
+                                                    nonce: makeEcdsaNonce(from: nonceFunction))
             switch ecdsa {
             case .raw:
                 return ecdsaSignature.raw64
@@ -64,9 +63,9 @@ extension ECDSA {
             }
         case .schnorr:
             guard message.count == 32 else { throw Error.invalidDigestLength(expected: 32, actual: message.count) }
-            let signature = try BCHSchnorr.sign(digest32: message,
-                                                privateKey32: privateKey.rawData,
-                                                nonce: nonceFunction)
+            let signature = try Schnorr.sign(digest32: message,
+                                             privateKey32: privateKey.rawData,
+                                             nonce: nonceFunction)
             return signature.raw64
         }
     }
@@ -98,23 +97,23 @@ extension ECDSA {
             let digest32 = SHA256.hash(message)
             switch ecdsa {
             case .raw:
-                let ecdsaSignature = try Secp256k1ECDSA.Signature(raw64: signature)
-                return try Secp256k1ECDSA.verify(signature: ecdsaSignature, digest32: digest32, publicKey: compressedPublicKey)
+                let ecdsaSignature = try Secp256k1.Signature(raw64: signature)
+                return try Secp256k1.verify(signature: ecdsaSignature, digest32: digest32, publicKey: compressedPublicKey)
             case .compact:
-                let ecdsaSignature = try Secp256k1ECDSA.Signature(raw64: signature)
-                return try Secp256k1ECDSA.verify(signature: ecdsaSignature, digest32: digest32, publicKey: compressedPublicKey)
+                let ecdsaSignature = try Secp256k1.Signature(raw64: signature)
+                return try Secp256k1.verify(signature: ecdsaSignature, digest32: digest32, publicKey: compressedPublicKey)
             case .der:
-                return try Secp256k1ECDSA.verify(derEncodedSignature: signature,
-                                                 digest32: digest32,
-                                                 publicKey: compressedPublicKey)
+                return try Secp256k1.verify(derEncodedSignature: signature,
+                                            digest32: digest32,
+                                            publicKey: compressedPublicKey)
             }
         case .schnorr:
             do {
                 guard message.count == 32 else { throw Error.invalidDigestLength(expected: 32, actual: message.count) }
-                let schnorrSignature = try BCHSchnorr.Signature(raw64: signature)
-                return try BCHSchnorr.verify(signature: schnorrSignature,
-                                             digest32: message,
-                                             publicKey: publicKey.compressedData)
+                let schnorrSignature = try Schnorr.Signature(raw64: signature)
+                return try Schnorr.verify(signature: schnorrSignature,
+                                          digest32: message,
+                                          publicKey: publicKey.compressedData)
             } catch {
                 return false
             }
@@ -137,7 +136,7 @@ extension ECDSA {
     static func detectFormat(signatureCore: Data) -> SignatureFormat? {
         if signatureCore.count == 64 { return .schnorr }
         do {
-            _ = try Secp256k1ECDSA.Signature(derEncoded: signatureCore)
+            _ = try Secp256k1.Signature(derEncoded: signatureCore)
             return .ecdsa(.der)
         } catch {
             return nil

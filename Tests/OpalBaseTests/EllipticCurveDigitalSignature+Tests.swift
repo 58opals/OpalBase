@@ -1,6 +1,5 @@
 import Foundation
 import Testing
-import SwiftSchnorr
 @testable import OpalBase
 
 @Suite("Elliptic curve digital signatures", .tags(.unit, .cryptography))
@@ -13,9 +12,9 @@ struct EllipticCurveDigitalSignatureTests {
         
         let signature = try ECDSA.sign(message: message, with: privateKey, in: .ecdsa(.der))
         let digest = SHA256.hash(message)
-        let isValid = try Secp256k1ECDSA.verify(derEncodedSignature: signature,
-                                                digest32: digest,
-                                                publicKey: publicKey.compressedData)
+        let isValid = try Secp256k1.verify(derEncodedSignature: signature,
+                                           digest32: digest,
+                                           publicKey: publicKey.compressedData)
         
         #expect(isValid)
     }
@@ -29,9 +28,9 @@ struct EllipticCurveDigitalSignatureTests {
         
         let signature = try ECDSA.sign(message: message, with: privateKey, in: .ecdsa(.der))
         let alteredDigest = SHA256.hash(alteredMessage)
-        let isValid = try Secp256k1ECDSA.verify(derEncodedSignature: signature,
-                                                digest32: alteredDigest,
-                                                publicKey: publicKey.compressedData)
+        let isValid = try Secp256k1.verify(derEncodedSignature: signature,
+                                           digest32: alteredDigest,
+                                           publicKey: publicKey.compressedData)
         
         #expect(!isValid)
     }

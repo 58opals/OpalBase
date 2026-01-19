@@ -1,7 +1,6 @@
 // PrivateKey+Extended.swift
 
 import Foundation
-import SwiftSchnorr
 
 extension PrivateKey {
     struct Extended {
@@ -98,7 +97,7 @@ extension PrivateKey.Extended {
         
         let childPrivateKey: Data
         do {
-            childPrivateKey = try Secp256k1KeyOperations.tweakAddPrivateKey32(parentPrivateKey, tweak32: leftHMACPart)
+            childPrivateKey = try Secp256k1.Operation.tweakAddPrivateKey32(parentPrivateKey, tweak32: leftHMACPart)
         } catch {
             throw PrivateKey.Error.invalidDerivedKey
         }
