@@ -31,14 +31,6 @@ extension UInt32 {
     }
 }
 
-extension BigUInt {
-    func padLeft(to size: Int) -> Data {
-        let bytes = self.serialize()
-        if bytes.count >= size { return bytes }
-        return Data(repeating: 0, count: size - bytes.count) + bytes
-    }
-}
-
 enum Harden {
     static let bit: UInt32 = 0x8000_0000
     static let maxUnhardenedValue: UInt32 = bit &- 1

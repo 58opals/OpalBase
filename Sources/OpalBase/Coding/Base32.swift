@@ -21,12 +21,11 @@ struct Base32 {
             }
             return result
         case false:
-            var value = BigUInt(data)
+            var value = LargeUnsignedInteger(data)
             var charactersResult: [Character] = .init()
             charactersResult.reserveCapacity(Swift.max(1, data.count * 2))
-            while value > 0 {
-                let remainder = Int(value % BigUInt(baseNumber))
-                value /= BigUInt(baseNumber)
+            while !value.isZero {
+                let remainder = value.divide(by: baseNumber)
                 charactersResult.append(characters[remainder])
             }
             return String(charactersResult.reversed())
@@ -47,12 +46,13 @@ struct Base32 {
                 }
             }
         case false:
-            var value = BigUInt(0)
+            var value = LargeUnsignedInteger(0)
             for character in string {
                 let normalizedCharacter = try normalizeCharacter(character)
                 
                 if let index = characters.firstIndex(of: normalizedCharacter) {
-                    value = value * BigUInt(baseNumber) + BigUInt(index)
+                    value.multiply(by: baseNumber)
+                    value.add(index)
                 } else {
                     throw Error.invalidCharacterFound
                 }

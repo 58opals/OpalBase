@@ -1,12 +1,13 @@
 // PublicKey.swift
 
 import Foundation
+import SwiftSchnorr
 
 public struct PublicKey {
     let compressedData: Data
     
     public init(privateKey: PrivateKey) throws {
-        self.compressedData = try ECDSA.derivePublicKey(from: privateKey.rawData).dataRepresentation
+        self.compressedData = try Secp256k1KeyOperations.publicKey(fromPrivateKey32: privateKey.rawData, format: .compressed)
     }
     
     public init(compressedData: Data) throws {

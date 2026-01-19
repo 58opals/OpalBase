@@ -14,12 +14,11 @@ struct Base58 {
     private static let baseNumber: Int = characters.count
     
     static func encode(_ data: Data) -> String {
-        var value = BigUInt(data)
+        var value = LargeUnsignedInteger(data)
         var charactersResult: [Character] = .init()
         charactersResult.reserveCapacity(Swift.max(1, data.count * 2))
-        while value > 0 {
-            let remainder = Int(value % BigUInt(baseNumber))
-            value /= BigUInt(baseNumber)
+        while !value.isZero {
+            let remainder = value.divide(by: baseNumber)
             charactersResult.append(characters[remainder])
         }
         
@@ -32,19 +31,21 @@ struct Base58 {
     }
     
     static func decode(_ base58: String) -> Data? {
-        var total: BigUInt = 0
+        var total = LargeUnsignedInteger.zero
         
         for character in base58 {
             guard let characterIndex = characters.firstIndex(of: character) else { return nil }
             
-            let value = BigUInt(characters.distance(from: characters.startIndex, to: characterIndex))
-            total = total * BigUInt(baseNumber) + value
+            let value = characters.distance(from: characters.startIndex, to: characterIndex)
+            total.multiply(by: baseNumber)
+            total.add(value)
         }
         
         var bytes: [UInt8] = .init()
-        while total > 0 {
-            bytes.append(UInt8(total & 0xff))
-            total >>= 8
+        var current = total
+        while !current.isZero {
+            let remainder = current.divide(by: 256)
+            bytes.append(UInt8(remainder))
         }
         bytes.reverse()
         

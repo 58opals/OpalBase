@@ -13,7 +13,7 @@ extension Transaction.Unlocker {
     func makePlaceholderUnlockingScript(signatureFormat: ECDSA.SignatureFormat) -> Data {
         switch signatureFormat {
         case .ecdsa(.raw), .ecdsa(.compact):
-            assertionFailure("OP_CHECKSIG or OP_CHECKDATASIG requires DER-encoded ECDSA. Use .ecdsa(.der) or .schnorr (BCH). .schnorrBIP340 is not BCH consensus.")
+            assertionFailure("OP_CHECKSIG or OP_CHECKDATASIG requires DER-encoded ECDSA. Use .ecdsa(.der) or .schnorr (BCH).")
         default:
             break
         }
@@ -25,10 +25,8 @@ extension Transaction.Unlocker {
                 return 72
             case .schnorr:
                 return 64
-            case .schnorrBIP340:
-                return 64
             case .ecdsa(.raw), .ecdsa(.compact):
-                assertionFailure("Unsupported ECDSA format. Use .ecdsa(.der) or .schnorr (BCH). .schnorrBIP340 is not BCH consensus.")
+                assertionFailure("Unsupported ECDSA format. Use .ecdsa(.der) or .schnorr (BCH).")
                 return 72
             }
         }()

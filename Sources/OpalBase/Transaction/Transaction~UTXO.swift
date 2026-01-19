@@ -138,7 +138,7 @@ extension Transaction {
     static func signTransaction(_ unsignedTransaction: Transaction,
                                 using builder: Builder) throws -> Transaction {
         switch builder.signatureFormat {
-        case .ecdsa(.raw), .ecdsa(.compact), .schnorrBIP340:
+        case .ecdsa(.raw), .ecdsa(.compact):
             throw Error.unsupportedSignatureFormat
         default:
             break
@@ -158,13 +158,6 @@ extension Transaction {
                                                                         hashType: hashType,
                                                                         outputBeingSpent: outputBeingSpent)
                 
-                /*
-                let message = SHA256.hash(preimage)
-                // MARK: ↑ We hash the preimage "ONCE" here.
-                /// The signer `(P256K.Signing.PrivateKey.signature(for:))` applies SHA256 again internally.
-                /// Final digest signed = double‑SHA256(preimage).
-                */
-                
                 let message = ECDSA.Message.makeDoubleSHA256(preimage)
                 let signature = try ECDSA.sign(message: message,
                                                with: privateKey,
@@ -174,13 +167,6 @@ extension Transaction {
                 
                 transaction = try transaction.injectUnlockingScript(unlockingScript, inputIndex: index)
             case .p2pkh_CheckDataSig(let message):
-                /*
-                let message = message
-                // MARK: ↑ We DO NOT hash the message here.
-                /// The signer `(P256K.Signing.PrivateKey.signature(for:))` applies SHA256 once internally.
-                /// Final digest signed = single‑SHA256(preimage).
-                */
-                
                 let messageBytes = message
                 let message = ECDSA.Message.makeSingleSHA256(messageBytes)
                 let signature = try ECDSA.sign(message: message,

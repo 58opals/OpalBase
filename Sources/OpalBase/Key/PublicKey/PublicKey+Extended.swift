@@ -1,6 +1,7 @@
 // PublicKey+Extended.swift
 
 import Foundation
+import SwiftSchnorr
 
 extension PublicKey {
     struct Extended {
@@ -85,10 +86,14 @@ extension PublicKey.Extended {
         let leftHMACPart = Data(hmac.prefix(32))
         let rightHMACPart = Data(hmac.suffix(32))
         
-        let leftHMACPartBigUInt = BigUInt(leftHMACPart)
-        guard leftHMACPartBigUInt != 0 && leftHMACPartBigUInt < ECDSA.numberOfPointsOnTheCurveWeCanHit else { throw PublicKey.Error.publicKeyDerivationFailed }
-        
-        let childPublicKey = try ECDSA.add(to: publicKey, tweak: leftHMACPart)
+        let childPublicKey: Data
+        do {
+            childPublicKey = try Secp256k1KeyOperations.tweakAddPublicKey(publicKey,
+                                                                          tweak32: leftHMACPart,
+                                                                          format: .compressed)
+        } catch {
+            throw PublicKey.Error.publicKeyDerivationFailed
+        }
         let childChainCode = rightHMACPart
         let childDepth = depth + 1
         let childParentFingerprint = Data(HASH160.hash(publicKey).prefix(4))

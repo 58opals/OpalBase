@@ -1,6 +1,7 @@
 // PrivateKey+Extended.swift
 
 import Foundation
+import SwiftSchnorr
 
 extension PrivateKey {
     struct Extended {
@@ -95,23 +96,18 @@ extension PrivateKey.Extended {
         let leftHMACPart = Data(hmac.prefix(32))
         let rightHMACPart = Data(hmac.suffix(32))
         
-        let leftHMACPartBigUInt = BigUInt(leftHMACPart)
-        let curveOrder = ECDSA.numberOfPointsOnTheCurveWeCanHit
-        
-        guard leftHMACPartBigUInt < curveOrder else { throw PrivateKey.Error.invalidDerivedKey }
-        
-        let parentKeyInteger = BigUInt(parentPrivateKey)
-        let childKeyInteger = (parentKeyInteger + leftHMACPartBigUInt) % curveOrder
-        guard childKeyInteger > 0 else { throw PrivateKey.Error.invalidDerivedKey }
-        
-        let childPrivateKey = childKeyInteger.serialize()
-        let paddedChildPrivateKey = (childPrivateKey.count < 32) ? (Data(repeating: 0, count: 32 - childPrivateKey.count) + childPrivateKey) : childPrivateKey
+        let childPrivateKey: Data
+        do {
+            childPrivateKey = try Secp256k1KeyOperations.tweakAddPrivateKey32(parentPrivateKey, tweak32: leftHMACPart)
+        } catch {
+            throw PrivateKey.Error.invalidDerivedKey
+        }
         let childChainCode = rightHMACPart
         let childDepth = depth + 1
         let childParentFingerprint = Data(HASH160.hash(parentPublicKey).prefix(4))
         let childIndexNumber = index
         
-        return .init(privateKey: paddedChildPrivateKey, chainCode: childChainCode, depth: childDepth, parentFingerprint: childParentFingerprint, childIndexNumber: childIndexNumber)
+        return .init(privateKey: childPrivateKey, chainCode: childChainCode, depth: childDepth, parentFingerprint: childParentFingerprint, childIndexNumber: childIndexNumber)
     }
     
     func deriveChild(at path: DerivationPath) throws -> PrivateKey.Extended {

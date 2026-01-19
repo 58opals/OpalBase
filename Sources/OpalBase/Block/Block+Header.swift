@@ -64,21 +64,21 @@ extension Block.Header: Equatable {}
 extension Block.Header {
     var proofOfWorkHash: Data { return HASH256.hash(encode()).reversedData }
     
-    public static func calculateTarget(for bits: UInt32) -> BigUInt {
+    public static func calculateTarget(for bits: UInt32) -> LargeUnsignedInteger {
         let exponent = Int(bits >> 24)
-        var mantissa = BigUInt(bits & 0x00ff_ffff)
+        var mantissa = LargeUnsignedInteger(UInt64(bits & 0x00ff_ffff))
         
         if exponent <= 3 {
-            mantissa >>= (8 * (3 - exponent))
+            mantissa = mantissa.shiftedRight(by: 8 * (3 - exponent))
             return mantissa
         } else {
-            return mantissa << (8 * (exponent - 3))
+            return mantissa.shiftedLeft(by: 8 * (exponent - 3))
         }
     }
     
     public var isProofOfWorkSatisfied: Bool {
         let hash = proofOfWorkHash
-        let hashNumber = BigUInt(hash.reversedData)
+        let hashNumber = LargeUnsignedInteger(hash.reversedData)
         let target = Block.Header.calculateTarget(for: bits)
         return hashNumber <= target
     }

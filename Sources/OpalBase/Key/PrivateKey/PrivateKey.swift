@@ -1,16 +1,14 @@
 // PrivateKey.swift
 
 import Foundation
+import SwiftSchnorr
 
 public struct PrivateKey {
     let rawData: Data
     
-    private let minimumValue = BigUInt(1)
-    private let maximumValue = BigUInt(words: [0xbfd25e8cd0364140, 0xbaaedce6af48a03b, 0xfffffffffffffffe, 0xffffffffffffffff]) // 115792089237316195423570985008687907852837564279074904382605163141518161494336
-    
     public init() throws {
         var randomBytes: [UInt8] = .init()
-        var bigUIntValue = BigUInt.zero
+        var isValidPrivateKey = false
         
         repeat {
             do {
@@ -19,15 +17,14 @@ public struct PrivateKey {
                 throw Error.randomBytesGenerationFailed
             }
             
-            bigUIntValue = BigUInt(Data(randomBytes))
-        } while bigUIntValue >= maximumValue || bigUIntValue <= minimumValue
+            isValidPrivateKey = Secp256k1KeyOperations.isValidPrivateKey32(Data(randomBytes))
+        } while !isValidPrivateKey
         
         self.rawData = Data(randomBytes)
     }
     
     public init(data: Data) throws {
-        let bigUIntValue = BigUInt(data)
-        guard bigUIntValue >= minimumValue && bigUIntValue <= maximumValue else { throw Error.outOfBounds }
+        guard Secp256k1KeyOperations.isValidPrivateKey32(data) else { throw Error.outOfBounds }
         self.rawData = data
     }
 }
