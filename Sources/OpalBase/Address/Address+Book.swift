@@ -4,11 +4,18 @@ import Foundation
 
 extension Address {
     public actor Book {
+        private struct UsageDerivationCache {
+            let baseExtendedPrivateKey: PrivateKey.Extended
+            let baseCompressedPublicKey: Data
+            let baseFingerprint: Data
+        }
+        
         private let rootExtendedPrivateKey: PrivateKey.Extended?
         private let rootExtendedPublicKey: PublicKey.Extended
         private let purpose: DerivationPath.Purpose
         private let coinType: DerivationPath.CoinType
         private let account: DerivationPath.Account
+        private var usageDerivationCache: [DerivationPath.Usage: UsageDerivationCache]
         
         var inventory: Inventory
         var utxoStore: UTXOStore
@@ -52,7 +59,9 @@ extension Address {
             self.spendReservationExpirationInterval = spendReservationExpirationInterval
             self.spendReservationStates = .init()
             self.spendReservationReleaseTasks = .init()
+            self.usageDerivationCache = .init()
             
+            try buildUsageDerivationCacheIfNeeded()
             try await initializeEntries()
         }
         
@@ -65,6 +74,26 @@ extension Address {
 }
 
 extension Address.Book {
+    private func buildUsageDerivationCacheIfNeeded() throws {
+        guard let rootExtendedPrivateKey else { return }
+        
+        let accountIndex = try account.deriveHardenedIndex()
+        let accountExtendedPrivateKey = try rootExtendedPrivateKey.deriveChild(at: [
+            purpose.hardenedIndex,
+            coinType.hardenedIndex,
+            accountIndex
+        ])
+        
+        for usage in [DerivationPath.Usage.receiving, .change] {
+            let usageExtendedPrivateKey = try accountExtendedPrivateKey.deriveChild(at: [usage.unhardenedIndex])
+            let usageCompressedPublicKey = try PublicKey(privateKey: .init(data: usageExtendedPrivateKey.privateKey)).compressedData
+            let usageFingerprint = Data(HASH160.hash(usageCompressedPublicKey).prefix(4))
+            usageDerivationCache[usage] = .init(baseExtendedPrivateKey: usageExtendedPrivateKey,
+                                                baseCompressedPublicKey: usageCompressedPublicKey,
+                                                baseFingerprint: usageFingerprint)
+        }
+    }
+    
     func createDerivationPath(usage: DerivationPath.Usage,
                               index: UInt32) throws -> DerivationPath {
         let derivationPath = try DerivationPath(purpose: self.purpose,
@@ -76,6 +105,17 @@ extension Address.Book {
     }
     
     func generateAddress(at index: UInt32, for usage: DerivationPath.Usage) throws -> Address {
+        if let usageCache = usageDerivationCache[usage] {
+            let childExtendedPrivateKey = try usageCache.baseExtendedPrivateKey.deriveNonHardenedChildUsingParentKey(
+                at: index,
+                parentCompressedPublicKey: usageCache.baseCompressedPublicKey,
+                parentFingerprint: usageCache.baseFingerprint
+            )
+            let childCompressedPublicKey = try PublicKey(privateKey: .init(data: childExtendedPrivateKey.privateKey)).compressedData
+            let publicKey = try PublicKey(compressedData: childCompressedPublicKey)
+            return try Address(script: .p2pkh_OPCHECKSIG(hash: .init(publicKey: publicKey)))
+        }
+        
         let derivationPath = try createDerivationPath(usage: usage, index: index)
         
         let derivedPublicKey: PublicKey.Extended
@@ -92,6 +132,15 @@ extension Address.Book {
     }
     
     func generatePrivateKey(at index: UInt32, for usage: DerivationPath.Usage) throws -> PrivateKey {
+        if let usageCache = usageDerivationCache[usage] {
+            let childExtendedPrivateKey = try usageCache.baseExtendedPrivateKey.deriveNonHardenedChildUsingParentKey(
+                at: index,
+                parentCompressedPublicKey: usageCache.baseCompressedPublicKey,
+                parentFingerprint: usageCache.baseFingerprint
+            )
+            return try PrivateKey(data: childExtendedPrivateKey.privateKey)
+        }
+        
         guard let extendedPrivateKey = rootExtendedPrivateKey else { throw Error.privateKeyNotFound }
         
         let derivationPath = try createDerivationPath(usage: usage, index: index)

@@ -109,6 +109,34 @@ extension PrivateKey.Extended {
         return .init(privateKey: childPrivateKey, chainCode: childChainCode, depth: childDepth, parentFingerprint: childParentFingerprint, childIndexNumber: childIndexNumber)
     }
     
+    func deriveNonHardenedChildUsingParentKey(at index: UInt32,
+                                              parentCompressedPublicKey: Data,
+                                              parentFingerprint: Data) throws -> PrivateKey.Extended {
+        guard !Harden.checkHardened(index) else { throw PrivateKey.Error.invalidDerivedKey }
+        
+        var data = Data()
+        data.reserveCapacity(37)
+        data.append(parentCompressedPublicKey)
+        data.append(index.bigEndianData)
+        
+        let hmac = HMACSHA512.hash(data, key: chainCode)
+        let leftHMACPart = Data(hmac.prefix(32))
+        let rightHMACPart = Data(hmac.suffix(32))
+        
+        let childPrivateKey: Data
+        do {
+            childPrivateKey = try Secp256k1.Operation.tweakAddPrivateKey32(privateKey, tweak32: leftHMACPart)
+        } catch {
+            throw PrivateKey.Error.invalidDerivedKey
+        }
+        
+        return .init(privateKey: childPrivateKey,
+                     chainCode: rightHMACPart,
+                     depth: depth + 1,
+                     parentFingerprint: parentFingerprint,
+                     childIndexNumber: index)
+    }
+    
     func deriveChild(at path: DerivationPath) throws -> PrivateKey.Extended {
         try deriveChild(at: path.makeIndices())
     }
