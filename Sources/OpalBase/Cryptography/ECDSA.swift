@@ -72,14 +72,10 @@ extension ECDSA {
                 return try ecdsaSignature.derRepresentation
             }
         case .schnorr:
-            guard message.count == 32 else {
-                throw Error.invalidDigestLength(expected: 32, actual: message.count)
-            }
-            let signature = try BCHSchnorr.sign(
-                digest32: message,
-                privateKey32: privateKey.rawData,
-                nonce: nonceFunction
-            )
+            guard message.count == 32 else { throw Error.invalidDigestLength(expected: 32, actual: message.count) }
+            let signature = try BCHSchnorr.sign(digest32: message,
+                                                privateKey32: privateKey.rawData,
+                                                nonce: nonceFunction)
             return signature.raw64
         case .schnorrBIP340:
             let schnorrPrivateKey = try P256K.Schnorr.PrivateKey(dataRepresentation: privateKey.rawData)
@@ -126,15 +122,11 @@ extension ECDSA {
             }
         case .schnorr:
             do {
-                guard message.count == 32 else {
-                    throw Error.invalidDigestLength(expected: 32, actual: message.count)
-                }
+                guard message.count == 32 else { throw Error.invalidDigestLength(expected: 32, actual: message.count) }
                 let schnorrSignature = try BCHSchnorr.Signature(raw64: signature)
-                return try BCHSchnorr.verify(
-                    signature: schnorrSignature,
-                    digest32: message,
-                    publicKey: publicKey.compressedData
-                )
+                return try BCHSchnorr.verify(signature: schnorrSignature,
+                                             digest32: message,
+                                             publicKey: publicKey.compressedData)
             } catch {
                 return false
             }
@@ -160,9 +152,7 @@ extension ECDSA {
 
 extension ECDSA {
     static func detectFormat(signatureCore: Data) -> SignatureFormat? {
-        if signatureCore.count == 64 {
-            return .schnorr
-        }
+        if signatureCore.count == 64 { return .schnorr }
         do {
             _ = try P256K.Signing.ECDSASignature(derRepresentation: signatureCore)
             return .ecdsa(.der)
