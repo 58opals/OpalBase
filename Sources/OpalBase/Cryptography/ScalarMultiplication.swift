@@ -5,18 +5,18 @@ import Foundation
 enum ScalarMultiplication {
     private static let generatorMultiples4BitAffine: [AffinePoint] = {
         var jacobianTable = Array(repeating: JacobianPoint.infinity, count: 16)
-        let generatorPoint = JacobianPoint(affine: generator)
-        jacobianTable[1] = generatorPoint
+        jacobianTable[1] = JacobianPoint(affine: generator)
         if jacobianTable.count > 2 {
             for index in 2..<jacobianTable.count {
-                jacobianTable[index] = jacobianTable[index - 1].add(generatorPoint)
+                jacobianTable[index] = jacobianTable[index - 1].addAffine(generator)
             }
         }
         
+        let affineOptionals = JacobianPoint.batchToAffine(jacobianTable)
         var affineTable = Array(repeating: generator, count: 16)
-        for index in 1..<jacobianTable.count {
-            guard let affinePoint = jacobianTable[index].toAffine() else {
-                preconditionFailure("Generator multiples should not be infinity.")
+        for index in 1..<affineTable.count {
+            guard let affinePoint = affineOptionals[index] else {
+                preconditionFailure("Unexpected infinity in generator table at index \(index).")
             }
             affineTable[index] = affinePoint
         }
