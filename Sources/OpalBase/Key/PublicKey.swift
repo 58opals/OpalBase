@@ -51,5 +51,6 @@ extension PublicKey {
         case invalidChecksum
         case hardenedDerivation
         case publicKeyDerivationFailed
+        case derivationPathTooShort
     }
 }

@@ -45,5 +45,6 @@ extension PrivateKey {
         case invalidKeyPrefix
         case invalidStringKey
         case invalidDerivedKey
+        case derivationPathTooShort
     }
 }

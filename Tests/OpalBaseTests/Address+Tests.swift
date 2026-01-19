@@ -149,4 +149,27 @@ struct AddressTests {
         #expect(updatedTotal == initialTotal + 1)
         #expect(updatedUnused == gapLimit)
     }
+    
+    @Test("address book uses distinct receiving and change addresses")
+    func testAddressBookUsesDistinctReceivingAndChangeAddresses() async throws {
+        let mnemonic = try Mnemonic(
+            words: [
+                "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "about"
+            ]
+        )
+        let rootExtendedPrivateKey = PrivateKey.Extended(rootKey: try .init(seed: mnemonic.seed))
+        let account = try DerivationPath.Account(rawIndexInteger: 0)
+        let book = try await Address.Book(
+            rootExtendedPrivateKey: rootExtendedPrivateKey,
+            purpose: .bip44,
+            coinType: .bitcoinCash,
+            account: account,
+            gapLimit: 1
+        )
+        
+        let receivingEntry = try #require(await book.listEntries(for: .receiving).first)
+        let changeEntry = try #require(await book.listEntries(for: .change).first)
+        
+        #expect(receivingEntry.address != changeEntry.address)
+    }
 }

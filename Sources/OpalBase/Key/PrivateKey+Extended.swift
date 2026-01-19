@@ -145,6 +145,10 @@ extension PrivateKey.Extended {
         var extendedKey = self
         let startingDepth = Int(self.depth)
         
+        guard indices.count >= startingDepth else {
+            throw PrivateKey.Error.derivationPathTooShort
+        }
+        
         for index in indices.dropFirst(startingDepth) {
             extendedKey = try extendedKey.deriveChildPrivateKey(at: index)
         }

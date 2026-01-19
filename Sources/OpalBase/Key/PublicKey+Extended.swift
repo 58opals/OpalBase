@@ -109,6 +109,10 @@ extension PublicKey.Extended {
         var extendedKey = self
         let startingDepth = Int(self.depth)
         
+        guard indices.count >= startingDepth else {
+            throw PublicKey.Error.derivationPathTooShort
+        }
+        
         for index in indices.dropFirst(startingDepth) {
             guard !Harden.checkHardened(index) else { throw PublicKey.Error.hardenedDerivation }
             extendedKey = try extendedKey.deriveChildPublicKey(at: index)
