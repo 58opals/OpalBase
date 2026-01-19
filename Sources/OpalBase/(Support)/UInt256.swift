@@ -2,7 +2,7 @@
 
 import Foundation
 
-struct UInt256: Sendable, Equatable {
+struct UInt256 {
     enum Error: Swift.Error, Equatable {
         case invalidDataLength(expected: Int, actual: Int)
     }
@@ -165,5 +165,15 @@ struct UInt256: Sendable, Equatable {
             newCarry &+= 1
         }
         return (sum, newCarry)
+    }
+}
+
+extension UInt256: Sendable {}
+extension UInt256: Equatable {
+    static func == (lhs: UInt256, rhs: UInt256) -> Bool {
+        lhs.limbs[0] == rhs.limbs[0]
+        && lhs.limbs[1] == rhs.limbs[1]
+        && lhs.limbs[2] == rhs.limbs[2]
+        && lhs.limbs[3] == rhs.limbs[3]
     }
 }

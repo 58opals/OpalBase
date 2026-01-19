@@ -2,7 +2,7 @@
 
 import Foundation
 
-struct UInt512: Sendable, Equatable {
+struct UInt512 {
     enum Error: Swift.Error, Equatable {
         case invalidDataLength(expected: Int, actual: Int)
     }
@@ -49,5 +49,19 @@ struct UInt512: Sendable, Equatable {
     var isZero: Bool {
         (limbs[0] | limbs[1] | limbs[2] | limbs[3] |
          limbs[4] | limbs[5] | limbs[6] | limbs[7]) == 0
+    }
+}
+
+extension UInt512: Sendable {}
+extension UInt512: Equatable {
+    static func == (lhs: UInt512, rhs: UInt512) -> Bool {
+        lhs.limbs[0] == rhs.limbs[0]
+        && lhs.limbs[1] == rhs.limbs[1]
+        && lhs.limbs[2] == rhs.limbs[2]
+        && lhs.limbs[3] == rhs.limbs[3]
+        && lhs.limbs[4] == rhs.limbs[4]
+        && lhs.limbs[5] == rhs.limbs[5]
+        && lhs.limbs[6] == rhs.limbs[6]
+        && lhs.limbs[7] == rhs.limbs[7]
     }
 }
