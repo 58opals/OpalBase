@@ -78,13 +78,20 @@ extension Address.Book {
         guard let rootExtendedPrivateKey else { return }
         
         let accountIndex = try account.deriveHardenedIndex()
+        let accountExtendedPrivateKey = try rootExtendedPrivateKey.deriveChildFast(at: [
+            purpose.hardenedIndex,
+            coinType.hardenedIndex,
+            accountIndex
+        ])
+        let accountCompressedPublicKey = try PublicKey(privateKey: .init(data: accountExtendedPrivateKey.privateKey)).compressedData
+        let accountFingerprint = Data(HASH160.hash(accountCompressedPublicKey).prefix(4))
+        
         for usage in [DerivationPath.Usage.receiving, .change] {
-            let usageExtendedPrivateKey = try rootExtendedPrivateKey.deriveChild(at: [
-                purpose.hardenedIndex,
-                coinType.hardenedIndex,
-                accountIndex,
-                usage.unhardenedIndex
-            ])
+            let usageExtendedPrivateKey = try accountExtendedPrivateKey.deriveNonHardenedChildUsingParentKey(
+                at: usage.unhardenedIndex,
+                parentCompressedPublicKey: accountCompressedPublicKey,
+                parentFingerprint: accountFingerprint
+            )
             let usageCompressedPublicKey = try PublicKey(privateKey: .init(data: usageExtendedPrivateKey.privateKey)).compressedData
             let usageFingerprint = Data(HASH160.hash(usageCompressedPublicKey).prefix(4))
             usageDerivationCache[usage] = .init(baseExtendedPrivateKey: usageExtendedPrivateKey,
