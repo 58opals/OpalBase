@@ -3,16 +3,24 @@
 import Foundation
 
 enum ScalarMultiplication {
-    private static let generatorMultiples4Bit: [JacobianPoint] = {
-        var table = Array(repeating: JacobianPoint.infinity, count: 16)
+    private static let generatorMultiples4BitAffine: [AffinePoint] = {
+        var jacobianTable = Array(repeating: JacobianPoint.infinity, count: 16)
         let generatorPoint = JacobianPoint(affine: generator)
-        table[1] = generatorPoint
-        if table.count > 2 {
-            for index in 2..<table.count {
-                table[index] = table[index - 1].add(generatorPoint)
+        jacobianTable[1] = generatorPoint
+        if jacobianTable.count > 2 {
+            for index in 2..<jacobianTable.count {
+                jacobianTable[index] = jacobianTable[index - 1].add(generatorPoint)
             }
         }
-        return table
+        
+        var affineTable = Array(repeating: generator, count: 16)
+        for index in 1..<jacobianTable.count {
+            guard let affinePoint = jacobianTable[index].toAffine() else {
+                preconditionFailure("Generator multiples should not be infinity.")
+            }
+            affineTable[index] = affinePoint
+        }
+        return affineTable
     }()
     
     static func mul(_ scalar: Scalar, _ point: AffinePoint) -> JacobianPoint {
@@ -32,11 +40,18 @@ enum ScalarMultiplication {
     
     static func mulG(_ scalar: Scalar) -> JacobianPoint {
         var result = JacobianPoint.infinity
-        for byte in scalar.data32 {
-            result = result.double().double().double().double()
-            result = result.add(generatorMultiples4Bit[Int(byte >> 4)])
-            result = result.double().double().double().double()
-            result = result.add(generatorMultiples4Bit[Int(byte & 0x0F)])
+        scalar.forEachBigEndianByte { byte in
+            result = result.doubleFourTimes()
+            let highHalfByte = Int(byte >> 4)
+            if highHalfByte != 0 {
+                result = result.addAffine(generatorMultiples4BitAffine[highHalfByte])
+            }
+            
+            result = result.doubleFourTimes()
+            let lowHalfByte = Int(byte & 0x0F)
+            if lowHalfByte != 0 {
+                result = result.addAffine(generatorMultiples4BitAffine[lowHalfByte])
+            }
         }
         return result
     }

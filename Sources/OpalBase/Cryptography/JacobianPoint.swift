@@ -59,6 +59,15 @@ struct JacobianPoint: Sendable, Equatable {
         return JacobianPoint(X: xCoordinateResult, Y: yCoordinateResult, Z: zCoordinateResult)
     }
     
+    func doubleFourTimes() -> JacobianPoint {
+        var result = self
+        result = result.double()
+        result = result.double()
+        result = result.double()
+        result = result.double()
+        return result
+    }
+    
     func add(_ other: JacobianPoint) -> JacobianPoint {
         guard !isInfinity else {
             return other
@@ -93,5 +102,29 @@ struct JacobianPoint: Sendable, Equatable {
         let zCoordinateResult = Z.add(other.Z).square().sub(firstZSquared).sub(secondZSquared).mul(xDifference)
         return JacobianPoint(X: xCoordinateResult, Y: yCoordinateResult, Z: zCoordinateResult)
     }
+    
+    func addAffine(_ other: AffinePoint) -> JacobianPoint {
+        guard !isInfinity else {
+            return JacobianPoint(affine: other)
+        }
+        
+        let zSquared = Z.square()
+        let otherXAdjusted = other.x.mul(zSquared)
+        let otherYAdjusted = other.y.mul(zSquared.mul(Z))
+        let xDifference = otherXAdjusted.sub(X)
+        let yDifference = otherYAdjusted.sub(Y)
+        
+        if xDifference.isZero {
+            return yDifference.isZero ? double() : .infinity
+        }
+        
+        let xDifferenceSquared = xDifference.square()
+        let xDifferenceCubed = xDifference.mul(xDifferenceSquared)
+        let xProduct = X.mul(xDifferenceSquared)
+        
+        let xCoordinateResult = yDifference.square().sub(xDifferenceCubed).sub(xProduct.double())
+        let yCoordinateResult = yDifference.mul(xProduct.sub(xCoordinateResult)).sub(Y.mul(xDifferenceCubed))
+        let zCoordinateResult = Z.mul(xDifference)
+        return JacobianPoint(X: xCoordinateResult, Y: yCoordinateResult, Z: zCoordinateResult)
+    }
 }
-

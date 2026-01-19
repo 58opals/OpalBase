@@ -89,6 +89,17 @@ extension Scalar {
         value.compare(to: other.value)
     }
     
+    func forEachBigEndianByte(_ body: (UInt8) -> Void) {
+        for limbIndex in stride(from: 3, through: 0, by: -1) {
+            var limb = value.limbs[limbIndex].bigEndian
+            withUnsafeBytes(of: &limb) { bytes in
+                for byte in bytes {
+                    body(byte)
+                }
+            }
+        }
+    }
+    
     func invert() throws -> Scalar {
         guard !isZero else {
             throw Scalar.Error.zeroNotAllowed

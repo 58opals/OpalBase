@@ -177,3 +177,55 @@ extension UInt256: Equatable {
         && lhs.limbs[3] == rhs.limbs[3]
     }
 }
+
+extension UInt256 {
+    func squaredFullWidth() -> UInt512 {
+        var result: InlineArray<8, UInt64> = .init(repeating: 0)
+        
+        func addProduct(low: UInt64, high: UInt64, at index: Int) {
+            var carry: UInt64 = 0
+            let (sumLow, overflowLow) = result[index].addingReportingOverflow(low)
+            result[index] = sumLow
+            carry = overflowLow ? 1 : 0
+            var sumHigh = result[index + 1]
+            var overflowHigh = false
+            (sumHigh, overflowHigh) = sumHigh.addingReportingOverflow(high)
+            if carry > 0 {
+                let (sumWithCarry, overflowCarry) = sumHigh.addingReportingOverflow(carry)
+                sumHigh = sumWithCarry
+                overflowHigh = overflowHigh || overflowCarry
+            }
+            result[index + 1] = sumHigh
+            var carryIndex = index + 2
+            var carryOut: UInt64 = overflowHigh ? 1 : 0
+            while carryOut > 0, carryIndex < result.count {
+                let (sum, overflow) = result[carryIndex].addingReportingOverflow(carryOut)
+                result[carryIndex] = sum
+                carryOut = overflow ? 1 : 0
+                carryIndex += 1
+            }
+        }
+        
+        func addDoubledProduct(low: UInt64, high: UInt64, at index: Int) {
+            let doubledLow = low &<< 1
+            let carryFromLow = low >> 63
+            let doubledHigh = (high &<< 1) | carryFromLow
+            addProduct(low: doubledLow, high: doubledHigh, at: index)
+        }
+        
+        for index in 0..<4 {
+            let limb = limbs[index]
+            let (high, low) = limb.multipliedFullWidth(by: limb)
+            addProduct(low: low, high: high, at: index * 2)
+        }
+        
+        for leftIndex in 0..<4 {
+            for rightIndex in (leftIndex + 1)..<4 {
+                let (high, low) = limbs[leftIndex].multipliedFullWidth(by: limbs[rightIndex])
+                addDoubledProduct(low: low, high: high, at: leftIndex + rightIndex)
+            }
+        }
+        
+        return UInt512(limbs: result)
+    }
+}

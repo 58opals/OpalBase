@@ -65,7 +65,9 @@ struct FieldElement: Sendable, Equatable {
     }
     
     func square() -> FieldElement {
-        mul(self)
+        let product = value.squaredFullWidth()
+        let reduced = FieldReduction.reduce(product)
+        return FieldElement(unchecked: reduced)
     }
     
     func double() -> FieldElement {
