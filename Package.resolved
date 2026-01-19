@@ -1,5 +1,5 @@
 {
-  "originHash" : "b0df48ff6012b578124f2169deab23b9ebb807935bf0693150cf01a995f9c676",
+  "originHash" : "1bd682aedfcd9305bdd6768b61aebed329029d134d6df8c2f7b5b841620a0e81",
   "pins" : [
     {
       "identity" : "swiftfulcrum",
@@ -16,7 +16,7 @@
       "location" : "https://github.com/58opals/SwiftSchnorr.git",
       "state" : {
         "branch" : "draft",
-        "revision" : "26b05660512ce583ddff2e29111f0000ec4a0010"
+        "revision" : "f1157585903daa98c2a616aca7887d857ca129b5"
       }
     }
   ],
