@@ -89,7 +89,7 @@ struct FieldElement: Sendable, Equatable {
     }
     
     var isOdd: Bool {
-        value.lsb
+        value.isLeastSignificantBitSet
     }
     
     var data32: Data {

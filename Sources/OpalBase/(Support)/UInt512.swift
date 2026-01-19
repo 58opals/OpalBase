@@ -7,28 +7,32 @@ struct UInt512: Sendable, Equatable {
         case invalidDataLength(expected: Int, actual: Int)
     }
     
-    var limbs: [UInt64]
+    var limbs: InlineArray<8, UInt64>
+    
+    init(limbs: InlineArray<8, UInt64>) {
+        self.limbs = limbs
+    }
     
     init(limbs: [UInt64]) {
         precondition(limbs.count == 8)
-        self.limbs = limbs
+        self.limbs = [
+            limbs[0], limbs[1], limbs[2], limbs[3],
+            limbs[4], limbs[5], limbs[6], limbs[7]
+        ]
     }
     
     init(data64: Data) throws {
         guard data64.count == 64 else {
             throw Error.invalidDataLength(expected: 64, actual: data64.count)
         }
-        var newLimbs = [UInt64]()
-        newLimbs.reserveCapacity(8)
-        for index in 0..<8 {
-            let offset = index * 8
-            let limb = UInt512.makeUInt64FromBigEndianBytes(
-                data: data64,
-                offset: offset
-            )
-            newLimbs.append(limb)
+        var temporaryLimbs: InlineArray<8, UInt64> = .init(repeating: 0)
+        data64.withUnsafeBytes { rawBuffer in
+            for index in 0..<8 {
+                let word = rawBuffer.loadUnaligned(fromByteOffset: index * 8, as: UInt64.self)
+                temporaryLimbs[7 - index] = UInt64(bigEndian: word)
+            }
         }
-        limbs = newLimbs.reversed()
+        limbs = temporaryLimbs
     }
     
     var data64: Data {
@@ -43,16 +47,7 @@ struct UInt512: Sendable, Equatable {
     }
     
     var isZero: Bool {
-        limbs.allSatisfy { $0 == 0 }
-    }
-    
-    private static func makeUInt64FromBigEndianBytes(data: Data, offset: Int) -> UInt64 {
-        var value: UInt64 = 0
-        let base = data.startIndex + offset
-        for index in 0..<8 {
-            let byte = data[base + index]
-            value = (value << 8) | UInt64(byte)
-        }
-        return value
+        (limbs[0] | limbs[1] | limbs[2] | limbs[3] |
+         limbs[4] | limbs[5] | limbs[6] | limbs[7]) == 0
     }
 }

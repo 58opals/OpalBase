@@ -32,8 +32,7 @@ enum ScalarMultiplication {
     
     static func mulG(_ scalar: Scalar) -> JacobianPoint {
         var result = JacobianPoint.infinity
-        let bytes = [UInt8](scalar.data32)
-        for byte in bytes {
+        for byte in scalar.data32 {
             result = result.double().double().double().double()
             result = result.add(generatorMultiples4Bit[Int(byte >> 4)])
             result = result.double().double().double().double()

@@ -15,7 +15,7 @@ enum ScalarPow {
     )
     
     private static func makeExponentBits(from exponent: UInt256) -> [Bool] {
-        guard let mostSignificantBit = exponent.msb else {
+        guard let mostSignificantBit = exponent.mostSignificantBitIndex else {
             return [false]
         }
         return stride(from: mostSignificantBit, through: 0, by: -1).map { exponent.bit(at: $0) }

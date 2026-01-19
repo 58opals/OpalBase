@@ -7,28 +7,32 @@ struct UInt256: Sendable, Equatable {
         case invalidDataLength(expected: Int, actual: Int)
     }
     
-    var limbs: [UInt64]
+    var limbs: InlineArray<4, UInt64>
+    
+    init(limbs: InlineArray<4, UInt64>) {
+        self.limbs = limbs
+    }
     
     init(limbs: [UInt64]) {
         precondition(limbs.count == 4)
-        self.limbs = limbs
+        self.limbs = [limbs[0], limbs[1], limbs[2], limbs[3]]
     }
+    
+    static let zero = UInt256(limbs: .init(repeating: 0))
+    static let one = UInt256(limbs: [1, 0, 0, 0])
     
     init(data32: Data) throws {
         guard data32.count == 32 else {
             throw Error.invalidDataLength(expected: 32, actual: data32.count)
         }
-        var newLimbs = [UInt64]()
-        newLimbs.reserveCapacity(4)
-        for index in 0..<4 {
-            let offset = index * 8
-            let limb = UInt256.makeUInt64FromBigEndianBytes(
-                data: data32,
-                offset: offset
-            )
-            newLimbs.append(limb)
+        var temporaryLimbs: InlineArray<4, UInt64> = .init(repeating: 0)
+        data32.withUnsafeBytes { rawBuffer in
+            for index in 0..<4 {
+                let word = rawBuffer.loadUnaligned(fromByteOffset: index * 8, as: UInt64.self)
+                temporaryLimbs[3 - index] = UInt64(bigEndian: word)
+            }
         }
-        limbs = newLimbs.reversed()
+        limbs = temporaryLimbs
     }
     
     var data32: Data {
@@ -55,18 +59,18 @@ struct UInt256: Sendable, Equatable {
     }
     
     var isZero: Bool {
-        limbs.allSatisfy { $0 == 0 }
+        (limbs[0] | limbs[1] | limbs[2] | limbs[3]) == 0
     }
     
     var isOne: Bool {
         limbs[0] == 1 && limbs[1] == 0 && limbs[2] == 0 && limbs[3] == 0
     }
     
-    var lsb: Bool {
+    var isLeastSignificantBitSet: Bool {
         (limbs[0] & 1) == 1
     }
     
-    var msb: Int? {
+    var mostSignificantBitIndex: Int? {
         for index in stride(from: 3, through: 0, by: -1) {
             let limb = limbs[index]
             if limb != 0 {
@@ -87,7 +91,7 @@ struct UInt256: Sendable, Equatable {
     }
     
     func adding(_ other: UInt256) -> (sum: UInt256, carry: Bool) {
-        var result = [UInt64](repeating: 0, count: 4)
+        var result: InlineArray<4, UInt64> = .init(repeating: 0)
         var carry: UInt64 = 0
         for index in 0..<4 {
             var sum = limbs[index]
@@ -102,7 +106,7 @@ struct UInt256: Sendable, Equatable {
     }
     
     func subtracting(_ other: UInt256) -> (difference: UInt256, borrow: Bool) {
-        var result = [UInt64](repeating: 0, count: 4)
+        var result: InlineArray<4, UInt64> = .init(repeating: 0)
         var borrow: UInt64 = 0
         for index in 0..<4 {
             var difference = limbs[index]
@@ -117,7 +121,7 @@ struct UInt256: Sendable, Equatable {
     }
     
     func multipliedFullWidth(by other: UInt256) -> UInt512 {
-        var result = [UInt64](repeating: 0, count: 8)
+        var result: InlineArray<8, UInt64> = .init(repeating: 0)
         for leftIndex in 0..<4 {
             var carry: UInt64 = 0
             for rightIndex in 0..<4 {
@@ -161,15 +165,5 @@ struct UInt256: Sendable, Equatable {
             newCarry &+= 1
         }
         return (sum, newCarry)
-    }
-    
-    private static func makeUInt64FromBigEndianBytes(data: Data, offset: Int) -> UInt64 {
-        var value: UInt64 = 0
-        let base = data.startIndex + offset
-        for index in 0..<8 {
-            let byte = data[base + index]
-            value = (value << 8) | UInt64(byte)
-        }
-        return value
     }
 }

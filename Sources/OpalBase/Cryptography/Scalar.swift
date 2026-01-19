@@ -86,13 +86,7 @@ struct Scalar: Sendable, Equatable {
 
 extension Scalar {
     func compare(to other: Scalar) -> ComparisonResult {
-        guard
-            let left = try? UInt256(data32: data32),
-            let right = try? UInt256(data32: other.data32)
-        else {
-            return .orderedSame
-        }
-        return left.compare(to: right)
+        value.compare(to: other.value)
     }
     
     func invert() throws -> Scalar {

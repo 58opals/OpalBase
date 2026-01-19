@@ -4,9 +4,9 @@ import Foundation
 
 enum ScalarReduction {
     static func reduce(_ value: UInt512) -> UInt256 {
-        var remainder = UInt256(limbs: [0, 0, 0, 0])
+        var remainder = UInt256.zero
         var overflow = false
-        let one = UInt256(limbs: [1, 0, 0, 0])
+        let one = UInt256.one
         for bitIndex in stride(from: 511, through: 0, by: -1) {
             let shifted = shiftLeftOne(remainder)
             remainder = shifted.shifted
@@ -25,7 +25,7 @@ enum ScalarReduction {
     }
     
     private static func shiftLeftOne(_ value: UInt256) -> (shifted: UInt256, overflow: Bool) {
-        var result = [UInt64](repeating: 0, count: 4)
+        var result: InlineArray<4, UInt64> = .init(repeating: 0)
         var carry: UInt64 = 0
         for index in 0..<4 {
             let limb = value.limbs[index]
