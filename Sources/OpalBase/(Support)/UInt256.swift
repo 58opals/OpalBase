@@ -207,10 +207,21 @@ extension UInt256 {
         }
         
         func addDoubledProduct(low: UInt64, high: UInt64, at index: Int) {
-            let doubledLow = low &<< 1
             let carryFromLow = low >> 63
+            let carryFromHigh = high >> 63
+            let doubledLow = low &<< 1
             let doubledHigh = (high &<< 1) | carryFromLow
             addProduct(low: doubledLow, high: doubledHigh, at: index)
+            if carryFromHigh > 0 {
+                var carryOut: UInt64 = 1
+                var carryIndex = index + 2
+                while carryOut > 0, carryIndex < result.count {
+                    let (sum, overflow) = result[carryIndex].addingReportingOverflow(carryOut)
+                    result[carryIndex] = sum
+                    carryOut = overflow ? 1 : 0
+                    carryIndex += 1
+                }
+            }
         }
         
         for index in 0..<4 {
