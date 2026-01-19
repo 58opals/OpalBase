@@ -4,7 +4,7 @@ import Foundation
 
 extension Address {
     public actor Book {
-        private struct UsageDerivationCache {
+        struct UsageDerivationCache {
             let baseExtendedPrivateKey: PrivateKey.Extended
             let baseCompressedPublicKey: Data
             let baseFingerprint: Data
@@ -15,7 +15,7 @@ extension Address {
         private let purpose: DerivationPath.Purpose
         private let coinType: DerivationPath.CoinType
         private let account: DerivationPath.Account
-        private var usageDerivationCache: [DerivationPath.Usage: UsageDerivationCache]
+        var usageDerivationCache: [DerivationPath.Usage: UsageDerivationCache]
         
         var inventory: Inventory
         var utxoStore: UTXOStore

@@ -5,11 +5,11 @@ import Foundation
 public struct LargeUnsignedInteger: Comparable, Sendable {
     private var words: [UInt32]
     
-    static let zero = LargeUnsignedInteger(words: [])
+    static let zero = LargeUnsignedInteger(words: .init())
     
     init(_ value: UInt64) {
         if value == 0 {
-            self.words = []
+            self.words = .init()
         } else {
             let lower = UInt32(value & 0xffff_ffff)
             let upper = UInt32(value >> 32)
@@ -19,10 +19,10 @@ public struct LargeUnsignedInteger: Comparable, Sendable {
     
     init(_ data: Data) {
         guard !data.isEmpty else {
-            self.words = []
+            self.words = .init()
             return
         }
-        var values: [UInt32] = []
+        var values: [UInt32] = .init()
         values.reserveCapacity((data.count + 3) / 4)
         var index = data.count
         while index > 0 {
@@ -112,7 +112,7 @@ public struct LargeUnsignedInteger: Comparable, Sendable {
         precondition(multiplier >= 0, "Multiplier must be non-negative.")
         guard !words.isEmpty, multiplier > 1 else {
             if multiplier == 0 {
-                words = []
+                words = .init()
             }
             return
         }

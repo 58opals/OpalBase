@@ -60,11 +60,29 @@ extension Address.Book {
         let currentCount = inventory.countEntries(for: usage)
         let desiredCount = currentCount + numberOfNewEntries
         
-        for nextIndexValue in currentCount ..< desiredCount {
-            guard let nextIndex = UInt32(exactly: nextIndexValue) else { throw Error.indexOutOfBounds }
+        var indices: [UInt32] = .init()
+        indices.reserveCapacity(numberOfNewEntries)
+        for indexValue in currentCount ..< desiredCount {
+            guard let index = UInt32(exactly: indexValue) else { throw Error.indexOutOfBounds }
+            indices.append(index)
+        }
+        
+        if let usageCache = usageDerivationCache[usage] {
+            let newEntries = try makeEntriesUsingUsageDerivationCache(usage: usage,
+                                                                      indices: indices,
+                                                                      usageCache: usageCache,
+                                                                      isUsed: isUsed)
+            for newEntry in newEntries {
+                inventory.append(newEntry, usage: usage)
+                await notifyNewEntry(newEntry)
+            }
+            return
+        }
+        
+        for index in indices {
             
             let newEntry = try makeEntry(for: usage,
-                                         index: nextIndex,
+                                         index: index,
                                          isUsed: isUsed)
             inventory.append(newEntry, usage: usage)
             await notifyNewEntry(newEntry)
@@ -83,6 +101,45 @@ extension Address.Book {
                      derivationPath: derivationPath,
                      isUsed: isUsed,
                      isReserved: false)
+    }
+    
+    private func makeEntriesUsingUsageDerivationCache(
+        usage: DerivationPath.Usage,
+        indices: [UInt32],
+        usageCache: UsageDerivationCache,
+        isUsed: Bool
+    ) throws -> [Entry] {
+        var childPrivateKeys: [Data] = .init()
+        childPrivateKeys.reserveCapacity(indices.count)
+        var derivationPaths: [DerivationPath] = .init()
+        derivationPaths.reserveCapacity(indices.count)
+        
+        for index in indices {
+            let childExtendedPrivateKey = try usageCache.baseExtendedPrivateKey.deriveNonHardenedChildUsingParentKey(
+                at: index,
+                parentCompressedPublicKey: usageCache.baseCompressedPublicKey,
+                parentFingerprint: usageCache.baseFingerprint
+            )
+            childPrivateKeys.append(childExtendedPrivateKey.privateKey)
+            derivationPaths.append(try createDerivationPath(usage: usage, index: index))
+        }
+        
+        let compressedPublicKeys = try Secp256k1.Operation.deriveCompressedPublicKeys(fromPrivateKeys32: childPrivateKeys)
+        var entries: [Entry] = .init()
+        entries.reserveCapacity(indices.count)
+        
+        for (position, compressedPublicKey) in compressedPublicKeys.enumerated() {
+            let publicKey = try PublicKey(compressedData: compressedPublicKey)
+            let address = try Address(script: .p2pkh_OPCHECKSIG(hash: .init(publicKey: publicKey)))
+            if let existingEntry = inventory.findEntry(for: address) { throw Error.entryDuplicated(existingEntry) }
+            
+            entries.append(Entry(address: address,
+                                 derivationPath: derivationPaths[position],
+                                 isUsed: isUsed,
+                                 isReserved: false))
+        }
+        
+        return entries
     }
 }
 

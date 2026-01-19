@@ -17,7 +17,7 @@ struct Base58Tests {
         }
         
         mutating func makeBytes(count: Int) -> [UInt8] {
-            var bytes: [UInt8] = []
+            var bytes: [UInt8] = .init()
             bytes.reserveCapacity(count)
             for _ in 0..<count {
                 bytes.append(UInt8(truncatingIfNeeded: nextValue()))

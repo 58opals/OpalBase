@@ -40,6 +40,31 @@ extension Secp256k1 {
             return encodePublicKey(publicAffine, format: format)
         }
         
+        static func deriveCompressedPublicKeys(
+            fromPrivateKeys32 privateKeys32: [Data]
+        ) throws -> [Data] {
+            var jacobianPoints: [JacobianPoint] = .init()
+            jacobianPoints.reserveCapacity(privateKeys32.count)
+            
+            for privateKey32 in privateKeys32 {
+                let privateKeyScalar = try parsePrivateKeyScalar(privateKey32, requireNonZero: true)
+                jacobianPoints.append(ScalarMultiplication.mulG(privateKeyScalar))
+            }
+            
+            let affinePoints = JacobianPoint.batchToAffine(jacobianPoints)
+            var compressedPublicKeys: [Data] = .init()
+            compressedPublicKeys.reserveCapacity(affinePoints.count)
+            
+            for affinePoint in affinePoints {
+                guard let affinePoint else {
+                    throw Error.invalidDerivedPublicKey
+                }
+                compressedPublicKeys.append(affinePoint.compressedEncoding33())
+            }
+            
+            return compressedPublicKeys
+        }
+        
         public static func tweakAddPrivateKey32(
             _ privateKey32: Data,
             tweak32: Data
