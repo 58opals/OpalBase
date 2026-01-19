@@ -42,8 +42,8 @@ struct PBKDF2 {
     func deriveKey() throws -> Data {
         var derivedKey = Array<UInt8>()
         derivedKey.reserveCapacity(self.blockCount * sha512BlockSize)
-        for i in 1...self.blockCount {
-            if let block = try computeBlock(self.saltBytes, blockNum: i) {
+        for blockIndex in 1...self.blockCount {
+            if let block = try computeBlock(self.saltBytes, blockNumber: blockIndex) {
                 derivedKey.append(contentsOf: block)
             }
         }
@@ -61,16 +61,16 @@ private extension PBKDF2 {
         return byteArray
     }
     
-    func computeBlock(_ saltBytes: Array<UInt8>, blockNum: Int) throws -> Array<UInt8>? {
-        let u1 = HMAC<SHA512>.authenticationCode(for: saltBytes + makeByteArray(from: blockNum), using: symmetricKey)
+    func computeBlock(_ saltBytes: Array<UInt8>, blockNumber: Int) throws -> Array<UInt8>? {
+        let firstAuthenticationCode = HMAC<SHA512>.authenticationCode(for: saltBytes + makeByteArray(from: blockNumber), using: symmetricKey)
         
-        var u = u1.bytes
-        var blockResult = u.bytes
+        var currentBlock = Array(firstAuthenticationCode)
+        var blockResult = currentBlock
         if iterationCount > 1 {
             for _ in 2...iterationCount {
-                u = HMAC<SHA512>.authenticationCode(for: u, using: symmetricKey).bytes
+                currentBlock = Array(HMAC<SHA512>.authenticationCode(for: currentBlock, using: symmetricKey))
                 for x in 0..<blockResult.count {
-                    blockResult[x] = blockResult[x] ^ u[x]
+                    blockResult[x] = blockResult[x] ^ currentBlock[x]
                 }
             }
         }
