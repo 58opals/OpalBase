@@ -25,8 +25,8 @@ let package = Package(
                     .product(name: "SwiftFulcrum", package: "SwiftFulcrum")
                 ],
                 resources: [
-                    .process("(Resource)/BIP-0039/English.txt"),
-                    .process("(Resource)/BIP-0039/Korean.txt")
+                    .process("(Resources)/BIP-0039/English.txt"),
+                    .process("(Resources)/BIP-0039/Korean.txt")
                 ]
                ),
         .testTarget(
