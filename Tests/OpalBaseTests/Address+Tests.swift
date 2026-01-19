@@ -10,7 +10,7 @@ struct AddressTests {
         var detected: Bool = false
         repeat {
             let privateKey = try PrivateKey()
-            let wif = privateKey.wif
+            let walletImportFormat = privateKey.makeWalletImportFormat(compression: .compressed)
             let publicKey = try PublicKey(privateKey: privateKey)
             let hash = PublicKey.Hash(publicKey: publicKey)
             let script = Script.p2pkh_OPCHECKSIG(hash: hash)
@@ -19,7 +19,7 @@ struct AddressTests {
             let lockingScript = address.lockingScript.data.hexadecimalString
             if address.string.contains(word) {
                 print("Private Key - Raw Data Hexadecimal: \(privateKey.rawData.hexadecimalString)")
-                print("Private Key - WIF: \(wif)")
+                print("Private Key - WIF: \(walletImportFormat)")
                 print("Public Key - Compressed Data Hexadecimal: \(publicKey.compressedData.hexadecimalString)")
                 print("Public Key - Hash Hexadecimal: \(hash.data.hexadecimalString)")
                 print("Script: \(script.data.hexadecimalString)")

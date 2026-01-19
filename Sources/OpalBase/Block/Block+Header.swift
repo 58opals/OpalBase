@@ -77,8 +77,7 @@ extension Block.Header {
     }
     
     public var isProofOfWorkSatisfied: Bool {
-        let hash = proofOfWorkHash
-        let hashNumber = LargeUnsignedInteger(hash.reversedData)
+        let hashNumber = LargeUnsignedInteger(proofOfWorkHash)
         let target = Block.Header.calculateTarget(for: bits)
         return hashNumber <= target
     }

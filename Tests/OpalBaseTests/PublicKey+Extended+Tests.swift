@@ -18,4 +18,18 @@ struct PublicKeyExtendedTests {
         
         #expect(prefix == Data([0x04, 0x88, 0xB2, 0x1E]))
     }
+    
+    @Test("init rejects invalid format and length")
+    func testInitRejectsInvalidFormatAndLength() throws {
+        #expect(throws: PublicKey.Error.invalidFormat) {
+            _ = try PublicKey.Extended(xpub: "xpub0invalidformat")
+        }
+        
+        let invalidLengthData = Data(repeating: 0x01, count: 10)
+        let invalidLengthString = Base58.encode(invalidLengthData)
+        
+        #expect(throws: PublicKey.Error.invalidLength) {
+            _ = try PublicKey.Extended(xpub: invalidLengthString)
+        }
+    }
 }
