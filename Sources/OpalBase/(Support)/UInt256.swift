@@ -242,6 +242,66 @@ struct UInt256 {
     }
 }
 
+extension UInt256 {
+    @inlinable
+    func shiftedRightOne() -> UInt256 {
+        var result = self
+        result.shiftRightOne()
+        return result
+    }
+    
+    @inlinable
+    mutating func shiftRightOne() {
+        var carry: UInt64 = 0
+        for index in stride(from: 3, through: 0, by: -1) {
+            let limb = limbs[index]
+            let nextCarry = limb & 1
+            limbs[index] = (limb >> 1) | (carry << 63)
+            carry = nextCarry
+        }
+    }
+    
+    @inlinable
+    func subtractingSmall(_ value: UInt64) -> UInt256 {
+        var result = self
+        result.subtractSmall(value)
+        return result
+    }
+    
+    @inlinable
+    mutating func subtractSmall(_ value: UInt64) {
+        var borrow = value
+        for index in 0..<4 {
+            if borrow == 0 {
+                break
+            }
+            let (difference, overflow) = limbs[index].subtractingReportingOverflow(borrow)
+            limbs[index] = difference
+            borrow = overflow ? 1 : 0
+        }
+    }
+    
+    @inlinable
+    func addingSmall(_ value: UInt64) -> UInt256 {
+        var result = self
+        result.addSmall(value)
+        return result
+    }
+    
+    @inlinable
+    mutating func addSmall(_ value: UInt64) {
+        var carry = value
+        for index in 0..<4 {
+            if carry == 0 {
+                break
+            }
+            let (sum, overflow) = limbs[index].addingReportingOverflow(carry)
+            limbs[index] = sum
+            carry = overflow ? 1 : 0
+        }
+    }
+}
+
 extension UInt256: Sendable {}
 extension UInt256: Equatable {
     static func == (lhs: UInt256, rhs: UInt256) -> Bool {

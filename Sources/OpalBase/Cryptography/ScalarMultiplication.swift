@@ -41,6 +41,14 @@ enum ScalarMultiplication {
     
     @inlinable
     static func mulG(_ scalar: Scalar) -> JacobianPoint {
+        if CryptoTuning.shouldUseEndomorphismForGeneratorMultiplication {
+            return mulGWithEndomorphism(scalar)
+        }
+        return mulGWithEightBitTable(scalar)
+    }
+    
+    @inlinable
+    static func mulGWithEightBitTable(_ scalar: Scalar) -> JacobianPoint {
         var result = JacobianPoint.infinity
         for limbIndex in stride(from: 3, through: 0, by: -1) {
             let limb = scalar.limbs[limbIndex]
