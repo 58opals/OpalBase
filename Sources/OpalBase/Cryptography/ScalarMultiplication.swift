@@ -3,7 +3,7 @@
 import Foundation
 
 enum ScalarMultiplication {
-    @usableFromInline static let generatorMultiples8BitAffine: InlineArray<256, AffinePoint> = {
+    @usableFromInline static let generatorMultiples8BitAffineCalculation: InlineArray<256, AffinePoint> = {
         var jacobianTable = Array(repeating: JacobianPoint.infinity, count: 256)
         jacobianTable[1] = JacobianPoint(affine: generator)
         if jacobianTable.count > 2 {
