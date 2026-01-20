@@ -68,10 +68,10 @@ extension Address.Book {
         }
         
         if let usageCache = usageDerivationCache[usage] {
-            let newEntries = try makeEntriesUsingUsageDerivationCache(usage: usage,
-                                                                      indices: indices,
-                                                                      usageCache: usageCache,
-                                                                      isUsed: isUsed)
+            let newEntries = try await makeEntriesUsingUsageDerivationCache(usage: usage,
+                                                                            indices: indices,
+                                                                            usageCache: usageCache,
+                                                                            isUsed: isUsed)
             for newEntry in newEntries {
                 inventory.append(newEntry, usage: usage)
                 await notifyNewEntry(newEntry)
@@ -108,7 +108,7 @@ extension Address.Book {
         indices: [UInt32],
         usageCache: UsageDerivationCache,
         isUsed: Bool
-    ) throws -> [Entry] {
+    ) async throws -> [Entry] {
         var childPrivateKeys: [Data] = .init()
         childPrivateKeys.reserveCapacity(indices.count)
         var derivationPaths: [DerivationPath] = .init()
@@ -124,7 +124,7 @@ extension Address.Book {
             derivationPaths.append(try createDerivationPath(usage: usage, index: index))
         }
         
-        let compressedPublicKeys = try Secp256k1.Operation.deriveCompressedPublicKeys(fromPrivateKeys32: childPrivateKeys)
+        let compressedPublicKeys = try await Secp256k1.Operation.deriveCompressedPublicKeys(fromPrivateKeys32: childPrivateKeys)
         var entries: [Entry] = .init()
         entries.reserveCapacity(indices.count)
         

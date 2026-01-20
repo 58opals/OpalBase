@@ -42,27 +42,63 @@ extension Secp256k1 {
         
         static func deriveCompressedPublicKeys(
             fromPrivateKeys32 privateKeys32: [Data]
-        ) throws -> [Data] {
-            var jacobianPoints: [JacobianPoint] = .init()
-            jacobianPoints.reserveCapacity(privateKeys32.count)
+        ) async throws -> [Data] {
+            guard !privateKeys32.isEmpty else { return .init() }
             
-            for privateKey32 in privateKeys32 {
-                let privateKeyScalar = try parsePrivateKeyScalar(privateKey32, requireNonZero: true)
-                jacobianPoints.append(ScalarMultiplication.mulG(privateKeyScalar))
-            }
+            let maximumChunkSize = 256
+            let chunkSize = max(1, maximumChunkSize)
+            let totalCount = privateKeys32.count
+            let chunkCount = (totalCount + chunkSize - 1) / chunkSize
             
-            let affinePoints = JacobianPoint.batchToAffine(jacobianPoints)
-            var compressedPublicKeys: [Data] = .init()
-            compressedPublicKeys.reserveCapacity(affinePoints.count)
-            
-            for affinePoint in affinePoints {
-                guard let affinePoint else {
-                    throw Error.invalidDerivedPublicKey
+            return try await withThrowingTaskGroup(of: CompressedPublicKeyChunkResult.self) { group in
+                for chunkIndex in 0..<chunkCount {
+                    let startIndex = chunkIndex * chunkSize
+                    let endIndex = min(startIndex + chunkSize, totalCount)
+                    let privateKeySlice = Array(privateKeys32[startIndex..<endIndex])
+                    
+                    group.addTask {
+                        var jacobianPoints: [JacobianPoint] = .init()
+                        jacobianPoints.reserveCapacity(privateKeySlice.count)
+                        
+                        for privateKey32 in privateKeySlice {
+                            let privateKeyScalar = try parsePrivateKeyScalar(privateKey32, requireNonZero: true)
+                            jacobianPoints.append(ScalarMultiplication.mulG(privateKeyScalar))
+                        }
+                        
+                        let affinePoints = JacobianPoint.batchToAffine(jacobianPoints)
+                        var compressedPublicKeys: [Data] = .init()
+                        compressedPublicKeys.reserveCapacity(affinePoints.count)
+                        
+                        for affinePoint in affinePoints {
+                            guard let affinePoint else {
+                                throw Error.invalidDerivedPublicKey
+                            }
+                            compressedPublicKeys.append(affinePoint.compressedEncoding33())
+                        }
+                        
+                        return CompressedPublicKeyChunkResult(
+                            startIndex: startIndex,
+                            compressedPublicKeys: compressedPublicKeys
+                        )
+                    }
                 }
-                compressedPublicKeys.append(affinePoint.compressedEncoding33())
+                
+                var chunkResults: [CompressedPublicKeyChunkResult] = .init()
+                chunkResults.reserveCapacity(chunkCount)
+                
+                for try await chunkResult in group {
+                    chunkResults.append(chunkResult)
+                }
+                
+                chunkResults.sort { $0.startIndex < $1.startIndex }
+                
+                var compressedPublicKeys: [Data] = .init()
+                compressedPublicKeys.reserveCapacity(totalCount)
+                for chunkResult in chunkResults {
+                    compressedPublicKeys.append(contentsOf: chunkResult.compressedPublicKeys)
+                }
+                return compressedPublicKeys
             }
-            
-            return compressedPublicKeys
         }
         
         public static func tweakAddPrivateKey32(
@@ -97,6 +133,11 @@ extension Secp256k1 {
 }
 
 private extension Secp256k1.Operation {
+    struct CompressedPublicKeyChunkResult: Sendable {
+        let startIndex: Int
+        let compressedPublicKeys: [Data]
+    }
+    
     static func parsePrivateKeyScalar(
         _ data: Data,
         requireNonZero: Bool
