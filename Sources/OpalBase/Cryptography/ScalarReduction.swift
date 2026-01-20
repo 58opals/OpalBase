@@ -3,6 +3,7 @@
 import Foundation
 
 enum ScalarReduction {
+    @inlinable
     static func reduce(_ value: UInt512) -> UInt256 {
         var remainder = UInt256.zero
         var overflow = false
@@ -24,7 +25,7 @@ enum ScalarReduction {
         return remainder
     }
     
-    private static func shiftLeftOne(_ value: UInt256) -> (shifted: UInt256, overflow: Bool) {
+    @usableFromInline static func shiftLeftOne(_ value: UInt256) -> (shifted: UInt256, overflow: Bool) {
         var result: InlineArray<4, UInt64> = .init(repeating: 0)
         var carry: UInt64 = 0
         for index in 0..<4 {
@@ -36,7 +37,7 @@ enum ScalarReduction {
         return (UInt256(limbs: result), carry != 0)
     }
     
-    private static func bit(of value: UInt512, at index: Int) -> Bool {
+    @usableFromInline static func bit(of value: UInt512, at index: Int) -> Bool {
         guard index >= 0, index < 512 else {
             return false
         }

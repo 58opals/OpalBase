@@ -3,6 +3,7 @@
 import Foundation
 
 enum FieldReduction {
+    @inlinable
     static func reduce(_ value: UInt512) -> UInt256 {
         var reducedLimbs: InlineArray<8, UInt64> = .init(repeating: 0)
         reducedLimbs[0] = value.limbs[0]
@@ -32,7 +33,7 @@ enum FieldReduction {
         return result
     }
     
-    private static func reduceUpperLimbs(
+    @usableFromInline static func reduceUpperLimbs(
         into limbs: inout InlineArray<8, UInt64>,
         upper: InlineArray<4, UInt64>
     ) {
@@ -43,7 +44,7 @@ enum FieldReduction {
         addMultipliedUpper(upper, to: &limbs)
     }
     
-    private static func addShiftedUpper(
+    @usableFromInline static func addShiftedUpper(
         _ upper: InlineArray<4, UInt64>,
         to limbs: inout InlineArray<8, UInt64>
     ) {
@@ -54,7 +55,7 @@ enum FieldReduction {
         }
     }
     
-    private static func addMultipliedUpper(
+    @usableFromInline static func addMultipliedUpper(
         _ upper: InlineArray<4, UInt64>,
         to limbs: inout InlineArray<8, UInt64>
     ) {
@@ -67,7 +68,7 @@ enum FieldReduction {
         }
     }
     
-    private static func addValue(
+    @usableFromInline static func addValue(
         _ value: UInt64,
         to limbs: inout InlineArray<8, UInt64>,
         at index: Int
@@ -85,7 +86,7 @@ enum FieldReduction {
         }
     }
     
-    private static func hasUpperLimbs(_ limbs: InlineArray<8, UInt64>) -> Bool {
+    @usableFromInline static func hasUpperLimbs(_ limbs: InlineArray<8, UInt64>) -> Bool {
         (limbs[4] | limbs[5] | limbs[6] | limbs[7]) != 0
     }
 }

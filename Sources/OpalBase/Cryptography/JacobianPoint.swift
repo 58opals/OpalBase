@@ -3,28 +3,32 @@
 import Foundation
 
 struct JacobianPoint: Sendable, Equatable {
-    let X: FieldElement
-    let Y: FieldElement
-    let Z: FieldElement
+    @usableFromInline let X: FieldElement
+    @usableFromInline let Y: FieldElement
+    @usableFromInline let Z: FieldElement
     
-    static let infinity = JacobianPoint(X: .zero, Y: .one, Z: .zero)
+    @usableFromInline static let infinity = JacobianPoint(X: .zero, Y: .one, Z: .zero)
     
+    @inlinable
     var isInfinity: Bool {
         Z.isZero
     }
     
+    @inlinable
     init(X: FieldElement, Y: FieldElement, Z: FieldElement) {
         self.X = X
         self.Y = Y
         self.Z = Z
     }
     
+    @inlinable
     init(affine: AffinePoint) {
         X = affine.x
         Y = affine.y
         Z = .one
     }
     
+    @inlinable
     func toAffine() -> AffinePoint? {
         guard !isInfinity else {
             return nil
@@ -43,6 +47,7 @@ struct JacobianPoint: Sendable, Equatable {
         return JacobianPoint(X: X, Y: Y.negate(), Z: Z)
     }
     
+    @inlinable
     func double() -> JacobianPoint {
         guard !isInfinity, !Y.isZero else {
             return .infinity
@@ -59,6 +64,7 @@ struct JacobianPoint: Sendable, Equatable {
         return JacobianPoint(X: xCoordinateResult, Y: yCoordinateResult, Z: zCoordinateResult)
     }
     
+    @inlinable
     func doubleFourTimes() -> JacobianPoint {
         var result = self
         result = result.double()
@@ -68,6 +74,7 @@ struct JacobianPoint: Sendable, Equatable {
         return result
     }
     
+    @inlinable
     func doubleEightTimes() -> JacobianPoint {
         var result = self
         result = result.double()
@@ -81,6 +88,7 @@ struct JacobianPoint: Sendable, Equatable {
         return result
     }
     
+    @inlinable
     func add(_ other: JacobianPoint) -> JacobianPoint {
         guard !isInfinity else {
             return other
@@ -116,6 +124,7 @@ struct JacobianPoint: Sendable, Equatable {
         return JacobianPoint(X: xCoordinateResult, Y: yCoordinateResult, Z: zCoordinateResult)
     }
     
+    @inlinable
     func addAffine(_ other: AffinePoint) -> JacobianPoint {
         guard !isInfinity else {
             return JacobianPoint(affine: other)

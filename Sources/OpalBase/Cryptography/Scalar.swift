@@ -9,7 +9,7 @@ struct Scalar: Sendable, Equatable {
         case zeroNotAllowed
     }
     
-    private let value: UInt256
+    @usableFromInline let value: UInt256
     
     static let zero = Scalar(unchecked: UInt256(limbs: [0, 0, 0, 0]))
     static let one = Scalar(unchecked: UInt256(limbs: [1, 0, 0, 0]))
@@ -71,6 +71,7 @@ struct Scalar: Sendable, Equatable {
         value.isZero
     }
     
+    @inlinable
     func bit(at index: Int) -> Bool {
         value.bit(at: index)
     }
@@ -79,6 +80,7 @@ struct Scalar: Sendable, Equatable {
         value.data32
     }
     
+    @inlinable
     init(unchecked value: UInt256) {
         self.value = value
     }
@@ -87,6 +89,11 @@ struct Scalar: Sendable, Equatable {
 extension Scalar {
     func compare(to other: Scalar) -> ComparisonResult {
         value.compare(to: other.value)
+    }
+    
+    @usableFromInline
+    var limbs: InlineArray<4, UInt64> {
+        value.limbs
     }
     
     func forEachBigEndianByte(_ body: (UInt8) -> Void) {

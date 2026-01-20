@@ -7,8 +7,9 @@ struct UInt512 {
         case invalidDataLength(expected: Int, actual: Int)
     }
     
-    var limbs: InlineArray<8, UInt64>
+    @usableFromInline var limbs: InlineArray<8, UInt64>
     
+    @inlinable
     init(limbs: InlineArray<8, UInt64>) {
         self.limbs = limbs
     }
@@ -35,6 +36,7 @@ struct UInt512 {
         limbs = temporaryLimbs
     }
     
+    @inlinable
     var data64: Data {
         var data = Data(count: 64)
         data.withUnsafeMutableBytes { buffer in
@@ -46,6 +48,7 @@ struct UInt512 {
         return data
     }
     
+    @inlinable
     var isZero: Bool {
         (limbs[0] | limbs[1] | limbs[2] | limbs[3] |
          limbs[4] | limbs[5] | limbs[6] | limbs[7]) == 0

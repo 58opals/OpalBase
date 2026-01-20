@@ -8,14 +8,14 @@ struct FieldElement: Sendable, Equatable {
         case invalidDataLength(expected: Int, actual: Int)
     }
     
-    private let value: UInt256
+    @usableFromInline let value: UInt256
     
-    static let zero = FieldElement(unchecked: UInt256(limbs: [0, 0, 0, 0]))
-    static let one = FieldElement(unchecked: UInt256(limbs: [1, 0, 0, 0]))
-    static let two = FieldElement(unchecked: UInt256(limbs: [2, 0, 0, 0]))
-    static let three = FieldElement(unchecked: UInt256(limbs: [3, 0, 0, 0]))
-    static let seven = FieldElement(unchecked: UInt256(limbs: [7, 0, 0, 0]))
-    static let eight = FieldElement(unchecked: UInt256(limbs: [8, 0, 0, 0]))
+    @usableFromInline static let zero = FieldElement(unchecked: UInt256(limbs: [0, 0, 0, 0]))
+    @usableFromInline static let one = FieldElement(unchecked: UInt256(limbs: [1, 0, 0, 0]))
+    @usableFromInline static let two = FieldElement(unchecked: UInt256(limbs: [2, 0, 0, 0]))
+    @usableFromInline static let three = FieldElement(unchecked: UInt256(limbs: [3, 0, 0, 0]))
+    @usableFromInline static let seven = FieldElement(unchecked: UInt256(limbs: [7, 0, 0, 0]))
+    @usableFromInline static let eight = FieldElement(unchecked: UInt256(limbs: [8, 0, 0, 0]))
     
     init(value: UInt256) throws {
         guard value.compare(to: Secp256k1.Constant.p) == .orderedAscending else {
@@ -32,6 +32,7 @@ struct FieldElement: Sendable, Equatable {
         try self.init(value: parsed)
     }
     
+    @inlinable
     func add(_ other: FieldElement) -> FieldElement {
         let (sum, carry) = value.adding(other.value)
         var reduced = sum
@@ -41,6 +42,7 @@ struct FieldElement: Sendable, Equatable {
         return FieldElement(unchecked: reduced)
     }
     
+    @inlinable
     func sub(_ other: FieldElement) -> FieldElement {
         let (difference, borrow) = value.subtracting(other.value)
         var reduced = difference
@@ -50,6 +52,7 @@ struct FieldElement: Sendable, Equatable {
         return FieldElement(unchecked: reduced)
     }
     
+    @inlinable
     func negate() -> FieldElement {
         guard !value.isZero else {
             return .zero
@@ -58,18 +61,21 @@ struct FieldElement: Sendable, Equatable {
         return FieldElement(unchecked: difference)
     }
     
+    @inlinable
     func mul(_ other: FieldElement) -> FieldElement {
         let product = value.multipliedFullWidth(by: other.value)
         let reduced = FieldReduction.reduce(product)
         return FieldElement(unchecked: reduced)
     }
     
+    @inlinable
     func square() -> FieldElement {
         let product = value.squaredFullWidth()
         let reduced = FieldReduction.reduce(product)
         return FieldElement(unchecked: reduced)
     }
     
+    @inlinable
     func double() -> FieldElement {
         add(self)
     }
@@ -78,6 +84,7 @@ struct FieldElement: Sendable, Equatable {
         pow(exponentBits: FieldPow.legendreExponentBits) == .one
     }
     
+    @inlinable
     func sqrt() -> FieldElement? {
         let candidate = pow(exponentBits: FieldPow.squareRootExponentBits)
         guard candidate.square() == self else {
@@ -98,6 +105,7 @@ struct FieldElement: Sendable, Equatable {
         value.data32
     }
     
+    @inlinable
     init(unchecked value: UInt256) {
         self.value = value
     }

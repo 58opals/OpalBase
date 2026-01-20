@@ -3,7 +3,7 @@
 import Foundation
 
 enum ScalarMultiplication {
-    private static let generatorMultiples8BitAffine: [AffinePoint] = {
+    @usableFromInline static let generatorMultiples8BitAffine: InlineArray<256, AffinePoint> = {
         var jacobianTable = Array(repeating: JacobianPoint.infinity, count: 256)
         jacobianTable[1] = JacobianPoint(affine: generator)
         if jacobianTable.count > 2 {
@@ -13,8 +13,8 @@ enum ScalarMultiplication {
         }
         
         let affineOptionals = JacobianPoint.batchToAffine(jacobianTable)
-        var affineTable = Array(repeating: generator, count: 256)
-        for index in 1..<affineTable.count {
+        var affineTable: InlineArray<256, AffinePoint> = .init(repeating: generator)
+        for index in 1..<256 {
             guard let affinePoint = affineOptionals[index] else {
                 preconditionFailure("Unexpected infinity in generator table at index \(index).")
             }
@@ -23,6 +23,7 @@ enum ScalarMultiplication {
         return affineTable
     }()
     
+    @inlinable
     static func mul(_ scalar: Scalar, _ point: AffinePoint) -> JacobianPoint {
         var resultZero = JacobianPoint.infinity
         var resultOne = JacobianPoint(affine: point)
@@ -38,19 +39,23 @@ enum ScalarMultiplication {
         return resultZero
     }
     
+    @inlinable
     static func mulG(_ scalar: Scalar) -> JacobianPoint {
         var result = JacobianPoint.infinity
-        scalar.forEachBigEndianByte { byte in
-            result = result.doubleEightTimes()
-            let byteValue = Int(byte)
-            if byteValue != 0 {
-                result = result.addAffine(generatorMultiples8BitAffine[byteValue])
+        for limbIndex in stride(from: 3, through: 0, by: -1) {
+            let limb = scalar.limbs[limbIndex].bigEndian
+            for shift in stride(from: 56, through: 0, by: -8) {
+                result = result.doubleEightTimes()
+                let byteValue = Int((limb >> shift) & 0xff)
+                if byteValue != 0 {
+                    result = result.addAffine(generatorMultiples8BitAffine[byteValue])
+                }
             }
         }
         return result
     }
     
-    private static let generator = AffinePoint(
+    @usableFromInline static let generator = AffinePoint(
         x: FieldElement(unchecked: Secp256k1.Constant.Gx),
         y: FieldElement(unchecked: Secp256k1.Constant.Gy)
     )

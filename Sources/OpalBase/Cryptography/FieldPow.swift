@@ -3,7 +3,7 @@
 import Foundation
 
 enum FieldPow {
-    static let squareRootExponentBits = makeExponentBits(
+    @usableFromInline static let squareRootExponentBits = makeExponentBits(
         from: UInt256(
             limbs: [
                 0xffffffffbfffff0c,
@@ -14,7 +14,7 @@ enum FieldPow {
         )
     )
     
-    static let legendreExponentBits = makeExponentBits(
+    @usableFromInline static let legendreExponentBits = makeExponentBits(
         from: UInt256(
             limbs: [
                 0xffffffff7ffffe17,
@@ -25,7 +25,7 @@ enum FieldPow {
         )
     )
     
-    static let inversionExponentBits = makeExponentBits(
+    @usableFromInline static let inversionExponentBits = makeExponentBits(
         from: UInt256(
             limbs: [
                 0xfffffffefffffc2d,
@@ -36,7 +36,7 @@ enum FieldPow {
         )
     )
     
-    private static func makeExponentBits(from exponent: UInt256) -> [Bool] {
+    @usableFromInline static func makeExponentBits(from exponent: UInt256) -> [Bool] {
         guard let mostSignificantBit = exponent.mostSignificantBitIndex else {
             return [false]
         }
@@ -45,6 +45,7 @@ enum FieldPow {
 }
 
 extension FieldElement {
+    @inlinable
     func pow(exponentBits: [Bool]) -> FieldElement {
         var result = FieldElement.one
         for bit in exponentBits {
@@ -56,6 +57,7 @@ extension FieldElement {
         return result
     }
     
+    @inlinable
     func invert() -> FieldElement {
         pow(exponentBits: FieldPow.inversionExponentBits)
     }

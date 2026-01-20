@@ -4,7 +4,7 @@ import Foundation
 
 extension Secp256k1 {
     enum Constant {
-        static let p = UInt256(
+        @usableFromInline static let p = UInt256(
             limbs: [
                 0xfffffffefffffc2f,
                 0xffffffffffffffff,
@@ -13,7 +13,7 @@ extension Secp256k1 {
             ]
         )
         
-        static let n = UInt256(
+        @usableFromInline static let n = UInt256(
             limbs: [
                 0xbfd25e8cd0364141,
                 0xbaaedce6af48a03b,
@@ -22,7 +22,7 @@ extension Secp256k1 {
             ]
         )
         
-        static let Gx = UInt256(
+        @usableFromInline static let Gx = UInt256(
             limbs: [
                 0x59f2815b16f81798,
                 0x029bfcdb2dce28d9,
@@ -31,7 +31,7 @@ extension Secp256k1 {
             ]
         )
         
-        static let Gy = UInt256(
+        @usableFromInline static let Gy = UInt256(
             limbs: [
                 0x9c47d08ffb10d4b8,
                 0xfd17b448a6855419,

@@ -7,8 +7,9 @@ struct UInt256 {
         case invalidDataLength(expected: Int, actual: Int)
     }
     
-    var limbs: InlineArray<4, UInt64>
+    @usableFromInline var limbs: InlineArray<4, UInt64>
     
+    @inlinable
     init(limbs: InlineArray<4, UInt64>) {
         self.limbs = limbs
     }
@@ -18,8 +19,8 @@ struct UInt256 {
         self.limbs = [limbs[0], limbs[1], limbs[2], limbs[3]]
     }
     
-    static let zero = UInt256(limbs: .init(repeating: 0))
-    static let one = UInt256(limbs: [1, 0, 0, 0])
+    @usableFromInline static let zero = UInt256(limbs: .init(repeating: 0))
+    @usableFromInline static let one = UInt256(limbs: [1, 0, 0, 0])
     
     init(data32: Data) throws {
         guard data32.count == 32 else {
@@ -35,6 +36,7 @@ struct UInt256 {
         limbs = temporaryLimbs
     }
     
+    @inlinable
     var data32: Data {
         var data = Data(count: 32)
         data.withUnsafeMutableBytes { buffer in
@@ -46,6 +48,7 @@ struct UInt256 {
         return data
     }
     
+    @inlinable
     func compare(to other: UInt256) -> ComparisonResult {
         for index in stride(from: 3, through: 0, by: -1) {
             if limbs[index] < other.limbs[index] {
@@ -58,18 +61,22 @@ struct UInt256 {
         return .orderedSame
     }
     
+    @inlinable
     var isZero: Bool {
         (limbs[0] | limbs[1] | limbs[2] | limbs[3]) == 0
     }
     
+    @inlinable
     var isOne: Bool {
         limbs[0] == 1 && limbs[1] == 0 && limbs[2] == 0 && limbs[3] == 0
     }
     
+    @inlinable
     var isLeastSignificantBitSet: Bool {
         (limbs[0] & 1) == 1
     }
     
+    @inlinable
     var mostSignificantBitIndex: Int? {
         for index in stride(from: 3, through: 0, by: -1) {
             let limb = limbs[index]
@@ -81,6 +88,7 @@ struct UInt256 {
         return nil
     }
     
+    @inlinable
     func bit(at index: Int) -> Bool {
         guard index >= 0, index < 256 else {
             return false
@@ -90,6 +98,7 @@ struct UInt256 {
         return (limbs[limbIndex] >> bitIndex) & 1 == 1
     }
     
+    @inlinable
     func adding(_ other: UInt256) -> (sum: UInt256, carry: Bool) {
         var result: InlineArray<4, UInt64> = .init(repeating: 0)
         var carry: UInt64 = 0
@@ -105,6 +114,7 @@ struct UInt256 {
         return (UInt256(limbs: result), carry != 0)
     }
     
+    @inlinable
     func subtracting(_ other: UInt256) -> (difference: UInt256, borrow: Bool) {
         var result: InlineArray<4, UInt64> = .init(repeating: 0)
         var borrow: UInt64 = 0
@@ -120,6 +130,7 @@ struct UInt256 {
         return (UInt256(limbs: result), borrow != 0)
     }
     
+    @inlinable
     func multipliedFullWidth(by other: UInt256) -> UInt512 {
         var result: InlineArray<8, UInt64> = .init(repeating: 0)
         for leftIndex in 0..<4 {
@@ -146,6 +157,7 @@ struct UInt256 {
         return UInt512(limbs: result)
     }
     
+    @inlinable
     static func multiplyAdd(
         low: UInt64,
         addend: UInt64,
@@ -166,19 +178,8 @@ struct UInt256 {
         }
         return (sum, newCarry)
     }
-}
-
-extension UInt256: Sendable {}
-extension UInt256: Equatable {
-    static func == (lhs: UInt256, rhs: UInt256) -> Bool {
-        lhs.limbs[0] == rhs.limbs[0]
-        && lhs.limbs[1] == rhs.limbs[1]
-        && lhs.limbs[2] == rhs.limbs[2]
-        && lhs.limbs[3] == rhs.limbs[3]
-    }
-}
-
-extension UInt256 {
+    
+    @inlinable
     func squaredFullWidth() -> UInt512 {
         var result: InlineArray<8, UInt64> = .init(repeating: 0)
         
@@ -238,5 +239,15 @@ extension UInt256 {
         }
         
         return UInt512(limbs: result)
+    }
+}
+
+extension UInt256: Sendable {}
+extension UInt256: Equatable {
+    static func == (lhs: UInt256, rhs: UInt256) -> Bool {
+        lhs.limbs[0] == rhs.limbs[0]
+        && lhs.limbs[1] == rhs.limbs[1]
+        && lhs.limbs[2] == rhs.limbs[2]
+        && lhs.limbs[3] == rhs.limbs[3]
     }
 }
