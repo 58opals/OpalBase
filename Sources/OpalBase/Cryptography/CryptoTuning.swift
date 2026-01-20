@@ -3,6 +3,6 @@
 import Foundation
 
 enum CryptoTuning {
-    static let shouldUseEndomorphismForGeneratorMultiplication = false
+    static let shouldUseEndomorphismForGeneratorMultiplication = true
     static let shouldUseEndomorphismForPublicKeyDecompression = true
 }
