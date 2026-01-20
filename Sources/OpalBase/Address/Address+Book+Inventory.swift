@@ -5,10 +5,12 @@ import Foundation
 extension Address.Book {
     struct Inventory {
         private var bucket: UsageBucket
+        private var addressIndex: [Address: (usage: DerivationPath.Usage, index: Int)]
         private var cacheValidityDurationValue: TimeInterval
         
         init(cacheValidityDuration: TimeInterval) {
             self.bucket = .init()
+            self.addressIndex = .init()
             self.cacheValidityDurationValue = cacheValidityDuration
         }
         
@@ -55,12 +57,14 @@ extension Address.Book {
         
         mutating func append(_ entry: Entry, usage: DerivationPath.Usage) {
             bucket.appendEntry(entry, usage: usage)
+            let newIndex = bucket.countEntries(for: usage) - 1
+            recordAddressIndex(for: entry, usage: usage, index: newIndex)
         }
         
         mutating func updateEntry(at index: Int,
                                   usage: DerivationPath.Usage,
                                   _ update: (inout Entry) -> Void) {
-            _ = bucket.updateEntry(at: index, usage: usage, update)
+            _ = updateEntryAndIndex(at: index, usage: usage, update)
         }
         
         mutating func updateCacheValidityDuration(to newDuration: TimeInterval) {
@@ -103,7 +107,9 @@ extension Address.Book {
         private mutating func updateEntry(for address: Address,
                                           _ update: (inout Entry) -> Void) throws -> Entry {
             guard let location = locateEntry(for: address),
-                  let updatedEntry = bucket.updateEntry(at: location.index, usage: location.usage, update) else {
+                  let updatedEntry = updateEntryAndIndex(at: location.index,
+                                                         usage: location.usage,
+                                                         update) else {
                 throw Address.Book.Error.addressNotFound
             }
             
@@ -111,7 +117,63 @@ extension Address.Book {
         }
         
         private func locateEntry(for address: Address) -> (usage: DerivationPath.Usage, index: Int)? {
-            bucket.locateEntry(for: address)
+            addressIndex[address]
+        }
+        
+        private mutating func updateEntryAndIndex(at index: Int,
+                                                  usage: DerivationPath.Usage,
+                                                  _ update: (inout Entry) -> Void) -> Entry? {
+            guard let existingEntry = bucket.fetchEntry(at: index, usage: usage),
+                  let updatedEntry = bucket.updateEntry(at: index, usage: usage, update) else {
+                return nil
+            }
+            
+            refreshAddressIndex(oldEntry: existingEntry,
+                                updatedEntry: updatedEntry,
+                                usage: usage,
+                                index: index)
+            return updatedEntry
+        }
+        
+        private mutating func recordAddressIndex(for entry: Entry,
+                                                 usage: DerivationPath.Usage,
+                                                 index: Int) {
+            if let location = addressIndex[entry.address] {
+                switch (location.usage, usage) {
+                case (.receiving, _):
+                    return
+                case (.change, .receiving):
+                    addressIndex[entry.address] = (usage, index)
+                case (.change, .change):
+                    return
+                }
+            } else {
+                addressIndex[entry.address] = (usage, index)
+            }
+        }
+        
+        private mutating func refreshAddressIndex(oldEntry: Entry,
+                                                  updatedEntry: Entry,
+                                                  usage: DerivationPath.Usage,
+                                                  index: Int) {
+            if oldEntry.address == updatedEntry.address {
+                recordAddressIndex(for: updatedEntry, usage: usage, index: index)
+                return
+            }
+            
+            removeAddressIndex(for: oldEntry, usage: usage, index: index)
+            recordAddressIndex(for: updatedEntry, usage: usage, index: index)
+        }
+        
+        private mutating func removeAddressIndex(for entry: Entry,
+                                                 usage: DerivationPath.Usage,
+                                                 index: Int) {
+            guard let location = addressIndex[entry.address],
+                  location.usage == usage,
+                  location.index == index else {
+                return
+            }
+            addressIndex[entry.address] = nil
         }
     }
 }
