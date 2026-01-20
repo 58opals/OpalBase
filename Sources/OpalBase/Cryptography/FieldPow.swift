@@ -59,6 +59,11 @@ extension FieldElement {
     
     @inlinable
     func invert() -> FieldElement {
+        invertFast()
+    }
+    
+    @inlinable
+    func invertUsingExponentiation() -> FieldElement {
         pow(exponentBits: FieldPow.inversionExponentBits)
     }
 }
