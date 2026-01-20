@@ -55,11 +55,12 @@ struct JacobianPoint: Sendable, Equatable {
         let xCoordinateSquared = X.square()
         let yCoordinateSquared = Y.square()
         let yCoordinateFourth = yCoordinateSquared.square()
+        let yCoordinateFourthTimesEight = yCoordinateFourth.double().double().double()
         let xCoordinatePlusYSquared = X.add(yCoordinateSquared)
         let delta = xCoordinatePlusYSquared.square().sub(xCoordinateSquared).sub(yCoordinateFourth).double()
         let threeXCoordinate = xCoordinateSquared.double().add(xCoordinateSquared)
         let xCoordinateResult = threeXCoordinate.square().sub(delta.double())
-        let yCoordinateResult = threeXCoordinate.mul(delta.sub(xCoordinateResult)).sub(yCoordinateFourth.mul(.eight))
+        let yCoordinateResult = threeXCoordinate.mul(delta.sub(xCoordinateResult)).sub(yCoordinateFourthTimesEight)
         let zCoordinateResult = Y.mul(Z).double()
         return JacobianPoint(X: xCoordinateResult, Y: yCoordinateResult, Z: zCoordinateResult)
     }
