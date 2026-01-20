@@ -43,7 +43,7 @@ enum ScalarMultiplication {
     static func mulG(_ scalar: Scalar) -> JacobianPoint {
         var result = JacobianPoint.infinity
         for limbIndex in stride(from: 3, through: 0, by: -1) {
-            let limb = scalar.limbs[limbIndex].bigEndian
+            let limb = scalar.limbs[limbIndex]
             for shift in stride(from: 56, through: 0, by: -8) {
                 result = result.doubleEightTimes()
                 let byteValue = Int((limb >> shift) & 0xff)
