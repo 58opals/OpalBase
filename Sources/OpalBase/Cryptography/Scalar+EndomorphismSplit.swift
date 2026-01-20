@@ -37,7 +37,20 @@ private extension Scalar {
 
 private extension UInt256 {
     func multiplyShiftRight384(by other: UInt256) -> UInt256 {
-        let product = multipliedFullWidth(by: other)
+        var product = multipliedFullWidth(by: other)
+        let roundingBit: UInt64 = 1 << 63
+        var sum = product.limbs[5]
+        var overflow = false
+        (sum, overflow) = sum.addingReportingOverflow(roundingBit)
+        product.limbs[5] = sum
+        var carry: UInt64 = overflow ? 1 : 0
+        var carryIndex = 6
+        while carry > 0, carryIndex < product.limbs.count {
+            let (nextSum, nextOverflow) = product.limbs[carryIndex].addingReportingOverflow(carry)
+            product.limbs[carryIndex] = nextSum
+            carry = nextOverflow ? 1 : 0
+            carryIndex += 1
+        }
         return UInt256(limbs: [product.limbs[6], product.limbs[7], 0, 0])
     }
 }
