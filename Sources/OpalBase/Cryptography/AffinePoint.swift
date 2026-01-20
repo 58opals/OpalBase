@@ -13,8 +13,11 @@ struct AffinePoint: Sendable, Equatable {
     }
     
     func compressedEncoding33() -> Data {
-        let prefix: UInt8 = y.isOdd ? 0x03 : 0x02
-        return Data([prefix]) + x.data32
+        var output = Data()
+        output.reserveCapacity(33)
+        output.append(y.isOdd ? 0x03 : 0x02)
+        output.append(x.data32)
+        return output
     }
     
     func uncompressedEncoding65() -> Data {
