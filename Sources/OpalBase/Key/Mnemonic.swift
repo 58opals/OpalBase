@@ -93,13 +93,13 @@ public struct Mnemonic {
         let normalizedMnemonic = mnemonicSentence.decomposedStringWithCompatibilityMapping
         let normalizedPassphrase = passphrase.decomposedStringWithCompatibilityMapping
         
-        let password = Array(normalizedMnemonic.utf8)
+        let password = Data(normalizedMnemonic.utf8)
         let saltString = "mnemonic" + normalizedPassphrase
-        let salt = Array(saltString.utf8)
+        let salt = Data(saltString.utf8)
         let iterations = 2048
         let keyLength = 64
         
-        return try PBKDF2(password: password, saltBytes: salt, iterationCount: iterations, derivedKeyLength: keyLength).deriveKey()
+        return try PBKDF2(password: password, salt: salt, iterationCount: iterations, derivedKeyLength: keyLength).deriveKey()
     }
     
     static func makeBitValues(from data: Data, limit: Int? = nil) -> [UInt8] {

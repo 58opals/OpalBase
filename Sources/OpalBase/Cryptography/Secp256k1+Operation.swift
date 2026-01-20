@@ -41,14 +41,18 @@ extension Secp256k1 {
         }
         
         static func deriveCompressedPublicKeys(
-            fromPrivateKeys32 privateKeys32: [Data]
+            fromPrivateKeys32 privateKeys32: [Data],
+            assumingValidPrivateKeys: Bool = false
         ) async throws -> [Data] {
             guard !privateKeys32.isEmpty else { return .init() }
             
             let maximumChunkSize = 256
             let totalCount = privateKeys32.count
             if totalCount <= 64 {
-                return try deriveCompressedPublicKeysSingleChunk(fromPrivateKeys32: privateKeys32)
+                return try deriveCompressedPublicKeysSingleChunk(
+                    fromPrivateKeys32: privateKeys32,
+                    assumingValidPrivateKeys: assumingValidPrivateKeys
+                )
             }
             let processorCount = max(1, ProcessInfo.processInfo.activeProcessorCount)
             let taskCount = min(processorCount, totalCount)
@@ -67,7 +71,7 @@ extension Secp256k1 {
                         jacobianPoints.reserveCapacity(privateKeySlice.count)
                         
                         for privateKey32 in privateKeySlice {
-                            let privateKeyScalar = try parsePrivateKeyScalar(privateKey32, requireNonZero: true)
+                            let privateKeyScalar = assumingValidPrivateKeys ?  try self.parsePrivateKeyScalarUnchecked(privateKey32, requireNonZero: true) : try self.parsePrivateKeyScalar(privateKey32, requireNonZero: true)
                             jacobianPoints.append(ScalarMultiplication.mulG(privateKeyScalar))
                         }
                         
@@ -158,14 +162,34 @@ private extension Secp256k1.Operation {
         }
     }
     
+    static func parsePrivateKeyScalarUnchecked(
+        _ data: Data,
+        requireNonZero: Bool
+    ) throws -> Scalar {
+        do {
+            let parsed = try UInt256(data32: data)
+            let scalar = Scalar(unchecked: parsed)
+            guard !requireNonZero || !scalar.isZero else {
+                throw Scalar.Error.zeroNotAllowed
+            }
+            return scalar
+        } catch UInt256.Error.invalidDataLength(let expected, let actual) {
+            precondition(expected == 32)
+            throw Error.invalidPrivateKeyLength(actual: actual)
+        } catch {
+            throw Error.invalidPrivateKeyValue
+        }
+    }
+    
     static func deriveCompressedPublicKeysSingleChunk(
-        fromPrivateKeys32 privateKeys32: [Data]
+        fromPrivateKeys32 privateKeys32: [Data],
+        assumingValidPrivateKeys: Bool
     ) throws -> [Data] {
         var jacobianPoints: [JacobianPoint] = []
         jacobianPoints.reserveCapacity(privateKeys32.count)
         
         for privateKey32 in privateKeys32 {
-            let privateKeyScalar = try parsePrivateKeyScalar(privateKey32, requireNonZero: true)
+            let privateKeyScalar = assumingValidPrivateKeys ? try self.parsePrivateKeyScalarUnchecked(privateKey32, requireNonZero: true) : try self.parsePrivateKeyScalar(privateKey32, requireNonZero: true)
             jacobianPoints.append(ScalarMultiplication.mulG(privateKeyScalar))
         }
         

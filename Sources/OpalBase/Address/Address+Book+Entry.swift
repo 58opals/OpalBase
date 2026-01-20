@@ -124,7 +124,10 @@ extension Address.Book {
             derivationPaths.append(try createDerivationPath(usage: usage, index: index))
         }
         
-        let compressedPublicKeys = try await Secp256k1.Operation.deriveCompressedPublicKeys(fromPrivateKeys32: childPrivateKeys)
+        let compressedPublicKeys = try await Secp256k1.Operation.deriveCompressedPublicKeys(
+            fromPrivateKeys32: childPrivateKeys,
+            assumingValidPrivateKeys: true
+        )
         var entries: [Entry] = .init()
         entries.reserveCapacity(indices.count)
         
