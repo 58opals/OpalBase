@@ -47,6 +47,9 @@ extension Secp256k1 {
             
             let maximumChunkSize = 256
             let totalCount = privateKeys32.count
+            if totalCount <= 64 {
+                return try deriveCompressedPublicKeysSingleChunk(fromPrivateKeys32: privateKeys32)
+            }
             let processorCount = max(1, ProcessInfo.processInfo.activeProcessorCount)
             let taskCount = min(processorCount, totalCount)
             let idealChunkSize = (totalCount + taskCount - 1) / taskCount
@@ -153,6 +156,31 @@ private extension Secp256k1.Operation {
         } catch {
             throw Error.invalidPrivateKeyValue
         }
+    }
+    
+    static func deriveCompressedPublicKeysSingleChunk(
+        fromPrivateKeys32 privateKeys32: [Data]
+    ) throws -> [Data] {
+        var jacobianPoints: [JacobianPoint] = []
+        jacobianPoints.reserveCapacity(privateKeys32.count)
+        
+        for privateKey32 in privateKeys32 {
+            let privateKeyScalar = try parsePrivateKeyScalar(privateKey32, requireNonZero: true)
+            jacobianPoints.append(ScalarMultiplication.mulG(privateKeyScalar))
+        }
+        
+        let affinePoints = JacobianPoint.batchToAffine(jacobianPoints)
+        var compressedPublicKeys: [Data] = []
+        compressedPublicKeys.reserveCapacity(affinePoints.count)
+        
+        for affinePoint in affinePoints {
+            guard let affinePoint else {
+                throw Error.invalidDerivedPublicKey
+            }
+            compressedPublicKeys.append(encodePublicKey(affinePoint, format: .compressed))
+        }
+        
+        return compressedPublicKeys
     }
     
     static func parseTweakScalar(
