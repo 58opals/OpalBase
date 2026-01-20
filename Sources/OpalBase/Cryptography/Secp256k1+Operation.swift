@@ -46,15 +46,18 @@ extension Secp256k1 {
             guard !privateKeys32.isEmpty else { return .init() }
             
             let maximumChunkSize = 256
-            let chunkSize = max(1, maximumChunkSize)
             let totalCount = privateKeys32.count
+            let processorCount = max(1, ProcessInfo.processInfo.activeProcessorCount)
+            let taskCount = min(processorCount, totalCount)
+            let idealChunkSize = (totalCount + taskCount - 1) / taskCount
+            let chunkSize = min(maximumChunkSize, max(1, idealChunkSize))
             let chunkCount = (totalCount + chunkSize - 1) / chunkSize
             
             return try await withThrowingTaskGroup(of: CompressedPublicKeyChunkResult.self) { group in
                 for chunkIndex in 0..<chunkCount {
                     let startIndex = chunkIndex * chunkSize
                     let endIndex = min(startIndex + chunkSize, totalCount)
-                    let privateKeySlice = Array(privateKeys32[startIndex..<endIndex])
+                    let privateKeySlice = privateKeys32[startIndex..<endIndex]
                     
                     group.addTask {
                         var jacobianPoints: [JacobianPoint] = .init()
