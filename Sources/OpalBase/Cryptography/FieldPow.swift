@@ -59,7 +59,7 @@ extension FieldElement {
     
     @inlinable
     func invert() -> FieldElement {
-        invertFast()
+        return invertFast()
     }
     
     @inlinable

@@ -36,10 +36,12 @@ extension FieldElement {
         let powerTwoToThirtyTwoMinusOne = powerTwoToSixteenMinusOne.square(16).mul(powerTwoToSixteenMinusOne)
         let powerTwoToSixtyFourMinusOne = powerTwoToThirtyTwoMinusOne.square(32).mul(powerTwoToThirtyTwoMinusOne)
         let powerTwoToOneHundredTwentyEightMinusOne = powerTwoToSixtyFourMinusOne.square(64).mul(powerTwoToSixtyFourMinusOne)
-        
         let powerTwoToOneHundredNinetyTwoMinusOne = powerTwoToOneHundredTwentyEightMinusOne.square(64).mul(powerTwoToSixtyFourMinusOne)
-        let powerTwoToTwoHundredTwentyFourMinusOne = powerTwoToOneHundredNinetyTwoMinusOne.square(32).mul(powerTwoToThirtyTwoMinusOne)
-        let upperExponent = powerTwoToTwoHundredTwentyFourMinusOne.square(32)
+        let powerTwoToSevenMinusOne = powerTwoToSixMinusOne.square().mul(self)
+        let powerTwoToFifteenMinusOne = powerTwoToEightMinusOne.square(7).mul(powerTwoToSevenMinusOne)
+        let powerTwoToThirtyOneMinusOne = powerTwoToSixteenMinusOne.square(15).mul(powerTwoToFifteenMinusOne)
+        let powerTwoToTwoHundredTwentyThreeMinusOne = powerTwoToOneHundredNinetyTwoMinusOne.square(31).mul(powerTwoToThirtyOneMinusOne)
+        let upperExponent = powerTwoToTwoHundredTwentyThreeMinusOne.square(33)
         
         let powerTwoToTwentyTwoMinusOne = powerTwoToSixteenMinusOne.square(6).mul(powerTwoToSixMinusOne)
         var lowerExponent = powerTwoToTwentyTwoMinusOne.square(4)
