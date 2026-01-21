@@ -33,33 +33,30 @@ extension Network {
                     options: .init(timeout: timeouts.headersSubscription)
                 )
                 
-                return AsyncThrowingStream { continuation in
-                    let initialSnapshot = BlockHeaderSnapshot(height: initial.height, headerHexadecimal: initial.hex)
-                    continuation.yield(initialSnapshot)
-                    
-                    let task = Task {
-                        do {
-                            for try await notification in updates {
-                                for block in notification.blocks {
-                                    let snapshot = BlockHeaderSnapshot(height: block.height, headerHexadecimal: block.hex)
-                                    continuation.yield(snapshot)
-                                }
-                            }
-                            continuation.finish()
-                        } catch {
-                            if error.isCancellation {
-                                continuation.finish()
-                            } else {
-                                continuation.finish(throwing: FulcrumErrorTranslator.translate(error))
-                            }
+                return Network.makeSubscriptionStream(
+                    initial: initial,
+                    updates: updates,
+                    cancel: cancel,
+                    makeInitialUpdates: { snapshot in
+                        [
+                            BlockHeaderSnapshot(
+                                height: snapshot.height,
+                                headerHexadecimal: snapshot.hex
+                            )
+                        ]
+                    },
+                    makeUpdates: { notification in
+                        notification.blocks.map { block in
+                            BlockHeaderSnapshot(
+                                height: block.height,
+                                headerHexadecimal: block.hex
+                            )
                         }
+                    },
+                    deduplicationKey: { snapshot in
+                        snapshot
                     }
-                    
-                    continuation.onTermination = { _ in
-                        task.cancel()
-                        Task { await cancel() }
-                    }
-                }
+                )
             }
         }
     }

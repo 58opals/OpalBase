@@ -143,36 +143,34 @@ extension Network {
                     options: .init(timeout: timeouts.addressSubscription)
                 )
                 
-                return AsyncThrowingStream { continuation in
-                    var lastStatus = initial.status
-                    let initialUpdate = AddressSubscriptionUpdate(kind: .initialSnapshot, address: address, status: initial.status)
-                    continuation.yield(initialUpdate)
-                    
-                    let subscribedAddress = address
-                    let task = Task {
-                        do {
-                            for try await notification in updates {
-                                guard subscribedAddress == notification.subscriptionIdentifier else { continue }
-                                let update = AddressSubscriptionUpdate(kind: .change, address: subscribedAddress, status: notification.status)
-                                guard update.status != lastStatus else { continue }
-                                lastStatus = update.status
-                                continuation.yield(update)
-                            }
-                            continuation.finish()
-                        } catch {
-                            if error.isCancellation {
-                                continuation.finish()
-                            } else {
-                                continuation.finish(throwing: FulcrumErrorTranslator.translate(error))
-                            }
-                        }
+                let subscribedAddress = address
+                return Network.makeSubscriptionStream(
+                    initial: initial,
+                    updates: updates,
+                    cancel: cancel,
+                    makeInitialUpdates: { snapshot in
+                        [
+                            AddressSubscriptionUpdate(
+                                kind: .initialSnapshot,
+                                address: subscribedAddress,
+                                status: snapshot.status
+                            )
+                        ]
+                    },
+                    makeUpdates: { notification in
+                        guard subscribedAddress == notification.subscriptionIdentifier else { return [] }
+                        return [
+                            AddressSubscriptionUpdate(
+                                kind: .change,
+                                address: subscribedAddress,
+                                status: notification.status
+                            )
+                        ]
+                    },
+                    deduplicationKey: { update in
+                        update.status
                     }
-                    
-                    continuation.onTermination = { _ in
-                        task.cancel()
-                        Task { await cancel() }
-                    }
-                }
+                )
             }
         }
     }
