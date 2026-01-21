@@ -179,7 +179,12 @@ extension Account {
         
         return AsyncThrowingStream { continuation in
             let task = Task {
-                var lastStatus: UInt?? = nil
+                enum ConfirmationStatus: Equatable {
+                    case initial
+                    case value(UInt?)
+                }
+                
+                var lastStatus: ConfirmationStatus = .initial
                 
                 while !Task.isCancelled {
                     do {
@@ -192,10 +197,10 @@ extension Account {
                             throw Account.Error.confirmationQueryFailed(error)
                         }
                         
-                        let currentStatus: UInt?? = .some(confirmations)
-                        if lastStatus == nil || lastStatus! != currentStatus {
-                            lastStatus = currentStatus
+                        let currentStatus: ConfirmationStatus = .value(confirmations)
+                        if lastStatus != currentStatus {
                             continuation.yield(confirmations)
+                            lastStatus = currentStatus
                         }
                         
                         do {
