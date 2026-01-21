@@ -201,14 +201,14 @@ extension Account {
                         do {
                             try await Task.sleep(for: effectiveInterval)
                         } catch {
-                            if Network.FulcrumErrorTranslator.isCancellation(error) {
+                            if error.isCancellation {
                                 continuation.finish()
                                 return
                             }
                             throw error
                         }
                     } catch {
-                        if Network.FulcrumErrorTranslator.isCancellation(error) {
+                        if error.isCancellation {
                             continuation.finish()
                             return
                         }

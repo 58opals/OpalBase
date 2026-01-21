@@ -134,3 +134,9 @@ extension Network {
         }
     }
 }
+
+extension Swift.Error {
+    var isCancellation: Bool {
+        Network.FulcrumErrorTranslator.isCancellation(self)
+    }
+}
