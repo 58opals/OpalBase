@@ -30,7 +30,7 @@ extension Address.Book {
         let refreshTimestamp = Date.now
         try await forEachTargetUsage(usage) { _, entries in
             let addresses = entries.map(\.address)
-            let usageResults = try await addresses.mapConcurrently(limit: Concurrency.Tuning.maximumConcurrentNetworkRequests) { address in
+            let usageResults = try await addresses.mapConcurrently { address in
                 let utxos = try await service.fetchUnspentOutputs(for: address.string)
                 return (address, utxos)
             }

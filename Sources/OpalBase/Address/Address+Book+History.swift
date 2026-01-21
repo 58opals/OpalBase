@@ -32,7 +32,7 @@ extension Address.Book {
                 let scriptHash = address.makeScriptHash().hexadecimalString
                 return (address: address, scriptHash: scriptHash)
             }
-            let usageResults = try await targets.mapConcurrently(limit: Concurrency.Tuning.maximumConcurrentNetworkRequests) { target in
+            let usageResults = try await targets.mapConcurrently { target in
                 try await self.fetchHistoryQueryResult(for: target.address,
                                                        scriptHash: target.scriptHash,
                                                        using: service,
@@ -109,7 +109,6 @@ extension Address.Book {
         guard !recordsToUpdate.isEmpty else { return .init() }
         
         let updates = try await recordsToUpdate.mapConcurrently(
-            limit: Concurrency.Tuning.maximumConcurrentNetworkRequests,
             transformError: { record, error in
                 Address.Book.Error.transactionConfirmationRefreshFailed(record.transactionHash, error)
             }

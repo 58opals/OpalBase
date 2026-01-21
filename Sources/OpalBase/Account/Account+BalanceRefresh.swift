@@ -31,7 +31,6 @@ extension Account {
             
             let addresses = entries.map(\.address)
             let usageResults = try await addresses.mapConcurrently(
-                limit: Concurrency.Tuning.maximumConcurrentNetworkRequests,
                 transformError: { address, error in
                     Error.balanceRefreshFailed(address, error)
                 }

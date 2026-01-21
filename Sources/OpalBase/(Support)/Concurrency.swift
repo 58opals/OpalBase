@@ -16,14 +16,14 @@ enum Concurrency {
 
 extension Collection where Element: Sendable {
     func mapConcurrently<Transformed: Sendable>(
-        limit: Int,
+        limit: Int = Concurrency.Tuning.maximumConcurrentNetworkRequests,
         transformError: @escaping @Sendable (Element, Swift.Error) -> Swift.Error = { _, error in error },
         _ transform: @escaping @Sendable (Element) async throws -> Transformed
     ) async throws -> [Transformed] {
         guard !isEmpty else { return .init() }
         
-        let maximumConcurrentTasks = Swift.max(1, Swift.min(limit, count))
         let elementCount = count
+        let maximumConcurrentTasks = Swift.max(1, Swift.min(limit, elementCount))
         var iterator = self.enumerated().makeIterator()
         let initialTaskCount = Swift.min(maximumConcurrentTasks, elementCount)
         
