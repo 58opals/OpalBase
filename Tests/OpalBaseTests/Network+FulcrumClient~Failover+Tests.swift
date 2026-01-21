@@ -29,8 +29,7 @@ struct NetworkFulcrumClientFailoverTests {
             )
         )
         
-        let client = try await Network.FulcrumClient(configuration: configuration)
-        do {
+        try await NetworkTestSupport.withClient(configuration: configuration) { client in
             try await client.reconnect()
             
             let tip: SwiftFulcrum.Response.Result.Blockchain.Headers.GetTip = try await client.request(
@@ -49,11 +48,6 @@ struct NetworkFulcrumClientFailoverTests {
             )
             #expect(balance.confirmed >= 0)
             #expect(balance.unconfirmed >= 0)
-            
-            await client.stop()
-        } catch {
-            await client.stop()
-            throw error
         }
     }
     
@@ -71,8 +65,7 @@ struct NetworkFulcrumClientFailoverTests {
             )
         )
         
-        let client = try await Network.FulcrumClient(configuration: configuration)
-        do {
+        try await NetworkTestSupport.withClient(configuration: configuration) { client in
             let tip: SwiftFulcrum.Response.Result.Blockchain.Headers.GetTip = try await client.request(
                 method: .blockchain(.headers(.getTip)),
                 responseType: SwiftFulcrum.Response.Result.Blockchain.Headers.GetTip.self
@@ -107,11 +100,6 @@ struct NetworkFulcrumClientFailoverTests {
                 responseType: SwiftFulcrum.Response.Result.Blockchain.Address.GetHistory.self
             )
             #expect(!history.transactions.isEmpty)
-            
-            await client.stop()
-        } catch {
-            await client.stop()
-            throw error
         }
     }
     
@@ -129,9 +117,7 @@ struct NetworkFulcrumClientFailoverTests {
             )
         )
         
-        let client = try await Network.FulcrumClient(configuration: configuration)
-        
-        do {
+        try await NetworkTestSupport.withClient(configuration: configuration) { client in
             let balance: SwiftFulcrum.Response.Result.Blockchain.Address.GetBalance = try await client.request(
                 method: .blockchain(
                     .address(
@@ -157,11 +143,6 @@ struct NetworkFulcrumClientFailoverTests {
             )
             
             #expect(!history.transactions.isEmpty)
-            
-            await client.stop()
-        } catch {
-            await client.stop()
-            throw error
         }
     }
 }

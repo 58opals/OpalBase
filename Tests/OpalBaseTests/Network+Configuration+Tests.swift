@@ -63,14 +63,13 @@ struct NetworkConfigurationTests {
             )
         )
         
-        let client = try await Network.FulcrumClient(configuration: configuration)
-        let headerReader = Network.FulcrumBlockHeaderReader(client: client)
-        defer { Task { await client.stop() } }
-        
-        let tip = try await headerReader.fetchTip()
-        
-        #expect(tip.height > 0)
-        #expect(!tip.headerHexadecimal.isEmpty)
+        try await NetworkTestSupport.withClient(configuration: configuration) { client in
+            let headerReader = Network.FulcrumBlockHeaderReader(client: client)
+            let tip = try await headerReader.fetchTip()
+            
+            #expect(tip.height > 0)
+            #expect(!tip.headerHexadecimal.isEmpty)
+        }
     }
     
     @Test("connects to fulcrum using wallet centric configuration", .timeLimit(.minutes(1)))
@@ -87,8 +86,7 @@ struct NetworkConfigurationTests {
             )
         )
         
-        let client = try await Network.FulcrumClient(configuration: configuration)
-        do {
+        try await NetworkTestSupport.withClient(configuration: configuration) { client in
             let addressReader = Network.FulcrumAddressReader(client: client)
             let balance = try await addressReader.fetchBalance(for: Self.sampleCashAddress)
             #expect(balance.confirmed >= 0)
@@ -97,11 +95,6 @@ struct NetworkConfigurationTests {
             
             let history = try await addressReader.fetchHistory(for: Self.sampleCashAddress, includeUnconfirmed: true)
             #expect(!history.isEmpty)
-            
-            await client.stop()
-        } catch {
-            await client.stop()
-            throw error
         }
     }
     
@@ -109,18 +102,12 @@ struct NetworkConfigurationTests {
     func testConnectFulcrumUsingBundledBootstrapServers() async throws {
         let configuration = Network.Configuration(serverURLs: .init())
         
-        let client = try await Network.FulcrumClient(configuration: configuration)
-        let headerReader = Network.FulcrumBlockHeaderReader(client: client)
-        do {
+        try await NetworkTestSupport.withClient(configuration: configuration) { client in
+            let headerReader = Network.FulcrumBlockHeaderReader(client: client)
             let tip = try await headerReader.fetchTip()
             
             #expect(tip.height > 0)
             #expect(!tip.headerHexadecimal.isEmpty)
-            
-            await client.stop()
-        } catch {
-            await client.stop()
-            throw error
         }
     }
     

@@ -15,10 +15,8 @@ struct NetworkFulcrumAddressReaderTests {
     @Test("fetches balance consistent with RPC response", .timeLimit(.minutes(1)))
     func testFetchBalanceReflectsServerState() async throws {
         let configuration = Network.Configuration(serverURLs: [Self.primaryServerAddress, Self.backupServerAddress])
-        let client = try await Network.FulcrumClient(configuration: configuration)
-        let reader = Network.FulcrumAddressReader(client: client)
-        
-        do {
+        try await NetworkTestSupport.withClient(configuration: configuration) { client in
+            let reader = Network.FulcrumAddressReader(client: client)
             let balance = try await reader.fetchBalance(for: Self.sampleCashAddress)
             #expect(balance.confirmed >= 0)
             
@@ -28,11 +26,6 @@ struct NetworkFulcrumAddressReaderTests {
             )
             #expect(rpcBalance.confirmed == balance.confirmed)
             #expect(rpcBalance.unconfirmed == balance.unconfirmed)
-            
-            await client.stop()
-        } catch {
-            await client.stop()
-            throw error
         }
     }
     
@@ -50,10 +43,8 @@ struct NetworkFulcrumAddressReaderTests {
             )
         )
         
-        let client = try await Network.FulcrumClient(configuration: configuration)
-        let reader = Network.FulcrumAddressReader(client: client)
-        
-        do {
+        try await NetworkTestSupport.withClient(configuration: configuration) { client in
+            let reader = Network.FulcrumAddressReader(client: client)
             let balance = try await reader.fetchBalance(for: Self.sampleCashAddress)
             #expect(balance.confirmed >= 0)
             #expect(balance.unconfirmed >= 0)
@@ -73,21 +64,14 @@ struct NetworkFulcrumAddressReaderTests {
             if let confirmedHeight = confirmedHistory.first?.blockHeight {
                 #expect(historyWithUnconfirmed.contains { $0.blockHeight == confirmedHeight })
             }
-            
-            await client.stop()
-        } catch {
-            await client.stop()
-            throw error
         }
     }
     
     @Test("lists spendable outputs with expected locking script", .timeLimit(.minutes(1)))
     func testFetchUnspentOutputsProducesSpendableEntries() async throws {
         let configuration = Network.Configuration(serverURLs: [Self.primaryServerAddress, Self.backupServerAddress])
-        let client = try await Network.FulcrumClient(configuration: configuration)
-        let reader = Network.FulcrumAddressReader(client: client)
-        
-        do {
+        try await NetworkTestSupport.withClient(configuration: configuration) { client in
+            let reader = Network.FulcrumAddressReader(client: client)
             let expectedLockingScript = try Address(Self.sampleCashAddress).lockingScript.data
             
             let unspentOutputs = try await reader.fetchUnspentOutputs(for: Self.sampleCashAddress)
@@ -98,21 +82,14 @@ struct NetworkFulcrumAddressReaderTests {
                 #expect(output.lockingScript == expectedLockingScript)
                 #expect(output.previousTransactionHash.naturalOrder.count == 32)
             }
-            
-            await client.stop()
-        } catch {
-            await client.stop()
-            throw error
         }
     }
     
     @Test("retrieves history and respects unconfirmed flag", .timeLimit(.minutes(1)))
     func testFetchHistoryDifferentiatesUnconfirmedEntries() async throws {
         let configuration = Network.Configuration(serverURLs: [Self.primaryServerAddress, Self.backupServerAddress])
-        let client = try await Network.FulcrumClient(configuration: configuration)
-        let reader = Network.FulcrumAddressReader(client: client)
-        
-        do {
+        try await NetworkTestSupport.withClient(configuration: configuration) { client in
+            let reader = Network.FulcrumAddressReader(client: client)
             let confirmedHistory = try await reader.fetchHistory(for: Self.sampleCashAddress, includeUnconfirmed: false)
             let inclusiveHistory = try await reader.fetchHistory(for: Self.sampleCashAddress, includeUnconfirmed: true)
             
@@ -123,11 +100,6 @@ struct NetworkFulcrumAddressReaderTests {
             if inclusiveHistory.count > confirmedHistory.count {
                 #expect(inclusiveHistory.contains { $0.blockHeight <= 0 })
             }
-            
-            await client.stop()
-        } catch {
-            await client.stop()
-            throw error
         }
     }
     
@@ -145,10 +117,8 @@ struct NetworkFulcrumAddressReaderTests {
             )
         )
         
-        let client = try await Network.FulcrumClient(configuration: configuration)
-        let reader = Network.FulcrumAddressReader(client: client)
-        
-        do {
+        try await NetworkTestSupport.withClient(configuration: configuration) { client in
+            let reader = Network.FulcrumAddressReader(client: client)
             let rawUnspent: SwiftFulcrum.Response.Result.Blockchain.Address.ListUnspent = try await client.request(
                 method: .blockchain(
                     .address(
@@ -176,21 +146,14 @@ struct NetworkFulcrumAddressReaderTests {
                     #expect(matchingItem.value == output.value)
                 }
             }
-            
-            await client.stop()
-        } catch {
-            await client.stop()
-            throw error
         }
     }
     
     @Test("rejects invalid addresses before network usage", .timeLimit(.minutes(1)))
     func testFetchUnspentOutputsRejectsInvalidAddress1() async throws {
         let configuration = Network.Configuration(serverURLs: [Self.primaryServerAddress, Self.backupServerAddress])
-        let client = try await Network.FulcrumClient(configuration: configuration)
-        let reader = Network.FulcrumAddressReader(client: client)
-        
-        do {
+        try await NetworkTestSupport.withClient(configuration: configuration) { client in
+            let reader = Network.FulcrumAddressReader(client: client)
             var thrownError: Error?
             do {
                 _ = try await reader.fetchUnspentOutputs(for: "not-an-address")
@@ -203,21 +166,14 @@ struct NetworkFulcrumAddressReaderTests {
             if let message = failure.message {
                 #expect(message.contains("Invalid address"))
             }
-            
-            await client.stop()
-        } catch {
-            await client.stop()
-            throw error
         }
     }
     
     @Test("rejects invalid addresses before reaching the network", .timeLimit(.minutes(1)))
     func testFetchUnspentOutputsRejectsInvalidAddress2() async throws {
         let configuration = Network.Configuration(serverURLs: [Self.primaryServerAddress, Self.backupServerAddress])
-        let client = try await Network.FulcrumClient(configuration: configuration)
-        let reader = Network.FulcrumAddressReader(client: client)
-        
-        do {
+        try await NetworkTestSupport.withClient(configuration: configuration) { client in
+            let reader = Network.FulcrumAddressReader(client: client)
             do {
                 _ = try await reader.fetchUnspentOutputs(for: "invalid-address")
                 #expect(Bool(false), "Expected an invalid address to throw a protocol violation failure")
@@ -225,11 +181,6 @@ struct NetworkFulcrumAddressReaderTests {
                 #expect(failure.reason == .protocolViolation)
                 #expect(failure.message?.contains("Invalid address") ?? false)
             }
-            
-            await client.stop()
-        } catch {
-            await client.stop()
-            throw error
         }
     }
     
@@ -247,36 +198,32 @@ struct NetworkFulcrumAddressReaderTests {
             )
         )
         
-        let client = try await Network.FulcrumClient(configuration: configuration)
-        var capturedError: (any Error)?
-        
-        do {
-            let reader = Network.FulcrumAddressReader(client: client)
-            _ = try await reader.fetchUnspentOutputs(for: Self.invalidCashAddress)
-            Issue.record("Expected fetch to throw for invalid address")
-        } catch let failure as Network.Failure {
-            #expect(failure.reason == .protocolViolation)
-            if let message = failure.message {
-                #expect(message.contains("Invalid address"))
+        try await NetworkTestSupport.withClient(configuration: configuration) { client in
+            var capturedError: (any Error)?
+            do {
+                let reader = Network.FulcrumAddressReader(client: client)
+                _ = try await reader.fetchUnspentOutputs(for: Self.invalidCashAddress)
+                Issue.record("Expected fetch to throw for invalid address")
+            } catch let failure as Network.Failure {
+                #expect(failure.reason == .protocolViolation)
+                if let message = failure.message {
+                    #expect(message.contains("Invalid address"))
+                }
+            } catch {
+                capturedError = error
             }
-        } catch {
-            capturedError = error
-        }
-        
-        await client.stop()
-        
-        if let capturedError {
-            throw capturedError
+            
+            if let capturedError {
+                throw capturedError
+            }
         }
     }
     
     @Test("subscribes to address updates and cancels cleanly", .timeLimit(.minutes(1)))
     func testSubscribeToAddressDeliversInitialSnapshot() async throws {
         let configuration = Network.Configuration(serverURLs: [Self.primaryServerAddress, Self.backupServerAddress])
-        let client = try await Network.FulcrumClient(configuration: configuration)
-        let reader = Network.FulcrumAddressReader(client: client)
-        
-        do {
+        try await NetworkTestSupport.withClient(configuration: configuration) { client in
+            let reader = Network.FulcrumAddressReader(client: client)
             let stream = try await reader.subscribeToAddress(Self.sampleCashAddress)
             var iterator = stream.makeAsyncIterator()
             
@@ -294,11 +241,6 @@ struct NetworkFulcrumAddressReaderTests {
             } catch is CancellationError {
                 // Expected when cancelling before a new update arrives.
             }
-            
-            await client.stop()
-        } catch {
-            await client.stop()
-            throw error
         }
     }
 }

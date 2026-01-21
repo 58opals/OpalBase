@@ -15,10 +15,8 @@ struct NetworkFulcrumBlockHeaderReaderTests {
     @Test("fetches tip snapshot consistent with fulcrum RPC", .timeLimit(.minutes(1)))
     func testFetchTipMatchesServerResponse1() async throws {
         let configuration = Network.Configuration(serverURLs: [Self.primaryServerAddress, Self.backupServerAddress])
-        let client = try await Network.FulcrumClient(configuration: configuration)
-        let reader = Network.FulcrumBlockHeaderReader(client: client)
-        
-        do {
+        try await NetworkTestSupport.withClient(configuration: configuration) { client in
+            let reader = Network.FulcrumBlockHeaderReader(client: client)
             let rpcTip: SwiftFulcrum.Response.Result.Blockchain.Headers.GetTip = try await client.request(
                 method: .blockchain(.headers(.getTip)),
                 responseType: SwiftFulcrum.Response.Result.Blockchain.Headers.GetTip.self
@@ -29,21 +27,14 @@ struct NetworkFulcrumBlockHeaderReaderTests {
             #expect(snapshot.height >= rpcTip.height)
             #expect(!snapshot.headerHexadecimal.isEmpty)
             #expect(snapshot.headerHexadecimal.count == rpcTip.hex.count)
-            
-            await client.stop()
-        } catch {
-            await client.stop()
-            throw error
         }
     }
     
     @Test("fetches the current block tip and mirrors raw headers response", .timeLimit(.minutes(1)))
     func testFetchTipMatchesServerResponse2() async throws {
         let configuration = Network.Configuration(serverURLs: [Self.primaryServerAddress, Self.backupServerAddress])
-        let client = try await Network.FulcrumClient(configuration: configuration)
-        let reader = Network.FulcrumBlockHeaderReader(client: client)
-        
-        do {
+        try await NetworkTestSupport.withClient(configuration: configuration) { client in
+            let reader = Network.FulcrumBlockHeaderReader(client: client)
             let snapshot = try await reader.fetchTip()
             #expect(snapshot.height >= 0)
             #expect(snapshot.headerHexadecimal.count == 160)
@@ -55,11 +46,6 @@ struct NetworkFulcrumBlockHeaderReaderTests {
             
             #expect(rpcTip.height == snapshot.height)
             #expect(rpcTip.hex == snapshot.headerHexadecimal)
-            
-            await client.stop()
-        } catch {
-            await client.stop()
-            throw error
         }
     }
     
@@ -77,10 +63,8 @@ struct NetworkFulcrumBlockHeaderReaderTests {
             )
         )
         
-        let client = try await Network.FulcrumClient(configuration: configuration)
-        let reader = Network.FulcrumBlockHeaderReader(client: client)
-        
-        do {
+        try await NetworkTestSupport.withClient(configuration: configuration) { client in
+            let reader = Network.FulcrumBlockHeaderReader(client: client)
             let baseline: SwiftFulcrum.Response.Result.Blockchain.Headers.GetTip = try await client.request(
                 method: .blockchain(.headers(.getTip)),
                 responseType: SwiftFulcrum.Response.Result.Blockchain.Headers.GetTip.self
@@ -93,11 +77,6 @@ struct NetworkFulcrumBlockHeaderReaderTests {
             if snapshot.height == baseline.height {
                 #expect(snapshot.headerHexadecimal == baseline.hex)
             }
-            
-            await client.stop()
-        } catch {
-            await client.stop()
-            throw error
         }
     }
     
@@ -108,18 +87,11 @@ struct NetworkFulcrumBlockHeaderReaderTests {
             connectionTimeout: .seconds(8),
             reconnect: .init(maximumAttempts: 3, initialDelay: .seconds(1), maximumDelay: .seconds(5),  jitterMultiplierRange: 0.9 ... 1.2)
         )
-        let client = try await Network.FulcrumClient(configuration: configuration)
-        let reader = Network.FulcrumBlockHeaderReader(client: client)
-        
-        do {
+        try await NetworkTestSupport.withClient(configuration: configuration) { client in
+            let reader = Network.FulcrumBlockHeaderReader(client: client)
             let snapshot = try await reader.fetchTip()
             #expect(snapshot.height > 0)
             #expect(snapshot.headerHexadecimal.count == 160)
-            
-            await client.stop()
-        } catch {
-            await client.stop()
-            throw error
         }
     }
     
@@ -137,16 +109,13 @@ struct NetworkFulcrumBlockHeaderReaderTests {
             )
         )
         
-        let client = try await Network.FulcrumClient(configuration: configuration)
-        let reader = Network.FulcrumBlockHeaderReader(client: client)
-        
-        do {
+        try await NetworkTestSupport.withClient(configuration: configuration) { client in
+            let reader = Network.FulcrumBlockHeaderReader(client: client)
             let stream = try await reader.subscribeToTip()
             var iterator = stream.makeAsyncIterator()
             
             guard let initialSnapshot = try await iterator.next() else {
                 Issue.record("Expected an initial snapshot before the stream ended")
-                await client.stop()
                 return
             }
             
@@ -167,9 +136,6 @@ struct NetworkFulcrumBlockHeaderReaderTests {
             } catch let failure as Network.Failure {
                 #expect(!(failure.message == nil) || failure.reason == .cancelled)
             }
-        } catch {
-            await client.stop()
-            throw error
         }
     }
 }

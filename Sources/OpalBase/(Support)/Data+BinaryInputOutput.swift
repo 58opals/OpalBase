@@ -14,7 +14,13 @@ extension Data {
             self.index = self.startIndex
         }
         
-        var bytesRead: Int { index - startIndex }
+        var bytesRead: Int {
+            data.distance(from: startIndex, to: index)
+        }
+        
+        var remainingData: Data {
+            data[index...]
+        }
         
         mutating func readLittleEndian<T: FixedWidthInteger>(_ type: T.Type = T.self) throws -> T {
             let (value, nextIndex): (T, Data.Index) = try data.extractValue(from: index)
@@ -23,9 +29,11 @@ extension Data {
         }
         
         mutating func readData(count: Int) throws -> Data {
-            guard index + count <= data.endIndex else { throw Data.Error.indexOutOfRange }
-            let slice = data[index..<index + count]
-            index += count
+            guard let nextIndex = data.index(index, offsetBy: count, limitedBy: data.endIndex) else {
+                throw Data.Error.indexOutOfRange
+            }
+            let slice = data[index..<nextIndex]
+            index = nextIndex
             return Data(slice)
         }
         
@@ -33,6 +41,19 @@ extension Data {
             let (value, size) = try CompactSize.decode(from: data[index...])
             index += size
             return value
+        }
+        
+        mutating func advance(by count: Int) throws {
+            guard count >= 0 else { throw Error.negativeAdvance(count) }
+            guard let nextIndex = data.index(index, offsetBy: count, limitedBy: data.endIndex) else {
+                throw Error.endOfData
+            }
+            index = nextIndex
+        }
+        
+        enum Error: Swift.Error {
+            case endOfData
+            case negativeAdvance(Int)
         }
     }
     

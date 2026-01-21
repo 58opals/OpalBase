@@ -20,32 +20,21 @@ public struct Block {
         return writer.data
     }
     
-    
-    /*
-     static func decode(from data: Data) throws -> (block: Block, bytesRead: Int) {
-         var reader = Data.Reader(data)
-         let header = try Header.decode(from: &reader)
-         let transactionCount = try reader.readCompactSize()
-         let transactions = try (0..<transactionCount.value).map { _ -> Transaction in
-             return try Transaction.decode(from: reader.data).transaction
-         }
-         let block = Block(header: header, transactions: transactions)
-         return (block, reader.bytesRead)
-     }
-     */
-
     static func decode(from data: Data) throws -> (block: Block, bytesRead: Int) {
-        var index = data.startIndex
-        let (header, headerBytesRead) = try Header.decode(from: data)
-        index += headerBytesRead
-        let (transactionCount, countBytesRead) = try CompactSize.decode(from: data[index...])
-        index += countBytesRead
-        let transactions = try (0..<transactionCount.value).map { _ -> Transaction in
-            let (transaction, transactionBytesRead) = try Transaction.decode(from: data[index...])
-            index += transactionBytesRead
-            return transaction
+        var reader = Data.Reader(data)
+        let header = try Header.decode(from: &reader)
+        let transactionCount = try reader.readCompactSize()
+        guard transactionCount.value <= UInt64(Int.max) else { throw Error.transactionCountOverflow(transactionCount.value) }
+        let transactions = try (0..<Int(transactionCount.value)).map { _ -> Transaction in
+            try Transaction.decode(from: &reader)
         }
         let block = Block(header: header, transactions: transactions)
-        return (block, index - data.startIndex)
+        return (block, reader.bytesRead)
+    }
+}
+
+extension Block {
+    enum Error: Swift.Error {
+        case transactionCountOverflow(UInt64)
     }
 }

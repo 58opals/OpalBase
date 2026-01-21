@@ -26,9 +26,7 @@ struct NetworkFulcrumClientTests {
             )
         )
         
-        let client = try await Network.FulcrumClient(configuration: configuration)
-        
-        do {
+        try await NetworkTestSupport.withClient(configuration: configuration) { client in
             let storedConfiguration = await client.configuration
             #expect(storedConfiguration == configuration)
             
@@ -64,11 +62,6 @@ struct NetworkFulcrumClientTests {
                 )
             )
             #expect(!history.transactions.isEmpty)
-            
-            await client.stop()
-        } catch {
-            await client.stop()
-            throw error
         }
     }
     
@@ -86,8 +79,7 @@ struct NetworkFulcrumClientTests {
             )
         )
         
-        let client = try await Network.FulcrumClient(configuration: configuration)
-        do {
+        try await NetworkTestSupport.withClient(configuration: configuration) { client in
             let tip: SwiftFulcrum.Response.Result.Blockchain.Headers.GetTip = try await client.request(
                 method: .blockchain(.headers(.getTip)),
                 responseType: SwiftFulcrum.Response.Result.Blockchain.Headers.GetTip.self
@@ -121,20 +113,13 @@ struct NetworkFulcrumClientTests {
                 responseType: SwiftFulcrum.Response.Result.Blockchain.Address.GetHistory.self
             )
             #expect(!history.transactions.isEmpty)
-            
-            await client.stop()
-        } catch {
-            await client.stop()
-            throw error
         }
     }
     
     @Test("subscribes to address updates and supports cancellation", .timeLimit(.minutes(1)))
     func testSubscribeToAddressDeliversInitialSnapshot() async throws {
         let configuration = Network.Configuration(serverURLs: [Self.primaryServerAddress, Self.backupServerAddress])
-        let client = try await Network.FulcrumClient(configuration: configuration)
-        
-        do {
+        try await NetworkTestSupport.withClient(configuration: configuration) { client in
             let (initial, updates, cancel) = try await client.subscribe(
                 method: .blockchain(.address(.subscribe(address: Self.sampleCashAddress))),
                 initialType: SwiftFulcrum.Response.Result.Blockchain.Address.Subscribe.self,
@@ -153,19 +138,13 @@ struct NetworkFulcrumClientTests {
             if let notification {
                 #expect(!(notification.status?.isEmpty ?? true))
             }
-            
-            await client.stop()
-        } catch {
-            await client.stop()
-            throw error
         }
     }
     
     @Test("subscribes to live header stream and cancels cleanly", .timeLimit(.minutes(1)))
     func testSubscribeReturnsStreamAndSupportsCancellation() async throws {
         let configuration = Network.Configuration(serverURLs: [Self.primaryServerAddress, Self.backupServerAddress])
-        let client = try await Network.FulcrumClient(configuration: configuration)
-        do {
+        try await NetworkTestSupport.withClient(configuration: configuration) { client in
             let (initial, stream, cancel) = try await client.subscribe(
                 method: .blockchain(.headers(.subscribe)),
                 initialType: SwiftFulcrum.Response.Result.Blockchain.Headers.Subscribe.self,
@@ -182,11 +161,6 @@ struct NetworkFulcrumClientTests {
             
             let notification = try await nextNotification
             #expect(notification == nil)
-            
-            await client.stop()
-        } catch {
-            await client.stop()
-            throw error
         }
     }
 }
