@@ -98,15 +98,24 @@ extension Array<Data> {
 
 extension Data {
     static func push(_ buffer: Data) -> Data {
+        var writer = Data.Writer()
+        writer.reserveCapacity(5 + buffer.count)
+        
         switch buffer.count {
         case 0...75:
-            return Data([UInt8(buffer.count)]) + buffer
+            writer.writeByte(UInt8(buffer.count))
         case 76...255:
-            return Data([OP._PUSHDATA1.rawValue, UInt8(buffer.count)]) + buffer
+            writer.writeByte(OP._PUSHDATA1.rawValue)
+            writer.writeByte(UInt8(buffer.count))
         case 256...65535:
-            return Data([OP._PUSHDATA2.rawValue]) + UInt16(buffer.count).littleEndianData + buffer
+            writer.writeByte(OP._PUSHDATA2.rawValue)
+            writer.writeLittleEndian(UInt16(buffer.count))
         default:
-            return Data([OP._PUSHDATA4.rawValue]) + UInt32(buffer.count).littleEndianData + buffer
+            writer.writeByte(OP._PUSHDATA4.rawValue)
+            writer.writeLittleEndian(UInt32(buffer.count))
         }
+        
+        writer.writeData(buffer)
+        return writer.data
     }
 }
