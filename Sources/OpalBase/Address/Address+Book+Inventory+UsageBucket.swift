@@ -26,21 +26,11 @@ extension Address.Book.Inventory {
         }
         
         func countEntries(for usage: DerivationPath.Usage) -> Int {
-            switch usage {
-            case .receiving:
-                return receivingEntries.count
-            case .change:
-                return changeEntries.count
-            }
+            fetchEntries(for: usage).count
         }
         
         func countUnusedEntries(for usage: DerivationPath.Usage) -> Int {
-            switch usage {
-            case .receiving:
-                return calculateUnusedEntryCount(in: receivingEntries)
-            case .change:
-                return calculateUnusedEntryCount(in: changeEntries)
-            }
+            calculateUnusedEntryCount(in: fetchEntries(for: usage))
         }
         
         func fetchEntry(at index: Int, usage: DerivationPath.Usage) -> Address.Book.Entry? {
@@ -61,9 +51,7 @@ extension Address.Book.Inventory {
         }
         
         mutating func appendEntry(_ entry: Address.Book.Entry, usage: DerivationPath.Usage) {
-            updateEntries(for: usage) { entries in
-                entries.append(entry)
-            }
+            updateEntries(for: usage) { $0.append(entry) }
         }
         
         mutating func updateEntry(at index: Int,
