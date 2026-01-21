@@ -22,6 +22,7 @@ extension Address.Book {
         let targetUsages = DerivationPath.Usage.targets(for: usage)
         var discovered: [DerivationPath.Usage: [Entry]] = .init()
         var scannedCountByUsage: [DerivationPath.Usage: Int] = .init()
+        let batchSize = Concurrency.Tuning.maximumConcurrentNetworkRequests
         
         for currentUsage in targetUsages {
             var usedEntries: [Entry] = .init()
@@ -29,22 +30,33 @@ extension Address.Book {
             var currentIndex = 0
             
             while consecutiveUnused < gapLimit {
-                let entry = try await loadEntry(at: currentIndex, usage: currentUsage)
-                let history = try await service.fetchHistory(for: entry.address.string,
-                                                             includeUnconfirmed: includeUnconfirmed)
+                let entries = try await loadEntries(for: currentUsage,
+                                                    startIndex: currentIndex,
+                                                    count: batchSize)
+                guard !entries.isEmpty else { break }
                 
-                if history.isEmpty {
-                    consecutiveUnused += 1
-                } else {
-                    consecutiveUnused = 0
-                    try await mark(address: entry.address, isUsed: true)
-                    
-                    if let updatedEntry = findEntry(for: entry.address) {
-                        usedEntries.append(updatedEntry)
-                    }
+                let usageResults = try await entries.mapConcurrently { entry in
+                    try await self.checkIfAddressIsUsed(address: entry.address.string,
+                                                        using: service,
+                                                        includeUnconfirmed: includeUnconfirmed)
                 }
                 
-                currentIndex += 1
+                for (entry, isUsed) in zip(entries, usageResults) {
+                    guard consecutiveUnused < gapLimit else { break }
+                    
+                    if isUsed {
+                        consecutiveUnused = 0
+                        try await mark(address: entry.address, isUsed: true)
+                        
+                        if let updatedEntry = findEntry(for: entry.address) {
+                            usedEntries.append(updatedEntry)
+                        }
+                    } else {
+                        consecutiveUnused += 1
+                    }
+                    
+                    currentIndex += 1
+                }
             }
             
             discovered[currentUsage] = usedEntries
@@ -55,20 +67,34 @@ extension Address.Book {
                          totalScannedPerUsage: scannedCountByUsage)
     }
     
-    private func loadEntry(at index: Int, usage: DerivationPath.Usage) async throws -> Entry {
+    private func checkIfAddressIsUsed(address: String,
+                                      using service: Network.AddressReadable,
+                                      includeUnconfirmed: Bool) async throws -> Bool {
+        let history = try await service.fetchHistory(for: address,
+                                                     includeUnconfirmed: includeUnconfirmed)
+        return !history.isEmpty
+    }
+    
+    private func loadEntries(for usage: DerivationPath.Usage,
+                             startIndex: Int,
+                             count: Int) async throws -> [Entry] {
+        let endIndex = startIndex + count
         let existingEntries = listEntries(for: usage)
-        if index < existingEntries.count {
-            return existingEntries[index]
+        if endIndex <= existingEntries.count {
+            return Array(existingEntries[startIndex..<endIndex])
         }
         
-        let numberOfMissingEntries = index - existingEntries.count + 1
-        try await generateEntries(for: usage,
-                                  numberOfNewEntries: numberOfMissingEntries,
-                                  isUsed: false)
-        let refreshedEntries = listEntries(for: usage)
+        let numberOfMissingEntries = endIndex - existingEntries.count
+        if numberOfMissingEntries > 0 {
+            try await generateEntries(for: usage,
+                                      numberOfNewEntries: numberOfMissingEntries,
+                                      isUsed: false)
+        }
         
-        guard index < refreshedEntries.count else { throw Error.entryNotFound }
-        return refreshedEntries[index]
+        let refreshedEntries = listEntries(for: usage)
+        let safeEndIndex = Swift.min(endIndex, refreshedEntries.count)
+        guard startIndex < safeEndIndex else { return [] }
+        return Array(refreshedEntries[startIndex..<safeEndIndex])
     }
 }
 
