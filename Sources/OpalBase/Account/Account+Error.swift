@@ -30,19 +30,19 @@ extension Account.Error: Equatable {
             return leftAddress == rightAddress
         case (.balanceRefreshFailed(let leftAddress, let leftError),
               .balanceRefreshFailed(let rightAddress, let rightError)):
-            return leftAddress == rightAddress && Network.FulcrumErrorTranslator.isFailureEquivalent(leftError, rightError)
+            return leftAddress == rightAddress && Network.isFailureEquivalent(leftError, rightError)
         case (.transactionHistoryRefreshFailed(let leftAddress, let leftError),
               .transactionHistoryRefreshFailed(let rightAddress, let rightError)):
-            return leftAddress == rightAddress && Network.FulcrumErrorTranslator.isFailureEquivalent(leftError, rightError)
+            return leftAddress == rightAddress && Network.isFailureEquivalent(leftError, rightError)
         case (.transactionConfirmationRefreshFailed(let leftHash, let leftError),
               .transactionConfirmationRefreshFailed(let rightHash, let rightError)):
-            return leftHash == rightHash && Network.FulcrumErrorTranslator.isFailureEquivalent(leftError, rightError)
+            return leftHash == rightHash && Network.isFailureEquivalent(leftError, rightError)
         case (.coinSelectionFailed(let leftError), .coinSelectionFailed(let rightError)),
             (.transactionBuildFailed(let leftError), .transactionBuildFailed(let rightError)),
             (.broadcastFailed(let leftError), .broadcastFailed(let rightError)),
             (.confirmationQueryFailed(let leftError), .confirmationQueryFailed(let rightError)),
             (.feePreferenceUnavailable(let leftError), .feePreferenceUnavailable(let rightError)):
-            return Network.FulcrumErrorTranslator.isFailureEquivalent(leftError, rightError)
+            return Network.isFailureEquivalent(leftError, rightError)
         default:
             return false
         }

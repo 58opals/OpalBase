@@ -14,6 +14,10 @@ extension Network {
         }
     }
     
+    static func isFailureEquivalent(_ left: Swift.Error, _ right: Swift.Error) -> Bool {
+        FulcrumErrorTranslator.isFailureEquivalent(left, right)
+    }
+    
     enum FulcrumErrorTranslator {
         static func translate(_ error: Swift.Error) -> Network.Failure {
             if let failure = error as? Network.Failure { return failure }
