@@ -67,23 +67,21 @@ extension Address.Book {
             indices.append(index)
         }
         
+        let newEntries: [Entry]
         if let usageCache = usageDerivationCache[usage] {
-            let newEntries = try await makeEntriesUsingUsageDerivationCache(usage: usage,
-                                                                            indices: indices,
-                                                                            usageCache: usageCache,
-                                                                            isUsed: isUsed)
-            for newEntry in newEntries {
-                inventory.append(newEntry, usage: usage)
-                await notifyNewEntry(newEntry)
+            newEntries = try await makeEntriesUsingUsageDerivationCache(usage: usage,
+                                                                        indices: indices,
+                                                                        usageCache: usageCache,
+                                                                        isUsed: isUsed)
+        } else {
+            newEntries = try indices.map { index in
+                try makeEntry(for: usage,
+                              index: index,
+                              isUsed: isUsed)
             }
-            return
         }
         
-        for index in indices {
-            
-            let newEntry = try makeEntry(for: usage,
-                                         index: index,
-                                         isUsed: isUsed)
+        for newEntry in newEntries {
             inventory.append(newEntry, usage: usage)
             await notifyNewEntry(newEntry)
         }
