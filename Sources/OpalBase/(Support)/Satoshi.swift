@@ -101,22 +101,11 @@ extension Satoshi: Sendable {}
 
 extension Sequence where Element == Satoshi {
     func sumSatoshi() throws -> Satoshi {
-        try reduce(Satoshi()) { try $0 + $1 }
+        try sumSatoshi { $0 }
     }
     
     func sumSatoshi(or overflowError: @autoclosure () -> Swift.Error) throws -> Satoshi {
-        do {
-            return try sumSatoshi()
-        } catch let error as Satoshi.Error {
-            switch error {
-            case .exceedsMaximumAmount:
-                throw overflowError()
-            default:
-                throw error
-            }
-        } catch {
-            throw error
-        }
+        try sumSatoshi(or: overflowError()) { $0 }
     }
 }
 
