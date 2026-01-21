@@ -37,7 +37,7 @@ extension Account {
                                                                    usage: usage,
                                                                    includeUnconfirmed: includeUnconfirmed)
         } catch let error as Address.Book.Error {
-            throw makeAccountError(from: error)
+            throw Self.makeAccountError(from: error)
         }
     }
     
@@ -47,7 +47,7 @@ extension Account {
             return try await addressBook.updateTransactionConfirmations(using: handler,
                                                                         for: transactionHashes)
         } catch let error as Address.Book.Error {
-            throw makeAccountError(from: error)
+            throw Self.makeAccountError(from: error)
         }
     }
     
@@ -270,16 +270,5 @@ extension Account {
         try await addressBook.refreshTransactionHistory(for: address,
                                                         using: service,
                                                         includeUnconfirmed: includeUnconfirmed)
-    }
-}
-
-private func makeAccountError(from error: Address.Book.Error) -> Swift.Error {
-    switch error {
-    case .transactionHistoryRefreshFailed(let address, let underlying):
-        return Account.Error.transactionHistoryRefreshFailed(address, underlying)
-    case .transactionConfirmationRefreshFailed(let hash, let underlying):
-        return Account.Error.transactionConfirmationRefreshFailed(hash, underlying)
-    default:
-        return error
     }
 }

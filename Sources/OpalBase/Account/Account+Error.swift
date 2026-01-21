@@ -48,3 +48,18 @@ extension Account.Error: Equatable {
         }
     }
 }
+
+extension Account {
+    static func makeAccountError(from error: Address.Book.Error) -> Swift.Error {
+        switch error {
+        case .cacheUpdateFailed(let address, let underlying):
+            return Error.balanceRefreshFailed(address, underlying)
+        case .transactionHistoryRefreshFailed(let address, let underlying):
+            return Error.transactionHistoryRefreshFailed(address, underlying)
+        case .transactionConfirmationRefreshFailed(let hash, let underlying):
+            return Error.transactionConfirmationRefreshFailed(hash, underlying)
+        default:
+            return error
+        }
+    }
+}

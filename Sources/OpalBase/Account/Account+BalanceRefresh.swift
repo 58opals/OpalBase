@@ -40,20 +40,12 @@ extension Account {
                 return (address, balance)
             }
             
-            var usageBalances: [Address: Satoshi] = .init()
-            for (address, balance) in usageResults {
-                usageBalances[address] = balance
-            }
+            let usageBalances = Dictionary(uniqueKeysWithValues: usageResults)
             
             do {
                 try await addressBook.updateCachedBalances(usageBalances, timestamp: refreshTimestamp)
             } catch let error as Address.Book.Error {
-                switch error {
-                case .cacheUpdateFailed(let address, let underlying):
-                    throw Error.balanceRefreshFailed(address, underlying)
-                default:
-                    throw error
-                }
+                throw Self.makeAccountError(from: error)
             }
             balancesByUsage[currentUsage] = usageBalances
         }
