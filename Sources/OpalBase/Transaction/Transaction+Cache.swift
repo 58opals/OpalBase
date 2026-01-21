@@ -4,7 +4,7 @@ import Foundation
 
 extension Transaction {
     public actor Cache {
-        static let shared = Cache()
+        //static let shared = Cache()
         private var store: [Transaction.Hash: (Date, Transaction.Detailed)] = .init()
         private let timeToLive: TimeInterval = 600
         

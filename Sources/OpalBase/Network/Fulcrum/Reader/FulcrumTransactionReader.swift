@@ -24,6 +24,26 @@ extension Network {
             return try await fetchDetailedTransaction(for: hash)
         }
         
+        private func makeDetailed(
+            transactionHash: Transaction.Hash,
+            rawTransactionData: Data,
+            verbose: TransactionGetVerbose?
+        ) throws -> Transaction.Detailed {
+            let (transaction, _) = try Transaction.decode(from: rawTransactionData)
+            let blockHash = verbose?.blockhash.flatMap { try? Data(hexadecimalString: $0) }
+            
+            return Transaction.Detailed(
+                transaction: transaction,
+                blockHash: blockHash,
+                blockTime: verbose?.blocktime,
+                confirmations: verbose?.confirmations,
+                hash: transactionHash,
+                rawTransactionData: rawTransactionData,
+                size: verbose?.size ?? UInt32(rawTransactionData.count),
+                time: verbose?.time
+            )
+        }
+        
         public func fetchDetailedTransaction(for transactionHash: Transaction.Hash) async throws -> Transaction.Detailed {
             if let cached = await cache.loadTransaction(at: transactionHash) {
                 return cached
@@ -32,18 +52,10 @@ extension Network {
             do {
                 let verbose = try await fetchVerboseTransaction(for: transactionHash)
                 let rawTransactionData = try Data(hexadecimalString: verbose.hex)
-                let (transaction, _) = try Transaction.decode(from: rawTransactionData)
-                let blockHash = verbose.blockhash.flatMap { try? Data(hexadecimalString: $0) }
-                
-                let detailed = Transaction.Detailed(
-                    transaction: transaction,
-                    blockHash: blockHash,
-                    blockTime: verbose.blocktime,
-                    confirmations: verbose.confirmations,
-                    hash: transactionHash,
+                let detailed = try makeDetailed(
+                    transactionHash: transactionHash,
                     rawTransactionData: rawTransactionData,
-                    size: verbose.size ?? UInt32(rawTransactionData.count),
-                    time: verbose.time
+                    verbose: verbose
                 )
                 
                 await cache.put(detailed, at: transactionHash)
@@ -53,17 +65,10 @@ extension Network {
             } catch {
                 return try await Network.withFailureTranslation {
                     let rawTransactionData = try await fetchRawTransaction(for: transactionHash)
-                    let (transaction, _) = try Transaction.decode(from: rawTransactionData)
-                    
-                    let detailed = Transaction.Detailed(
-                        transaction: transaction,
-                        blockHash: nil,
-                        blockTime: nil,
-                        confirmations: nil,
-                        hash: transactionHash,
+                    let detailed = try makeDetailed(
+                        transactionHash: transactionHash,
                         rawTransactionData: rawTransactionData,
-                        size: UInt32(rawTransactionData.count),
-                        time: nil
+                        verbose: nil
                     )
                     
                     await cache.put(detailed, at: transactionHash)
