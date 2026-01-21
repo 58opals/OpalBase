@@ -71,7 +71,7 @@ extension Account {
             self.shouldRandomizeRecipientOrdering = shouldRandomizeRecipientOrdering
         }
         
-        public func buildTransaction(signatureFormat: ECDSA.SignatureFormat = .ecdsa(.der),
+        public func buildTransaction(signatureFormat: ECDSA.SignatureFormat = .schnorr,
                                      unlockers: [Transaction.Output.Unspent: Transaction.Unlocker] = .init()) throws -> TransactionResult {
             let transaction: Transaction
             do {
@@ -131,7 +131,7 @@ extension Account {
         }
         
         public func buildAndBroadcast(via handler: Network.TransactionHandling,
-                                      signatureFormat: ECDSA.SignatureFormat = .ecdsa(.der),
+                                      signatureFormat: ECDSA.SignatureFormat = .schnorr,
                                       unlockers: [Transaction.Output.Unspent: Transaction.Unlocker] = .init()) async throws -> (hash: Transaction.Hash, result: TransactionResult) {
             let transactionResult = try buildTransaction(signatureFormat: signatureFormat, unlockers: unlockers)
             

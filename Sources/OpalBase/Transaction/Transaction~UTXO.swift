@@ -16,7 +16,7 @@ extension Transaction {
                       recipientOutputs: [Output],
                       changeOutput: Output,
                       outputOrderingStrategy: OutputOrderingStrategy = .privacyRandomized,
-                      signatureFormat: ECDSA.SignatureFormat = .ecdsa(.der),
+                      signatureFormat: ECDSA.SignatureFormat = .schnorr,
                       feePerByte: UInt64 = 1,
                       sequence: UInt32 = 0xFFFFFFFF,
                       lockTime: UInt32 = 0,
