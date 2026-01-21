@@ -13,12 +13,27 @@ public struct Block {
     }
     
     func encode() -> Data {
-        var data = header.encode()
-        data.append(CompactSize(value: UInt64(transactions.count)).encode())
-        transactions.forEach { data.append($0.encode()) }
-        return data
+        var writer = Data.Writer()
+        writer.writeData(header.encode())
+        writer.writeCompactSize(CompactSize(value: UInt64(transactions.count)))
+        transactions.forEach { writer.writeData($0.encode()) }
+        return writer.data
     }
     
+    
+    /*
+     static func decode(from data: Data) throws -> (block: Block, bytesRead: Int) {
+         var reader = Data.Reader(data)
+         let header = try Header.decode(from: &reader)
+         let transactionCount = try reader.readCompactSize()
+         let transactions = try (0..<transactionCount.value).map { _ -> Transaction in
+             return try Transaction.decode(from: reader.data).transaction
+         }
+         let block = Block(header: header, transactions: transactions)
+         return (block, reader.bytesRead)
+     }
+     */
+
     static func decode(from data: Data) throws -> (block: Block, bytesRead: Int) {
         var index = data.startIndex
         let (header, headerBytesRead) = try Header.decode(from: data)

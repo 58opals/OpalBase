@@ -54,21 +54,21 @@ enum CompactSize {
     /// Encodes the CompactSize value into Data.
     /// - Returns: The encoded data.
     func encode() -> Data {
-        var data = Data()
+        var writer = Data.Writer()
         switch self {
         case .uint8(let value):
-            data.append(value)
+            writer.writeByte(value)
         case .uint16(let value):
-            data.append(0xFD)
-            data.append(contentsOf: withUnsafeBytes(of: value.littleEndian, Array.init))
+            writer.writeByte(0xFD)
+            writer.writeLittleEndian(value)
         case .uint32(let value):
-            data.append(0xFE)
-            data.append(contentsOf: withUnsafeBytes(of: value.littleEndian, Array.init))
+            writer.writeByte(0xFE)
+            writer.writeLittleEndian(value)
         case .uint64(let value):
-            data.append(0xFF)
-            data.append(contentsOf: withUnsafeBytes(of: value.littleEndian, Array.init))
+            writer.writeByte(0xFF)
+            writer.writeLittleEndian(value)
         }
-        return data
+        return writer.data
     }
     
     /// Decodes a CompactSize instance from Data.

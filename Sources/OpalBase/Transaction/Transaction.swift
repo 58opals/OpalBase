@@ -39,53 +39,38 @@ public struct Transaction {
     /// - Returns: A tuple containing the decoded Transaction and the number of bytes read.
     /// - Throws: `CompactSize.Error` if decoding fails.
     public static func decode(from data: Data) throws -> (transaction: Transaction, bytesRead: Int) {
-        var index = data.startIndex
-        
-        let (version, newIndex1): (UInt32, Data.Index) = try data.extractValue(from: index)
-        index = newIndex1
-        
-        let (inputsCount, inputsCountSize) = try CompactSize.decode(from: data[index...])
-        index += inputsCountSize
-        
+        var reader = Data.Reader(data)
+        let transaction = try decode(from: &reader)
+        return (transaction, reader.bytesRead)
+    }
+    
+    static func decode(from reader: inout Data.Reader) throws -> Transaction {
+        let version: UInt32 = try reader.readLittleEndian()
+        let inputsCount = try reader.readCompactSize()
         let inputs = try (0..<inputsCount.value).map { _ -> Input in
-            let (input, inputSize) = try Input.decode(from: data[index...])
-            index += inputSize
-            return input
+            try Input.decode(from: &reader)
         }
         
-        let (outputsCount, outputsCountSize) = try CompactSize.decode(from: data[index...])
-        index += outputsCountSize
-        
+        let outputsCount = try reader.readCompactSize()
         let outputs = try (0..<outputsCount.value).map { _ -> Output in
-            let (output, outputSize) = try Output.decode(from: data[index...])
-            index += outputSize
-            return output
+            try Output.decode(from: &reader)
         }
         
-        let (lockTime, newIndex2): (UInt32, Data.Index) = try data.extractValue(from: index)
-        index = newIndex2
-        
-        let transaction = Transaction(version: version, inputs: inputs, outputs: outputs, lockTime: lockTime)
-        
-        return (transaction, index - data.startIndex)
+        let lockTime: UInt32 = try reader.readLittleEndian()
+        return Transaction(version: version, inputs: inputs, outputs: outputs, lockTime: lockTime)
     }
 }
 
 extension Transaction {
     func makeSerializedTransaction(with inputs: [Input]) -> Data {
-        var data = Data()
-        
-        data.append(version.littleEndianData)
-        
-        data.append(CompactSize(value: UInt64(inputs.count)).encode())
-        inputs.forEach { data.append($0.encode()) }
-        
-        data.append(CompactSize(value: UInt64(outputs.count)).encode())
-        outputs.forEach { data.append($0.encode()) }
-        
-        data.append(lockTime.littleEndianData)
-        
-        return data
+        var writer = Data.Writer()
+        writer.writeLittleEndian(version)
+        writer.writeCompactSize(CompactSize(value: UInt64(inputs.count)))
+        inputs.forEach { writer.writeData($0.encode()) }
+        writer.writeCompactSize(CompactSize(value: UInt64(outputs.count)))
+        outputs.forEach { writer.writeData($0.encode()) }
+        writer.writeLittleEndian(lockTime)
+        return writer.data
     }
 }
 
