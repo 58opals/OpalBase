@@ -71,10 +71,10 @@ extension Block.Header {
         var mantissa = LargeUnsignedInteger(UInt64(bits & 0x00ff_ffff))
         
         if exponent <= 3 {
-            mantissa = mantissa.shiftedRight(by: 8 * (3 - exponent))
+            mantissa = mantissa.shiftRight(by: 8 * (3 - exponent))
             return mantissa
         } else {
-            return mantissa.shiftedLeft(by: 8 * (exponent - 3))
+            return mantissa.shiftLeft(by: 8 * (exponent - 3))
         }
     }
     

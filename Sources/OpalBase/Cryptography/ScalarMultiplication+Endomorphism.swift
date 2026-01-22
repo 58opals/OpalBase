@@ -41,6 +41,6 @@ extension ScalarMultiplication {
         let magnitude = Int(isNegative ? -digit : digit)
         let tableIndex = magnitude >> 1
         let affinePoint = table[tableIndex]
-        return point.addAffine(isNegative ? affinePoint.negated() : affinePoint)
+        return point.addAffine(isNegative ? affinePoint.negate() : affinePoint)
     }
 }

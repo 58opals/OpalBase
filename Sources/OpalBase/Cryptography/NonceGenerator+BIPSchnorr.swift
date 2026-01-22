@@ -36,7 +36,7 @@ extension NonceGenerator {
                 
                 var reducedValue = hashValue
                 if reducedValue.compare(to: Secp256k1.Constant.n) != .orderedAscending {
-                    reducedValue = reducedValue.subtracting(Secp256k1.Constant.n).difference
+                    reducedValue = reducedValue.subtract(Secp256k1.Constant.n).difference
                 }
                 
                 let scalar = Scalar(unchecked: reducedValue)

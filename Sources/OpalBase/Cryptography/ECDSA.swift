@@ -21,7 +21,7 @@ extension ECDSA {
 
 extension ECDSA {
     static func derivePublicKey(from privateKey: Data) throws -> Data {
-        try Secp256k1.Operation.publicKey(fromPrivateKey32: privateKey, format: .compressed)
+        try Secp256k1.Operation.derivePublicKey(fromPrivateKey32: privateKey, format: .compressed)
     }
 }
 
@@ -59,7 +59,7 @@ extension ECDSA {
             case .compact:
                 return ecdsaSignature.raw64
             case .der:
-                return try ecdsaSignature.derEncoded()
+                return try ecdsaSignature.encodeDER()
             }
         case .schnorr:
             guard message.count == 32 else { throw Error.invalidDigestLength(expected: 32, actual: message.count) }

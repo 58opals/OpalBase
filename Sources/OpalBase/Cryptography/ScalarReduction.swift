@@ -31,7 +31,7 @@ enum ScalarReduction {
                     foldedValue.limbs[3]
                 ])
                 if result.compare(to: Secp256k1.Constant.n) != .orderedAscending {
-                    result = result.subtracting(Secp256k1.Constant.n).difference
+                    result = result.subtract(Secp256k1.Constant.n).difference
                 }
                 return result
             }
@@ -43,7 +43,7 @@ enum ScalarReduction {
                 foldedValue.limbs[3]
             ])
             
-            foldedValue = highPart.multipliedFullWidth(by: reductionConstant)
+            foldedValue = highPart.multiplyFullWidth(by: reductionConstant)
             addLow256(&foldedValue, lowPart)
         }
     }
@@ -56,7 +56,7 @@ enum ScalarReduction {
             value.limbs[2],
             value.limbs[3]
         ])
-        let addition = currentLow.adding(lowPart)
+        let addition = currentLow.add(lowPart)
         
         value.limbs[0] = addition.sum.limbs[0]
         value.limbs[1] = addition.sum.limbs[1]

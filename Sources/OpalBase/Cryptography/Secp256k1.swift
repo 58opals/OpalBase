@@ -30,7 +30,7 @@ public enum Secp256k1 {
             self.s = Data(s)
         }
         
-        public func derEncoded() throws -> Data {
+        public func encodeDER() throws -> Data {
             try Secp256k1.DER.encodeSignature(r: r, s: s)
         }
         
@@ -39,7 +39,7 @@ public enum Secp256k1 {
             try self.init(r: signatureValues.r, s: signatureValues.s)
         }
         
-        public func normalizedLowS() -> Signature {
+        public func normalizeLowS() -> Signature {
             guard let signatureSScalar = try? Self.makeSignatureScalar(from: s) else {
                 return self
             }

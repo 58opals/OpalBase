@@ -28,7 +28,7 @@ extension Address.Book {
         var changeSets: [UTXOChangeSet] = .init()
         
         let refreshTimestamp = Date.now
-        try await forEachTargetUsage(usage) { _, entries in
+        try await performForEachTargetUsage(usage) { _, entries in
             let addresses = entries.map(\.address)
             let usageResults = try await addresses.mapConcurrently { address in
                 let utxos = try await service.fetchUnspentOutputs(for: address.string)

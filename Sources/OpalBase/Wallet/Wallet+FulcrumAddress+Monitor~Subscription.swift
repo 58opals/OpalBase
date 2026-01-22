@@ -31,7 +31,7 @@ extension Wallet.FulcrumAddress.Monitor {
                     let stream = try await reader.subscribeToAddress(address.string)
                     try await consumeSubscription(stream: stream, address: address)
                 } catch {
-                    if error.isCancellation { return }
+                    if error.checkCancellation { return }
                     await publishFailure(address: address, error: error)
                     guard !Task.isCancelled else { return }
                     try? await Task.sleep(for: retryDelay)
@@ -51,7 +51,7 @@ extension Wallet.FulcrumAddress.Monitor {
                 await handleAddressUpdate(for: address)
             }
         } catch {
-            if error.isCancellation {
+            if error.checkCancellation {
                 throw error
             }
             await handleIncrementalFailure(for: address, error: error)
@@ -80,7 +80,7 @@ extension Wallet.FulcrumAddress.Monitor {
     }
     
     private func handleIncrementalFailure(for address: Address, error: Swift.Error) async {
-        if error.isCancellation { return }
+        if error.checkCancellation { return }
         await publishFailure(address: address, error: error)
         
         do {

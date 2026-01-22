@@ -7,7 +7,7 @@ enum ScalarConversion {
         let parsed = try UInt256(data32: fieldElement.data32)
         var reduced = parsed
         if reduced.compare(to: Secp256k1.Constant.n) != .orderedAscending {
-            reduced = reduced.subtracting(Secp256k1.Constant.n).difference
+            reduced = reduced.subtract(Secp256k1.Constant.n).difference
         }
         return Scalar(unchecked: reduced)
     }
@@ -16,7 +16,7 @@ enum ScalarConversion {
         let parsed = try UInt256(data32: digest32)
         var reduced = parsed
         if reduced.compare(to: Secp256k1.Constant.n) != .orderedAscending {
-            reduced = reduced.subtracting(Secp256k1.Constant.n).difference
+            reduced = reduced.subtract(Secp256k1.Constant.n).difference
         }
         return Scalar(unchecked: reduced)
     }

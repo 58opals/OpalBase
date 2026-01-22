@@ -24,11 +24,11 @@ extension Address.Book {
             let previousSet = Set(previous)
             let updatedSet = Set(updated)
             let insertedSet = updatedSet.subtracting(previousSet)
-            self.inserted = insertedSet.sorted { $0.isOrdered(before: $1) }
+            self.inserted = insertedSet.sorted { $0.compareOrder(before: $1) }
             let removedSet = previousSet.subtracting(updatedSet)
-            self.removed = removedSet.sorted { $0.isOrdered(before: $1) }
+            self.removed = removedSet.sorted { $0.compareOrder(before: $1) }
             let retainedSet = previousSet.intersection(updatedSet)
-            self.retained = retainedSet.sorted { $0.isOrdered(before: $1) }
+            self.retained = retainedSet.sorted { $0.compareOrder(before: $1) }
             self.balance = try Self.makeBalance(from: updatedSet)
             self.timestamp = timestamp
         }

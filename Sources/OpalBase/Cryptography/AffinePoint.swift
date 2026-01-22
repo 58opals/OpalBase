@@ -12,7 +12,7 @@ struct AffinePoint: Sendable, Equatable {
         return left == right
     }
     
-    func compressedEncoding33() -> Data {
+    func encodeCompressed33() -> Data {
         var output = Data()
         output.reserveCapacity(33)
         output.append(y.isOdd ? 0x03 : 0x02)
@@ -20,15 +20,15 @@ struct AffinePoint: Sendable, Equatable {
         return output
     }
     
-    func uncompressedEncoding65() -> Data {
+    func encodeUncompressed65() -> Data {
         Data([0x04]) + x.data32 + y.data32
     }
     
-    func negated() -> AffinePoint {
+    func negate() -> AffinePoint {
         AffinePoint(x: x, y: y.negate())
     }
     
-    func applyingEndomorphism() -> AffinePoint {
+    func applyEndomorphism() -> AffinePoint {
         let beta = FieldElement(unchecked: Secp256k1.Constant.endomorphismBeta)
         return AffinePoint(x: beta.mul(x), y: y)
     }

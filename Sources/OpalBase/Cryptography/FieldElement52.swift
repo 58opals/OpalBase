@@ -16,7 +16,7 @@ struct FieldElement52: Sendable, Equatable {
     init(fromUInt256 value: UInt256) {
         var reduced = value
         if reduced.compare(to: Secp256k1.Constant.p) != .orderedAscending {
-            reduced = reduced.subtracting(Secp256k1.Constant.p).difference
+            reduced = reduced.subtract(Secp256k1.Constant.p).difference
         }
         limbs = FieldElement52.makeLimbs(from: reduced)
     }
@@ -33,20 +33,20 @@ struct FieldElement52: Sendable, Equatable {
     
     @inlinable
     func add(_ other: FieldElement52) -> FieldElement52 {
-        let (sum, carry) = asUInt256.adding(other.asUInt256)
+        let (sum, carry) = asUInt256.add(other.asUInt256)
         var reduced = sum
         if carry || reduced.compare(to: Secp256k1.Constant.p) != .orderedAscending {
-            reduced = reduced.subtracting(Secp256k1.Constant.p).difference
+            reduced = reduced.subtract(Secp256k1.Constant.p).difference
         }
         return FieldElement52(fromUInt256: reduced)
     }
     
     @inlinable
     func sub(_ other: FieldElement52) -> FieldElement52 {
-        let (difference, borrow) = asUInt256.subtracting(other.asUInt256)
+        let (difference, borrow) = asUInt256.subtract(other.asUInt256)
         var reduced = difference
         if borrow {
-            reduced = reduced.adding(Secp256k1.Constant.p).sum
+            reduced = reduced.add(Secp256k1.Constant.p).sum
         }
         return FieldElement52(fromUInt256: reduced)
     }
@@ -56,20 +56,20 @@ struct FieldElement52: Sendable, Equatable {
         guard !asUInt256.isZero else {
             return .zero
         }
-        let difference = Secp256k1.Constant.p.subtracting(asUInt256).difference
+        let difference = Secp256k1.Constant.p.subtract(asUInt256).difference
         return FieldElement52(fromUInt256: difference)
     }
     
     @inlinable
     func mul(_ other: FieldElement52) -> FieldElement52 {
-        let product = asUInt256.multipliedFullWidth(by: other.asUInt256)
+        let product = asUInt256.multiplyFullWidth(by: other.asUInt256)
         let reduced = FieldReduction.reduce(product)
         return FieldElement52(fromUInt256: reduced)
     }
     
     @inlinable
     func square() -> FieldElement52 {
-        let product = asUInt256.squaredFullWidth()
+        let product = asUInt256.squareFullWidth()
         let reduced = FieldReduction.reduce(product)
         return FieldElement52(fromUInt256: reduced)
     }
@@ -83,7 +83,7 @@ struct FieldElement52: Sendable, Equatable {
     func normalize() -> FieldElement52 {
         var reduced = asUInt256
         if reduced.compare(to: Secp256k1.Constant.p) != .orderedAscending {
-            reduced = reduced.subtracting(Secp256k1.Constant.p).difference
+            reduced = reduced.subtract(Secp256k1.Constant.p).difference
         }
         return FieldElement52(fromUInt256: reduced)
     }

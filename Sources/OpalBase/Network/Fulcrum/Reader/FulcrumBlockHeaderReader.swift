@@ -14,7 +14,7 @@ extension Network {
         }
         
         public func fetchTip() async throws -> BlockHeaderSnapshot {
-            try await Network.withFailureTranslation {
+            try await Network.performWithFailureTranslation {
                 let result = try await client.request(
                     method: .blockchain(.headers(.getTip)),
                     responseType: Response.Result.Blockchain.Headers.GetTip.self,
@@ -25,7 +25,7 @@ extension Network {
         }
         
         public func subscribeToTip() async throws -> AsyncThrowingStream<BlockHeaderSnapshot, any Error> {
-            try await Network.withFailureTranslation {
+            try await Network.performWithFailureTranslation {
                 let (initial, updates, cancel) = try await client.subscribe(
                     method: .blockchain(.headers(.subscribe)),
                     initialType: Response.Result.Blockchain.Headers.Subscribe.self,

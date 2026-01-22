@@ -206,14 +206,14 @@ extension Account {
                         do {
                             try await Task.sleep(for: effectiveInterval)
                         } catch {
-                            if error.isCancellation {
+                            if error.checkCancellation {
                                 continuation.finish()
                                 return
                             }
                             throw error
                         }
                     } catch {
-                        if error.isCancellation {
+                        if error.checkCancellation {
                             continuation.finish()
                             return
                         }

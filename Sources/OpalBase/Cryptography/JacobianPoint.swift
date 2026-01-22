@@ -29,7 +29,7 @@ struct JacobianPoint: Sendable, Equatable {
     }
     
     @inlinable
-    func toAffine() -> AffinePoint? {
+    func convertToAffine() -> AffinePoint? {
         guard !isInfinity else {
             return nil
         }
@@ -151,7 +151,7 @@ struct JacobianPoint: Sendable, Equatable {
         return JacobianPoint(X: xCoordinateResult, Y: yCoordinateResult, Z: zCoordinateResult)
     }
     
-    static func batchToAffine(_ points: [JacobianPoint]) -> [AffinePoint?] {
+    static func convertBatchToAffine(_ points: [JacobianPoint]) -> [AffinePoint?] {
         let temporaryAllocationThreshold = 64
         var pointIndices: [Int] = .init()
         pointIndices.reserveCapacity(points.count)

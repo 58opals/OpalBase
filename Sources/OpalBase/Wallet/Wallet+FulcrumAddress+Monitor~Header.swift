@@ -13,7 +13,7 @@ extension Wallet.FulcrumAddress.Monitor {
                     let stream = try await reader.subscribeToTip()
                     try await consumeHeaderStream(stream)
                 } catch {
-                    if error.isCancellation { return }
+                    if error.checkCancellation { return }
                     await publishFailure(address: nil, error: error)
                     guard !Task.isCancelled else { return }
                     try? await Task.sleep(for: retryDelay)
@@ -29,7 +29,7 @@ extension Wallet.FulcrumAddress.Monitor {
                 await handleHeaderSnapshot(snapshot)
             }
         } catch {
-            if error.isCancellation {
+            if error.checkCancellation {
                 throw error
             }
             await publishFailure(address: nil, error: error)

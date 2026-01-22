@@ -19,7 +19,7 @@ extension Address.Book {
     public func scanForUsedAddresses(using service: Network.AddressReadable,
                                      usage: DerivationPath.Usage? = nil,
                                      includeUnconfirmed: Bool = true) async throws -> UsageScan {
-        let targetUsages = DerivationPath.Usage.targets(for: usage)
+        let targetUsages = DerivationPath.Usage.resolveTargetUsages(for: usage)
         var discovered: [DerivationPath.Usage: [Entry]] = .init()
         var scannedCountByUsage: [DerivationPath.Usage: Int] = .init()
         let batchSize = Concurrency.Tuning.maximumConcurrentNetworkRequests
@@ -99,9 +99,9 @@ extension Address.Book {
 }
 
 extension Address.Book {
-    func forEachTargetUsage(_ usage: DerivationPath.Usage?,
-                            perform action: (DerivationPath.Usage, [Address.Book.Entry]) async throws -> Void) async rethrows {
-        for currentUsage in DerivationPath.Usage.targets(for: usage) {
+    func performForEachTargetUsage(_ usage: DerivationPath.Usage?,
+                                   perform action: (DerivationPath.Usage, [Address.Book.Entry]) async throws -> Void) async rethrows {
+        for currentUsage in DerivationPath.Usage.resolveTargetUsages(for: usage) {
             let entries = listEntries(for: currentUsage)
             guard !entries.isEmpty else { continue }
             try await action(currentUsage, entries)

@@ -63,7 +63,7 @@ extension Network {
             } catch let failure as Network.Failure {
                 throw failure
             } catch {
-                return try await Network.withFailureTranslation {
+                return try await Network.performWithFailureTranslation {
                     let rawTransactionData = try await fetchRawTransaction(for: transactionHash)
                     let detailed = try makeDetailed(
                         transactionHash: transactionHash,
@@ -84,7 +84,7 @@ extension Network {
             
             let identifier = transactionHash.reverseOrder.hexadecimalString
             
-            return try await Network.withFailureTranslation {
+            return try await Network.performWithFailureTranslation {
                 let result = try await client.request(
                     method: .blockchain(.transaction(.get(transactionHash: identifier, verbose: false))),
                     responseType: Response.Result.Blockchain.Transaction.Get.self,
@@ -98,7 +98,7 @@ extension Network {
         private func fetchVerboseTransaction(for transactionHash: Transaction.Hash) async throws -> TransactionGetVerbose {
             let identifier = transactionHash.reverseOrder.hexadecimalString
             
-            return try await Network.withFailureTranslation {
+            return try await Network.performWithFailureTranslation {
                 let result = try await client.request(
                     method: .blockchain(.transaction(.get(transactionHash: identifier, verbose: true))),
                     responseType: Response.Result.Blockchain.Transaction.Get.self,

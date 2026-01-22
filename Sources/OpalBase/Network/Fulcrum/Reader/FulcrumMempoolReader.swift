@@ -14,7 +14,7 @@ extension Network {
         }
         
         public func fetchMempoolInfo() async throws -> MempoolInfo {
-            try await Network.withFailureTranslation {
+            try await Network.performWithFailureTranslation {
                 let response = try await client.request(
                     method: .mempool(.getInfo),
                     responseType: Response.Result.Mempool.GetInfo.self,
@@ -32,7 +32,7 @@ extension Network {
         }
         
         public func fetchFeeHistogram() async throws -> [MempoolFeeHistogramBin] {
-            try await Network.withFailureTranslation {
+            try await Network.performWithFailureTranslation {
                 let response = try await client.request(
                     method: .mempool(.getFeeHistogram),
                     responseType: Response.Result.Mempool.GetFeeHistogram.self,

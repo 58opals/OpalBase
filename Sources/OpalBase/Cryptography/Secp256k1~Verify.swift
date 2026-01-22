@@ -40,7 +40,7 @@ public extension Secp256k1 {
         let u1Point = ScalarMultiplication.mulG(u1)
         let u2Point = ScalarMultiplication.mul(u2, publicKeyPoint)
         let candidatePoint = u1Point.add(u2Point)
-        guard let candidateAffine = candidatePoint.toAffine() else {
+        guard let candidateAffine = candidatePoint.convertToAffine() else {
             return false
         }
         guard let candidateScalar = try? ScalarConversion.makeScalarFromFieldElement(candidateAffine.x) else {

@@ -264,7 +264,7 @@ extension DerivationPath.Usage: Codable {
 }
 
 extension DerivationPath.Usage {
-    static func targets(for usage: DerivationPath.Usage?) -> [DerivationPath.Usage] {
+    static func resolveTargetUsages(for usage: DerivationPath.Usage?) -> [DerivationPath.Usage] {
         usage.map { [$0] } ?? Self.allCases
     }
 }

@@ -4,7 +4,7 @@ import Foundation
 import SwiftFulcrum
 
 extension Network {
-    static func withFailureTranslation<T>(
+    static func performWithFailureTranslation<T>(
         _ work: () async throws -> T
     ) async throws -> T {
         do {
@@ -14,8 +14,8 @@ extension Network {
         }
     }
     
-    static func isFailureEquivalent(_ left: Swift.Error, _ right: Swift.Error) -> Bool {
-        FulcrumErrorTranslator.isFailureEquivalent(left, right)
+    static func checkFailureEquivalence(_ left: Swift.Error, _ right: Swift.Error) -> Bool {
+        FulcrumErrorTranslator.checkFailureEquivalence(left, right)
     }
     
     enum FulcrumErrorTranslator {
@@ -58,11 +58,11 @@ extension Network {
             }
         }
         
-        static func isFailureEquivalent(_ left: Swift.Error, _ right: Swift.Error) -> Bool {
+        static func checkFailureEquivalence(_ left: Swift.Error, _ right: Swift.Error) -> Bool {
             translate(left) == translate(right)
         }
         
-        static func isCancellation(_ error: Swift.Error) -> Bool {
+        static func checkCancellation(_ error: Swift.Error) -> Bool {
             if error is CancellationError { return true }
             if let failure = error as? Network.Failure { return failure.reason == .cancelled }
             if let fulcrumError = error as? Fulcrum.Error,
@@ -140,7 +140,7 @@ extension Network {
 }
 
 extension Swift.Error {
-    var isCancellation: Bool {
-        Network.FulcrumErrorTranslator.isCancellation(self)
+    var checkCancellation: Bool {
+        Network.FulcrumErrorTranslator.checkCancellation(self)
     }
 }

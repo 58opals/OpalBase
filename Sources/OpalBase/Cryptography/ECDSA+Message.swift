@@ -48,7 +48,7 @@ extension ECDSA.Message {
 
 extension ECDSA.Message {
     func makeConsensusDigest32() throws -> Data {
-        let baseData = dataForHashingRounds()
+        let baseData = makeDataForHashingRounds()
         let rounds = Int(hashRounds)
         guard rounds > 0 else { throw Error.hashCountMustBeGreaterThanZero }
         let digestData = applyHashRounds(baseData, rounds: rounds)
@@ -59,7 +59,7 @@ extension ECDSA.Message {
     }
     
     func makeDataForSignerHashingOnceSHA256Internally() throws -> Data {
-        let baseData = dataForHashingRounds()
+        let baseData = makeDataForHashingRounds()
         let rounds = max(Int(hashRounds) - 1, 0)
         guard rounds > 0 else { return baseData }
         return applyHashRounds(baseData, rounds: rounds)
@@ -76,7 +76,7 @@ private extension ECDSA.Message {
         }
     }
     
-    func dataForHashingRounds() -> Data {
+    func makeDataForHashingRounds() -> Data {
         switch representation {
         case .payload(let data, _):
             return data

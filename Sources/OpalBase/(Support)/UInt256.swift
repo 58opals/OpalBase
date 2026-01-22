@@ -89,7 +89,7 @@ struct UInt256 {
     }
     
     @inlinable
-    func bit(at index: Int) -> Bool {
+    func testBit(at index: Int) -> Bool {
         guard index >= 0, index < 256 else {
             return false
         }
@@ -99,7 +99,7 @@ struct UInt256 {
     }
     
     @inlinable
-    func adding(_ other: UInt256) -> (sum: UInt256, carry: Bool) {
+    func add(_ other: UInt256) -> (sum: UInt256, carry: Bool) {
         var result: InlineArray<4, UInt64> = .init(repeating: 0)
         var carry: UInt64 = 0
         for index in 0..<4 {
@@ -115,7 +115,7 @@ struct UInt256 {
     }
     
     @inlinable
-    func subtracting(_ other: UInt256) -> (difference: UInt256, borrow: Bool) {
+    func subtract(_ other: UInt256) -> (difference: UInt256, borrow: Bool) {
         var result: InlineArray<4, UInt64> = .init(repeating: 0)
         var borrow: UInt64 = 0
         for index in 0..<4 {
@@ -131,7 +131,7 @@ struct UInt256 {
     }
     
     @inlinable
-    func multipliedFullWidth(by other: UInt256) -> UInt512 {
+    func multiplyFullWidth(by other: UInt256) -> UInt512 {
         var result: InlineArray<8, UInt64> = .init(repeating: 0)
         for leftIndex in 0..<4 {
             var carry: UInt64 = 0
@@ -180,7 +180,7 @@ struct UInt256 {
     }
     
     @inlinable
-    func squaredFullWidth() -> UInt512 {
+    func squareFullWidth() -> UInt512 {
         var result: InlineArray<8, UInt64> = .init(repeating: 0)
         
         func addProduct(low: UInt64, high: UInt64, at index: Int) {
@@ -244,14 +244,14 @@ struct UInt256 {
 
 extension UInt256 {
     @inlinable
-    func shiftedRightOne() -> UInt256 {
+    func shiftRightOne() -> UInt256 {
         var result = self
-        result.shiftRightOne()
+        result.shiftingRightOne()
         return result
     }
     
     @inlinable
-    mutating func shiftRightOne() {
+    mutating func shiftingRightOne() {
         var carry: UInt64 = 0
         for index in stride(from: 3, through: 0, by: -1) {
             let limb = limbs[index]
@@ -262,14 +262,14 @@ extension UInt256 {
     }
     
     @inlinable
-    func subtractingSmall(_ value: UInt64) -> UInt256 {
+    func subtractSmall(_ value: UInt64) -> UInt256 {
         var result = self
-        result.subtractSmall(value)
+        result.subtractingSmall(value)
         return result
     }
     
     @inlinable
-    mutating func subtractSmall(_ value: UInt64) {
+    mutating func subtractingSmall(_ value: UInt64) {
         var borrow = value
         for index in 0..<4 {
             if borrow == 0 {
@@ -282,14 +282,14 @@ extension UInt256 {
     }
     
     @inlinable
-    func addingSmall(_ value: UInt64) -> UInt256 {
+    func addSmall(_ value: UInt64) -> UInt256 {
         var result = self
-        result.addSmall(value)
+        result.addingSmall(value)
         return result
     }
     
     @inlinable
-    mutating func addSmall(_ value: UInt64) {
+    mutating func addingSmall(_ value: UInt64) {
         var carry = value
         for index in 0..<4 {
             if carry == 0 {

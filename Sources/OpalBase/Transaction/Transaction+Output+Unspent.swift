@@ -30,7 +30,7 @@ extension Transaction.Output.Unspent: Sendable {}
 extension Transaction.Output.Unspent: Equatable {}
 
 extension Transaction.Output.Unspent {
-    func isOrdered(before other: Transaction.Output.Unspent) -> Bool {
+    func compareOrder(before other: Transaction.Output.Unspent) -> Bool {
         let leftHash = previousTransactionHash.naturalOrder
         let rightHash = other.previousTransactionHash.naturalOrder
         if leftHash == rightHash {

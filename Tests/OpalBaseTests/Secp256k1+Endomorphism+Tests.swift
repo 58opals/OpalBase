@@ -7,7 +7,7 @@ struct Secp256k1EndomorphismTests {
     @Test("Endomorphism preserves curve membership")
     func testEndomorphismPreservesCurveMembership() {
         let generatorPoint = ScalarMultiplication.generator
-        let endomorphismPoint = generatorPoint.applyingEndomorphism()
+        let endomorphismPoint = generatorPoint.applyEndomorphism()
         #expect(generatorPoint.isOnCurve)
         #expect(endomorphismPoint.isOnCurve)
     }
@@ -28,14 +28,14 @@ struct Secp256k1EndomorphismTests {
             x: expectedX,
             y: FieldElement(unchecked: Secp256k1.Constant.Gy)
         )
-        #expect(ScalarMultiplication.generator.applyingEndomorphism() == expected)
+        #expect(ScalarMultiplication.generator.applyEndomorphism() == expected)
     }
     
     @Test("Endomorphism matches scalar lambda multiplication")
     func testEndomorphismMatchesLambdaMultiplication() {
         let lambda = Scalar(unchecked: Secp256k1.Constant.endomorphismLambda)
-        let lambdaPoint = ScalarMultiplication.mul(lambda, ScalarMultiplication.generator).toAffine()
-        #expect(lambdaPoint == ScalarMultiplication.generator.applyingEndomorphism())
+        let lambdaPoint = ScalarMultiplication.mul(lambda, ScalarMultiplication.generator).convertToAffine()
+        #expect(lambdaPoint == ScalarMultiplication.generator.applyEndomorphism())
     }
     
     @Test("Scalar split recomposes and stays within expected bounds")
@@ -58,7 +58,7 @@ struct Secp256k1EndomorphismTests {
             let scalar = try ScalarConversion.makeReducedScalarFromDigest(digest)
             let endomorphismPoint = ScalarMultiplication.mulGWithEndomorphism(scalar)
             let windowedPoint = ScalarMultiplication.mulGWithEightBitTable(scalar)
-            #expect(endomorphismPoint.toAffine() == windowedPoint.toAffine())
+            #expect(endomorphismPoint.convertToAffine() == windowedPoint.convertToAffine())
         }
     }
     

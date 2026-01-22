@@ -14,7 +14,7 @@ extension Network {
         }
         
         public func broadcastTransaction(rawTransactionHexadecimal: String) async throws -> String {
-            try await Network.withFailureTranslation {
+            try await Network.performWithFailureTranslation {
                 let response = try await client.request(
                     method: .blockchain(.transaction(.broadcast(rawTransaction: rawTransactionHexadecimal))),
                     responseType: Response.Result.Blockchain.Transaction.Broadcast.self,
@@ -33,7 +33,7 @@ extension Network {
         public func fetchConfirmationStatus(for transactionHash: Transaction.Hash) async throws -> Network.TransactionConfirmationStatus {
             let identifier = transactionHash.reverseOrder.hexadecimalString
             
-            return try await Network.withFailureTranslation {
+            return try await Network.performWithFailureTranslation {
                 async let transactionHeightResponse = client.request(
                     method: .blockchain(.transaction(.getHeight(transactionHash: identifier))),
                     responseType: Response.Result.Blockchain.Transaction.GetHeight.self,

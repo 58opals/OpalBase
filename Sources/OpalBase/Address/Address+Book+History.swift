@@ -26,7 +26,7 @@ extension Address.Book {
         var aggregatedChangeSet = Transaction.History.ChangeSet()
         
         let refreshTimestamp = Date.now
-        try await forEachTargetUsage(usage) { _, entries in
+        try await performForEachTargetUsage(usage) { _, entries in
             let targets = entries.map { entry in
                 let address = entry.address
                 let scriptHash = address.makeScriptHash().hexadecimalString
@@ -100,7 +100,7 @@ extension Address.Book {
                                                for transactionHashes: [Transaction.Hash]) async throws -> Transaction.History.ChangeSet {
         guard !transactionHashes.isEmpty else { return .init() }
         
-        let uniqueHashes = transactionHashes.uniqued()
+        let uniqueHashes = transactionHashes.deduplicate()
         var recordsToUpdate: [Transaction.History.Record] = .init()
         for transactionHash in uniqueHashes {
             guard let record = transactionLog.loadRecord(for: transactionHash) else { continue }

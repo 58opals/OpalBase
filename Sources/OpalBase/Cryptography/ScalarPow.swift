@@ -18,7 +18,7 @@ enum ScalarPow {
         guard let mostSignificantBit = exponent.mostSignificantBitIndex else {
             return [false]
         }
-        return stride(from: mostSignificantBit, through: 0, by: -1).map { exponent.bit(at: $0) }
+        return stride(from: mostSignificantBit, through: 0, by: -1).map { exponent.testBit(at: $0) }
     }
 }
 

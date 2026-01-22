@@ -14,7 +14,7 @@ extension Network {
         }
         
         public func ping() async throws {
-            try await Network.withFailureTranslation {
+            try await Network.performWithFailureTranslation {
                 _ = try await client.request(
                     method: .server(.ping),
                     responseType: Response.Result.Server.Ping.self,
@@ -24,7 +24,7 @@ extension Network {
         }
         
         public func fetchServerVersion(clientName: String, protocolNegotiation: Fulcrum.Configuration.ProtocolNegotiation.Argument) async throws -> FulcrumServerVersion {
-            try await Network.withFailureTranslation {
+            try await Network.performWithFailureTranslation {
                 let result = try await client.request(
                     method: .server(.version(clientName: clientName, protocolNegotiation: protocolNegotiation)),
                     responseType: Response.Result.Server.Version.self,
@@ -39,7 +39,7 @@ extension Network {
         }
         
         public func fetchServerFeatures() async throws -> FulcrumServerFeatures {
-            try await Network.withFailureTranslation {
+            try await Network.performWithFailureTranslation {
                 let result = try await client.request(
                     method: .server(.features),
                     responseType: Response.Result.Server.Features.self,
@@ -78,7 +78,7 @@ extension Network {
         }
         
         public func fetchRelayFee() async throws -> Double {
-            try await Network.withFailureTranslation {
+            try await Network.performWithFailureTranslation {
                 let result = try await client.request(
                     method: .blockchain(.relayFee),
                     responseType: Response.Result.Blockchain.RelayFee.self,
@@ -89,7 +89,7 @@ extension Network {
         }
         
         public func estimateFee(forConfirmationTarget confirmationTarget: Int) async throws -> Double {
-            try await Network.withFailureTranslation {
+            try await Network.performWithFailureTranslation {
                 let result = try await client.request(
                     method: .blockchain(.estimateFee(numberOfBlocks: confirmationTarget)),
                     responseType: Response.Result.Blockchain.EstimateFee.self,

@@ -21,7 +21,7 @@ public extension Schnorr {
             throw Error.invalidPrivateKeyValue
         }
         let publicKeyPoint = ScalarMultiplication.mulG(privateKeyScalar)
-        guard let publicKeyAffine = publicKeyPoint.toAffine() else {
+        guard let publicKeyAffine = publicKeyPoint.convertToAffine() else {
             throw Error.invalidPrivateKeyValue
         }
         var makeNextNonce: () throws -> Scalar
@@ -57,7 +57,7 @@ public extension Schnorr {
                 adjustedNonceScalar = nonceScalar.negateModN()
                 adjustedNoncePoint = noncePoint.negate()
             }
-            guard let adjustedNonceAffine = adjustedNoncePoint.toAffine() else {
+            guard let adjustedNonceAffine = adjustedNoncePoint.convertToAffine() else {
                 continue
             }
             let signatureRFieldElement = adjustedNonceAffine.x

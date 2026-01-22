@@ -17,7 +17,7 @@ extension Account {
 extension Account {
     public func refreshBalances(for usage: DerivationPath.Usage? = nil,
                                 loader: @escaping @Sendable (Address) async throws -> Satoshi) async throws -> BalanceRefresh {
-        let targetUsages = DerivationPath.Usage.targets(for: usage)
+        let targetUsages = DerivationPath.Usage.resolveTargetUsages(for: usage)
         var balancesByUsage: [DerivationPath.Usage: [Address: Satoshi]] = .init()
         let refreshTimestamp = Date.now
         

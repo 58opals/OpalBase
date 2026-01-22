@@ -34,20 +34,20 @@ struct FieldElement: Sendable, Equatable {
     
     @inlinable
     func add(_ other: FieldElement) -> FieldElement {
-        let (sum, carry) = value.adding(other.value)
+        let (sum, carry) = value.add(other.value)
         var reduced = sum
         if carry || reduced.compare(to: Secp256k1.Constant.p) != .orderedAscending {
-            reduced = reduced.subtracting(Secp256k1.Constant.p).difference
+            reduced = reduced.subtract(Secp256k1.Constant.p).difference
         }
         return FieldElement(unchecked: reduced)
     }
     
     @inlinable
     func sub(_ other: FieldElement) -> FieldElement {
-        let (difference, borrow) = value.subtracting(other.value)
+        let (difference, borrow) = value.subtract(other.value)
         var reduced = difference
         if borrow {
-            reduced = reduced.adding(Secp256k1.Constant.p).sum
+            reduced = reduced.add(Secp256k1.Constant.p).sum
         }
         return FieldElement(unchecked: reduced)
     }
@@ -57,20 +57,20 @@ struct FieldElement: Sendable, Equatable {
         guard !value.isZero else {
             return .zero
         }
-        let difference = Secp256k1.Constant.p.subtracting(value).difference
+        let difference = Secp256k1.Constant.p.subtract(value).difference
         return FieldElement(unchecked: difference)
     }
     
     @inlinable
     func mul(_ other: FieldElement) -> FieldElement {
-        let product = value.multipliedFullWidth(by: other.value)
+        let product = value.multiplyFullWidth(by: other.value)
         let reduced = FieldReduction.reduce(product)
         return FieldElement(unchecked: reduced)
     }
     
     @inlinable
     func square() -> FieldElement {
-        let product = value.squaredFullWidth()
+        let product = value.squareFullWidth()
         let reduced = FieldReduction.reduce(product)
         return FieldElement(unchecked: reduced)
     }

@@ -37,7 +37,7 @@ private extension Scalar {
 
 private extension UInt256 {
     func multiplyShiftRight384(by other: UInt256) -> UInt256 {
-        var product = multipliedFullWidth(by: other)
+        var product = multiplyFullWidth(by: other)
         let roundingBit: UInt64 = 1 << 63
         let (roundedLimb, carryFromRounding) = product.limbs[5].addingReportingOverflow(roundingBit)
         product.limbs[5] = roundedLimb

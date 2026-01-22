@@ -24,17 +24,17 @@ extension Secp256k1 {
             Secp256k1.Constant.n.data32
         }
         
-        public static func isValidPrivateKey32(_ privateKey32: Data) -> Bool {
+        public static func validatePrivateKey32(_ privateKey32: Data) -> Bool {
             (try? Scalar(data32: privateKey32, requireNonZero: true)) != nil
         }
         
-        public static func publicKey(
+        public static func derivePublicKey(
             fromPrivateKey32 privateKey32: Data,
             format: PublicKeyFormat = .compressed
         ) throws -> Data {
             let privateKeyScalar = try parsePrivateKeyScalar(privateKey32, requireNonZero: true)
             let publicPoint = ScalarMultiplication.mulG(privateKeyScalar)
-            guard let publicAffine = publicPoint.toAffine() else {
+            guard let publicAffine = publicPoint.convertToAffine() else {
                 throw Error.invalidDerivedPublicKey
             }
             return encodePublicKey(publicAffine, format: format)
@@ -75,7 +75,7 @@ extension Secp256k1 {
                             jacobianPoints.append(ScalarMultiplication.mulG(privateKeyScalar))
                         }
                         
-                        let affinePoints = JacobianPoint.batchToAffine(jacobianPoints)
+                        let affinePoints = JacobianPoint.convertBatchToAffine(jacobianPoints)
                         var compressedPublicKeys: [Data] = .init()
                         compressedPublicKeys.reserveCapacity(affinePoints.count)
                         
@@ -83,7 +83,7 @@ extension Secp256k1 {
                             guard let affinePoint else {
                                 throw Error.invalidDerivedPublicKey
                             }
-                            compressedPublicKeys.append(affinePoint.compressedEncoding33())
+                            compressedPublicKeys.append(affinePoint.encodeCompressed33())
                         }
                         
                         return CompressedPublicKeyChunkResult(
@@ -133,7 +133,7 @@ extension Secp256k1 {
             let tweakScalar = try parseTweakScalar(tweak32, requireNonZero: true)
             let tweakPoint = ScalarMultiplication.mulG(tweakScalar)
             let combined = JacobianPoint(affine: publicAffine).add(tweakPoint)
-            guard let derivedAffine = combined.toAffine() else {
+            guard let derivedAffine = combined.convertToAffine() else {
                 throw Error.invalidDerivedPublicKey
             }
             let resolvedFormat = try resolveFormat(from: publicKey, format: format)
@@ -193,7 +193,7 @@ private extension Secp256k1.Operation {
             jacobianPoints.append(ScalarMultiplication.mulG(privateKeyScalar))
         }
         
-        let affinePoints = JacobianPoint.batchToAffine(jacobianPoints)
+        let affinePoints = JacobianPoint.convertBatchToAffine(jacobianPoints)
         var compressedPublicKeys: [Data] = []
         compressedPublicKeys.reserveCapacity(affinePoints.count)
         
@@ -237,9 +237,9 @@ private extension Secp256k1.Operation {
     ) -> Data {
         switch format {
         case .compressed:
-            return affine.compressedEncoding33()
+            return affine.encodeCompressed33()
         case .uncompressed:
-            return affine.uncompressedEncoding65()
+            return affine.encodeUncompressed65()
         }
     }
     

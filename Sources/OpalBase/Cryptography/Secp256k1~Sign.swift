@@ -38,7 +38,7 @@ public extension Secp256k1 {
         while true {
             let nonceScalar = try makeNextNonce()
             let noncePoint = ScalarMultiplication.mulG(nonceScalar)
-            guard let nonceAffine = noncePoint.toAffine() else {
+            guard let nonceAffine = noncePoint.convertToAffine() else {
                 continue
             }
             guard let signatureRScalar = try? ScalarConversion.makeScalarFromFieldElement(nonceAffine.x) else {

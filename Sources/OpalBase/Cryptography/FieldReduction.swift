@@ -14,7 +14,7 @@ enum FieldReduction {
             value.limbs[4], value.limbs[5], value.limbs[6], value.limbs[7]
         ]
         reduceUpperLimbs(into: &reducedLimbs, upper: upperLimbs)
-        while hasUpperLimbs(reducedLimbs) {
+        while checkUpperLimbs(reducedLimbs) {
             upperLimbs = [
                 reducedLimbs[4], reducedLimbs[5], reducedLimbs[6], reducedLimbs[7]
             ]
@@ -28,7 +28,7 @@ enum FieldReduction {
             reducedLimbs[0], reducedLimbs[1], reducedLimbs[2], reducedLimbs[3]
         ])
         if result.compare(to: Secp256k1.Constant.p) != .orderedAscending {
-            result = result.subtracting(Secp256k1.Constant.p).difference
+            result = result.subtract(Secp256k1.Constant.p).difference
         }
         return result
     }
@@ -86,7 +86,7 @@ enum FieldReduction {
         }
     }
     
-    @usableFromInline static func hasUpperLimbs(_ limbs: InlineArray<8, UInt64>) -> Bool {
+    @usableFromInline static func checkUpperLimbs(_ limbs: InlineArray<8, UInt64>) -> Bool {
         (limbs[4] | limbs[5] | limbs[6] | limbs[7]) != 0
     }
 }

@@ -133,7 +133,7 @@ extension Network {
                     await finishStream(for: generation)
                     return
                 }
-                if shouldSuppressTerminationError(error) { return }
+                if checkTerminationErrorSuppression(error) { return }
                 if isExpectingResubscribe && checkRecoverability(error) { return }
                 if await evaluateTerminationDeferralForRecovery() { return }
                 
@@ -155,7 +155,7 @@ extension Network {
             return false
         }
         
-        private func shouldSuppressTerminationError(_ error: Swift.Error) -> Bool {
+        private func checkTerminationErrorSuppression(_ error: Swift.Error) -> Bool {
             guard isTerminated else { return false }
             return checkClientCancellation(error)
         }

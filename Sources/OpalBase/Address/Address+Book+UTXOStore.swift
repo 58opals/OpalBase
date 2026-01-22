@@ -123,7 +123,7 @@ extension Address.Book {
             guard let utxos = utxosByLockingScript[lockingScript] else {
                 return .init()
             }
-            return utxos.sorted { $0.isOrdered(before: $1) }
+            return utxos.sorted { $0.compareOrder(before: $1) }
         }
         
         func sortUTXOs(by areInIncreasingOrder: (Transaction.Output.Unspent, Transaction.Output.Unspent) -> Bool) -> [Transaction.Output.Unspent] {

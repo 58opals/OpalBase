@@ -12,7 +12,7 @@ enum ScalarMultiplication {
             }
         }
         
-        let affineOptionals = JacobianPoint.batchToAffine(jacobianTable)
+        let affineOptionals = JacobianPoint.convertBatchToAffine(jacobianTable)
         var affineTable: InlineArray<256, AffinePoint> = .init(repeating: generator)
         for index in 1..<256 {
             guard let affinePoint = affineOptionals[index] else {
@@ -28,7 +28,7 @@ enum ScalarMultiplication {
         var resultZero = JacobianPoint.infinity
         var resultOne = JacobianPoint(affine: point)
         for index in stride(from: 255, through: 0, by: -1) {
-            if scalar.bit(at: index) {
+            if scalar.testBit(at: index) {
                 resultZero = resultZero.add(resultOne)
                 resultOne = resultOne.double()
             } else {

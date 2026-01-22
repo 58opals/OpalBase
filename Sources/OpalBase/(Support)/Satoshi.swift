@@ -132,7 +132,7 @@ extension Sequence {
 }
 
 extension Sequence where Element: Hashable {
-    func uniqued() -> [Element] {
+    func deduplicate() -> [Element] {
         var seen = Set<Element>()
         return filter { seen.insert($0).inserted }
     }

@@ -63,7 +63,7 @@ public struct LargeUnsignedInteger: Comparable, Sendable {
         return data
     }
     
-    func shiftedLeft(by bits: Int) -> LargeUnsignedInteger {
+    func shiftLeft(by bits: Int) -> LargeUnsignedInteger {
         guard bits > 0 else { return self }
         precondition(bits % 8 == 0, "Shift must be a multiple of 8.")
         var data = serialize()
@@ -71,7 +71,7 @@ public struct LargeUnsignedInteger: Comparable, Sendable {
         return LargeUnsignedInteger(data)
     }
     
-    func shiftedRight(by bits: Int) -> LargeUnsignedInteger {
+    func shiftRight(by bits: Int) -> LargeUnsignedInteger {
         guard bits > 0 else { return self }
         precondition(bits % 8 == 0, "Shift must be a multiple of 8.")
         var data = serialize()

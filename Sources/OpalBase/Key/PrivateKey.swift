@@ -16,14 +16,14 @@ public struct PrivateKey {
                 throw Error.randomBytesGenerationFailed
             }
             
-            isValidPrivateKey = Secp256k1.Operation.isValidPrivateKey32(Data(randomBytes))
+            isValidPrivateKey = Secp256k1.Operation.validatePrivateKey32(Data(randomBytes))
         } while !isValidPrivateKey
         
         self.rawData = Data(randomBytes)
     }
     
     public init(data: Data) throws {
-        guard Secp256k1.Operation.isValidPrivateKey32(data) else { throw Error.outOfBounds }
+        guard Secp256k1.Operation.validatePrivateKey32(data) else { throw Error.outOfBounds }
         self.rawData = data
     }
 }

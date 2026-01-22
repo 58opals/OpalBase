@@ -11,7 +11,7 @@ extension ScalarMultiplication {
     }()
     
     @usableFromInline static let generatorEndomorphismOddMultiplesAffine: InlineArray<8, AffinePoint> = {
-        makeOddMultiplesAffineTable(for: generator.applyingEndomorphism())
+        makeOddMultiplesAffineTable(for: generator.applyEndomorphism())
     }()
     
     private static func makeOddMultiplesAffineTable(for basePoint: AffinePoint) -> InlineArray<8, AffinePoint> {
@@ -26,7 +26,7 @@ extension ScalarMultiplication {
             accumulator = accumulator.add(doubleBase)
         }
         
-        let affineOptionals = JacobianPoint.batchToAffine(jacobianPoints)
+        let affineOptionals = JacobianPoint.convertBatchToAffine(jacobianPoints)
         var affineTable: InlineArray<8, AffinePoint> = .init(repeating: basePoint)
         for index in 0..<windowedNonAdjacentFormOddMultipleCount {
             guard let affinePoint = affineOptionals[index] else {

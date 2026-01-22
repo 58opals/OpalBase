@@ -52,16 +52,16 @@ extension Address.Book.Error: Equatable {
             return leftUTXO == rightUTXO
         case (.cacheUpdateFailed(let leftAddress, let leftError),
               .cacheUpdateFailed(let rightAddress, let rightError)):
-            return leftAddress == rightAddress && Network.isFailureEquivalent(leftError, rightError)
+            return leftAddress == rightAddress && Network.checkFailureEquivalence(leftError, rightError)
         case (.invalidSnapshotBalance(let leftValue, let leftError),
               .invalidSnapshotBalance(let rightValue, let rightError)):
-            return leftValue == rightValue && Network.isFailureEquivalent(leftError, rightError)
+            return leftValue == rightValue && Network.checkFailureEquivalence(leftError, rightError)
         case (.transactionHistoryRefreshFailed(let leftAddress, let leftError),
               .transactionHistoryRefreshFailed(let rightAddress, let rightError)):
-            return leftAddress == rightAddress && Network.isFailureEquivalent(leftError, rightError)
+            return leftAddress == rightAddress && Network.checkFailureEquivalence(leftError, rightError)
         case (.transactionConfirmationRefreshFailed(let leftHash, let leftError),
               .transactionConfirmationRefreshFailed(let rightHash, let rightError)):
-            return leftHash == rightHash && Network.isFailureEquivalent(leftError, rightError)
+            return leftHash == rightHash && Network.checkFailureEquivalence(leftError, rightError)
         default:
             return false
         }

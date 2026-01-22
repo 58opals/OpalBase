@@ -36,25 +36,25 @@ struct Scalar: Sendable, Equatable {
     }
     
     func addModN(_ other: Scalar) -> Scalar {
-        let (sum, carry) = value.adding(other.value)
+        let (sum, carry) = value.add(other.value)
         var reduced = sum
         if carry || reduced.compare(to: Secp256k1.Constant.n) != .orderedAscending {
-            reduced = reduced.subtracting(Secp256k1.Constant.n).difference
+            reduced = reduced.subtract(Secp256k1.Constant.n).difference
         }
         return Scalar(unchecked: reduced)
     }
     
     func subModN(_ other: Scalar) -> Scalar {
-        let (difference, borrow) = value.subtracting(other.value)
+        let (difference, borrow) = value.subtract(other.value)
         var reduced = difference
         if borrow {
-            reduced = reduced.adding(Secp256k1.Constant.n).sum
+            reduced = reduced.add(Secp256k1.Constant.n).sum
         }
         return Scalar(unchecked: reduced)
     }
     
     func mulModN(_ other: Scalar) -> Scalar {
-        let product = value.multipliedFullWidth(by: other.value)
+        let product = value.multiplyFullWidth(by: other.value)
         let reduced = ScalarReduction.reduce(product)
         return Scalar(unchecked: reduced)
     }
@@ -63,7 +63,7 @@ struct Scalar: Sendable, Equatable {
         guard !value.isZero else {
             return .zero
         }
-        let difference = Secp256k1.Constant.n.subtracting(value).difference
+        let difference = Secp256k1.Constant.n.subtract(value).difference
         return Scalar(unchecked: difference)
     }
     
@@ -72,8 +72,8 @@ struct Scalar: Sendable, Equatable {
     }
     
     @inlinable
-    func bit(at index: Int) -> Bool {
-        value.bit(at: index)
+    func testBit(at index: Int) -> Bool {
+        value.testBit(at: index)
     }
     
     var data32: Data {
@@ -96,7 +96,7 @@ extension Scalar {
         value.limbs
     }
     
-    func forEachBigEndianByte(_ body: (UInt8) -> Void) {
+    func iterateBigEndianBytes(_ body: (UInt8) -> Void) {
         for limbIndex in stride(from: 3, through: 0, by: -1) {
             var limb = value.limbs[limbIndex].bigEndian
             withUnsafeBytes(of: &limb) { bytes in

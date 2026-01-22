@@ -26,14 +26,14 @@ extension SignedScalar128 {
                     digit -= windowFull
                 }
                 if digit < 0 {
-                    magnitude = magnitude.addingSmall(UInt64(-digit))
+                    magnitude = magnitude.addSmall(UInt64(-digit))
                 } else {
-                    magnitude = magnitude.subtractingSmall(UInt64(digit))
+                    magnitude = magnitude.subtractSmall(UInt64(digit))
                 }
             }
             
             digits.append(scalar.isNegative ? Int8(-digit) : Int8(digit))
-            magnitude = magnitude.shiftedRightOne()
+            magnitude = magnitude.shiftRightOne()
         }
         
         return digits

@@ -16,7 +16,7 @@ enum ChallengeHash {
         guard digest32.count == 32 else {
             throw Error.invalidDigestLength(actual: digest32.count)
         }
-        let publicKeyData = publicKey.compressedEncoding33()
+        let publicKeyData = publicKey.encodeCompressed33()
         let rData = r.data32
         var input = Data()
         input.append(rData)
@@ -26,7 +26,7 @@ enum ChallengeHash {
         let hashValue = try UInt256(data32: hashData)
         var reducedValue = hashValue
         if reducedValue.compare(to: Secp256k1.Constant.n) != .orderedAscending {
-            reducedValue = reducedValue.subtracting(Secp256k1.Constant.n).difference
+            reducedValue = reducedValue.subtract(Secp256k1.Constant.n).difference
         }
         return Scalar(unchecked: reducedValue)
     }

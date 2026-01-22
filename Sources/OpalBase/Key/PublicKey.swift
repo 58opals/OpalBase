@@ -6,7 +6,7 @@ public struct PublicKey {
     let compressedData: Data
     
     public init(privateKey: PrivateKey) throws {
-        self.compressedData = try Secp256k1.Operation.publicKey(fromPrivateKey32: privateKey.rawData, format: .compressed)
+        self.compressedData = try Secp256k1.Operation.derivePublicKey(fromPrivateKey32: privateKey.rawData, format: .compressed)
     }
     
     public init(compressedData: Data) throws {

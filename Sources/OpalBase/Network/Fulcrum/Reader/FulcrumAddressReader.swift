@@ -14,7 +14,7 @@ extension Network {
         }
         
         public func fetchBalance(for address: String) async throws -> AddressBalance {
-            try await Network.withFailureTranslation {
+            try await Network.performWithFailureTranslation {
                 let result = try await client.request(
                     method: .blockchain(.address(.getBalance(address: address, tokenFilter: nil))),
                     responseType: Response.Result.Blockchain.Address.GetBalance.self,
@@ -25,7 +25,7 @@ extension Network {
         }
         
         public func fetchUnspentOutputs(for address: String) async throws -> [Transaction.Output.Unspent] {
-            try await Network.withFailureTranslation {
+            try await Network.performWithFailureTranslation {
                 let lockingScriptData: Data
                 do {
                     lockingScriptData = try Address(address).lockingScript.data
@@ -59,7 +59,7 @@ extension Network {
         }
         
         public func fetchHistory(for address: String, includeUnconfirmed: Bool) async throws -> [TransactionHistoryEntry] {
-            try await Network.withFailureTranslation {
+            try await Network.performWithFailureTranslation {
                 let result = try await client.request(
                     method: .blockchain(
                         .address(
@@ -86,7 +86,7 @@ extension Network {
         }
         
         public func fetchFirstUse(for address: String) async throws -> AddressFirstUse? {
-            try await Network.withFailureTranslation {
+            try await Network.performWithFailureTranslation {
                 let result = try await client.request(
                     method: .blockchain(.address(.getFirstUse(address: address))),
                     responseType: Response.Result.Blockchain.Address.GetFirstUse.self,
@@ -106,7 +106,7 @@ extension Network {
         }
         
         public func fetchMempoolTransactions(for address: String) async throws -> [TransactionHistoryEntry] {
-            try await Network.withFailureTranslation {
+            try await Network.performWithFailureTranslation {
                 let result = try await client.request(
                     method: .blockchain(.address(.getMempool(address: address))),
                     responseType: Response.Result.Blockchain.Address.GetMempool.self,
@@ -124,7 +124,7 @@ extension Network {
         }
         
         public func fetchScriptHash(for address: String) async throws -> String {
-            try await Network.withFailureTranslation {
+            try await Network.performWithFailureTranslation {
                 let result = try await client.request(
                     method: .blockchain(.address(.getScriptHash(address: address))),
                     responseType: Response.Result.Blockchain.Address.GetScriptHash.self,
@@ -135,7 +135,7 @@ extension Network {
         }
         
         public func subscribeToAddress(_ address: String) async throws -> AsyncThrowingStream<AddressSubscriptionUpdate, any Error> {
-            try await Network.withFailureTranslation {
+            try await Network.performWithFailureTranslation {
                 let (initial, updates, cancel) = try await client.subscribe(
                     method: .blockchain(.address(.subscribe(address: address))),
                     initialType: Response.Result.Blockchain.Address.Subscribe.self,
