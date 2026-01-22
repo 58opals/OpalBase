@@ -8,7 +8,7 @@ extension Network {
         public var serverCatalog: ServerCatalog
         public var connectionTimeout: Duration
         public var maximumMessageSize: Int
-        public var reconnect: ReconnectConfiguration
+        public var reconnectConfiguration: ReconnectConfiguration
         public var network: Environment
         
         public init(
@@ -23,7 +23,7 @@ extension Network {
             self.serverCatalog = serverCatalog
             self.connectionTimeout = connectionTimeout
             self.maximumMessageSize = maximumMessageSize
-            self.reconnect = reconnect
+            self.reconnectConfiguration = reconnect
             self.network = network
         }
     }

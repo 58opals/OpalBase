@@ -37,7 +37,7 @@ extension Network {
                     }
                     continuation.finish()
                 } catch {
-                    if error.checkCancellation {
+                    if error.isCancellationError {
                         continuation.finish()
                     } else {
                         continuation.finish(throwing: FulcrumErrorTranslator.translate(error))

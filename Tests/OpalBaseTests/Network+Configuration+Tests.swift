@@ -15,7 +15,7 @@ struct NetworkConfigurationTests {
         #expect(configuration.serverURLs == [Self.primaryServerAddress])
         #expect(configuration.connectionTimeout == .seconds(10))
         #expect(configuration.maximumMessageSize == 64 * 1_024 * 1_024)
-        #expect(configuration.reconnect == .defaultValue)
+        #expect(configuration.reconnectConfiguration == .defaultValue)
         #expect(configuration.network == .mainnet)
     }
     
@@ -27,11 +27,11 @@ struct NetworkConfigurationTests {
         #expect(configuration.serverURLs == [primaryServer])
         #expect(configuration.connectionTimeout == .seconds(10))
         #expect(configuration.maximumMessageSize == 64 * 1_024 * 1_024)
-        #expect(configuration.reconnect == .defaultValue)
-        #expect(configuration.reconnect.maximumAttempts == 8)
-        #expect(configuration.reconnect.initialDelay == .seconds(1.5))
-        #expect(configuration.reconnect.maximumDelay == .seconds(30))
-        #expect(configuration.reconnect.jitterMultiplierRange.lowerBound < configuration.reconnect.jitterMultiplierRange.upperBound)
+        #expect(configuration.reconnectConfiguration == .defaultValue)
+        #expect(configuration.reconnectConfiguration.maximumAttempts == 8)
+        #expect(configuration.reconnectConfiguration.initialDelay == .seconds(1.5))
+        #expect(configuration.reconnectConfiguration.maximumDelay == .seconds(30))
+        #expect(configuration.reconnectConfiguration.jitterMultiplierRange.lowerBound < configuration.reconnectConfiguration.jitterMultiplierRange.upperBound)
         #expect(configuration.network == .mainnet)
     }
     
@@ -146,6 +146,6 @@ struct NetworkConfigurationTests {
         #expect(baseConfiguration == identicalConfiguration)
         #expect(baseConfiguration != adjustedConfiguration)
         #expect(adjustedConfiguration.serverURLs == [fallbackServer])
-        #expect(adjustedConfiguration.reconnect.jitterMultiplierRange == 1.0 ... 1.0)
+        #expect(adjustedConfiguration.reconnectConfiguration.jitterMultiplierRange == 1.0 ... 1.0)
     }
 }

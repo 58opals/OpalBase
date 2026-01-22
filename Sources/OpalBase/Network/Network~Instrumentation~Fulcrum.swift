@@ -5,7 +5,7 @@ import SwiftFulcrum
 extension Network.DiagnosticsSnapshot {
     init(_ snapshot: Fulcrum.Diagnostics.Snapshot) {
         self.init(
-            reconnectAttempts: snapshot.reconnectAttempts,
+            reconnectionAttemptCount: snapshot.reconnectAttempts,
             reconnectSuccesses: snapshot.reconnectSuccesses,
             inflightUnaryCallCount: snapshot.inflightUnaryCallCount,
             activeSubscriptionCount: snapshot.activeSubscriptionCount

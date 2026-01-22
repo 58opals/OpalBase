@@ -244,14 +244,14 @@ struct UInt256 {
 
 extension UInt256 {
     @inlinable
-    func shiftRightOne() -> UInt256 {
+    func shiftRightOneBit() -> UInt256 {
         var result = self
-        result.shiftingRightOne()
+        result.shiftRightOneBitInPlace()
         return result
     }
     
     @inlinable
-    mutating func shiftingRightOne() {
+    mutating func shiftRightOneBitInPlace() {
         var carry: UInt64 = 0
         for index in stride(from: 3, through: 0, by: -1) {
             let limb = limbs[index]
@@ -262,14 +262,14 @@ extension UInt256 {
     }
     
     @inlinable
-    func subtractSmall(_ value: UInt64) -> UInt256 {
+    func subtractWord(_ value: UInt64) -> UInt256 {
         var result = self
-        result.subtractingSmall(value)
+        result.subtractWordInPlace(value)
         return result
     }
     
     @inlinable
-    mutating func subtractingSmall(_ value: UInt64) {
+    mutating func subtractWordInPlace(_ value: UInt64) {
         var borrow = value
         for index in 0..<4 {
             if borrow == 0 {
@@ -282,14 +282,14 @@ extension UInt256 {
     }
     
     @inlinable
-    func addSmall(_ value: UInt64) -> UInt256 {
+    func addWord(_ value: UInt64) -> UInt256 {
         var result = self
-        result.addingSmall(value)
+        result.addWordInPlace(value)
         return result
     }
     
     @inlinable
-    mutating func addingSmall(_ value: UInt64) {
+    mutating func addWordInPlace(_ value: UInt64) {
         var carry = value
         for index in 0..<4 {
             if carry == 0 {

@@ -22,10 +22,10 @@ extension Network {
             let fulcrumLogger = logger.map(FulcrumLogHandlerAdapter.init(handler:))
             
             let reconnectConfiguration = Fulcrum.Configuration.Reconnect(
-                maximumReconnectionAttempts: configuration.reconnect.maximumAttempts,
-                reconnectionDelay: configuration.reconnect.initialDelay.totalSeconds,
-                maximumDelay: configuration.reconnect.maximumDelay.totalSeconds,
-                jitterRange: configuration.reconnect.jitterMultiplierRange.lowerBound ... configuration.reconnect.jitterMultiplierRange.upperBound
+                maximumReconnectionAttempts: configuration.reconnectConfiguration.maximumAttempts,
+                reconnectionDelay: configuration.reconnectConfiguration.initialDelay.totalSeconds,
+                maximumDelay: configuration.reconnectConfiguration.maximumDelay.totalSeconds,
+                jitterRange: configuration.reconnectConfiguration.jitterMultiplierRange.lowerBound ... configuration.reconnectConfiguration.jitterMultiplierRange.upperBound
             )
             
             let bootstrapServers = configuration.fulcrumBootstrapServers

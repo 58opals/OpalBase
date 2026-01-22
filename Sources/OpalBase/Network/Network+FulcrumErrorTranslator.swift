@@ -140,7 +140,7 @@ extension Network {
 }
 
 extension Swift.Error {
-    var checkCancellation: Bool {
+    var isCancellationError: Bool {
         Network.FulcrumErrorTranslator.checkCancellation(self)
     }
 }
