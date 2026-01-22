@@ -4,18 +4,22 @@ import Foundation
 
 extension Wallet {
     public actor FulcrumAddress {
-        private let addressReader: Network.FulcrumAddressReader
-        private let transactionHandler: Network.FulcrumTransactionHandler
+        private let addressReader: Network.AddressReadable
+        private let transactionHandler: Network.TransactionConfirming
         
-        public init(addressReader: Network.FulcrumAddressReader,
-                    transactionHandler: Network.FulcrumTransactionHandler) {
+        public init(addressReader: Network.AddressReadable,
+                    transactionHandler: Network.TransactionConfirming) {
             self.addressReader = addressReader
             self.transactionHandler = transactionHandler
         }
         
         public func refreshBalances(for account: Account,
-                                    usage: DerivationPath.Usage? = nil) async throws -> Account.BalanceRefresh {
-            try await account.refreshBalances(for: usage) { address in
+                                    usage: DerivationPath.Usage? = nil,
+                                    includeUnconfirmedHistory: Bool = true) async throws -> Account.BalanceRefresh {
+            _ = try await account.scanForUsedAddresses(using: addressReader,
+                                                       usage: usage,
+                                                       includeUnconfirmed: includeUnconfirmedHistory)
+            return try await account.refreshBalances(for: usage) { address in
                 let balance = try await self.addressReader.fetchBalance(for: address.string)
                 return try Self.makeBalance(from: balance)
             }
@@ -23,9 +27,12 @@ extension Wallet {
         
         public func refreshBalances(forAccountAt unhardenedIndex: UInt32,
                                     in wallet: Wallet,
-                                    usage: DerivationPath.Usage? = nil) async throws -> Account.BalanceRefresh {
+                                    usage: DerivationPath.Usage? = nil,
+                                    includeUnconfirmedHistory: Bool = true) async throws -> Account.BalanceRefresh {
             let account = try await wallet.fetchAccount(at: unhardenedIndex)
-            return try await refreshBalances(for: account, usage: usage)
+            return try await refreshBalances(for: account,
+                                             usage: usage,
+                                             includeUnconfirmedHistory: includeUnconfirmedHistory)
         }
         
         public func refreshTransactionHistory(for account: Account,
@@ -71,7 +78,7 @@ extension Wallet {
         }
         
         public func makeMonitor(for account: Account,
-                                blockHeaderReader: Network.FulcrumBlockHeaderReader,
+                                blockHeaderReader: Network.BlockHeaderReadable,
                                 includeUnconfirmed: Bool = true,
                                 retryDelay: Duration = .seconds(2)) -> Monitor {
             Monitor(account: account,
@@ -80,6 +87,41 @@ extension Wallet {
                     transactionHandler: transactionHandler,
                     includeUnconfirmed: includeUnconfirmed,
                     retryDelay: retryDelay)
+        }
+        
+        public func makeMonitor(forAccountAt unhardenedIndex: UInt32,
+                                in wallet: Wallet,
+                                blockHeaderReader: Network.BlockHeaderReadable,
+                                includeUnconfirmed: Bool = true,
+                                retryDelay: Duration = .seconds(2)) async throws -> Monitor {
+            let account = try await wallet.fetchAccount(at: unhardenedIndex)
+            return makeMonitor(for: account,
+                               blockHeaderReader: blockHeaderReader,
+                               includeUnconfirmed: includeUnconfirmed,
+                               retryDelay: retryDelay)
+        }
+        
+        public func makeEventStream(for account: Account,
+                                    blockHeaderReader: Network.BlockHeaderReadable,
+                                    includeUnconfirmed: Bool = true,
+                                    retryDelay: Duration = .seconds(2)) async -> AsyncThrowingStream<Monitor.Event, Swift.Error> {
+            let monitor = makeMonitor(for: account,
+                                      blockHeaderReader: blockHeaderReader,
+                                      includeUnconfirmed: includeUnconfirmed,
+                                      retryDelay: retryDelay)
+            return await monitor.makeEventStream()
+        }
+        
+        public func makeEventStream(forAccountAt unhardenedIndex: UInt32,
+                                    in wallet: Wallet,
+                                    blockHeaderReader: Network.BlockHeaderReadable,
+                                    includeUnconfirmed: Bool = true,
+                                    retryDelay: Duration = .seconds(2)) async throws -> AsyncThrowingStream<Monitor.Event, Swift.Error> {
+            let account = try await wallet.fetchAccount(at: unhardenedIndex)
+            return await makeEventStream(for: account,
+                                         blockHeaderReader: blockHeaderReader,
+                                         includeUnconfirmed: includeUnconfirmed,
+                                         retryDelay: retryDelay)
         }
     }
 }
@@ -96,10 +138,7 @@ private extension Wallet.FulcrumAddress {
             positiveUnconfirmed = 0
         }
         
-        let (sum, overflow) = balance.confirmed.addingReportingOverflow(positiveUnconfirmed)
-        if overflow {
-            throw Satoshi.Error.exceedsMaximumAmount
-        }
-        return try Satoshi(sum)
+        let confirmed = try Satoshi(balance.confirmed)
+        return try confirmed + Satoshi(positiveUnconfirmed)
     }
 }

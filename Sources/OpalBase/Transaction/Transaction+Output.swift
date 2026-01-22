@@ -13,7 +13,7 @@ extension Transaction {
         
         /// Initializes a Transaction.Output instance.
         /// - Parameters:
-        ///   - value: The number of satoshis to be transferred.
+        ///   - value: The number of satoshi to be transferred.
         ///   - lockingScript: The contents of the locking script.
         public init(value: UInt64, lockingScript: Data) {
             self.value = value
@@ -22,7 +22,7 @@ extension Transaction {
         
         /// Initializes a Transaction.Output instance.
         /// - Parameters:
-        ///   - value: The number of satoshis to be transferred.
+        ///   - value: The number of satoshi to be transferred.
         ///   - address: The address of the output's recipient.
         public init(value: UInt64, address: Address) {
             self.value = value
@@ -32,11 +32,11 @@ extension Transaction {
         /// Encodes the Transaction.Output into Data.
         /// - Returns: The encoded data.
         public func encode() -> Data {
-            var data = Data()
-            data.append(value.littleEndianData)
-            data.append(lockingScriptLength.encode())
-            data.append(lockingScript)
-            return data
+            var writer = Data.Writer()
+            writer.writeLittleEndian(value)
+            writer.writeCompactSize(lockingScriptLength)
+            writer.writeData(lockingScript)
+            return writer.data
         }
         
         /// Decodes a Transaction.Output instance from Data.
@@ -44,23 +44,16 @@ extension Transaction {
         /// - Throws: `CompactSize.Error` if decoding fails.
         /// - Returns: A tuple containing the decoded Transaction.Output and the number of bytes read.
         static func decode(from data: Data) throws -> (output: Output, bytesRead: Int) {
-            var index = data.startIndex
-            
-            let (value, newIndex1): (UInt64, Data.Index) = try data.extractValue(from: index)
-            index = newIndex1
-            
-            let (lockingScriptLength, lockingScriptLengthSize) = try CompactSize.decode(from: data[index...])
-            index += lockingScriptLengthSize
-            
-            let scriptLength = Int(lockingScriptLength.value)
-            let scriptUpperBound = index.advanced(by: scriptLength)
-            guard scriptUpperBound <= data.endIndex else { throw Data.Error.indexOutOfRange }
-            let lockingScript = Data(data[index..<scriptUpperBound])
-            index = scriptUpperBound
-            
-            let output = Output(value: value, lockingScript: lockingScript)
-            
-            return (output, index - data.startIndex)
+            var reader = Data.Reader(data)
+            let output = try decode(from: &reader)
+            return (output, reader.bytesRead)
+        }
+        
+        static func decode(from reader: inout Data.Reader) throws -> Output {
+            let value: UInt64 = try reader.readLittleEndian()
+            let lockingScriptLength = try reader.readCompactSize()
+            let lockingScript = try reader.readData(count: Int(lockingScriptLength.value))
+            return Output(value: value, lockingScript: lockingScript)
         }
     }
 }

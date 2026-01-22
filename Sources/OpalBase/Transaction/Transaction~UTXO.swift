@@ -16,7 +16,7 @@ extension Transaction {
                       recipientOutputs: [Output],
                       changeOutput: Output,
                       outputOrderingStrategy: OutputOrderingStrategy = .privacyRandomized,
-                      signatureFormat: ECDSA.SignatureFormat = .ecdsa(.der),
+                      signatureFormat: ECDSA.SignatureFormat = .schnorr,
                       feePerByte: UInt64 = 1,
                       sequence: UInt32 = 0xFFFFFFFF,
                       lockTime: UInt32 = 0,
@@ -41,7 +41,15 @@ extension Transaction {
         let unsignedTransaction = Transaction(version: version, inputs: inputs, outputs: outputs, lockTime: lockTime)
         let signedTransaction = try signTransaction(unsignedTransaction, using: builder)
         
-        return signedTransaction
+        return try correctFeeAfterSigning(signedTransaction: signedTransaction,
+                                          inputs: inputs,
+                                          builder: builder,
+                                          recipientOutputs: recipientOutputs,
+                                          changeOutput: changeOutput,
+                                          outputOrderingStrategy: outputOrderingStrategy,
+                                          feePerByte: feePerByte,
+                                          lockTime: lockTime,
+                                          shouldAllowDustDonation: shouldAllowDustDonation)
     }
     
     private static func computeOutputsAndFee(version: UInt32,
@@ -102,7 +110,7 @@ extension Transaction {
         case .privacyRandomized:
             orderedOutputs = outputs
         case .canonicalBIP69:
-            orderedOutputs = Output.bip69Ordered(outputs)
+            orderedOutputs = Output.applyBIP69Ordering(outputs)
         }
         
         let positiveValueOutputs = orderedOutputs.filter { $0.value > 0 }
@@ -127,8 +135,8 @@ extension Transaction {
         return (orderedOutputs, finalizedFee)
     }
     
-    private static func signTransaction(_ unsignedTransaction: Transaction,
-                                        using builder: Builder) throws -> Transaction {
+    static func signTransaction(_ unsignedTransaction: Transaction,
+                                using builder: Builder) throws -> Transaction {
         switch builder.signatureFormat {
         case .ecdsa(.raw), .ecdsa(.compact):
             throw Error.unsupportedSignatureFormat
@@ -139,9 +147,9 @@ extension Transaction {
         var transaction = unsignedTransaction
         
         for (index, unspentOutput) in builder.orderedUnspentOutputs.enumerated() {
-            guard let privateKey = builder.privateKey(for: unspentOutput) else { throw Error.cannotCreateTransaction }
+            guard let privateKey = builder.findPrivateKey(for: unspentOutput) else { throw Error.cannotCreateTransaction }
             let publicKey = try PublicKey(privateKey: privateKey)
-            let unlocker = builder.unlocker(for: unspentOutput)
+            let unlocker = builder.makeUnlocker(for: unspentOutput)
             
             switch unlocker {
             case .p2pkh_CheckSig(let hashType):
@@ -150,11 +158,7 @@ extension Transaction {
                                                                         hashType: hashType,
                                                                         outputBeingSpent: outputBeingSpent)
                 
-                let message = SHA256.hash(preimage)
-                // MARK: ↑ We hash the preimage "ONCE" here.
-                /// The signer `(P256K.Signing.PrivateKey.signature(for:))` applies SHA256 again internally.
-                /// Final digest signed = double‑SHA256(preimage).
-                
+                let message = ECDSA.Message.makeDoubleSHA256(preimage)
                 let signature = try ECDSA.sign(message: message,
                                                with: privateKey,
                                                in: builder.signatureFormat)
@@ -163,27 +167,17 @@ extension Transaction {
                 
                 transaction = try transaction.injectUnlockingScript(unlockingScript, inputIndex: index)
             case .p2pkh_CheckDataSig(let message):
-                let message = message
-                // MARK: ↑ We DO NOT hash the message here.
-                /// The signer `(P256K.Signing.PrivateKey.signature(for:))` applies SHA256 once internally.
-                /// Final digest signed = single‑SHA256(preimage).
-                
+                let messageBytes = message
+                let message = ECDSA.Message.makeSingleSHA256(messageBytes)
                 let signature = try ECDSA.sign(message: message,
                                                with: privateKey,
                                                in: builder.signatureFormat)
-                let unlockingSignature = Data.push(signature) + Data.push(message) + Data.push(publicKey.compressedData)
+                let unlockingSignature = Data.push(signature) + Data.push(messageBytes) + Data.push(publicKey.compressedData)
                 
                 transaction = try transaction.injectUnlockingScript(unlockingSignature, inputIndex: index)
             }
         }
         
         return transaction
-    }
-}
-
-private extension Transaction.Output {
-    var isOpReturnScript: Bool {
-        guard let opcode = lockingScript.first else { return false }
-        return opcode == OP._RETURN.rawValue
     }
 }

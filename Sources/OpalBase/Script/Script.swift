@@ -72,7 +72,7 @@ extension Script {
 }
 
 extension Script {
-    static func decode(lockingScript: Data) throws -> Script {
+    public static func decode(lockingScript: Data) throws -> Script {
         var index = 0
         
         func readByte() -> UInt8? {

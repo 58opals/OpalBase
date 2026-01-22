@@ -29,6 +29,17 @@ extension Transaction.Output.Unspent: Hashable {}
 extension Transaction.Output.Unspent: Sendable {}
 extension Transaction.Output.Unspent: Equatable {}
 
+extension Transaction.Output.Unspent {
+    func compareOrder(before other: Transaction.Output.Unspent) -> Bool {
+        let leftHash = previousTransactionHash.naturalOrder
+        let rightHash = other.previousTransactionHash.naturalOrder
+        if leftHash == rightHash {
+            return previousTransactionOutputIndex < other.previousTransactionOutputIndex
+        }
+        return leftHash.lexicographicallyPrecedes(rightHash)
+    }
+}
+
 extension Transaction.Output.Unspent: CustomStringConvertible {
     public var description: String {
         """

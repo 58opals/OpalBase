@@ -3,14 +3,14 @@
 import Foundation
 
 extension Storage {
-    enum Key {
+    public enum Key {
         case walletSnapshot
         case accountSnapshot(Data)
         case addressBookSnapshot(Data)
         case mnemonicCiphertext
         case custom(String)
         
-        var rawValue: String {
+        public var rawValue: String {
             switch self {
             case .walletSnapshot:
                 return "wallet.snapshot"
@@ -26,3 +26,5 @@ extension Storage {
         }
     }
 }
+
+extension Storage.Key: Sendable {}

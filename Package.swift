@@ -17,20 +17,16 @@ let package = Package(
             targets: ["OpalBase"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/attaswift/BigInt.git", from: "5.7.0"),
-        .package(url: "https://github.com/58opals/SwiftFulcrum.git", from: "0.4.0"),
-        .package(url: "https://github.com/21-DOT-DEV/swift-secp256k1.git", from: "0.21.0")
+        .package(url: "https://github.com/58opals/SwiftFulcrum.git", from: "0.5.0")
     ],
     targets: [
         .target(name: "OpalBase",
                 dependencies: [
-                    .product(name: "BigInt", package: "BigInt"),
-                    .product(name: "SwiftFulcrum", package: "SwiftFulcrum"),
-                    .product(name: "P256K", package: "swift-secp256k1")
+                    .product(name: "SwiftFulcrum", package: "SwiftFulcrum")
                 ],
                 resources: [
-                    .process("(Resource)/BIP-0039/English.txt"),
-                    .process("(Resource)/BIP-0039/Korean.txt")
+                    .process("(Resources)/BIP-0039/English.txt"),
+                    .process("(Resources)/BIP-0039/Korean.txt")
                 ]
                ),
         .testTarget(

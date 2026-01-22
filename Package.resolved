@@ -1,31 +1,13 @@
 {
-  "originHash" : "95051ea9450303f2457c55f7234e907abfbd77bc3637f353ac66289c5744ac09",
+  "originHash" : "aa94a65090465695b180e03ec0b700554e8e59c49ae1920105fea8740568d892",
   "pins" : [
-    {
-      "identity" : "bigint",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/attaswift/BigInt.git",
-      "state" : {
-        "revision" : "e07e00fa1fd435143a2dcf8b7eec9a7710b2fdfe",
-        "version" : "5.7.0"
-      }
-    },
-    {
-      "identity" : "swift-secp256k1",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/21-DOT-DEV/swift-secp256k1.git",
-      "state" : {
-        "revision" : "8c62aba8a3011c9bcea232e5ee007fb0b34a15e2",
-        "version" : "0.21.1"
-      }
-    },
     {
       "identity" : "swiftfulcrum",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/58opals/SwiftFulcrum.git",
       "state" : {
-        "revision" : "ee79af1d6d8213f26875fbdb818cb89064250ea5",
-        "version" : "0.4.4"
+        "revision" : "a9133948cd2589bfb5ca2d8ed82d78a4f091d209",
+        "version" : "0.5.3"
       }
     }
   ],

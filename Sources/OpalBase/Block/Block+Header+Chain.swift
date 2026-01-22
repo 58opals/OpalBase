@@ -1,7 +1,6 @@
 // Block+Header+Chain.swift
 
 import Foundation
-import BigInt
 
 extension Block.Header {
     public actor Chain {
@@ -45,15 +44,15 @@ extension Block.Header.Chain {
 }
 
 extension Block.Header.Chain {
-    func currentTip() -> Checkpoint {
+    var currentTip: Checkpoint {
         Checkpoint(height: tipHeight, hash: tipHash)
     }
     
-    func knownHash(at height: UInt32) -> Data? {
+    func lookupHash(at height: UInt32) -> Data? {
         hashes[height]
     }
     
-    func knownHeader(at height: UInt32) -> Block.Header? {
+    func lookupHeader(at height: UInt32) -> Block.Header? {
         headers[height]
     }
     
@@ -87,7 +86,7 @@ extension Block.Header.Chain {
     }
     
     func dequeueMaintenanceEvents() -> [MaintenanceEvent] {
-        guard !queuedMaintenanceEvents.isEmpty else { return [] }
+        guard !queuedMaintenanceEvents.isEmpty else { return .init() }
         let events = queuedMaintenanceEvents
         queuedMaintenanceEvents.removeAll()
         return events
@@ -109,7 +108,7 @@ extension Block.Header.Chain {
             if height >= tipHeight {
                 tipTimestamp = header.time
             }
-            return UpdateResult(detachedHeights: [], newTip: currentTip())
+            return UpdateResult(detachedHeights: .init(), newTip: currentTip)
         }
         
         var detachedHeights: [UInt32] = .init()
@@ -163,6 +162,6 @@ extension Block.Header.Chain {
             }
         }
         
-        return UpdateResult(detachedHeights: detachedHeights, newTip: currentTip())
+        return UpdateResult(detachedHeights: detachedHeights, newTip: currentTip)
     }
 }

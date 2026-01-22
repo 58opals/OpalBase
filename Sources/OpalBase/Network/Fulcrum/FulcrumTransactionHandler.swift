@@ -14,28 +14,18 @@ extension Network {
         }
         
         public func broadcastTransaction(rawTransactionHexadecimal: String) async throws -> String {
-            do {
+            try await Network.performWithFailureTranslation {
                 let response = try await client.request(
                     method: .blockchain(.transaction(.broadcast(rawTransaction: rawTransactionHexadecimal))),
                     responseType: Response.Result.Blockchain.Transaction.Broadcast.self,
                     options: .init(timeout: timeouts.transactionBroadcast)
                 )
                 return response.transactionHash.hexadecimalString
-            } catch {
-                throw FulcrumErrorTranslator.translate(error)
             }
         }
         
         public func fetchConfirmations(forTransactionIdentifier transactionIdentifier: String) async throws -> UInt? {
-            let hash: Transaction.Hash
-            do {
-                let identifierData = try Data(hexadecimalString: transactionIdentifier)
-                hash = Transaction.Hash(dataFromRPC: identifierData)
-            } catch {
-                throw Network.Failure(reason: .decoding,
-                                      message: "Invalid transaction identifier: \(transactionIdentifier)")
-            }
-            
+            let hash = try Network.decodeTransactionHash(from: transactionIdentifier)
             let status = try await fetchConfirmationStatus(for: hash)
             return status.confirmations
         }
@@ -43,7 +33,7 @@ extension Network {
         public func fetchConfirmationStatus(for transactionHash: Transaction.Hash) async throws -> Network.TransactionConfirmationStatus {
             let identifier = transactionHash.reverseOrder.hexadecimalString
             
-            do {
+            return try await Network.performWithFailureTranslation {
                 async let transactionHeightResponse = client.request(
                     method: .blockchain(.transaction(.getHeight(transactionHash: identifier))),
                     responseType: Response.Result.Blockchain.Transaction.GetHeight.self,
@@ -73,10 +63,6 @@ extension Network {
                                                              transactionHeight: resolvedHeight,
                                                              tipHeight: resolvedTipHeight,
                                                              confirmations: confirmationCount)
-            } catch let failure as Network.Failure {
-                throw failure
-            } catch {
-                throw FulcrumErrorTranslator.translate(error)
             }
         }
         

@@ -58,7 +58,7 @@ extension Transaction {
     }
 }
 
-private extension Transaction {
+extension Transaction {
     static func makeFee(size: Int, feePerByte: UInt64) throws -> UInt64 {
         guard size >= 0 else { throw Transaction.Error.feeCalculationOverflow(size: size, feePerByte: feePerByte) }
         

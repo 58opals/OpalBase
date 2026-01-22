@@ -1,16 +1,12 @@
 // ECDSA.swift
 
 import Foundation
-import BigInt
-import P256K
 
 public struct ECDSA {
-    static let numberOfPointsOnTheCurveWeCanHit = BigUInt("115792089237316195423570985008687907852837564279074904382605163141518161494337")
-    
     static func add(to compressedPublicKey: Data, tweak: Data) throws -> Data {
-        let secp256k1PublicKey = try ECDSA.derivePublicKey(from: compressedPublicKey, in: .compressed)
-        let pointAdded = try secp256k1PublicKey.add(Array<UInt8>(tweak), format: .compressed)
-        return pointAdded.dataRepresentation
+        try Secp256k1.Operation.tweakAddPublicKey(compressedPublicKey,
+                                                  tweak32: tweak,
+                                                  format: .compressed)
     }
 }
 
@@ -24,14 +20,8 @@ extension ECDSA {
 }
 
 extension ECDSA {
-    static func derivePublicKey(from privateKey: Data) throws -> P256K.Signing.PublicKey {
-        let secp256k1PrivateKey = try P256K.Signing.PrivateKey(dataRepresentation: privateKey)
-        return secp256k1PrivateKey.publicKey
-    }
-    
-    static func derivePublicKey(from publicKey: Data, in format: P256K.Format = .compressed) throws -> P256K.Signing.PublicKey {
-        let secp256k1PublicKey = try P256K.Signing.PublicKey(dataRepresentation: publicKey, format: format)
-        return secp256k1PublicKey
+    static func derivePublicKey(from privateKey: Data) throws -> Data {
+        try Secp256k1.Operation.derivePublicKey(fromPrivateKey32: privateKey, format: .compressed)
     }
 }
 
@@ -42,7 +32,7 @@ extension ECDSA {
         ///   - **OP_CHECKSIG + ECDSA requires DER**. Using `.raw` or `.compact` with CHECKSIG is invalid at consensus.
         ///   - Schnorr is allowed for CHECKSIG as per BCH consensus.
         case ecdsa(ECDSA)
-        case schnorr
+        case schnorr // Bitcoin Cash Schnorr (May 2019+).
         
         public enum ECDSA {
             case raw
@@ -53,24 +43,44 @@ extension ECDSA {
 }
 
 extension ECDSA {
-    static func sign(message: Data, with privateKey: PrivateKey, in format: SignatureFormat) throws -> Data {
+    static func sign(message: Data,
+                     with privateKey: PrivateKey,
+                     in format: SignatureFormat,
+                     nonceFunction: NonceFunction = .rfc6979BchDefault) throws -> Data {
         switch format {
         case .ecdsa(let ecdsa):
-            let ecdsaPrivateKey = try P256K.Signing.PrivateKey(dataRepresentation: privateKey.rawData)
-            let ecdsaSignature = try ecdsaPrivateKey.signature(for: message)
+            let digest32 = SHA256.hash(message)
+            let ecdsaSignature = try Secp256k1.sign(digest32: digest32,
+                                                    privateKey32: privateKey.rawData,
+                                                    nonce: makeEcdsaNonce(from: nonceFunction))
             switch ecdsa {
             case .raw:
-                return ecdsaSignature.dataRepresentation
+                return ecdsaSignature.raw64
             case .compact:
-                return try ecdsaSignature.compactRepresentation
+                return ecdsaSignature.raw64
             case .der:
-                return try ecdsaSignature.derRepresentation
+                return try ecdsaSignature.encodeDER()
             }
-            
         case .schnorr:
-            let schnorrPrivateKey = try P256K.Schnorr.PrivateKey(dataRepresentation: privateKey.rawData)
-            let schnorrSignature = try schnorrPrivateKey.signature(for: message)
-            return schnorrSignature.dataRepresentation
+            guard message.count == 32 else { throw Error.invalidDigestLength(expected: 32, actual: message.count) }
+            let signature = try Schnorr.sign(digest32: message,
+                                             privateKey32: privateKey.rawData,
+                                             nonce: nonceFunction)
+            return signature.raw64
+        }
+    }
+    
+    static func sign(message: ECDSA.Message,
+                     with privateKey: PrivateKey,
+                     in format: SignatureFormat,
+                     nonceFunction: NonceFunction = .rfc6979BchDefault) throws -> Data {
+        switch format {
+        case .ecdsa:
+            let signerInput = try message.makeDataForSignerHashingOnceSHA256Internally()
+            return try sign(message: signerInput, with: privateKey, in: format, nonceFunction: nonceFunction)
+        case .schnorr:
+            let digest32 = try message.makeConsensusDigest32()
+            return try sign(message: digest32, with: privateKey, in: .schnorr, nonceFunction: nonceFunction)
         }
     }
 }
@@ -84,23 +94,63 @@ extension ECDSA {
         
         switch format {
         case .ecdsa(let ecdsa):
-            let ecdsaPublicKey = try P256K.Signing.PublicKey(dataRepresentation: compressedPublicKey, format: .compressed)
+            let digest32 = SHA256.hash(message)
             switch ecdsa {
             case .raw:
-                let ecdsaSignature = try P256K.Signing.ECDSASignature(dataRepresentation: signature)
-                return ecdsaPublicKey.isValidSignature(ecdsaSignature, for: message)
+                let ecdsaSignature = try Secp256k1.Signature(raw64: signature)
+                return try Secp256k1.verify(signature: ecdsaSignature, digest32: digest32, publicKey: compressedPublicKey)
             case .compact:
-                let ecdsaSignature = try P256K.Signing.ECDSASignature(compactRepresentation: signature)
-                return ecdsaPublicKey.isValidSignature(ecdsaSignature, for: message)
+                let ecdsaSignature = try Secp256k1.Signature(raw64: signature)
+                return try Secp256k1.verify(signature: ecdsaSignature, digest32: digest32, publicKey: compressedPublicKey)
             case .der:
-                let ecdsaSignature = try P256K.Signing.ECDSASignature(derRepresentation: signature)
-                return ecdsaPublicKey.isValidSignature(ecdsaSignature, for: message)
+                return try Secp256k1.verify(derEncodedSignature: signature,
+                                            digest32: digest32,
+                                            publicKey: compressedPublicKey)
             }
         case .schnorr:
-            let xCoordinate = compressedPublicKey[1..<33]
-            let schnorrPublicKey = P256K.Schnorr.XonlyKey(dataRepresentation: xCoordinate)
-            let schnorrSignature = try P256K.Schnorr.SchnorrSignature(dataRepresentation: signature)
-            return schnorrPublicKey.isValidSignature(schnorrSignature, for: message)
+            do {
+                guard message.count == 32 else { throw Error.invalidDigestLength(expected: 32, actual: message.count) }
+                let schnorrSignature = try Schnorr.Signature(raw64: signature)
+                return try Schnorr.verify(signature: schnorrSignature,
+                                          digest32: message,
+                                          publicKey: publicKey.compressedData)
+            } catch {
+                return false
+            }
+        }
+    }
+    
+    static func verify(signature: Data, message: ECDSA.Message, publicKey: PublicKey, format: SignatureFormat) throws -> Bool {
+        switch format {
+        case .ecdsa:
+            let signerInput = try message.makeDataForSignerHashingOnceSHA256Internally()
+            return try verify(signature: signature, message: signerInput, publicKey: publicKey, format: format)
+        case .schnorr:
+            let digest32 = try message.makeConsensusDigest32()
+            return try verify(signature: signature, message: digest32, publicKey: publicKey, format: .schnorr)
+        }
+    }
+}
+
+extension ECDSA {
+    static func detectFormat(signatureCore: Data) -> SignatureFormat? {
+        if signatureCore.count == 64 { return .schnorr }
+        do {
+            _ = try Secp256k1.Signature(derEncoded: signatureCore)
+            return .ecdsa(.der)
+        } catch {
+            return nil
+        }
+    }
+}
+
+private extension ECDSA {
+    static func makeEcdsaNonce(from nonceFunction: NonceFunction) -> NonceFunction.ECDSA {
+        switch nonceFunction {
+        case .systemRandom:
+            return .systemRandom
+        case .rfc6979BchDefault, .bipSchnorrDeterministic:
+            return .rfc6979Sha256
         }
     }
 }

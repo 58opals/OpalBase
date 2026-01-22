@@ -6,7 +6,7 @@ extension Wallet.FulcrumAddress.Monitor {
     func registerEntry(_ entry: Address.Book.Entry) {
         let address = entry.address
         ensureSubscription(for: address)
-        publish(.addressMonitored(address))
+        publish(.addressTracked(address))
     }
     
     func startEntryObservation() async {
@@ -31,7 +31,7 @@ extension Wallet.FulcrumAddress.Monitor {
                     let stream = try await reader.subscribeToAddress(address.string)
                     try await consumeSubscription(stream: stream, address: address)
                 } catch {
-                    if error is CancellationError { return }
+                    if error.isCancellationError { return }
                     await publishFailure(address: address, error: error)
                     guard !Task.isCancelled else { return }
                     try? await Task.sleep(for: retryDelay)
@@ -50,9 +50,10 @@ extension Wallet.FulcrumAddress.Monitor {
                 guard update.address == address.string else { continue }
                 await handleAddressUpdate(for: address)
             }
-        } catch let error as CancellationError {
-            throw error
         } catch {
+            if error.isCancellationError {
+                throw error
+            }
             await handleIncrementalFailure(for: address, error: error)
             throw error
         }
@@ -61,16 +62,17 @@ extension Wallet.FulcrumAddress.Monitor {
     private func handleAddressUpdate(for address: Address) async {
         do {
             let utxos = try await addressReader.fetchUnspentOutputs(for: address.string)
-            let balance = try await account.replaceUTXOs(for: address,
-                                                         with: utxos,
-                                                         timestamp: .now)
-            publish(.utxosUpdated(address: address, balance: balance, utxos: utxos))
+            let timestamp = Date.now
+            let changeSet = try await account.replaceUTXOs(for: address,
+                                                           with: utxos,
+                                                           timestamp: timestamp)
+            publish(.utxosChanged(changeSet))
             
-            let changeSet = try await account.refreshTransactionHistory(for: address,
-                                                                        using: addressReader,
-                                                                        includeUnconfirmed: includeUnconfirmed)
-            if !changeSet.isEmpty {
-                publish(.historyChanged(changeSet))
+            let historyChangeSet = try await account.refreshTransactionHistory(for: address,
+                                                                               using: addressReader,
+                                                                               includeUnconfirmed: shouldIncludeUnconfirmed)
+            if !historyChangeSet.isEmpty {
+                publish(.historyChanged(historyChangeSet))
             }
         } catch {
             await handleIncrementalFailure(for: address, error: error)
@@ -78,13 +80,13 @@ extension Wallet.FulcrumAddress.Monitor {
     }
     
     private func handleIncrementalFailure(for address: Address, error: Swift.Error) async {
-        if error is CancellationError { return }
+        if error.isCancellationError { return }
         await publishFailure(address: address, error: error)
         
         do {
             let utxoRefresh = try await account.refreshUTXOSet(using: addressReader)
             let historyChangeSet = try await account.refreshTransactionHistory(using: addressReader,
-                                                                               includeUnconfirmed: includeUnconfirmed)
+                                                                               includeUnconfirmed: shouldIncludeUnconfirmed)
             publish(.performedFullRefresh(utxoRefresh, historyChangeSet))
         } catch {
             await publishFailure(address: address, error: error)

@@ -11,7 +11,7 @@ extension Transaction.Output {
     /// downstream tooling expecting canonical output layouts.
     /// - Parameter outputs: The outputs to be ordered.
     /// - Returns: The outputs sorted according to the canonical BIP-69 rules.
-    static func bip69Ordered(_ outputs: [Transaction.Output]) -> [Transaction.Output] {
+    static func applyBIP69Ordering(_ outputs: [Transaction.Output]) -> [Transaction.Output] {
         outputs.sorted { lhs, rhs in
             if lhs.value != rhs.value {
                 return lhs.value < rhs.value

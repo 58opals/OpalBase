@@ -29,13 +29,13 @@ extension Transaction {
         /// Encodes the Transaction.Input into Data.
         /// - Returns: The encoded data.
         func encode() -> Data {
-            var data = Data()
-            data.append(previousTransactionHash.naturalOrder)
-            data.append(previousTransactionOutputIndex.littleEndianData)
-            data.append(unlockingScriptLength.encode())
-            data.append(unlockingScript)
-            data.append(sequence.littleEndianData)
-            return data
+            var writer = Data.Writer()
+            writer.writeData(previousTransactionHash.naturalOrder)
+            writer.writeLittleEndian(previousTransactionOutputIndex)
+            writer.writeCompactSize(unlockingScriptLength)
+            writer.writeData(unlockingScript)
+            writer.writeLittleEndian(sequence)
+            return writer.data
         }
         
         /// Decodes a Transaction.Input instance from Data.
@@ -43,31 +43,21 @@ extension Transaction {
         /// - Throws: `CompactSize.Error` if decoding fails.
         /// - Returns: A tuple containing the decoded Transaction.Input and the number of bytes read.
         static func decode(from data: Data) throws -> (input: Input, bytesRead: Int) {
-            var index = data.startIndex
-            
-            let hashUpperBound = index.advanced(by: 32)
-            guard hashUpperBound <= data.endIndex else { throw Data.Error.indexOutOfRange }
-            let previousTransactionHash = Data(data[index..<hashUpperBound])
-            index = hashUpperBound
-            
-            let (previousTransactionIndex, newIndex1): (UInt32, Data.Index) = try data.extractValue(from: index)
-            index = newIndex1
-            
-            let (unlockingScriptLength, unlockingScriptLengthSize) = try CompactSize.decode(from: data[index...])
-            index += unlockingScriptLengthSize
-            
-            let scriptLength = Int(unlockingScriptLength.value)
-            let scriptUpperBound = index.advanced(by: scriptLength)
-            guard scriptUpperBound <= data.endIndex else { throw Data.Error.indexOutOfRange }
-            let unlockingScript = Data(data[index..<scriptUpperBound])
-            index = scriptUpperBound
-            
-            let (sequence, newIndex2): (UInt32, Data.Index) = try data.extractValue(from: index)
-            index = newIndex2
-            
-            let input = Input(previousTransactionHash: .init(naturalOrder: previousTransactionHash), previousTransactionOutputIndex: previousTransactionIndex, unlockingScript: unlockingScript, sequence: sequence)
-            
-            return (input, index - data.startIndex)
+            var reader = Data.Reader(data)
+            let input = try decode(from: &reader)
+            return (input, reader.bytesRead)
+        }
+        
+        static func decode(from reader: inout Data.Reader) throws -> Input {
+            let previousTransactionHash = try reader.readData(count: 32)
+            let previousTransactionIndex: UInt32 = try reader.readLittleEndian()
+            let unlockingScriptLength = try reader.readCompactSize()
+            let unlockingScript = try reader.readData(count: Int(unlockingScriptLength.value))
+            let sequence: UInt32 = try reader.readLittleEndian()
+            return Input(previousTransactionHash: .init(naturalOrder: previousTransactionHash),
+                         previousTransactionOutputIndex: previousTransactionIndex,
+                         unlockingScript: unlockingScript,
+                         sequence: sequence)
         }
     }
 }

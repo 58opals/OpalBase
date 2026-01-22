@@ -4,16 +4,42 @@ import Foundation
 import SwiftFulcrum
 
 extension Network {
+    static func performWithFailureTranslation<T>(
+        _ work: () async throws -> T
+    ) async throws -> T {
+        do {
+            return try await work()
+        } catch {
+            throw FulcrumErrorTranslator.translate(error)
+        }
+    }
+    
+    static func checkFailureEquivalence(_ left: Swift.Error, _ right: Swift.Error) -> Bool {
+        FulcrumErrorTranslator.checkFailureEquivalence(left, right)
+    }
+    
     enum FulcrumErrorTranslator {
         static func translate(_ error: Swift.Error) -> Network.Failure {
             if let failure = error as? Network.Failure { return failure }
+            
+            if let dataError = error as? Data.Error {
+                return Network.Failure(reason: .decoding, message: dataError.localizedDescription)
+            }
+            
+            if let decodingError = error as? DecodingError {
+                return Network.Failure(reason: .decoding, message: String(describing: decodingError))
+            }
+            
+            if let encodingError = error as? EncodingError {
+                return Network.Failure(reason: .encoding, message: String(describing: encodingError))
+            }
             
             if error is CancellationError {
                 return Network.Failure(reason: .cancelled, message: "Operation cancelled")
             }
             
             guard let fulcrumError = error as? Fulcrum.Error else {
-                return Network.Failure(reason: .unknown, message: error.localizedDescription)
+                return Network.Failure(reason: .unknown, message: String(describing: error))
             }
             
             switch fulcrumError {
@@ -32,6 +58,20 @@ extension Network {
             }
         }
         
+        static func checkFailureEquivalence(_ left: Swift.Error, _ right: Swift.Error) -> Bool {
+            translate(left) == translate(right)
+        }
+        
+        static func checkCancellation(_ error: Swift.Error) -> Bool {
+            if error is CancellationError { return true }
+            if let failure = error as? Network.Failure { return failure.reason == .cancelled }
+            if let fulcrumError = error as? Fulcrum.Error,
+               case .client(.cancelled) = fulcrumError {
+                return true
+            }
+            return false
+        }
+        
         private static func translateTransport(_ transport: Fulcrum.Error.Transport) -> Network.Failure {
             switch transport {
             case .setupFailed:
@@ -43,11 +83,21 @@ extension Network {
                     metadata: ["closeCode": String(code.rawValue)]
                 )
             case .network(let networkError):
-                return Network.Failure(reason: .network, message: networkError.localizedDescription)
+                return translateNetwork(networkError)
             case .reconnectFailed:
                 return Network.Failure(reason: .transport, message: "Reconnection attempts exhausted")
             case .heartbeatTimeout:
                 return Network.Failure(reason: .timeout, message: "Heartbeat timed out")
+            }
+        }
+        
+        private static func translateNetwork(_ network: Fulcrum.Error.Network) -> Network.Failure {
+            switch network {
+            case .tlsNegotiationFailed(let underlying):
+                return Network.Failure(
+                    reason: .network,
+                    message: underlying?.localizedDescription ?? "TLS negotiation failed"
+                )
             }
         }
         
@@ -76,13 +126,21 @@ extension Network {
                     message: "Operation timed out",
                     metadata: ["timeoutSeconds": String(duration.totalSeconds)]
                 )
-            case .emptyResponse:
-                return Network.Failure(reason: .protocolViolation, message: "Empty response from server")
+            case .emptyResponse(let identifier):
+                return Network.Failure(reason: .protocolViolation,
+                                       message: "Empty response from server",
+                                       metadata: identifier.map { ["requestIdentifier": $0.uuidString] } ?? .init())
             case .protocolMismatch(let message):
                 return Network.Failure(reason: .protocolViolation, message: message)
             case .unknown(let underlying):
                 return Network.Failure(reason: .unknown, message: underlying?.localizedDescription)
             }
         }
+    }
+}
+
+extension Swift.Error {
+    var isCancellationError: Bool {
+        Network.FulcrumErrorTranslator.checkCancellation(self)
     }
 }

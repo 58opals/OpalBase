@@ -43,7 +43,7 @@ extension Transaction {
         
         func makeInputs() -> [Transaction.Input] {
             orderedUnspentOutputs.map { unspentOutput in
-                let unlocker = unlocker(for: unspentOutput)
+                let unlocker = makeUnlocker(for: unspentOutput)
                 let placeholder = unlocker.makePlaceholderUnlockingScript(signatureFormat: signatureFormat)
                 return Transaction.Input(previousTransactionHash: unspentOutput.previousTransactionHash,
                                          previousTransactionOutputIndex: unspentOutput.previousTransactionOutputIndex,
@@ -52,11 +52,11 @@ extension Transaction {
             }
         }
         
-        func unlocker(for unspentOutput: Transaction.Output.Unspent) -> Transaction.Unlocker {
+        func makeUnlocker(for unspentOutput: Transaction.Output.Unspent) -> Transaction.Unlocker {
             unlockersByUnspent[unspentOutput] ?? .p2pkh_CheckSig()
         }
         
-        func privateKey(for unspentOutput: Transaction.Output.Unspent) -> PrivateKey? {
+        func findPrivateKey(for unspentOutput: Transaction.Output.Unspent) -> PrivateKey? {
             privateKeysByUnspent[unspentOutput]
         }
     }
