@@ -1,5 +1,6 @@
 /.build
 /Packages
+Package.resolved
 xcuserdata/
 DerivedData/
 configuration/registries.json
