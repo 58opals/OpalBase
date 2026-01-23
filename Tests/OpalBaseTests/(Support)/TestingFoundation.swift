@@ -12,4 +12,5 @@ extension Tag {
     @Tag static var wallet: Self
     @Tag static var block: Self
     @Tag static var transaction: Self
+    @Tag static var cashTokens: Self
 }

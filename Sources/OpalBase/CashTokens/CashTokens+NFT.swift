@@ -4,7 +4,7 @@ import Foundation
 
 extension CashTokens {
     public struct NFT: Codable, Hashable, Sendable {
-        private static let commitmentByteCountRange = 0...40
+        private static let commitmentByteCountRange = 0...65535
         
         public enum Capability: String, Codable, Hashable, Sendable {
             case none
