@@ -31,20 +31,21 @@ enum CompactSize {
             throw Error.insufficientData
         }
         
+        let start = data.index(after: data.startIndex)
         switch prefix {
         case 0x00...0xFC:
             self = .uint8(prefix)
         case 0xFD:
             guard data.count >= 3 else { throw Error.insufficientData }
-            let (value, _): (UInt16, Data.Index) = try data.extractValue(from: 1)
+            let (value, _): (UInt16, Data.Index) = try data.extractValue(from: start)
             self = .uint16(value)
         case 0xFE:
             guard data.count >= 5 else { throw Error.insufficientData }
-            let (value, _): (UInt32, Data.Index) = try data.extractValue(from: 1)
+            let (value, _): (UInt32, Data.Index) = try data.extractValue(from: start)
             self = .uint32(value)
         case 0xFF:
             guard data.count >= 9 else { throw Error.insufficientData }
-            let (value, _): (UInt64, Data.Index) = try data.extractValue(from: 1)
+            let (value, _): (UInt64, Data.Index) = try data.extractValue(from: start)
             self = .uint64(value)
         default:
             throw Error.invalidPrefix
