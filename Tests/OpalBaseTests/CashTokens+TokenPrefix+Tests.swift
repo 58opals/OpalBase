@@ -42,6 +42,24 @@ struct CashTokensTokenPrefixTests {
         }
     }
     
+    @Test("valid token prefix vectors are internally consistent")
+    func testValidateFixtureConsistency() throws {
+        #expect(!TokenPrefixFixtureStore.validVectors.isEmpty)
+        for vector in TokenPrefixFixtureStore.validVectors {
+            let expectedTokenData = try makeTokenData(from: vector.data)
+            let prefixData = try Data(hexadecimalString: vector.prefix)
+            let encoded = try CashTokens.TokenPrefix.encode(tokenData: expectedTokenData)
+            #expect(encoded == prefixData)
+            
+            var combined = prefixData
+            combined.append(contentsOf: [0x6a, 0x01, 0x01])
+            let decoded = try CashTokens.TokenPrefix.decode(prefixPlusBytecode: combined)
+            let decodedTokenData = try #require(decoded.tokenData)
+            #expect(decodedTokenData.amount == expectedTokenData.amount)
+            #expect(decodedTokenData.nft == expectedTokenData.nft)
+        }
+    }
+    
     @Test("decode rejects invalid token prefix vectors")
     func testDecodeInvalidVectors() {
         #expect(!TokenPrefixFixtureStore.invalidVectors.isEmpty)
