@@ -39,7 +39,7 @@ extension Transaction {
 extension Transaction {
     private enum EstimationPlaceholder {
         static let unlockingScript: Data = Transaction.Unlocker.p2pkh_CheckSig()
-            .makePlaceholderUnlockingScript(signatureFormat: .ecdsa(.der))
+            .makePlaceholderUnlockingScript(signatureFormat: .schnorr)
     }
     
     func estimateSize() -> Int {
@@ -96,7 +96,7 @@ private extension Transaction.Input {
         size += 32 // previous transaction hash (32 bytes)
         size += 4 // previous transaction output index (4 bytes)
         size += 4 // sequence (4 bytes)
-        let unlockingScriptSize = unlockingScript.isEmpty ? (1 + 72 + 1 + 33) : unlockingScript.count
+        let unlockingScriptSize = unlockingScript.isEmpty ? (1 + 64 + 1 + 33) : unlockingScript.count
         size += CompactSize(value: UInt64(unlockingScriptSize)).encodedSize_Legacy
         size += unlockingScriptSize
         
