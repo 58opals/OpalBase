@@ -123,6 +123,8 @@ extension Transaction {
         case unsupportedSignatureFormat
         case outputValueIsLessThanTheDustLimit
         case sighashSingleIndexOutOfRange
+        case missingUnspentTransactionOutputs
+        case unspentTransactionOutputsCountMismatch(expected: Int, actual: Int)
         case transactionNotFound
         case feeCalculationOverflow(size: Int, feePerByte: UInt64)
     }

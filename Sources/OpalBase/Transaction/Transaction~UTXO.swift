@@ -145,6 +145,11 @@ extension Transaction {
         }
         
         var transaction = unsignedTransaction
+        let spentOutputs = builder.orderedUnspentOutputs.map { unspentOutput in
+            Output(value: unspentOutput.value,
+                   lockingScript: unspentOutput.lockingScript,
+                   tokenData: unspentOutput.tokenData)
+        }
         
         for (index, unspentOutput) in builder.orderedUnspentOutputs.enumerated() {
             guard let privateKey = builder.findPrivateKey(for: unspentOutput) else { throw Error.cannotCreateTransaction }
@@ -158,7 +163,8 @@ extension Transaction {
                                               tokenData: unspentOutput.tokenData)
                 let preimage = try unsignedTransaction.generatePreimage(for: index,
                                                                         hashType: hashType,
-                                                                        outputBeingSpent: outputBeingSpent)
+                                                                        outputBeingSpent: outputBeingSpent,
+                                                                        spentOutputs: spentOutputs)
                 
                 let message = ECDSA.Message.makeDoubleSHA256(preimage)
                 let signature = try ECDSA.sign(message: message,

@@ -12,11 +12,14 @@ extension Transaction {
     func generatePreimage(
         for index: Int,
         hashType: HashType,
-        outputBeingSpent: Output
+        outputBeingSpent: Output,
+        spentOutputs: [Output]? = nil
     ) throws -> Data {
         guard inputs.indices.contains(index) else {
             throw Transaction.Error.sighashSingleIndexOutOfRange
         }
+        
+        try hashType.validate()
         
         let inputBeingSigned = inputs[index]
         
@@ -45,6 +48,18 @@ extension Transaction {
             previousOutputsHash = HASH256.hash(data)
         }
         preimage.append(previousOutputsHash)
+        
+        if hashType.isUnspentTransactionOutputsEnabled {
+            guard let spentOutputs else {
+                throw Transaction.Error.missingUnspentTransactionOutputs
+            }
+            guard spentOutputs.count == inputs.count else {
+                throw Transaction.Error.unspentTransactionOutputsCountMismatch(expected: inputs.count,
+                                                                               actual: spentOutputs.count)
+            }
+            let unspentTransactionOutputsHash = try makeUnspentTransactionOutputsHash(from: spentOutputs)
+            preimage.append(unspentTransactionOutputsHash)
+        }
         
         var sequenceNumbersHash = Data()
         if hashType.isAllWithoutAnyoneCanPay {
@@ -100,6 +115,16 @@ extension Transaction {
         preimage.append(signatureHashType)
         
         return preimage
+    }
+}
+
+private extension Transaction {
+    func makeUnspentTransactionOutputsHash(from outputs: [Output]) throws -> Data {
+        var data = Data()
+        for output in outputs {
+            data.append(try output.encode())
+        }
+        return HASH256.hash(data)
     }
 }
 
