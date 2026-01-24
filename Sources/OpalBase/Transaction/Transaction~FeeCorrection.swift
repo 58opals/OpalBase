@@ -3,12 +3,12 @@
 import Foundation
 
 extension Transaction {
-    func calculateActualSize() -> Int {
-        encode().count
+    func calculateActualSize() throws -> Int {
+        try encode().count
     }
     
     func calculateRequiredFee(feePerByte: UInt64) throws -> UInt64 {
-        let size = calculateActualSize()
+        let size = try calculateActualSize()
         return try Self.makeFee(size: size, feePerByte: feePerByte)
     }
     

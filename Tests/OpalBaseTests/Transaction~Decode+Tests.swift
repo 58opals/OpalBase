@@ -17,7 +17,7 @@ struct TransactionDecodeTests {
                                       outputs: [output],
                                       lockTime: 0)
         
-        let encoded = transaction.encode()
+        let encoded = try transaction.encode()
         let padded = Data([0x00, 0x00]) + encoded
         let slice = padded[2...]
         
@@ -30,7 +30,7 @@ struct TransactionDecodeTests {
     }
     
     @Test("decode fails when bytes are missing")
-    func testTransactionDecodeThrowsForTruncatedPayload() {
+    func testTransactionDecodeThrowsForTruncatedPayload() throws {
         let previousHash = Transaction.Hash(naturalOrder: Data(repeating: 3, count: 32))
         let input = Transaction.Input(previousTransactionHash: previousHash,
                                       previousTransactionOutputIndex: 2,
@@ -42,7 +42,7 @@ struct TransactionDecodeTests {
                                       outputs: [output],
                                       lockTime: 0)
         
-        let encoded = transaction.encode()
+        let encoded = try transaction.encode()
         let truncated = encoded.dropLast()
         
         #expect(throws: Data.Error.indexOutOfRange) {
@@ -51,7 +51,7 @@ struct TransactionDecodeTests {
     }
     
     @Test("decode rejects truncated transaction payloads")
-    func testTransactionDecodeRejectsTruncatedPayload() {
+    func testTransactionDecodeRejectsTruncatedPayload() throws {
         let previousHash = Transaction.Hash(naturalOrder: Data(repeating: 1, count: 32))
         let input = Transaction.Input(previousTransactionHash: previousHash,
                                       previousTransactionOutputIndex: 1,
@@ -63,7 +63,7 @@ struct TransactionDecodeTests {
                                       outputs: [output],
                                       lockTime: 0)
         
-        let encoded = transaction.encode()
+        let encoded = try transaction.encode()
         let truncated = Data(encoded.dropLast())
         
         #expect(throws: Data.Error.indexOutOfRange) {
@@ -91,7 +91,7 @@ struct TransactionDecodeTests {
                                       lockTime: 0)
         let block = Block(header: header, transactions: [transaction])
         
-        let encoded = block.encode()
+        let encoded = try block.encode()
         let padded = Data([0xff, 0xee, 0xdd]) + encoded
         let slice = padded[3...]
         

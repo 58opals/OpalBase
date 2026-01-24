@@ -32,7 +32,7 @@ extension Network {
 
 extension Network.TransactionBroadcasting {
     func broadcast(transaction: Transaction) async throws -> Transaction.Hash {
-        let rawHexadecimal = transaction.encode().hexadecimalString
+        let rawHexadecimal = try transaction.encode().hexadecimalString
         let transactionIdentifier = try await broadcastTransaction(rawTransactionHexadecimal: rawHexadecimal)
         return try Network.decodeTransactionHash(from: transactionIdentifier)
     }

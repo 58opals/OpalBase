@@ -60,6 +60,8 @@ struct ECDSASchnorrBCHTests {
         let unlockingScript = try #require(schnorrTransaction.inputs.first?.unlockingScript)
         
         #expect(unlockingScript.first == 65)
-        #expect(schnorrTransaction.encode().count < ecdsaTransaction.encode().count)
+        let schnorrEncodedTransaction = try schnorrTransaction.encode()
+        let ecdsaEncodedTransaction = try ecdsaTransaction.encode()
+        #expect(schnorrEncodedTransaction.count < ecdsaEncodedTransaction.count)
     }
 }

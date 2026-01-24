@@ -12,11 +12,13 @@ public struct Block {
         self.transactions = transactions
     }
     
-    func encode() -> Data {
+    func encode() throws -> Data {
         var writer = Data.Writer()
         writer.writeData(header.encode())
         writer.writeCompactSize(CompactSize(value: UInt64(transactions.count)))
-        transactions.forEach { writer.writeData($0.encode()) }
+        for transaction in transactions {
+            writer.writeData(try transaction.encode())
+        }
         return writer.data
     }
     

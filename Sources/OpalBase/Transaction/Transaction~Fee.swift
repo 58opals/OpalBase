@@ -4,7 +4,7 @@ import Foundation
 
 extension Transaction {
     func calculateFee(feePerByte: UInt64 = 1) throws -> UInt64 {
-        let size = estimateSize()
+        let size = try estimateSize()
         return try Self.makeFee(size: size, feePerByte: feePerByte)
     }
 }
@@ -14,7 +14,7 @@ extension Transaction {
     static func estimateSize(inputCount: Int,
                              outputs: [Output],
                              version: UInt32 = 2,
-                             lockTime: UInt32 = 0) -> Int {
+                             lockTime: UInt32 = 0) throws -> Int {
         guard inputCount >= 0 else { return 0 }
         let placeholderHash = Transaction.Hash(naturalOrder: Data(repeating: 0, count: 32))
         let templateInput = Input(previousTransactionHash: placeholderHash,
@@ -23,7 +23,7 @@ extension Transaction {
                                   sequence: 0xFFFFFFFF)
         let inputs = Array(repeating: templateInput, count: inputCount)
         let transaction = Transaction(version: version, inputs: inputs, outputs: outputs, lockTime: lockTime)
-        return transaction.estimateSize()
+        return try transaction.estimateSize()
     }
     
     static func estimateFee(inputCount: Int,
@@ -31,7 +31,7 @@ extension Transaction {
                             feePerByte: UInt64,
                             version: UInt32 = 2,
                             lockTime: UInt32 = 0) throws -> UInt64 {
-        let size = estimateSize(inputCount: inputCount, outputs: outputs, version: version, lockTime: lockTime)
+        let size = try estimateSize(inputCount: inputCount, outputs: outputs, version: version, lockTime: lockTime)
         return try makeFee(size: size, feePerByte: feePerByte)
     }
 }
@@ -42,8 +42,8 @@ extension Transaction {
             .makePlaceholderUnlockingScript(signatureFormat: .schnorr)
     }
     
-    func estimateSize() -> Int {
-        makeSerializedTransaction(with: makeInputsForEstimation()).count
+    func estimateSize() throws -> Int {
+        try makeSerializedTransaction(with: makeInputsForEstimation()).count
     }
     
     private func makeInputsForEstimation() -> [Input] {

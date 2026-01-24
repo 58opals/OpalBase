@@ -6,6 +6,7 @@ extension Transaction {
     public struct Output {
         public let value: UInt64
         public let lockingScript: Data
+        public let tokenData: CashTokens.TokenData?
         
         var lockingScriptLength: CompactSize {
             CompactSize(value: UInt64(lockingScript.count))
@@ -15,26 +16,33 @@ extension Transaction {
         /// - Parameters:
         ///   - value: The number of satoshi to be transferred.
         ///   - lockingScript: The contents of the locking script.
-        public init(value: UInt64, lockingScript: Data) {
+        ///   - tokenData: Token metadata to prefix before the locking script.
+        public init(value: UInt64, lockingScript: Data, tokenData: CashTokens.TokenData? = nil) {
             self.value = value
             self.lockingScript = lockingScript
+            self.tokenData = tokenData
         }
         
         /// Initializes a Transaction.Output instance.
         /// - Parameters:
         ///   - value: The number of satoshi to be transferred.
         ///   - address: The address of the output's recipient.
-        public init(value: UInt64, address: Address) {
+        ///   - tokenData: Token metadata to prefix before the locking script.
+        public init(value: UInt64, address: Address, tokenData: CashTokens.TokenData? = nil) {
             self.value = value
             self.lockingScript = address.lockingScript.data
+            self.tokenData = tokenData
         }
         
         /// Encodes the Transaction.Output into Data.
         /// - Returns: The encoded data.
-        public func encode() -> Data {
+        public func encode() throws -> Data {
             var writer = Data.Writer()
             writer.writeLittleEndian(value)
-            writer.writeCompactSize(lockingScriptLength)
+            let tokenPrefixData = try makeTokenPrefixData()
+            let tokenPrefixAndLockingBytecodeLength = CompactSize(value: UInt64(tokenPrefixData.count + lockingScript.count))
+            writer.writeCompactSize(tokenPrefixAndLockingBytecodeLength)
+            writer.writeData(tokenPrefixData)
             writer.writeData(lockingScript)
             return writer.data
         }
@@ -51,9 +59,23 @@ extension Transaction {
         
         static func decode(from reader: inout Data.Reader) throws -> Output {
             let value: UInt64 = try reader.readLittleEndian()
-            let lockingScriptLength = try reader.readCompactSize()
-            let lockingScript = try reader.readData(count: Int(lockingScriptLength.value))
-            return Output(value: value, lockingScript: lockingScript)
+            let tokenPrefixAndLockingBytecodeLength = try reader.readCompactSize()
+            let tokenPrefixAndLockingBytecode = try reader.readData(count: Int(tokenPrefixAndLockingBytecodeLength.value))
+            if tokenPrefixAndLockingBytecode.first == CashTokens.TokenPrefix.prefixToken {
+                let decoded = try CashTokens.TokenPrefix.decode(prefixPlusBytecode: tokenPrefixAndLockingBytecode)
+                return Output(value: value,
+                              lockingScript: decoded.lockingBytecode,
+                              tokenData: decoded.tokenData)
+            }
+            
+            return Output(value: value,
+                          lockingScript: tokenPrefixAndLockingBytecode,
+                          tokenData: nil)
+        }
+        
+        private func makeTokenPrefixData() throws -> Data {
+            guard let tokenData else { return Data() }
+            return try CashTokens.TokenPrefix.encode(tokenData: tokenData)
         }
     }
 }

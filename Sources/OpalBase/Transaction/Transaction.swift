@@ -30,8 +30,8 @@ public struct Transaction {
     
     /// Encodes the Transaction into Data.
     /// - Returns: The encoded data.
-    public func encode() -> Data {
-        makeSerializedTransaction(with: inputs)
+    public func encode() throws -> Data {
+        try makeSerializedTransaction(with: inputs)
     }
     
     /// Decodes a Transaction instance from Data.
@@ -62,13 +62,15 @@ public struct Transaction {
 }
 
 extension Transaction {
-    func makeSerializedTransaction(with inputs: [Input]) -> Data {
+    func makeSerializedTransaction(with inputs: [Input]) throws -> Data {
         var writer = Data.Writer()
         writer.writeLittleEndian(version)
         writer.writeCompactSize(CompactSize(value: UInt64(inputs.count)))
         inputs.forEach { writer.writeData($0.encode()) }
         writer.writeCompactSize(CompactSize(value: UInt64(outputs.count)))
-        outputs.forEach { writer.writeData($0.encode()) }
+        for output in outputs {
+            writer.writeData(try output.encode())
+        }
         writer.writeLittleEndian(lockTime)
         return writer.data
     }
@@ -161,7 +163,7 @@ extension Transaction.Simple: CustomStringConvertible {
 // MARK: - Legacy reference implementation
 /// The following implementation is preserved for educational purposes. It mirrors an earlier iteration of `Transaction` that demonstrated how Bitcoin Cash transactions are serialized and sized without relying on helper methods. The snippet highlights each field that becomes part of the payload so readers can follow the binary layout step by step.
 private extension Transaction {
-    func encode_Legacy() -> Data {
+    func encode_Legacy() throws -> Data {
         var data = Data()
         
         data.append(version.littleEndianData)
@@ -170,7 +172,9 @@ private extension Transaction {
         inputs.forEach { data.append($0.encode()) }
         
         data.append(CompactSize(value: UInt64(outputs.count)).encode())
-        outputs.forEach { data.append($0.encode()) }
+        for output in outputs {
+            data.append(try output.encode())
+        }
         
         data.append(lockTime.littleEndianData)
         

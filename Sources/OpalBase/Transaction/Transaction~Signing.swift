@@ -82,13 +82,13 @@ extension Transaction {
         case .all:
             var data = Data()
             for output in outputs {
-                data.append(output.encode())
+                data.append(try output.encode())
             }
             transactionOutputsHash = HASH256.hash(data)
         case .none:
             transactionOutputsHash = Data(repeating: 0x00, count: 32)
         case .single:
-            let outputWithTheSameIndexAsTheInputBeingSigned = outputs[index].encode()
+            let outputWithTheSameIndexAsTheInputBeingSigned = try outputs[index].encode()
             transactionOutputsHash = HASH256.hash(outputWithTheSameIndexAsTheInputBeingSigned)
         }
         preimage.append(transactionOutputsHash)
