@@ -65,11 +65,11 @@ extension Transaction {
             .littleEndianData
         preimage.append(previousOutputIndex)
         
-        let modifiedLockingScriptLength = outputBeingSpent.lockingScriptLength
-            .encode()
-        preimage.append(modifiedLockingScriptLength)
-        let modifiedLockingScript = outputBeingSpent.lockingScript
-        preimage.append(modifiedLockingScript)
+        let tokenPrefixData = try outputBeingSpent.makeTokenPrefixData()
+        let coveredLockingScript = tokenPrefixData + outputBeingSpent.lockingScript
+        let coveredLockingScriptLength = CompactSize(value: UInt64(coveredLockingScript.count)).encode()
+        preimage.append(coveredLockingScriptLength)
+        preimage.append(coveredLockingScript)
         
         let previousOutputValue = outputBeingSpent.value.littleEndianData
         preimage.append(previousOutputValue)

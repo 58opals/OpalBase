@@ -73,7 +73,7 @@ extension Transaction {
                           tokenData: nil)
         }
         
-        private func makeTokenPrefixData() throws -> Data {
+        func makeTokenPrefixData() throws -> Data {
             guard let tokenData else { return Data() }
             return try CashTokens.TokenPrefix.encode(tokenData: tokenData)
         }
