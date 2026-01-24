@@ -48,9 +48,11 @@ extension Network {
                     }
                     let data = try Data(hexadecimalString: item.transactionHash)
                     let hash = Transaction.Hash(dataFromRPC: data)
+                    let tokenData = try item.tokenData.map { try CashTokens.TokenData(swiftFulcrumTokenData: $0) }
                     return Transaction.Output.Unspent(
                         value: item.value,
                         lockingScript: lockingScriptData,
+                        tokenData: tokenData,
                         previousTransactionHash: hash,
                         previousTransactionOutputIndex: index
                     )

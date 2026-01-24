@@ -153,7 +153,9 @@ extension Transaction {
             
             switch unlocker {
             case .p2pkh_CheckSig(let hashType):
-                let outputBeingSpent = Output(value: unspentOutput.value, lockingScript: unspentOutput.lockingScript)
+                let outputBeingSpent = Output(value: unspentOutput.value,
+                                              lockingScript: unspentOutput.lockingScript,
+                                              tokenData: unspentOutput.tokenData)
                 let preimage = try unsignedTransaction.generatePreimage(for: index,
                                                                         hashType: hashType,
                                                                         outputBeingSpent: outputBeingSpent)

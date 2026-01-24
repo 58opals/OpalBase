@@ -142,5 +142,5 @@ extension PublicKey.Extended {
     }
 }
 
-extension PublicKey.Extended: Equatable {}
 extension PublicKey.Extended: Sendable {}
+extension PublicKey.Extended: Equatable {}

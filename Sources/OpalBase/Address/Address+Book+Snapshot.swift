@@ -32,15 +32,18 @@ extension Address.Book {
         public struct UTXO: Codable {
             public let value: UInt64
             public let lockingScript: String
+            public let tokenData: CashTokens.TokenData?
             public let transactionHash: String
             public let outputIndex: UInt32
             
             public init(value: UInt64,
                         lockingScript: String,
+                        tokenData: CashTokens.TokenData?,
                         transactionHash: String,
                         outputIndex: UInt32) {
                 self.value = value
                 self.lockingScript = lockingScript
+                self.tokenData = tokenData
                 self.transactionHash = transactionHash
                 self.outputIndex = outputIndex
             }
@@ -158,6 +161,7 @@ extension Address.Book {
         let utxoSnaps = utxoStore.listUTXOs().map {
             Snapshot.UTXO(value: $0.value,
                           lockingScript: $0.lockingScript.hexadecimalString,
+                          tokenData: $0.tokenData,
                           transactionHash: $0.previousTransactionHash.naturalOrder.hexadecimalString,
                           outputIndex: $0.previousTransactionOutputIndex)
         }
@@ -211,6 +215,7 @@ extension Address.Book {
         let restoredUTXOs = try snapshot.utxos.map {
             Transaction.Output.Unspent(value: $0.value,
                                        lockingScript: try Data(hexadecimalString: $0.lockingScript),
+                                       tokenData: $0.tokenData,
                                        previousTransactionHash: .init(naturalOrder: try Data(hexadecimalString: $0.transactionHash)),
                                        previousTransactionOutputIndex: $0.outputIndex)
         }
