@@ -88,7 +88,7 @@ struct NetworkConfigurationTests {
         
         try await NetworkTestSupport.withClient(configuration: configuration) { client in
             let addressReader = Network.FulcrumAddressReader(client: client)
-            let balance = try await addressReader.fetchBalance(for: Self.sampleCashAddress)
+            let balance = try await addressReader.fetchBalance(for: Self.sampleCashAddress, tokenFilter: .include)
             #expect(balance.confirmed >= 0)
             
             try await client.reconnect()

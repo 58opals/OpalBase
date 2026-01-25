@@ -20,7 +20,7 @@ extension Wallet {
                                                        usage: usage,
                                                        includeUnconfirmed: includeUnconfirmedHistory)
             return try await account.refreshBalances(for: usage) { address in
-                let balance = try await self.addressReader.fetchBalance(for: address.string)
+                let balance = try await self.addressReader.fetchBalance(for: address.string, tokenFilter: .include)
                 return try Self.makeBalance(from: balance)
             }
         }

@@ -31,7 +31,7 @@ extension Address.Book {
         try await performForEachTargetUsage(usage) { _, entries in
             let addresses = entries.map(\.address)
             let usageResults = try await addresses.mapConcurrently { address in
-                let utxos = try await service.fetchUnspentOutputs(for: address.string)
+                let utxos = try await service.fetchUnspentOutputs(for: address.string, tokenFilter: .include)
                 return (address, utxos)
             }
             

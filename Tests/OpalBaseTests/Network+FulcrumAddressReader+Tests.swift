@@ -10,6 +10,7 @@ struct NetworkFulcrumAddressReaderTests {
     private static let faultyServerAddress = URL(string: "wss://fulcrum.jettscythe.xyz:50004")!
     private static let invalidServerAddress = URL(string: "not a url")!
     private static let sampleCashAddress = "bitcoincash:qpm2qsznhks23z7629mms6s4cwef74vcwvy22gdx6a"
+    private static let tokenCashAddress = "bitcoincash:qr7fzmep8g7h7ymfxy74lgc0v950j3r2959lhtxxsl"
     private static let invalidCashAddress = "bitcoincash:qpm2qsznhks23z7629mms6s4cwef74vcwvy22gdx6z"
     
     @Test("fetches balance consistent with RPC response", .timeLimit(.minutes(1)))
@@ -17,11 +18,11 @@ struct NetworkFulcrumAddressReaderTests {
         let configuration = Network.Configuration(serverURLs: [Self.primaryServerAddress, Self.backupServerAddress])
         try await NetworkTestSupport.withClient(configuration: configuration) { client in
             let reader = Network.FulcrumAddressReader(client: client)
-            let balance = try await reader.fetchBalance(for: Self.sampleCashAddress)
+            let balance = try await reader.fetchBalance(for: Self.sampleCashAddress, tokenFilter: .include)
             #expect(balance.confirmed >= 0)
             
             let rpcBalance: SwiftFulcrum.Response.Result.Blockchain.Address.GetBalance = try await client.request(
-                method: .blockchain(.address(.getBalance(address: Self.sampleCashAddress, tokenFilter: nil))),
+                method: .blockchain(.address(.getBalance(address: Self.sampleCashAddress, tokenFilter: .include))),
                 responseType: SwiftFulcrum.Response.Result.Blockchain.Address.GetBalance.self
             )
             #expect(rpcBalance.confirmed == balance.confirmed)
@@ -45,7 +46,7 @@ struct NetworkFulcrumAddressReaderTests {
         
         try await NetworkTestSupport.withClient(configuration: configuration) { client in
             let reader = Network.FulcrumAddressReader(client: client)
-            let balance = try await reader.fetchBalance(for: Self.sampleCashAddress)
+            let balance = try await reader.fetchBalance(for: Self.sampleCashAddress, tokenFilter: .include)
             #expect(balance.confirmed >= 0)
             #expect(balance.unconfirmed >= 0)
             
@@ -74,7 +75,7 @@ struct NetworkFulcrumAddressReaderTests {
             let reader = Network.FulcrumAddressReader(client: client)
             let expectedLockingScript = try Address(Self.sampleCashAddress).lockingScript.data
             
-            let unspentOutputs = try await reader.fetchUnspentOutputs(for: Self.sampleCashAddress)
+            let unspentOutputs = try await reader.fetchUnspentOutputs(for: Self.sampleCashAddress, tokenFilter: .include)
             #expect(!unspentOutputs.isEmpty)
             
             for output in unspentOutputs {
@@ -122,13 +123,13 @@ struct NetworkFulcrumAddressReaderTests {
             let rawUnspent: SwiftFulcrum.Response.Result.Blockchain.Address.ListUnspent = try await client.request(
                 method: .blockchain(
                     .address(
-                        .listUnspent(address: Self.sampleCashAddress, tokenFilter: nil)
+                        .listUnspent(address: Self.sampleCashAddress, tokenFilter: .include)
                     )
                 ),
                 responseType: SwiftFulcrum.Response.Result.Blockchain.Address.ListUnspent.self
             )
             
-            let walletUnspent = try await reader.fetchUnspentOutputs(for: Self.sampleCashAddress)
+            let walletUnspent = try await reader.fetchUnspentOutputs(for: Self.sampleCashAddress, tokenFilter: .include)
             #expect(walletUnspent.count == rawUnspent.items.count)
             
             let expectedLockingScript = try Address(Self.sampleCashAddress).lockingScript.data
@@ -156,7 +157,7 @@ struct NetworkFulcrumAddressReaderTests {
             let reader = Network.FulcrumAddressReader(client: client)
             var thrownError: Error?
             do {
-                _ = try await reader.fetchUnspentOutputs(for: "not-an-address")
+                _ = try await reader.fetchUnspentOutputs(for: "not-an-address", tokenFilter: .include)
             } catch {
                 thrownError = error
             }
@@ -175,7 +176,7 @@ struct NetworkFulcrumAddressReaderTests {
         try await NetworkTestSupport.withClient(configuration: configuration) { client in
             let reader = Network.FulcrumAddressReader(client: client)
             do {
-                _ = try await reader.fetchUnspentOutputs(for: "invalid-address")
+                _ = try await reader.fetchUnspentOutputs(for: "invalid-address", tokenFilter: .include)
                 #expect(Bool(false), "Expected an invalid address to throw a protocol violation failure")
             } catch let failure as Network.Failure {
                 #expect(failure.reason == .protocolViolation)
@@ -202,7 +203,7 @@ struct NetworkFulcrumAddressReaderTests {
             var capturedError: (any Error)?
             do {
                 let reader = Network.FulcrumAddressReader(client: client)
-                _ = try await reader.fetchUnspentOutputs(for: Self.invalidCashAddress)
+                _ = try await reader.fetchUnspentOutputs(for: Self.invalidCashAddress, tokenFilter: .include)
                 Issue.record("Expected fetch to throw for invalid address")
             } catch let failure as Network.Failure {
                 #expect(failure.reason == .protocolViolation)
@@ -216,6 +217,18 @@ struct NetworkFulcrumAddressReaderTests {
             if let capturedError {
                 throw capturedError
             }
+        }
+    }
+    
+    @Test("lists token-bearing outputs with parsed token data", .timeLimit(.minutes(1)))
+    func testFetchTokenUnspentOutputsIncludesTokenData() async throws {
+        let configuration = Network.Configuration(serverURLs: [Self.primaryServerAddress, Self.backupServerAddress])
+        try await NetworkTestSupport.withClient(configuration: configuration) { client in
+            let reader = Network.FulcrumAddressReader(client: client)
+            let tokenOutputs = try await reader.fetchUnspentOutputs(for: Self.tokenCashAddress, tokenFilter: .only)
+            
+            #expect(!tokenOutputs.isEmpty)
+            #expect(tokenOutputs.allSatisfy { $0.tokenData != nil })
         }
     }
     

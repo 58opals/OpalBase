@@ -61,7 +61,7 @@ extension Wallet.FulcrumAddress.Monitor {
     
     private func handleAddressUpdate(for address: Address) async {
         do {
-            let utxos = try await addressReader.fetchUnspentOutputs(for: address.string)
+            let utxos = try await addressReader.fetchUnspentOutputs(for: address.string, tokenFilter: .include)
             let timestamp = Date.now
             let changeSet = try await account.replaceUTXOs(for: address,
                                                            with: utxos,

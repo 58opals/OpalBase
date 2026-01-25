@@ -13,10 +13,10 @@ extension Network {
             self.timeouts = timeouts
         }
         
-        public func fetchBalance(for address: String) async throws -> AddressBalance {
+        public func fetchBalance(for address: String, tokenFilter: Network.TokenFilter) async throws -> AddressBalance {
             try await Network.performWithFailureTranslation {
                 let result = try await client.request(
-                    method: .blockchain(.address(.getBalance(address: address, tokenFilter: nil))),
+                    method: .blockchain(.address(.getBalance(address: address, tokenFilter: tokenFilter))),
                     responseType: Response.Result.Blockchain.Address.GetBalance.self,
                     options: .init(timeout: timeouts.addressBalance)
                 )
@@ -24,7 +24,7 @@ extension Network {
             }
         }
         
-        public func fetchUnspentOutputs(for address: String) async throws -> [Transaction.Output.Unspent] {
+        public func fetchUnspentOutputs(for address: String, tokenFilter: Network.TokenFilter) async throws -> [Transaction.Output.Unspent] {
             try await Network.performWithFailureTranslation {
                 let lockingScriptData: Data
                 do {
@@ -37,7 +37,7 @@ extension Network {
                 }
                 
                 let result = try await client.request(
-                    method: .blockchain(.address(.listUnspent(address: address, tokenFilter: nil))),
+                    method: .blockchain(.address(.listUnspent(address: address, tokenFilter: tokenFilter))),
                     responseType: Response.Result.Blockchain.Address.ListUnspent.self,
                     options: .init(timeout: timeouts.addressUnspent)
                 )

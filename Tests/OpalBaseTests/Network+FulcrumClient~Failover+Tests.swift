@@ -42,7 +42,7 @@ struct NetworkFulcrumClientFailoverTests {
             let balance: SwiftFulcrum.Response.Result.Blockchain.Address.GetBalance = try await client.request(
                 method: .blockchain(
                     .address(
-                        .getBalance(address: Self.sampleCashAddress, tokenFilter: nil)
+                        .getBalance(address: Self.sampleCashAddress, tokenFilter: .include)
                     )
                 )
             )
@@ -76,7 +76,7 @@ struct NetworkFulcrumClientFailoverTests {
             let balance: SwiftFulcrum.Response.Result.Blockchain.Address.GetBalance = try await client.request(
                 method: .blockchain(
                     .address(
-                        .getBalance(address: Self.sampleCashAddress, tokenFilter: nil)
+                        .getBalance(address: Self.sampleCashAddress, tokenFilter: .include)
                     )
                 ),
                 responseType: SwiftFulcrum.Response.Result.Blockchain.Address.GetBalance.self
@@ -121,7 +121,7 @@ struct NetworkFulcrumClientFailoverTests {
             let balance: SwiftFulcrum.Response.Result.Blockchain.Address.GetBalance = try await client.request(
                 method: .blockchain(
                     .address(
-                        .getBalance(address: Self.sampleCashAddress, tokenFilter: nil)
+                        .getBalance(address: Self.sampleCashAddress, tokenFilter: .include)
                     )
                 )
             )
