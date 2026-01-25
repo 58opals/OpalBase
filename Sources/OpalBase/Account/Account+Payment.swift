@@ -7,10 +7,12 @@ extension Account {
         public struct Recipient: Sendable {
             public let address: Address
             public let amount: Satoshi
+            public let tokenData: CashTokens.TokenData?
             
-            public init(address: Address, amount: Satoshi) {
+            public init(address: Address, amount: Satoshi, tokenData: CashTokens.TokenData? = nil) {
                 self.address = address
                 self.amount = amount
+                self.tokenData = tokenData
             }
         }
         
@@ -19,17 +21,20 @@ extension Account {
         public let feeContext: Wallet.FeePolicy.RecommendationContext
         public let coinSelection: Address.Book.CoinSelection
         public let shouldAllowDustDonation: Bool
+        public let shouldAllowUnsafeTokenTransfers: Bool
         
         public init(recipients: [Recipient],
                     feeOverride: Wallet.FeePolicy.Override? = nil,
                     feeContext: Wallet.FeePolicy.RecommendationContext = .init(),
                     coinSelection: Address.Book.CoinSelection = .greedyLargestFirst,
-                    shouldAllowDustDonation: Bool = false) {
+                    shouldAllowDustDonation: Bool = false,
+                    shouldAllowUnsafeTokenTransfers: Bool = false) {
             self.recipients = recipients
             self.feeOverride = feeOverride
             self.feeContext = feeContext
             self.coinSelection = coinSelection
             self.shouldAllowDustDonation = shouldAllowDustDonation
+            self.shouldAllowUnsafeTokenTransfers = shouldAllowUnsafeTokenTransfers
         }
     }
 }

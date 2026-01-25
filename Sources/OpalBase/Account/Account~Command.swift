@@ -65,6 +65,16 @@ extension Account {
                              feePolicy: Wallet.FeePolicy = .init()) async throws -> SpendPlan {
         guard !payment.recipients.isEmpty else { throw Error.paymentHasNoRecipients }
         
+        if !payment.shouldAllowUnsafeTokenTransfers {
+            let unsafeTokenRecipients = payment.recipients.filter { recipient in
+                recipient.tokenData != nil && !recipient.address.supportsTokens
+            }
+            if !unsafeTokenRecipients.isEmpty {
+                let unsafeAddresses = unsafeTokenRecipients.map { $0.address }
+                throw Error.tokenSendRequiresTokenAwareAddress(unsafeAddresses)
+            }
+        }
+        
         let targetAmount = try payment.recipients.sumSatoshi(or: Error.paymentExceedsMaximumAmount) { recipient in
             recipient.amount
         }
@@ -72,7 +82,9 @@ extension Account {
         let feeRate = feePolicy.recommendFeeRate(for: payment.feeContext,
                                                  override: payment.feeOverride)
         let rawRecipientOutputs = payment.recipients.map { recipient in
-            Transaction.Output(value: recipient.amount.uint64, address: recipient.address)
+            Transaction.Output(value: recipient.amount.uint64,
+                               address: recipient.address,
+                               tokenData: recipient.tokenData)
         }
         let organizedRecipientOutputs = await privacyShaper.organizeOutputs(rawRecipientOutputs)
         

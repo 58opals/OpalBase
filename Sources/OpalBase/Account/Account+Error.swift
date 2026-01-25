@@ -11,6 +11,7 @@ extension Account {
         case transactionConfirmationRefreshFailed(Transaction.Hash, Swift.Error)
         case paymentHasNoRecipients
         case paymentExceedsMaximumAmount
+        case tokenSendRequiresTokenAwareAddress([Address])
         case coinSelectionFailed(Swift.Error)
         case transactionBuildFailed(Swift.Error)
         case broadcastFailed(Swift.Error)
@@ -26,6 +27,9 @@ extension Account.Error: Equatable {
             (.paymentHasNoRecipients, .paymentHasNoRecipients),
             (.paymentExceedsMaximumAmount, .paymentExceedsMaximumAmount):
             return true
+        case (.tokenSendRequiresTokenAwareAddress(let leftAddresses),
+                     .tokenSendRequiresTokenAwareAddress(let rightAddresses)):
+                   return leftAddresses == rightAddresses
         case (.balanceFetchTimeout(let leftAddress), .balanceFetchTimeout(let rightAddress)):
             return leftAddress == rightAddress
         case (.balanceRefreshFailed(let leftAddress, let leftError),
