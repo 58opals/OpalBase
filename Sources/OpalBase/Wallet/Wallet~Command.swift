@@ -17,6 +17,19 @@ extension Wallet {
         return try await account.prepareTokenSpend(transfer, feePolicy: feePolicy)
     }
     
+    public func prepareTokenGenesis(forAccountAt index: UInt32,
+                                    genesis: Account.TokenGenesis,
+                                    feePolicy: FeePolicy = .init()) async throws -> Account.TokenGenesisPlan {
+        let account = try await fetchAccount(at: index)
+        return try await account.prepareTokenGenesis(genesis, feePolicy: feePolicy)
+    }
+    
+    public func prepareTokenGenesisOutpoint(forAccountAt index: UInt32,
+                                            feePolicy: FeePolicy = .init()) async throws -> Account.SpendPlan {
+        let account = try await fetchAccount(at: index)
+        return try await account.prepareTokenGenesisOutpoint(feePolicy: feePolicy)
+    }
+    
     public func refreshBalances(forAccountAt unhardenedIndex: UInt32,
                                 usage: DerivationPath.Usage? = nil,
                                 loader: @escaping @Sendable (Address) async throws -> Satoshi) async throws -> Account.BalanceRefresh {
