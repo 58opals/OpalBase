@@ -96,6 +96,7 @@ extension Account {
                                 changeAddress: Address) throws -> [Transaction.Output] {
         var outputs: [Transaction.Output] = .init()
         var remainingFungible = inventory.fungibleAmount
+        let minimumRelayFeeRate = Transaction.minimumRelayFeeRate
         for (group, count) in inventory.nonFungibleTokens where count > 0 {
             for _ in 0..<count {
                 let nonFungibleToken = try CashTokens.NFT(capability: group.capability,
@@ -107,7 +108,11 @@ extension Account {
                 let tokenData = CashTokens.TokenData(category: group.category,
                                                      amount: amount,
                                                      nft: nonFungibleToken)
-                outputs.append(Transaction.Output(value: Transaction.dustLimit,
+                let outputTemplate = Transaction.Output(value: 0,
+                                                        address: changeAddress,
+                                                        tokenData: tokenData)
+                let dustThreshold = try outputTemplate.dustThreshold(feeRate: minimumRelayFeeRate)
+                outputs.append(Transaction.Output(value: dustThreshold,
                                                   address: changeAddress,
                                                   tokenData: tokenData))
             }
@@ -116,7 +121,11 @@ extension Account {
             let tokenData = CashTokens.TokenData(category: inventory.category,
                                                  amount: remainingFungible,
                                                  nft: nil)
-            outputs.append(Transaction.Output(value: Transaction.dustLimit,
+            let outputTemplate = Transaction.Output(value: 0,
+                                                    address: changeAddress,
+                                                    tokenData: tokenData)
+            let dustThreshold = try outputTemplate.dustThreshold(feeRate: minimumRelayFeeRate)
+            outputs.append(Transaction.Output(value: dustThreshold,
                                               address: changeAddress,
                                               tokenData: tokenData))
         }

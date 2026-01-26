@@ -24,10 +24,12 @@ extension Transaction {
         
         let desiredChange = changePool - targetFee
         var outputs = recipientOutputs
+        let minimumRelayFeeRate = Transaction.minimumRelayFeeRate
+        let changeDustThreshold = try changeOutputTemplate.dustThreshold(feeRate: minimumRelayFeeRate)
         
         if desiredChange == 0 {
             // No change output needed.
-        } else if desiredChange < Transaction.dustLimit {
+        } else if desiredChange < changeDustThreshold {
             guard shouldAllowDustDonation else { throw Error.outputValueIsLessThanTheDustLimit }
         } else {
             outputs.append(.init(value: desiredChange, lockingScript: changeOutputTemplate.lockingScript))
@@ -44,8 +46,10 @@ extension Transaction {
         let positiveValueOutputs = orderedOutputs.filter { $0.value > 0 }
         let totalPositiveOutput = positiveValueOutputs.map(\.value).reduce(0, +)
         guard !positiveValueOutputs.isEmpty else { throw Error.insufficientFunds(required: totalPositiveOutput) }
-        guard !orderedOutputs.contains(where: { !$0.isOpReturnScript && $0.value < Transaction.dustLimit })
-        else { throw Error.outputValueIsLessThanTheDustLimit }
+        for output in orderedOutputs where !output.isOpReturnScript {
+            let dustThreshold = try output.dustThreshold(feeRate: minimumRelayFeeRate)
+            guard output.value >= dustThreshold else { throw Error.outputValueIsLessThanTheDustLimit }
+        }
         
         return orderedOutputs
     }

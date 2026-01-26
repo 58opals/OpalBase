@@ -3,8 +3,8 @@
 import Foundation
 
 extension Transaction {
-    public static let defaultFeeRate = UInt64(1)
-    static var dustLimit: UInt64 { 546 }
+    public static let minimumRelayFeeRate: UInt64 = 1
+    public static let defaultFeeRate: UInt64 = minimumRelayFeeRate
     
     public enum OutputOrderingStrategy: Sendable {
         case privacyRandomized
@@ -67,6 +67,8 @@ extension Transaction {
         
         let estimatedFeeWithChange = try transactionWithChange.calculateFee(feePerByte: feePerByte)
         let changeAmount = changeOutput.value
+        let minimumRelayFeeRate = Transaction.minimumRelayFeeRate
+        let changeDustThreshold = try changeOutput.dustThreshold(feeRate: minimumRelayFeeRate)
         
         var outputs = recipientOutputs
         var didRemoveChangeOutput = false
@@ -89,7 +91,7 @@ extension Transaction {
                 let donation = changeAmount - estimatedFeeWithoutChange
                 if donation > 0 {
                     let additionalRequired = estimatedFeeWithChange - changeAmount
-                    guard donation < Transaction.dustLimit else { throw Error.insufficientFunds(required: additionalRequired) }
+                    guard donation < changeDustThreshold else { throw Error.insufficientFunds(required: additionalRequired) }
                     guard shouldAllowDustDonation else { throw Error.outputValueIsLessThanTheDustLimit }
                 }
             }
@@ -97,7 +99,7 @@ extension Transaction {
             let remainingChange = changeAmount - estimatedFeeWithChange
             
             if remainingChange > 0 {
-                if remainingChange < Transaction.dustLimit {
+                if remainingChange < changeDustThreshold {
                     guard shouldAllowDustDonation else { throw Error.outputValueIsLessThanTheDustLimit }
                 } else {
                     outputs.append(.init(value: remainingChange, lockingScript: changeOutput.lockingScript))
@@ -116,8 +118,10 @@ extension Transaction {
         let positiveValueOutputs = orderedOutputs.filter { $0.value > 0 }
         let totalPositiveOutput = positiveValueOutputs.map(\.value).reduce(0, +)
         guard !positiveValueOutputs.isEmpty else { throw Error.insufficientFunds(required: totalPositiveOutput) }
-        guard !orderedOutputs.contains(where: { !$0.isOpReturnScript && $0.value < Transaction.dustLimit })
-        else { throw Error.outputValueIsLessThanTheDustLimit }
+        for output in orderedOutputs where !output.isOpReturnScript {
+            let dustThreshold = try output.dustThreshold(feeRate: minimumRelayFeeRate)
+            guard output.value >= dustThreshold else { throw Error.outputValueIsLessThanTheDustLimit }
+        }
         
         let finalizedTransaction = Transaction(version: version,
                                                inputs: inputs,

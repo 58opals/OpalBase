@@ -34,7 +34,7 @@ struct AddressBookCoinSelectorTests {
             configuration: configuration,
             targetAmount: UInt64.max,
             feePerByte: 0,
-            dustLimit: 0
+            minimumRelayFeeRate: 0
         )
         
         #expect(throws: Address.Book.Error.paymentExceedsMaximumAmount) {
@@ -66,7 +66,7 @@ struct AddressBookCoinSelectorTests {
             configuration: .makeTemplateConfiguration(strategy: .greedyLargestFirst),
             targetAmount: UInt64.max,
             feePerByte: 0,
-            dustLimit: 0
+            minimumRelayFeeRate: 0
         )
         
         #expect(throws: Address.Book.Error.paymentExceedsMaximumAmount) {
@@ -96,7 +96,7 @@ struct AddressBookCoinSelectorTests {
             configuration: configuration,
             targetAmount: UInt64.max,
             feePerByte: 0,
-            dustLimit: 0
+            minimumRelayFeeRate: 0
         )
         
         #expect(throws: Address.Book.Error.paymentExceedsMaximumAmount) {
@@ -139,7 +139,7 @@ struct AddressBookCoinSelectorTests {
             configuration: configuration,
             targetAmount: targetAmount,
             feePerByte: feePerByte,
-            dustLimit: 0
+            minimumRelayFeeRate: 0
         )
         
         #expect(throws: Address.Book.Error.paymentExceedsMaximumAmount) {
@@ -177,7 +177,7 @@ struct AddressBookCoinSelectorTests {
             configuration: configuration,
             targetAmount: 0,
             feePerByte: 0,
-            dustLimit: 0
+            minimumRelayFeeRate: 0
         )
         
         #expect(throws: Address.Book.Error.paymentExceedsMaximumAmount) {
@@ -211,7 +211,7 @@ struct AddressBookCoinSelectorTests {
             configuration: configuration,
             targetAmount: UInt64.max,
             feePerByte: 0,
-            dustLimit: 0
+            minimumRelayFeeRate: 0
         )
         
         #expect(throws: Address.Book.Error.paymentExceedsMaximumAmount) {

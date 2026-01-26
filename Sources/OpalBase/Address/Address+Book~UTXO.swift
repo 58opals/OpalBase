@@ -19,11 +19,12 @@ extension Address.Book {
                              configuration: CoinSelection.Configuration) throws -> [Transaction.Output.Unspent] {
         let sortedUTXOs = sortSpendableUTXOs(by: { $0.value > $1.value },
                                              tokenSelectionPolicy: configuration.tokenSelectionPolicy)
+        let minimumRelayFeeRate = Transaction.minimumRelayFeeRate
         let selector = CoinSelector(utxos: sortedUTXOs,
                                     configuration: configuration,
                                     targetAmount: targetAmount.uint64,
                                     feePerByte: feePerByte,
-                                    dustLimit: Transaction.dustLimit)
+                                    minimumRelayFeeRate: minimumRelayFeeRate)
         return try selector.select()
     }
 }

@@ -8,18 +8,18 @@ extension Address.Book {
         let configuration: Address.Book.CoinSelection.Configuration
         let targetAmount: UInt64
         let feePerByte: UInt64
-        let dustLimit: UInt64
+        let minimumRelayFeeRate: UInt64
         
         init(utxos: [Transaction.Output.Unspent],
              configuration: Address.Book.CoinSelection.Configuration,
              targetAmount: UInt64,
              feePerByte: UInt64,
-             dustLimit: UInt64) {
+             minimumRelayFeeRate: UInt64) {
             self.utxos = utxos
             self.configuration = configuration
             self.targetAmount = targetAmount
             self.feePerByte = feePerByte
-            self.dustLimit = dustLimit
+            self.minimumRelayFeeRate = minimumRelayFeeRate
         }
     }
 }
@@ -111,7 +111,7 @@ extension Address.Book.CoinSelector {
                                                 targetAmount: targetAmount,
                                                 recipientOutputs: configuration.recipientOutputs,
                                                 outputsWithChange: configuration.outputsWithChange,
-                                                dustLimit: dustLimit,
+                                                minimumRelayFeeRate: minimumRelayFeeRate,
                                                 feePerByte: feePerByte)
     }
     
@@ -219,8 +219,12 @@ extension Address.Book.CoinSelection {
                          targetAmount: UInt64,
                          recipientOutputs: [Transaction.Output],
                          outputsWithChange: [Transaction.Output],
-                         dustLimit: UInt64,
+                         minimumRelayFeeRate: UInt64,
                          feePerByte: UInt64) throws -> Evaluation? {
+        let changeOutputTemplate: Transaction.Output? = outputsWithChange.count > recipientOutputs.count
+        ? outputsWithChange.last
+        : nil
+        let changeDustThreshold = try changeOutputTemplate?.dustThreshold(feeRate: minimumRelayFeeRate) ?? 0
         let feeWithoutChange = try Transaction.estimateFee(inputCount: inputCount,
                                                            outputs: recipientOutputs,
                                                            feePerByte: feePerByte)
@@ -231,7 +235,7 @@ extension Address.Book.CoinSelection {
             if excess == 0 {
                 return Evaluation(excess: excess)
             }
-            if configuration.shouldAllowDustDonation && excess < dustLimit {
+            if configuration.shouldAllowDustDonation && excess < changeDustThreshold {
                 return Evaluation(excess: excess)
             }
         }
@@ -244,7 +248,7 @@ extension Address.Book.CoinSelection {
         guard total >= requiredWithChange else { return nil }
         
         let change = total &- requiredWithChange
-        guard change == 0 || change >= dustLimit else { return nil }
+        guard change == 0 || change >= changeDustThreshold else { return nil }
         
         return Evaluation(excess: change)
     }

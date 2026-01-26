@@ -78,6 +78,7 @@ extension Account {
                                                                      strategy: .greedyLargestFirst,
                                                                      shouldAllowDustDonation: shouldAllowDustDonation,
                                                                      tokenSelectionPolicy: .excludeTokenUTXOs)
+        let minimumRelayFeeRate = Transaction.minimumRelayFeeRate
         
         func evaluate(total: UInt64, inputCount: Int) throws -> Address.Book.CoinSelection.Evaluation? {
             try Address.Book.CoinSelection.evaluate(configuration: configuration,
@@ -86,7 +87,7 @@ extension Account {
                                                     targetAmount: targetAmount,
                                                     recipientOutputs: outputs,
                                                     outputsWithChange: outputs + [changeTemplate],
-                                                    dustLimit: Transaction.dustLimit,
+                                                    minimumRelayFeeRate: minimumRelayFeeRate,
                                                     feePerByte: feeRate)
         }
         

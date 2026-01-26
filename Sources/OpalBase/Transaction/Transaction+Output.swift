@@ -77,6 +77,22 @@ extension Transaction {
             guard let tokenData else { return Data() }
             return try CashTokens.TokenPrefix.encode(tokenData: tokenData)
         }
+        
+        func dustThreshold(feeRate: UInt64) throws -> UInt64 {
+            let outputSize = try serializedSize()
+            let spendingInputSize = 148
+            let totalSize = outputSize + spendingInputSize
+            let baseFee = try Transaction.makeFee(size: totalSize, feePerByte: feeRate)
+            let (scaledFee, overflow) = baseFee.multipliedReportingOverflow(by: 3)
+            return overflow ? UInt64.max : scaledFee
+        }
+        
+        private func serializedSize() throws -> Int {
+            let tokenPrefixData = try makeTokenPrefixData()
+            let lockingBytecodeLength = tokenPrefixData.count + lockingScript.count
+            let lengthPrefixSize = CompactSize(value: UInt64(lockingBytecodeLength)).encodedSize
+            return 8 + lengthPrefixSize + lockingBytecodeLength
+        }
     }
 }
 
