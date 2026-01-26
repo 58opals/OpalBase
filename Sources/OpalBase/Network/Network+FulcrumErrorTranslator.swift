@@ -19,11 +19,16 @@ extension Network {
     }
     
     enum FulcrumErrorTranslator {
+        private static func describe(_ error: Swift.Error?) -> String? {
+            guard let error else { return nil }
+            return String(describing: error)
+        }
+        
         static func translate(_ error: Swift.Error) -> Network.Failure {
             if let failure = error as? Network.Failure { return failure }
             
             if let dataError = error as? Data.Error {
-                return Network.Failure(reason: .decoding, message: dataError.localizedDescription)
+                return Network.Failure(reason: .decoding, message: describe(dataError))
             }
             
             if let decodingError = error as? DecodingError {
@@ -104,9 +109,9 @@ extension Network {
         private static func translateCoding(_ coding: Fulcrum.Error.Coding) -> Network.Failure {
             switch coding {
             case .encode(let underlying):
-                return Network.Failure(reason: .encoding, message: underlying?.localizedDescription)
+                return Network.Failure(reason: .encoding, message: describe(underlying))
             case .decode(let underlying):
-                return Network.Failure(reason: .decoding, message: underlying?.localizedDescription)
+                return Network.Failure(reason: .decoding, message: describe(underlying))
             }
         }
         
@@ -133,7 +138,20 @@ extension Network {
             case .protocolMismatch(let message):
                 return Network.Failure(reason: .protocolViolation, message: message)
             case .unknown(let underlying):
-                return Network.Failure(reason: .unknown, message: underlying?.localizedDescription)
+                guard let underlying else {
+                    return Network.Failure(reason: .unknown, message: nil)
+                }
+                
+                if underlying is DecodingError {
+                    return Network.Failure(reason: .decoding, message: describe(underlying))
+                }
+                
+                let cocoaError = underlying as NSError
+                if cocoaError.domain == NSCocoaErrorDomain && cocoaError.code == 3840 {
+                    return Network.Failure(reason: .decoding, message: describe(underlying))
+                }
+                
+                return Network.Failure(reason: .unknown, message: describe(underlying))
             }
         }
     }
