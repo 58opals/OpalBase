@@ -74,9 +74,9 @@ extension Account {
         
         public func buildTransaction(signatureFormat: ECDSA.SignatureFormat = .schnorr,
                                      unlockers: [Transaction.Output.Unspent: Transaction.Unlocker] = .init()) throws -> TransactionResult {
-            let outputOrderingStrategy: Transaction.OutputOrderingStrategy = shouldRandomizeRecipientOrdering ? .privacyRandomized : .canonicalBIP69
             let transaction: Transaction
             do {
+                let outputOrderingStrategy: Transaction.OutputOrderingStrategy = shouldRandomizeRecipientOrdering ? .privacyRandomized : .canonicalBIP69
                 transaction = try Transaction.build(utxoPrivateKeyPairs: privateKeys,
                                                     recipientOutputs: outputs,
                                                     changeOutput: changeOutput,
@@ -103,7 +103,7 @@ extension Account {
             }
             
             let bitcoinCashChangeOutput = transaction.outputs.first { output in
-                output.lockingScript == changeEntry.address.lockingScript.data
+                output.lockingScript == changeOutput.lockingScript
                 && output.tokenData == nil
                 && output.value > 0
             }
