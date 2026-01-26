@@ -12,6 +12,11 @@ extension Account {
         case paymentHasNoRecipients
         case paymentExceedsMaximumAmount
         case tokenSendRequiresTokenAwareAddress([Address])
+        case tokenTransferHasNoRecipients
+        case tokenTransferRequiresSingleCategory
+        case tokenTransferInsufficientTokens
+        case tokenTransferInsufficientFunds(required: UInt64)
+        case tokenSelectionFailed(Swift.Error)
         case coinSelectionFailed(Swift.Error)
         case transactionBuildFailed(Swift.Error)
         case broadcastFailed(Swift.Error)
@@ -28,8 +33,16 @@ extension Account.Error: Equatable {
             (.paymentExceedsMaximumAmount, .paymentExceedsMaximumAmount):
             return true
         case (.tokenSendRequiresTokenAwareAddress(let leftAddresses),
-                     .tokenSendRequiresTokenAwareAddress(let rightAddresses)):
-                   return leftAddresses == rightAddresses
+              .tokenSendRequiresTokenAwareAddress(let rightAddresses)):
+            return leftAddresses == rightAddresses
+        case (.tokenTransferHasNoRecipients, .tokenTransferHasNoRecipients),
+            (.tokenTransferRequiresSingleCategory, .tokenTransferRequiresSingleCategory),
+            (.tokenTransferInsufficientTokens, .tokenTransferInsufficientTokens):
+            return true
+        case (.tokenTransferInsufficientFunds(let leftRequired), .tokenTransferInsufficientFunds(let rightRequired)):
+            return leftRequired == rightRequired
+        case (.tokenSelectionFailed(let leftError), .tokenSelectionFailed(let rightError)):
+            return Network.checkFailureEquivalence(leftError, rightError)
         case (.balanceFetchTimeout(let leftAddress), .balanceFetchTimeout(let rightAddress)):
             return leftAddress == rightAddress
         case (.balanceRefreshFailed(let leftAddress, let leftError),

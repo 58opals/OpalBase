@@ -10,6 +10,13 @@ extension Wallet {
         return try await account.prepareSpend(payment, feePolicy: feePolicy)
     }
     
+    public func prepareTokenSpend(forAccountAt unhardenedIndex: UInt32,
+                                  transfer: Account.TokenTransfer,
+                                  feePolicy: FeePolicy = .init()) async throws -> Account.TokenSpendPlan {
+        let account = try await fetchAccount(at: unhardenedIndex)
+        return try await account.prepareTokenSpend(transfer, feePolicy: feePolicy)
+    }
+    
     public func refreshBalances(forAccountAt unhardenedIndex: UInt32,
                                 usage: DerivationPath.Usage? = nil,
                                 loader: @escaping @Sendable (Address) async throws -> Satoshi) async throws -> Account.BalanceRefresh {
