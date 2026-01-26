@@ -18,6 +18,8 @@ extension Account {
         case tokenTransferInsufficientTokens
         case tokenTransferInsufficientFunds(required: UInt64)
         case tokenSelectionFailed(Swift.Error)
+        case tokenGenesisFungibleAmountIsZero
+        case tokenGenesisNonFungibleTokenCommitmentTooLong(maximum: Int, actual: Int)
         case coinSelectionFailed(Swift.Error)
         case transactionBuildFailed(Swift.Error)
         case broadcastFailed(Swift.Error)
@@ -38,10 +40,14 @@ extension Account.Error: Equatable {
             return leftAddresses == rightAddresses
         case (.tokenTransferHasNoRecipients, .tokenTransferHasNoRecipients),
             (.tokenTransferRequiresSingleCategory, .tokenTransferRequiresSingleCategory),
-            (.tokenTransferInsufficientTokens, .tokenTransferInsufficientTokens):
+            (.tokenTransferInsufficientTokens, .tokenTransferInsufficientTokens),
+            (.tokenGenesisFungibleAmountIsZero, .tokenGenesisFungibleAmountIsZero):
             return true
         case (.tokenTransferInsufficientFunds(let leftRequired), .tokenTransferInsufficientFunds(let rightRequired)):
             return leftRequired == rightRequired
+        case (.tokenGenesisNonFungibleTokenCommitmentTooLong(let leftMaximum, let leftActual),
+              .tokenGenesisNonFungibleTokenCommitmentTooLong(let rightMaximum, let rightActual)):
+            return leftMaximum == rightMaximum && leftActual == rightActual
         case (.tokenSelectionFailed(let leftError), .tokenSelectionFailed(let rightError)):
             return Network.checkFailureEquivalence(leftError, rightError)
         case (.balanceFetchTimeout(let leftAddress), .balanceFetchTimeout(let rightAddress)):
