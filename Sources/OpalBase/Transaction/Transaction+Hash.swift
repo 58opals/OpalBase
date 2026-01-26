@@ -69,3 +69,4 @@ extension Transaction.Hash: CustomStringConvertible {
 
 extension Transaction.Hash: Sendable {}
 extension Transaction.Hash: Hashable {}
+extension Transaction.Hash: Codable {}
