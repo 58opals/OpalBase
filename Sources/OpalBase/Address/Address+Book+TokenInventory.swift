@@ -70,10 +70,10 @@ extension Address.Book {
                                       tokenUTXOs: tokenUTXOs)
     }
     
-    public func calculateUnspentOutputBalances() throws -> UnspentOutputBalances {
+    public func calculateUnspentOutputBalances() async throws -> UnspentOutputBalances {
         let partition = partitionUnspentOutputs()
         let bchTotal = try listUTXOs().sumSatoshi { try Satoshi($0.value) }
-        let spendableBchOnlyUTXOs = sortSpendableUTXOs(by: { $0.value > $1.value })
+        let spendableBchOnlyUTXOs = await sortSpendableUTXOs(by: { $0.value > $1.value })
             .filter { $0.tokenData == nil }
         let bchSpendable = try spendableBchOnlyUTXOs.sumSatoshi { try Satoshi($0.value) }
         let tokenInventory = try makeTokenInventory(from: partition.tokenUTXOs)

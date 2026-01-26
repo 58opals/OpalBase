@@ -254,7 +254,7 @@ extension Address.Book {
         utxoStore.sortUTXOs(by: areInIncreasingOrder)
     }
     
-    func sortSpendableUTXOs(by areInIncreasingOrder: ((Transaction.Output.Unspent, Transaction.Output.Unspent) -> Bool)) -> [Transaction.Output.Unspent] {
+    func sortSpendableUTXOs(by areInIncreasingOrder: ((Transaction.Output.Unspent, Transaction.Output.Unspent) -> Bool)) async -> [Transaction.Output.Unspent] {
         utxoStore.sortSpendableUTXOs(by: areInIncreasingOrder)
     }
     
