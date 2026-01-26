@@ -20,7 +20,8 @@ extension Account {
         let spendableOutputs = await addressBook.sortSpendableUTXOs(by: { $0.value > $1.value })
         let genesisInput: Transaction.Output.Unspent
         if let preferredGenesisInput {
-            guard preferredGenesisInput.tokenData == nil else {
+            guard preferredGenesisInput.tokenData == nil,
+                  preferredGenesisInput.previousTransactionOutputIndex == 0 else {
                 throw Error.tokenGenesisInvalidGenesisInput
             }
             let spendableSet = Set(spendableOutputs)
