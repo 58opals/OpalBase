@@ -18,6 +18,13 @@ extension Account {
         case tokenTransferInsufficientTokens
         case tokenTransferInsufficientFunds(required: UInt64)
         case tokenSelectionFailed(Swift.Error)
+        case tokenGenesisHasNoRecipients
+        case tokenGenesisRequiresTokenAwareAddress([Address])
+        case tokenGenesisNoEligibleGenesisInput
+        case tokenGenesisInvalidGenesisInput
+        case tokenGenesisCannotComputeDustThreshold(Swift.Error)
+        case tokenGenesisTransactionBuildFailed(Swift.Error)
+        case tokenGenesisBroadcastFailed(Swift.Error)
         case tokenGenesisFungibleAmountIsZero
         case tokenGenesisNonFungibleTokenCommitmentTooLong(maximum: Int, actual: Int)
         case coinSelectionFailed(Swift.Error)
@@ -41,8 +48,14 @@ extension Account.Error: Equatable {
         case (.tokenTransferHasNoRecipients, .tokenTransferHasNoRecipients),
             (.tokenTransferRequiresSingleCategory, .tokenTransferRequiresSingleCategory),
             (.tokenTransferInsufficientTokens, .tokenTransferInsufficientTokens),
+            (.tokenGenesisHasNoRecipients, .tokenGenesisHasNoRecipients),
+            (.tokenGenesisNoEligibleGenesisInput, .tokenGenesisNoEligibleGenesisInput),
+            (.tokenGenesisInvalidGenesisInput, .tokenGenesisInvalidGenesisInput),
             (.tokenGenesisFungibleAmountIsZero, .tokenGenesisFungibleAmountIsZero):
             return true
+        case (.tokenGenesisRequiresTokenAwareAddress(let leftAddresses),
+              .tokenGenesisRequiresTokenAwareAddress(let rightAddresses)):
+            return leftAddresses == rightAddresses
         case (.tokenTransferInsufficientFunds(let leftRequired), .tokenTransferInsufficientFunds(let rightRequired)):
             return leftRequired == rightRequired
         case (.tokenGenesisNonFungibleTokenCommitmentTooLong(let leftMaximum, let leftActual),
@@ -65,6 +78,9 @@ extension Account.Error: Equatable {
               .transactionConfirmationRefreshFailed(let rightHash, let rightError)):
             return leftHash == rightHash && Network.checkFailureEquivalence(leftError, rightError)
         case (.coinSelectionFailed(let leftError), .coinSelectionFailed(let rightError)),
+            (.tokenGenesisCannotComputeDustThreshold(let leftError), .tokenGenesisCannotComputeDustThreshold(let rightError)),
+            (.tokenGenesisTransactionBuildFailed(let leftError), .tokenGenesisTransactionBuildFailed(let rightError)),
+            (.tokenGenesisBroadcastFailed(let leftError), .tokenGenesisBroadcastFailed(let rightError)),
             (.transactionBuildFailed(let leftError), .transactionBuildFailed(let rightError)),
             (.broadcastFailed(let leftError), .broadcastFailed(let rightError)),
             (.confirmationQueryFailed(let leftError), .confirmationQueryFailed(let rightError)),
