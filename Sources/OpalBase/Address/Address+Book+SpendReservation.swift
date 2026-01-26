@@ -29,7 +29,9 @@ extension Address.Book {
 }
 
 extension Address.Book {
-    func reserveSpend(utxos: [Transaction.Output.Unspent], changeEntry: Entry) async throws -> SpendReservation {
+    func reserveSpend(utxos: [Transaction.Output.Unspent],
+                      changeEntry: Entry,
+                      tokenSelectionPolicy: Address.Book.CoinSelection.TokenSelectionPolicy) async throws -> SpendReservation {
         let utxoSet = Set(utxos)
         
         if let existingReservation = findMatchingReservation(for: utxoSet) {
@@ -50,7 +52,7 @@ extension Address.Book {
         let reservationDate = Date.now
         
         do {
-            try utxoStore.reserve(utxoSet)
+            try utxoStore.reserve(utxoSet, tokenSelectionPolicy: tokenSelectionPolicy)
         } catch {
             throw error
         }

@@ -100,7 +100,13 @@ extension Address.Book {
         }
         
         mutating func reserve(_ utxos: Set<Transaction.Output.Unspent>) throws {
-            guard utxos.isSubset(of: allUTXOs) else { throw Address.Book.Error.utxoNotFound }
+            try reserve(utxos, tokenSelectionPolicy: .allowTokenUTXOs)
+        }
+        
+        mutating func reserve(_ utxos: Set<Transaction.Output.Unspent>,
+                              tokenSelectionPolicy: Address.Book.CoinSelection.TokenSelectionPolicy) throws {
+            let allowedUTXOs = filterUTXOs(allUTXOs, tokenSelectionPolicy: tokenSelectionPolicy)
+            guard utxos.isSubset(of: allowedUTXOs) else { throw Address.Book.Error.utxoNotFound }
             
             if let conflict = reservedUTXOs.intersection(utxos).first {
                 throw Address.Book.Error.utxoAlreadyReserved(conflict)
@@ -134,6 +140,12 @@ extension Address.Book {
             spendableUTXOs.sorted(by: areInIncreasingOrder)
         }
         
+        func sortSpendableUTXOs(by areInIncreasingOrder: (Transaction.Output.Unspent, Transaction.Output.Unspent) -> Bool,
+                                tokenSelectionPolicy: Address.Book.CoinSelection.TokenSelectionPolicy) -> [Transaction.Output.Unspent] {
+            let filteredSpendable = filterUTXOs(spendableUTXOs, tokenSelectionPolicy: tokenSelectionPolicy)
+            return filteredSpendable.sorted(by: areInIncreasingOrder)
+        }
+        
         func findUTXO(matching input: Transaction.Input) -> Transaction.Output.Unspent? {
             utxosByOutpoint[Outpoint(input)]
         }
@@ -146,6 +158,16 @@ extension Address.Book {
             var spendable = allUTXOs
             spendable.subtract(reservedUTXOs)
             return spendable
+        }
+        
+        private func filterUTXOs(_ utxos: Set<Transaction.Output.Unspent>,
+                                 tokenSelectionPolicy: Address.Book.CoinSelection.TokenSelectionPolicy) -> Set<Transaction.Output.Unspent> {
+            switch tokenSelectionPolicy {
+            case .excludeTokenUTXOs:
+                return Set(utxos.filter { $0.tokenData == nil })
+            case .allowTokenUTXOs:
+                return utxos
+            }
         }
         
         private mutating func store(_ utxo: Transaction.Output.Unspent) {
@@ -178,6 +200,11 @@ extension Address.Book.UTXOStore: Sendable {}
 extension Address.Book {
     func reserveUTXOs(_ utxos: Set<Transaction.Output.Unspent>) throws {
         try utxoStore.reserve(utxos)
+    }
+    
+    func reserveUTXOs(_ utxos: Set<Transaction.Output.Unspent>,
+                      tokenSelectionPolicy: Address.Book.CoinSelection.TokenSelectionPolicy) throws {
+        try utxoStore.reserve(utxos, tokenSelectionPolicy: tokenSelectionPolicy)
     }
     
     func releaseUTXOs(_ utxos: Set<Transaction.Output.Unspent>) {
@@ -229,5 +256,11 @@ extension Address.Book {
     
     func sortSpendableUTXOs(by areInIncreasingOrder: ((Transaction.Output.Unspent, Transaction.Output.Unspent) -> Bool)) -> [Transaction.Output.Unspent] {
         utxoStore.sortSpendableUTXOs(by: areInIncreasingOrder)
+    }
+    
+    func sortSpendableUTXOs(by areInIncreasingOrder: ((Transaction.Output.Unspent, Transaction.Output.Unspent) -> Bool),
+                            tokenSelectionPolicy: Address.Book.CoinSelection.TokenSelectionPolicy) -> [Transaction.Output.Unspent] {
+        utxoStore.sortSpendableUTXOs(by: areInIncreasingOrder,
+                                     tokenSelectionPolicy: tokenSelectionPolicy)
     }
 }

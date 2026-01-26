@@ -143,26 +143,35 @@ extension Address.Book {
 }
 
 extension Address.Book.CoinSelection {
+    public enum TokenSelectionPolicy: Sendable {
+        case excludeTokenUTXOs
+        case allowTokenUTXOs
+    }
+    
     struct Configuration {
         let recipientOutputs: [Transaction.Output]
         let outputsWithChange: [Transaction.Output]
         let strategy: Address.Book.CoinSelection
         let shouldAllowDustDonation: Bool
+        let tokenSelectionPolicy: TokenSelectionPolicy
         
         init(recipientOutputs: [Transaction.Output],
              outputsWithChange: [Transaction.Output],
              strategy: Address.Book.CoinSelection,
-             shouldAllowDustDonation: Bool = false) {
+             shouldAllowDustDonation: Bool = false,
+             tokenSelectionPolicy: TokenSelectionPolicy = .excludeTokenUTXOs) {
             self.recipientOutputs = recipientOutputs
             self.outputsWithChange = outputsWithChange
             self.strategy = strategy
             self.shouldAllowDustDonation = shouldAllowDustDonation
+            self.tokenSelectionPolicy = tokenSelectionPolicy
         }
         
         init(recipientOutputs: [Transaction.Output],
              changeLockingScript: Data?,
              strategy: Address.Book.CoinSelection = .greedyLargestFirst,
-             shouldAllowDustDonation: Bool = false) {
+             shouldAllowDustDonation: Bool = false,
+             tokenSelectionPolicy: TokenSelectionPolicy = .excludeTokenUTXOs) {
             let outputsWithChange: [Transaction.Output]
             if let changeLockingScript {
                 let changeTemplate = Transaction.Output(value: 0, lockingScript: changeLockingScript)
@@ -174,15 +183,18 @@ extension Address.Book.CoinSelection {
             self.init(recipientOutputs: recipientOutputs,
                       outputsWithChange: outputsWithChange,
                       strategy: strategy,
-                      shouldAllowDustDonation: shouldAllowDustDonation)
+                      shouldAllowDustDonation: shouldAllowDustDonation,
+                      tokenSelectionPolicy: tokenSelectionPolicy)
         }
         
         static func makeTemplateConfiguration(strategy: Address.Book.CoinSelection = .greedyLargestFirst,
-                                              shouldAllowDustDonation: Bool = false) -> Self {
+                                              shouldAllowDustDonation: Bool = false,
+                                              tokenSelectionPolicy: TokenSelectionPolicy = .excludeTokenUTXOs) -> Self {
             Self(recipientOutputs: Address.Book.CoinSelection.Templates.recipientOutputs,
                  outputsWithChange: Address.Book.CoinSelection.Templates.outputsWithChange,
                  strategy: strategy,
-                 shouldAllowDustDonation: shouldAllowDustDonation)
+                 shouldAllowDustDonation: shouldAllowDustDonation,
+                 tokenSelectionPolicy: tokenSelectionPolicy)
         }
     }
     

@@ -20,6 +20,7 @@ extension Account {
         public let feeOverride: Wallet.FeePolicy.Override?
         public let feeContext: Wallet.FeePolicy.RecommendationContext
         public let coinSelection: Address.Book.CoinSelection
+        public let tokenSelectionPolicy: Address.Book.CoinSelection.TokenSelectionPolicy
         public let shouldAllowDustDonation: Bool
         public let shouldAllowUnsafeTokenTransfers: Bool
         
@@ -27,12 +28,14 @@ extension Account {
                     feeOverride: Wallet.FeePolicy.Override? = nil,
                     feeContext: Wallet.FeePolicy.RecommendationContext = .init(),
                     coinSelection: Address.Book.CoinSelection = .greedyLargestFirst,
+                    tokenSelectionPolicy: Address.Book.CoinSelection.TokenSelectionPolicy = .excludeTokenUTXOs,
                     shouldAllowDustDonation: Bool = false,
                     shouldAllowUnsafeTokenTransfers: Bool = false) {
             self.recipients = recipients
             self.feeOverride = feeOverride
             self.feeContext = feeContext
             self.coinSelection = coinSelection
+            self.tokenSelectionPolicy = tokenSelectionPolicy
             self.shouldAllowDustDonation = shouldAllowDustDonation
             self.shouldAllowUnsafeTokenTransfers = shouldAllowUnsafeTokenTransfers
         }

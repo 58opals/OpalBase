@@ -93,7 +93,8 @@ extension Account {
         let coinSelectionConfiguration = Address.Book.CoinSelection.Configuration(recipientOutputs: organizedRecipientOutputs,
                                                                                   changeLockingScript: changeEntry.address.lockingScript.data,
                                                                                   strategy: payment.coinSelection,
-                                                                                  shouldAllowDustDonation: payment.shouldAllowDustDonation)
+                                                                                  shouldAllowDustDonation: payment.shouldAllowDustDonation,
+                                                                                  tokenSelectionPolicy: payment.tokenSelectionPolicy)
         
         let selectedUTXOs: [Transaction.Output.Unspent]
         do {
@@ -134,7 +135,9 @@ extension Account {
         
         let reservation: Address.Book.SpendReservation
         do {
-            reservation = try await addressBook.reserveSpend(utxos: heuristicallyOrderedInputs, changeEntry: changeEntry)
+            reservation = try await addressBook.reserveSpend(utxos: heuristicallyOrderedInputs,
+                                                             changeEntry: changeEntry,
+                                                             tokenSelectionPolicy: payment.tokenSelectionPolicy)
         } catch {
             throw Error.coinSelectionFailed(error)
         }
