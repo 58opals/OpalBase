@@ -52,6 +52,7 @@ extension Transaction.History {
         public var chainMetadata: ChainMetadata
         public var confirmationMetadata: ConfirmationMetadata
         public var verificationMetadata: VerificationMetadata
+        public var tokenDelta: TokenDelta
         
         public var status: Status
         
@@ -61,11 +62,13 @@ extension Transaction.History {
                     status: Status,
                     chainMetadata: ChainMetadata,
                     confirmationMetadata: ConfirmationMetadata,
-                    verificationMetadata: VerificationMetadata) {
+                    verificationMetadata: VerificationMetadata,
+                                        tokenDelta: TokenDelta = .init()) {
             self.transactionHash = transactionHash
             self.chainMetadata = chainMetadata
             self.confirmationMetadata = confirmationMetadata
             self.verificationMetadata = verificationMetadata
+            self.tokenDelta = tokenDelta
             self.status = status
         }
     }
@@ -108,7 +111,8 @@ extension Transaction.History.Record {
                                           status: statusTransition.status,
                                           chainMetadata: chainMetadata,
                                           confirmationMetadata: confirmationMetadata,
-                                          verificationMetadata: verificationMetadata)
+                                          verificationMetadata: verificationMetadata,
+                                                                                   tokenDelta: .init())
     }
     
     mutating func resetVerification(for status: Transaction.History.Status,
@@ -127,6 +131,10 @@ extension Transaction.History.Record {
         verificationMetadata.lastVerifiedHeight = verifiedHeight
         verificationMetadata.lastCheckedAt = checkedAt
     }
+    
+    mutating func updateTokenDelta(_ tokenDelta: TokenDelta) {
+            self.tokenDelta = tokenDelta
+        }
     
     mutating func markAsPendingAfterReorganization(timestamp: Date) {
         status = .pending

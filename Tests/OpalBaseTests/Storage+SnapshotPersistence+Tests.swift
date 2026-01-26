@@ -24,10 +24,10 @@ struct SnapshotPersistenceTests {
             outputIndex: 1
         )
         let snapshot = Address.Book.Snapshot(
-            receivingEntries: [],
-            changeEntries: [],
+            receivingEntries: .init(),
+            changeEntries: .init(),
             utxos: [unspentOutputSnapshot],
-            transactions: []
+            transactions: .init()
         )
         
         let data = try storage.encodeSnapshot(snapshot)

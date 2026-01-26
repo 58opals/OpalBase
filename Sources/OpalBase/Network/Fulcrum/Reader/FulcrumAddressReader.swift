@@ -160,7 +160,7 @@ extension Network {
                         ]
                     },
                     makeUpdates: { notification in
-                        guard subscribedAddress == notification.subscriptionIdentifier else { return [] }
+                        guard subscribedAddress == notification.subscriptionIdentifier else { return .init() }
                         return [
                             AddressSubscriptionUpdate(
                                 kind: .change,

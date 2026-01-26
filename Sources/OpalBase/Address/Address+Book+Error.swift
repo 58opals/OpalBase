@@ -26,6 +26,7 @@ extension Address.Book {
         case invalidSnapshotBalance(value: UInt64, reason: Swift.Error)
         case invalidSnapshotTokenData(reason: Swift.Error)
         case transactionHistoryRefreshFailed(Address, Swift.Error)
+        case transactionDetailsRefreshFailed(Transaction.Hash, Swift.Error)
         case transactionConfirmationRefreshFailed(Transaction.Hash, Swift.Error)
     }
 }
@@ -63,6 +64,9 @@ extension Address.Book.Error: Equatable {
         case (.transactionHistoryRefreshFailed(let leftAddress, let leftError),
               .transactionHistoryRefreshFailed(let rightAddress, let rightError)):
             return leftAddress == rightAddress && Network.checkFailureEquivalence(leftError, rightError)
+        case (.transactionDetailsRefreshFailed(let leftHash, let leftError),
+              .transactionDetailsRefreshFailed(let rightHash, let rightError)):
+            return leftHash == rightHash && Network.checkFailureEquivalence(leftError, rightError)
         case (.transactionConfirmationRefreshFailed(let leftHash, let leftError),
               .transactionConfirmationRefreshFailed(let rightHash, let rightError)):
             return leftHash == rightHash && Network.checkFailureEquivalence(leftError, rightError)

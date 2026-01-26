@@ -22,8 +22,11 @@ extension Address.Book.History {
 extension Address.Book {
     public func refreshTransactionHistory(using service: Network.AddressReadable,
                                           usage: DerivationPath.Usage? = nil,
-                                          includeUnconfirmed: Bool = true) async throws -> Transaction.History.ChangeSet {
+                                          includeUnconfirmed: Bool = true,
+                                          transactionReader: Network.TransactionReadable? = nil) async throws -> Transaction.History.ChangeSet {
         var aggregatedChangeSet = Transaction.History.ChangeSet()
+        var tokenDeltaCache: [Transaction.Hash: Transaction.History.Record.TokenDelta] = .init()
+        let walletScriptHashes = listWalletScriptHashes()
         
         let refreshTimestamp = Date.now
         try await performForEachTargetUsage(usage) { _, entries in
@@ -32,11 +35,20 @@ extension Address.Book {
                 let scriptHash = address.makeScriptHash().hexadecimalString
                 return (address: address, scriptHash: scriptHash)
             }
+            
             let usageResults = try await targets.mapConcurrently { target in
                 try await self.fetchHistoryQueryResult(for: target.address,
                                                        scriptHash: target.scriptHash,
                                                        using: service,
                                                        includeUnconfirmed: includeUnconfirmed)
+            }
+            
+            if let transactionReader {
+                let usageEntries = usageResults.flatMap(\.entries)
+                try await updateTokenDeltaCache(for: usageEntries,
+                                                transactionReader: transactionReader,
+                                                walletScriptHashes: walletScriptHashes,
+                                                tokenDeltaCache: &tokenDeltaCache)
             }
             
             for result in usageResults {
@@ -46,6 +58,7 @@ extension Address.Book {
                 
                 let changeSet = transactionLog.replaceHistory(for: result.scriptHash,
                                                               entries: result.entries,
+                                                              tokenDeltasByHash: tokenDeltaCache,
                                                               timestamp: refreshTimestamp)
                 aggregatedChangeSet.merge(changeSet)
             }
@@ -58,7 +71,9 @@ extension Address.Book {
 extension Address.Book {
     public func refreshTransactionHistory(for address: Address,
                                           using service: Network.AddressReadable,
-                                          includeUnconfirmed: Bool) async throws -> Transaction.History.ChangeSet {
+                                          includeUnconfirmed: Bool,
+                                          transactionReader: Network.TransactionReadable? = nil) async throws -> Transaction.History.ChangeSet {
+        
         let scriptHash = address.makeScriptHash().hexadecimalString
         let result = try await fetchHistoryQueryResult(for: address,
                                                        scriptHash: scriptHash,
@@ -69,8 +84,17 @@ extension Address.Book {
         }
         
         let timestamp = Date.now
+        var tokenDeltaCache: [Transaction.Hash: Transaction.History.Record.TokenDelta] = .init()
+        if let transactionReader {
+            let walletScriptHashes = listWalletScriptHashes()
+            try await updateTokenDeltaCache(for: result.entries,
+                                            transactionReader: transactionReader,
+                                            walletScriptHashes: walletScriptHashes,
+                                            tokenDeltaCache: &tokenDeltaCache)
+        }
         return transactionLog.replaceHistory(for: result.scriptHash,
                                              entries: result.entries,
+                                             tokenDeltasByHash: tokenDeltaCache,
                                              timestamp: timestamp)
     }
 }
@@ -127,6 +151,7 @@ extension Address.Book {
             for scriptHash in update.record.chainMetadata.scriptHashes {
                 let changeSet = transactionLog.mergeHistoryEntries(for: scriptHash,
                                                                    entries: [entry],
+                                                                   tokenDeltasByHash: .init(),
                                                                    timestamp: refreshTimestamp)
                 aggregatedChangeSet.merge(changeSet)
             }

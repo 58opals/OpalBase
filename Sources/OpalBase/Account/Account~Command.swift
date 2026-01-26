@@ -31,11 +31,13 @@ extension Account {
 extension Account {
     public func refreshTransactionHistory(using service: Network.AddressReadable,
                                           usage: DerivationPath.Usage? = nil,
-                                          includeUnconfirmed: Bool = true) async throws -> Transaction.History.ChangeSet {
+                                          includeUnconfirmed: Bool = true,
+                                          transactionReader: Network.TransactionReadable? = nil) async throws -> Transaction.History.ChangeSet {
         do {
             return try await addressBook.refreshTransactionHistory(using: service,
                                                                    usage: usage,
-                                                                   includeUnconfirmed: includeUnconfirmed)
+                                                                   includeUnconfirmed: includeUnconfirmed,
+                                                                   transactionReader: transactionReader)
         } catch let error as Address.Book.Error {
             throw Self.makeAccountError(from: error)
         }
@@ -286,9 +288,11 @@ extension Account {
 extension Account {
     public func refreshTransactionHistory(for address: Address,
                                           using service: Network.AddressReadable,
-                                          includeUnconfirmed: Bool = true) async throws -> Transaction.History.ChangeSet {
+                                          includeUnconfirmed: Bool = true,
+                                          transactionReader: Network.TransactionReadable? = nil) async throws -> Transaction.History.ChangeSet {
         try await addressBook.refreshTransactionHistory(for: address,
                                                         using: service,
-                                                        includeUnconfirmed: includeUnconfirmed)
+                                                        includeUnconfirmed: includeUnconfirmed,
+                                                        transactionReader: transactionReader)
     }
 }

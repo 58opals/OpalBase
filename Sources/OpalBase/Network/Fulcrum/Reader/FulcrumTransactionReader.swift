@@ -125,3 +125,4 @@ extension Network {
 }
 
 extension Network.FulcrumTransactionReader: Sendable {}
+extension Network.FulcrumTransactionReader: Network.TransactionReadable {}

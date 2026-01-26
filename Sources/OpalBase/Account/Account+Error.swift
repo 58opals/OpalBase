@@ -8,6 +8,7 @@ extension Account {
         case balanceFetchTimeout(Address)
         case balanceRefreshFailed(Address, Swift.Error)
         case transactionHistoryRefreshFailed(Address, Swift.Error)
+        case transactionDetailsRefreshFailed(Transaction.Hash, Swift.Error)
         case transactionConfirmationRefreshFailed(Transaction.Hash, Swift.Error)
         case paymentHasNoRecipients
         case paymentExceedsMaximumAmount
@@ -51,6 +52,9 @@ extension Account.Error: Equatable {
         case (.transactionHistoryRefreshFailed(let leftAddress, let leftError),
               .transactionHistoryRefreshFailed(let rightAddress, let rightError)):
             return leftAddress == rightAddress && Network.checkFailureEquivalence(leftError, rightError)
+        case (.transactionDetailsRefreshFailed(let leftHash, let leftError),
+              .transactionDetailsRefreshFailed(let rightHash, let rightError)):
+            return leftHash == rightHash && Network.checkFailureEquivalence(leftError, rightError)
         case (.transactionConfirmationRefreshFailed(let leftHash, let leftError),
               .transactionConfirmationRefreshFailed(let rightHash, let rightError)):
             return leftHash == rightHash && Network.checkFailureEquivalence(leftError, rightError)
@@ -73,6 +77,8 @@ extension Account {
             return Error.balanceRefreshFailed(address, underlying)
         case .transactionHistoryRefreshFailed(let address, let underlying):
             return Error.transactionHistoryRefreshFailed(address, underlying)
+        case .transactionDetailsRefreshFailed(let hash, let underlying):
+            return Error.transactionDetailsRefreshFailed(hash, underlying)
         case .transactionConfirmationRefreshFailed(let hash, let underlying):
             return Error.transactionConfirmationRefreshFailed(hash, underlying)
         default:

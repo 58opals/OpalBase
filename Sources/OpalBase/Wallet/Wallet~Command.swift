@@ -27,11 +27,13 @@ extension Wallet {
     public func refreshTransactionHistory(forAccountAt unhardenedIndex: UInt32,
                                           usage: DerivationPath.Usage? = nil,
                                           includeUnconfirmed: Bool = true,
-                                          using service: Network.AddressReadable) async throws -> Transaction.History.ChangeSet {
+                                          using service: Network.AddressReadable,
+                                          transactionReader: Network.TransactionReadable? = nil) async throws -> Transaction.History.ChangeSet {
         let account = try await fetchAccount(at: unhardenedIndex)
         return try await account.refreshTransactionHistory(using: service,
                                                            usage: usage,
-                                                           includeUnconfirmed: includeUnconfirmed)
+                                                           includeUnconfirmed: includeUnconfirmed,
+                                                           transactionReader: transactionReader)
     }
     
     public func updateTransactionConfirmations(forAccountAt unhardenedIndex: UInt32,

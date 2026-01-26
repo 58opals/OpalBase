@@ -14,7 +14,7 @@ extension SignedScalar128 {
         let windowFull = Int64(1 << width)
         
         var magnitude = scalar.magnitude
-        var digits: [Int8] = []
+        var digits: [Int8] = .init()
         digits.reserveCapacity(130)
         
         while !magnitude.isZero {

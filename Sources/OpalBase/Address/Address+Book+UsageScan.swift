@@ -93,7 +93,7 @@ extension Address.Book {
         
         let refreshedEntries = listEntries(for: usage)
         let safeEndIndex = Swift.min(endIndex, refreshedEntries.count)
-        guard startIndex < safeEndIndex else { return [] }
+        guard startIndex < safeEndIndex else { return .init() }
         return Array(refreshedEntries[startIndex..<safeEndIndex])
     }
 }

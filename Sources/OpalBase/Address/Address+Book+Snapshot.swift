@@ -150,6 +150,10 @@ extension Address.Book {
             public let merkleProof: MerkleProof?
             public let lastVerifiedHeight: UInt32?
             public let lastCheckedAt: Date?
+            public let fungibleTokenDeltasByCategory: [CashTokens.CategoryID: Int64]?
+            public let nonFungibleTokenAdditions: [CashTokens.TokenData]?
+            public let nonFungibleTokenRemovals: [CashTokens.TokenData]?
+            public let bitcoinCashLockedInTokenOutputDelta: Int64?
             
             public init(transactionHash: String,
                         height: Int,
@@ -163,7 +167,11 @@ extension Address.Book {
                         verificationStatus: AddressBookSnapshotTransactionHistory.Status.Verification,
                         merkleProof: MerkleProof?,
                         lastVerifiedHeight: UInt32?,
-                        lastCheckedAt: Date?) {
+                        lastCheckedAt: Date?,
+                        fungibleTokenDeltasByCategory: [CashTokens.CategoryID: Int64]? = nil,
+                        nonFungibleTokenAdditions: [CashTokens.TokenData]? = nil,
+                        nonFungibleTokenRemovals: [CashTokens.TokenData]? = nil,
+                        bitcoinCashLockedInTokenOutputDelta: Int64? = nil) {
                 self.transactionHash = transactionHash
                 self.height = height
                 self.fee = fee
@@ -177,6 +185,10 @@ extension Address.Book {
                 self.merkleProof = merkleProof
                 self.lastVerifiedHeight = lastVerifiedHeight
                 self.lastCheckedAt = lastCheckedAt
+                self.fungibleTokenDeltasByCategory = fungibleTokenDeltasByCategory
+                self.nonFungibleTokenAdditions = nonFungibleTokenAdditions
+                self.nonFungibleTokenRemovals = nonFungibleTokenRemovals
+                self.bitcoinCashLockedInTokenOutputDelta = bitcoinCashLockedInTokenOutputDelta
             }
         }
         
@@ -240,6 +252,7 @@ extension Address.Book {
             let chainMetadata = record.chainMetadata
             let confirmationMetadata = record.confirmationMetadata
             let verificationMetadata = record.verificationMetadata
+            let tokenDelta = record.tokenDelta
             let proof = verificationMetadata.merkleProof.map { proof in
                 Snapshot.Transaction.MerkleProof(blockHeight: proof.blockHeight,
                                                  position: proof.position,
@@ -258,7 +271,11 @@ extension Address.Book {
                                         verificationStatus: verificationMetadata.status,
                                         merkleProof: proof,
                                         lastVerifiedHeight: verificationMetadata.lastVerifiedHeight,
-                                        lastCheckedAt: verificationMetadata.lastCheckedAt)
+                                        lastCheckedAt: verificationMetadata.lastCheckedAt,
+                                        fungibleTokenDeltasByCategory: tokenDelta.fungibleDeltasByCategory,
+                                        nonFungibleTokenAdditions: Array(tokenDelta.nonFungibleTokenAdditions),
+                                        nonFungibleTokenRemovals: Array(tokenDelta.nonFungibleTokenRemovals),
+                                        bitcoinCashLockedInTokenOutputDelta: tokenDelta.bitcoinCashLockedInTokenOutputDelta)
         }
         
         return Snapshot(receivingEntries: receiving,
@@ -316,11 +333,18 @@ extension Address.Book {
                                                                                        merkleProof: proof,
                                                                                        lastVerifiedHeight: transaction.lastVerifiedHeight,
                                                                                        lastCheckedAt: transaction.lastCheckedAt)
+            let tokenDelta = Transaction.History.Record.TokenDelta(
+                fungibleDeltasByCategory: transaction.fungibleTokenDeltasByCategory ?? .init(),
+                nonFungibleTokenAdditions: Set(transaction.nonFungibleTokenAdditions ?? .init()),
+                nonFungibleTokenRemovals: Set(transaction.nonFungibleTokenRemovals ?? .init()),
+                bitcoinCashLockedInTokenOutputDelta: transaction.bitcoinCashLockedInTokenOutputDelta ?? 0
+            )
             let record = Transaction.History.Record(transactionHash: hash,
                                                     status: transaction.status,
                                                     chainMetadata: chainMetadata,
                                                     confirmationMetadata: confirmationMetadata,
-                                                    verificationMetadata: verificationMetadata)
+                                                    verificationMetadata: verificationMetadata,
+                                                    tokenDelta: tokenDelta)
             transactionLog.store(record)
         }
     }
