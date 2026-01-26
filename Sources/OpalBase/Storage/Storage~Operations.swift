@@ -3,33 +3,39 @@
 import Foundation
 
 extension Storage {
+    @MainActor
     public func saveWalletSnapshot(_ snapshot: Wallet.Snapshot) async throws {
         let encodedSnapshot = try encodeSnapshot(snapshot)
         try await storeValue(encodedSnapshot, for: .walletSnapshot)
     }
     
+    @MainActor
     public func loadWalletSnapshot() async throws -> Wallet.Snapshot? {
         guard let data = try await loadValue(for: .walletSnapshot) else { return nil }
         return try decodeSnapshot(Wallet.Snapshot.self, from: data)
     }
     
+    @MainActor
     public func saveAccountSnapshot(_ snapshot: Account.Snapshot,
                                     accountIdentifier: Data) async throws {
         let encodedSnapshot = try encodeSnapshot(snapshot)
         try await storeValue(encodedSnapshot, for: .accountSnapshot(accountIdentifier))
     }
     
+    @MainActor
     public func loadAccountSnapshot(accountIdentifier: Data) async throws -> Account.Snapshot? {
         guard let data = try await loadValue(for: .accountSnapshot(accountIdentifier)) else { return nil }
         return try decodeSnapshot(Account.Snapshot.self, from: data)
     }
     
+    @MainActor
     public func saveAddressBookSnapshot(_ snapshot: Address.Book.Snapshot,
                                         accountIdentifier: Data) async throws {
         let encodedSnapshot = try encodeSnapshot(snapshot)
         try await storeValue(encodedSnapshot, for: .addressBookSnapshot(accountIdentifier))
     }
     
+    @MainActor
     public func loadAddressBookSnapshot(accountIdentifier: Data) async throws -> Address.Book.Snapshot? {
         guard let data = try await loadValue(for: .addressBookSnapshot(accountIdentifier)) else { return nil }
         return try decodeSnapshot(Address.Book.Snapshot.self, from: data)

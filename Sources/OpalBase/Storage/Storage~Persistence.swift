@@ -3,6 +3,7 @@
 import Foundation
 
 extension Storage {
+    @MainActor
     func encodeSnapshot<Value: Codable>(_ value: Value) throws -> Data {
         do {
             return try encoder.encode(value)
@@ -11,6 +12,7 @@ extension Storage {
         }
     }
     
+    @MainActor
     func decodeSnapshot<Value: Codable>(_ type: Value.Type, from data: Data) throws -> Value {
         do {
             return try decoder.decode(type, from: data)
