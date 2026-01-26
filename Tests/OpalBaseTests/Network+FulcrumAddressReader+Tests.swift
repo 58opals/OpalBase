@@ -10,7 +10,7 @@ struct NetworkFulcrumAddressReaderTests {
     private static let faultyServerAddress = URL(string: "wss://fulcrum.jettscythe.xyz:50004")!
     private static let invalidServerAddress = URL(string: "not a url")!
     private static let sampleCashAddress = "bitcoincash:qpm2qsznhks23z7629mms6s4cwef74vcwvy22gdx6a"
-    private static let tokenCashAddress = "bitcoincash:qr7fzmep8g7h7ymfxy74lgc0v950j3r2959lhtxxsl"
+    private static let tokenCashAddress = "bitcoincash:qqe68ymghsw9derq3v2rgu2jc8a23ddv25t83hevfk"
     private static let invalidCashAddress = "bitcoincash:qpm2qsznhks23z7629mms6s4cwef74vcwvy22gdx6z"
     
     @Test("fetches balance consistent with RPC response", .timeLimit(.minutes(1)))
