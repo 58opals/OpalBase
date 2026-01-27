@@ -18,6 +18,8 @@ extension Network {
         public var addressFirstUse: Duration
         public var addressMempool: Duration
         public var addressScriptHash: Duration
+        public var scriptHashHistory: Duration
+        public var scriptHashUnspent: Duration
         public var transactionBroadcast: Duration
         public var transactionConfirmations: Duration
         public var transactionMerkleProof: Duration
@@ -40,6 +42,8 @@ extension Network {
             addressFirstUse: Duration = .seconds(8),
             addressMempool: Duration = .seconds(8),
             addressScriptHash: Duration = .seconds(5),
+            scriptHashHistory: Duration = .seconds(15),
+            scriptHashUnspent: Duration = .seconds(10),
             transactionBroadcast: Duration = .seconds(10),
             transactionConfirmations: Duration = .seconds(5),
             transactionMerkleProof: Duration = .seconds(8),
@@ -61,6 +65,8 @@ extension Network {
             self.addressFirstUse = addressFirstUse
             self.addressMempool = addressMempool
             self.addressScriptHash = addressScriptHash
+            self.scriptHashHistory = scriptHashHistory
+            self.scriptHashUnspent = scriptHashUnspent
             self.transactionBroadcast = transactionBroadcast
             self.transactionConfirmations = transactionConfirmations
             self.transactionMerkleProof = transactionMerkleProof
