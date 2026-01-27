@@ -1,4 +1,4 @@
-// BitcoinCashMetadataRegistries.swift
+// BCMR.swift
 
 import Foundation
 
