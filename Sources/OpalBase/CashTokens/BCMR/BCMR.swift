@@ -2,7 +2,15 @@
 
 import Foundation
 
-public enum BitcoinCashMetadataRegistries {}
+public struct BitcoinCashMetadataRegistries {
+    public let authchainResolver: AuthchainResolver
+    public let registryFetcher: Fetcher
+    
+    public init(authchainResolver: AuthchainResolver, registryFetcher: Fetcher) {
+        self.authchainResolver = authchainResolver
+        self.registryFetcher = registryFetcher
+    }
+}
 
 extension BitcoinCashMetadataRegistries {
     public struct Registry: Codable, Sendable {
