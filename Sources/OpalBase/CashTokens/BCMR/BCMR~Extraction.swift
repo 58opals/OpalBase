@@ -4,6 +4,13 @@ import Foundation
 
 extension BitcoinCashMetadataRegistries {
     public func extractTokenMetadata(from registry: Registry) -> [CashTokens.CategoryID: TokenMetadata] {
+        extractTokenMetadata(from: registry, source: .embedded)
+    }
+    
+    public func extractTokenMetadata(
+        from registry: Registry,
+        source: TokenMetadata.Source
+    ) -> [CashTokens.CategoryID: TokenMetadata] {
         guard let identities = registry.identities else { return .init() }
         
         var metadataByCategory: [CashTokens.CategoryID: TokenMetadata] = .init()
@@ -30,7 +37,7 @@ extension BitcoinCashMetadataRegistries {
                 decimals: tokenSnapshot.decimals,
                 iconURL: iconURL,
                 lastUpdated: lastUpdated,
-                source: .embedded
+                source: source
             )
             
             metadataByCategory[categoryIdentifier] = tokenMetadata

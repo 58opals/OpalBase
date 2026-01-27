@@ -24,7 +24,10 @@ extension Wallet {
                     let authbase = Transaction.Hash(naturalOrder: category.transactionOrderData)
                     do {
                         let registry = try await registries.resolveChainRegistry(authbase: authbase)
-                        return registries.extractTokenMetadata(from: registry.registry)
+                        return registries.extractTokenMetadata(
+                            from: registry.registry,
+                            source: .chain(authbase)
+                        )
                     } catch {
                         return .init()
                     }
