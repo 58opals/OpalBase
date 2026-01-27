@@ -125,7 +125,7 @@ private extension BitcoinCashMetadataRegistries.Fetcher {
         gatewayComponents.host = gatewayHost
         gatewayComponents.port = gateway.port
         
-        var pathComponents: [String] = []
+        var pathComponents: [String] = .init()
         let gatewayPath = gateway.path.split(separator: "/").map(String.init)
         pathComponents.append(contentsOf: gatewayPath)
         pathComponents.append("ipfs")

@@ -64,7 +64,7 @@ extension BitcoinCashMetadataRegistries {
                 guard tag == prefix else { continue }
                 guard let sha256 = readPushData(), sha256.count == 32 else { return nil }
                 
-                var uris: [String] = []
+                var uris: [String] = .init()
                 while index < lockingScript.count {
                     guard let uriData = readPushData() else { return nil }
                     guard let uri = String(data: uriData, encoding: .utf8) else { return nil }

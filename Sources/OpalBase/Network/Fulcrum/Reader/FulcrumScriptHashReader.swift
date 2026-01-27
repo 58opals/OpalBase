@@ -76,7 +76,7 @@ extension Network {
                         group.addTask { try await makeUnspentOutput(from: item) }
                     }
                     
-                    var outputs: [Transaction.Output.Unspent] = []
+                    var outputs: [Transaction.Output.Unspent] = .init()
                     outputs.reserveCapacity(result.items.count)
                     
                     for try await output in group {

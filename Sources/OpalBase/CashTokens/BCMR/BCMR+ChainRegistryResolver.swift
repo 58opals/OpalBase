@@ -1,4 +1,4 @@
-// BitcoinCashMetadataRegistries+ChainRegistryResolver.swift
+// BCMR+ChainRegistryResolver.swift
 
 import Foundation
 

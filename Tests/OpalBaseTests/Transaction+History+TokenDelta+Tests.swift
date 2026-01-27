@@ -89,7 +89,7 @@ private extension TransactionHistoryTokenDeltaTests {
         }
         
         func fetchUnspentOutputs(for address: String, tokenFilter: Network.TokenFilter) async throws -> [Transaction.Output.Unspent] {
-            []
+            .init()
         }
         
         func fetchHistory(for address: String, includeUnconfirmed: Bool) async throws -> [Network.TransactionHistoryEntry] {
@@ -101,7 +101,7 @@ private extension TransactionHistoryTokenDeltaTests {
         }
         
         func fetchMempoolTransactions(for address: String) async throws -> [Network.TransactionHistoryEntry] {
-            []
+            .init()
         }
         
         func fetchScriptHash(for address: String) async throws -> String {

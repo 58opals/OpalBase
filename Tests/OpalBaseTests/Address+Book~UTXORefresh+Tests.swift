@@ -110,11 +110,11 @@ private struct AddressReaderStub: Network.AddressReadable {
     }
     
     func fetchUnspentOutputs(for address: String, tokenFilter: Network.TokenFilter) async throws -> [Transaction.Output.Unspent] {
-        unspentByAddress[address, default: []]
+        unspentByAddress[address, default: .init()]
     }
     
     func fetchHistory(for address: String, includeUnconfirmed: Bool) async throws -> [Network.TransactionHistoryEntry] {
-        []
+        .init()
     }
     
     func fetchFirstUse(for address: String) async throws -> Network.AddressFirstUse? {
@@ -122,7 +122,7 @@ private struct AddressReaderStub: Network.AddressReadable {
     }
     
     func fetchMempoolTransactions(for address: String) async throws -> [Network.TransactionHistoryEntry] {
-        []
+        .init()
     }
     
     func fetchScriptHash(for address: String) async throws -> String {
