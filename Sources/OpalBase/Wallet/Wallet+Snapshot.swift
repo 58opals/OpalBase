@@ -9,17 +9,20 @@ extension Wallet {
         public let purpose: DerivationPath.Purpose
         public let coinType: DerivationPath.CoinType
         public let accounts: [Account.Snapshot]
+        public let tokenMetadata: TokenMetadataStore.Snapshot?
         
         public init(words: [String],
                     passphrase: String,
                     purpose: DerivationPath.Purpose,
                     coinType: DerivationPath.CoinType,
-                    accounts: [Account.Snapshot]) {
+                    accounts: [Account.Snapshot],
+                    tokenMetadata: TokenMetadataStore.Snapshot? = nil) {
             self.words = words
             self.passphrase = passphrase
             self.purpose = purpose
             self.coinType = coinType
             self.accounts = accounts
+            self.tokenMetadata = tokenMetadata
         }
     }
 }
@@ -33,11 +36,13 @@ extension Wallet {
             let snap = await account.makeSnapshot()
             accountSnaps.append(snap)
         }
+        let tokenMetadata = await tokenMetadataStore.snapshot()
         return Snapshot(words: mnemonic.words,
                         passphrase: mnemonic.passphrase,
                         purpose: purpose,
                         coinType: coinType,
-                        accounts: accountSnaps)
+                        accounts: accountSnaps,
+                        tokenMetadata: tokenMetadata)
     }
     
     public func applySnapshot(_ snapshot: Snapshot) async throws {
@@ -63,5 +68,9 @@ extension Wallet {
             updatedAccounts[index] = account
         }
         self.accounts = updatedAccounts
+        
+        if let tokenMetadata = snapshot.tokenMetadata {
+            await tokenMetadataStore.applySnapshot(tokenMetadata)
+        }
     }
 }

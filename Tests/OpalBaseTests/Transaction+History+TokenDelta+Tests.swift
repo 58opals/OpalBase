@@ -93,7 +93,7 @@ private extension TransactionHistoryTokenDeltaTests {
         }
         
         func fetchHistory(for address: String, includeUnconfirmed: Bool) async throws -> [Network.TransactionHistoryEntry] {
-            historyByAddress[address, default: []]
+            historyByAddress[address, default: .init()]
         }
         
         func fetchFirstUse(for address: String) async throws -> Network.AddressFirstUse? {
