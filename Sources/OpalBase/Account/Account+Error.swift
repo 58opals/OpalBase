@@ -33,6 +33,7 @@ extension Account {
         case tokenMintRecipientHasNoTokenData
         case tokenMintFungibleAmountIsZero
         case tokenMintRequiresTokenAwareAddress([Address])
+        case tokenMintBroadcastFailed(Swift.Error)
         case coinSelectionFailed(Swift.Error)
         case transactionBuildFailed(Swift.Error)
         case broadcastFailed(Swift.Error)
@@ -96,6 +97,7 @@ extension Account.Error: Equatable {
             (.tokenGenesisCannotComputeDustThreshold(let leftError), .tokenGenesisCannotComputeDustThreshold(let rightError)),
             (.tokenGenesisTransactionBuildFailed(let leftError), .tokenGenesisTransactionBuildFailed(let rightError)),
             (.tokenGenesisBroadcastFailed(let leftError), .tokenGenesisBroadcastFailed(let rightError)),
+            (.tokenMintBroadcastFailed(let leftError), .tokenMintBroadcastFailed(let rightError)),
             (.transactionBuildFailed(let leftError), .transactionBuildFailed(let rightError)),
             (.broadcastFailed(let leftError), .broadcastFailed(let rightError)),
             (.confirmationQueryFailed(let leftError), .confirmationQueryFailed(let rightError)),
