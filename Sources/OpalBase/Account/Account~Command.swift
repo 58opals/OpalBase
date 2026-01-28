@@ -67,6 +67,9 @@ extension Account {
                              feePolicy: Wallet.FeePolicy = .init()) async throws -> SpendPlan {
         guard !payment.recipients.isEmpty else { throw Error.paymentHasNoRecipients }
         
+        if payment.recipients.contains(where: { $0.tokenData != nil }) { throw Error.paymentDoesNotSupportTokensUseTokenTransfer }
+        if payment.tokenSelectionPolicy == .allowTokenUTXOs { throw Error.paymentCannotSpendTokenUTXOs }
+        
         if !payment.shouldAllowUnsafeTokenTransfers {
             let unsafeTokenRecipients = payment.recipients.filter { recipient in
                 recipient.tokenData != nil && !recipient.address.supportsTokens
@@ -86,7 +89,7 @@ extension Account {
         let rawRecipientOutputs = payment.recipients.map { recipient in
             Transaction.Output(value: recipient.amount.uint64,
                                address: recipient.address,
-                               tokenData: recipient.tokenData)
+                               tokenData: nil)
         }
         let organizedRecipientOutputs = await privacyShaper.organizeOutputs(rawRecipientOutputs)
         
@@ -96,7 +99,7 @@ extension Account {
                                                                                   changeLockingScript: changeEntry.address.lockingScript.data,
                                                                                   strategy: payment.coinSelection,
                                                                                   shouldAllowDustDonation: payment.shouldAllowDustDonation,
-                                                                                  tokenSelectionPolicy: payment.tokenSelectionPolicy)
+                                                                                  tokenSelectionPolicy: .excludeTokenUTXOs)
         
         let selectedUTXOs: [Transaction.Output.Unspent]
         do {
@@ -139,7 +142,7 @@ extension Account {
         do {
             reservation = try await addressBook.reserveSpend(utxos: heuristicallyOrderedInputs,
                                                              changeEntry: changeEntry,
-                                                             tokenSelectionPolicy: payment.tokenSelectionPolicy)
+                                                             tokenSelectionPolicy: .excludeTokenUTXOs)
         } catch {
             throw Error.coinSelectionFailed(error)
         }

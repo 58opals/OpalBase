@@ -12,6 +12,8 @@ extension Account {
         case transactionConfirmationRefreshFailed(Transaction.Hash, Swift.Error)
         case paymentHasNoRecipients
         case paymentExceedsMaximumAmount
+        case paymentDoesNotSupportTokensUseTokenTransfer
+        case paymentCannotSpendTokenUTXOs
         case tokenSendRequiresTokenAwareAddress([Address])
         case tokenTransferHasNoRecipients
         case tokenTransferRequiresSingleCategory
@@ -40,7 +42,9 @@ extension Account.Error: Equatable {
         switch (lhs, rhs) {
         case (.snapshotDoesNotMatchAccount, .snapshotDoesNotMatchAccount),
             (.paymentHasNoRecipients, .paymentHasNoRecipients),
-            (.paymentExceedsMaximumAmount, .paymentExceedsMaximumAmount):
+            (.paymentExceedsMaximumAmount, .paymentExceedsMaximumAmount),
+            (.paymentDoesNotSupportTokensUseTokenTransfer, .paymentDoesNotSupportTokensUseTokenTransfer),
+            (.paymentCannotSpendTokenUTXOs, .paymentCannotSpendTokenUTXOs):
             return true
         case (.tokenSendRequiresTokenAwareAddress(let leftAddresses),
               .tokenSendRequiresTokenAwareAddress(let rightAddresses)):
