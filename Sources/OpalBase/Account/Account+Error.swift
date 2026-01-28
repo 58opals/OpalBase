@@ -36,6 +36,11 @@ extension Account {
         case tokenMintInsufficientFungible
         case tokenMintRequiresTokenAwareAddress([Address])
         case tokenMintBroadcastFailed(Swift.Error)
+        case tokenMutationInvalidAuthorityInput
+        case tokenMutationNoEligibleAuthorityInput
+        case tokenMutationRequiresTokenAwareAddress([Address])
+        case tokenMutationCannotComputeDustThreshold(Swift.Error)
+        case tokenMutationBroadcastFailed(Swift.Error)
         case coinSelectionFailed(Swift.Error)
         case transactionBuildFailed(Swift.Error)
         case broadcastFailed(Swift.Error)
@@ -68,13 +73,18 @@ extension Account.Error: Equatable {
             (.tokenMintRecipientHasNoTokenData, .tokenMintRecipientHasNoTokenData),
             (.tokenMintFungibleAmountIsZero, .tokenMintFungibleAmountIsZero),
             (.tokenMintNoEligibleMintingInput, .tokenMintNoEligibleMintingInput),
-            (.tokenMintInsufficientFungible, .tokenMintInsufficientFungible):
+            (.tokenMintInsufficientFungible, .tokenMintInsufficientFungible),
+            (.tokenMutationInvalidAuthorityInput, .tokenMutationInvalidAuthorityInput),
+            (.tokenMutationNoEligibleAuthorityInput, .tokenMutationNoEligibleAuthorityInput):
             return true
         case (.tokenGenesisRequiresTokenAwareAddress(let leftAddresses),
               .tokenGenesisRequiresTokenAwareAddress(let rightAddresses)):
             return leftAddresses == rightAddresses
         case (.tokenMintRequiresTokenAwareAddress(let leftAddresses),
               .tokenMintRequiresTokenAwareAddress(let rightAddresses)):
+            return leftAddresses == rightAddresses
+        case (.tokenMutationRequiresTokenAwareAddress(let leftAddresses),
+              .tokenMutationRequiresTokenAwareAddress(let rightAddresses)):
             return leftAddresses == rightAddresses
         case (.tokenTransferInsufficientFunds(let leftRequired), .tokenTransferInsufficientFunds(let rightRequired)):
             return leftRequired == rightRequired
@@ -102,6 +112,8 @@ extension Account.Error: Equatable {
             (.tokenGenesisTransactionBuildFailed(let leftError), .tokenGenesisTransactionBuildFailed(let rightError)),
             (.tokenGenesisBroadcastFailed(let leftError), .tokenGenesisBroadcastFailed(let rightError)),
             (.tokenMintBroadcastFailed(let leftError), .tokenMintBroadcastFailed(let rightError)),
+            (.tokenMutationCannotComputeDustThreshold(let leftError), .tokenMutationCannotComputeDustThreshold(let rightError)),
+            (.tokenMutationBroadcastFailed(let leftError), .tokenMutationBroadcastFailed(let rightError)),
             (.transactionBuildFailed(let leftError), .transactionBuildFailed(let rightError)),
             (.broadcastFailed(let leftError), .broadcastFailed(let rightError)),
             (.confirmationQueryFailed(let leftError), .confirmationQueryFailed(let rightError)),
