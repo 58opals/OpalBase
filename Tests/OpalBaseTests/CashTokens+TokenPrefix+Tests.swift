@@ -76,6 +76,66 @@ struct CashTokensTokenPrefixTests {
         }
     }
     
+    @Test("encode then decode preserves token data")
+    func testEncodeDecodeRoundTripPreservesTokenData() throws {
+        let category = try makeCategoryIdentifier(using: 0x11)
+        let nonFungibleToken = try CashTokens.NFT(capability: .mutable, commitment: Data([0x0a, 0x0b]))
+        let tokenDataValues = [
+            CashTokens.TokenData(category: category, amount: 1, nft: nil),
+            CashTokens.TokenData(category: category, amount: nil, nft: nonFungibleToken),
+            CashTokens.TokenData(category: category, amount: 42, nft: nonFungibleToken)
+        ]
+        let trailingBytecode = Data([0x6a, 0x01])
+        
+        for expectedTokenData in tokenDataValues {
+            var combined = try CashTokens.TokenPrefix.encode(tokenData: expectedTokenData)
+            combined.append(trailingBytecode)
+            
+            let result = try CashTokens.TokenPrefix.decode(prefixPlusBytecode: combined)
+            let decodedTokenData = try #require(result.tokenData)
+            #expect(decodedTokenData == expectedTokenData)
+            #expect(result.lockingBytecode == trailingBytecode)
+        }
+    }
+    
+    @Test("category bytes are encoded in transaction order")
+    func testEncodeUsesTransactionOrderForCategory() throws {
+        let category = try CashTokens.CategoryID(transactionOrderData: Data((0..<32).map { UInt8($0) }))
+        let tokenData = CashTokens.TokenData(category: category, amount: 1, nft: nil)
+        
+        let encoded = try CashTokens.TokenPrefix.encode(tokenData: tokenData)
+        let encodedCategoryBytes = encoded.dropFirst().prefix(32)
+        #expect(encodedCategoryBytes == category.transactionOrderData)
+    }
+    
+    @Test("commitment length bounds are enforced")
+    func testCommitmentLengthBounds() throws {
+        let commitmentLengths = [0, 1, 40]
+        for commitmentLength in commitmentLengths {
+            let commitment = Data(repeating: 0x01, count: commitmentLength)
+            let nonFungibleToken = try CashTokens.NFT(capability: .none, commitment: commitment)
+            #expect(nonFungibleToken.commitment.count == commitmentLength)
+        }
+        
+        let oversizedCommitment = Data(repeating: 0x02, count: 41)
+        let didThrowCommitmentLengthOutOfRange: Bool
+        do {
+            _ = try CashTokens.NFT(capability: .none, commitment: oversizedCommitment)
+            didThrowCommitmentLengthOutOfRange = false
+        } catch CashTokens.Error.commitmentLengthOutOfRange {
+            didThrowCommitmentLengthOutOfRange = true
+        } catch {
+            didThrowCommitmentLengthOutOfRange = false
+        }
+        #expect(didThrowCommitmentLengthOutOfRange)
+        
+        let category = try makeCategoryIdentifier(using: 0x22)
+        let oversizedPrefix = makeOversizedCommitmentPrefix(category: category, commitmentByteCount: 41)
+        #expect(throws: CashTokens.Error.invalidTokenPrefixCommitmentLength) {
+            _ = try CashTokens.TokenPrefix.decode(prefixPlusBytecode: oversizedPrefix)
+        }
+    }
+    
     private func makeTokenData(from fixture: TokenPrefixTokenDataFixture) throws -> CashTokens.TokenData {
         let category = try CashTokens.CategoryID(hexFromRPC: fixture.category)
         let amount = try parseAmount(from: fixture.amount)
@@ -110,5 +170,20 @@ struct CashTokensTokenPrefixTests {
         default:
             throw CashTokens.Error.invalidTokenPrefixCapability
         }
+    }
+    
+    private func makeCategoryIdentifier(using byte: UInt8) throws -> CashTokens.CategoryID {
+        try CashTokens.CategoryID(transactionOrderData: Data(repeating: byte, count: 32))
+    }
+    
+    private func makeOversizedCommitmentPrefix(category: CashTokens.CategoryID,
+                                               commitmentByteCount: UInt8) -> Data {
+        var data = Data()
+        data.append(CashTokens.TokenPrefix.prefixToken)
+        data.append(category.transactionOrderData)
+        data.append(0x60)
+        data.append(commitmentByteCount)
+        data.append(Data(repeating: 0x00, count: Int(commitmentByteCount)))
+        return data
     }
 }
