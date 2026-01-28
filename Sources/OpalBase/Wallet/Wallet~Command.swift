@@ -42,6 +42,15 @@ extension Wallet {
                                                   feePolicy: feePolicy)
     }
     
+    public func prepareTokenCommitmentMutation(
+        forAccountAt unhardenedIndex: UInt32,
+        mutation: Account.TokenCommitmentMutation,
+        feePolicy: FeePolicy = .init()
+    ) async throws -> Account.TokenCommitmentMutationPlan {
+        let account = try await fetchAccount(at: unhardenedIndex)
+        return try await account.prepareTokenCommitmentMutation(mutation, feePolicy: feePolicy)
+    }
+    
     public func refreshBalances(forAccountAt unhardenedIndex: UInt32,
                                 usage: DerivationPath.Usage? = nil,
                                 loader: @escaping @Sendable (Address) async throws -> Satoshi) async throws -> Account.BalanceRefresh {
