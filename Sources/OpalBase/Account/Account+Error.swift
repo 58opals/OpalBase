@@ -29,6 +29,10 @@ extension Account {
         case tokenGenesisBroadcastFailed(Swift.Error)
         case tokenGenesisFungibleAmountIsZero
         case tokenGenesisNonFungibleTokenCommitmentTooLong(maximum: Int, actual: Int)
+        case tokenMintHasNoRecipientsAndAuthorityReturnToWalletChange
+        case tokenMintRecipientHasNoTokenData
+        case tokenMintFungibleAmountIsZero
+        case tokenMintRequiresTokenAwareAddress([Address])
         case coinSelectionFailed(Swift.Error)
         case transactionBuildFailed(Swift.Error)
         case broadcastFailed(Swift.Error)
@@ -55,10 +59,17 @@ extension Account.Error: Equatable {
             (.tokenGenesisHasNoRecipients, .tokenGenesisHasNoRecipients),
             (.tokenGenesisNoEligibleGenesisInput, .tokenGenesisNoEligibleGenesisInput),
             (.tokenGenesisInvalidGenesisInput, .tokenGenesisInvalidGenesisInput),
-            (.tokenGenesisFungibleAmountIsZero, .tokenGenesisFungibleAmountIsZero):
+            (.tokenGenesisFungibleAmountIsZero, .tokenGenesisFungibleAmountIsZero),
+            (.tokenMintHasNoRecipientsAndAuthorityReturnToWalletChange,
+             .tokenMintHasNoRecipientsAndAuthorityReturnToWalletChange),
+            (.tokenMintRecipientHasNoTokenData, .tokenMintRecipientHasNoTokenData),
+            (.tokenMintFungibleAmountIsZero, .tokenMintFungibleAmountIsZero):
             return true
         case (.tokenGenesisRequiresTokenAwareAddress(let leftAddresses),
               .tokenGenesisRequiresTokenAwareAddress(let rightAddresses)):
+            return leftAddresses == rightAddresses
+        case (.tokenMintRequiresTokenAwareAddress(let leftAddresses),
+              .tokenMintRequiresTokenAwareAddress(let rightAddresses)):
             return leftAddresses == rightAddresses
         case (.tokenTransferInsufficientFunds(let leftRequired), .tokenTransferInsufficientFunds(let rightRequired)):
             return leftRequired == rightRequired
