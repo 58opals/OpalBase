@@ -5,15 +5,7 @@ import Foundation
 extension Account {
     public struct TokenSpendPlan: Sendable {
         public struct TransactionResult: Sendable {
-            public struct Change: Sendable {
-                public let entry: Address.Book.Entry
-                public let amount: Satoshi
-                
-                public init(entry: Address.Book.Entry, amount: Satoshi) {
-                    self.entry = entry
-                    self.amount = amount
-                }
-            }
+            public typealias Change = SpendPlan.TransactionResult.Change
             
             public let transaction: Transaction
             public let fee: Satoshi
