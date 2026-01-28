@@ -32,6 +32,8 @@ extension Account {
         case tokenMintHasNoRecipientsAndAuthorityReturnToWalletChange
         case tokenMintRecipientHasNoTokenData
         case tokenMintFungibleAmountIsZero
+        case tokenMintNoEligibleMintingInput
+        case tokenMintInsufficientFungible
         case tokenMintRequiresTokenAwareAddress([Address])
         case tokenMintBroadcastFailed(Swift.Error)
         case coinSelectionFailed(Swift.Error)
@@ -64,7 +66,9 @@ extension Account.Error: Equatable {
             (.tokenMintHasNoRecipientsAndAuthorityReturnToWalletChange,
              .tokenMintHasNoRecipientsAndAuthorityReturnToWalletChange),
             (.tokenMintRecipientHasNoTokenData, .tokenMintRecipientHasNoTokenData),
-            (.tokenMintFungibleAmountIsZero, .tokenMintFungibleAmountIsZero):
+            (.tokenMintFungibleAmountIsZero, .tokenMintFungibleAmountIsZero),
+            (.tokenMintNoEligibleMintingInput, .tokenMintNoEligibleMintingInput),
+            (.tokenMintInsufficientFungible, .tokenMintInsufficientFungible):
             return true
         case (.tokenGenesisRequiresTokenAwareAddress(let leftAddresses),
               .tokenGenesisRequiresTokenAwareAddress(let rightAddresses)):
