@@ -131,24 +131,9 @@ extension Account {
                 bitcoinCashChange = nil
             }
             
-            var remainingOutputs = transaction.outputs
-            func resolveOutput(_ candidate: Transaction.Output) -> Transaction.Output? {
-                guard let index = remainingOutputs.firstIndex(where: { output in
-                    output.lockingScript == candidate.lockingScript
-                    && output.value == candidate.value
-                    && output.tokenData == candidate.tokenData
-                }) else {
-                    return nil
-                }
-                return remainingOutputs.remove(at: index)
-            }
-            let resolvedMutatedOutput = resolveOutput(mutatedTokenOutput) ?? mutatedTokenOutput
-            let resolvedPreservationOutput: Transaction.Output?
-            if let fungiblePreservationOutput {
-                resolvedPreservationOutput = resolveOutput(fungiblePreservationOutput) ?? fungiblePreservationOutput
-            } else {
-                resolvedPreservationOutput = nil
-            }
+            var resolver = Transaction.Output.Resolver(outputs: transaction.outputs)
+            let resolvedMutatedOutput = resolver.popFirst(matching: mutatedTokenOutput) ?? mutatedTokenOutput
+            let resolvedPreservationOutput: Transaction.Output? = fungiblePreservationOutput.flatMap { resolver.popFirst(matching: $0) } ?? fungiblePreservationOutput
             
             return TransactionResult(transaction: transaction,
                                      fee: fee,

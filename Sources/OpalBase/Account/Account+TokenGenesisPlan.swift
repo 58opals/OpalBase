@@ -120,17 +120,8 @@ extension Account {
                 bitcoinCashChange = nil
             }
             
-            var remainingOutputs = transaction.outputs
-            var resolvedMintedOutputs: [Transaction.Output] = .init()
-            for candidate in plannedMintedOutputs {
-                if let index = remainingOutputs.firstIndex(where: { output in
-                    output.lockingScript == candidate.lockingScript
-                    && output.value == candidate.value
-                    && output.tokenData == candidate.tokenData
-                }) {
-                    resolvedMintedOutputs.append(remainingOutputs.remove(at: index))
-                }
-            }
+            var resolver = Transaction.Output.Resolver(outputs: transaction.outputs)
+            let resolvedMintedOutputs = resolver.resolve(plannedMintedOutputs)
             
             return TransactionResult(transaction: transaction,
                                      fee: fee,
