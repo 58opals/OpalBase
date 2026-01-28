@@ -14,18 +14,32 @@ extension Account {
             throw Error.tokenSendRequiresTokenAwareAddress(unsafeRecipients.map(\.address))
         }
         
-        let tokenCategory = try resolveTokenCategory(from: transfer)
-        let requirements = try makeTokenRequirements(for: transfer, category: tokenCategory)
+        let requirementsByCategory = try makeTokenRequirementsByCategory(for: transfer)
         let spendableOutputs = await addressBook.sortSpendableUTXOs(by: { $0.value > $1.value })
-        let spendableTokenOutputs = spendableOutputs.filter { $0.tokenData?.category == tokenCategory }
-        let selectedTokenInputs = try selectTokenInputs(from: spendableTokenOutputs, requirements: requirements)
-        let tokenInputInventory = try makeTokenInventory(from: selectedTokenInputs, category: tokenCategory)
-        let remainingInventory = try subtractTokenInventory(input: tokenInputInventory, requirements: requirements)
+        let spendableTokenByCategory = Dictionary(grouping: spendableOutputs.compactMap {
+            unspentOutput -> (CashTokens.CategoryID, Transaction.Output.Unspent)? in
+            guard let category = unspentOutput.tokenData?.category else { return nil }
+            return (category, unspentOutput)
+        }, by: { $0.0 }).mapValues { $0.map(\.1) }
+        
+        var selectedTokenInputs: [Transaction.Output.Unspent] = .init()
+        var remainingInventories: [TokenInventory] = .init()
+        for (category, requirements) in requirementsByCategory {
+            let spendableForCategory = spendableTokenByCategory[category] ?? .init()
+            let selected = try selectTokenInputs(from: spendableForCategory, requirements: requirements)
+            selectedTokenInputs += selected
+            let inventory = try makeTokenInventory(from: selected, category: category)
+            let remaining = try subtractTokenInventory(input: inventory, requirements: requirements)
+            remainingInventories.append(remaining)
+        }
         
         let changeEntry = try await addressBook.selectNextEntry(for: .change)
         let tokenChangeAddress = try Address(script: changeEntry.address.lockingScript, format: .tokenAware)
-        let tokenChangeOutputs = try makeTokenChangeOutputs(from: remainingInventory,
-                                                            changeAddress: tokenChangeAddress)
+        var tokenChangeOutputs: [Transaction.Output] = .init()
+        for remaining in remainingInventories {
+            tokenChangeOutputs += try makeTokenChangeOutputs(from: remaining,
+                                                             changeAddress: tokenChangeAddress)
+        }
         
         let rawRecipientOutputs = transfer.recipients.map { recipient in
             Transaction.Output(value: recipient.amount.uint64,

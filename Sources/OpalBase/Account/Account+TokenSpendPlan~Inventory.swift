@@ -47,13 +47,13 @@ extension Account {
     }
     
     func makeTokenRequirementsByCategory(for transfer: TokenTransfer) throws -> TokenRequirementsByCategory {
-        var requirementsByCategory: TokenRequirementsByCategory = [:]
+        var requirementsByCategory: TokenRequirementsByCategory = .init()
         
         func updateRequirements(with tokenData: CashTokens.TokenData) throws {
             let category = tokenData.category
             var requirements = requirementsByCategory[category] ?? TokenRequirements(category: category,
                                                                                      fungibleAmount: 0,
-                                                                                     nonFungibleTokens: [:])
+                                                                                     nonFungibleTokens: .init())
             if let amount = tokenData.amount {
                 requirements = TokenRequirements(category: category,
                                                  fungibleAmount: try addTokenAmounts(requirements.fungibleAmount, amount),
