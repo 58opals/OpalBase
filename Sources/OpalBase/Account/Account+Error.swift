@@ -32,12 +32,14 @@ extension Account {
         case tokenMintHasNoRecipientsAndAuthorityReturnToWalletChange
         case tokenMintRecipientHasNoTokenData
         case tokenMintFungibleAmountIsZero
+        case tokenMintNonFungibleTokenCommitmentTooLong(maximum: Int, actual: Int)
         case tokenMintNoEligibleMintingInput
         case tokenMintInsufficientFungible
         case tokenMintRequiresTokenAwareAddress([Address])
         case tokenMintBroadcastFailed(Swift.Error)
         case tokenMutationInvalidAuthorityInput
         case tokenMutationNoEligibleAuthorityInput
+        case tokenMutationNonFungibleTokenCommitmentTooLong(maximum: Int, actual: Int)
         case tokenMutationRequiresTokenAwareAddress([Address])
         case tokenMutationCannotComputeDustThreshold(Swift.Error)
         case tokenMutationBroadcastFailed(Swift.Error)
@@ -90,6 +92,12 @@ extension Account.Error: Equatable {
             return leftRequired == rightRequired
         case (.tokenGenesisNonFungibleTokenCommitmentTooLong(let leftMaximum, let leftActual),
               .tokenGenesisNonFungibleTokenCommitmentTooLong(let rightMaximum, let rightActual)):
+            return leftMaximum == rightMaximum && leftActual == rightActual
+        case (.tokenMintNonFungibleTokenCommitmentTooLong(let leftMaximum, let leftActual),
+              .tokenMintNonFungibleTokenCommitmentTooLong(let rightMaximum, let rightActual)):
+            return leftMaximum == rightMaximum && leftActual == rightActual
+        case (.tokenMutationNonFungibleTokenCommitmentTooLong(let leftMaximum, let leftActual),
+              .tokenMutationNonFungibleTokenCommitmentTooLong(let rightMaximum, let rightActual)):
             return leftMaximum == rightMaximum && leftActual == rightActual
         case (.tokenSelectionFailed(let leftError), .tokenSelectionFailed(let rightError)):
             return Network.checkFailureEquivalence(leftError, rightError)

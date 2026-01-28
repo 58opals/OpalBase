@@ -16,6 +16,7 @@ extension Account {
                         nft: CashTokens.NFT? = nil) throws {
                 try TokenMintValidation.validateTokenData(fungibleAmount: fungibleAmount, nft: nft)
                 try TokenMintValidation.validateFungibleAmount(fungibleAmount)
+                try TokenMintValidation.validateCommitment(nft)
                 self.address = address
                 self.bchAmount = bchAmount
                 self.fungibleAmount = fungibleAmount
@@ -97,6 +98,22 @@ private enum TokenMintValidation {
     static func validateFungibleAmount(_ fungibleAmount: UInt64?) throws {
         if let fungibleAmount, fungibleAmount == 0 {
             throw Account.Error.tokenMintFungibleAmountIsZero
+        }
+    }
+    
+    static func validateCommitment(_ nonFungibleToken: CashTokens.NFT?) throws {
+        if let nonFungibleToken {
+            try validateCommitment(nonFungibleToken.commitment)
+        }
+    }
+    
+    static func validateCommitment(_ commitment: Data) throws {
+        let maximumCommitmentByteCount = TokenOperationValidation.maximumCommitmentByteCount
+        guard commitment.count <= maximumCommitmentByteCount else {
+            throw Account.Error.tokenMintNonFungibleTokenCommitmentTooLong(
+                maximum: maximumCommitmentByteCount,
+                actual: commitment.count
+            )
         }
     }
 }

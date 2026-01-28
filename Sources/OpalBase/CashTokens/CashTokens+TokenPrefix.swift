@@ -11,7 +11,6 @@ extension CashTokens {
         private static let hasFungibleAmountBit: UInt8 = 0x10
         private static let nonFungibleCapabilityMask: UInt8 = 0x0F
         private static let minimumPrefixLength = 34
-        private static let maximumCommitmentByteCount = 40
         private static let maximumFungibleAmount: UInt64 = 0x7fff_ffff_ffff_ffff
         private static let categoryIdentifierByteCount = 32
         
@@ -27,7 +26,7 @@ extension CashTokens {
                 tokenBitfield |= hasNonFungibleTokenBit
                 tokenBitfield |= capabilityValue(from: nonFungibleToken.capability)
                 if !nonFungibleToken.commitment.isEmpty {
-                    guard nonFungibleToken.commitment.count <= Self.maximumCommitmentByteCount else {
+                    guard nonFungibleToken.commitment.count <= TokenOperationValidation.maximumCommitmentByteCount else {
                         throw Error.invalidTokenPrefixCommitmentLength
                     }
                     tokenBitfield |= hasCommitmentLengthBit
@@ -100,7 +99,7 @@ extension CashTokens {
                     guard commitmentLength > 0 else {
                         throw Error.invalidTokenPrefixCommitmentLength
                     }
-                    guard commitmentLength <= Self.maximumCommitmentByteCount else {
+                    guard commitmentLength <= TokenOperationValidation.maximumCommitmentByteCount else {
                         throw Error.invalidTokenPrefixCommitmentLength
                     }
                     guard commitmentLength <= reader.remainingData.count else {

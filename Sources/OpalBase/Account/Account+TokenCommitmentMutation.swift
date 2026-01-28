@@ -41,11 +41,13 @@ extension Account {
 }
 
 private enum TokenCommitmentMutationValidation {
-    static let maximumCommitmentByteCount = 40
-    
     static func validateCommitment(_ commitment: Data) throws {
+        let maximumCommitmentByteCount = TokenOperationValidation.maximumCommitmentByteCount
         guard commitment.count <= maximumCommitmentByteCount else {
-            throw Account.Error.tokenMutationInvalidAuthorityInput
+            throw Account.Error.tokenMutationNonFungibleTokenCommitmentTooLong(
+                maximum: maximumCommitmentByteCount,
+                actual: commitment.count
+            )
         }
     }
     

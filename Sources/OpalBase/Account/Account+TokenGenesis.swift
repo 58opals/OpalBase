@@ -64,8 +64,6 @@ extension Account {
 }
 
 private enum TokenGenesisValidation {
-    static let maximumNonFungibleTokenCommitmentByteCount = 40
-    
     static func validateRecipients(_ recipients: [Account.TokenGenesis.Recipient]) throws {
         for recipient in recipients {
             try validateFungibleAmount(recipient.fungibleAmount)
@@ -97,9 +95,10 @@ private enum TokenGenesisValidation {
     }
     
     static func validateCommitment(_ commitment: Data) throws {
-        guard commitment.count <= maximumNonFungibleTokenCommitmentByteCount else {
+        let maximumCommitmentByteCount = TokenOperationValidation.maximumCommitmentByteCount
+        guard commitment.count <= maximumCommitmentByteCount else {
             throw Account.Error.tokenGenesisNonFungibleTokenCommitmentTooLong(
-                maximum: maximumNonFungibleTokenCommitmentByteCount,
+                maximum: maximumCommitmentByteCount,
                 actual: commitment.count
             )
         }
