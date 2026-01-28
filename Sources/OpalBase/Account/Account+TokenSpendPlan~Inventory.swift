@@ -3,6 +3,8 @@
 import Foundation
 
 extension Account {
+    typealias TokenRequirementsByCategory = [CashTokens.CategoryID: TokenRequirements]
+    
     struct TokenRequirements {
         let category: CashTokens.CategoryID
         let fungibleAmount: UInt64
@@ -42,6 +44,42 @@ extension Account {
         return TokenRequirements(category: category,
                                  fungibleAmount: fungibleAmount,
                                  nonFungibleTokens: nonFungibleTokens)
+    }
+    
+    func makeTokenRequirementsByCategory(for transfer: TokenTransfer) throws -> TokenRequirementsByCategory {
+        var requirementsByCategory: TokenRequirementsByCategory = [:]
+        
+        func updateRequirements(with tokenData: CashTokens.TokenData) throws {
+            let category = tokenData.category
+            var requirements = requirementsByCategory[category] ?? TokenRequirements(category: category,
+                                                                                     fungibleAmount: 0,
+                                                                                     nonFungibleTokens: [:])
+            if let amount = tokenData.amount {
+                requirements = TokenRequirements(category: category,
+                                                 fungibleAmount: try addTokenAmounts(requirements.fungibleAmount, amount),
+                                                 nonFungibleTokens: requirements.nonFungibleTokens)
+            }
+            if let nonFungibleToken = tokenData.nft {
+                var nonFungibleTokens = requirements.nonFungibleTokens
+                let group = Address.Book.TokenInventory.NonFungibleTokenGroup(category: category,
+                                                                              commitment: nonFungibleToken.commitment,
+                                                                              capability: nonFungibleToken.capability)
+                nonFungibleTokens[group, default: 0] += 1
+                requirements = TokenRequirements(category: category,
+                                                 fungibleAmount: requirements.fungibleAmount,
+                                                 nonFungibleTokens: nonFungibleTokens)
+            }
+            requirementsByCategory[category] = requirements
+        }
+        
+        for recipient in transfer.recipients {
+            try updateRequirements(with: recipient.tokenData)
+        }
+        for burn in transfer.burns {
+            try updateRequirements(with: burn.tokenData)
+        }
+        
+        return requirementsByCategory
     }
     
     func makeTokenInventory(from unspentOutputs: [Transaction.Output.Unspent],
