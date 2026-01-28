@@ -160,9 +160,7 @@ private enum AddressBookCashTokensTestSupport {
     }
     
     static func makeTokenData(from fixture: TokenPrefixTokenDataFixture) throws -> CashTokens.TokenData {
-        let categoryData = try Data(hexadecimalString: fixture.category)
-        let category = try CashTokens.CategoryID(transactionOrderData: categoryData)
-        
+        let category = try CashTokens.CategoryID(hexFromRPC: fixture.category)
         let amount = try parseAmount(from: fixture.amount)
         let nonFungibleToken = try fixture.nonFungibleToken.map { try makeNonFungibleToken(from: $0) }
         

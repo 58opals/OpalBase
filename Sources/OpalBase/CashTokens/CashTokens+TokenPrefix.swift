@@ -40,7 +40,7 @@ extension CashTokens {
             
             var writer = Data.Writer()
             writer.writeByte(prefixToken)
-            writer.writeData(tokenData.category.transactionOrderData.reversedData)
+            writer.writeData(tokenData.category.transactionOrderData)
             writer.writeByte(tokenBitfield)
             
             if !nonFungibleTokenCommitment.isEmpty {
@@ -117,7 +117,7 @@ extension CashTokens {
                 amount = parsedAmount
             }
             
-            let category = try CategoryID(transactionOrderData: categoryData.reversedData)
+            let category = try CategoryID(transactionOrderData: categoryData)
             let tokenData = TokenData(category: category, amount: amount, nft: nonFungibleToken)
             return (tokenData, reader.remainingData)
         }
