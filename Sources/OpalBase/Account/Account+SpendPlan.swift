@@ -103,21 +103,13 @@ extension Account {
                 throw Account.Error.paymentExceedsMaximumAmount
             }
             
-            let changeCandidate = transaction.outputs.first { output in
-                output.lockingScript == changeOutput.lockingScript && output.value > 0
-            }
             let change: TransactionResult.Change?
-            if let changeCandidate {
-                let changeAmount: Satoshi
-                do {
-                    changeAmount = try Satoshi(changeCandidate.value)
-                } catch {
-                    throw Account.Error.transactionBuildFailed(error)
-                }
-                change = TransactionResult.Change(entry: changeEntry, amount: changeAmount)
-            } else {
-                change = nil
+            do {
+                change = try transaction.findBitcoinCashChange(for: changeEntry)
+            } catch {
+                throw Account.Error.transactionBuildFailed(error)
             }
+            
             
             return TransactionResult(transaction: transaction, fee: fee, change: change)
         }
