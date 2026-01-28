@@ -30,6 +30,18 @@ extension Wallet {
         return try await account.prepareTokenGenesisOutpoint(feePolicy: feePolicy)
     }
     
+    public func prepareTokenMint(
+        forAccountAt unhardenedIndex: UInt32,
+        mint: Account.TokenMint,
+        preferredMintingInput: Transaction.Output.Unspent? = nil,
+        feePolicy: FeePolicy = .init()
+    ) async throws -> Account.TokenMintPlan {
+        let account = try await fetchAccount(at: unhardenedIndex)
+        return try await account.prepareTokenMint(mint,
+                                                  preferredMintingInput: preferredMintingInput,
+                                                  feePolicy: feePolicy)
+    }
+    
     public func refreshBalances(forAccountAt unhardenedIndex: UInt32,
                                 usage: DerivationPath.Usage? = nil,
                                 loader: @escaping @Sendable (Address) async throws -> Satoshi) async throws -> Account.BalanceRefresh {

@@ -115,8 +115,9 @@ extension Account {
         var fungiblePreservationOutput: Transaction.Output?
         switch mint.authorityReturn {
         case .toWalletChange:
+            
             let authorityToken = CashTokens.TokenData(category: mint.category,
-                                                      amount: preservedFungible > 0 ? preservedFungible : nil,
+                                                      amount: UInt64(preservedFungible) > 0 ? UInt64(preservedFungible) : nil,
                                                       nft: authorityNonFungibleToken)
             authorityReturnOutput = try makeTokenOutput(address: tokenChangeAddress,
                                                         tokenData: authorityToken)
@@ -129,7 +130,7 @@ extension Account {
                                                         overrideAmount: bitcoinCashAmount)
             if preservedFungible > 0 {
                 let fungibleToken = CashTokens.TokenData(category: mint.category,
-                                                         amount: preservedFungible,
+                                                         amount: UInt64(preservedFungible),
                                                          nft: nil)
                 fungiblePreservationOutput = try makeTokenOutput(address: tokenChangeAddress,
                                                                  tokenData: fungibleToken)
@@ -137,7 +138,7 @@ extension Account {
         case .burn:
             if preservedFungible > 0 {
                 let fungibleToken = CashTokens.TokenData(category: mint.category,
-                                                         amount: preservedFungible,
+                                                         amount: UInt64(preservedFungible),
                                                          nft: nil)
                 fungiblePreservationOutput = try makeTokenOutput(address: tokenChangeAddress,
                                                                  tokenData: fungibleToken)
