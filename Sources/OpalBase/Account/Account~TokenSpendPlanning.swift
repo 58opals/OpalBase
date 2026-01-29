@@ -65,28 +65,13 @@ extension Account {
             try Satoshi($0.value)
         }
         let initialChangeAmount = try totalSelectedAmount - targetAmount
-        let changeOutput = Transaction.Output(value: initialChangeAmount.uint64, address: changeEntry.address)
-        
-        let reservation: Address.Book.SpendReservation
-        do {
-            reservation = try await addressBook.reserveSpend(utxos: inputs,
-                                                             changeEntry: changeEntry,
-                                                             tokenSelectionPolicy: .allowTokenUTXOs)
-        } catch {
-            throw Error.tokenSelectionFailed(error)
-        }
-        
-        let privateKeys: [Transaction.Output.Unspent: PrivateKey]
-        do {
-            privateKeys = try await addressBook.derivePrivateKeys(for: inputs)
-        } catch {
-            do {
-                try await addressBook.releaseSpendReservation(reservation, outcome: .cancelled)
-            } catch let releaseError {
-                throw Error.transactionBuildFailed(releaseError)
-            }
-            throw Error.transactionBuildFailed(error)
-        }
+        let (reservation, reservedChangeEntry, privateKeys) = try await reserveSpendAndDeriveKeys(
+            utxos: inputs,
+            changeEntry: changeEntry,
+            tokenSelectionPolicy: .allowTokenUTXOs,
+            mapReservationError: { Error.tokenSelectionFailed($0) }
+        )
+        let changeOutput = Transaction.Output(value: initialChangeAmount.uint64, address: reservedChangeEntry.address)
         
         return TokenSpendPlan(transfer: transfer,
                               feeRate: feeRate,

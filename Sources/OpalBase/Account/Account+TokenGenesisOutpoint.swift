@@ -56,34 +56,18 @@ extension Account {
             }
         }
         
-        let reservation: Address.Book.SpendReservation
-        do {
-            reservation = try await addressBook.reserveSpend(utxos: [selectedOutput],
-                                                             changeEntry: changeEntry,
-                                                             tokenSelectionPolicy: .excludeTokenUTXOs)
-        } catch {
-            throw Error.coinSelectionFailed(error)
-        }
-        
-        let reservedEntry = reservation.changeEntry
+        let (reservation, reservedEntry, privateKeys) = try await reserveSpendAndDeriveKeys(
+            utxos: [selectedOutput],
+            changeEntry: changeEntry,
+            tokenSelectionPolicy: .excludeTokenUTXOs,
+            mapReservationError: { Error.coinSelectionFailed($0) }
+        )
         let payment = Payment(recipients: [
             Payment.Recipient(address: reservedEntry.address, amount: outputValue)
         ])
         
         let recipientOutput = Transaction.Output(value: outputValue.uint64, address: reservedEntry.address)
         let changeOutput = Transaction.Output(value: estimatedFee.uint64, address: reservedEntry.address)
-        
-        let privateKeys: [Transaction.Output.Unspent: PrivateKey]
-        do {
-            privateKeys = try await addressBook.derivePrivateKeys(for: [selectedOutput])
-        } catch {
-            do {
-                try await addressBook.releaseSpendReservation(reservation, outcome: .cancelled)
-            } catch let releaseError {
-                throw Error.transactionBuildFailed(releaseError)
-            }
-            throw Error.transactionBuildFailed(error)
-        }
         
         return SpendPlan(payment: payment,
                          feeRate: feeRate,

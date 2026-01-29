@@ -138,30 +138,14 @@ extension Account {
         }
         let initialChangeValue = initialChangeAmount.uint64
         
-        let reservation: Address.Book.SpendReservation
-        do {
-            reservation = try await addressBook.reserveSpend(utxos: heuristicallyOrderedInputs,
-                                                             changeEntry: changeEntry,
-                                                             tokenSelectionPolicy: .excludeTokenUTXOs)
-        } catch {
-            throw Error.coinSelectionFailed(error)
-        }
+        let (reservation, reservedChangeEntry, privateKeys) = try await reserveSpendAndDeriveKeys(
+            utxos: heuristicallyOrderedInputs,
+            changeEntry: changeEntry,
+            tokenSelectionPolicy: .excludeTokenUTXOs,
+            mapReservationError: { Error.coinSelectionFailed($0) }
+        )
         
-        let reservedChangeEntry = reservation.changeEntry
         let changeOutput = Transaction.Output(value: initialChangeValue, address: reservedChangeEntry.address)
-        
-        let privateKeys: [Transaction.Output.Unspent: PrivateKey]
-        do {
-            privateKeys = try await addressBook.derivePrivateKeys(for: heuristicallyOrderedInputs)
-        } catch {
-            do {
-                try await addressBook.releaseSpendReservation(reservation, outcome: .cancelled)
-            } catch let releaseError {
-                throw Error.transactionBuildFailed(releaseError)
-            }
-            
-            throw Error.transactionBuildFailed(error)
-        }
         
         return SpendPlan(payment: payment,
                          feeRate: feeRate,
