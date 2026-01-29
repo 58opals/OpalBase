@@ -134,18 +134,13 @@ extension Account {
         public func buildAndBroadcast(via handler: Network.TransactionHandling,
                                       signatureFormat: ECDSA.SignatureFormat = .schnorr,
                                       unlockers: [Transaction.Output.Unspent: Transaction.Unlocker] = .init()) async throws -> (hash: Transaction.Hash, result: TransactionResult) {
-            let transactionResult = try buildTransaction(signatureFormat: signatureFormat, unlockers: unlockers)
-            
-            let hash: Transaction.Hash
-            do {
-                hash = try await handler.broadcast(transaction: transactionResult.transaction)
-            } catch {
-                throw Account.Error.tokenMutationBroadcastFailed(error)
-            }
-            
-            try await addressBook.releaseSpendReservation(reservation, outcome: .completed)
-            
-            return (hash: hash, result: transactionResult)
+            try await Transaction.BroadcastPlanner.buildAndBroadcast(
+                build: { try buildTransaction(signatureFormat: signatureFormat, unlockers: unlockers) },
+                transaction: { $0.transaction },
+                via: handler,
+                mapBroadcastError: Account.Error.tokenMutationBroadcastFailed,
+                onSuccess: { try await completeReservation() }
+            )
         }
     }
 }
