@@ -22,32 +22,34 @@ extension Storage {
     }
     
     func storeValue(_ data: Data, for key: Storage.Key) async throws {
-        do {
+        try await mapPersistenceError {
             try await valueStore.valueWriter(data, key)
-        } catch {
-            throw Error.persistenceFailure(error)
         }
     }
     
     func loadValue(for key: Storage.Key) async throws -> Data? {
-        do {
-            return try await valueStore.valueReader(key)
-        } catch {
-            throw Error.persistenceFailure(error)
+        try await mapPersistenceError {
+            try await valueStore.valueReader(key)
         }
     }
     
     func removeValue(for key: Storage.Key) async throws {
-        do {
+        try await mapPersistenceError {
             try await valueStore.valueDeleter(key)
-        } catch {
-            throw Error.persistenceFailure(error)
         }
     }
     
     func removeAllEntries() async throws {
-        do {
+        try await mapPersistenceError {
             try await valueStore.allValuesDeleter()
+        }
+    }
+}
+
+private extension Storage {
+    func mapPersistenceError<T>(_ work: () async throws -> T) async throws -> T {
+        do {
+            return try await work()
         } catch {
             throw Error.persistenceFailure(error)
         }
