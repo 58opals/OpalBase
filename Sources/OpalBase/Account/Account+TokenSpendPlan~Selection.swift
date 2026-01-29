@@ -3,15 +3,6 @@
 import Foundation
 
 extension Account {
-    func resolveTokenCategory(from transfer: TokenTransfer) throws -> CashTokens.CategoryID {
-        let categories = transfer.recipients.map(\.tokenData.category) + transfer.burns.map(\.tokenData.category)
-        guard let firstCategory = categories.first else { throw Error.tokenTransferHasNoRecipients }
-        if categories.contains(where: { $0 != firstCategory }) {
-            throw Error.tokenTransferRequiresSingleCategory
-        }
-        return firstCategory
-    }
-    
     func selectTokenInputs(from unspentOutputs: [Transaction.Output.Unspent],
                            requirements: TokenRequirements) throws -> [Transaction.Output.Unspent] {
         guard requirements.fungibleAmount > 0 || !requirements.nonFungibleTokens.isEmpty else {

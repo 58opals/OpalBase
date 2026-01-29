@@ -38,18 +38,6 @@ extension Address.Book.Inventory {
             return entries.indices.contains(index) ? entries[index] : nil
         }
         
-        func locateEntry(for address: Address) -> (usage: DerivationPath.Usage, index: Int)? {
-            if let index = receivingEntries.firstIndex(where: { $0.address == address }) {
-                return (.receiving, index)
-            }
-            
-            if let index = changeEntries.firstIndex(where: { $0.address == address }) {
-                return (.change, index)
-            }
-            
-            return nil
-        }
-        
         mutating func appendEntry(_ entry: Address.Book.Entry, usage: DerivationPath.Usage) {
             updateEntries(for: usage) { $0.append(entry) }
         }

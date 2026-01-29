@@ -149,3 +149,13 @@ extension Account {
         }
     }
 }
+
+extension Account {
+    func mapAddressBookError<T>(_ work: () async throws -> T) async throws -> T {
+        do {
+            return try await work()
+        } catch let error as Address.Book.Error {
+            throw Self.makeAccountError(from: error)
+        }
+    }
+}

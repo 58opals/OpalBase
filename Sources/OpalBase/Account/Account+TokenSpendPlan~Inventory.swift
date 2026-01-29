@@ -19,35 +19,6 @@ extension Account {
 }
 
 extension Account {
-    func makeTokenRequirements(for transfer: TokenTransfer,
-                               category: CashTokens.CategoryID) throws -> TokenRequirements {
-        var fungibleAmount: UInt64 = 0
-        var nonFungibleTokens: [Address.Book.TokenInventory.NonFungibleTokenGroup: Int] = .init()
-        for recipient in transfer.recipients {
-            fungibleAmount = try fungibleAmount.addingOrThrow(recipient.tokenData.amount ?? 0,
-                                                              overflowError: Error.paymentExceedsMaximumAmount)
-            if let nonFungibleToken = recipient.tokenData.nft {
-                let group = Address.Book.TokenInventory.NonFungibleTokenGroup(category: category,
-                                                                              commitment: nonFungibleToken.commitment,
-                                                                              capability: nonFungibleToken.capability)
-                nonFungibleTokens[group, default: 0] += 1
-            }
-        }
-        for burn in transfer.burns {
-            fungibleAmount = try fungibleAmount.addingOrThrow(burn.tokenData.amount ?? 0,
-                                                              overflowError: Error.paymentExceedsMaximumAmount)
-            if let nonFungibleToken = burn.tokenData.nft {
-                let group = Address.Book.TokenInventory.NonFungibleTokenGroup(category: category,
-                                                                              commitment: nonFungibleToken.commitment,
-                                                                              capability: nonFungibleToken.capability)
-                nonFungibleTokens[group, default: 0] += 1
-            }
-        }
-        return TokenRequirements(category: category,
-                                 fungibleAmount: fungibleAmount,
-                                 nonFungibleTokens: nonFungibleTokens)
-    }
-    
     func makeTokenRequirementsByCategory(for transfer: TokenTransfer) throws -> TokenRequirementsByCategory {
         var requirementsByCategory: TokenRequirementsByCategory = .init()
         

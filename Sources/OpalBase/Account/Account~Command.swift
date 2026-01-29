@@ -33,23 +33,19 @@ extension Account {
                                           usage: DerivationPath.Usage? = nil,
                                           includeUnconfirmed: Bool = true,
                                           transactionReader: Network.TransactionReadable? = nil) async throws -> Transaction.History.ChangeSet {
-        do {
-            return try await addressBook.refreshTransactionHistory(using: service,
-                                                                   usage: usage,
-                                                                   includeUnconfirmed: includeUnconfirmed,
-                                                                   transactionReader: transactionReader)
-        } catch let error as Address.Book.Error {
-            throw Self.makeAccountError(from: error)
+        try await mapAddressBookError {
+            try await addressBook.refreshTransactionHistory(using: service,
+                                                            usage: usage,
+                                                            includeUnconfirmed: includeUnconfirmed,
+                                                            transactionReader: transactionReader)
         }
     }
     
     public func updateTransactionConfirmations(using handler: Network.TransactionConfirming,
                                                for transactionHashes: [Transaction.Hash]) async throws -> Transaction.History.ChangeSet {
-        do {
-            return try await addressBook.updateTransactionConfirmations(using: handler,
-                                                                        for: transactionHashes)
-        } catch let error as Address.Book.Error {
-            throw Self.makeAccountError(from: error)
+        try await mapAddressBookError {
+            try await addressBook.updateTransactionConfirmations(using: handler,
+                                                                 for: transactionHashes)
         }
     }
     
