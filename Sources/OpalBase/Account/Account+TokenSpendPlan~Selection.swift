@@ -72,9 +72,8 @@ extension Account {
                                  changeLockingScript: Data) throws -> [Transaction.Output.Unspent] {
         let bitcoinCashOnlyOutputs = unspentOutputs.filter { $0.tokenData == nil }
         let targetAmount = try outputs.sumSatoshi(or: Error.paymentExceedsMaximumAmount) { try Satoshi($0.value) }.uint64
-        let changeTemplate = Transaction.Output(value: 0, lockingScript: changeLockingScript)
         let configuration = Address.Book.CoinSelection.Configuration(recipientOutputs: outputs,
-                                                                     outputsWithChange: outputs + [changeTemplate],
+                                                                     changeLockingScript: changeLockingScript,
                                                                      strategy: .greedyLargestFirst,
                                                                      shouldAllowDustDonation: shouldAllowDustDonation,
                                                                      tokenSelectionPolicy: .excludeTokenUTXOs)
@@ -85,36 +84,36 @@ extension Account {
                                                     total: total,
                                                     inputCount: inputCount,
                                                     targetAmount: targetAmount,
-                                                    recipientOutputs: outputs,
-                                                    outputsWithChange: outputs + [changeTemplate],
+                                                    recipientOutputs: configuration.recipientOutputs,
+                                                    outputsWithChange: configuration.outputsWithChange,
                                                     minimumRelayFeeRate: minimumRelayFeeRate,
                                                     feePerByte: feeRate)
         }
         
         var selected: [Transaction.Output.Unspent] = .init()
-        var total = try existingInputs.reduce(0) { result, output in
-            try result.addingOrThrow(Int(output.value),
-                                     overflowError: Error.paymentExceedsMaximumAmount)
+        var total: UInt64 = try existingInputs.reduce(0) { partial, output in
+            try partial.addingOrThrow(output.value,
+                                      overflowError: Error.paymentExceedsMaximumAmount)
         }
-        if try evaluate(total: UInt64(total), inputCount: existingInputs.count) != nil {
+        if try evaluate(total: total, inputCount: existingInputs.count) != nil {
             return selected
         }
         
         for output in bitcoinCashOnlyOutputs {
             selected.append(output)
-            total = try total.addingOrThrow(Int(output.value),
+            total = try total.addingOrThrow(output.value,
                                             overflowError: Error.paymentExceedsMaximumAmount)
-            if try evaluate(total: UInt64(total), inputCount: existingInputs.count + selected.count) != nil {
+            if try evaluate(total: total, inputCount: existingInputs.count + selected.count) != nil {
                 return selected
             }
         }
         
         let feeWithChange = try Transaction.estimateFee(inputCount: existingInputs.count + selected.count,
-                                                        outputs: outputs + [changeTemplate],
+                                                        outputs: configuration.outputsWithChange,
                                                         feePerByte: feeRate)
         let requiredWithChange = try targetAmount.addingOrThrow(feeWithChange,
                                                                 overflowError: Error.paymentExceedsMaximumAmount)
-        let requiredAdditional = requiredWithChange > total ? Int(requiredWithChange) - total : 0
-        throw Error.tokenTransferInsufficientFunds(required: UInt64(requiredAdditional))
+        let requiredAdditional = requiredWithChange > total ? (requiredWithChange - total) : 0
+        throw Error.tokenTransferInsufficientFunds(required: requiredAdditional)
     }
 }
