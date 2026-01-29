@@ -37,7 +37,10 @@ private extension Wallet {
                               into totals: inout [CashTokens.CategoryID: UInt64]) throws {
         for (category, amount) in additions {
             let current = totals[category] ?? 0
-            totals[category] = try addTokenAmounts(current, amount)
+            totals[category] = try current.addingOrThrow(
+                amount,
+                overflowError: Account.Error.paymentExceedsMaximumAmount
+            )
         }
     }
     
@@ -46,13 +49,5 @@ private extension Wallet {
         for (group, count) in additions {
             totals[group, default: 0] += count
         }
-    }
-    
-    func addTokenAmounts(_ left: UInt64, _ right: UInt64) throws -> UInt64 {
-        let (sum, overflow) = left.addingReportingOverflow(right)
-        if overflow {
-            throw Account.Error.paymentExceedsMaximumAmount
-        }
-        return sum
     }
 }

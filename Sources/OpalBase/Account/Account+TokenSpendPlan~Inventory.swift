@@ -24,7 +24,8 @@ extension Account {
         var fungibleAmount: UInt64 = 0
         var nonFungibleTokens: [Address.Book.TokenInventory.NonFungibleTokenGroup: Int] = .init()
         for recipient in transfer.recipients {
-            fungibleAmount = try addTokenAmounts(fungibleAmount, recipient.tokenData.amount ?? 0)
+            fungibleAmount = try fungibleAmount.addingOrThrow(recipient.tokenData.amount ?? 0,
+                                                              overflowError: Error.paymentExceedsMaximumAmount)
             if let nonFungibleToken = recipient.tokenData.nft {
                 let group = Address.Book.TokenInventory.NonFungibleTokenGroup(category: category,
                                                                               commitment: nonFungibleToken.commitment,
@@ -33,7 +34,8 @@ extension Account {
             }
         }
         for burn in transfer.burns {
-            fungibleAmount = try addTokenAmounts(fungibleAmount, burn.tokenData.amount ?? 0)
+            fungibleAmount = try fungibleAmount.addingOrThrow(burn.tokenData.amount ?? 0,
+                                                              overflowError: Error.paymentExceedsMaximumAmount)
             if let nonFungibleToken = burn.tokenData.nft {
                 let group = Address.Book.TokenInventory.NonFungibleTokenGroup(category: category,
                                                                               commitment: nonFungibleToken.commitment,
@@ -56,7 +58,10 @@ extension Account {
                                                                                      nonFungibleTokens: .init())
             if let amount = tokenData.amount {
                 requirements = TokenRequirements(category: category,
-                                                 fungibleAmount: try addTokenAmounts(requirements.fungibleAmount, amount),
+                                                 fungibleAmount: try requirements.fungibleAmount.addingOrThrow(
+                                                    amount,
+                                                    overflowError: Error.paymentExceedsMaximumAmount
+                                                 ),
                                                  nonFungibleTokens: requirements.nonFungibleTokens)
             }
             if let nonFungibleToken = tokenData.nft {
@@ -89,7 +94,8 @@ extension Account {
         for unspentOutput in unspentOutputs {
             guard let tokenData = unspentOutput.tokenData else { continue }
             if let amount = tokenData.amount {
-                fungibleAmount = try addTokenAmounts(fungibleAmount, amount)
+                fungibleAmount = try fungibleAmount.addingOrThrow(amount,
+                                                                  overflowError: Error.paymentExceedsMaximumAmount)
             }
             if let nonFungibleToken = tokenData.nft {
                 let group = Address.Book.TokenInventory.NonFungibleTokenGroup(category: tokenData.category,
@@ -168,11 +174,5 @@ extension Account {
                                               tokenData: tokenData))
         }
         return outputs
-    }
-    
-    func addTokenAmounts(_ left: UInt64, _ right: UInt64) throws -> UInt64 {
-        let (sum, overflow) = left.addingReportingOverflow(right)
-        if overflow { throw Error.paymentExceedsMaximumAmount }
-        return sum
     }
 }

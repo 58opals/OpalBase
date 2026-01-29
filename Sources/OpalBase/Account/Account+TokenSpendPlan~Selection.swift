@@ -93,16 +93,18 @@ extension Account {
         
         var selected: [Transaction.Output.Unspent] = .init()
         var total = try existingInputs.reduce(0) { result, output in
-            try addOrThrow(result, output.value)
+            try result.addingOrThrow(Int(output.value),
+                                     overflowError: Error.paymentExceedsMaximumAmount)
         }
-        if try evaluate(total: total, inputCount: existingInputs.count) != nil {
+        if try evaluate(total: UInt64(total), inputCount: existingInputs.count) != nil {
             return selected
         }
         
         for output in bitcoinCashOnlyOutputs {
             selected.append(output)
-            total = try addOrThrow(total, output.value)
-            if try evaluate(total: total, inputCount: existingInputs.count + selected.count) != nil {
+            total = try total.addingOrThrow(Int(output.value),
+                                            overflowError: Error.paymentExceedsMaximumAmount)
+            if try evaluate(total: UInt64(total), inputCount: existingInputs.count + selected.count) != nil {
                 return selected
             }
         }
@@ -110,14 +112,9 @@ extension Account {
         let feeWithChange = try Transaction.estimateFee(inputCount: existingInputs.count + selected.count,
                                                         outputs: outputs + [changeTemplate],
                                                         feePerByte: feeRate)
-        let requiredWithChange = try addOrThrow(targetAmount, feeWithChange)
-        let requiredAdditional = requiredWithChange > total ? requiredWithChange - total : 0
-        throw Error.tokenTransferInsufficientFunds(required: requiredAdditional)
-    }
-    
-    func addOrThrow(_ left: UInt64, _ right: UInt64) throws -> UInt64 {
-        let (sum, overflow) = left.addingReportingOverflow(right)
-        if overflow { throw Error.paymentExceedsMaximumAmount }
-        return sum
+        let requiredWithChange = try targetAmount.addingOrThrow(feeWithChange,
+                                                                overflowError: Error.paymentExceedsMaximumAmount)
+        let requiredAdditional = requiredWithChange > total ? Int(requiredWithChange) - total : 0
+        throw Error.tokenTransferInsufficientFunds(required: UInt64(requiredAdditional))
     }
 }

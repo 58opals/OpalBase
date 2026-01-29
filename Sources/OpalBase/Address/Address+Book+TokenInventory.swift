@@ -105,7 +105,10 @@ private extension Address.Book {
             guard let tokenData = utxo.tokenData else { continue }
             if let amount = tokenData.amount {
                 let current = fungibleAmountsByCategory[tokenData.category] ?? 0
-                fungibleAmountsByCategory[tokenData.category] = try addTokenAmounts(current, amount)
+                fungibleAmountsByCategory[tokenData.category] = try current.addingOrThrow(
+                    amount,
+                    overflowError: Error.paymentExceedsMaximumAmount
+                )
             }
             if let nonFungibleToken = tokenData.nft {
                 let group = TokenInventory.NonFungibleTokenGroup(category: tokenData.category,
@@ -116,13 +119,5 @@ private extension Address.Book {
         }
         return TokenInventory(fungibleAmountsByCategory: fungibleAmountsByCategory,
                               nonFungibleTokensByGroup: nonFungibleTokensByGroup)
-    }
-    
-    func addTokenAmounts(_ left: UInt64, _ right: UInt64) throws -> UInt64 {
-        let (sum, overflow) = left.addingReportingOverflow(right)
-        if overflow {
-            throw Error.paymentExceedsMaximumAmount
-        }
-        return sum
     }
 }

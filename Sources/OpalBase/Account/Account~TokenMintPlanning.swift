@@ -30,14 +30,14 @@ extension Account {
             authorityInput = selectedAuthorityInput
         }
         
-        let requiredFungibleOut = try mint.recipients.reduce(0) { result, recipient in
-            let recipientAmount = recipient.fungibleAmount ?? 0
-            return Int(try addOrThrow(UInt64(result), recipientAmount))
+        let requiredFungibleOut: UInt64 = try mint.recipients.reduce(UInt64(0)) { total, recipient in
+            try total.addingOrThrow(recipient.fungibleAmount ?? 0,
+                                    overflowError: Error.paymentExceedsMaximumAmount)
         }
-        let authorityFungibleIn = authorityInput.tokenData?.amount ?? 0
+        let authorityFungibleIn: UInt64 = authorityInput.tokenData?.amount ?? 0
         
         var extraFungibleInputs: [Transaction.Output.Unspent] = .init()
-        var totalSelectedFungible = authorityFungibleIn
+        var totalSelectedFungible: UInt64 = authorityFungibleIn
         if requiredFungibleOut > authorityFungibleIn {
             let fungibleCandidates = spendableOutputs
                 .filter { output in
@@ -54,7 +54,10 @@ extension Account {
             for candidate in fungibleCandidates {
                 extraFungibleInputs.append(candidate)
                 let amount = candidate.tokenData?.amount ?? 0
-                totalSelectedFungible = try addOrThrow(totalSelectedFungible, amount)
+                totalSelectedFungible = try totalSelectedFungible.addingOrThrow(
+                    amount,
+                    overflowError: Error.paymentExceedsMaximumAmount
+                )
                 if totalSelectedFungible >= requiredFungibleOut {
                     break
                 }
@@ -81,9 +84,9 @@ extension Account {
         }
         
         let selectedTokenInputs = [authorityInput] + extraFungibleInputs
-        let totalFungibleIn = try selectedTokenInputs.reduce(0) { result, output in
-            let amount = output.tokenData?.amount ?? 0
-            return Int(try addOrThrow(UInt64(result), amount))
+        let totalFungibleIn: UInt64 = try selectedTokenInputs.reduce(UInt64(0)) { total, output in
+            try total.addingOrThrow(output.tokenData?.amount ?? 0,
+                                    overflowError: Error.paymentExceedsMaximumAmount)
         }
         guard totalFungibleIn >= requiredFungibleOut else {
             throw Error.tokenMintInsufficientFungible
@@ -101,7 +104,7 @@ extension Account {
         case .toWalletChange:
             
             let authorityToken = CashTokens.TokenData(category: mint.category,
-                                                      amount: UInt64(preservedFungible) > 0 ? UInt64(preservedFungible) : nil,
+                                                      amount: preservedFungible > 0 ? preservedFungible : nil,
                                                       nft: authorityNonFungibleToken)
             authorityReturnOutput = try makeTokenOutput(
                 address: tokenChangeAddress,
@@ -120,7 +123,7 @@ extension Account {
             )
             if preservedFungible > 0 {
                 let fungibleToken = CashTokens.TokenData(category: mint.category,
-                                                         amount: UInt64(preservedFungible),
+                                                         amount: preservedFungible,
                                                          nft: nil)
                 fungiblePreservationOutput = try makeTokenOutput(
                     address: tokenChangeAddress,
@@ -131,7 +134,7 @@ extension Account {
         case .burn:
             if preservedFungible > 0 {
                 let fungibleToken = CashTokens.TokenData(category: mint.category,
-                                                         amount: UInt64(preservedFungible),
+                                                         amount: preservedFungible,
                                                          nft: nil)
                 fungiblePreservationOutput = try makeTokenOutput(
                     address: tokenChangeAddress,

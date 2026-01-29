@@ -43,7 +43,8 @@ extension Address.Book.CoinSelector {
         for utxo in utxos {
             selection.append(utxo)
             
-            total = try addOrThrow(total, utxo.value)
+            total = try total.addingOrThrow(utxo.value,
+                                            overflowError: Address.Book.Error.paymentExceedsMaximumAmount)
             
             if try evaluate(selection: selection, sum: total) != nil {
                 return selection
@@ -85,12 +86,19 @@ extension Address.Book.CoinSelector {
             let minimalFee = try Transaction.estimateFee(inputCount: selection.count,
                                                          outputs: configuration.recipientOutputs,
                                                          feePerByte: feePerByte)
-            let minimalRequirement = try addOrThrow(targetAmount, minimalFee)
-            let sumWithRemaining = try addOrThrow(sum, remaining)
+            let minimalRequirement = try targetAmount.addingOrThrow(
+                minimalFee,
+                overflowError: Address.Book.Error.paymentExceedsMaximumAmount
+            )
+            let sumWithRemaining = try sum.addingOrThrow(remaining,
+                                                         overflowError: Address.Book.Error.paymentExceedsMaximumAmount)
             if sumWithRemaining < minimalRequirement { return }
             var selectionIncludingCurrent = selection
             selectionIncludingCurrent.append(utxos[index])
-            let sumIncludingCurrent = try addOrThrow(sum, utxos[index].value)
+            let sumIncludingCurrent = try sum.addingOrThrow(
+                utxos[index].value,
+                overflowError: Address.Book.Error.paymentExceedsMaximumAmount
+            )
             
             try explore(index: index + 1,
                         selection: selectionIncludingCurrent,
@@ -120,16 +128,13 @@ extension Address.Book.CoinSelector {
         
         var suffixTotals: [UInt64] = Array(repeating: 0, count: utxos.count + 1)
         for index in stride(from: utxos.count - 1, through: 0, by: -1) {
-            suffixTotals[index] = try addOrThrow(suffixTotals[index + 1], utxos[index].value)
+            suffixTotals[index] = try suffixTotals[index + 1].addingOrThrow(
+                utxos[index].value,
+                overflowError: Address.Book.Error.paymentExceedsMaximumAmount
+            )
         }
         
         return suffixTotals
-    }
-    
-    private func addOrThrow(_ left: UInt64, _ right: UInt64) throws -> UInt64 {
-        let (sum, overflow) = left.addingReportingOverflow(right)
-        if overflow { throw Address.Book.Error.paymentExceedsMaximumAmount }
-        return sum
     }
 }
 
