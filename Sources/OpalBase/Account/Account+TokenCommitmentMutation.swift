@@ -42,18 +42,17 @@ extension Account {
 
 private enum TokenCommitmentMutationValidation {
     static func validateCommitment(_ commitment: Data) throws {
-        let maximumCommitmentByteCount = TokenOperationValidation.maximumCommitmentByteCount
-        guard commitment.count <= maximumCommitmentByteCount else {
-            throw Account.Error.tokenMutationNonFungibleTokenCommitmentTooLong(
-                maximum: maximumCommitmentByteCount,
-                actual: commitment.count
+        try TokenOperationValidation.validateCommitmentLength(commitment) { maximum, actual in
+            Account.Error.tokenMutationNonFungibleTokenCommitmentTooLong(
+                maximum: maximum,
+                actual: actual
             )
         }
     }
     
     static func validateDestination(_ destination: Address) throws {
-        guard destination.supportsTokens else {
-            throw Account.Error.tokenMutationRequiresTokenAwareAddress([destination])
+        try TokenOperationValidation.requireTokenAwareAddress(destination) { offending in
+            Account.Error.tokenMutationRequiresTokenAwareAddress(offending)
         }
     }
 }

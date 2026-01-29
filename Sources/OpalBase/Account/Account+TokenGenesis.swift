@@ -95,11 +95,10 @@ private enum TokenGenesisValidation {
     }
     
     static func validateCommitment(_ commitment: Data) throws {
-        let maximumCommitmentByteCount = TokenOperationValidation.maximumCommitmentByteCount
-        guard commitment.count <= maximumCommitmentByteCount else {
-            throw Account.Error.tokenGenesisNonFungibleTokenCommitmentTooLong(
-                maximum: maximumCommitmentByteCount,
-                actual: commitment.count
+        try TokenOperationValidation.validateCommitmentLength(commitment) { maximum, actual in
+            Account.Error.tokenGenesisNonFungibleTokenCommitmentTooLong(
+                maximum: maximum,
+                actual: actual
             )
         }
     }

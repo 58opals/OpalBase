@@ -81,8 +81,8 @@ private enum TokenMintValidation {
     static func validateAuthorityReturn(_ authorityReturn: Account.TokenMint.AuthorityReturn) throws {
         switch authorityReturn {
         case .toAddress(let address, _):
-            guard address.supportsTokens else {
-                throw Account.Error.tokenMintRequiresTokenAwareAddress([address])
+            try TokenOperationValidation.requireTokenAwareAddress(address) { offending in
+                Account.Error.tokenMintRequiresTokenAwareAddress(offending)
             }
         case .toWalletChange, .burn:
             break
@@ -108,11 +108,10 @@ private enum TokenMintValidation {
     }
     
     static func validateCommitment(_ commitment: Data) throws {
-        let maximumCommitmentByteCount = TokenOperationValidation.maximumCommitmentByteCount
-        guard commitment.count <= maximumCommitmentByteCount else {
-            throw Account.Error.tokenMintNonFungibleTokenCommitmentTooLong(
-                maximum: maximumCommitmentByteCount,
-                actual: commitment.count
+        try TokenOperationValidation.validateCommitmentLength(commitment) { maximum, actual in
+            Account.Error.tokenMintNonFungibleTokenCommitmentTooLong(
+                maximum: maximum,
+                actual: actual
             )
         }
     }
