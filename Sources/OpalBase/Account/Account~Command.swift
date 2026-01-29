@@ -70,16 +70,6 @@ extension Account {
         if payment.recipients.contains(where: { $0.tokenData != nil }) { throw Error.paymentDoesNotSupportTokensUseTokenTransfer }
         if payment.tokenSelectionPolicy == .allowTokenUTXOs { throw Error.paymentCannotSpendTokenUTXOs }
         
-        if !payment.shouldAllowUnsafeTokenTransfers {
-            let unsafeTokenRecipients = payment.recipients.filter { recipient in
-                recipient.tokenData != nil && !recipient.address.supportsTokens
-            }
-            if !unsafeTokenRecipients.isEmpty {
-                let unsafeAddresses = unsafeTokenRecipients.map { $0.address }
-                throw Error.tokenSendRequiresTokenAwareAddress(unsafeAddresses)
-            }
-        }
-        
         let targetAmount = try payment.recipients.sumSatoshi(or: Error.paymentExceedsMaximumAmount) { recipient in
             recipient.amount
         }
