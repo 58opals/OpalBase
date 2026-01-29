@@ -24,7 +24,11 @@ extension Account {
         
         var selectedTokenInputs: [Transaction.Output.Unspent] = .init()
         var remainingInventories: [TokenInventory] = .init()
-        for (category, requirements) in requirementsByCategory {
+        let orderedCategories = requirementsByCategory.keys.sorted { left, right in
+            left.transactionOrderData.lexicographicallyPrecedes(right.transactionOrderData)
+        }
+        for category in orderedCategories {
+            guard let requirements = requirementsByCategory[category] else { continue }
             let spendableForCategory = spendableTokenByCategory[category] ?? .init()
             let selected = try selectTokenInputs(from: spendableForCategory, requirements: requirements)
             selectedTokenInputs += selected

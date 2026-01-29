@@ -124,6 +124,10 @@ extension Address.Book {
             allUTXOs
         }
         
+        func listSpendableUTXOs() -> [Transaction.Output.Unspent] {
+            Array(spendableUTXOs)
+        }
+        
         func listUTXOs(for address: Address) -> [Transaction.Output.Unspent] {
             let lockingScript = address.lockingScript.data
             guard let utxos = utxosByLockingScript[lockingScript] else {
@@ -221,6 +225,10 @@ extension Address.Book {
     
     func listUTXOs() -> Set<Transaction.Output.Unspent> {
         utxoStore.listUTXOs()
+    }
+    
+    func listSpendableUTXOs() -> [Transaction.Output.Unspent] {
+        utxoStore.listSpendableUTXOs()
     }
     
     func listUTXOs(for address: Address) -> [Transaction.Output.Unspent] {

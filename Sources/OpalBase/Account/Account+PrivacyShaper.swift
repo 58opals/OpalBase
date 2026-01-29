@@ -6,10 +6,11 @@ extension Account {
     public actor PrivacyShaper {
         private struct AnyOperation: Sendable {
             let execute: @Sendable () async -> Void
+            let cancel: @Sendable () -> Void
         }
         
         private let configuration: Configuration
-        private var pendingOperations: [UUID: AnyOperation] = .init()
+        private var pendingOperations: [AnyOperation] = .init()
         private var batchingTask: Task<Void, Never>?
         private var generator = SystemRandomNumberGenerator()
         
@@ -19,6 +20,11 @@ extension Account {
         
         deinit {
             batchingTask?.cancel()
+            let operations = pendingOperations
+            pendingOperations.removeAll()
+            for operation in operations {
+                operation.cancel()
+            }
         }
     }
 }
@@ -42,17 +48,21 @@ extension Account.PrivacyShaper {
     ) async throws -> Result {
         
         try await withCheckedThrowingContinuation { continuation in
-            let identifier = UUID()
-            pendingOperations[identifier] = AnyOperation {
-                await self.performWithJitter {
-                    do {
-                        let value = try await operation()
-                        continuation.resume(returning: value)
-                    } catch {
-                        continuation.resume(throwing: error)
+            pendingOperations.append(AnyOperation(
+                execute: {
+                    await self.performWithJitter {
+                        do {
+                            let value = try await operation()
+                            continuation.resume(returning: value)
+                        } catch {
+                            continuation.resume(throwing: error)
+                        }
                     }
+                },
+                cancel: {
+                    continuation.resume(throwing: CancellationError())
                 }
-            }
+            ))
             
             enqueueDecoys(decoys)
             scheduleBatchIfNeeded()
@@ -77,12 +87,14 @@ extension Account.PrivacyShaper {
     private func enqueueDecoys(_ decoys: [@Sendable () async -> Void]) {
         guard !decoys.isEmpty else { return }
         for decoy in decoys {
-            let identifier = UUID()
-            pendingOperations[identifier] = AnyOperation {
-                await self.performWithJitter {
-                    await decoy()
-                }
-            }
+            pendingOperations.append(AnyOperation(
+                execute: {
+                    await self.performWithJitter {
+                        await decoy()
+                    }
+                },
+                cancel: {}
+            ))
         }
     }
     
@@ -98,7 +110,7 @@ extension Account.PrivacyShaper {
     }
     
     private func flushPending() async {
-        let operations = Array(pendingOperations.values)
+        let operations = pendingOperations
         pendingOperations.removeAll()
         batchingTask = nil
         

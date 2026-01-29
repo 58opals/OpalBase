@@ -7,8 +7,9 @@ extension Account {
         feePolicy: Wallet.FeePolicy = .init(),
         using entryUsage: DerivationPath.Usage = .change
     ) async throws -> SpendPlan {
-        let spendableOutputs = await addressBook.sortSpendableUTXOs(by: { $0.value > $1.value })
-        guard let selectedOutput = spendableOutputs.first(where: { $0.tokenData == nil }) else {
+        let spendableOutputs = await addressBook.listSpendableUTXOs()
+        guard let selectedOutput = selectMaximumSpendableOutput(from: spendableOutputs,
+                                                                matching: { $0.tokenData == nil }) else {
             throw Error.tokenGenesisNoEligibleGenesisInput
         }
         
