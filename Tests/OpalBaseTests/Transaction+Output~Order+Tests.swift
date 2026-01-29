@@ -2,7 +2,7 @@ import Foundation
 import Testing
 @testable import OpalBase
 
-@Suite("Transaction Output Ordering", .tags(.unit, .transaction))
+@Suite("Transaction output ordering", .tags(.unit, .transaction))
 struct TransactionOutputOrderTests {
     @Test("applyBIP69Ordering sorts token presence after locking script bytes")
     func testApplyBIP69OrderingSortsTokenPresence() throws {
