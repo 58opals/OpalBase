@@ -72,7 +72,7 @@ extension Address.Book {
     
     public func calculateUnspentOutputBalances() async throws -> UnspentOutputBalances {
         let utxos = listUTXOs()
-        var tokenUTXOs: Set<Transaction.Output.Unspent> = []
+        var tokenUTXOs: Set<Transaction.Output.Unspent> = .init()
         tokenUTXOs.reserveCapacity(utxos.count)
         
         var bchTotal: Satoshi = try .init(0)
