@@ -70,11 +70,8 @@ private enum TokenMintValidation {
     }
     
     static func validateRecipients(_ recipients: [Account.TokenMint.Recipient]) throws {
-        let nonTokenAwareAddresses = recipients
-            .map(\.address)
-            .filter { !$0.supportsTokens }
-        if !nonTokenAwareAddresses.isEmpty {
-            throw Account.Error.tokenMintRequiresTokenAwareAddress(nonTokenAwareAddresses)
+        try TokenOperationValidation.requireTokenAwareAddresses(recipients.map(\.address)) { offending in
+            Account.Error.tokenMintRequiresTokenAwareAddress(offending)
         }
     }
     
@@ -96,8 +93,8 @@ private enum TokenMintValidation {
     }
     
     static func validateFungibleAmount(_ fungibleAmount: UInt64?) throws {
-        if let fungibleAmount, fungibleAmount == 0 {
-            throw Account.Error.tokenMintFungibleAmountIsZero
+        try TokenOperationValidation.requireNonZeroFungibleAmount(fungibleAmount) {
+            Account.Error.tokenMintFungibleAmountIsZero
         }
     }
     

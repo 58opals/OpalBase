@@ -77,14 +77,14 @@ private enum TokenGenesisValidation {
     }
     
     static func validateFungibleAmount(_ amount: UInt64?) throws {
-        if let amount, amount == 0 {
-            throw Account.Error.tokenGenesisFungibleAmountIsZero
+        try TokenOperationValidation.requireNonZeroFungibleAmount(amount) {
+            Account.Error.tokenGenesisFungibleAmountIsZero
         }
     }
     
     static func validateFungibleAmount(_ amount: UInt64) throws {
-        if amount == 0 {
-            throw Account.Error.tokenGenesisFungibleAmountIsZero
+        try TokenOperationValidation.requireNonZeroFungibleAmount(amount) {
+            Account.Error.tokenGenesisFungibleAmountIsZero
         }
     }
     

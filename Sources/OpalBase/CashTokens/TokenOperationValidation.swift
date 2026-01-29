@@ -22,4 +22,26 @@ enum TokenOperationValidation {
             throw makeError([address])
         }
     }
+    
+    static func requireTokenAwareAddresses(
+        _ addresses: [Address],
+        makeError: (_ offending: [Address]) -> Swift.Error
+    ) throws {
+        let offending = addresses.filter { !$0.supportsTokens }
+        guard offending.isEmpty else {
+            throw makeError(offending)
+        }
+    }
+    
+    static func requireNonZeroFungibleAmount(
+        _ amount: UInt64?,
+        makeError: () -> Swift.Error
+    ) throws {
+        guard let amount else {
+            return
+        }
+        guard amount > 0 else {
+            throw makeError()
+        }
+    }
 }
