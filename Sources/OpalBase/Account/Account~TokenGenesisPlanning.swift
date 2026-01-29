@@ -131,6 +131,7 @@ extension Account {
             tokenSelectionPolicy: .excludeTokenUTXOs,
             mapReservationError: { Error.coinSelectionFailed($0) }
         )
+        let reservationHandle = Account.SpendReservation(addressBook: addressBook, reservation: reservation)
         let changeOutput = Transaction.Output(value: initialChangeAmount.uint64, address: reservedChangeEntry.address)
         
         return TokenGenesisPlan(genesis: genesis,
@@ -139,10 +140,8 @@ extension Account {
                                 genesisInput: genesisInput,
                                 bitcoinCashInputs: bitcoinCashInputs,
                                 outputs: organizedOutputs,
-                                addressBook: addressBook,
-                                reservation: reservation,
+                                reservationHandle: reservationHandle,
                                 privateKeys: privateKeys,
-                                changeEntry: reservation.changeEntry,
                                 changeOutput: changeOutput,
                                 plannedMintedOutputs: rawOutputs,
                                 shouldAllowDustDonation: genesis.shouldAllowDustDonation,

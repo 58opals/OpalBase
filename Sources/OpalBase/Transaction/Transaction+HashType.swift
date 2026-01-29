@@ -3,8 +3,8 @@
 import Foundation
 
 extension Transaction {
-    public struct HashType {
-        public enum Mode {
+    public struct HashType: Sendable {
+        public enum Mode: Sendable {
             case all
             case none
             case single

@@ -120,6 +120,7 @@ extension Account {
             tokenSelectionPolicy: .allowTokenUTXOs,
             mapReservationError: { Error.tokenSelectionFailed($0) }
         )
+        let reservationHandle = Account.SpendReservation(addressBook: addressBook, reservation: reservation)
         let changeOutput = Transaction.Output(value: initialChangeAmount.uint64, address: reservedChangeEntry.address)
         
         return TokenCommitmentMutationPlan(mutation: mutation,
@@ -130,9 +131,7 @@ extension Account {
                                            fungiblePreservationOutput: fungiblePreservationOutput,
                                            bitcoinCashChangeOutput: changeOutput,
                                            shouldAllowDustDonation: mutation.shouldAllowDustDonation,
-                                           addressBook: addressBook,
-                                           changeEntry: reservation.changeEntry,
-                                           reservation: reservation,
+                                           reservationHandle: reservationHandle,
                                            privateKeys: privateKeys,
                                            organizedTokenOutputs: organizedTokenOutputs,
                                            shouldRandomizeRecipientOrdering: privacyConfiguration.shouldRandomizeRecipientOrdering)

@@ -1,4 +1,4 @@
-// Account+TokenGenesisOutpoint.swift
+// Account~TokenGenesisOutpoint.swift
 
 import Foundation
 
@@ -62,6 +62,7 @@ extension Account {
             tokenSelectionPolicy: .excludeTokenUTXOs,
             mapReservationError: { Error.coinSelectionFailed($0) }
         )
+        let reservationHandle = Account.SpendReservation(addressBook: addressBook, reservation: reservation)
         let payment = Payment(recipients: [
             Payment.Recipient(address: reservedEntry.address, amount: outputValue)
         ])
@@ -75,9 +76,7 @@ extension Account {
                          totalSelectedAmount: inputValue,
                          targetAmount: outputValue,
                          shouldAllowDustDonation: false,
-                         addressBook: addressBook,
-                         changeEntry: reservedEntry,
-                         reservation: reservation,
+                         reservationHandle: reservationHandle,
                          changeOutput: changeOutput,
                          recipientOutputs: [recipientOutput],
                          privateKeys: privateKeys,

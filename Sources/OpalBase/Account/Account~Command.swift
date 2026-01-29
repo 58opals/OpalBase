@@ -134,7 +134,7 @@ extension Account {
             tokenSelectionPolicy: .excludeTokenUTXOs,
             mapReservationError: { Error.coinSelectionFailed($0) }
         )
-        
+        let reservationHandle = Account.SpendReservation(addressBook: addressBook, reservation: reservation)
         let changeOutput = Transaction.Output(value: initialChangeValue, address: reservedChangeEntry.address)
         
         return SpendPlan(payment: payment,
@@ -143,9 +143,7 @@ extension Account {
                          totalSelectedAmount: totalSelectedAmount,
                          targetAmount: targetAmount,
                          shouldAllowDustDonation: payment.shouldAllowDustDonation,
-                         addressBook: addressBook,
-                         changeEntry: reservedChangeEntry,
-                         reservation: reservation,
+                         reservationHandle: reservationHandle,
                          changeOutput: changeOutput,
                          recipientOutputs: organizedRecipientOutputs,
                          privateKeys: privateKeys,

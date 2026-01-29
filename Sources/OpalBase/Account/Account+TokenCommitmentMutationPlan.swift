@@ -34,11 +34,9 @@ extension Account {
         public let fungiblePreservationOutput: Transaction.Output?
         public let bitcoinCashChangeOutput: Transaction.Output
         public let shouldAllowDustDonation: Bool
-        public let reservationDate: Date
+        public var reservationDate: Date { reservationHandle.reservationDate }
         
-        private let addressBook: Address.Book
-        private let changeEntry: Address.Book.Entry
-        private let reservation: Address.Book.SpendReservation
+        private let reservationHandle: Account.SpendReservation
         private let privateKeys: [Transaction.Output.Unspent: PrivateKey]
         private let organizedTokenOutputs: [Transaction.Output]
         private let shouldRandomizeRecipientOrdering: Bool
@@ -51,9 +49,7 @@ extension Account {
              fungiblePreservationOutput: Transaction.Output?,
              bitcoinCashChangeOutput: Transaction.Output,
              shouldAllowDustDonation: Bool,
-             addressBook: Address.Book,
-             changeEntry: Address.Book.Entry,
-             reservation: Address.Book.SpendReservation,
+             reservationHandle: Account.SpendReservation,
              privateKeys: [Transaction.Output.Unspent: PrivateKey],
              organizedTokenOutputs: [Transaction.Output],
              shouldRandomizeRecipientOrdering: Bool) {
@@ -65,10 +61,7 @@ extension Account {
             self.fungiblePreservationOutput = fungiblePreservationOutput
             self.bitcoinCashChangeOutput = bitcoinCashChangeOutput
             self.shouldAllowDustDonation = shouldAllowDustDonation
-            self.reservationDate = reservation.reservationDate
-            self.addressBook = addressBook
-            self.changeEntry = changeEntry
-            self.reservation = reservation
+            self.reservationHandle = reservationHandle
             self.privateKeys = privateKeys
             self.organizedTokenOutputs = organizedTokenOutputs
             self.shouldRandomizeRecipientOrdering = shouldRandomizeRecipientOrdering
@@ -76,65 +69,39 @@ extension Account {
         
         public func buildTransaction(signatureFormat: ECDSA.SignatureFormat = .schnorr,
                                      unlockers: [Transaction.Output.Unspent: Transaction.Unlocker] = .init()) throws -> TransactionResult {
-            let outputOrderingStrategy: Transaction.OutputOrderingStrategy = shouldRandomizeRecipientOrdering ? .privacyRandomized : .canonicalBIP69
-            let transaction: Transaction
-            do {
-                transaction = try Transaction.build(utxoPrivateKeyPairs: privateKeys,
-                                                    recipientOutputs: organizedTokenOutputs,
-                                                    changeOutput: bitcoinCashChangeOutput,
-                                                    outputOrderingStrategy: outputOrderingStrategy,
-                                                    signatureFormat: signatureFormat,
-                                                    feePerByte: feeRate,
-                                                    shouldAllowDustDonation: shouldAllowDustDonation,
-                                                    unlockers: unlockers)
-            } catch {
-                throw Account.Error.transactionBuildFailed(error)
-            }
-            
-            let totalOutputAmount = try transaction.outputs.sumSatoshi(or: Account.Error.paymentExceedsMaximumAmount) {
-                try Satoshi($0.value)
-            }
-            let inputTotal = try ([authorityInput] + bitcoinCashInputs)
-                .sumSatoshi(or: Account.Error.paymentExceedsMaximumAmount) {
-                    try Satoshi($0.value)
-                }
-            let fee: Satoshi
-            do {
-                fee = try inputTotal - totalOutputAmount
-            } catch {
-                throw Account.Error.paymentExceedsMaximumAmount
-            }
-            
-            let bitcoinCashChange: TransactionResult.Change?
-            do {
-                bitcoinCashChange = try transaction.findBitcoinCashChange(for: changeEntry)
-            } catch {
-                throw Account.Error.transactionBuildFailed(error)
-            }
-            
-            var resolver = Transaction.Output.Resolver(outputs: transaction.outputs)
+            let core = try Account.buildTransactionCore(privateKeys: privateKeys,
+                                                        recipientOutputs: organizedTokenOutputs,
+                                                        changeOutput: bitcoinCashChangeOutput,
+                                                        feeRate: feeRate,
+                                                        shouldAllowDustDonation: shouldAllowDustDonation,
+                                                        shouldRandomizeRecipientOrdering: shouldRandomizeRecipientOrdering,
+                                                        changeEntry: reservationHandle.changeEntry,
+                                                        signatureFormat: signatureFormat,
+                                                        unlockers: unlockers,
+                                                        mapBuildError: Account.Error.transactionBuildFailed)
+            var resolver = Transaction.Output.Resolver(outputs: core.transaction.outputs)
             let resolvedMutatedOutput = resolver.popFirst(matching: mutatedTokenOutput) ?? mutatedTokenOutput
             let resolvedPreservationOutput: Transaction.Output? = fungiblePreservationOutput.flatMap { resolver.popFirst(matching: $0) } ?? fungiblePreservationOutput
             
-            return TransactionResult(transaction: transaction,
-                                     fee: fee,
+            return TransactionResult(transaction: core.transaction,
+                                     fee: core.fee,
                                      mutatedTokenOutput: resolvedMutatedOutput,
                                      fungiblePreservationOutput: resolvedPreservationOutput,
-                                     bitcoinCashChange: bitcoinCashChange)
+                                     bitcoinCashChange: core.bitcoinCashChange)
         }
         
         public func completeReservation() async throws {
-            try await addressBook.releaseSpendReservation(reservation, outcome: .completed)
+            try await reservationHandle.complete()
         }
         
         public func cancelReservation() async throws {
-            try await addressBook.releaseSpendReservation(reservation, outcome: .cancelled)
+            try await reservationHandle.cancel()
         }
         
         public func buildAndBroadcast(via handler: Network.TransactionHandling,
                                       signatureFormat: ECDSA.SignatureFormat = .schnorr,
                                       unlockers: [Transaction.Output.Unspent: Transaction.Unlocker] = .init()) async throws -> (hash: Transaction.Hash, result: TransactionResult) {
-            try await Transaction.BroadcastPlanner.buildAndBroadcast(
+            try await Account.planBuildAndBroadcast(
                 build: { try buildTransaction(signatureFormat: signatureFormat, unlockers: unlockers) },
                 transaction: { $0.transaction },
                 via: handler,
