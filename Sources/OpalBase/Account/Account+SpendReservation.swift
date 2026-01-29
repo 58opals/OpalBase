@@ -19,3 +19,20 @@ extension Account {
         }
     }
 }
+
+extension Account.SpendReservation {
+    func buildAndBroadcast<Result>(
+        build: @Sendable () throws -> Result,
+        transaction: @Sendable (Result) -> Transaction,
+        via handler: Network.TransactionHandling,
+        mapBroadcastError: @Sendable (Swift.Error) -> Account.Error
+    ) async throws -> (hash: Transaction.Hash, result: Result) {
+        try await Account.planBuildAndBroadcast(
+            build: build,
+            transaction: transaction,
+            via: handler,
+            mapBroadcastError: mapBroadcastError,
+            onSuccess: { try await self.complete() }
+        )
+    }
+}

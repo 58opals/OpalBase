@@ -98,12 +98,11 @@ extension Account {
         public func buildAndBroadcast(via handler: Network.TransactionHandling,
                                       signatureFormat: ECDSA.SignatureFormat = .schnorr,
                                       unlockers: [Transaction.Output.Unspent: Transaction.Unlocker] = .init()) async throws -> (hash: Transaction.Hash, result: TransactionResult) {
-            try await Account.planBuildAndBroadcast(
+            try await reservationHandle.buildAndBroadcast(
                 build: { try buildTransaction(signatureFormat: signatureFormat, unlockers: unlockers) },
                 transaction: { $0.transaction },
                 via: handler,
-                mapBroadcastError: Account.Error.tokenGenesisBroadcastFailed,
-                onSuccess: { try await completeReservation() }
+                mapBroadcastError: Account.Error.tokenGenesisBroadcastFailed
             )
         }
     }
