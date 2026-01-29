@@ -51,25 +51,6 @@ extension Account {
         let changeEntry = try await addressBook.selectNextEntry(for: .change)
         let tokenChangeAddress = try Address(script: changeEntry.address.lockingScript, format: .tokenAware)
         
-        let minimumRelayFeeRate = Transaction.minimumRelayFeeRate
-        func makeTokenOutput(address: Address,
-                             tokenData: CashTokens.TokenData,
-                             overrideAmount: Satoshi? = nil) throws -> Transaction.Output {
-            let outputTemplate = Transaction.Output(value: 0,
-                                                    address: address,
-                                                    tokenData: tokenData)
-            let dustThreshold: UInt64
-            do {
-                dustThreshold = try outputTemplate.dustThreshold(feeRate: minimumRelayFeeRate)
-            } catch {
-                throw Error.tokenMutationCannotComputeDustThreshold(error)
-            }
-            let outputValue = overrideAmount?.uint64 ?? dustThreshold
-            return Transaction.Output(value: outputValue,
-                                      address: address,
-                                      tokenData: tokenData)
-        }
-        
         let destinationIsExternal = await !addressBook.contains(address: mutation.destination)
         let attachedFungibleAmount = authorityTokenData.amount
         let mutatedTokenData: CashTokens.TokenData
@@ -83,8 +64,11 @@ extension Account {
                 let fungibleTokenData = CashTokens.TokenData(category: authorityTokenData.category,
                                                              amount: attachedFungibleAmount,
                                                              nft: nil)
-                fungiblePreservationOutput = try makeTokenOutput(address: tokenChangeAddress,
-                                                                 tokenData: fungibleTokenData)
+                fungiblePreservationOutput = try makeTokenOutput(
+                    address: tokenChangeAddress,
+                    tokenData: fungibleTokenData,
+                    mapDustError: { Error.tokenMutationCannotComputeDustThreshold($0) }
+                )
             }
         } else {
             mutatedTokenData = CashTokens.TokenData(category: authorityTokenData.category,
@@ -92,9 +76,12 @@ extension Account {
                                                     nft: newNonFungibleToken)
         }
         
-        let mutatedTokenOutput = try makeTokenOutput(address: mutation.destination,
-                                                     tokenData: mutatedTokenData,
-                                                     overrideAmount: mutation.bchAmount)
+        let mutatedTokenOutput = try makeTokenOutput(
+            address: mutation.destination,
+            tokenData: mutatedTokenData,
+            overrideAmount: mutation.bchAmount,
+            mapDustError: { Error.tokenMutationCannotComputeDustThreshold($0) }
+        )
         let plannedTokenOutputs = [mutatedTokenOutput, fungiblePreservationOutput].compactMap { $0 }
         let organizedTokenOutputs = await privacyShaper.organizeOutputs(plannedTokenOutputs)
         

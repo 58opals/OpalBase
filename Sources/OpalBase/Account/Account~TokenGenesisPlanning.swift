@@ -48,33 +48,29 @@ extension Account {
         }
         
         let changeEntry = try await addressBook.selectNextEntry(for: .change)
-        let minimumRelayFeeRate = Transaction.minimumRelayFeeRate
         var rawOutputs: [Transaction.Output] = .init()
         for recipient in genesis.recipients {
             let tokenData = CashTokens.TokenData(category: category,
                                                  amount: recipient.fungibleAmount,
                                                  nft: recipient.nft)
-            let outputTemplate = Transaction.Output(value: 0,
-                                                    address: recipient.address,
-                                                    tokenData: tokenData)
-            let dustThreshold: UInt64
-            do {
-                dustThreshold = try outputTemplate.dustThreshold(feeRate: minimumRelayFeeRate)
-            } catch {
-                throw Error.tokenGenesisCannotComputeDustThreshold(error)
-            }
-            let outputValue: UInt64
+            let dustOutput = try makeTokenOutput(
+                address: recipient.address,
+                tokenData: tokenData,
+                mapDustError: { Error.tokenGenesisCannotComputeDustThreshold($0) }
+            )
             if let bchAmount = recipient.bchAmount {
-                guard bchAmount.uint64 >= dustThreshold else {
+                guard bchAmount.uint64 >= dustOutput.value else {
                     throw Error.tokenGenesisInvalidGenesisInput
                 }
-                outputValue = bchAmount.uint64
+                rawOutputs.append(try makeTokenOutput(
+                    address: recipient.address,
+                    tokenData: tokenData,
+                    overrideAmount: bchAmount,
+                    mapDustError: { Error.tokenGenesisCannotComputeDustThreshold($0) }
+                ))
             } else {
-                outputValue = dustThreshold
+                rawOutputs.append(dustOutput)
             }
-            rawOutputs.append(Transaction.Output(value: outputValue,
-                                                 address: recipient.address,
-                                                 tokenData: tokenData))
         }
         
         if let reservedSupply = genesis.reservedSupplyToSelf {
@@ -94,18 +90,11 @@ extension Account {
             let tokenData = CashTokens.TokenData(category: category,
                                                  amount: reservedSupply.fungibleAmount,
                                                  nft: mintingToken)
-            let outputTemplate = Transaction.Output(value: 0,
-                                                    address: tokenChangeAddress,
-                                                    tokenData: tokenData)
-            let dustThreshold: UInt64
-            do {
-                dustThreshold = try outputTemplate.dustThreshold(feeRate: minimumRelayFeeRate)
-            } catch {
-                throw Error.tokenGenesisCannotComputeDustThreshold(error)
-            }
-            rawOutputs.append(Transaction.Output(value: dustThreshold,
-                                                 address: tokenChangeAddress,
-                                                 tokenData: tokenData))
+            rawOutputs.append(try makeTokenOutput(
+                address: tokenChangeAddress,
+                tokenData: tokenData,
+                mapDustError: { Error.tokenGenesisCannotComputeDustThreshold($0) }
+            ))
         }
         
         let organizedOutputs = await privacyShaper.organizeOutputs(rawOutputs)

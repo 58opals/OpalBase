@@ -68,32 +68,16 @@ extension Account {
         let changeEntry = try await addressBook.selectNextEntry(for: .change)
         let tokenChangeAddress = try Address(script: changeEntry.address.lockingScript, format: .tokenAware)
         
-        let minimumRelayFeeRate = Transaction.minimumRelayFeeRate
-        func makeTokenOutput(address: Address,
-                             tokenData: CashTokens.TokenData,
-                             overrideAmount: Satoshi? = nil) throws -> Transaction.Output {
-            let outputTemplate = Transaction.Output(value: 0,
-                                                    address: address,
-                                                    tokenData: tokenData)
-            let dustThreshold: UInt64
-            do {
-                dustThreshold = try outputTemplate.dustThreshold(feeRate: minimumRelayFeeRate)
-            } catch {
-                throw Error.transactionBuildFailed(error)
-            }
-            let outputValue = overrideAmount?.uint64 ?? dustThreshold
-            return Transaction.Output(value: outputValue,
-                                      address: address,
-                                      tokenData: tokenData)
-        }
-        
         let tokenRecipientOutputs = try mint.recipients.map { recipient in
             let tokenData = CashTokens.TokenData(category: mint.category,
                                                  amount: recipient.fungibleAmount,
                                                  nft: recipient.nft)
-            return try makeTokenOutput(address: recipient.address,
-                                       tokenData: tokenData,
-                                       overrideAmount: recipient.bchAmount)
+            return try makeTokenOutput(
+                address: recipient.address,
+                tokenData: tokenData,
+                overrideAmount: recipient.bchAmount,
+                mapDustError: { Error.transactionBuildFailed($0) }
+            )
         }
         
         let selectedTokenInputs = [authorityInput] + extraFungibleInputs
@@ -119,29 +103,41 @@ extension Account {
             let authorityToken = CashTokens.TokenData(category: mint.category,
                                                       amount: UInt64(preservedFungible) > 0 ? UInt64(preservedFungible) : nil,
                                                       nft: authorityNonFungibleToken)
-            authorityReturnOutput = try makeTokenOutput(address: tokenChangeAddress,
-                                                        tokenData: authorityToken)
+            authorityReturnOutput = try makeTokenOutput(
+                address: tokenChangeAddress,
+                tokenData: authorityToken,
+                mapDustError: { Error.transactionBuildFailed($0) }
+            )
         case .toAddress(let address, let bitcoinCashAmount):
             let authorityToken = CashTokens.TokenData(category: mint.category,
                                                       amount: nil,
                                                       nft: authorityNonFungibleToken)
-            authorityReturnOutput = try makeTokenOutput(address: address,
-                                                        tokenData: authorityToken,
-                                                        overrideAmount: bitcoinCashAmount)
+            authorityReturnOutput = try makeTokenOutput(
+                address: address,
+                tokenData: authorityToken,
+                overrideAmount: bitcoinCashAmount,
+                mapDustError: { Error.transactionBuildFailed($0) }
+            )
             if preservedFungible > 0 {
                 let fungibleToken = CashTokens.TokenData(category: mint.category,
                                                          amount: UInt64(preservedFungible),
                                                          nft: nil)
-                fungiblePreservationOutput = try makeTokenOutput(address: tokenChangeAddress,
-                                                                 tokenData: fungibleToken)
+                fungiblePreservationOutput = try makeTokenOutput(
+                    address: tokenChangeAddress,
+                    tokenData: fungibleToken,
+                    mapDustError: { Error.transactionBuildFailed($0) }
+                )
             }
         case .burn:
             if preservedFungible > 0 {
                 let fungibleToken = CashTokens.TokenData(category: mint.category,
                                                          amount: UInt64(preservedFungible),
                                                          nft: nil)
-                fungiblePreservationOutput = try makeTokenOutput(address: tokenChangeAddress,
-                                                                 tokenData: fungibleToken)
+                fungiblePreservationOutput = try makeTokenOutput(
+                    address: tokenChangeAddress,
+                    tokenData: fungibleToken,
+                    mapDustError: { Error.transactionBuildFailed($0) }
+                )
             }
         }
         
