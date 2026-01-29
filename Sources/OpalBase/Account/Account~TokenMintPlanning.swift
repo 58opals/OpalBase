@@ -11,8 +11,7 @@ extension Account {
         let spendableOutputs = await addressBook.sortSpendableUTXOs(by: { $0.value > $1.value })
         let authorityInput: Transaction.Output.Unspent
         if let preferredMintingInput {
-            let spendableSet = Set(spendableOutputs)
-            guard spendableSet.contains(preferredMintingInput),
+            guard spendableOutputs.contains(preferredMintingInput),
                   let tokenData = preferredMintingInput.tokenData,
                   tokenData.category == mint.category,
                   tokenData.nft?.capability == .minting else {

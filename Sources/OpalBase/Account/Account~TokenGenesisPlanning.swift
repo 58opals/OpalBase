@@ -24,8 +24,7 @@ extension Account {
                   preferredGenesisInput.previousTransactionOutputIndex == 0 else {
                 throw Error.tokenGenesisInvalidGenesisInput
             }
-            let spendableSet = Set(spendableOutputs)
-            if !spendableSet.contains(preferredGenesisInput) {
+            if !spendableOutputs.contains(preferredGenesisInput) {
                 let allOutputs = await addressBook.sortUTXOs(by: { $0.value > $1.value })
                 guard allOutputs.contains(preferredGenesisInput) else {
                     throw Error.tokenGenesisInvalidGenesisInput

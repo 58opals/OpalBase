@@ -11,8 +11,7 @@ extension Account {
         let authorityInput: Transaction.Output.Unspent
         switch mutation.target {
         case .preferredInput(let preferredInput):
-            let spendableSet = Set(spendableOutputs)
-            guard spendableSet.contains(preferredInput) else {
+            guard spendableOutputs.contains(preferredInput) else {
                 throw Error.tokenMutationInvalidAuthorityInput
             }
             authorityInput = preferredInput
