@@ -33,7 +33,7 @@ extension Account {
             }
             genesisInput = preferredGenesisInput
         } else {
-            guard let selectedGenesisInput = await selectGenesisInput(from: spendableOutputs) else {
+            guard let selectedGenesisInput = selectGenesisInput(from: spendableOutputs) else {
                 // Consider calling prepareTokenGenesisOutpoint to identify a valid genesis input.
                 throw Error.tokenGenesisNoEligibleGenesisInput
             }
