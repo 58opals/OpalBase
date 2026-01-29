@@ -16,33 +16,37 @@ extension Account {
         
         let requirementsByCategory = try makeTokenRequirementsByCategory(for: transfer)
         let spendableOutputs = await addressBook.sortSpendableUTXOs(by: { $0.value > $1.value })
-        let spendableTokenByCategory = Dictionary(grouping: spendableOutputs.compactMap {
-            unspentOutput -> (CashTokens.CategoryID, Transaction.Output.Unspent)? in
-            guard let category = unspentOutput.tokenData?.category else { return nil }
-            return (category, unspentOutput)
-        }, by: { $0.0 }).mapValues { $0.map(\.1) }
+        let changeEntry = try await addressBook.selectNextEntry(for: .change)
+        let tokenChangeAddress = try Address(script: changeEntry.address.lockingScript, format: .tokenAware)
+        var spendableTokenByCategory: [CashTokens.CategoryID: [Transaction.Output.Unspent]] = .init()
+        for unspentOutput in spendableOutputs {
+            guard let category = unspentOutput.tokenData?.category else { continue }
+            spendableTokenByCategory[category, default: .init()].append(unspentOutput)
+        }
         
         var selectedTokenInputs: [Transaction.Output.Unspent] = .init()
-        var remainingInventories: [TokenInventory] = .init()
+        selectedTokenInputs.reserveCapacity(spendableOutputs.count)
+        var tokenChangeOutputs: [Transaction.Output] = .init()
+        tokenChangeOutputs.reserveCapacity(requirementsByCategory.count)
         let orderedCategories = requirementsByCategory.keys.sorted { left, right in
             left.transactionOrderData.lexicographicallyPrecedes(right.transactionOrderData)
         }
         for category in orderedCategories {
             guard let requirements = requirementsByCategory[category] else { continue }
-            let spendableForCategory = spendableTokenByCategory[category] ?? .init()
+            guard let spendableForCategory = spendableTokenByCategory[category],
+                  !spendableForCategory.isEmpty else {
+                throw Error.tokenTransferInsufficientTokens
+            }
             let selected = try selectTokenInputs(from: spendableForCategory, requirements: requirements)
-            selectedTokenInputs += selected
+            selectedTokenInputs.append(contentsOf: selected)
             let inventory = try makeTokenInventory(from: selected, category: category)
             let remaining = try subtractTokenInventory(input: inventory, requirements: requirements)
-            remainingInventories.append(remaining)
-        }
-        
-        let changeEntry = try await addressBook.selectNextEntry(for: .change)
-        let tokenChangeAddress = try Address(script: changeEntry.address.lockingScript, format: .tokenAware)
-        var tokenChangeOutputs: [Transaction.Output] = .init()
-        for remaining in remainingInventories {
-            tokenChangeOutputs += try makeTokenChangeOutputs(from: remaining,
-                                                             changeAddress: tokenChangeAddress)
+            let hasRemainingFungible = remaining.fungibleAmount > 0
+            let hasRemainingNonFungible = remaining.nonFungibleTokens.values.contains { $0 > 0 }
+            if hasRemainingFungible || hasRemainingNonFungible {
+                tokenChangeOutputs.append(contentsOf: try makeTokenChangeOutputs(from: remaining,
+                                                                                 changeAddress: tokenChangeAddress))
+            }
         }
         
         let rawRecipientOutputs = transfer.recipients.map { recipient in
