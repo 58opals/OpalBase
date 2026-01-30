@@ -6,9 +6,9 @@ extension CashTokens {
     public enum TokenPrefix {
         public static let prefixToken: UInt8 = 0xEF
         private static let reservedBit: UInt8 = 0x80
-        private static let hasCommitmentLengthBit: UInt8 = 0x40
-        private static let hasNonFungibleTokenBit: UInt8 = 0x20
-        private static let hasFungibleAmountBit: UInt8 = 0x10
+        private static let commitmentLengthBit: UInt8 = 0x40
+        private static let nonFungibleTokenBit: UInt8 = 0x20
+        private static let fungibleAmountBit: UInt8 = 0x10
         private static let nonFungibleCapabilityMask: UInt8 = 0x0F
         private static let minimumPrefixLength = 34
         private static let maximumFungibleAmount: UInt64 = 0x7fff_ffff_ffff_ffff
@@ -23,13 +23,13 @@ extension CashTokens {
             var nonFungibleTokenCommitment = Data()
             
             if let nonFungibleToken = tokenData.nft {
-                tokenBitfield |= hasNonFungibleTokenBit
-                tokenBitfield |= capabilityValue(from: nonFungibleToken.capability)
+                tokenBitfield |= nonFungibleTokenBit
+                tokenBitfield |= encodeCapabilityValue(from: nonFungibleToken.capability)
                 if !nonFungibleToken.commitment.isEmpty {
                     guard nonFungibleToken.commitment.count <= TokenOperationValidation.maximumCommitmentByteCount else {
                         throw Error.invalidTokenPrefixCommitmentLength
                     }
-                    tokenBitfield |= hasCommitmentLengthBit
+                    tokenBitfield |= commitmentLengthBit
                     nonFungibleTokenCommitment = nonFungibleToken.commitment
                 }
             }
@@ -38,7 +38,7 @@ extension CashTokens {
                 guard amount >= 1, amount <= maximumFungibleAmount else {
                     throw Error.invalidTokenPrefixFungibleAmount
                 }
-                tokenBitfield |= hasFungibleAmountBit
+                tokenBitfield |= fungibleAmountBit
             }
             
             var writer = Data.Writer()
@@ -73,9 +73,9 @@ extension CashTokens {
             let categoryData = try reader.readData(count: categoryIdentifierByteCount)
             let tokenBitfield = try readTokenBitfield(from: &reader)
             
-            let hasCommitmentLength = tokenBitfield & hasCommitmentLengthBit != 0
-            let hasNonFungibleToken = tokenBitfield & hasNonFungibleTokenBit != 0
-            let hasFungibleAmount = tokenBitfield & hasFungibleAmountBit != 0
+            let hasCommitmentLength = tokenBitfield & commitmentLengthBit != 0
+            let hasNonFungibleToken = tokenBitfield & nonFungibleTokenBit != 0
+            let hasFungibleAmount = tokenBitfield & fungibleAmountBit != 0
             let capabilityValue = tokenBitfield & nonFungibleCapabilityMask
             
             guard tokenBitfield & reservedBit == 0 else {
@@ -92,7 +92,7 @@ extension CashTokens {
             
             var nonFungibleToken: NFT?
             if hasNonFungibleToken {
-                let capability = try capability(from: capabilityValue)
+                let capability = try decodeCapability(from: capabilityValue)
                 var commitment = Data()
                 if hasCommitmentLength {
                     let commitmentLength = try readCanonicalCompactSize(from: &reader)
@@ -154,7 +154,7 @@ extension CashTokens {
             return compactSize.value
         }
         
-        private static func capability(from value: UInt8) throws -> NFT.Capability {
+        private static func decodeCapability(from value: UInt8) throws -> NFT.Capability {
             switch value {
             case 0:
                 return .none
@@ -167,7 +167,7 @@ extension CashTokens {
             }
         }
         
-        private static func capabilityValue(from capability: NFT.Capability) -> UInt8 {
+        private static func encodeCapabilityValue(from capability: NFT.Capability) -> UInt8 {
             switch capability {
             case .none:
                 return 0

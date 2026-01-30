@@ -78,8 +78,8 @@ extension Transaction {
             return try CashTokens.TokenPrefix.encode(tokenData: tokenData)
         }
         
-        func dustThreshold(feeRate: UInt64) throws -> UInt64 {
-            let outputSize = try serializedSize()
+        func calculateDustThreshold(feeRate: UInt64) throws -> UInt64 {
+            let outputSize = try calculateSerializedSize()
             let spendingInputSize = 148
             let totalSize = outputSize + spendingInputSize
             let baseFee = try Transaction.makeFee(size: totalSize, feePerByte: feeRate)
@@ -87,7 +87,7 @@ extension Transaction {
             return overflow ? UInt64.max : scaledFee
         }
         
-        private func serializedSize() throws -> Int {
+        private func calculateSerializedSize() throws -> Int {
             let tokenPrefixData = try makeTokenPrefixData()
             let lockingBytecodeLength = tokenPrefixData.count + lockingScript.count
             let lengthPrefixSize = CompactSize(value: UInt64(lockingBytecodeLength)).encodedSize

@@ -37,7 +37,7 @@ private extension Wallet {
                               into totals: inout [CashTokens.CategoryID: UInt64]) throws {
         for (category, amount) in additions {
             let current = totals[category] ?? 0
-            totals[category] = try current.addingOrThrow(
+            totals[category] = try current.addOrThrow(
                 amount,
                 overflowError: Account.Error.paymentExceedsMaximumAmount
             )

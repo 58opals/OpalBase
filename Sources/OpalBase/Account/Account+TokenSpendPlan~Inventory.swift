@@ -29,7 +29,7 @@ extension Account {
                                                                                      nonFungibleTokens: .init())
             if let amount = tokenData.amount {
                 requirements = TokenRequirements(category: category,
-                                                 fungibleAmount: try requirements.fungibleAmount.addingOrThrow(
+                                                 fungibleAmount: try requirements.fungibleAmount.addOrThrow(
                                                     amount,
                                                     overflowError: Error.paymentExceedsMaximumAmount
                                                  ),
@@ -65,8 +65,8 @@ extension Account {
         for unspentOutput in unspentOutputs {
             guard let tokenData = unspentOutput.tokenData else { continue }
             if let amount = tokenData.amount {
-                fungibleAmount = try fungibleAmount.addingOrThrow(amount,
-                                                                  overflowError: Error.paymentExceedsMaximumAmount)
+                fungibleAmount = try fungibleAmount.addOrThrow(amount,
+                                                               overflowError: Error.paymentExceedsMaximumAmount)
             }
             if let nonFungibleToken = tokenData.nft {
                 let group = Address.Book.TokenInventory.NonFungibleTokenGroup(category: tokenData.category,
@@ -126,7 +126,7 @@ extension Account {
                 let outputTemplate = Transaction.Output(value: 0,
                                                         address: changeAddress,
                                                         tokenData: tokenData)
-                let dustThreshold = try outputTemplate.dustThreshold(feeRate: minimumRelayFeeRate)
+                let dustThreshold = try outputTemplate.calculateDustThreshold(feeRate: minimumRelayFeeRate)
                 outputs.append(Transaction.Output(value: dustThreshold,
                                                   address: changeAddress,
                                                   tokenData: tokenData))
@@ -139,7 +139,7 @@ extension Account {
             let outputTemplate = Transaction.Output(value: 0,
                                                     address: changeAddress,
                                                     tokenData: tokenData)
-            let dustThreshold = try outputTemplate.dustThreshold(feeRate: minimumRelayFeeRate)
+            let dustThreshold = try outputTemplate.calculateDustThreshold(feeRate: minimumRelayFeeRate)
             outputs.append(Transaction.Output(value: dustThreshold,
                                               address: changeAddress,
                                               tokenData: tokenData))

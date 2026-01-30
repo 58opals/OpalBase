@@ -67,7 +67,7 @@ private extension BitcoinCashMetadataRegistries {
                 continue
             }
             
-            if isSnapshotKey(candidate.key, laterThan: currentSelection.key) {
+            if compareSnapshotKeys(candidate.key, laterThan: currentSelection.key) {
                 latestSelection = candidate
             }
         }
@@ -75,7 +75,7 @@ private extension BitcoinCashMetadataRegistries {
         return latestSelection
     }
     
-    func isSnapshotKey(_ left: String, laterThan right: String) -> Bool {
+    func compareSnapshotKeys(_ left: String, laterThan right: String) -> Bool {
         if let leftDate = parseSnapshotDate(from: left),
            let rightDate = parseSnapshotDate(from: right) {
             return leftDate > rightDate

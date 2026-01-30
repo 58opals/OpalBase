@@ -43,8 +43,8 @@ extension Address.Book.CoinSelector {
         for utxo in utxos {
             selection.append(utxo)
             
-            total = try total.addingOrThrow(utxo.value,
-                                            overflowError: Address.Book.Error.paymentExceedsMaximumAmount)
+            total = try total.addOrThrow(utxo.value,
+                                         overflowError: Address.Book.Error.paymentExceedsMaximumAmount)
             
             if try evaluate(selection: selection, sum: total) != nil {
                 return selection
@@ -86,16 +86,16 @@ extension Address.Book.CoinSelector {
             let minimalFee = try Transaction.estimateFee(inputCount: selection.count,
                                                          outputs: configuration.recipientOutputs,
                                                          feePerByte: feePerByte)
-            let minimalRequirement = try targetAmount.addingOrThrow(
+            let minimalRequirement = try targetAmount.addOrThrow(
                 minimalFee,
                 overflowError: Address.Book.Error.paymentExceedsMaximumAmount
             )
-            let sumWithRemaining = try sum.addingOrThrow(remaining,
-                                                         overflowError: Address.Book.Error.paymentExceedsMaximumAmount)
+            let sumWithRemaining = try sum.addOrThrow(remaining,
+                                                      overflowError: Address.Book.Error.paymentExceedsMaximumAmount)
             if sumWithRemaining < minimalRequirement { return }
             var selectionIncludingCurrent = selection
             selectionIncludingCurrent.append(utxos[index])
-            let sumIncludingCurrent = try sum.addingOrThrow(
+            let sumIncludingCurrent = try sum.addOrThrow(
                 utxos[index].value,
                 overflowError: Address.Book.Error.paymentExceedsMaximumAmount
             )
@@ -128,7 +128,7 @@ extension Address.Book.CoinSelector {
         
         var suffixTotals: [UInt64] = Array(repeating: 0, count: utxos.count + 1)
         for index in stride(from: utxos.count - 1, through: 0, by: -1) {
-            suffixTotals[index] = try suffixTotals[index + 1].addingOrThrow(
+            suffixTotals[index] = try suffixTotals[index + 1].addOrThrow(
                 utxos[index].value,
                 overflowError: Address.Book.Error.paymentExceedsMaximumAmount
             )
@@ -229,14 +229,17 @@ extension Address.Book.CoinSelection {
         let changeOutputTemplate: Transaction.Output? = outputsWithChange.count > recipientOutputs.count
         ? outputsWithChange.last
         : nil
-        let changeDustThreshold = try changeOutputTemplate?.dustThreshold(feeRate: minimumRelayFeeRate) ?? 0
+        let changeDustThreshold = try changeOutputTemplate?.calculateDustThreshold(feeRate: minimumRelayFeeRate) ?? 0
         let feeWithoutChange = try Transaction.estimateFee(inputCount: inputCount,
                                                            outputs: recipientOutputs,
                                                            feePerByte: feePerByte)
-        let requiredWithoutChange = targetAmount &+ feeWithoutChange
+        let requiredWithoutChange = try targetAmount.addOrThrow(
+            feeWithoutChange,
+            overflowError: Address.Book.Error.paymentExceedsMaximumAmount
+        )
         
         if total >= requiredWithoutChange {
-            let excess = total &- requiredWithoutChange
+            let excess = total - requiredWithoutChange
             if excess == 0 {
                 return Evaluation(excess: excess)
             }
@@ -248,11 +251,14 @@ extension Address.Book.CoinSelection {
         let feeWithChange = try Transaction.estimateFee(inputCount: inputCount,
                                                         outputs: outputsWithChange,
                                                         feePerByte: feePerByte)
-        let requiredWithChange = targetAmount &+ feeWithChange
+        let requiredWithChange = try targetAmount.addOrThrow(
+            feeWithChange,
+            overflowError: Address.Book.Error.paymentExceedsMaximumAmount
+        )
         
         guard total >= requiredWithChange else { return nil }
         
-        let change = total &- requiredWithChange
+        let change = total - requiredWithChange
         guard change == 0 || change >= changeDustThreshold else { return nil }
         
         return Evaluation(excess: change)

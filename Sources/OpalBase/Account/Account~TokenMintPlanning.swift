@@ -30,8 +30,8 @@ extension Account {
         }
         
         let requiredFungibleOut: UInt64 = try mint.recipients.reduce(UInt64(0)) { total, recipient in
-            try total.addingOrThrow(recipient.fungibleAmount ?? 0,
-                                    overflowError: Error.paymentExceedsMaximumAmount)
+            try total.addOrThrow(recipient.fungibleAmount ?? 0,
+                                 overflowError: Error.paymentExceedsMaximumAmount)
         }
         let authorityFungibleIn: UInt64 = authorityInput.tokenData?.amount ?? 0
         
@@ -53,7 +53,7 @@ extension Account {
             for candidate in fungibleCandidates {
                 extraFungibleInputs.append(candidate)
                 let amount = candidate.tokenData?.amount ?? 0
-                totalSelectedFungible = try totalSelectedFungible.addingOrThrow(
+                totalSelectedFungible = try totalSelectedFungible.addOrThrow(
                     amount,
                     overflowError: Error.paymentExceedsMaximumAmount
                 )
@@ -84,8 +84,8 @@ extension Account {
         
         let selectedTokenInputs = [authorityInput] + extraFungibleInputs
         let totalFungibleIn: UInt64 = try selectedTokenInputs.reduce(UInt64(0)) { total, output in
-            try total.addingOrThrow(output.tokenData?.amount ?? 0,
-                                    overflowError: Error.paymentExceedsMaximumAmount)
+            try total.addOrThrow(output.tokenData?.amount ?? 0,
+                                 overflowError: Error.paymentExceedsMaximumAmount)
         }
         guard totalFungibleIn >= requiredFungibleOut else {
             throw Error.tokenMintInsufficientFungible

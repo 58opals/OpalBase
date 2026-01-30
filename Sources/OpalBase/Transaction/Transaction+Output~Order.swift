@@ -75,8 +75,8 @@ extension Transaction.Output {
         case (_, nil):
             return false
         case (let left?, let right?):
-            let leftCapabilityRank = capabilityRank(for: left.capability)
-            let rightCapabilityRank = capabilityRank(for: right.capability)
+            let leftCapabilityRank = rankCapability(left.capability)
+            let rightCapabilityRank = rankCapability(right.capability)
             if leftCapabilityRank != rightCapabilityRank {
                 return leftCapabilityRank < rightCapabilityRank
             }
@@ -89,7 +89,7 @@ extension Transaction.Output {
         }
     }
     
-    private static func capabilityRank(for capability: CashTokens.NFT.Capability) -> Int {
+    private static func rankCapability(_ capability: CashTokens.NFT.Capability) -> Int {
         switch capability {
         case .none:
             return 0

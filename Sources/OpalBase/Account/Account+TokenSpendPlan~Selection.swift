@@ -83,8 +83,8 @@ extension Account {
         
         var selected: [Transaction.Output.Unspent] = .init()
         var total: UInt64 = try existingInputs.reduce(0) { partial, output in
-            try partial.addingOrThrow(output.value,
-                                      overflowError: Error.paymentExceedsMaximumAmount)
+            try partial.addOrThrow(output.value,
+                                   overflowError: Error.paymentExceedsMaximumAmount)
         }
         if try evaluate(total: total, inputCount: existingInputs.count) != nil {
             return selected
@@ -92,8 +92,8 @@ extension Account {
         
         for output in bitcoinCashOnlyOutputs {
             selected.append(output)
-            total = try total.addingOrThrow(output.value,
-                                            overflowError: Error.paymentExceedsMaximumAmount)
+            total = try total.addOrThrow(output.value,
+                                         overflowError: Error.paymentExceedsMaximumAmount)
             if try evaluate(total: total, inputCount: existingInputs.count + selected.count) != nil {
                 return selected
             }
@@ -102,8 +102,8 @@ extension Account {
         let feeWithChange = try Transaction.estimateFee(inputCount: existingInputs.count + selected.count,
                                                         outputs: configuration.outputsWithChange,
                                                         feePerByte: feeRate)
-        let requiredWithChange = try targetAmount.addingOrThrow(feeWithChange,
-                                                                overflowError: Error.paymentExceedsMaximumAmount)
+        let requiredWithChange = try targetAmount.addOrThrow(feeWithChange,
+                                                             overflowError: Error.paymentExceedsMaximumAmount)
         let requiredAdditional = requiredWithChange > total ? (requiredWithChange - total) : 0
         throw Error.tokenTransferInsufficientFunds(required: requiredAdditional)
     }

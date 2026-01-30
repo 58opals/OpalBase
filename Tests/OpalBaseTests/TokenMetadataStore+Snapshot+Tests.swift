@@ -26,7 +26,7 @@ struct TokenMetadataStoreSnapshotTests {
         let restoredStore = TokenMetadataStore()
         await restoredStore.applySnapshot(decodedSnapshot)
         
-        let restoredMetadata = await restoredStore.metadata(
+        let restoredMetadata = await restoredStore.fetchMetadata(
             for: BCMRFixtures.categoryIdentifier
         )
         

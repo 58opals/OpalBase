@@ -14,7 +14,7 @@ extension Account {
         
         let dust: UInt64
         do {
-            dust = try template.dustThreshold(feeRate: minimumRelayFeeRate)
+            dust = try template.calculateDustThreshold(feeRate: minimumRelayFeeRate)
         } catch {
             throw mapDustError(error)
         }

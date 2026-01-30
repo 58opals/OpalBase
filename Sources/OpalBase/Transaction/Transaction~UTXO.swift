@@ -68,7 +68,7 @@ extension Transaction {
         let estimatedFeeWithChange = try transactionWithChange.calculateFee(feePerByte: feePerByte)
         let changeAmount = changeOutput.value
         let minimumRelayFeeRate = Transaction.minimumRelayFeeRate
-        let changeDustThreshold = try changeOutput.dustThreshold(feeRate: minimumRelayFeeRate)
+        let changeDustThreshold = try changeOutput.calculateDustThreshold(feeRate: minimumRelayFeeRate)
         
         var outputs = recipientOutputs
         var didRemoveChangeOutput = false
@@ -119,7 +119,7 @@ extension Transaction {
         let totalPositiveOutput = positiveValueOutputs.map(\.value).reduce(0, +)
         guard !positiveValueOutputs.isEmpty else { throw Error.insufficientFunds(required: totalPositiveOutput) }
         for output in orderedOutputs where !output.isOpReturnScript {
-            let dustThreshold = try output.dustThreshold(feeRate: minimumRelayFeeRate)
+            let dustThreshold = try output.calculateDustThreshold(feeRate: minimumRelayFeeRate)
             guard output.value >= dustThreshold else { throw Error.outputValueIsLessThanTheDustLimit }
         }
         

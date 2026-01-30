@@ -5,8 +5,8 @@ import Foundation
 extension Account {
     public actor PrivacyShaper {
         private struct AnyOperation: Sendable {
-            let execute: @Sendable () async -> Void
-            let cancel: @Sendable () -> Void
+            let execution: @Sendable () async -> Void
+            let cancellation: @Sendable () -> Void
         }
         
         private let configuration: Configuration
@@ -23,7 +23,7 @@ extension Account {
             let operations = pendingOperations
             pendingOperations.removeAll()
             for operation in operations {
-                operation.cancel()
+                operation.cancellation()
             }
         }
     }
@@ -49,7 +49,7 @@ extension Account.PrivacyShaper {
         
         try await withCheckedThrowingContinuation { continuation in
             pendingOperations.append(AnyOperation(
-                execute: {
+                execution: {
                     await self.performWithJitter {
                         do {
                             let value = try await operation()
@@ -59,7 +59,7 @@ extension Account.PrivacyShaper {
                         }
                     }
                 },
-                cancel: {
+                cancellation: {
                     continuation.resume(throwing: CancellationError())
                 }
             ))
@@ -88,12 +88,12 @@ extension Account.PrivacyShaper {
         guard !decoys.isEmpty else { return }
         for decoy in decoys {
             pendingOperations.append(AnyOperation(
-                execute: {
+                execution: {
                     await self.performWithJitter {
                         await decoy()
                     }
                 },
-                cancel: {}
+                cancellation: {}
             ))
         }
     }
@@ -117,7 +117,7 @@ extension Account.PrivacyShaper {
         var shuffled = operations
         shuffled.shuffle(using: &generator)
         for operation in shuffled {
-            await operation.execute()
+            await operation.execution()
         }
     }
     

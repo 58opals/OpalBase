@@ -73,7 +73,7 @@ struct AccountTokenGenesisTests {
             address: recipientAddress,
             tokenData: tokenOutput.tokenData
         )
-        let expectedDustThreshold = try expectedDustOutput.dustThreshold(
+        let expectedDustThreshold = try expectedDustOutput.calculateDustThreshold(
             feeRate: Transaction.minimumRelayFeeRate
         )
         #expect(tokenOutput.value == expectedDustThreshold)

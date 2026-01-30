@@ -9,11 +9,11 @@ public actor TokenMetadataStore {
     
     public func upsert(_ items: [CashTokens.CategoryID: TokenMetadata]) {
         for (category, metadata) in items {
-            byCategory[category] = normalizedMetadata(metadata, for: category)
+            byCategory[category] = makeNormalizedMetadata(metadata, for: category)
         }
     }
     
-    public func metadata(for category: CashTokens.CategoryID) -> TokenMetadata? {
+    public func fetchMetadata(for category: CashTokens.CategoryID) -> TokenMetadata? {
         return byCategory[category]
     }
     
@@ -28,7 +28,7 @@ public actor TokenMetadataStore {
         byCategory.removeAll(keepingCapacity: true)
         for (hexadecimalString, metadata) in snapshot.byCategory {
             guard let category = try? CashTokens.CategoryID(hexFromRPC: hexadecimalString) else { continue }
-            byCategory[category] = normalizedMetadata(metadata, for: category)
+            byCategory[category] = makeNormalizedMetadata(metadata, for: category)
         }
     }
     
@@ -40,8 +40,8 @@ public actor TokenMetadataStore {
         }
     }
     
-    private func normalizedMetadata(_ metadata: TokenMetadata,
-                                    for category: CashTokens.CategoryID) -> TokenMetadata {
+    private func makeNormalizedMetadata(_ metadata: TokenMetadata,
+                                        for category: CashTokens.CategoryID) -> TokenMetadata {
         guard metadata.category != category else { return metadata }
         return TokenMetadata(category: category,
                              name: metadata.name,

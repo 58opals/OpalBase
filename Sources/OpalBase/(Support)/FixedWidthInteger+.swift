@@ -4,7 +4,7 @@ import Foundation
 
 extension FixedWidthInteger {
     @inlinable
-    func addingOrThrow(
+    func addOrThrow(
         _ other: Self,
         overflowError: @autoclosure () -> Swift.Error
     ) throws -> Self {
@@ -14,7 +14,7 @@ extension FixedWidthInteger {
     }
     
     @inlinable
-    func subtractingOrThrow(
+    func subtractOrThrow(
         _ other: Self,
         underflowError: @autoclosure () -> Swift.Error
     ) throws -> Self {

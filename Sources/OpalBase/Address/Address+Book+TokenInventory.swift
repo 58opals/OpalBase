@@ -105,7 +105,7 @@ private extension Address.Book {
             guard let tokenData = utxo.tokenData else { continue }
             if let amount = tokenData.amount {
                 let current = fungibleAmountsByCategory[tokenData.category] ?? 0
-                fungibleAmountsByCategory[tokenData.category] = try current.addingOrThrow(
+                fungibleAmountsByCategory[tokenData.category] = try current.addOrThrow(
                     amount,
                     overflowError: Error.paymentExceedsMaximumAmount
                 )

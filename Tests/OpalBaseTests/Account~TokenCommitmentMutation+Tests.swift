@@ -117,13 +117,13 @@ struct AccountTokenCommitmentMutationTests {
         let plan = try await account.prepareTokenCommitmentMutation(mutation)
         let transactionResult = try plan.buildTransaction()
         
-        let mutatedDustThreshold = try plan.mutatedTokenOutput.dustThreshold(
+        let mutatedDustThreshold = try plan.mutatedTokenOutput.calculateDustThreshold(
             feeRate: Transaction.minimumRelayFeeRate
         )
         #expect(plan.mutatedTokenOutput.value >= mutatedDustThreshold)
         
         if let preservationOutput = plan.fungiblePreservationOutput {
-            let preservationDustThreshold = try preservationOutput.dustThreshold(
+            let preservationDustThreshold = try preservationOutput.calculateDustThreshold(
                 feeRate: Transaction.minimumRelayFeeRate
             )
             #expect(preservationOutput.value >= preservationDustThreshold)
