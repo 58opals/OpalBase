@@ -9,7 +9,7 @@ extension Transaction.Output {
         init(outputs: [Transaction.Output]) {
             var buckets: [Transaction.Output.Fingerprint: [Transaction.Output]] = .init()
             buckets.reserveCapacity(outputs.count)
-            for output in outputs {
+            for output in outputs.reversed() {
                 buckets[output.fingerprint, default: .init()].append(output)
             }
             self.buckets = buckets
@@ -19,7 +19,7 @@ extension Transaction.Output {
             let key = candidate.fingerprint
             guard var bucket = buckets[key], !bucket.isEmpty else { return nil }
             
-            let resolved = bucket.removeFirst()
+            let resolved = bucket.removeLast()
             if bucket.isEmpty {
                 buckets[key] = nil
             } else {
