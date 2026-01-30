@@ -71,19 +71,8 @@ extension Network {
                     options: .init(timeout: timeouts.scriptHashUnspent)
                 )
                 
-                return try await withThrowingTaskGroup(of: Transaction.Output.Unspent.self) { group in
-                    for item in result.items {
-                        group.addTask { try await makeUnspentOutput(from: item) }
-                    }
-                    
-                    var outputs: [Transaction.Output.Unspent] = .init()
-                    outputs.reserveCapacity(result.items.count)
-                    
-                    for try await output in group {
-                        outputs.append(output)
-                    }
-                    
-                    return outputs
+                return try await result.items.mapConcurrently { item in
+                    try await makeUnspentOutput(from: item)
                 }
             }
         }
