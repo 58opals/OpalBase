@@ -61,7 +61,14 @@ extension Account {
                                  feeRate: UInt64,
                                  shouldAllowDustDonation: Bool,
                                  changeLockingScript: Data) throws -> [Transaction.Output.Unspent] {
-        let bitcoinCashOnlyOutputs = unspentOutputs.filter { $0.tokenData == nil }
+        let bitcoinCashOnlyOutputs = unspentOutputs
+            .filter { $0.tokenData == nil }
+            .sorted {
+                if $0.value == $1.value {
+                    return $0.compareOrder(before: $1)
+                }
+                return $0.value > $1.value
+            }
         let targetAmount = try outputs.sumSatoshi(or: Error.paymentExceedsMaximumAmount) { try Satoshi($0.value) }.uint64
         let configuration = Address.Book.CoinSelection.Configuration(recipientOutputs: outputs,
                                                                      changeLockingScript: changeLockingScript,
