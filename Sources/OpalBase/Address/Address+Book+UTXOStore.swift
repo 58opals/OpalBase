@@ -243,10 +243,11 @@ extension Address.Book {
                       with utxos: [Transaction.Output.Unspent],
                       timestamp: Date = .now) throws -> Address.Book.UTXOChangeSet {
         let previous = listUTXOs(for: address)
-        utxoStore.replace(for: address, with: utxos)
+        let orderedUTXOs = utxos.sorted { $0.compareOrder(before: $1) }
+        utxoStore.replace(for: address, with: orderedUTXOs)
         return try Address.Book.UTXOChangeSet(address: address,
                                               previous: previous,
-                                              updated: utxos,
+                                              updated: orderedUTXOs,
                                               timestamp: timestamp)
     }
     

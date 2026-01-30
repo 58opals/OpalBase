@@ -71,9 +71,11 @@ extension Network {
                     options: .init(timeout: timeouts.scriptHashUnspent)
                 )
                 
-                return try await result.items.mapConcurrently { item in
+                let unspentOutputs = try await result.items.mapConcurrently { item in
                     try await makeUnspentOutput(from: item)
                 }
+                
+                return unspentOutputs.sorted { $0.compareOrder(before: $1) }
             }
         }
         

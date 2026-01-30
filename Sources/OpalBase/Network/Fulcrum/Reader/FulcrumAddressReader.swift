@@ -42,7 +42,7 @@ extension Network {
                     options: .init(timeout: timeouts.addressUnspent)
                 )
                 
-                return try result.items.map { item in
+                let unspentOutputs = try result.items.map { item in
                     guard let index = UInt32(exactly: item.transactionPosition) else {
                         throw Network.Failure(reason: .decoding, message: "Transaction position overflow")
                     }
@@ -57,6 +57,8 @@ extension Network {
                         previousTransactionOutputIndex: index
                     )
                 }
+                
+                return unspentOutputs.sorted { $0.compareOrder(before: $1) }
             }
         }
         
