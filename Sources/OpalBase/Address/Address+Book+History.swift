@@ -143,18 +143,29 @@ extension Address.Book {
         
         var aggregatedChangeSet = Transaction.History.ChangeSet()
         let refreshTimestamp = Date.now
+        var entriesByScriptHash: [String: [Transaction.History.Entry]] = .init()
+        entriesByScriptHash.reserveCapacity(updates.count)
+        
         for update in updates {
             let resolvedHeight = update.status.transactionHeight ?? -1
-            let entry = Transaction.History.Entry(transactionHash: update.record.transactionHash,
-                                                  height: resolvedHeight,
-                                                  fee: update.record.chainMetadata.fee)
+            let entry = Transaction.History.Entry(
+                transactionHash: update.record.transactionHash,
+                height: resolvedHeight,
+                fee: update.record.chainMetadata.fee
+            )
             for scriptHash in update.record.chainMetadata.scriptHashes {
-                let changeSet = transactionLog.mergeHistoryEntries(for: scriptHash,
-                                                                   entries: [entry],
-                                                                   tokenDeltasByHash: .init(),
-                                                                   timestamp: refreshTimestamp)
-                aggregatedChangeSet.merge(changeSet)
+                entriesByScriptHash[scriptHash, default: .init()].append(entry)
             }
+        }
+        
+        for (scriptHash, entries) in entriesByScriptHash {
+            let changeSet = transactionLog.mergeHistoryEntries(
+                for: scriptHash,
+                entries: entries,
+                tokenDeltasByHash: .init(),
+                timestamp: refreshTimestamp
+            )
+            aggregatedChangeSet.merge(changeSet)
         }
         
         return aggregatedChangeSet
