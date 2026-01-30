@@ -125,7 +125,7 @@ extension Address.Book {
         }
         
         func listSpendableUTXOs() -> [Transaction.Output.Unspent] {
-            Array(spendableUTXOs)
+            spendableUTXOs.sorted { $0.compareOrder(before: $1) }
         }
         
         func listUTXOs(for address: Address) -> [Transaction.Output.Unspent] {
