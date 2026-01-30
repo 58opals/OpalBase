@@ -156,21 +156,14 @@ extension Account {
                                                             changeLockingScript: changeEntry.address.lockingScript.data)
         
         let inputs = selectedTokenInputs + bitcoinCashInputs
-        let totalSelectedAmount = try inputs.sumSatoshi(or: Error.paymentExceedsMaximumAmount) {
-            try Satoshi($0.value)
-        }
-        let targetAmount = try organizedTokenOutputs.sumSatoshi(or: Error.paymentExceedsMaximumAmount) {
-            try Satoshi($0.value)
-        }
-        let initialChangeAmount = try totalSelectedAmount - targetAmount
-        let (reservation, reservedChangeEntry, privateKeys) = try await reserveSpendAndDeriveKeys(
-            utxos: inputs,
+        let reservedSpendContext = try await reserveSpendContext(
+            inputs: inputs,
+            outputs: organizedTokenOutputs,
             changeEntry: changeEntry,
             tokenSelectionPolicy: .allowTokenUTXOs,
-            mapReservationError: { Error.tokenSelectionFailed($0) }
+            mapReservationError: { Error.tokenSelectionFailed($0) },
+            mapInsufficientFundsError: Error.transactionBuildFailed(Satoshi.Error.negativeResult)
         )
-        let reservationHandle = Account.SpendReservation(addressBook: addressBook, reservation: reservation)
-        let changeOutput = Transaction.Output(value: initialChangeAmount.uint64, address: reservedChangeEntry.address)
         
         return TokenMintPlan(mint: mint,
                              feeRate: feeRate,
@@ -180,10 +173,10 @@ extension Account {
                              tokenRecipientOutputs: tokenRecipientOutputs,
                              authorityReturnOutput: authorityReturnOutput,
                              fungiblePreservationOutput: fungiblePreservationOutput,
-                             bitcoinCashChangeOutput: changeOutput,
+                             bitcoinCashChangeOutput: reservedSpendContext.changeOutput,
                              shouldAllowDustDonation: mint.shouldAllowDustDonation,
-                             reservationHandle: reservationHandle,
-                             privateKeys: privateKeys,
+                             reservationHandle: reservedSpendContext.reservationHandle,
+                             privateKeys: reservedSpendContext.privateKeys,
                              organizedTokenOutputs: organizedTokenOutputs,
                              shouldRandomizeRecipientOrdering: privacyConfiguration.shouldRandomizeRecipientOrdering)
     }

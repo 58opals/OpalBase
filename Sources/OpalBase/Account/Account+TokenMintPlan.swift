@@ -85,8 +85,8 @@ extension Account {
                                                         signatureFormat: signatureFormat,
                                                         unlockers: unlockers,
                                                         mapBuildError: Account.Error.transactionBuildFailed)
-            var resolver = Transaction.Output.Resolver(outputs: core.transaction.outputs)
-            let resolvedTokenOutputs = resolver.resolve(plannedTokenOutputs)
+            let resolvedTokenOutputs = Transaction.Output.Resolver.resolve(plannedTokenOutputs,
+                                                                           in: core.transaction.outputs)
             
             return TransactionResult(transaction: core.transaction,
                                      fee: core.fee,

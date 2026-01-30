@@ -34,6 +34,13 @@ extension Transaction.Output {
     }
 }
 
+extension Transaction.Output.Resolver {
+    static func resolve(_ candidates: [Transaction.Output], in outputs: [Transaction.Output]) -> [Transaction.Output] {
+        var resolver = Self(outputs: outputs)
+        return resolver.resolve(candidates)
+    }
+}
+
 extension Transaction.Output {
     struct Fingerprint: Hashable {
         let lockingScript: Data

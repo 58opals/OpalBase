@@ -93,21 +93,14 @@ extension Account {
                                                             changeLockingScript: changeEntry.address.lockingScript.data)
         
         let inputs = [authorityInput] + bitcoinCashInputs
-        let totalSelectedAmount = try inputs.sumSatoshi(or: Error.paymentExceedsMaximumAmount) {
-            try Satoshi($0.value)
-        }
-        let targetAmount = try organizedTokenOutputs.sumSatoshi(or: Error.paymentExceedsMaximumAmount) {
-            try Satoshi($0.value)
-        }
-        let initialChangeAmount = try totalSelectedAmount - targetAmount
-        let (reservation, reservedChangeEntry, privateKeys) = try await reserveSpendAndDeriveKeys(
-            utxos: inputs,
+        let reservedSpendContext = try await reserveSpendContext(
+            inputs: inputs,
+            outputs: organizedTokenOutputs,
             changeEntry: changeEntry,
             tokenSelectionPolicy: .allowTokenUTXOs,
-            mapReservationError: { Error.tokenSelectionFailed($0) }
+            mapReservationError: { Error.tokenSelectionFailed($0) },
+            mapInsufficientFundsError: Error.transactionBuildFailed(Satoshi.Error.negativeResult)
         )
-        let reservationHandle = Account.SpendReservation(addressBook: addressBook, reservation: reservation)
-        let changeOutput = Transaction.Output(value: initialChangeAmount.uint64, address: reservedChangeEntry.address)
         
         return TokenCommitmentMutationPlan(mutation: mutation,
                                            feeRate: feeRate,
@@ -115,10 +108,10 @@ extension Account {
                                            bitcoinCashInputs: bitcoinCashInputs,
                                            mutatedTokenOutput: mutatedTokenOutput,
                                            fungiblePreservationOutput: fungiblePreservationOutput,
-                                           bitcoinCashChangeOutput: changeOutput,
+                                           bitcoinCashChangeOutput: reservedSpendContext.changeOutput,
                                            shouldAllowDustDonation: mutation.shouldAllowDustDonation,
-                                           reservationHandle: reservationHandle,
-                                           privateKeys: privateKeys,
+                                           reservationHandle: reservedSpendContext.reservationHandle,
+                                           privateKeys: reservedSpendContext.privateKeys,
                                            organizedTokenOutputs: organizedTokenOutputs,
                                            shouldRandomizeRecipientOrdering: privacyConfiguration.shouldRandomizeRecipientOrdering)
     }

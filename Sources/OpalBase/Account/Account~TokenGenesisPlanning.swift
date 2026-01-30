@@ -106,21 +106,14 @@ extension Account {
                                                             changeLockingScript: changeEntry.address.lockingScript.data)
         
         let inputs = [genesisInput] + bitcoinCashInputs
-        let totalSelectedAmount = try inputs.sumSatoshi(or: Error.paymentExceedsMaximumAmount) {
-            try Satoshi($0.value)
-        }
-        let targetAmount = try organizedOutputs.sumSatoshi(or: Error.paymentExceedsMaximumAmount) {
-            try Satoshi($0.value)
-        }
-        let initialChangeAmount = try totalSelectedAmount - targetAmount
-        let (reservation, reservedChangeEntry, privateKeys) = try await reserveSpendAndDeriveKeys(
-            utxos: inputs,
+        let reservedSpendContext = try await reserveSpendContext(
+            inputs: inputs,
+            outputs: organizedOutputs,
             changeEntry: changeEntry,
             tokenSelectionPolicy: .excludeTokenUTXOs,
-            mapReservationError: { Error.coinSelectionFailed($0) }
+            mapReservationError: { Error.coinSelectionFailed($0) },
+            mapInsufficientFundsError: Error.transactionBuildFailed(Satoshi.Error.negativeResult)
         )
-        let reservationHandle = Account.SpendReservation(addressBook: addressBook, reservation: reservation)
-        let changeOutput = Transaction.Output(value: initialChangeAmount.uint64, address: reservedChangeEntry.address)
         
         return TokenGenesisPlan(genesis: genesis,
                                 category: category,
@@ -128,9 +121,9 @@ extension Account {
                                 genesisInput: genesisInput,
                                 bitcoinCashInputs: bitcoinCashInputs,
                                 outputs: organizedOutputs,
-                                reservationHandle: reservationHandle,
-                                privateKeys: privateKeys,
-                                changeOutput: changeOutput,
+                                reservationHandle: reservedSpendContext.reservationHandle,
+                                privateKeys: reservedSpendContext.privateKeys,
+                                changeOutput: reservedSpendContext.changeOutput,
                                 plannedMintedOutputs: rawOutputs,
                                 shouldAllowDustDonation: genesis.shouldAllowDustDonation,
                                 shouldRandomizeRecipientOrdering: privacyConfiguration.shouldRandomizeRecipientOrdering)
