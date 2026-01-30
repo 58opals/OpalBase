@@ -94,3 +94,20 @@ extension Network {
         }
     }
 }
+
+extension Network {
+    static func mapHistoryTransactions<TransactionModel>(
+        _ transactions: [TransactionModel],
+        transactionIdentifier: KeyPath<TransactionModel, String>,
+        blockHeight: KeyPath<TransactionModel, Int>,
+        fee: KeyPath<TransactionModel, UInt?>
+    ) -> [TransactionHistoryEntry] {
+        transactions.map { transaction in
+            TransactionHistoryEntry(
+                transactionIdentifier: transaction[keyPath: transactionIdentifier],
+                blockHeight: transaction[keyPath: blockHeight],
+                fee: transaction[keyPath: fee]
+            )
+        }
+    }
+}
