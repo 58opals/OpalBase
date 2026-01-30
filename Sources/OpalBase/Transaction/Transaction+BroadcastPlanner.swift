@@ -4,12 +4,12 @@ import Foundation
 
 extension Transaction {
     enum BroadcastPlanner {
-        static func buildAndBroadcast<Result>(
-            build: () throws -> Result,
-            transaction: (Result) -> Transaction,
+        static func buildAndBroadcast<Result, Failure: Swift.Error>(
+            build: @Sendable () throws -> Result,
+            transaction: @Sendable (Result) -> Transaction,
             via handler: Network.TransactionHandling,
-            mapBroadcastError: (Swift.Error) -> Account.Error,
-            onSuccess: () async throws -> Void
+            mapBroadcastError: @Sendable (Swift.Error) -> Failure,
+            onSuccess: @Sendable () async throws -> Void
         ) async throws -> (hash: Transaction.Hash, result: Result) {
             let result = try build()
             

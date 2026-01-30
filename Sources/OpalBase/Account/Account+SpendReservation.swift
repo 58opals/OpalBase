@@ -27,7 +27,7 @@ extension Account.SpendReservation {
         via handler: Network.TransactionHandling,
         mapBroadcastError: @Sendable (Swift.Error) -> Account.Error
     ) async throws -> (hash: Transaction.Hash, result: Result) {
-        try await Account.planBuildAndBroadcast(
+        try await Transaction.BroadcastPlanner.buildAndBroadcast(
             build: build,
             transaction: transaction,
             via: handler,
