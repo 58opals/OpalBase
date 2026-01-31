@@ -6,7 +6,7 @@ extension Transaction.History {
     public struct Record: Sendable, Hashable, Equatable {
         public struct ChainMetadata: Sendable, Hashable, Equatable {
             public var height: Int
-            public var fee: UInt?
+            public var fee: UInt64?
             public var scriptHashes: Set<String>
             public var firstSeenAt: Date
             public var lastUpdatedAt: Date

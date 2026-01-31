@@ -139,7 +139,7 @@ extension Address.Book {
             
             public let transactionHash: String
             public let height: Int
-            public let fee: UInt?
+            public let fee: UInt64?
             public let scriptHashes: [String]
             public let firstSeenAt: Date
             public let lastUpdatedAt: Date
@@ -157,7 +157,7 @@ extension Address.Book {
             
             public init(transactionHash: String,
                         height: Int,
-                        fee: UInt?,
+                        fee: UInt64?,
                         scriptHashes: [String],
                         firstSeenAt: Date,
                         lastUpdatedAt: Date,
