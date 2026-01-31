@@ -96,6 +96,11 @@ extension Network {
 }
 
 extension Network {
+    static func resolveFee<Fee: BinaryInteger>(_ fee: Fee?) -> UInt64? {
+        guard let fee else { return nil }
+        return UInt64(exactly: fee)
+    }
+    
     static func mapHistoryTransactions<TransactionModel>(
         _ transactions: [TransactionModel],
         transactionIdentifier: KeyPath<TransactionModel, String>,
@@ -106,7 +111,7 @@ extension Network {
             TransactionHistoryEntry(
                 transactionIdentifier: transaction[keyPath: transactionIdentifier],
                 blockHeight: transaction[keyPath: blockHeight],
-                fee: transaction[keyPath: fee]
+                fee: resolveFee(transaction[keyPath: fee])
             )
         }
     }

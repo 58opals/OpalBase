@@ -47,7 +47,7 @@ extension Network {
                     TransactionHistoryEntry(
                         transactionIdentifier: transaction.transactionHash,
                         blockHeight: transaction.height,
-                        fee: transaction.fee
+                        fee: Network.resolveFee(transaction.fee)
                     )
                 }
             }
