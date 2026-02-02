@@ -13,6 +13,7 @@ extension Network {
             configuration: Network.Configuration,
             metrics: MetricsCollector? = nil,
             logger: LogHandler? = nil,
+            isLoggingEnabled: Bool = true,
             urlSession: URLSession? = nil
         ) async throws {
             self.configuration = configuration
@@ -33,6 +34,7 @@ extension Network {
                 reconnect: reconnectConfiguration,
                 metrics: fulcrumMetrics,
                 logger: fulcrumLogger,
+                isLoggingEnabled: isLoggingEnabled,
                 urlSession: urlSession,
                 connectionTimeout: configuration.connectionTimeout.totalSeconds,
                 maximumMessageSize: configuration.maximumMessageSize,
