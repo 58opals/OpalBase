@@ -22,6 +22,7 @@ extension Address.Book {
         
         mutating func replaceHistory(for scriptHash: String,
                                      entries: [Transaction.History.Entry],
+                                     tokenDeltasByHash: [Transaction.Hash: Transaction.History.Record.TokenDelta],
                                      timestamp: Date) -> Transaction.History.ChangeSet {
             let newTransactions = Set(entries.map { $0.transactionHash })
             let previousTransactions = transactionHashesByScriptHash[scriptHash] ?? .init()
@@ -33,14 +34,20 @@ extension Address.Book {
                 if var record = records[entry.transactionHash] {
                     let original = record
                     record.resolveUpdate(from: entry, scriptHash: scriptHash, timestamp: timestamp)
+                    if let tokenDelta = tokenDeltasByHash[entry.transactionHash] {
+                        record.updateTokenDelta(tokenDelta)
+                    }
                     records[entry.transactionHash] = record
                     if record != original {
                         updated[entry.transactionHash] = record
                     }
                 } else {
-                    let record = Transaction.History.Record.makeRecord(for: entry,
+                    var record = Transaction.History.Record.makeRecord(for: entry,
                                                                        scriptHash: scriptHash,
                                                                        timestamp: timestamp)
+                    if let tokenDelta = tokenDeltasByHash[entry.transactionHash] {
+                        record.updateTokenDelta(tokenDelta)
+                    }
                     records[entry.transactionHash] = record
                     inserted[entry.transactionHash] = record
                 }
@@ -76,6 +83,7 @@ extension Address.Book {
         
         mutating func mergeHistoryEntries(for scriptHash: String,
                                           entries: [Transaction.History.Entry],
+                                          tokenDeltasByHash: [Transaction.Hash: Transaction.History.Record.TokenDelta],
                                           timestamp: Date) -> Transaction.History.ChangeSet {
             guard !entries.isEmpty else { return .init() }
             
@@ -86,14 +94,20 @@ extension Address.Book {
                 if var record = records[entry.transactionHash] {
                     let original = record
                     record.resolveUpdate(from: entry, scriptHash: scriptHash, timestamp: timestamp)
+                    if let tokenDelta = tokenDeltasByHash[entry.transactionHash] {
+                        record.updateTokenDelta(tokenDelta)
+                    }
                     records[entry.transactionHash] = record
                     if record != original {
                         updated[entry.transactionHash] = record
                     }
                 } else {
-                    let record = Transaction.History.Record.makeRecord(for: entry,
+                    var record = Transaction.History.Record.makeRecord(for: entry,
                                                                        scriptHash: scriptHash,
                                                                        timestamp: timestamp)
+                    if let tokenDelta = tokenDeltasByHash[entry.transactionHash] {
+                        record.updateTokenDelta(tokenDelta)
+                    }
                     records[entry.transactionHash] = record
                     inserted[entry.transactionHash] = record
                 }

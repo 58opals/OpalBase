@@ -17,7 +17,7 @@ extension Network {
             try await Network.performWithFailureTranslation {
                 let response = try await client.request(
                     method: .blockchain(.transaction(.broadcast(rawTransaction: rawTransactionHexadecimal))),
-                    responseType: Response.Result.Blockchain.Transaction.Broadcast.self,
+                    responseType: Response.ResultModel.BlockchainModel.TransactionModel.BroadcastModel.self,
                     options: .init(timeout: timeouts.transactionBroadcast)
                 )
                 return response.transactionHash.hexadecimalString
@@ -36,12 +36,12 @@ extension Network {
             return try await Network.performWithFailureTranslation {
                 async let transactionHeightResponse = client.request(
                     method: .blockchain(.transaction(.getHeight(transactionHash: identifier))),
-                    responseType: Response.Result.Blockchain.Transaction.GetHeight.self,
+                    responseType: Response.ResultModel.BlockchainModel.TransactionModel.GetHeightModel.self,
                     options: .init(timeout: timeouts.transactionConfirmations)
                 )
                 async let tipHeightResponse = client.request(
                     method: .blockchain(.headers(.getTip)),
-                    responseType: Response.Result.Blockchain.Headers.GetTip.self,
+                    responseType: Response.ResultModel.BlockchainModel.HeadersModel.GetTipModel.self,
                     options: .init(timeout: timeouts.headersTip)
                 )
                 
@@ -91,6 +91,28 @@ extension Network {
             }
             if height < 0 { return 0 }
             return UInt64.max
+        }
+    }
+}
+
+extension Network {
+    static func resolveFee<Fee: BinaryInteger>(_ fee: Fee?) -> UInt64? {
+        guard let fee else { return nil }
+        return UInt64(exactly: fee)
+    }
+    
+    static func mapHistoryTransactions<TransactionModel>(
+        _ transactions: [TransactionModel],
+        transactionIdentifier: KeyPath<TransactionModel, String>,
+        blockHeight: KeyPath<TransactionModel, Int>,
+        fee: KeyPath<TransactionModel, UInt?>
+    ) -> [TransactionHistoryEntry] {
+        transactions.map { transaction in
+            TransactionHistoryEntry(
+                transactionIdentifier: transaction[keyPath: transactionIdentifier],
+                blockHeight: transaction[keyPath: blockHeight],
+                fee: resolveFee(transaction[keyPath: fee])
+            )
         }
     }
 }

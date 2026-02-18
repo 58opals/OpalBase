@@ -6,11 +6,14 @@ extension Wallet {
     public actor FulcrumAddress {
         private let addressReader: Network.AddressReadable
         private let transactionHandler: Network.TransactionConfirming
+        private let transactionReader: Network.TransactionReadable?
         
         public init(addressReader: Network.AddressReadable,
-                    transactionHandler: Network.TransactionConfirming) {
+                    transactionHandler: Network.TransactionConfirming,
+                    transactionReader: Network.TransactionReadable? = nil) {
             self.addressReader = addressReader
             self.transactionHandler = transactionHandler
+            self.transactionReader = transactionReader
         }
         
         public func refreshBalances(for account: Account,
@@ -20,7 +23,7 @@ extension Wallet {
                                                        usage: usage,
                                                        includeUnconfirmed: includeUnconfirmedHistory)
             return try await account.refreshBalances(for: usage) { address in
-                let balance = try await self.addressReader.fetchBalance(for: address.string)
+                let balance = try await self.addressReader.fetchBalance(for: address.string, tokenFilter: .include)
                 return try Self.makeBalance(from: balance)
             }
         }
@@ -40,7 +43,8 @@ extension Wallet {
                                               includeUnconfirmed: Bool = true) async throws -> Transaction.History.ChangeSet {
             try await account.refreshTransactionHistory(using: addressReader,
                                                         usage: usage,
-                                                        includeUnconfirmed: includeUnconfirmed)
+                                                        includeUnconfirmed: includeUnconfirmed,
+                                                        transactionReader: transactionReader)
         }
         
         public func refreshTransactionHistory(forAccountAt unhardenedIndex: UInt32,
@@ -85,6 +89,7 @@ extension Wallet {
                     addressReader: addressReader,
                     blockHeaderReader: blockHeaderReader,
                     transactionHandler: transactionHandler,
+                    transactionReader: transactionReader,
                     includeUnconfirmed: includeUnconfirmed,
                     retryDelay: retryDelay)
         }

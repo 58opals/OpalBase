@@ -28,8 +28,8 @@ public struct PrivateKey {
     }
 }
 
-extension PrivateKey: Hashable {}
 extension PrivateKey: Sendable {}
+extension PrivateKey: Hashable {}
 extension PrivateKey: Equatable {}
 
 extension PrivateKey {

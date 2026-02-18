@@ -12,11 +12,14 @@ extension Transaction {
     func generatePreimage(
         for index: Int,
         hashType: HashType,
-        outputBeingSpent: Output
+        outputBeingSpent: Output,
+        spentOutputs: [Output]? = nil
     ) throws -> Data {
         guard inputs.indices.contains(index) else {
             throw Transaction.Error.sighashSingleIndexOutOfRange
         }
+        
+        try hashType.validate()
         
         let inputBeingSigned = inputs[index]
         
@@ -46,6 +49,18 @@ extension Transaction {
         }
         preimage.append(previousOutputsHash)
         
+        if hashType.isUnspentTransactionOutputsEnabled {
+            guard let spentOutputs else {
+                throw Transaction.Error.missingUnspentTransactionOutputs
+            }
+            guard spentOutputs.count == inputs.count else {
+                throw Transaction.Error.unspentTransactionOutputsCountMismatch(expected: inputs.count,
+                                                                               actual: spentOutputs.count)
+            }
+            let unspentTransactionOutputsHash = try makeUnspentTransactionOutputsHash(from: spentOutputs)
+            preimage.append(unspentTransactionOutputsHash)
+        }
+        
         var sequenceNumbersHash = Data()
         if hashType.isAllWithoutAnyoneCanPay {
             var data = Data()
@@ -65,11 +80,11 @@ extension Transaction {
             .littleEndianData
         preimage.append(previousOutputIndex)
         
-        let modifiedLockingScriptLength = outputBeingSpent.lockingScriptLength
-            .encode()
-        preimage.append(modifiedLockingScriptLength)
-        let modifiedLockingScript = outputBeingSpent.lockingScript
-        preimage.append(modifiedLockingScript)
+        let tokenPrefixData = try outputBeingSpent.makeTokenPrefixData()
+        let coveredLockingScript = tokenPrefixData + outputBeingSpent.lockingScript
+        let coveredLockingScriptLength = CompactSize(value: UInt64(coveredLockingScript.count)).encode()
+        preimage.append(coveredLockingScriptLength)
+        preimage.append(coveredLockingScript)
         
         let previousOutputValue = outputBeingSpent.value.littleEndianData
         preimage.append(previousOutputValue)
@@ -82,13 +97,13 @@ extension Transaction {
         case .all:
             var data = Data()
             for output in outputs {
-                data.append(output.encode())
+                data.append(try output.encode())
             }
             transactionOutputsHash = HASH256.hash(data)
         case .none:
             transactionOutputsHash = Data(repeating: 0x00, count: 32)
         case .single:
-            let outputWithTheSameIndexAsTheInputBeingSigned = outputs[index].encode()
+            let outputWithTheSameIndexAsTheInputBeingSigned = try outputs[index].encode()
             transactionOutputsHash = HASH256.hash(outputWithTheSameIndexAsTheInputBeingSigned)
         }
         preimage.append(transactionOutputsHash)
@@ -100,6 +115,16 @@ extension Transaction {
         preimage.append(signatureHashType)
         
         return preimage
+    }
+}
+
+private extension Transaction {
+    func makeUnspentTransactionOutputsHash(from outputs: [Output]) throws -> Data {
+        var data = Data()
+        for output in outputs {
+            data.append(try output.encode())
+        }
+        return HASH256.hash(data)
     }
 }
 

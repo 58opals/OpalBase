@@ -185,7 +185,7 @@ private extension Secp256k1.Operation {
         fromPrivateKeys32 privateKeys32: [Data],
         assumingValidPrivateKeys: Bool
     ) throws -> [Data] {
-        var jacobianPoints: [JacobianPoint] = []
+        var jacobianPoints: [JacobianPoint] = .init()
         jacobianPoints.reserveCapacity(privateKeys32.count)
         
         for privateKey32 in privateKeys32 {
@@ -194,7 +194,7 @@ private extension Secp256k1.Operation {
         }
         
         let affinePoints = JacobianPoint.convertBatchToAffine(jacobianPoints)
-        var compressedPublicKeys: [Data] = []
+        var compressedPublicKeys: [Data] = .init()
         compressedPublicKeys.reserveCapacity(affinePoints.count)
         
         for affinePoint in affinePoints {

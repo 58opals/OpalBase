@@ -41,10 +41,8 @@ extension Account {
             
             let usageBalances = Dictionary(uniqueKeysWithValues: usageResults)
             
-            do {
+            try await mapAddressBookError {
                 try await addressBook.updateCachedBalances(usageBalances, timestamp: refreshTimestamp)
-            } catch let error as Address.Book.Error {
-                throw Self.makeAccountError(from: error)
             }
             balancesByUsage[currentUsage] = usageBalances
         }

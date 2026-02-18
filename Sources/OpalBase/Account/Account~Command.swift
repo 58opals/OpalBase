@@ -31,23 +31,21 @@ extension Account {
 extension Account {
     public func refreshTransactionHistory(using service: Network.AddressReadable,
                                           usage: DerivationPath.Usage? = nil,
-                                          includeUnconfirmed: Bool = true) async throws -> Transaction.History.ChangeSet {
-        do {
-            return try await addressBook.refreshTransactionHistory(using: service,
-                                                                   usage: usage,
-                                                                   includeUnconfirmed: includeUnconfirmed)
-        } catch let error as Address.Book.Error {
-            throw Self.makeAccountError(from: error)
+                                          includeUnconfirmed: Bool = true,
+                                          transactionReader: Network.TransactionReadable? = nil) async throws -> Transaction.History.ChangeSet {
+        try await mapAddressBookError {
+            try await addressBook.refreshTransactionHistory(using: service,
+                                                            usage: usage,
+                                                            includeUnconfirmed: includeUnconfirmed,
+                                                            transactionReader: transactionReader)
         }
     }
     
     public func updateTransactionConfirmations(using handler: Network.TransactionConfirming,
                                                for transactionHashes: [Transaction.Hash]) async throws -> Transaction.History.ChangeSet {
-        do {
-            return try await addressBook.updateTransactionConfirmations(using: handler,
-                                                                        for: transactionHashes)
-        } catch let error as Address.Book.Error {
-            throw Self.makeAccountError(from: error)
+        try await mapAddressBookError {
+            try await addressBook.updateTransactionConfirmations(using: handler,
+                                                                 for: transactionHashes)
         }
     }
     
@@ -65,6 +63,9 @@ extension Account {
                              feePolicy: Wallet.FeePolicy = .init()) async throws -> SpendPlan {
         guard !payment.recipients.isEmpty else { throw Error.paymentHasNoRecipients }
         
+        if payment.recipients.contains(where: { $0.tokenData != nil }) { throw Error.paymentDoesNotSupportTokensUseTokenTransfer }
+        if payment.tokenSelectionPolicy == .allowTokenUTXOs { throw Error.paymentCannotSpendTokenUTXOs }
+        
         let targetAmount = try payment.recipients.sumSatoshi(or: Error.paymentExceedsMaximumAmount) { recipient in
             recipient.amount
         }
@@ -72,7 +73,9 @@ extension Account {
         let feeRate = feePolicy.recommendFeeRate(for: payment.feeContext,
                                                  override: payment.feeOverride)
         let rawRecipientOutputs = payment.recipients.map { recipient in
-            Transaction.Output(value: recipient.amount.uint64, address: recipient.address)
+            Transaction.Output(value: recipient.amount.uint64,
+                               address: recipient.address,
+                               tokenData: nil)
         }
         let organizedRecipientOutputs = await privacyShaper.organizeOutputs(rawRecipientOutputs)
         
@@ -81,7 +84,8 @@ extension Account {
         let coinSelectionConfiguration = Address.Book.CoinSelection.Configuration(recipientOutputs: organizedRecipientOutputs,
                                                                                   changeLockingScript: changeEntry.address.lockingScript.data,
                                                                                   strategy: payment.coinSelection,
-                                                                                  shouldAllowDustDonation: payment.shouldAllowDustDonation)
+                                                                                  shouldAllowDustDonation: payment.shouldAllowDustDonation,
+                                                                                  tokenSelectionPolicy: .excludeTokenUTXOs)
         
         let selectedUTXOs: [Transaction.Output.Unspent]
         do {
@@ -120,28 +124,14 @@ extension Account {
         }
         let initialChangeValue = initialChangeAmount.uint64
         
-        let reservation: Address.Book.SpendReservation
-        do {
-            reservation = try await addressBook.reserveSpend(utxos: heuristicallyOrderedInputs, changeEntry: changeEntry)
-        } catch {
-            throw Error.coinSelectionFailed(error)
-        }
-        
-        let reservedChangeEntry = reservation.changeEntry
+        let (reservation, reservedChangeEntry, privateKeys) = try await reserveSpendAndDeriveKeys(
+            utxos: heuristicallyOrderedInputs,
+            changeEntry: changeEntry,
+            tokenSelectionPolicy: .excludeTokenUTXOs,
+            mapReservationError: { Error.coinSelectionFailed($0) }
+        )
+        let reservationHandle = Account.SpendReservation(addressBook: addressBook, reservation: reservation)
         let changeOutput = Transaction.Output(value: initialChangeValue, address: reservedChangeEntry.address)
-        
-        let privateKeys: [Transaction.Output.Unspent: PrivateKey]
-        do {
-            privateKeys = try await addressBook.derivePrivateKeys(for: heuristicallyOrderedInputs)
-        } catch {
-            do {
-                try await addressBook.releaseSpendReservation(reservation, outcome: .cancelled)
-            } catch let releaseError {
-                throw Error.transactionBuildFailed(releaseError)
-            }
-            
-            throw Error.transactionBuildFailed(error)
-        }
         
         return SpendPlan(payment: payment,
                          feeRate: feeRate,
@@ -149,9 +139,7 @@ extension Account {
                          totalSelectedAmount: totalSelectedAmount,
                          targetAmount: targetAmount,
                          shouldAllowDustDonation: payment.shouldAllowDustDonation,
-                         addressBook: addressBook,
-                         changeEntry: reservedChangeEntry,
-                         reservation: reservation,
+                         reservationHandle: reservationHandle,
                          changeOutput: changeOutput,
                          recipientOutputs: organizedRecipientOutputs,
                          privateKeys: privateKeys,
@@ -271,9 +259,11 @@ extension Account {
 extension Account {
     public func refreshTransactionHistory(for address: Address,
                                           using service: Network.AddressReadable,
-                                          includeUnconfirmed: Bool = true) async throws -> Transaction.History.ChangeSet {
+                                          includeUnconfirmed: Bool = true,
+                                          transactionReader: Network.TransactionReadable? = nil) async throws -> Transaction.History.ChangeSet {
         try await addressBook.refreshTransactionHistory(for: address,
                                                         using: service,
-                                                        includeUnconfirmed: includeUnconfirmed)
+                                                        includeUnconfirmed: includeUnconfirmed,
+                                                        transactionReader: transactionReader)
     }
 }

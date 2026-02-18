@@ -27,20 +27,20 @@ extension Network {
         private func makeDetailed(
             transactionHash: Transaction.Hash,
             rawTransactionData: Data,
-            verbose: TransactionGetVerbose?
+            isVerbose: TransactionGetVerbose?
         ) throws -> Transaction.Detailed {
             let (transaction, _) = try Transaction.decode(from: rawTransactionData)
-            let blockHash = verbose?.blockhash.flatMap { try? Data(hexadecimalString: $0) }
+            let blockHash = isVerbose?.blockhash.flatMap { try? Data(hexadecimalString: $0) }
             
             return Transaction.Detailed(
                 transaction: transaction,
                 blockHash: blockHash,
-                blockTime: verbose?.blocktime,
-                confirmations: verbose?.confirmations,
+                blockTime: isVerbose?.blocktime,
+                confirmations: isVerbose?.confirmations,
                 hash: transactionHash,
                 rawTransactionData: rawTransactionData,
-                size: verbose?.size ?? UInt32(rawTransactionData.count),
-                time: verbose?.time
+                size: isVerbose?.size ?? UInt32(rawTransactionData.count),
+                time: isVerbose?.time
             )
         }
         
@@ -55,7 +55,7 @@ extension Network {
                 let detailed = try makeDetailed(
                     transactionHash: transactionHash,
                     rawTransactionData: rawTransactionData,
-                    verbose: verbose
+                    isVerbose: verbose
                 )
                 
                 await cache.put(detailed, at: transactionHash)
@@ -68,7 +68,7 @@ extension Network {
                     let detailed = try makeDetailed(
                         transactionHash: transactionHash,
                         rawTransactionData: rawTransactionData,
-                        verbose: nil
+                        isVerbose: nil
                     )
                     
                     await cache.put(detailed, at: transactionHash)
@@ -86,8 +86,8 @@ extension Network {
             
             return try await Network.performWithFailureTranslation {
                 let result = try await client.request(
-                    method: .blockchain(.transaction(.get(transactionHash: identifier, verbose: false))),
-                    responseType: Response.Result.Blockchain.Transaction.Get.self,
+                    method: .blockchain(.transaction(.get(transactionHash: identifier, isVerbose: false))),
+                    responseType: Response.ResultModel.BlockchainModel.TransactionModel.GetModel.self,
                     options: .init(timeout: timeouts.transactionConfirmations)
                 )
                 
@@ -100,8 +100,8 @@ extension Network {
             
             return try await Network.performWithFailureTranslation {
                 let result = try await client.request(
-                    method: .blockchain(.transaction(.get(transactionHash: identifier, verbose: true))),
-                    responseType: Response.Result.Blockchain.Transaction.Get.self,
+                    method: .blockchain(.transaction(.get(transactionHash: identifier, isVerbose: true))),
+                    responseType: Response.ResultModel.BlockchainModel.TransactionModel.GetModel.self,
                     options: .init(timeout: timeouts.transactionConfirmations)
                 )
                 return .init(hex: result.hex,
@@ -125,3 +125,4 @@ extension Network {
 }
 
 extension Network.FulcrumTransactionReader: Sendable {}
+extension Network.FulcrumTransactionReader: Network.TransactionReadable {}

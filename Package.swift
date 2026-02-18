@@ -17,7 +17,7 @@ let package = Package(
             targets: ["OpalBase"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/58opals/SwiftFulcrum.git", from: "0.5.0")
+        .package(url: "https://github.com/58opals/SwiftFulcrum.git", branch: "develop")
     ],
     targets: [
         .target(name: "OpalBase",
@@ -30,8 +30,16 @@ let package = Package(
                 ]
                ),
         .testTarget(
-            name: "OpalBaseTests",
-            dependencies: ["OpalBase"]
+            name: "OpalBaseLocalTests",
+            dependencies: ["OpalBase"],
+            path: "Tests/OpalBaseTests",
+            exclude: ["Network"]
+        ),
+        .testTarget(
+            name: "OpalBaseNetworkTests",
+            dependencies: ["OpalBase"],
+            path: "Tests/OpalBaseTests",
+            exclude: ["Local"]
         )
     ]
 )

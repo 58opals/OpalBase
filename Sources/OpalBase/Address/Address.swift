@@ -7,92 +7,58 @@ public struct Address {
     public static let separator: String = ":"
     public let string: String
     public let lockingScript: Script
+    public let format: Format
     
     public init(_ string: String) throws {
-        let encodedPayload: String
-        
-        let prefix: String
-        
-        if string.contains(Address.separator) {
-            let splitComponents = string.split(separator: Address.separator)
-            guard splitComponents.count == 2 else { throw Error.invalidCashAddressFormat }
-            let providedPrefix = String(splitComponents[0])
-            guard providedPrefix.caseInsensitiveCompare(Address.prefix) == .orderedSame else { throw Error.invalidCashAddressFormat }
-            
-            prefix = Address.prefix
-            encodedPayload = String(splitComponents[1])
-        } else {
-            prefix = Address.prefix
-            encodedPayload = string
-        }
-        
-        let decodedData = try Base32.decode(encodedPayload, interpretedAs5Bit: true)
-        guard decodedData.count >= 8 else { throw Error.invalidPayloadLength }
-        
-        let payload5BitValuesWithChecksum = decodedData
-        let payload5BitValues = payload5BitValuesWithChecksum.dropLast(8)
-        let checksumValues = payload5BitValuesWithChecksum.suffix(8)
-        let checksumInput = try Address.convertPrefixToFiveBitValues(prefix: prefix) + [0x00] + Array(payload5BitValues) + Array(checksumValues)
-        guard Polymod.compute(checksumInput) == 0 else { throw Error.invalidChecksum }
-        let payload: Data
-        do {
-            payload = try Address.convertFiveBitValuesToData(fiveBitValues: Array(payload5BitValues))
-        } catch {
-            throw Error.invalidPayloadLength
-        }
-        guard !payload.isEmpty else { throw Error.invalidPayloadLength }
-        let versionByte = payload[0]
-        let hashData = payload[1...]
-        
-        switch versionByte {
-        case 0x00: // P2PKH
-            guard hashData.count == 20 else { throw Error.invalidPayloadLength }
-            let hash = PublicKey.Hash(hashData)
-            let script = Script.p2pkh_OPCHECKSIG(hash: hash)
-            self.lockingScript = script
-            
-        case 0x08: // P2SH
-            guard hashData.count == 20 else { throw Error.invalidPayloadLength }
-            let scriptHash = Data(hashData)
-            let script = Script.p2sh(scriptHash: scriptHash)
-            self.lockingScript = script
-            
-        default:
-            throw Error.unsupportedVersionByte(versionByte)
-        }
-        
-        self.string = encodedPayload
+        try self.init(string: string)
     }
     
-    public init(script: Script) throws {
-        self.lockingScript = script
-        
-        switch script {
-        case .p2pkh_OPCHECKSIG(let hash), .p2pkh_OPCHECKDATASIG(hash: let hash):
-            let versionByte = Data([0x00])
-            let payload = versionByte + hash.data
-            let payload5BitValues = try Address.convertPayloadToFiveBitValues(payload: payload)
-            let checksum = try Address.generateChecksum(prefix: Address.prefix, payload5BitValues: payload5BitValues)
-            let combined = payload5BitValues + checksum
-            self.string = Base32.encode(Data(combined), interpretedAs5Bit: true)
-            
-        case .p2sh(let scriptHash):
-            guard scriptHash.count == 20 else { throw Address.Legacy.Error.invalidScriptType }
-            let versionByte = Data([0x08])
-            let payload = versionByte + scriptHash
-            let payload5BitValues = try Address.convertPayloadToFiveBitValues(payload: payload)
-            let checksum = try Address.generateChecksum(prefix: Address.prefix, payload5BitValues: payload5BitValues)
-            let combined = payload5BitValues + checksum
-            self.string = Base32.encode(Data(combined), interpretedAs5Bit: true)
-            
-        default:
-            throw Address.Legacy.Error.invalidScriptType
+    public init(string: String) throws {
+        if string.contains(Address.separator) {
+            self = try Address.parseCashAddress(from: string)
+            return
         }
+        
+        if let cashAddress = try? Address.parseCashAddress(from: string) {
+            self = cashAddress
+            return
+        }
+        
+        if let legacyAddress = try? Address.parseLegacyAddress(from: string) {
+            self = legacyAddress
+            return
+        }
+        
+        throw Error.invalidCashAddressFormat
+    }
+    
+    public init(script: Script, format: Format = .standard) throws {
+        let string = try Address.makeCashAddressString(for: script, format: format)
+        self.init(cashAddressPayload: string, lockingScript: script, format: format)
+    }
+    
+    init(cashAddressPayload: String, lockingScript: Script, format: Format) {
+        self.string = cashAddressPayload
+        self.lockingScript = lockingScript
+        self.format = format
     }
 }
 
 extension Address {
-    private static func convertPrefixToFiveBitValues(prefix: String) throws -> [UInt8] {
+    public enum Format: Sendable {
+        case standard
+        case tokenAware
+    }
+    
+    public var supportsTokens: Bool {
+        format == .tokenAware
+    }
+    
+    public var tokenAwareString: String {
+        (try? Address.makeCashAddressString(for: lockingScript, format: .tokenAware)) ?? string
+    }
+    
+    static func convertPrefixToFiveBitValues(prefix: String) throws -> [UInt8] {
         var values = [UInt8]()
         for character in prefix {
             guard let asciiValue = character.asciiValue else { throw Error.invalidCharacter(character) }
@@ -102,7 +68,7 @@ extension Address {
         return values
     }
     
-    private static func convertPayloadToFiveBitValues(payload: Data) throws -> [UInt8] {
+    static func convertPayloadToFiveBitValues(payload: Data) throws -> [UInt8] {
         try BitConversion.convertBits([UInt8](payload), from: 8, to: 5, pad: true)
     }
     
@@ -111,7 +77,7 @@ extension Address {
         return Data(bytes)
     }
     
-    private static func generateChecksum(prefix: String, payload5BitValues: [UInt8]) throws -> [UInt8] {
+    static func generateChecksum(prefix: String, payload5BitValues: [UInt8]) throws -> [UInt8] {
         var values = try Address.convertPrefixToFiveBitValues(prefix: prefix) + [0x00]
         values += payload5BitValues
         let templateForChecksum: [UInt8] = [0, 0, 0, 0, 0, 0, 0, 0]
@@ -125,6 +91,36 @@ extension Address {
         }
         
         return checksum
+    }
+    
+    private static func makeCashAddressString(for script: Script, format: Format) throws -> String {
+        let versionByte = try makeVersionByte(for: script, format: format)
+        let payload: Data
+        switch script {
+        case .p2pkh_OPCHECKSIG(let hash), .p2pkh_OPCHECKDATASIG(hash: let hash):
+            payload = Data([versionByte]) + hash.data
+        case .p2sh(let scriptHash):
+            guard scriptHash.count == 20 else { throw Address.Legacy.Error.invalidScriptType }
+            payload = Data([versionByte]) + scriptHash
+        default:
+            throw Address.Legacy.Error.invalidScriptType
+        }
+        
+        let payload5BitValues = try Address.convertPayloadToFiveBitValues(payload: payload)
+        let checksum = try Address.generateChecksum(prefix: Address.prefix, payload5BitValues: payload5BitValues)
+        let combined = payload5BitValues + checksum
+        return Base32.encode(Data(combined), interpretedAs5Bit: true)
+    }
+    
+    private static func makeVersionByte(for script: Script, format: Format) throws -> UInt8 {
+        switch script {
+        case .p2pkh_OPCHECKSIG, .p2pkh_OPCHECKDATASIG:
+            return format == .tokenAware ? 0x10 : 0x00
+        case .p2sh:
+            return format == .tokenAware ? 0x18 : 0x08
+        default:
+            throw Address.Legacy.Error.invalidScriptType
+        }
     }
 }
 
@@ -170,16 +166,6 @@ extension Address {
     public func makeScriptHash() -> Data {
         let scriptData = lockingScript.data
         return SHA256.hash(scriptData).reversedData
-    }
-}
-
-extension Address {
-    enum Error: Swift.Error, Equatable {
-        case invalidCharacter(Character)
-        case invalidCashAddressFormat
-        case invalidChecksum
-        case invalidPayloadLength
-        case unsupportedVersionByte(UInt8)
     }
 }
 

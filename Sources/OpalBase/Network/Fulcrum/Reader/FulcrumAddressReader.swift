@@ -13,18 +13,18 @@ extension Network {
             self.timeouts = timeouts
         }
         
-        public func fetchBalance(for address: String) async throws -> AddressBalance {
+        public func fetchBalance(for address: String, tokenFilter: Network.TokenFilter) async throws -> AddressBalance {
             try await Network.performWithFailureTranslation {
                 let result = try await client.request(
-                    method: .blockchain(.address(.getBalance(address: address, tokenFilter: nil))),
-                    responseType: Response.Result.Blockchain.Address.GetBalance.self,
+                    method: .blockchain(.address(.getBalance(address: address, tokenFilter: tokenFilter))),
+                    responseType: Response.ResultModel.BlockchainModel.AddressModel.GetBalanceModel.self,
                     options: .init(timeout: timeouts.addressBalance)
                 )
                 return AddressBalance(confirmed: result.confirmed, unconfirmed: result.unconfirmed)
             }
         }
         
-        public func fetchUnspentOutputs(for address: String) async throws -> [Transaction.Output.Unspent] {
+        public func fetchUnspentOutputs(for address: String, tokenFilter: Network.TokenFilter) async throws -> [Transaction.Output.Unspent] {
             try await Network.performWithFailureTranslation {
                 let lockingScriptData: Data
                 do {
@@ -37,24 +37,28 @@ extension Network {
                 }
                 
                 let result = try await client.request(
-                    method: .blockchain(.address(.listUnspent(address: address, tokenFilter: nil))),
-                    responseType: Response.Result.Blockchain.Address.ListUnspent.self,
+                    method: .blockchain(.address(.listUnspent(address: address, tokenFilter: tokenFilter))),
+                    responseType: Response.ResultModel.BlockchainModel.AddressModel.ListUnspentModel.self,
                     options: .init(timeout: timeouts.addressUnspent)
                 )
                 
-                return try result.items.map { item in
+                let unspentOutputs = try result.items.map { item in
                     guard let index = UInt32(exactly: item.transactionPosition) else {
                         throw Network.Failure(reason: .decoding, message: "Transaction position overflow")
                     }
                     let data = try Data(hexadecimalString: item.transactionHash)
                     let hash = Transaction.Hash(dataFromRPC: data)
+                    let tokenData = try item.tokenData.map { try CashTokens.TokenData(swiftFulcrumTokenData: $0) }
                     return Transaction.Output.Unspent(
                         value: item.value,
                         lockingScript: lockingScriptData,
+                        tokenData: tokenData,
                         previousTransactionHash: hash,
                         previousTransactionOutputIndex: index
                     )
                 }
+                
+                return unspentOutputs.sorted { $0.compareOrder(before: $1) }
             }
         }
         
@@ -67,11 +71,11 @@ extension Network {
                                 address: address,
                                 fromHeight: nil,
                                 toHeight: nil,
-                                includeUnconfirmed: includeUnconfirmed
+                                shouldIncludeUnconfirmed: includeUnconfirmed
                             )
                         )
                     ),
-                    responseType: Response.Result.Blockchain.Address.GetHistory.self,
+                    responseType: Response.ResultModel.BlockchainModel.AddressModel.GetHistoryModel.self,
                     options: .init(timeout: timeouts.addressHistory)
                 )
                 
@@ -79,7 +83,7 @@ extension Network {
                     TransactionHistoryEntry(
                         transactionIdentifier: transaction.transactionHash,
                         blockHeight: transaction.height,
-                        fee: transaction.fee
+                        fee: Network.resolveFee(transaction.fee)
                     )
                 }
             }
@@ -89,7 +93,7 @@ extension Network {
             try await Network.performWithFailureTranslation {
                 let result = try await client.request(
                     method: .blockchain(.address(.getFirstUse(address: address))),
-                    responseType: Response.Result.Blockchain.Address.GetFirstUse.self,
+                    responseType: Response.ResultModel.BlockchainModel.AddressModel.GetFirstUseModel.self,
                     options: .init(timeout: timeouts.addressFirstUse)
                 )
                 
@@ -109,7 +113,7 @@ extension Network {
             try await Network.performWithFailureTranslation {
                 let result = try await client.request(
                     method: .blockchain(.address(.getMempool(address: address))),
-                    responseType: Response.Result.Blockchain.Address.GetMempool.self,
+                    responseType: Response.ResultModel.BlockchainModel.AddressModel.GetMempoolModel.self,
                     options: .init(timeout: timeouts.addressMempool)
                 )
                 
@@ -117,7 +121,7 @@ extension Network {
                     TransactionHistoryEntry(
                         transactionIdentifier: transaction.transactionHash,
                         blockHeight: transaction.height,
-                        fee: transaction.fee
+                        fee: Network.resolveFee(transaction.fee)
                     )
                 }
             }
@@ -127,7 +131,7 @@ extension Network {
             try await Network.performWithFailureTranslation {
                 let result = try await client.request(
                     method: .blockchain(.address(.getScriptHash(address: address))),
-                    responseType: Response.Result.Blockchain.Address.GetScriptHash.self,
+                    responseType: Response.ResultModel.BlockchainModel.AddressModel.GetScriptHashModel.self,
                     options: .init(timeout: timeouts.addressScriptHash)
                 )
                 return result.scriptHash
@@ -138,8 +142,8 @@ extension Network {
             try await Network.performWithFailureTranslation {
                 let (initial, updates, cancel) = try await client.subscribe(
                     method: .blockchain(.address(.subscribe(address: address))),
-                    initialType: Response.Result.Blockchain.Address.Subscribe.self,
-                    notificationType: Response.Result.Blockchain.Address.SubscribeNotification.self,
+                    initialType: Response.ResultModel.BlockchainModel.AddressModel.SubscribeModel.self,
+                    notificationType: Response.ResultModel.BlockchainModel.AddressModel.SubscribeNotificationModel.self,
                     options: .init(timeout: timeouts.addressSubscription)
                 )
                 
@@ -158,7 +162,7 @@ extension Network {
                         ]
                     },
                     makeUpdates: { notification in
-                        guard subscribedAddress == notification.subscriptionIdentifier else { return [] }
+                        guard subscribedAddress == notification.subscriptionIdentifier else { return .init() }
                         return [
                             AddressSubscriptionUpdate(
                                 kind: .change,

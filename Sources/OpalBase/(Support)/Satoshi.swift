@@ -100,21 +100,21 @@ extension Satoshi: Sendable {}
 // MARK: - Sequence_+
 
 extension Sequence where Element == Satoshi {
-    func sumSatoshi() throws -> Satoshi {
+    public func sumSatoshi() throws -> Satoshi {
         try sumSatoshi { $0 }
     }
     
-    func sumSatoshi(or overflowError: @autoclosure () -> Swift.Error) throws -> Satoshi {
+    public func sumSatoshi(or overflowError: @autoclosure () -> Swift.Error) throws -> Satoshi {
         try sumSatoshi(or: overflowError()) { $0 }
     }
 }
 
 extension Sequence {
-    func sumSatoshi(_ transform: (Element) throws -> Satoshi) throws -> Satoshi {
+    public func sumSatoshi(_ transform: (Element) throws -> Satoshi) throws -> Satoshi {
         try reduce(Satoshi()) { try $0 + transform($1) }
     }
     
-    func sumSatoshi(or overflowError: @autoclosure () -> Swift.Error,
+    public func sumSatoshi(or overflowError: @autoclosure () -> Swift.Error,
                     _ transform: (Element) throws -> Satoshi) throws -> Satoshi {
         do {
             return try sumSatoshi(transform)

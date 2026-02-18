@@ -17,17 +17,17 @@ extension Network {
             try await Network.performWithFailureTranslation {
                 _ = try await client.request(
                     method: .server(.ping),
-                    responseType: Response.Result.Server.Ping.self,
+                    responseType: Response.ResultModel.ServerModel.PingModel.self,
                     options: .init(timeout: timeouts.serverPing)
                 )
             }
         }
         
-        public func fetchServerVersion(clientName: String, protocolNegotiation: Fulcrum.Configuration.ProtocolNegotiation.Argument) async throws -> FulcrumServerVersion {
+        public func fetchServerVersion(clientName: String, protocolNegotiation: SwiftFulcrum.FulcrumClient.Configuration.ProtocolNegotiationModel.ArgumentModel) async throws -> FulcrumServerVersion {
             try await Network.performWithFailureTranslation {
                 let result = try await client.request(
                     method: .server(.version(clientName: clientName, protocolNegotiation: protocolNegotiation)),
-                    responseType: Response.Result.Server.Version.self,
+                    responseType: Response.ResultModel.ServerModel.VersionModel.self,
                     options: .init(timeout: timeouts.serverVersion)
                 )
                 
@@ -42,7 +42,7 @@ extension Network {
             try await Network.performWithFailureTranslation {
                 let result = try await client.request(
                     method: .server(.features),
-                    responseType: Response.Result.Server.Features.self,
+                    responseType: Response.ResultModel.ServerModel.FeaturesModel.self,
                     options: .init(timeout: timeouts.serverFeatures)
                 )
                 
@@ -81,7 +81,7 @@ extension Network {
             try await Network.performWithFailureTranslation {
                 let result = try await client.request(
                     method: .blockchain(.relayFee),
-                    responseType: Response.Result.Blockchain.RelayFee.self,
+                    responseType: Response.ResultModel.BlockchainModel.RelayFeeModel.self,
                     options: .init(timeout: timeouts.relayFee)
                 )
                 return result.fee
@@ -92,7 +92,7 @@ extension Network {
             try await Network.performWithFailureTranslation {
                 let result = try await client.request(
                     method: .blockchain(.estimateFee(numberOfBlocks: confirmationTarget)),
-                    responseType: Response.Result.Blockchain.EstimateFee.self,
+                    responseType: Response.ResultModel.BlockchainModel.EstimateFeeModel.self,
                     options: .init(timeout: timeouts.feeEstimation)
                 )
                 return result.fee

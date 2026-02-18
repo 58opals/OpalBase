@@ -19,11 +19,16 @@ extension Network {
     }
     
     enum FulcrumErrorTranslator {
+        private static func describe(_ error: Swift.Error?) -> String? {
+            guard let error else { return nil }
+            return String(describing: error)
+        }
+        
         static func translate(_ error: Swift.Error) -> Network.Failure {
             if let failure = error as? Network.Failure { return failure }
             
             if let dataError = error as? Data.Error {
-                return Network.Failure(reason: .decoding, message: dataError.localizedDescription)
+                return Network.Failure(reason: .decoding, message: describe(dataError))
             }
             
             if let decodingError = error as? DecodingError {
@@ -38,7 +43,7 @@ extension Network {
                 return Network.Failure(reason: .cancelled, message: "Operation cancelled")
             }
             
-            guard let fulcrumError = error as? Fulcrum.Error else {
+            guard let fulcrumError = error as? SwiftFulcrum.FulcrumClient.Error else {
                 return Network.Failure(reason: .unknown, message: String(describing: error))
             }
             
@@ -65,14 +70,14 @@ extension Network {
         static func checkCancellation(_ error: Swift.Error) -> Bool {
             if error is CancellationError { return true }
             if let failure = error as? Network.Failure { return failure.reason == .cancelled }
-            if let fulcrumError = error as? Fulcrum.Error,
+            if let fulcrumError = error as? SwiftFulcrum.FulcrumClient.Error,
                case .client(.cancelled) = fulcrumError {
                 return true
             }
             return false
         }
         
-        private static func translateTransport(_ transport: Fulcrum.Error.Transport) -> Network.Failure {
+        private static func translateTransport(_ transport: SwiftFulcrum.FulcrumClient.Error.TransportModel) -> Network.Failure {
             switch transport {
             case .setupFailed:
                 return Network.Failure(reason: .transport, message: "Failed to create transport")
@@ -91,7 +96,7 @@ extension Network {
             }
         }
         
-        private static func translateNetwork(_ network: Fulcrum.Error.Network) -> Network.Failure {
+        private static func translateNetwork(_ network: SwiftFulcrum.FulcrumClient.Error.NetworkModel) -> Network.Failure {
             switch network {
             case .tlsNegotiationFailed(let underlying):
                 return Network.Failure(
@@ -101,16 +106,16 @@ extension Network {
             }
         }
         
-        private static func translateCoding(_ coding: Fulcrum.Error.Coding) -> Network.Failure {
+        private static func translateCoding(_ coding: SwiftFulcrum.FulcrumClient.Error.CodingModel) -> Network.Failure {
             switch coding {
             case .encode(let underlying):
-                return Network.Failure(reason: .encoding, message: underlying?.localizedDescription)
+                return Network.Failure(reason: .encoding, message: describe(underlying))
             case .decode(let underlying):
-                return Network.Failure(reason: .decoding, message: underlying?.localizedDescription)
+                return Network.Failure(reason: .decoding, message: describe(underlying))
             }
         }
         
-        private static func translateClient(_ client: Fulcrum.Error.Client) -> Network.Failure {
+        private static func translateClient(_ client: SwiftFulcrum.FulcrumClient.Error.Client) -> Network.Failure {
             switch client {
             case .urlNotFound:
                 return Network.Failure(reason: .transport, message: "No server URL available")
@@ -133,7 +138,20 @@ extension Network {
             case .protocolMismatch(let message):
                 return Network.Failure(reason: .protocolViolation, message: message)
             case .unknown(let underlying):
-                return Network.Failure(reason: .unknown, message: underlying?.localizedDescription)
+                guard let underlying else {
+                    return Network.Failure(reason: .unknown, message: nil)
+                }
+                
+                if underlying is DecodingError {
+                    return Network.Failure(reason: .decoding, message: describe(underlying))
+                }
+                
+                let cocoaError = underlying as NSError
+                if cocoaError.domain == NSCocoaErrorDomain && cocoaError.code == 3840 {
+                    return Network.Failure(reason: .decoding, message: describe(underlying))
+                }
+                
+                return Network.Failure(reason: .unknown, message: describe(underlying))
             }
         }
     }

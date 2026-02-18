@@ -17,7 +17,7 @@ extension Network {
             try await Network.performWithFailureTranslation {
                 let response = try await client.request(
                     method: .mempool(.getInfo),
-                    responseType: Response.Result.Mempool.GetInfo.self,
+                    responseType: Response.ResultModel.MempoolModel.GetInfoModel.self,
                     options: .init(timeout: timeouts.mempoolInfo)
                 )
                 
@@ -35,7 +35,7 @@ extension Network {
             try await Network.performWithFailureTranslation {
                 let response = try await client.request(
                     method: .mempool(.getFeeHistogram),
-                    responseType: Response.Result.Mempool.GetFeeHistogram.self,
+                    responseType: Response.ResultModel.MempoolModel.GetFeeHistogramModel.self,
                     options: .init(timeout: timeouts.mempoolFeeHistogram)
                 )
                 

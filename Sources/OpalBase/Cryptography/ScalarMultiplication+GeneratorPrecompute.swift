@@ -15,7 +15,7 @@ extension ScalarMultiplication {
     }()
     
     private static func makeOddMultiplesAffineTable(for basePoint: AffinePoint) -> InlineArray<8, AffinePoint> {
-        var jacobianPoints: [JacobianPoint] = []
+        var jacobianPoints: [JacobianPoint] = .init()
         jacobianPoints.reserveCapacity(windowedNonAdjacentFormOddMultipleCount)
         
         let baseJacobian = JacobianPoint(affine: basePoint)

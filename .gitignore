@@ -1,9 +1,17 @@
-/.build
-/Packages
-Package.resolved
-xcuserdata/
+# SwiftPM / Xcode build artifacts
+/.build/
+/Packages/
+/.swiftpm/
+/.swiftpm-cache/
 DerivedData/
+xcuserdata/
+
+# Local tool/runtime state
+/.codex/
+/.codex-cache/
 configuration/registries.json
+
+# Machine-local files
 .DS_Store
-.swiftpm/
 .netrc
+Package.resolved

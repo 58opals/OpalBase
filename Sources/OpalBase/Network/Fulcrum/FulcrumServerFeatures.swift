@@ -47,8 +47,8 @@ extension Network {
         public let genesisHash: String
         public let hashFunction: String
         public let serverVersion: String
-        public let minimumProtocolVersion: ProtocolVersion
-        public let maximumProtocolVersion: ProtocolVersion
+        public let minimumProtocolVersion: ProtocolVersionModel
+        public let maximumProtocolVersion: ProtocolVersionModel
         public let pruningLimit: Int?
         public let hosts: [String: Host]?
         public let hasDoubleSpendProofs: Bool?
@@ -60,8 +60,8 @@ extension Network {
             genesisHash: String,
             hashFunction: String,
             serverVersion: String,
-            minimumProtocolVersion: ProtocolVersion,
-            maximumProtocolVersion: ProtocolVersion,
+            minimumProtocolVersion: ProtocolVersionModel,
+            maximumProtocolVersion: ProtocolVersionModel,
             pruningLimit: Int?,
             hosts: [String: Host]?,
             hasDoubleSpendProofs: Bool?,

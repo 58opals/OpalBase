@@ -32,17 +32,90 @@ extension Address.Book {
         public struct UTXO: Codable {
             public let value: UInt64
             public let lockingScript: String
+            public let tokenCategory: String?
+            public let tokenAmount: UInt64?
+            public let nftCapability: CashTokens.NFT.Capability?
+            public let nftCommitment: String?
             public let transactionHash: String
             public let outputIndex: UInt32
             
             public init(value: UInt64,
                         lockingScript: String,
+                        tokenCategory: String?,
+                        tokenAmount: UInt64?,
+                        nftCapability: CashTokens.NFT.Capability?,
+                        nftCommitment: String?,
                         transactionHash: String,
                         outputIndex: UInt32) {
                 self.value = value
                 self.lockingScript = lockingScript
+                self.tokenCategory = tokenCategory
+                self.tokenAmount = tokenAmount
+                self.nftCapability = nftCapability
+                self.nftCommitment = nftCommitment
                 self.transactionHash = transactionHash
                 self.outputIndex = outputIndex
+            }
+            
+            public init(value: UInt64,
+                        lockingScript: String,
+                        tokenData: CashTokens.TokenData?,
+                        transactionHash: String,
+                        outputIndex: UInt32) {
+                let nftCommitment = tokenData?.nft?.commitment.hexadecimalString
+                self.init(value: value,
+                          lockingScript: lockingScript,
+                          tokenCategory: tokenData?.category.hexForDisplay,
+                          tokenAmount: tokenData?.amount,
+                          nftCapability: tokenData?.nft?.capability,
+                          nftCommitment: nftCommitment,
+                          transactionHash: transactionHash,
+                          outputIndex: outputIndex)
+            }
+            
+            public func makeTokenData() throws -> CashTokens.TokenData? {
+                guard let tokenCategory else {
+                    guard tokenAmount == nil, nftCapability == nil, nftCommitment == nil else {
+                        throw Address.Book.Error.invalidSnapshotTokenData(reason: SnapshotTokenDataError.missingTokenCategory)
+                    }
+                    return nil
+                }
+                
+                let category: CashTokens.CategoryID
+                do {
+                    category = try CashTokens.CategoryID(hexFromRPC: tokenCategory)
+                } catch {
+                    throw Address.Book.Error.invalidSnapshotTokenData(reason: error)
+                }
+                
+                let nonFungibleToken: CashTokens.NFT?
+                if nftCapability == nil && nftCommitment == nil {
+                    nonFungibleToken = nil
+                } else {
+                    guard let nftCapability, let nftCommitment else {
+                        throw Address.Book.Error.invalidSnapshotTokenData(
+                            reason: SnapshotTokenDataError.missingNonFungibleTokenComponents
+                        )
+                    }
+                    let commitmentData: Data
+                    do {
+                        commitmentData = try Data(hexadecimalString: nftCommitment)
+                    } catch {
+                        throw Address.Book.Error.invalidSnapshotTokenData(reason: error)
+                    }
+                    do {
+                        nonFungibleToken = try CashTokens.NFT(capability: nftCapability, commitment: commitmentData)
+                    } catch {
+                        throw Address.Book.Error.invalidSnapshotTokenData(reason: error)
+                    }
+                }
+                
+                return CashTokens.TokenData(category: category, amount: tokenAmount, nft: nonFungibleToken)
+            }
+            
+            private enum SnapshotTokenDataError: Swift.Error {
+                case missingTokenCategory
+                case missingNonFungibleTokenComponents
             }
         }
         
@@ -66,7 +139,7 @@ extension Address.Book {
             
             public let transactionHash: String
             public let height: Int
-            public let fee: UInt?
+            public let fee: UInt64?
             public let scriptHashes: [String]
             public let firstSeenAt: Date
             public let lastUpdatedAt: Date
@@ -77,10 +150,14 @@ extension Address.Book {
             public let merkleProof: MerkleProof?
             public let lastVerifiedHeight: UInt32?
             public let lastCheckedAt: Date?
+            public let fungibleTokenDeltasByCategory: [CashTokens.CategoryID: Int64]?
+            public let nonFungibleTokenAdditions: [CashTokens.TokenData]?
+            public let nonFungibleTokenRemovals: [CashTokens.TokenData]?
+            public let bitcoinCashLockedInTokenOutputDelta: Int64?
             
             public init(transactionHash: String,
                         height: Int,
-                        fee: UInt?,
+                        fee: UInt64?,
                         scriptHashes: [String],
                         firstSeenAt: Date,
                         lastUpdatedAt: Date,
@@ -90,7 +167,11 @@ extension Address.Book {
                         verificationStatus: AddressBookSnapshotTransactionHistory.Status.Verification,
                         merkleProof: MerkleProof?,
                         lastVerifiedHeight: UInt32?,
-                        lastCheckedAt: Date?) {
+                        lastCheckedAt: Date?,
+                        fungibleTokenDeltasByCategory: [CashTokens.CategoryID: Int64]? = nil,
+                        nonFungibleTokenAdditions: [CashTokens.TokenData]? = nil,
+                        nonFungibleTokenRemovals: [CashTokens.TokenData]? = nil,
+                        bitcoinCashLockedInTokenOutputDelta: Int64? = nil) {
                 self.transactionHash = transactionHash
                 self.height = height
                 self.fee = fee
@@ -104,6 +185,10 @@ extension Address.Book {
                 self.merkleProof = merkleProof
                 self.lastVerifiedHeight = lastVerifiedHeight
                 self.lastCheckedAt = lastCheckedAt
+                self.fungibleTokenDeltasByCategory = fungibleTokenDeltasByCategory
+                self.nonFungibleTokenAdditions = nonFungibleTokenAdditions
+                self.nonFungibleTokenRemovals = nonFungibleTokenRemovals
+                self.bitcoinCashLockedInTokenOutputDelta = bitcoinCashLockedInTokenOutputDelta
             }
         }
         
@@ -158,6 +243,7 @@ extension Address.Book {
         let utxoSnaps = utxoStore.listUTXOs().map {
             Snapshot.UTXO(value: $0.value,
                           lockingScript: $0.lockingScript.hexadecimalString,
+                          tokenData: $0.tokenData,
                           transactionHash: $0.previousTransactionHash.naturalOrder.hexadecimalString,
                           outputIndex: $0.previousTransactionOutputIndex)
         }
@@ -166,6 +252,7 @@ extension Address.Book {
             let chainMetadata = record.chainMetadata
             let confirmationMetadata = record.confirmationMetadata
             let verificationMetadata = record.verificationMetadata
+            let tokenDelta = record.tokenDelta
             let proof = verificationMetadata.merkleProof.map { proof in
                 Snapshot.Transaction.MerkleProof(blockHeight: proof.blockHeight,
                                                  position: proof.position,
@@ -184,7 +271,11 @@ extension Address.Book {
                                         verificationStatus: verificationMetadata.status,
                                         merkleProof: proof,
                                         lastVerifiedHeight: verificationMetadata.lastVerifiedHeight,
-                                        lastCheckedAt: verificationMetadata.lastCheckedAt)
+                                        lastCheckedAt: verificationMetadata.lastCheckedAt,
+                                        fungibleTokenDeltasByCategory: tokenDelta.fungibleDeltasByCategory,
+                                        nonFungibleTokenAdditions: Array(tokenDelta.nonFungibleTokenAdditions),
+                                        nonFungibleTokenRemovals: Array(tokenDelta.nonFungibleTokenRemovals),
+                                        bitcoinCashLockedInTokenOutputDelta: tokenDelta.bitcoinCashLockedInTokenOutputDelta)
         }
         
         return Snapshot(receivingEntries: receiving,
@@ -209,10 +300,12 @@ extension Address.Book {
         try await apply(entrySnapshots: snapshot.changeEntries, usage: .change)
         
         let restoredUTXOs = try snapshot.utxos.map {
-            Transaction.Output.Unspent(value: $0.value,
-                                       lockingScript: try Data(hexadecimalString: $0.lockingScript),
-                                       previousTransactionHash: .init(naturalOrder: try Data(hexadecimalString: $0.transactionHash)),
-                                       previousTransactionOutputIndex: $0.outputIndex)
+            let tokenData = try $0.makeTokenData()
+            return Transaction.Output.Unspent(value: $0.value,
+                                              lockingScript: try Data(hexadecimalString: $0.lockingScript),
+                                              tokenData: tokenData,
+                                              previousTransactionHash: .init(naturalOrder: try Data(hexadecimalString: $0.transactionHash)),
+                                              previousTransactionOutputIndex: $0.outputIndex)
         }
         
         utxoStore.replace(with: Set(restoredUTXOs))
@@ -240,11 +333,18 @@ extension Address.Book {
                                                                                        merkleProof: proof,
                                                                                        lastVerifiedHeight: transaction.lastVerifiedHeight,
                                                                                        lastCheckedAt: transaction.lastCheckedAt)
+            let tokenDelta = Transaction.History.Record.TokenDelta(
+                fungibleDeltasByCategory: transaction.fungibleTokenDeltasByCategory ?? .init(),
+                nonFungibleTokenAdditions: Set(transaction.nonFungibleTokenAdditions ?? .init()),
+                nonFungibleTokenRemovals: Set(transaction.nonFungibleTokenRemovals ?? .init()),
+                bitcoinCashLockedInTokenOutputDelta: transaction.bitcoinCashLockedInTokenOutputDelta ?? 0
+            )
             let record = Transaction.History.Record(transactionHash: hash,
                                                     status: transaction.status,
                                                     chainMetadata: chainMetadata,
                                                     confirmationMetadata: confirmationMetadata,
-                                                    verificationMetadata: verificationMetadata)
+                                                    verificationMetadata: verificationMetadata,
+                                                    tokenDelta: tokenDelta)
             transactionLog.store(record)
         }
     }

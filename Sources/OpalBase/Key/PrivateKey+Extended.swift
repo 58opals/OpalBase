@@ -217,5 +217,5 @@ extension PrivateKey.Extended {
     }
 }
 
-extension PrivateKey.Extended: Equatable {}
 extension PrivateKey.Extended: Sendable {}
+extension PrivateKey.Extended: Equatable {}

@@ -7,7 +7,7 @@ extension Network {
     protocol FulcrumSubscription: Sendable {
         var id: UUID { get }
         func prepareForReconnect() async
-        func resubscribe(using fulcrum: Fulcrum) async
+        func resubscribe(using fulcrum: SwiftFulcrum.FulcrumClient) async
         func cancel() async
         func fail(with error: Swift.Error) async
     }

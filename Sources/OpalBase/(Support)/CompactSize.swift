@@ -31,20 +31,21 @@ enum CompactSize {
             throw Error.insufficientData
         }
         
+        let start = data.index(after: data.startIndex)
         switch prefix {
         case 0x00...0xFC:
             self = .uint8(prefix)
         case 0xFD:
             guard data.count >= 3 else { throw Error.insufficientData }
-            let (value, _): (UInt16, Data.Index) = try data.extractValue(from: 1)
+            let (value, _): (UInt16, Data.Index) = try data.extractValue(from: start)
             self = .uint16(value)
         case 0xFE:
             guard data.count >= 5 else { throw Error.insufficientData }
-            let (value, _): (UInt32, Data.Index) = try data.extractValue(from: 1)
+            let (value, _): (UInt32, Data.Index) = try data.extractValue(from: start)
             self = .uint32(value)
         case 0xFF:
             guard data.count >= 9 else { throw Error.insufficientData }
-            let (value, _): (UInt64, Data.Index) = try data.extractValue(from: 1)
+            let (value, _): (UInt64, Data.Index) = try data.extractValue(from: start)
             self = .uint64(value)
         default:
             throw Error.invalidPrefix
@@ -77,18 +78,7 @@ enum CompactSize {
     /// - Returns: A tuple containing the decoded CompactSize and the number of bytes read.
     static func decode(from data: Data) throws -> (CompactSize, Int) {
         let compactSize = try CompactSize(data: data)
-        let bytesRead: Int
-        
-        switch compactSize {
-        case .uint8:
-            bytesRead = 1
-        case .uint16:
-            bytesRead = 3
-        case .uint32:
-            bytesRead = 5
-        case .uint64:
-            bytesRead = 9
-        }
+        let bytesRead = compactSize.encodedSize
         
         return (compactSize, bytesRead)
     }
@@ -100,6 +90,19 @@ enum CompactSize {
         case .uint16(let value): return UInt64(value)
         case .uint32(let value): return UInt64(value)
         case .uint64(let value): return value
+        }
+    }
+    
+    var encodedSize: Int {
+        switch self {
+        case .uint8:
+            return 1
+        case .uint16:
+            return 3
+        case .uint32:
+            return 5
+        case .uint64:
+            return 9
         }
     }
 }

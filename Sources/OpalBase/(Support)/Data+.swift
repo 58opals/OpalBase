@@ -70,7 +70,7 @@ extension Data {
 extension Data {
     func extractValue<T: FixedWidthInteger>(from start: Data.Index) throws -> (value: T, newIndex: Data.Index) {
         let size = MemoryLayout<T>.size
-        guard start + size <= self.endIndex else { throw Error.indexOutOfRange }
+        guard start >= self.startIndex, start + size <= self.endIndex else { throw Error.indexOutOfRange }
         var value: T = 0
         for i in 0..<size {
             value |= T(self[start + i]) << (i * 8)

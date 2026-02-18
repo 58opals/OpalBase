@@ -11,16 +11,37 @@ extension Address.Book {
     }
     
     func derivePrivateKeys(for utxos: [Transaction.Output.Unspent]) throws -> [Transaction.Output.Unspent: PrivateKey] {
-        var pair: [Transaction.Output.Unspent: PrivateKey] = .init()
+        var derived: [Transaction.Output.Unspent: PrivateKey] = .init()
+        derived.reserveCapacity(utxos.count)
+        
+        var addressByLockingScript: [Data: Address] = .init()
+        addressByLockingScript.reserveCapacity(utxos.count)
+        
+        var privateKeyByAddress: [Address: PrivateKey] = .init()
+        privateKeyByAddress.reserveCapacity(utxos.count)
         
         for utxo in utxos {
             let lockingScript = utxo.lockingScript
-            let script = try Script.decode(lockingScript: lockingScript)
-            let address = try Address(script: script)
-            let privateKey = try loadPrivateKey(for: address)
-            pair[utxo] = privateKey
+            let address: Address
+            if let cachedAddress = addressByLockingScript[lockingScript] {
+                address = cachedAddress
+            } else {
+                let script = try Script.decode(lockingScript: lockingScript)
+                address = try Address(script: script)
+                addressByLockingScript[lockingScript] = address
+            }
+            
+            let privateKey: PrivateKey
+            if let cachedPrivateKey = privateKeyByAddress[address] {
+                privateKey = cachedPrivateKey
+            } else {
+                privateKey = try loadPrivateKey(for: address)
+                privateKeyByAddress[address] = privateKey
+            }
+            
+            derived[utxo] = privateKey
         }
         
-        return pair
+        return derived
     }
 }

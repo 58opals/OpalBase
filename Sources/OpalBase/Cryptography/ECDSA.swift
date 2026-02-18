@@ -26,7 +26,7 @@ extension ECDSA {
 }
 
 extension ECDSA {
-    public enum SignatureFormat {
+    public enum SignatureFormat: Sendable {
         /// Signature wire-format used by signing and verification.
         /// - Note:
         ///   - **OP_CHECKSIG + ECDSA requires DER**. Using `.raw` or `.compact` with CHECKSIG is invalid at consensus.
@@ -34,7 +34,7 @@ extension ECDSA {
         case ecdsa(ECDSA)
         case schnorr // Bitcoin Cash Schnorr (May 2019+).
         
-        public enum ECDSA {
+        public enum ECDSA: Sendable {
             case raw
             case compact
             case der
