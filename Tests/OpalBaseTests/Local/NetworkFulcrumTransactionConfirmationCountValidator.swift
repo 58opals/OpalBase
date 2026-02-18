@@ -1,7 +1,8 @@
 import Testing
 @testable import OpalBase
 
-extension NetworkFulcrumTransactionHandlerReaderValidator {
+@Suite("Network.FulcrumTransactionHandler confirmation count", .tags(.unit))
+struct NetworkFulcrumTransactionConfirmationCountValidator {
     @Test("calculates confirmation counts across edge conditions")
     func calculateConfirmationCountHandlesBoundaries() {
         let direct = Network.FulcrumTransactionHandler.calculateConfirmationCount(

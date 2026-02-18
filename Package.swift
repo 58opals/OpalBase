@@ -30,8 +30,16 @@ let package = Package(
                 ]
                ),
         .testTarget(
-            name: "OpalBaseTests",
-            dependencies: ["OpalBase"]
+            name: "OpalBaseLocalTests",
+            dependencies: ["OpalBase"],
+            path: "Tests/OpalBaseTests",
+            exclude: ["Network"]
+        ),
+        .testTarget(
+            name: "OpalBaseNetworkTests",
+            dependencies: ["OpalBase"],
+            path: "Tests/OpalBaseTests",
+            exclude: ["Local"]
         )
     ]
 )

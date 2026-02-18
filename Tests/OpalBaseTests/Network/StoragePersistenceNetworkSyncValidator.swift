@@ -2,7 +2,8 @@ import Foundation
 import Testing
 @testable import OpalBase
 
-extension StoragePersistenceValidator {
+@Suite("Storage persistence (Network)", .tags(.network))
+struct StoragePersistenceNetworkSyncValidator {
     @Test("fulcrum sync updates account state, then persistence restores it", .timeLimit(.minutes(1)))
     func syncFulcrumPersistAndRestore() async throws {
         let fulcrumURLFromEnv = ProcessInfo.processInfo.environment["OPAL_FULCRUM_URL"]
