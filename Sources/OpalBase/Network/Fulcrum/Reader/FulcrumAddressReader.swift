@@ -17,7 +17,7 @@ extension Network {
             try await Network.performWithFailureTranslation {
                 let result = try await client.request(
                     method: .blockchain(.address(.getBalance(address: address, tokenFilter: tokenFilter))),
-                    responseType: Response.Result.Blockchain.Address.GetBalance.self,
+                    responseType: Response.ResultModel.BlockchainModel.AddressModel.GetBalanceModel.self,
                     options: .init(timeout: timeouts.addressBalance)
                 )
                 return AddressBalance(confirmed: result.confirmed, unconfirmed: result.unconfirmed)
@@ -38,7 +38,7 @@ extension Network {
                 
                 let result = try await client.request(
                     method: .blockchain(.address(.listUnspent(address: address, tokenFilter: tokenFilter))),
-                    responseType: Response.Result.Blockchain.Address.ListUnspent.self,
+                    responseType: Response.ResultModel.BlockchainModel.AddressModel.ListUnspentModel.self,
                     options: .init(timeout: timeouts.addressUnspent)
                 )
                 
@@ -71,11 +71,11 @@ extension Network {
                                 address: address,
                                 fromHeight: nil,
                                 toHeight: nil,
-                                includeUnconfirmed: includeUnconfirmed
+                                shouldIncludeUnconfirmed: includeUnconfirmed
                             )
                         )
                     ),
-                    responseType: Response.Result.Blockchain.Address.GetHistory.self,
+                    responseType: Response.ResultModel.BlockchainModel.AddressModel.GetHistoryModel.self,
                     options: .init(timeout: timeouts.addressHistory)
                 )
                 
@@ -93,7 +93,7 @@ extension Network {
             try await Network.performWithFailureTranslation {
                 let result = try await client.request(
                     method: .blockchain(.address(.getFirstUse(address: address))),
-                    responseType: Response.Result.Blockchain.Address.GetFirstUse.self,
+                    responseType: Response.ResultModel.BlockchainModel.AddressModel.GetFirstUseModel.self,
                     options: .init(timeout: timeouts.addressFirstUse)
                 )
                 
@@ -113,7 +113,7 @@ extension Network {
             try await Network.performWithFailureTranslation {
                 let result = try await client.request(
                     method: .blockchain(.address(.getMempool(address: address))),
-                    responseType: Response.Result.Blockchain.Address.GetMempool.self,
+                    responseType: Response.ResultModel.BlockchainModel.AddressModel.GetMempoolModel.self,
                     options: .init(timeout: timeouts.addressMempool)
                 )
                 
@@ -131,7 +131,7 @@ extension Network {
             try await Network.performWithFailureTranslation {
                 let result = try await client.request(
                     method: .blockchain(.address(.getScriptHash(address: address))),
-                    responseType: Response.Result.Blockchain.Address.GetScriptHash.self,
+                    responseType: Response.ResultModel.BlockchainModel.AddressModel.GetScriptHashModel.self,
                     options: .init(timeout: timeouts.addressScriptHash)
                 )
                 return result.scriptHash
@@ -142,8 +142,8 @@ extension Network {
             try await Network.performWithFailureTranslation {
                 let (initial, updates, cancel) = try await client.subscribe(
                     method: .blockchain(.address(.subscribe(address: address))),
-                    initialType: Response.Result.Blockchain.Address.Subscribe.self,
-                    notificationType: Response.Result.Blockchain.Address.SubscribeNotification.self,
+                    initialType: Response.ResultModel.BlockchainModel.AddressModel.SubscribeModel.self,
+                    notificationType: Response.ResultModel.BlockchainModel.AddressModel.SubscribeNotificationModel.self,
                     options: .init(timeout: timeouts.addressSubscription)
                 )
                 

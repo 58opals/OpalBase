@@ -17,7 +17,7 @@ extension Network {
             try await Network.performWithFailureTranslation {
                 let response = try await client.request(
                     method: .blockchain(.transaction(.broadcast(rawTransaction: rawTransactionHexadecimal))),
-                    responseType: Response.Result.Blockchain.Transaction.Broadcast.self,
+                    responseType: Response.ResultModel.BlockchainModel.TransactionModel.BroadcastModel.self,
                     options: .init(timeout: timeouts.transactionBroadcast)
                 )
                 return response.transactionHash.hexadecimalString
@@ -36,12 +36,12 @@ extension Network {
             return try await Network.performWithFailureTranslation {
                 async let transactionHeightResponse = client.request(
                     method: .blockchain(.transaction(.getHeight(transactionHash: identifier))),
-                    responseType: Response.Result.Blockchain.Transaction.GetHeight.self,
+                    responseType: Response.ResultModel.BlockchainModel.TransactionModel.GetHeightModel.self,
                     options: .init(timeout: timeouts.transactionConfirmations)
                 )
                 async let tipHeightResponse = client.request(
                     method: .blockchain(.headers(.getTip)),
-                    responseType: Response.Result.Blockchain.Headers.GetTip.self,
+                    responseType: Response.ResultModel.BlockchainModel.HeadersModel.GetTipModel.self,
                     options: .init(timeout: timeouts.headersTip)
                 )
                 

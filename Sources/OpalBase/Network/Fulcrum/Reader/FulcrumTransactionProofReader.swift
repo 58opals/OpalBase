@@ -19,7 +19,7 @@ extension Network {
             return try await Network.performWithFailureTranslation {
                 let result = try await client.request(
                     method: .blockchain(.transaction(.getMerkle(transactionHash: identifier))),
-                    responseType: Response.Result.Blockchain.Transaction.GetMerkle.self,
+                    responseType: Response.ResultModel.BlockchainModel.TransactionModel.GetMerkleModel.self,
                     options: .init(timeout: timeouts.transactionMerkleProof)
                 )
                 
@@ -31,13 +31,13 @@ extension Network {
             }
         }
         
-        public func fetchTransactionIdentifier(atHeight blockHeight: UInt, position: UInt, includeMerkleProof: Bool) async throws -> TransactionPositionResolution {
+        public func fetchTransactionIdentifier(atHeight blockHeight: UInt, position: UInt, shouldIncludeMerkleProof: Bool) async throws -> TransactionPositionResolution {
             try await Network.performWithFailureTranslation {
                 let result = try await client.request(
                     method: .blockchain(.transaction(.idFromPos(blockHeight: blockHeight,
                                                                 transactionPosition: position,
-                                                                includeMerkleProof: includeMerkleProof))),
-                    responseType: Response.Result.Blockchain.Transaction.IDFromPos.self,
+                                                                shouldIncludeMerkleProof: shouldIncludeMerkleProof))),
+                    responseType: Response.ResultModel.BlockchainModel.TransactionModel.IDFromPosModel.self,
                     options: .init(timeout: timeouts.transactionPositionResolution)
                 )
                 

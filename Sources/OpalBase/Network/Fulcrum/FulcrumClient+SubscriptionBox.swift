@@ -4,12 +4,12 @@ import Foundation
 import SwiftFulcrum
 
 extension Network {
-    actor FulcrumSubscriptionBox<Initial: JSONRPCConvertible, Notification: JSONRPCConvertible>: FulcrumSubscription {
+    actor FulcrumSubscriptionBox<Initial: JSONRPCResponse, Notification: JSONRPCResponse>: FulcrumSubscription {
         let id: UUID
         let stream: AsyncThrowingStream<Notification, Swift.Error>
         
-        private let method: SwiftFulcrum.Method
-        private let options: Fulcrum.Call.Options
+        private let method: SwiftFulcrum.FulcrumMethodRequest
+        private let options: SwiftFulcrum.FulcrumClient.CallModel.OptionsModel
         private let onTermination: @Sendable (UUID) async -> Void
         
         private var continuation: AsyncThrowingStream<Notification, Swift.Error>.Continuation
@@ -21,8 +21,8 @@ extension Network {
         private var hasNotifiedTermination = false
         
         init(
-            method: SwiftFulcrum.Method,
-            options: Fulcrum.Call.Options,
+            method: SwiftFulcrum.FulcrumMethodRequest,
+            options: SwiftFulcrum.FulcrumClient.CallModel.OptionsModel,
             onTermination: @escaping @Sendable (UUID) async -> Void
         ) {
             self.id = UUID()
@@ -35,7 +35,7 @@ extension Network {
             self.continuation = continuation
         }
         
-        func establish(using fulcrum: Fulcrum) async throws -> Initial {
+        func establish(using fulcrum: SwiftFulcrum.FulcrumClient) async throws -> Initial {
             let (initial, updates, cancel) = try await fulcrum.subscribe(
                 method: method,
                 initialType: Initial.self,
@@ -60,7 +60,7 @@ extension Network {
             }
         }
         
-        func resubscribe(using fulcrum: Fulcrum) async {
+        func resubscribe(using fulcrum: SwiftFulcrum.FulcrumClient) async {
             guard !isTerminated else { return }
             do {
                 isExpectingResubscribe = true
@@ -204,7 +204,7 @@ extension Network {
         }
         
         private func checkRecoverability(_ error: Swift.Error) -> Bool {
-            guard let fulcrumError = error as? Fulcrum.Error else { return false }
+            guard let fulcrumError = error as? SwiftFulcrum.FulcrumClient.Error else { return false }
             switch fulcrumError {
             case .transport(.connectionClosed),
                     .transport(.reconnectFailed),
@@ -217,7 +217,7 @@ extension Network {
         }
         
         private func checkClientCancellation(_ error: Swift.Error) -> Bool {
-            guard let fulcrumError = error as? Fulcrum.Error else { return false }
+            guard let fulcrumError = error as? SwiftFulcrum.FulcrumClient.Error else { return false }
             if case .client(.cancelled) = fulcrumError {
                 return true
             }

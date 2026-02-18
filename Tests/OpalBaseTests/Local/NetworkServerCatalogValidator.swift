@@ -19,9 +19,9 @@ struct NetworkServerCatalogValidator {
         #expect(!testnetServers.contains(where: { $0.host == "chipnet.imaginary.cash" }))
     }
     
-    @Test("chipnet maps to Fulcrum testnet framing")
+    @Test("chipnet maps to FulcrumClient testnet framing")
     func chipnetMapsToFulcrumTestnet() {
-        #expect(Network.Environment.chipnet.fulcrumNetwork == Fulcrum.Configuration.Network.testnet)
+        #expect(Network.Environment.chipnet.fulcrumNetwork == FulcrumClient.Configuration.NetworkModel.testnet)
     }
     
     @Test("server catalog loader merges overrides before defaults")
@@ -47,7 +47,7 @@ struct NetworkServerCatalogValidator {
             network: .mainnet
         )
         
-        let loader = configuration.makeFulcrumServerCatalogLoader()
+        let loader = configuration.makeFulcrumServerCatalogRepository()
         let servers = try await loader.loadServers(for: configuration.network.fulcrumNetwork, fallback: .init())
         #expect(servers.first == overrideServer)
         #expect(servers.contains(defaultServer))
@@ -61,7 +61,7 @@ struct NetworkServerCatalogValidator {
             network: .chipnet
         )
         
-        let loader = configuration.makeFulcrumServerCatalogLoader()
+        let loader = configuration.makeFulcrumServerCatalogRepository()
         let servers = try await loader.loadServers(for: configuration.network.fulcrumNetwork, fallback: [fallbackServer])
         
         #expect(servers.contains(fallbackServer))

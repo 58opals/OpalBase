@@ -11,14 +11,14 @@ struct NetworkFulcrumClientSubscriptionBoxValidator {
     
     @Test("establishes live subscription, resubscribes, and cancels", .timeLimit(.minutes(1)))
     func subscriptionLifecycleResubscribesAndCancels() async throws {
-        let reconnectConfiguration = Fulcrum.Configuration.Reconnect(
+        let reconnectConfiguration = FulcrumClient.Configuration.ReconnectModel(
             maximumReconnectionAttempts: 2,
             reconnectionDelay: 1,
             maximumDelay: 5,
             jitterRange: 0.9 ... 1.1
         )
         
-        let fulcrumConfiguration = Fulcrum.Configuration(
+        let fulcrumConfiguration = FulcrumClient.Configuration(
             reconnect: reconnectConfiguration,
             metrics: nil,
             logger: nil,
@@ -28,7 +28,7 @@ struct NetworkFulcrumClientSubscriptionBoxValidator {
             bootstrapServers: [Self.primaryServerAddress, Self.backupServerAddress]
         )
         
-        let fulcrum = try await Fulcrum(configuration: fulcrumConfiguration)
+        let fulcrum = try await FulcrumClient(configuration: fulcrumConfiguration)
         
         do {
             try await fulcrum.start()
@@ -36,8 +36,8 @@ struct NetworkFulcrumClientSubscriptionBoxValidator {
             let (terminationStream, terminationContinuation) = AsyncStream<UUID>.makeStream()
             
             let subscription = Network.FulcrumSubscriptionBox<
-                SwiftFulcrum.Response.Result.Blockchain.Address.Subscribe,
-                SwiftFulcrum.Response.Result.Blockchain.Address.SubscribeNotification
+                SwiftFulcrum.Response.ResultModel.BlockchainModel.AddressModel.SubscribeModel,
+                SwiftFulcrum.Response.ResultModel.BlockchainModel.AddressModel.SubscribeNotificationModel
             >(
                 method: .blockchain(.address(.subscribe(address: Self.sampleCashAddress))),
                 options: .init()
@@ -49,7 +49,7 @@ struct NetworkFulcrumClientSubscriptionBoxValidator {
             #expect(!(initial.status?.isEmpty ?? true))
             
             var iterator = await subscription.stream.makeAsyncIterator()
-            let pendingUpdate = Task<SwiftFulcrum.Response.Result.Blockchain.Address.SubscribeNotification?, Swift.Error> {
+            let pendingUpdate = Task<SwiftFulcrum.Response.ResultModel.BlockchainModel.AddressModel.SubscribeNotificationModel?, Swift.Error> {
                 try await iterator.next()
             }
             
@@ -79,7 +79,7 @@ struct NetworkFulcrumClientSubscriptionBoxValidator {
     
     @Test("establishes live address subscription and cancels gracefully", .timeLimit(.minutes(1)))
     func subscriptionBoxCancelsWithTerminationNotification() async throws {
-        let configuration = Fulcrum.Configuration(
+        let configuration = FulcrumClient.Configuration(
             reconnect: .init(
                 maximumReconnectionAttempts: 3,
                 reconnectionDelay: 1.5,
@@ -91,7 +91,7 @@ struct NetworkFulcrumClientSubscriptionBoxValidator {
             bootstrapServers: [Self.primaryServerAddress, Self.backupServerAddress]
         )
         
-        let fulcrum = try await Fulcrum(configuration: configuration)
+        let fulcrum = try await FulcrumClient(configuration: configuration)
         try await fulcrum.start()
         
         do {
@@ -105,8 +105,8 @@ struct NetworkFulcrumClientSubscriptionBoxValidator {
             }
             
             let subscription = Network.FulcrumSubscriptionBox<
-                SwiftFulcrum.Response.Result.Blockchain.Address.Subscribe,
-                SwiftFulcrum.Response.Result.Blockchain.Address.SubscribeNotification
+                SwiftFulcrum.Response.ResultModel.BlockchainModel.AddressModel.SubscribeModel,
+                SwiftFulcrum.Response.ResultModel.BlockchainModel.AddressModel.SubscribeNotificationModel
             >(
                 method: .blockchain(.address(.subscribe(address: Self.sampleCashAddress))),
                 options: .init()

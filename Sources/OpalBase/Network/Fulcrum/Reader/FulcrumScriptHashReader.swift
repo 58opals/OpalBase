@@ -35,11 +35,11 @@ extension Network {
                                 scripthash: scriptHashHex,
                                 fromHeight: nil,
                                 toHeight: nil,
-                                includeUnconfirmed: includeUnconfirmed
+                                shouldIncludeUnconfirmed: includeUnconfirmed
                             )
                         )
                     ),
-                    responseType: Response.Result.Blockchain.ScriptHash.GetHistory.self,
+                    responseType: Response.ResultModel.BlockchainModel.ScriptHashModel.GetHistoryModel.self,
                     options: .init(timeout: timeouts.scriptHashHistory)
                 )
                 
@@ -67,7 +67,7 @@ extension Network {
                             )
                         )
                     ),
-                    responseType: Response.Result.Blockchain.ScriptHash.ListUnspent.self,
+                    responseType: Response.ResultModel.BlockchainModel.ScriptHashModel.ListUnspentModel.self,
                     options: .init(timeout: timeouts.scriptHashUnspent)
                 )
                 
@@ -80,7 +80,7 @@ extension Network {
         }
         
         private func makeUnspentOutput(
-            from item: Response.Result.Blockchain.ScriptHash.ListUnspent.Item
+            from item: Response.ResultModel.BlockchainModel.ScriptHashModel.ListUnspentModel.ItemModel
         ) async throws -> Transaction.Output.Unspent {
             guard let index = UInt32(exactly: item.transactionPosition) else {
                 throw Network.Failure(reason: .decoding, message: "Transaction position overflow")

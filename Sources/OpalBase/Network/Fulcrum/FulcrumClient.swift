@@ -5,7 +5,7 @@ import SwiftFulcrum
 
 extension Network {
     public actor FulcrumClient {
-        private let fulcrum: Fulcrum
+        private let fulcrum: SwiftFulcrum.FulcrumClient
         public let configuration: Network.Configuration
         private var subscriptions: [UUID: any FulcrumSubscription]
         
@@ -22,7 +22,7 @@ extension Network {
             let fulcrumMetrics = metrics.map { FulcrumMetricsAdapter(environment: configuration.network, collector: $0) }
             let fulcrumLogger = logger.map(FulcrumLogHandlerAdapter.init(handler:))
             
-            let reconnectConfiguration = Fulcrum.Configuration.Reconnect(
+            let reconnectConfiguration = SwiftFulcrum.FulcrumClient.Configuration.ReconnectModel(
                 maximumReconnectionAttempts: configuration.reconnectConfiguration.maximumAttempts,
                 reconnectionDelay: configuration.reconnectConfiguration.initialDelay.totalSeconds,
                 maximumDelay: configuration.reconnectConfiguration.maximumDelay.totalSeconds,
@@ -30,7 +30,7 @@ extension Network {
             )
             
             let bootstrapServers = configuration.fulcrumBootstrapServers
-            let fulcrumConfiguration = Fulcrum.Configuration(
+            let fulcrumConfiguration = SwiftFulcrum.FulcrumClient.Configuration(
                 reconnect: reconnectConfiguration,
                 metrics: fulcrumMetrics,
                 logger: fulcrumLogger,
@@ -39,11 +39,11 @@ extension Network {
                 connectionTimeout: configuration.connectionTimeout.totalSeconds,
                 maximumMessageSize: configuration.maximumMessageSize,
                 bootstrapServers: bootstrapServers.isEmpty ? nil : bootstrapServers,
-                serverCatalogLoader: configuration.makeFulcrumServerCatalogLoader(),
+                serverCatalogLoader: configuration.makeFulcrumServerCatalogRepository(),
                 network: configuration.network.fulcrumNetwork
             )
             
-            self.fulcrum = try await Fulcrum(url: nil,
+            self.fulcrum = try await SwiftFulcrum.FulcrumClient(url: nil,
                                              configuration: fulcrumConfiguration)
             try await self.fulcrum.start()
         }
@@ -75,23 +75,23 @@ extension Network {
             }
         }
         
-        func request<Result: JSONRPCConvertible>(
-            method: SwiftFulcrum.Method,
+        func request<Result: JSONRPCResponse>(
+            method: SwiftFulcrum.FulcrumMethodRequest,
             responseType: Result.Type = Result.self,
-            options: Fulcrum.Call.Options = .init()
+            options: SwiftFulcrum.FulcrumClient.CallModel.OptionsModel = .init()
         ) async throws -> Result {
             let response = try await fulcrum.submit(method: method, responseType: responseType, options: options)
             guard let value = response.extractRegularResponse() else {
-                throw Fulcrum.Error.client(.protocolMismatch("Expected unary response for method: \(method)"))
+                throw SwiftFulcrum.FulcrumClient.Error.client(.protocolMismatch("Expected unary response for method: \(method)"))
             }
             return value
         }
         
-        func subscribe<Initial: JSONRPCConvertible, Notification: JSONRPCConvertible>(
-            method: SwiftFulcrum.Method,
+        func subscribe<Initial: JSONRPCResponse, Notification: JSONRPCResponse>(
+            method: SwiftFulcrum.FulcrumMethodRequest,
             initialType: Initial.Type = Initial.self,
             notificationType: Notification.Type = Notification.self,
-            options: Fulcrum.Call.Options = .init()
+            options: SwiftFulcrum.FulcrumClient.CallModel.OptionsModel = .init()
         ) async throws -> (Initial, AsyncThrowingStream<Notification, Swift.Error>, @Sendable () async -> Void) {
             let subscription = FulcrumSubscriptionBox<Initial, Notification>(
                 method: method,
@@ -134,7 +134,7 @@ extension Network {
     }
 }
 
-private struct FulcrumMetricsAdapter: SwiftFulcrum.MetricsCollectable {
+private struct FulcrumMetricsAdapter: SwiftFulcrum.MetricsClient {
     private let environment: Network.Environment
     private let collector: any Network.MetricsCollector
     
@@ -143,7 +143,7 @@ private struct FulcrumMetricsAdapter: SwiftFulcrum.MetricsCollectable {
         self.collector = collector
     }
     
-    func recordConnect(url: URL, network _: Fulcrum.Configuration.Network) async {
+    func recordConnect(url: URL, network _: SwiftFulcrum.FulcrumClient.Configuration.NetworkModel) async {
         await collector.recordConnection(url: url, network: environment)
     }
     
@@ -163,23 +163,23 @@ private struct FulcrumMetricsAdapter: SwiftFulcrum.MetricsCollectable {
         await collector.recordPing(url: url, error: error)
     }
     
-    func recordDiagnosticsUpdate(url: URL, snapshot: Fulcrum.Diagnostics.Snapshot) async {
+    func recordDiagnosticsUpdate(url: URL, snapshot: SwiftFulcrum.FulcrumClient.DiagnosticsModel.SnapshotModel) async {
         await collector.recordDiagnosticsSnapshot(url: url, snapshot: .init(snapshot))
     }
     
-    func recordSubscriptionRegistryUpdate(url: URL, subscriptions: [Fulcrum.Diagnostics.Subscription]) async {
+    func recordSubscriptionRegistryUpdate(url: URL, subscriptions: [SwiftFulcrum.FulcrumClient.DiagnosticsModel.SubscriptionModel]) async {
         await collector.recordSubscriptionRegistryUpdate(url: url, subscriptions: subscriptions.map(Network.DiagnosticsSubscription.init(_:)))
     }
 }
 
-private struct FulcrumLogHandlerAdapter: SwiftFulcrum.Log.Handler {
+private struct FulcrumLogHandlerAdapter: SwiftFulcrum.LogModel.HandlerModel {
     private let handler: any Network.LogHandler
     
     init(handler: any Network.LogHandler) {
         self.handler = handler
     }
     
-    func log(_ level: SwiftFulcrum.Log.Level,
+    func log(_ level: SwiftFulcrum.LogModel.LevelModel,
              _ message: @autoclosure () -> String,
              metadata: [String : String]?,
              file: String,

@@ -5,7 +5,7 @@ import SwiftFulcrum
 
 extension Network {
     public typealias AddressReadable = AddressQuerying & AddressSubscribing
-    public typealias TokenFilter = SwiftFulcrum.Method.Blockchain.CashTokens.TokenFilter
+    public typealias TokenFilter = SwiftFulcrum.FulcrumMethodRequest.BlockchainModel.CashTokensModel.TokenFilterModel
     
     public protocol AddressQuerying: Sendable {
         func fetchBalance(for address: String, tokenFilter: TokenFilter) async throws -> AddressBalance

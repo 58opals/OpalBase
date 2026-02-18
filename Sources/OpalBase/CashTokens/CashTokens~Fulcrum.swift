@@ -1,10 +1,10 @@
-// CashTokens~Fulcrum.swift
+// CashTokens~FulcrumClient.swift
 
 import Foundation
 import SwiftFulcrum
 
 extension CashTokens.TokenData {
-    public init(swiftFulcrumTokenData: SwiftFulcrum.Method.Blockchain.CashTokens.JSON) throws {
+    public init(swiftFulcrumTokenData: SwiftFulcrum.FulcrumMethodRequest.BlockchainModel.CashTokensModel.JSONModel) throws {
         let category = try CashTokens.CategoryID(hexFromRPC: swiftFulcrumTokenData.category)
         let amount = try Self.parseAmount(from: swiftFulcrumTokenData.amount)
         let nft = try swiftFulcrumTokenData.nft.map { try CashTokens.NFT(swiftFulcrumNFT: $0) }
@@ -20,7 +20,7 @@ extension CashTokens.TokenData {
 }
 
 private extension CashTokens.NFT {
-    init(swiftFulcrumNFT: SwiftFulcrum.Method.Blockchain.CashTokens.JSON.NFT) throws {
+    init(swiftFulcrumNFT: SwiftFulcrum.FulcrumMethodRequest.BlockchainModel.CashTokensModel.JSONModel.NFTModel) throws {
         let capability = CashTokens.NFT.Capability(swiftFulcrumCapability: swiftFulcrumNFT.capability)
         let commitment: Data
         do {
@@ -33,7 +33,7 @@ private extension CashTokens.NFT {
 }
 
 private extension CashTokens.NFT.Capability {
-    init(swiftFulcrumCapability: SwiftFulcrum.Method.Blockchain.CashTokens.JSON.NFT.Capability) {
+    init(swiftFulcrumCapability: SwiftFulcrum.FulcrumMethodRequest.BlockchainModel.CashTokensModel.JSONModel.NFTModel.CapabilityModel) {
         switch swiftFulcrumCapability {
         case .none:
             self = .none

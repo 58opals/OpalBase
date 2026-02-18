@@ -19,14 +19,14 @@ struct NetworkFulcrumTransactionHandlerReaderValidator {
         let configuration = Network.Configuration(serverURLs: [Self.primaryServerAddress, Self.backupServerAddress])
         try await NetworkTestClient.withClient(configuration: configuration) { client in
             let handler = Network.FulcrumTransactionHandler(client: client)
-            let history: SwiftFulcrum.Response.Result.Blockchain.Address.GetHistory = try await client.request(
+            let history: SwiftFulcrum.Response.ResultModel.BlockchainModel.AddressModel.GetHistoryModel = try await client.request(
                 method: .blockchain(
                     .address(
                         .getHistory(
                             address: Self.sampleCashAddress,
                             fromHeight: nil,
                             toHeight: nil,
-                            includeUnconfirmed: true
+                            shouldIncludeUnconfirmed: true
                         )
                     )
                 )
@@ -38,9 +38,9 @@ struct NetworkFulcrumTransactionHandlerReaderValidator {
                 return
             }
 
-            let tip: SwiftFulcrum.Response.Result.Blockchain.Headers.GetTip = try await client.request(
+            let tip: SwiftFulcrum.Response.ResultModel.BlockchainModel.HeadersModel.GetTipModel = try await client.request(
                 method: .blockchain(.headers(.getTip)),
-                responseType: SwiftFulcrum.Response.Result.Blockchain.Headers.GetTip.self
+                responseType: SwiftFulcrum.Response.ResultModel.BlockchainModel.HeadersModel.GetTipModel.self
             )
 
             let confirmations = try await handler.fetchConfirmations(
@@ -66,15 +66,15 @@ struct NetworkFulcrumTransactionHandlerReaderValidator {
             let confirmedHistory = try await addressReader.fetchHistory(for: Self.sampleCashAddress, includeUnconfirmed: false)
             let confirmedEntry = try #require(confirmedHistory.first(where: { $0.blockHeight > 0 }))
 
-            let transactionHeight: SwiftFulcrum.Response.Result.Blockchain.Transaction.GetHeight = try await client.request(
+            let transactionHeight: SwiftFulcrum.Response.ResultModel.BlockchainModel.TransactionModel.GetHeightModel = try await client.request(
                 method: .blockchain(.transaction(.getHeight(transactionHash: confirmedEntry.transactionIdentifier))),
-                responseType: SwiftFulcrum.Response.Result.Blockchain.Transaction.GetHeight.self
+                responseType: SwiftFulcrum.Response.ResultModel.BlockchainModel.TransactionModel.GetHeightModel.self
             )
             #expect(transactionHeight.height == confirmedEntry.blockHeight)
 
-            let tipHeight: SwiftFulcrum.Response.Result.Blockchain.Headers.GetTip = try await client.request(
+            let tipHeight: SwiftFulcrum.Response.ResultModel.BlockchainModel.HeadersModel.GetTipModel = try await client.request(
                 method: .blockchain(.headers(.getTip)),
-                responseType: SwiftFulcrum.Response.Result.Blockchain.Headers.GetTip.self
+                responseType: SwiftFulcrum.Response.ResultModel.BlockchainModel.HeadersModel.GetTipModel.self
             )
 
             let expectedConfirmations = Network.FulcrumTransactionHandler.calculateConfirmationCount(
