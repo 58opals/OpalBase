@@ -50,7 +50,7 @@ extension Address {
         case tokenAware
     }
     
-    public var supportsTokens: Bool {
+    public var isTokenAware: Bool {
         format == .tokenAware
     }
     

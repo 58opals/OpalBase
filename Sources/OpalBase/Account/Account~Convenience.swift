@@ -36,7 +36,7 @@ extension Account {
         return await listTransactions()
     }
     
-    public func refreshTransactionConfirmationsAndList(using handler: Network.TransactionConfirming) async throws -> [Transaction.History.Record] {
+    public func refreshTransactionConfirmationsAndList(using handler: Network.TransactionConfirmationClient) async throws -> [Transaction.History.Record] {
         _ = try await refreshTransactionConfirmations(using: handler)
         return await listTransactions()
     }

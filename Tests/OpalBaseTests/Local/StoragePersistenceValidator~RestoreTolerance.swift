@@ -5,7 +5,7 @@ import Testing
 extension StoragePersistenceValidator {
     @Test("restore tolerates missing account/address book snapshots while still restoring wallet snapshot")
     func tolerateMissingAccountSnapshotsDuringRestore() async throws {
-        let valueStore = Storage.ValueStore.makeInMemory()
+        let valueStore = Storage.ValueRepository.makeInMemory()
         let storage = try Storage(valueStore: valueStore)
 
         let mnemonic = try Mnemonic(
@@ -37,7 +37,7 @@ extension StoragePersistenceValidator {
 
     @Test("restore tolerates missing mnemonic ciphertext (e.g., keychain cleared) while still restoring snapshots")
     func tolerateMissingMnemonicCiphertextDuringRestore() async throws {
-        let valueStore = Storage.ValueStore.makeInMemory()
+        let valueStore = Storage.ValueRepository.makeInMemory()
         let storage = try Storage(valueStore: valueStore)
 
         let mnemonic = try Mnemonic(
@@ -69,7 +69,7 @@ extension StoragePersistenceValidator {
 
     @Test("wipeAll removes persisted wallet artifacts")
     func removePersistedArtifactsWithWipeAll() async throws {
-        let valueStore = Storage.ValueStore.makeInMemory()
+        let valueStore = Storage.ValueRepository.makeInMemory()
         let storage = try Storage(valueStore: valueStore)
 
         let mnemonic = try Mnemonic(

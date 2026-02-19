@@ -9,14 +9,14 @@ extension Wallet {
         public let purpose: DerivationPath.Purpose
         public let coinType: DerivationPath.CoinType
         public let accounts: [Account.Snapshot]
-        public let tokenMetadata: TokenMetadataStore.Snapshot?
+        public let tokenMetadata: TokenMetadataRepository.Snapshot?
         
         public init(words: [String],
                     passphrase: String,
                     purpose: DerivationPath.Purpose,
                     coinType: DerivationPath.CoinType,
                     accounts: [Account.Snapshot],
-                    tokenMetadata: TokenMetadataStore.Snapshot? = nil) {
+                    tokenMetadata: TokenMetadataRepository.Snapshot? = nil) {
             self.words = words
             self.passphrase = passphrase
             self.purpose = purpose

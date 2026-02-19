@@ -107,6 +107,6 @@ extension Transaction {
 extension Transaction.Output {
     var isOpReturnScript: Bool {
         guard let opcode = lockingScript.first else { return false }
-        return opcode == OP._RETURN.rawValue
+        return opcode == ScriptOperationCode._RETURN.rawValue
     }
 }

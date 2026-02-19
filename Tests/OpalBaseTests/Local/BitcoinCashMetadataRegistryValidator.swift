@@ -10,7 +10,7 @@ struct BitcoinCashMetadataRegistryValidator {
         #expect(script.hexadecimalString.hasPrefix("6a0442434d52"))
         
         let publication = try #require(
-            BitcoinCashMetadataRegistries.parsePublicationOutput(lockingScript: script)
+            BitcoinCashMetadataRegistryClient.parsePublicationOutput(lockingScript: script)
         )
         
         #expect(publication.sha256 == BitcoinCashMetadataRegistryTestData.publicationHash)

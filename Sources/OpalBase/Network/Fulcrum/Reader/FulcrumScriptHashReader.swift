@@ -83,7 +83,7 @@ extension Network {
             from item: Response.ResultModel.BlockchainModel.ScriptHashModel.ListUnspentModel.ItemModel
         ) async throws -> Transaction.Output.Unspent {
             guard let index = UInt32(exactly: item.transactionPosition) else {
-                throw Network.Failure(reason: .decoding, message: "Transaction position overflow")
+                throw Network.Error(reason: .decoding, message: "Transaction position overflow")
             }
             
             let data = try Data(hexadecimalString: item.transactionHash)
@@ -93,7 +93,7 @@ extension Network {
             let outputIndex = Int(index)
             
             guard transaction.outputs.indices.contains(outputIndex) else {
-                throw Network.Failure(
+                throw Network.Error(
                     reason: .decoding,
                     message: "Missing transaction output at index \(index) for transaction \(item.transactionHash)"
                 )

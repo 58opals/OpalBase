@@ -12,7 +12,7 @@ extension Account {
             throw Error.tokenGenesisHasNoRecipients
         }
         
-        let unsafeRecipients = genesis.recipients.filter { !$0.address.supportsTokens }
+        let unsafeRecipients = genesis.recipients.filter { !$0.address.isTokenAware }
         if !unsafeRecipients.isEmpty {
             throw Error.tokenGenesisRequiresTokenAwareAddress(unsafeRecipients.map(\.address))
         }
@@ -76,7 +76,7 @@ extension Account {
             let tokenChangeAddress = try Address(script: changeEntry.address.lockingScript,
                                                  format: .tokenAware)
             let mintingToken: CashTokens.NFT?
-            if reservedSupply.includeMintingNFT {
+            if reservedSupply.shouldIncludeMintingNonFungibleToken {
                 do {
                     mintingToken = try CashTokens.NFT(capability: .minting,
                                                       commitment: reservedSupply.commitment)

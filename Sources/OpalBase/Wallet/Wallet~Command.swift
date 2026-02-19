@@ -80,7 +80,7 @@ extension Wallet {
     
     public func updateTransactionConfirmations(forAccountAt unhardenedIndex: UInt32,
                                                transactionHashes: [Transaction.Hash],
-                                               using handler: Network.TransactionConfirming) async throws -> Transaction.History.ChangeSet {
+                                               using handler: Network.TransactionConfirmationClient) async throws -> Transaction.History.ChangeSet {
         try await performWithAccount(at: unhardenedIndex) { account in
             try await account.updateTransactionConfirmations(using: handler,
                                                              for: transactionHashes)
@@ -88,7 +88,7 @@ extension Wallet {
     }
     
     public func refreshTransactionConfirmations(forAccountAt unhardenedIndex: UInt32,
-                                                using handler: Network.TransactionConfirming) async throws -> Transaction.History.ChangeSet {
+                                                using handler: Network.TransactionConfirmationClient) async throws -> Transaction.History.ChangeSet {
         try await performWithAccount(at: unhardenedIndex) { account in
             try await account.refreshTransactionConfirmations(using: handler)
         }

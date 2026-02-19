@@ -26,7 +26,7 @@ extension CashTokens {
                 tokenBitfield |= nonFungibleTokenBit
                 tokenBitfield |= encodeCapabilityValue(from: nonFungibleToken.capability)
                 if !nonFungibleToken.commitment.isEmpty {
-                    guard nonFungibleToken.commitment.count <= TokenOperationValidation.maximumCommitmentByteCount else {
+                    guard nonFungibleToken.commitment.count <= TokenOperationValidator.maximumCommitmentByteCount else {
                         throw Error.invalidTokenPrefixCommitmentLength
                     }
                     tokenBitfield |= commitmentLengthBit
@@ -99,7 +99,7 @@ extension CashTokens {
                     guard commitmentLength > 0 else {
                         throw Error.invalidTokenPrefixCommitmentLength
                     }
-                    guard commitmentLength <= TokenOperationValidation.maximumCommitmentByteCount else {
+                    guard commitmentLength <= TokenOperationValidator.maximumCommitmentByteCount else {
                         throw Error.invalidTokenPrefixCommitmentLength
                     }
                     guard commitmentLength <= reader.remainingData.count else {

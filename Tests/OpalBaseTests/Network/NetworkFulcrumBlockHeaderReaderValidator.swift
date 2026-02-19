@@ -133,7 +133,7 @@ struct NetworkFulcrumBlockHeaderReaderValidator {
                 } else {
                     #expect(true, "Stream ended cleanly after client stop")
                 }
-            } catch let failure as Network.Failure {
+            } catch let failure as Network.Error {
                 #expect(!(failure.message == nil) || failure.reason == .cancelled)
             }
         }

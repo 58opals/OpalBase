@@ -2,14 +2,14 @@ import Foundation
 @testable import OpalBase
 
 enum BitcoinCashMetadataRegistryTestClient {
-    static func makeRegistries() -> BitcoinCashMetadataRegistries {
-        let authchainResolver = BitcoinCashMetadataRegistries.AuthchainResolver(
+    static func makeRegistries() -> BitcoinCashMetadataRegistryClient {
+        let authchainResolver = BitcoinCashMetadataRegistryClient.AuthchainResolver(
             transactionReader: PlaceholderTransactionReader(),
             addressReader: PlaceholderAddressReader(),
             maxDepth: 0
         )
-        let registryFetcher = BitcoinCashMetadataRegistries.Fetcher(maxBytes: 1_024)
-        return BitcoinCashMetadataRegistries(
+        let registryFetcher = BitcoinCashMetadataRegistryClient.Fetcher(maxBytes: 1_024)
+        return BitcoinCashMetadataRegistryClient(
             authchainResolver: authchainResolver,
             registryFetcher: registryFetcher
         )

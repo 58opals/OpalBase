@@ -91,7 +91,7 @@ struct StoragePersistenceNetworkSyncValidator {
 
                     let snapshotBeforePersist = await wallet.makeSnapshot()
 
-                    let valueStore = Storage.ValueStore.makeInMemory()
+                    let valueStore = Storage.ValueRepository.makeInMemory()
                     let storage = try Storage(valueStore: valueStore)
                     let mode = try await storage.persistState(for: wallet)
                     #expect([Storage.Security.ProtectionMode.plaintext, .software, .secureEnclave].contains(mode))

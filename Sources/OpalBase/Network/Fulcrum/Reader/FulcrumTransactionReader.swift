@@ -60,7 +60,7 @@ extension Network {
                 
                 await cache.put(detailed, at: transactionHash)
                 return detailed
-            } catch let failure as Network.Failure {
+            } catch let failure as Network.Error {
                 throw failure
             } catch {
                 return try await Network.performWithFailureTranslation {

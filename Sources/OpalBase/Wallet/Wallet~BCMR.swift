@@ -67,19 +67,19 @@ private extension Wallet {
         transactionReader: Network.TransactionReadable,
         addressReader: Network.AddressReadable,
         scriptHashReader: Network.ScriptHashReadable?
-    ) -> BitcoinCashMetadataRegistries {
-        let authchainResolver = BitcoinCashMetadataRegistries.AuthchainResolver(
+    ) -> BitcoinCashMetadataRegistryClient {
+        let authchainResolver = BitcoinCashMetadataRegistryClient.AuthchainResolver(
             transactionReader: transactionReader,
             addressReader: addressReader,
             scriptHashReader: scriptHashReader,
             maxDepth: 10
         )
-        let registryFetcher = BitcoinCashMetadataRegistries.Fetcher(
+        let registryFetcher = BitcoinCashMetadataRegistryClient.Fetcher(
             urlSession: .shared,
             ipfsGateway: nil,
             maxBytes: 1_000_000
         )
-        return BitcoinCashMetadataRegistries(
+        return BitcoinCashMetadataRegistryClient(
             authchainResolver: authchainResolver,
             registryFetcher: registryFetcher
         )

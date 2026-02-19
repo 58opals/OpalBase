@@ -30,7 +30,7 @@ extension Network {
                 do {
                     lockingScriptData = try Address(address).lockingScript.data
                 } catch {
-                    throw Network.Failure(
+                    throw Network.Error(
                         reason: .protocolViolation,
                         message: "Invalid address provided: \(address)"
                     )
@@ -44,7 +44,7 @@ extension Network {
                 
                 let unspentOutputs = try result.items.map { item in
                     guard let index = UInt32(exactly: item.transactionPosition) else {
-                        throw Network.Failure(reason: .decoding, message: "Transaction position overflow")
+                        throw Network.Error(reason: .decoding, message: "Transaction position overflow")
                     }
                     let data = try Data(hexadecimalString: item.transactionHash)
                     let hash = Transaction.Hash(dataFromRPC: data)
@@ -138,7 +138,7 @@ extension Network {
             }
         }
         
-        public func subscribeToAddress(_ address: String) async throws -> AsyncThrowingStream<AddressSubscriptionUpdate, any Error> {
+        public func subscribeToAddress(_ address: String) async throws -> AsyncThrowingStream<AddressSubscriptionUpdate, any Swift.Error> {
             try await Network.performWithFailureTranslation {
                 let (initial, updates, cancel) = try await client.subscribe(
                     method: .blockchain(.address(.subscribe(address: address))),

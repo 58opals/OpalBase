@@ -43,7 +43,7 @@ struct WalletFeePolicyValidator {
         #expect(priorityRecommendation == UInt64.max)
     }
     
-    @Test
+    @Test("returns explicit override fee rate")
     func explicitOverrideFeeRateIsReturned() {
         let policy = Wallet.FeePolicy(defaultFeeRate: 2)
         let override = Wallet.FeePolicy.Override(explicitFeeRate: 42)
@@ -53,7 +53,7 @@ struct WalletFeePolicyValidator {
         #expect(rate == 42)
     }
     
-    @Test
+    @Test("falls back to network conditions when estimator is nil")
     func estimatorFallsBackToNetworkConditionsWhenNil() {
         let policy = Wallet.FeePolicy(defaultFeeRate: 1, preference: .economy, estimator: nil)
         let networkConditions = Wallet.FeePolicy.NetworkConditions(recommendedRates: [.economy: 55], fallbackRate: 12)
@@ -64,7 +64,7 @@ struct WalletFeePolicyValidator {
         #expect(rate == 55)
     }
     
-    @Test
+    @Test("uses standard and priority multipliers for fallback rates")
     func fallbackUsesMultipliersForStandardAndPriority() {
         let policy = Wallet.FeePolicy(defaultFeeRate: 10, preference: .economy, estimator: nil)
         let context = Wallet.FeePolicy.RecommendationContext()
@@ -79,7 +79,7 @@ struct WalletFeePolicyValidator {
         #expect(priorityRate == 30)
     }
     
-    @Test
+    @Test("clamps fallback rate on overflow")
     func fallbackRateClampsOnOverflow() {
         let highDefault = UInt64.max / 2 + 1
         let policy = Wallet.FeePolicy(defaultFeeRate: highDefault, preference: .priority, estimator: nil)

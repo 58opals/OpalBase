@@ -48,16 +48,16 @@ extension Account {
     
     public struct ReservedSupply: Sendable {
         public let fungibleAmount: UInt64
-        public let includeMintingNFT: Bool
+        public let shouldIncludeMintingNonFungibleToken: Bool
         public let commitment: Data
         
         public init(fungibleAmount: UInt64,
-                    includeMintingNFT: Bool,
+                    shouldIncludeMintingNonFungibleToken: Bool,
                     commitment: Data = .init()) throws {
             try TokenGenesisValidation.validateFungibleAmount(fungibleAmount)
             try TokenGenesisValidation.validateCommitment(commitment)
             self.fungibleAmount = fungibleAmount
-            self.includeMintingNFT = includeMintingNFT
+            self.shouldIncludeMintingNonFungibleToken = shouldIncludeMintingNonFungibleToken
             self.commitment = commitment
         }
     }
@@ -77,13 +77,13 @@ private enum TokenGenesisValidation {
     }
     
     static func validateFungibleAmount(_ amount: UInt64?) throws {
-        try TokenOperationValidation.requireNonZeroFungibleAmount(amount) {
+        try TokenOperationValidator.requireNonZeroFungibleAmount(amount) {
             Account.Error.tokenGenesisFungibleAmountIsZero
         }
     }
     
     static func validateFungibleAmount(_ amount: UInt64) throws {
-        try TokenOperationValidation.requireNonZeroFungibleAmount(amount) {
+        try TokenOperationValidator.requireNonZeroFungibleAmount(amount) {
             Account.Error.tokenGenesisFungibleAmountIsZero
         }
     }
@@ -95,7 +95,7 @@ private enum TokenGenesisValidation {
     }
     
     static func validateCommitment(_ commitment: Data) throws {
-        try TokenOperationValidation.validateCommitmentLength(commitment) { maximum, actual in
+        try TokenOperationValidator.validateCommitmentLength(commitment) { maximum, actual in
             Account.Error.tokenGenesisNonFungibleTokenCommitmentTooLong(
                 maximum: maximum,
                 actual: actual

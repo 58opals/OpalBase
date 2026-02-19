@@ -2,7 +2,7 @@
 
 import Foundation
 
-extension BitcoinCashMetadataRegistries {
+extension BitcoinCashMetadataRegistryClient {
     public struct ChainResolvedRegistry: Sendable {
         public let authbase: Transaction.Hash
         public let authhead: Transaction.Hash
@@ -56,7 +56,7 @@ extension BitcoinCashMetadataRegistries {
     }
 }
 
-private extension BitcoinCashMetadataRegistries {
+private extension BitcoinCashMetadataRegistryClient {
     func fetchTransaction(for transactionHash: Transaction.Hash) async throws -> Transaction {
         let rawTransactionData = try await authchainResolver.transactionReader.fetchRawTransaction(
             for: transactionHash

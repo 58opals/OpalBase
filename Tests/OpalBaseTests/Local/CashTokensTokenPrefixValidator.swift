@@ -64,15 +64,15 @@ struct CashTokensTokenPrefixValidator {
     func decodeInvalidVectors() {
         #expect(!TokenPrefixTestData.invalidVectors.isEmpty)
         for vector in TokenPrefixTestData.invalidVectors {
-            let didThrow: Bool
+            let hasThrown: Bool
             do {
                 let prefixData = try Data(hexadecimalString: vector.prefix)
                 _ = try CashTokens.TokenPrefix.decode(prefixPlusBytecode: prefixData)
-                didThrow = false
+                hasThrown = false
             } catch {
-                didThrow = true
+                hasThrown = true
             }
-            #expect(didThrow)
+            #expect(hasThrown)
         }
     }
     
@@ -118,16 +118,16 @@ struct CashTokensTokenPrefixValidator {
         }
         
         let oversizedCommitment = Data(repeating: 0x02, count: 41)
-        let didThrowCommitmentLengthOutOfRange: Bool
+        let hasThrownCommitmentLengthOutOfRange: Bool
         do {
             _ = try CashTokens.NFT(capability: .none, commitment: oversizedCommitment)
-            didThrowCommitmentLengthOutOfRange = false
+            hasThrownCommitmentLengthOutOfRange = false
         } catch CashTokens.Error.commitmentLengthOutOfRange {
-            didThrowCommitmentLengthOutOfRange = true
+            hasThrownCommitmentLengthOutOfRange = true
         } catch {
-            didThrowCommitmentLengthOutOfRange = false
+            hasThrownCommitmentLengthOutOfRange = false
         }
-        #expect(didThrowCommitmentLengthOutOfRange)
+        #expect(hasThrownCommitmentLengthOutOfRange)
         
         let category = try makeCategoryIdentifier(using: 0x22)
         let oversizedPrefix = makeOversizedCommitmentPrefix(category: category, commitmentByteCount: 41)
