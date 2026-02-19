@@ -7,7 +7,7 @@ struct AddressValidator {
     func randomCreateCashAddress() throws {
         let word: String = "q"
         var count: Int = 0
-        var detected: Bool = false
+        var isDetected: Bool = false
         repeat {
             let privateKey = try PrivateKey()
             let walletImportFormat = privateKey.makeWalletImportFormat(compression: .compressed)
@@ -26,11 +26,11 @@ struct AddressValidator {
                 print("Legacy Script: \(legacyAddress.string)")
                 print("Address: \(address.string)")
                 print("Address - Locking Script Hexadecimal: \(lockingScript)")
-                detected = true
+                isDetected = true
             }
             count += 1
             print(count)
-        } while !detected
+        } while !isDetected
     }
     
     @Test("cash address decodes to P2PKH script")

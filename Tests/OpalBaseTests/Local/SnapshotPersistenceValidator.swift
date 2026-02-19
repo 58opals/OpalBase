@@ -2,7 +2,7 @@ import Foundation
 import Testing
 @testable import OpalBase
 
-@Suite("Snapshot encoding and decoding")
+@Suite("Snapshot encoding and decoding", .tags(.unit))
 struct SnapshotPersistenceValidator {
     @MainActor @Test("address book snapshot encodes token fields")
     func addressBookSnapshotEncodesTokenFields() throws {

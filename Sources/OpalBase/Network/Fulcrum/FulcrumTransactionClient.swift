@@ -1,10 +1,10 @@
-// Network+FulcrumTransactionHandler.swift
+// Network+FulcrumTransactionClient.swift
 
 import Foundation
 import SwiftFulcrum
 
 extension Network {
-    public struct FulcrumTransactionHandler: TransactionHandling {
+    public struct FulcrumTransactionClient: TransactionHandling {
         private let client: FulcrumClient
         private let timeouts: FulcrumRequestTimeout
         

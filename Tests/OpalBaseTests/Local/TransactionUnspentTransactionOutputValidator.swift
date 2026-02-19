@@ -8,12 +8,12 @@ struct TransactionUnspentTransactionOutputValidator {
     func buildAppliesCanonicalOutputOrdering() throws {
         let privateKey = try PrivateKey(data: Data(repeating: 0x02, count: 32))
         let lockingScript = Data([
-            OP._DUP.rawValue,
-            OP._HASH160.rawValue,
+            ScriptOperationCode._DUP.rawValue,
+            ScriptOperationCode._HASH160.rawValue,
             0x14
         ] + Array(repeating: 0x01, count: 20) + [
-            OP._EQUALVERIFY.rawValue,
-            OP._CHECKSIG.rawValue
+            ScriptOperationCode._EQUALVERIFY.rawValue,
+            ScriptOperationCode._CHECKSIG.rawValue
         ])
         
         let previousTransactionHash = Transaction.Hash(naturalOrder: Data(repeating: 0x00, count: 32))
@@ -32,12 +32,12 @@ struct TransactionUnspentTransactionOutputValidator {
         ]
         
         let changeScript = Data([
-            OP._DUP.rawValue,
-            OP._HASH160.rawValue,
+            ScriptOperationCode._DUP.rawValue,
+            ScriptOperationCode._HASH160.rawValue,
             0x14
         ] + Array(repeating: 0x02, count: 20) + [
-            OP._EQUALVERIFY.rawValue,
-            OP._CHECKSIG.rawValue
+            ScriptOperationCode._EQUALVERIFY.rawValue,
+            ScriptOperationCode._CHECKSIG.rawValue
         ])
         let changeOutput = Transaction.Output(value: 3_000, lockingScript: changeScript)
         
@@ -133,12 +133,12 @@ struct TransactionUnspentTransactionOutputValidator {
                                                                inputTotal: UInt64) {
         let privateKey = try PrivateKey(data: Data(repeating: 0x02, count: 32))
         let lockingScript = Data([
-            OP._DUP.rawValue,
-            OP._HASH160.rawValue,
+            ScriptOperationCode._DUP.rawValue,
+            ScriptOperationCode._HASH160.rawValue,
             0x14
         ] + Array(repeating: 0x01, count: 20) + [
-            OP._EQUALVERIFY.rawValue,
-            OP._CHECKSIG.rawValue
+            ScriptOperationCode._EQUALVERIFY.rawValue,
+            ScriptOperationCode._CHECKSIG.rawValue
         ])
         
         let previousTransactionHash = Transaction.Hash(naturalOrder: Data(repeating: 0x00, count: 32))
@@ -157,12 +157,12 @@ struct TransactionUnspentTransactionOutputValidator {
         ]
         
         let changeScript = Data([
-            OP._DUP.rawValue,
-            OP._HASH160.rawValue,
+            ScriptOperationCode._DUP.rawValue,
+            ScriptOperationCode._HASH160.rawValue,
             0x14
         ] + Array(repeating: 0x02, count: 20) + [
-            OP._EQUALVERIFY.rawValue,
-            OP._CHECKSIG.rawValue
+            ScriptOperationCode._EQUALVERIFY.rawValue,
+            ScriptOperationCode._CHECKSIG.rawValue
         ])
         let changeOutput = Transaction.Output(value: 3_000, lockingScript: changeScript)
         

@@ -24,34 +24,34 @@ extension Network {
             return String(describing: error)
         }
         
-        static func translate(_ error: Swift.Error) -> Network.Failure {
-            if let failure = error as? Network.Failure { return failure }
+        static func translate(_ error: Swift.Error) -> Network.Error {
+            if let failure = error as? Network.Error { return failure }
             
             if let dataError = error as? Data.Error {
-                return Network.Failure(reason: .decoding, message: describe(dataError))
+                return Network.Error(reason: .decoding, message: describe(dataError))
             }
             
             if let decodingError = error as? DecodingError {
-                return Network.Failure(reason: .decoding, message: String(describing: decodingError))
+                return Network.Error(reason: .decoding, message: String(describing: decodingError))
             }
             
             if let encodingError = error as? EncodingError {
-                return Network.Failure(reason: .encoding, message: String(describing: encodingError))
+                return Network.Error(reason: .encoding, message: String(describing: encodingError))
             }
             
             if error is CancellationError {
-                return Network.Failure(reason: .cancelled, message: "Operation cancelled")
+                return Network.Error(reason: .cancelled, message: "Operation cancelled")
             }
             
             guard let fulcrumError = error as? SwiftFulcrum.FulcrumClient.Error else {
-                return Network.Failure(reason: .unknown, message: String(describing: error))
+                return Network.Error(reason: .unknown, message: String(describing: error))
             }
             
             switch fulcrumError {
             case .transport(let transport):
                 return translateTransport(transport)
             case .rpc(let server):
-                return Network.Failure(
+                return Network.Error(
                     reason: .server(code: server.code),
                     message: server.message,
                     metadata: ["serverIdentifier": server.id?.uuidString ?? "unknown"]
@@ -69,7 +69,7 @@ extension Network {
         
         static func checkCancellation(_ error: Swift.Error) -> Bool {
             if error is CancellationError { return true }
-            if let failure = error as? Network.Failure { return failure.reason == .cancelled }
+            if let failure = error as? Network.Error { return failure.reason == .cancelled }
             if let fulcrumError = error as? SwiftFulcrum.FulcrumClient.Error,
                case .client(.cancelled) = fulcrumError {
                 return true
@@ -77,12 +77,12 @@ extension Network {
             return false
         }
         
-        private static func translateTransport(_ transport: SwiftFulcrum.FulcrumClient.Error.TransportModel) -> Network.Failure {
+        private static func translateTransport(_ transport: SwiftFulcrum.FulcrumClient.Error.TransportModel) -> Network.Error {
             switch transport {
             case .setupFailed:
-                return Network.Failure(reason: .transport, message: "Failed to create transport")
+                return Network.Error(reason: .transport, message: "Failed to create transport")
             case .connectionClosed(let code, let reason):
-                return Network.Failure(
+                return Network.Error(
                     reason: .transport,
                     message: reason ?? "Connection closed",
                     metadata: ["closeCode": String(code.rawValue)]
@@ -90,68 +90,68 @@ extension Network {
             case .network(let networkError):
                 return translateNetwork(networkError)
             case .reconnectFailed:
-                return Network.Failure(reason: .transport, message: "Reconnection attempts exhausted")
+                return Network.Error(reason: .transport, message: "Reconnection attempts exhausted")
             case .heartbeatTimeout:
-                return Network.Failure(reason: .timeout, message: "Heartbeat timed out")
+                return Network.Error(reason: .timeout, message: "Heartbeat timed out")
             }
         }
         
-        private static func translateNetwork(_ network: SwiftFulcrum.FulcrumClient.Error.NetworkModel) -> Network.Failure {
+        private static func translateNetwork(_ network: SwiftFulcrum.FulcrumClient.Error.NetworkModel) -> Network.Error {
             switch network {
             case .tlsNegotiationFailed(let underlying):
-                return Network.Failure(
+                return Network.Error(
                     reason: .network,
                     message: underlying?.localizedDescription ?? "TLS negotiation failed"
                 )
             }
         }
         
-        private static func translateCoding(_ coding: SwiftFulcrum.FulcrumClient.Error.CodingModel) -> Network.Failure {
+        private static func translateCoding(_ coding: SwiftFulcrum.FulcrumClient.Error.CodingModel) -> Network.Error {
             switch coding {
             case .encode(let underlying):
-                return Network.Failure(reason: .encoding, message: describe(underlying))
+                return Network.Error(reason: .encoding, message: describe(underlying))
             case .decode(let underlying):
-                return Network.Failure(reason: .decoding, message: describe(underlying))
+                return Network.Error(reason: .decoding, message: describe(underlying))
             }
         }
         
-        private static func translateClient(_ client: SwiftFulcrum.FulcrumClient.Error.Client) -> Network.Failure {
+        private static func translateClient(_ client: SwiftFulcrum.FulcrumClient.Error.Client) -> Network.Error {
             switch client {
             case .urlNotFound:
-                return Network.Failure(reason: .transport, message: "No server URL available")
+                return Network.Error(reason: .transport, message: "No server URL available")
             case .invalidURL(let string):
-                return Network.Failure(reason: .transport, message: "Invalid server URL: \(string)")
+                return Network.Error(reason: .transport, message: "Invalid server URL: \(string)")
             case .duplicateHandler:
-                return Network.Failure(reason: .unknown, message: "Duplicate handler registered")
+                return Network.Error(reason: .unknown, message: "Duplicate handler registered")
             case .cancelled:
-                return Network.Failure(reason: .cancelled, message: "Operation cancelled")
+                return Network.Error(reason: .cancelled, message: "Operation cancelled")
             case .timeout(let duration):
-                return Network.Failure(
+                return Network.Error(
                     reason: .timeout,
                     message: "Operation timed out",
                     metadata: ["timeoutSeconds": String(duration.totalSeconds)]
                 )
             case .emptyResponse(let identifier):
-                return Network.Failure(reason: .protocolViolation,
+                return Network.Error(reason: .protocolViolation,
                                        message: "Empty response from server",
                                        metadata: identifier.map { ["requestIdentifier": $0.uuidString] } ?? .init())
             case .protocolMismatch(let message):
-                return Network.Failure(reason: .protocolViolation, message: message)
+                return Network.Error(reason: .protocolViolation, message: message)
             case .unknown(let underlying):
                 guard let underlying else {
-                    return Network.Failure(reason: .unknown, message: nil)
+                    return Network.Error(reason: .unknown, message: nil)
                 }
                 
                 if underlying is DecodingError {
-                    return Network.Failure(reason: .decoding, message: describe(underlying))
+                    return Network.Error(reason: .decoding, message: describe(underlying))
                 }
                 
                 let cocoaError = underlying as NSError
                 if cocoaError.domain == NSCocoaErrorDomain && cocoaError.code == 3840 {
-                    return Network.Failure(reason: .decoding, message: describe(underlying))
+                    return Network.Error(reason: .decoding, message: describe(underlying))
                 }
                 
-                return Network.Failure(reason: .unknown, message: describe(underlying))
+                return Network.Error(reason: .unknown, message: describe(underlying))
             }
         }
     }

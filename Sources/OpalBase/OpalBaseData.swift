@@ -2,6 +2,6 @@
 
 import Foundation
 
-public enum OpalBaseMetadata {
+public enum OpalBaseData {
     public static let version = "0.3.0"
 }

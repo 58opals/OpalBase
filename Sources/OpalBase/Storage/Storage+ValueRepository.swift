@@ -1,9 +1,9 @@
-// Storage+ValueStore.swift
+// Storage+ValueRepository.swift
 
 import Foundation
 
 extension Storage {
-    public struct ValueStore: Sendable {
+    public struct ValueRepository: Sendable {
         public var valueWriter: @Sendable (Data, Storage.Key) async throws -> Void
         public var valueReader: @Sendable (Storage.Key) async throws -> Data?
         public var valueDeleter: @Sendable (Storage.Key) async throws -> Void
@@ -23,7 +23,7 @@ extension Storage {
     }
 }
 
-extension Storage.ValueStore {
+extension Storage.ValueRepository {
     public static func makeInMemory() -> Self {
         actor Box {
             var values: [String: Data] = .init()

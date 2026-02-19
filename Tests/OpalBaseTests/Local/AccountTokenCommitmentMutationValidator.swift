@@ -29,7 +29,7 @@ struct AccountTokenCommitmentMutationValidator {
             target: .preferredInput(authorityOutput),
             newCommitment: Data([0x02]),
             destination: destinationAddress,
-            preserveAttachedFungibleToWallet: true
+            shouldPreserveAttachedFungibleToWallet: true
         )
         
         let plan = try await account.prepareTokenCommitmentMutation(mutation)
@@ -111,7 +111,7 @@ struct AccountTokenCommitmentMutationValidator {
             target: .preferredInput(authorityOutput),
             newCommitment: Data([0x06]),
             destination: destinationAddress,
-            preserveAttachedFungibleToWallet: true
+            shouldPreserveAttachedFungibleToWallet: true
         )
         
         let plan = try await account.prepareTokenCommitmentMutation(mutation)

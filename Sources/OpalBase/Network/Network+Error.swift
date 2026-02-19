@@ -1,9 +1,9 @@
-// Network+Failure.swift
+// Network+Error.swift
 
 import Foundation
 
 extension Network {
-    public struct Failure: Swift.Error, Sendable, Equatable {
+    public struct Error: Swift.Error, Sendable, Equatable {
         public enum Reason: Sendable, Equatable {
             case transport
             case network

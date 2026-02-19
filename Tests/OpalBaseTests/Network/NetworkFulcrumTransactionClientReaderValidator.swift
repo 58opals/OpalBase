@@ -3,8 +3,8 @@ import Testing
 import SwiftFulcrum
 @testable import OpalBase
 
-@Suite("Network.FulcrumTransactionHandlerReader", .tags(.network))
-struct NetworkFulcrumTransactionHandlerReaderValidator {
+@Suite("Network.FulcrumTransactionClientReader", .tags(.network))
+struct NetworkFulcrumTransactionClientReaderValidator {
     private static let primaryServerAddress = URL(string: "wss://bch.imaginary.cash:50004")!
     private static let backupServerAddress = URL(string: "wss://bch.loping.net:50002")!
     private static let faultyServerAddress = URL(string: "wss://fulcrum.jettscythe.xyz:50004")!
@@ -18,7 +18,7 @@ struct NetworkFulcrumTransactionHandlerReaderValidator {
     func fetchConfirmationsMatchesTipHeight() async throws {
         let configuration = Network.Configuration(serverURLs: [Self.primaryServerAddress, Self.backupServerAddress])
         try await NetworkTestClient.withClient(configuration: configuration) { client in
-            let handler = Network.FulcrumTransactionHandler(client: client)
+            let handler = Network.FulcrumTransactionClient(client: client)
             let history: SwiftFulcrum.Response.ResultModel.BlockchainModel.AddressModel.GetHistoryModel = try await client.request(
                 method: .blockchain(
                     .address(
@@ -47,7 +47,7 @@ struct NetworkFulcrumTransactionHandlerReaderValidator {
                 forTransactionIdentifier: confirmedEntry.transactionHash
             )
 
-            let expectedConfirmations = Network.FulcrumTransactionHandler.calculateConfirmationCount(
+            let expectedConfirmations = Network.FulcrumTransactionClient.calculateConfirmationCount(
                 transactionHeight: UInt(confirmedEntry.height),
                 tipHeight: tip.height
             )
@@ -61,7 +61,7 @@ struct NetworkFulcrumTransactionHandlerReaderValidator {
     func fetchConfirmationsMatchesServerHeights() async throws {
         let configuration = Network.Configuration(serverURLs: [Self.primaryServerAddress, Self.backupServerAddress])
         try await NetworkTestClient.withClient(configuration: configuration) { client in
-            let handler = Network.FulcrumTransactionHandler(client: client)
+            let handler = Network.FulcrumTransactionClient(client: client)
             let addressReader = Network.FulcrumAddressReader(client: client)
             let confirmedHistory = try await addressReader.fetchHistory(for: Self.sampleCashAddress, includeUnconfirmed: false)
             let confirmedEntry = try #require(confirmedHistory.first(where: { $0.blockHeight > 0 }))
@@ -77,7 +77,7 @@ struct NetworkFulcrumTransactionHandlerReaderValidator {
                 responseType: SwiftFulcrum.Response.ResultModel.BlockchainModel.HeadersModel.GetTipModel.self
             )
 
-            let expectedConfirmations = Network.FulcrumTransactionHandler.calculateConfirmationCount(
+            let expectedConfirmations = Network.FulcrumTransactionClient.calculateConfirmationCount(
                 transactionHeight: transactionHeight.height,
                 tipHeight: tipHeight.height
             )
@@ -93,7 +93,7 @@ struct NetworkFulcrumTransactionHandlerReaderValidator {
     func fetchConfirmationsPropagatesServerErrors() async throws {
         let configuration = Network.Configuration(serverURLs: [Self.primaryServerAddress, Self.backupServerAddress])
         try await NetworkTestClient.withClient(configuration: configuration) { client in
-            let handler = Network.FulcrumTransactionHandler(client: client)
+            let handler = Network.FulcrumTransactionClient(client: client)
             var thrownError: Error?
             do {
                 _ = try await handler.fetchConfirmations(forTransactionIdentifier: Self.unknownTransactionIdentifier)
@@ -101,7 +101,7 @@ struct NetworkFulcrumTransactionHandlerReaderValidator {
                 thrownError = error
             }
 
-            let failure = try #require(thrownError as? Network.Failure)
+            let failure = try #require(thrownError as? Network.Error)
             switch failure.reason {
             case .server:
                 #expect(true)
@@ -116,7 +116,7 @@ struct NetworkFulcrumTransactionHandlerReaderValidator {
     func broadcastTransactionRejectsInvalidPayload() async throws {
         let configuration = Network.Configuration(serverURLs: [Self.primaryServerAddress, Self.backupServerAddress])
         try await NetworkTestClient.withClient(configuration: configuration) { client in
-            let handler = Network.FulcrumTransactionHandler(client: client)
+            let handler = Network.FulcrumTransactionClient(client: client)
             var thrownError: Error?
             do {
                 _ = try await handler.broadcastTransaction(rawTransactionHexadecimal: Self.invalidRawTransaction)
@@ -124,7 +124,7 @@ struct NetworkFulcrumTransactionHandlerReaderValidator {
                 thrownError = error
             }
 
-            let failure = try #require(thrownError as? Network.Failure)
+            let failure = try #require(thrownError as? Network.Error)
             switch failure.reason {
             case .server, .protocolViolation:
                 #expect(true)
@@ -139,11 +139,11 @@ struct NetworkFulcrumTransactionHandlerReaderValidator {
     func broadcastTransactionTranslatesServerError() async throws {
         let configuration = Network.Configuration(serverURLs: [Self.primaryServerAddress, Self.backupServerAddress])
         try await NetworkTestClient.withClient(configuration: configuration) { client in
-            let handler = Network.FulcrumTransactionHandler(client: client)
+            let handler = Network.FulcrumTransactionClient(client: client)
             do {
                 _ = try await handler.broadcastTransaction(rawTransactionHexadecimal: "00")
                 Issue.record("Broadcast should have failed for malformed payload")
-            } catch let failure as Network.Failure {
+            } catch let failure as Network.Error {
                 #expect(failure.message != nil)
             } catch {
                 Issue.record("Unexpected error type: \(error)")

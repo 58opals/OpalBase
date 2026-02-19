@@ -40,7 +40,7 @@ extension Wallet.FulcrumAddress {
         let account: Account
         let addressReader: Network.AddressReadable
         let blockHeaderReader: Network.BlockHeaderReadable
-        let transactionHandler: Network.TransactionConfirming
+        let transactionHandler: Network.TransactionConfirmationClient
         let transactionReader: Network.TransactionReadable?
         let shouldIncludeUnconfirmed: Bool
         let retryDelay: Duration
@@ -54,7 +54,7 @@ extension Wallet.FulcrumAddress {
         public init(account: Account,
                     addressReader: Network.AddressReadable,
                     blockHeaderReader: Network.BlockHeaderReadable,
-                    transactionHandler: Network.TransactionConfirming,
+                    transactionHandler: Network.TransactionConfirmationClient,
                     transactionReader: Network.TransactionReadable? = nil,
                     includeUnconfirmed: Bool = true,
                     retryDelay: Duration = .seconds(2)) {

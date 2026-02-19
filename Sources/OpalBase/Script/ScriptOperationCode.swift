@@ -1,9 +1,8 @@
-// OperationCode.swift
+// ScriptOperationCode.generated.swift
 
 import Foundation
 
-enum OP: UInt8 {
-    var data: Data { Data([self.rawValue]) }
+enum ScriptOperationCode: UInt8 {
     
     // MARK: - Push Data
     case _0 = 0x00

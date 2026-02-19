@@ -2,7 +2,7 @@
 
 import Foundation
 
-extension BitcoinCashMetadataRegistries {
+extension BitcoinCashMetadataRegistryClient {
     public func extractTokenMetadata(from registry: Registry) -> [CashTokens.CategoryID: TokenMetadata] {
         extractTokenMetadata(from: registry, source: .embedded)
     }
@@ -47,7 +47,7 @@ extension BitcoinCashMetadataRegistries {
     }
 }
 
-private extension BitcoinCashMetadataRegistries {
+private extension BitcoinCashMetadataRegistryClient {
     struct LatestSnapshotSelection {
         let key: String
         let snapshot: IdentitySnapshot

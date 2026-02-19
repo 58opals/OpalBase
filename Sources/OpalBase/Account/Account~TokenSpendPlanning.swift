@@ -9,7 +9,7 @@ extension Account {
             throw Error.tokenTransferHasNoRecipients
         }
         
-        let unsafeRecipients = transfer.recipients.filter { !$0.address.supportsTokens }
+        let unsafeRecipients = transfer.recipients.filter { !$0.address.isTokenAware }
         if !unsafeRecipients.isEmpty {
             throw Error.tokenSendRequiresTokenAwareAddress(unsafeRecipients.map(\.address))
         }

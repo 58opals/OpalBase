@@ -55,7 +55,7 @@ extension Account {
         let mutatedTokenData: CashTokens.TokenData
         var fungiblePreservationOutput: Transaction.Output?
         
-        if destinationIsExternal && mutation.preserveAttachedFungibleToWallet {
+        if destinationIsExternal && mutation.shouldPreserveAttachedFungibleToWallet {
             mutatedTokenData = CashTokens.TokenData(category: authorityTokenData.category,
                                                     amount: nil,
                                                     nft: newNonFungibleToken)

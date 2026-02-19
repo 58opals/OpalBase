@@ -12,7 +12,7 @@ extension Network {
         public init(
             configuration: Network.Configuration,
             metrics: MetricsCollector? = nil,
-            logger: LogHandler? = nil,
+            logger: LogClient? = nil,
             isLoggingEnabled: Bool = true,
             urlSession: URLSession? = nil
         ) async throws {
@@ -173,9 +173,9 @@ private struct FulcrumMetricsAdapter: SwiftFulcrum.MetricsClient {
 }
 
 private struct FulcrumLogHandlerAdapter: SwiftFulcrum.LogModel.HandlerModel {
-    private let handler: any Network.LogHandler
+    private let handler: any Network.LogClient
     
-    init(handler: any Network.LogHandler) {
+    init(handler: any Network.LogClient) {
         self.handler = handler
     }
     

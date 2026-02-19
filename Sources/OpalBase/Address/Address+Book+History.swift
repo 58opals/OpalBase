@@ -120,7 +120,7 @@ private extension Address.Book {
 }
 
 extension Address.Book {
-    public func updateTransactionConfirmations(using handler: Network.TransactionConfirming,
+    public func updateTransactionConfirmations(using handler: Network.TransactionConfirmationClient,
                                                for transactionHashes: [Transaction.Hash]) async throws -> Transaction.History.ChangeSet {
         guard !transactionHashes.isEmpty else { return .init() }
         
@@ -171,7 +171,7 @@ extension Address.Book {
         return aggregatedChangeSet
     }
     
-    public func refreshTransactionConfirmations(using handler: Network.TransactionConfirming) async throws -> Transaction.History.ChangeSet {
+    public func refreshTransactionConfirmations(using handler: Network.TransactionConfirmationClient) async throws -> Transaction.History.ChangeSet {
         let records = transactionLog.listRecords()
         guard !records.isEmpty else { return .init() }
         let hashes = records.map(\.transactionHash)

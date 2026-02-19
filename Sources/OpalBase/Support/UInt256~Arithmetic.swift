@@ -1,103 +1,8 @@
-// UInt256.swift
+// UInt256~Arithmetic.swift
 
 import Foundation
 
-struct UInt256 {
-    enum Error: Swift.Error, Equatable {
-        case invalidDataLength(expected: Int, actual: Int)
-    }
-    
-    @usableFromInline var limbs: InlineArray<4, UInt64>
-    
-    @inlinable
-    init(limbs: InlineArray<4, UInt64>) {
-        self.limbs = limbs
-    }
-    
-    init(limbs: [UInt64]) {
-        precondition(limbs.count == 4)
-        self.limbs = [limbs[0], limbs[1], limbs[2], limbs[3]]
-    }
-    
-    @usableFromInline static let zero = UInt256(limbs: .init(repeating: 0))
-    @usableFromInline static let one = UInt256(limbs: [1, 0, 0, 0])
-    
-    init(data32: Data) throws {
-        guard data32.count == 32 else {
-            throw Error.invalidDataLength(expected: 32, actual: data32.count)
-        }
-        var temporaryLimbs: InlineArray<4, UInt64> = .init(repeating: 0)
-        data32.withUnsafeBytes { rawBuffer in
-            for index in 0..<4 {
-                let word = rawBuffer.loadUnaligned(fromByteOffset: index * 8, as: UInt64.self)
-                temporaryLimbs[3 - index] = UInt64(bigEndian: word)
-            }
-        }
-        limbs = temporaryLimbs
-    }
-    
-    @inlinable
-    var data32: Data {
-        var data = Data(count: 32)
-        data.withUnsafeMutableBytes { buffer in
-            for index in 0..<4 {
-                let limb = limbs[3 - index].bigEndian
-                buffer.storeBytes(of: limb, toByteOffset: index * 8, as: UInt64.self)
-            }
-        }
-        return data
-    }
-    
-    @inlinable
-    func compare(to other: UInt256) -> ComparisonResult {
-        for index in stride(from: 3, through: 0, by: -1) {
-            if limbs[index] < other.limbs[index] {
-                return .orderedAscending
-            }
-            if limbs[index] > other.limbs[index] {
-                return .orderedDescending
-            }
-        }
-        return .orderedSame
-    }
-    
-    @inlinable
-    var isZero: Bool {
-        (limbs[0] | limbs[1] | limbs[2] | limbs[3]) == 0
-    }
-    
-    @inlinable
-    var isOne: Bool {
-        limbs[0] == 1 && limbs[1] == 0 && limbs[2] == 0 && limbs[3] == 0
-    }
-    
-    @inlinable
-    var isLeastSignificantBitSet: Bool {
-        (limbs[0] & 1) == 1
-    }
-    
-    @inlinable
-    var mostSignificantBitIndex: Int? {
-        for index in stride(from: 3, through: 0, by: -1) {
-            let limb = limbs[index]
-            if limb != 0 {
-                let leadingZeros = limb.leadingZeroBitCount
-                return index * 64 + (63 - leadingZeros)
-            }
-        }
-        return nil
-    }
-    
-    @inlinable
-    func testBit(at index: Int) -> Bool {
-        guard index >= 0, index < 256 else {
-            return false
-        }
-        let limbIndex = index / 64
-        let bitIndex = index % 64
-        return (limbs[limbIndex] >> bitIndex) & 1 == 1
-    }
-    
+extension UInt256 {
     @inlinable
     func add(_ other: UInt256) -> (sum: UInt256, carry: Bool) {
         var result: InlineArray<4, UInt64> = .init(repeating: 0)
@@ -113,7 +18,7 @@ struct UInt256 {
         }
         return (UInt256(limbs: result), carry != 0)
     }
-    
+
     @inlinable
     func subtract(_ other: UInt256) -> (difference: UInt256, borrow: Bool) {
         var result: InlineArray<4, UInt64> = .init(repeating: 0)
@@ -129,7 +34,7 @@ struct UInt256 {
         }
         return (UInt256(limbs: result), borrow != 0)
     }
-    
+
     @inlinable
     func multiplyFullWidth(by other: UInt256) -> UInt512 {
         var result: InlineArray<8, UInt64> = .init(repeating: 0)
@@ -156,7 +61,7 @@ struct UInt256 {
         }
         return UInt512(limbs: result)
     }
-    
+
     @inlinable
     static func multiplyAdd(
         low: UInt64,
@@ -178,11 +83,11 @@ struct UInt256 {
         }
         return (sum, newCarry)
     }
-    
+
     @inlinable
     func squareFullWidth() -> UInt512 {
         var result: InlineArray<8, UInt64> = .init(repeating: 0)
-        
+
         func addProduct(low: UInt64, high: UInt64, at index: Int) {
             var carry: UInt64 = 0
             let (sumLow, overflowLow) = result[index].addingReportingOverflow(low)
@@ -206,7 +111,7 @@ struct UInt256 {
                 carryIndex += 1
             }
         }
-        
+
         func addDoubledProduct(low: UInt64, high: UInt64, at index: Int) {
             let carryFromLow = low >> 63
             let carryFromHigh = high >> 63
@@ -224,90 +129,20 @@ struct UInt256 {
                 }
             }
         }
-        
+
         for index in 0..<4 {
             let limb = limbs[index]
             let (high, low) = limb.multipliedFullWidth(by: limb)
             addProduct(low: low, high: high, at: index * 2)
         }
-        
+
         for leftIndex in 0..<4 {
             for rightIndex in (leftIndex + 1)..<4 {
                 let (high, low) = limbs[leftIndex].multipliedFullWidth(by: limbs[rightIndex])
                 addDoubledProduct(low: low, high: high, at: leftIndex + rightIndex)
             }
         }
-        
+
         return UInt512(limbs: result)
-    }
-}
-
-extension UInt256 {
-    @inlinable
-    func shiftRightOneBit() -> UInt256 {
-        var result = self
-        result.shiftRightOneBitInPlace()
-        return result
-    }
-    
-    @inlinable
-    mutating func shiftRightOneBitInPlace() {
-        var carry: UInt64 = 0
-        for index in stride(from: 3, through: 0, by: -1) {
-            let limb = limbs[index]
-            let nextCarry = limb & 1
-            limbs[index] = (limb >> 1) | (carry << 63)
-            carry = nextCarry
-        }
-    }
-    
-    @inlinable
-    func subtractWord(_ value: UInt64) -> UInt256 {
-        var result = self
-        result.subtractWordInPlace(value)
-        return result
-    }
-    
-    @inlinable
-    mutating func subtractWordInPlace(_ value: UInt64) {
-        var borrow = value
-        for index in 0..<4 {
-            if borrow == 0 {
-                break
-            }
-            let (difference, overflow) = limbs[index].subtractingReportingOverflow(borrow)
-            limbs[index] = difference
-            borrow = overflow ? 1 : 0
-        }
-    }
-    
-    @inlinable
-    func addWord(_ value: UInt64) -> UInt256 {
-        var result = self
-        result.addWordInPlace(value)
-        return result
-    }
-    
-    @inlinable
-    mutating func addWordInPlace(_ value: UInt64) {
-        var carry = value
-        for index in 0..<4 {
-            if carry == 0 {
-                break
-            }
-            let (sum, overflow) = limbs[index].addingReportingOverflow(carry)
-            limbs[index] = sum
-            carry = overflow ? 1 : 0
-        }
-    }
-}
-
-extension UInt256: Sendable {}
-extension UInt256: Equatable {
-    static func == (lhs: UInt256, rhs: UInt256) -> Bool {
-        lhs.limbs[0] == rhs.limbs[0]
-        && lhs.limbs[1] == rhs.limbs[1]
-        && lhs.limbs[2] == rhs.limbs[2]
-        && lhs.limbs[3] == rhs.limbs[3]
     }
 }

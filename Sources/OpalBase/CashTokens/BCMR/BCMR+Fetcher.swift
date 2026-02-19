@@ -2,7 +2,7 @@
 
 import Foundation
 
-extension BitcoinCashMetadataRegistries {
+extension BitcoinCashMetadataRegistryClient {
     public struct Fetcher: Sendable {
         public let urlSession: URLSession
         public let ipfsGateway: URL?
@@ -16,7 +16,7 @@ extension BitcoinCashMetadataRegistries {
     }
 }
 
-extension BitcoinCashMetadataRegistries.Fetcher {
+extension BitcoinCashMetadataRegistryClient.Fetcher {
     public enum Error: Swift.Error, Sendable {
         case invalidResourceIdentifier(String)
         case unsupportedScheme(String)
@@ -35,7 +35,7 @@ extension BitcoinCashMetadataRegistries.Fetcher {
     }
 }
 
-private extension BitcoinCashMetadataRegistries.Fetcher {
+private extension BitcoinCashMetadataRegistryClient.Fetcher {
     func fetchBytes(from resourceLocation: URL, remainingRedirects: Int) async throws -> Data {
         guard maxBytes > 0 else {
             throw Error.invalidMaximumBytes(maxBytes)

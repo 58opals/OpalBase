@@ -12,7 +12,7 @@ extension Address.Book {
         struct State: Sendable {
             let utxos: Set<Transaction.Output.Unspent>
             let entry: Entry
-            let previousUsageStatus: Bool
+            let hasBeenUsedPreviously: Bool
             let reservedAt: Date
         }
         
@@ -38,7 +38,7 @@ extension Address.Book {
             let refreshedDate = Date.now
             let refreshedState = SpendReservation.State(utxos: existingReservation.state.utxos,
                                                         entry: existingReservation.state.entry,
-                                                        previousUsageStatus: existingReservation.state.previousUsageStatus,
+                                                        hasBeenUsedPreviously: existingReservation.state.hasBeenUsedPreviously,
                                                         reservedAt: refreshedDate)
             spendReservationStates[existingReservation.identifier] = refreshedState
             scheduleAutomaticSpendReservationRelease(for: existingReservation.identifier)
@@ -62,7 +62,7 @@ extension Address.Book {
         
         spendReservationStates[identifier] = SpendReservation.State(utxos: utxoSet,
                                                                     entry: reservedEntry,
-                                                                    previousUsageStatus: changeEntry.isUsed,
+                                                                    hasBeenUsedPreviously: changeEntry.isUsed,
                                                                     reservedAt: reservationDate)
         
         scheduleAutomaticSpendReservationRelease(for: identifier)
@@ -132,7 +132,7 @@ extension Address.Book {
         case .completed:
             shouldKeepUsed = true
         case .cancelled:
-            shouldKeepUsed = state.previousUsageStatus
+            shouldKeepUsed = state.hasBeenUsedPreviously
         }
         
         let updatedEntry = try releaseReservation(address: state.entry.address,
@@ -141,67 +141,5 @@ extension Address.Book {
         if !shouldKeepUsed {
             try await generateEntriesIfNeeded(for: updatedEntry.derivationPath.usage)
         }
-    }
-}
-
-// MARK: - Helpers
-private extension Address.Book {
-    func findMatchingReservation(for utxos: Set<Transaction.Output.Unspent>) -> (identifier: UUID, state: SpendReservation.State)? {
-        spendReservationStates.first { _, state in
-            state.utxos == utxos
-        }
-        .map { element in
-            (identifier: element.key, state: element.value)
-        }
-    }
-    
-    func removeReservationState(for identifier: UUID) -> SpendReservation.State? {
-        cancelAutomaticSpendReservationRelease(for: identifier)
-        return spendReservationStates.removeValue(forKey: identifier)
-    }
-    
-    func scheduleAutomaticSpendReservationRelease(for identifier: UUID) {
-        guard spendReservationExpirationInterval > 0 else { return }
-        
-        cancelAutomaticSpendReservationRelease(for: identifier)
-        
-        let nanoseconds = convertToNanoseconds(spendReservationExpirationInterval)
-        guard nanoseconds > 0 else { return }
-        
-        let releaseTask = Task<Void, Never> { [nanoseconds] in
-            try? await Task.sleep(nanoseconds: nanoseconds)
-            guard !Task.isCancelled else { return }
-            _ = try? await self.forceReleaseSpendReservation(identifier: identifier, outcome: .cancelled)
-        }
-        
-        spendReservationReleaseTasks[identifier] = releaseTask
-    }
-    
-    func cancelAutomaticSpendReservationRelease(for identifier: UUID) {
-        guard let task = spendReservationReleaseTasks.removeValue(forKey: identifier) else { return }
-        task.cancel()
-    }
-    
-    func convertToNanoseconds(_ interval: TimeInterval) -> UInt64 {
-        guard interval > 0 else { return 0 }
-        
-        let nanosecondsPerSecond: Double = 1_000_000_000
-        let rawValue = interval * nanosecondsPerSecond
-        if rawValue >= Double(UInt64.max) {
-            return UInt64.max
-        }
-        
-        return UInt64(rawValue)
-    }
-}
-
-extension Address.Book {
-    func clearSpendReservationState() {
-        for task in spendReservationReleaseTasks.values {
-            task.cancel()
-        }
-        
-        spendReservationReleaseTasks.removeAll()
-        spendReservationStates.removeAll()
     }
 }

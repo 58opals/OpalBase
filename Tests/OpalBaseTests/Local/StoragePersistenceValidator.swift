@@ -2,7 +2,7 @@ import Foundation
 import Testing
 @testable import OpalBase
 
-@Suite("Storage persistence and wallet workflows")
+@Suite("Storage persistence and wallet workflows", .tags(.unit, .wallet))
 struct StoragePersistenceValidator {
     @Test("storage uses canonical keys for wallet artifacts")
     func verifyStorageUsesCanonicalKeys() {
@@ -17,7 +17,7 @@ struct StoragePersistenceValidator {
 
     @Test("mnemonic persistence does not require retaining a wallet instance")
     func persistMnemonicWithoutWalletRetention() async throws {
-        let valueStore = Storage.ValueStore.makeInMemory()
+        let valueStore = Storage.ValueRepository.makeInMemory()
         let storage = try Storage(valueStore: valueStore)
 
         let mnemonic = Storage.Mnemonic(

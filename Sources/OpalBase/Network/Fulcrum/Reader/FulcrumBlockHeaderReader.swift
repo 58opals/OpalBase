@@ -24,7 +24,7 @@ extension Network {
             }
         }
         
-        public func subscribeToTip() async throws -> AsyncThrowingStream<BlockHeaderSnapshot, any Error> {
+        public func subscribeToTip() async throws -> AsyncThrowingStream<BlockHeaderSnapshot, any Swift.Error> {
             try await Network.performWithFailureTranslation {
                 let (initial, updates, cancel) = try await client.subscribe(
                     method: .blockchain(.headers(.subscribe)),

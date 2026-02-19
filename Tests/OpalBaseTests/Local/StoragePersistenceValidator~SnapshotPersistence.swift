@@ -5,7 +5,7 @@ import Testing
 extension StoragePersistenceValidator {
     @Test("persistState(for:) + restore(accountIdentifiers:) round-trips wallet snapshots and mnemonic state")
     func persistAndRestoreWalletArtifacts() async throws {
-        let valueStore = Storage.ValueStore.makeInMemory()
+        let valueStore = Storage.ValueRepository.makeInMemory()
         let storage = try Storage(valueStore: valueStore)
 
         let mnemonic = try Mnemonic(
@@ -74,7 +74,7 @@ extension StoragePersistenceValidator {
 
     @Test("restore returns an empty state for a fresh install")
     func restoreEmptyStateWhenNothingPersisted() async throws {
-        let valueStore = Storage.ValueStore.makeInMemory()
+        let valueStore = Storage.ValueRepository.makeInMemory()
         let storage = try Storage(valueStore: valueStore)
         let session = Storage.PersistenceSession(storage: storage)
 
@@ -89,7 +89,7 @@ extension StoragePersistenceValidator {
 
     @Test("save(snapshot:accountIdentifiers:) rejects missing account identifiers")
     func rejectMissingAccountIdentifiersWhenSavingSnapshot() async throws {
-        let valueStore = Storage.ValueStore.makeInMemory()
+        let valueStore = Storage.ValueRepository.makeInMemory()
         let storage = try Storage(valueStore: valueStore)
         let session = Storage.PersistenceSession(storage: storage)
 

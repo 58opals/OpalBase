@@ -14,7 +14,7 @@ extension NetworkFulcrumAddressReaderValidator {
                 thrownError = error
             }
 
-            let failure = try #require(thrownError as? Network.Failure)
+            let failure = try #require(thrownError as? Network.Error)
             #expect(failure.reason == .protocolViolation)
             if let message = failure.message {
                 #expect(message.contains("Invalid address"))
@@ -30,7 +30,7 @@ extension NetworkFulcrumAddressReaderValidator {
             do {
                 _ = try await reader.fetchUnspentOutputs(for: "invalid-address", tokenFilter: .include)
                 #expect(Bool(false), "Expected an invalid address to throw a protocol violation failure")
-            } catch let failure as Network.Failure {
+            } catch let failure as Network.Error {
                 #expect(failure.reason == .protocolViolation)
                 #expect(failure.message?.contains("Invalid address") ?? false)
             }
@@ -57,7 +57,7 @@ extension NetworkFulcrumAddressReaderValidator {
                 let reader = Network.FulcrumAddressReader(client: client)
                 _ = try await reader.fetchUnspentOutputs(for: Self.invalidCashAddress, tokenFilter: .include)
                 Issue.record("Expected fetch to throw for invalid address")
-            } catch let failure as Network.Failure {
+            } catch let failure as Network.Error {
                 #expect(failure.reason == .protocolViolation)
                 if let message = failure.message {
                     #expect(message.contains("Invalid address"))

@@ -9,7 +9,7 @@ struct AddressTokenAwareValidator {
         let tokenAwareAddress = "bitcoincash:zpm2qsznhks23z7629mms6s4cwef74vcwvrqekrq9w"
         let expectedPayload = "zpm2qsznhks23z7629mms6s4cwef74vcwvrqekrq9w"
         let address = try Address(string: tokenAwareAddress)
-        #expect(address.supportsTokens)
+        #expect(address.isTokenAware)
         #expect(address.format == .tokenAware)
         #expect(address.string == expectedPayload)
         #expect(address.tokenAwareString == expectedPayload)
@@ -28,7 +28,7 @@ struct AddressTokenAwareValidator {
         let tokenAwareAddress = "bitcoincash:rqgjyv6y24n80zyeqz4thnxaamlsqyfzxve4yxax2l"
         let expectedPayload = "rqgjyv6y24n80zyeqz4thnxaamlsqyfzxve4yxax2l"
         let address = try Address(string: tokenAwareAddress)
-        #expect(address.supportsTokens)
+        #expect(address.isTokenAware)
         #expect(address.format == .tokenAware)
         #expect(address.string == expectedPayload)
         #expect(address.generateString(withPrefix: true) == tokenAwareAddress)
@@ -46,7 +46,7 @@ struct AddressTokenAwareValidator {
         let standardAddress = "bitcoincash:qpm2qsznhks23z7629mms6s4cwef74vcwvy22gdx6a"
         let expectedTokenAwarePayload = "zpm2qsznhks23z7629mms6s4cwef74vcwvrqekrq9w"
         let address = try Address(string: standardAddress)
-        #expect(address.supportsTokens == false)
+        #expect(address.isTokenAware == false)
         #expect(address.tokenAwareString == expectedTokenAwarePayload)
     }
     
@@ -55,7 +55,7 @@ struct AddressTokenAwareValidator {
         let legacyAddress = "1BpEi6DfDAUFd7GtittLSdBeYJvcoaVggu"
         let expectedPayload = "qpm2qsznhks23z7629mms6s4cwef74vcwvy22gdx6a"
         let address = try Address(string: legacyAddress)
-        #expect(address.supportsTokens == false)
+        #expect(address.isTokenAware == false)
         #expect(address.string == expectedPayload)
         #expect(address.generateString(withPrefix: true) == "bitcoincash:\(expectedPayload)")
     }

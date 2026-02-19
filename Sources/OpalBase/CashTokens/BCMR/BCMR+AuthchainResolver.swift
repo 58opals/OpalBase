@@ -2,7 +2,7 @@
 
 import Foundation
 
-extension BitcoinCashMetadataRegistries {
+extension BitcoinCashMetadataRegistryClient {
     public struct AuthchainResolver: Sendable {
         public let transactionReader: Network.TransactionReadable
         public let addressReader: Network.AddressReadable
@@ -23,7 +23,7 @@ extension BitcoinCashMetadataRegistries {
     }
 }
 
-extension BitcoinCashMetadataRegistries.AuthchainResolver {
+extension BitcoinCashMetadataRegistryClient.AuthchainResolver {
     enum Error: Swift.Error, Sendable {
         case invalidMaximumDepth(Int)
         case maximumDepthExceeded(maxDepth: Int, lastTransactionHash: Transaction.Hash)
@@ -71,7 +71,7 @@ extension BitcoinCashMetadataRegistries.AuthchainResolver {
     }
 }
 
-private extension BitcoinCashMetadataRegistries.AuthchainResolver {
+private extension BitcoinCashMetadataRegistryClient.AuthchainResolver {
     func fetchTransaction(for transactionHash: Transaction.Hash) async throws -> Transaction {
         let rawTransactionData = try await transactionReader.fetchRawTransaction(for: transactionHash)
         do {

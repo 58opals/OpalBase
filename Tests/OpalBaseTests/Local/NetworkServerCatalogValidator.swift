@@ -3,7 +3,7 @@ import SwiftFulcrum
 import Testing
 @testable import OpalBase
 
-@Suite("Network.ServerCatalog")
+@Suite("Network.ServerCatalog", .tags(.unit, .network))
 struct NetworkServerCatalogValidator {
     @Test("opal defaults provide per-environment catalogs")
     func opalDefaultsProvidePerEnvironmentCatalogs() {

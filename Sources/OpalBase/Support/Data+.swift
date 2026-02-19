@@ -105,13 +105,13 @@ extension Data {
         case 0...75:
             writer.writeByte(UInt8(buffer.count))
         case 76...255:
-            writer.writeByte(OP._PUSHDATA1.rawValue)
+            writer.writeByte(ScriptOperationCode._PUSHDATA1.rawValue)
             writer.writeByte(UInt8(buffer.count))
         case 256...65535:
-            writer.writeByte(OP._PUSHDATA2.rawValue)
+            writer.writeByte(ScriptOperationCode._PUSHDATA2.rawValue)
             writer.writeLittleEndian(UInt16(buffer.count))
         default:
-            writer.writeByte(OP._PUSHDATA4.rawValue)
+            writer.writeByte(ScriptOperationCode._PUSHDATA4.rawValue)
             writer.writeLittleEndian(UInt32(buffer.count))
         }
         

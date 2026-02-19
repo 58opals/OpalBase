@@ -2,7 +2,7 @@
 
 import Foundation
 
-extension BitcoinCashMetadataRegistries {
+extension BitcoinCashMetadataRegistryClient {
     public struct Publication: Sendable {
         public let sha256: Data
         public let uris: [String]

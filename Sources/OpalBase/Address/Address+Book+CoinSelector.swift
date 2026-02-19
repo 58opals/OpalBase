@@ -54,65 +54,8 @@ extension Address.Book.CoinSelector {
         throw Address.Book.Error.insufficientFunds
     }
     
-    private func selectBranchAndBound() throws -> [Transaction.Output.Unspent] {
-        var bestSelection: [Transaction.Output.Unspent] = .init()
-        var bestEvaluation: Address.Book.CoinSelection.Evaluation?
-        let suffixTotals = try makeSuffixTotals()
-        
-        func updateBest(selection: [Transaction.Output.Unspent], sum: UInt64) throws {
-            guard let evaluation = try evaluate(selection: selection, sum: sum) else { return }
-            
-            if let currentBest = bestEvaluation {
-                if evaluation.excess < currentBest.excess {
-                    bestEvaluation = evaluation
-                    bestSelection = selection
-                } else if evaluation.excess == currentBest.excess,
-                          selection.count < bestSelection.count {
-                    bestEvaluation = evaluation
-                    bestSelection = selection
-                }
-            } else {
-                bestEvaluation = evaluation
-                bestSelection = selection
-            }
-        }
-        
-        func explore(index: Int, selection: [Transaction.Output.Unspent], sum: UInt64) throws {
-            try updateBest(selection: selection, sum: sum)
-            
-            guard index < utxos.count else { return }
-            
-            let remaining = suffixTotals[index]
-            let minimalFee = try Transaction.estimateFee(inputCount: selection.count,
-                                                         outputs: configuration.recipientOutputs,
-                                                         feePerByte: feePerByte)
-            let minimalRequirement = try targetAmount.addOrThrow(
-                minimalFee,
-                overflowError: Address.Book.Error.paymentExceedsMaximumAmount
-            )
-            let sumWithRemaining = try sum.addOrThrow(remaining,
-                                                      overflowError: Address.Book.Error.paymentExceedsMaximumAmount)
-            if sumWithRemaining < minimalRequirement { return }
-            var selectionIncludingCurrent = selection
-            selectionIncludingCurrent.append(utxos[index])
-            let sumIncludingCurrent = try sum.addOrThrow(
-                utxos[index].value,
-                overflowError: Address.Book.Error.paymentExceedsMaximumAmount
-            )
-            
-            try explore(index: index + 1,
-                        selection: selectionIncludingCurrent,
-                        sum: sumIncludingCurrent)
-            try explore(index: index + 1, selection: selection, sum: sum)
-        }
-        
-        try explore(index: 0, selection: .init(), sum: 0)
-        guard !bestSelection.isEmpty else { throw Address.Book.Error.insufficientFunds }
-        return bestSelection
-    }
-    
-    private func evaluate(selection: [Transaction.Output.Unspent],
-                          sum: UInt64) throws -> Address.Book.CoinSelection.Evaluation? {
+    func evaluate(selection: [Transaction.Output.Unspent],
+                  sum: UInt64) throws -> Address.Book.CoinSelection.Evaluation? {
         try Address.Book.CoinSelection.evaluate(configuration: configuration,
                                                 total: sum,
                                                 inputCount: selection.count,
@@ -123,7 +66,7 @@ extension Address.Book.CoinSelector {
                                                 feePerByte: feePerByte)
     }
     
-    private func makeSuffixTotals() throws -> [UInt64] {
+    func makeSuffixTotals() throws -> [UInt64] {
         guard !utxos.isEmpty else { return [0] }
         
         var suffixTotals: [UInt64] = Array(repeating: 0, count: utxos.count + 1)
@@ -135,132 +78,5 @@ extension Address.Book.CoinSelector {
         }
         
         return suffixTotals
-    }
-}
-
-// MARK: - Coin Selection
-extension Address.Book {
-    public enum CoinSelection: Sendable {
-        case greedyLargestFirst
-        case branchAndBound
-        case sweepAll
-    }
-}
-
-extension Address.Book.CoinSelection {
-    public enum TokenSelectionPolicy: Sendable {
-        case excludeTokenUTXOs
-        case allowTokenUTXOs
-    }
-    
-    struct Configuration {
-        let recipientOutputs: [Transaction.Output]
-        let outputsWithChange: [Transaction.Output]
-        let strategy: Address.Book.CoinSelection
-        let shouldAllowDustDonation: Bool
-        let tokenSelectionPolicy: TokenSelectionPolicy
-        
-        init(recipientOutputs: [Transaction.Output],
-             outputsWithChange: [Transaction.Output],
-             strategy: Address.Book.CoinSelection,
-             shouldAllowDustDonation: Bool = false,
-             tokenSelectionPolicy: TokenSelectionPolicy = .excludeTokenUTXOs) {
-            self.recipientOutputs = recipientOutputs
-            self.outputsWithChange = outputsWithChange
-            self.strategy = strategy
-            self.shouldAllowDustDonation = shouldAllowDustDonation
-            self.tokenSelectionPolicy = tokenSelectionPolicy
-        }
-        
-        init(recipientOutputs: [Transaction.Output],
-             changeLockingScript: Data?,
-             strategy: Address.Book.CoinSelection = .greedyLargestFirst,
-             shouldAllowDustDonation: Bool = false,
-             tokenSelectionPolicy: TokenSelectionPolicy = .excludeTokenUTXOs) {
-            let outputsWithChange: [Transaction.Output]
-            if let changeLockingScript {
-                let changeTemplate = Transaction.Output(value: 0, lockingScript: changeLockingScript)
-                outputsWithChange = recipientOutputs + [changeTemplate]
-            } else {
-                outputsWithChange = recipientOutputs
-            }
-            
-            self.init(recipientOutputs: recipientOutputs,
-                      outputsWithChange: outputsWithChange,
-                      strategy: strategy,
-                      shouldAllowDustDonation: shouldAllowDustDonation,
-                      tokenSelectionPolicy: tokenSelectionPolicy)
-        }
-        
-        static func makeTemplateConfiguration(strategy: Address.Book.CoinSelection = .greedyLargestFirst,
-                                              shouldAllowDustDonation: Bool = false,
-                                              tokenSelectionPolicy: TokenSelectionPolicy = .excludeTokenUTXOs) -> Self {
-            Self(recipientOutputs: Address.Book.CoinSelection.Templates.recipientOutputs,
-                 outputsWithChange: Address.Book.CoinSelection.Templates.outputsWithChange,
-                 strategy: strategy,
-                 shouldAllowDustDonation: shouldAllowDustDonation,
-                 tokenSelectionPolicy: tokenSelectionPolicy)
-        }
-    }
-    
-    struct Evaluation {
-        let excess: UInt64
-    }
-    
-    enum Templates {
-        static let lockingScript: Data = Data(repeating: 0, count: 25)
-        static let recipientOutputs: [Transaction.Output] = [Transaction.Output(value: 0,
-                                                                                lockingScript: lockingScript)]
-        static let outputsWithChange: [Transaction.Output] = {
-            let recipient = Transaction.Output(value: 0, lockingScript: lockingScript)
-            let change = Transaction.Output(value: 0, lockingScript: lockingScript)
-            return [recipient, change]
-        }()
-    }
-    
-    static func evaluate(configuration: Configuration,
-                         total: UInt64,
-                         inputCount: Int,
-                         targetAmount: UInt64,
-                         recipientOutputs: [Transaction.Output],
-                         outputsWithChange: [Transaction.Output],
-                         minimumRelayFeeRate: UInt64,
-                         feePerByte: UInt64) throws -> Evaluation? {
-        let changeOutputTemplate: Transaction.Output? = outputsWithChange.count > recipientOutputs.count
-        ? outputsWithChange.last
-        : nil
-        let changeDustThreshold = try changeOutputTemplate?.calculateDustThreshold(feeRate: minimumRelayFeeRate) ?? 0
-        let feeWithoutChange = try Transaction.estimateFee(inputCount: inputCount,
-                                                           outputs: recipientOutputs,
-                                                           feePerByte: feePerByte)
-        let requiredWithoutChange = try targetAmount.addOrThrow(
-            feeWithoutChange,
-            overflowError: Address.Book.Error.paymentExceedsMaximumAmount
-        )
-        
-        if total >= requiredWithoutChange {
-            let excess = total - requiredWithoutChange
-            if excess == 0 {
-                return Evaluation(excess: excess)
-            }
-            if configuration.shouldAllowDustDonation && excess < changeDustThreshold {
-                return Evaluation(excess: excess)
-            }
-        }
-        
-        let feeWithChange = try Transaction.estimateFee(inputCount: inputCount,
-                                                        outputs: outputsWithChange,
-                                                        feePerByte: feePerByte)
-        let requiredWithChange = try targetAmount.addOrThrow(
-            feeWithChange,
-            overflowError: Address.Book.Error.paymentExceedsMaximumAmount
-        )
-        
-        guard total >= requiredWithChange else { return nil }
-        
-        let change = total - requiredWithChange
-        guard change == 0 || change >= changeDustThreshold else { return nil }
-        
-        return Evaluation(excess: change)
     }
 }

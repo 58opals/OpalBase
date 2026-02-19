@@ -18,8 +18,8 @@ struct SchnorrSignatureVerificationValidator {
                                            format: .schnorr)
             
             #expect(
-                isValid == vector.expectedVerificationResult,
-                "VectorData \(vector.index) expected \(vector.expectedVerificationResult) but got \(isValid). \(vector.comment ?? "No comment.")"
+                isValid == vector.isVerificationExpected,
+                "VectorData \(vector.index) expected \(vector.isVerificationExpected) but got \(isValid). \(vector.comment ?? "No comment.")"
             )
         }
     }

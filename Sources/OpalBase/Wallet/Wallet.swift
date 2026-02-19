@@ -4,7 +4,7 @@ import Foundation
 
 public actor Wallet: Identifiable {
     public let mnemonic: Mnemonic
-    public let tokenMetadataStore: TokenMetadataStore
+    public let tokenMetadataStore: TokenMetadataRepository
     
     let purpose: DerivationPath.Purpose
     let coinType: DerivationPath.CoinType
@@ -17,7 +17,7 @@ public actor Wallet: Identifiable {
                 purpose: DerivationPath.Purpose = .bip44,
                 coinType: DerivationPath.CoinType = .bitcoinCash) {
         self.mnemonic = mnemonic
-        self.tokenMetadataStore = TokenMetadataStore()
+        self.tokenMetadataStore = TokenMetadataRepository()
         self.purpose = purpose
         self.coinType = coinType
         self.id = [self.mnemonic.seed, self.purpose.hardenedIndex.data, self.coinType.hardenedIndex.data].generateID()
@@ -25,7 +25,7 @@ public actor Wallet: Identifiable {
     
     public init(from snapshot: Wallet.Snapshot) async throws {
         self.mnemonic = try Mnemonic(words: snapshot.words, passphrase: snapshot.passphrase)
-        self.tokenMetadataStore = TokenMetadataStore()
+        self.tokenMetadataStore = TokenMetadataRepository()
         self.purpose = snapshot.purpose
         self.coinType = snapshot.coinType
         self.id = [self.mnemonic.seed, self.purpose.hardenedIndex.data, self.coinType.hardenedIndex.data].generateID()

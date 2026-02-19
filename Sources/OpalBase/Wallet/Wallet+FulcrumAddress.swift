@@ -5,11 +5,11 @@ import Foundation
 extension Wallet {
     public actor FulcrumAddress {
         private let addressReader: Network.AddressReadable
-        private let transactionHandler: Network.TransactionConfirming
+        private let transactionHandler: Network.TransactionConfirmationClient
         private let transactionReader: Network.TransactionReadable?
         
         public init(addressReader: Network.AddressReadable,
-                    transactionHandler: Network.TransactionConfirming,
+                    transactionHandler: Network.TransactionConfirmationClient,
                     transactionReader: Network.TransactionReadable? = nil) {
             self.addressReader = addressReader
             self.transactionHandler = transactionHandler

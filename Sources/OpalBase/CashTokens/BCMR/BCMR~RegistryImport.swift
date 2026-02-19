@@ -2,7 +2,7 @@
 
 import Foundation
 
-extension BitcoinCashMetadataRegistries {
+extension BitcoinCashMetadataRegistryClient {
     public enum Error: Swift.Error, Sendable {
         case registryDecodingFailed(Swift.Error)
         case invalidRegistryIdentity(String, Swift.Error)
@@ -25,7 +25,7 @@ extension BitcoinCashMetadataRegistries {
     }
 }
 
-private extension BitcoinCashMetadataRegistries {
+private extension BitcoinCashMetadataRegistryClient {
     func decodeRegistryData(from registryBytes: Data) throws -> Registry {
         let decoder = JSONDecoder()
         do {

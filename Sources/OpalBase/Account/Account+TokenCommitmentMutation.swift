@@ -13,7 +13,7 @@ extension Account {
         public let newCommitment: Data
         public let destination: Address
         public let bchAmount: Satoshi?
-        public let preserveAttachedFungibleToWallet: Bool
+        public let shouldPreserveAttachedFungibleToWallet: Bool
         public let feeOverride: Wallet.FeePolicy.Override?
         public let feeContext: Wallet.FeePolicy.RecommendationContext
         public let shouldAllowDustDonation: Bool
@@ -22,7 +22,7 @@ extension Account {
                     newCommitment: Data,
                     destination: Address,
                     bchAmount: Satoshi? = nil,
-                    preserveAttachedFungibleToWallet: Bool = true,
+                    shouldPreserveAttachedFungibleToWallet: Bool = true,
                     feeOverride: Wallet.FeePolicy.Override? = nil,
                     feeContext: Wallet.FeePolicy.RecommendationContext = .init(),
                     shouldAllowDustDonation: Bool = false) throws {
@@ -32,7 +32,7 @@ extension Account {
             self.newCommitment = newCommitment
             self.destination = destination
             self.bchAmount = bchAmount
-            self.preserveAttachedFungibleToWallet = preserveAttachedFungibleToWallet
+            self.shouldPreserveAttachedFungibleToWallet = shouldPreserveAttachedFungibleToWallet
             self.feeOverride = feeOverride
             self.feeContext = feeContext
             self.shouldAllowDustDonation = shouldAllowDustDonation
@@ -42,7 +42,7 @@ extension Account {
 
 private enum TokenCommitmentMutationValidation {
     static func validateCommitment(_ commitment: Data) throws {
-        try TokenOperationValidation.validateCommitmentLength(commitment) { maximum, actual in
+        try TokenOperationValidator.validateCommitmentLength(commitment) { maximum, actual in
             Account.Error.tokenMutationNonFungibleTokenCommitmentTooLong(
                 maximum: maximum,
                 actual: actual
@@ -51,7 +51,7 @@ private enum TokenCommitmentMutationValidation {
     }
     
     static func validateDestination(_ destination: Address) throws {
-        try TokenOperationValidation.requireTokenAwareAddress(destination) { offending in
+        try TokenOperationValidator.requireTokenAwareAddress(destination) { offending in
             Account.Error.tokenMutationRequiresTokenAwareAddress(offending)
         }
     }

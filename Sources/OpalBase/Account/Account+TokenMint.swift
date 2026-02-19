@@ -70,7 +70,7 @@ private enum TokenMintValidation {
     }
     
     static func validateRecipients(_ recipients: [Account.TokenMint.Recipient]) throws {
-        try TokenOperationValidation.requireTokenAwareAddresses(recipients.map(\.address)) { offending in
+        try TokenOperationValidator.requireTokenAwareAddresses(recipients.map(\.address)) { offending in
             Account.Error.tokenMintRequiresTokenAwareAddress(offending)
         }
     }
@@ -78,7 +78,7 @@ private enum TokenMintValidation {
     static func validateAuthorityReturn(_ authorityReturn: Account.TokenMint.AuthorityReturn) throws {
         switch authorityReturn {
         case .toAddress(let address, _):
-            try TokenOperationValidation.requireTokenAwareAddress(address) { offending in
+            try TokenOperationValidator.requireTokenAwareAddress(address) { offending in
                 Account.Error.tokenMintRequiresTokenAwareAddress(offending)
             }
         case .toWalletChange, .burn:
@@ -93,7 +93,7 @@ private enum TokenMintValidation {
     }
     
     static func validateFungibleAmount(_ fungibleAmount: UInt64?) throws {
-        try TokenOperationValidation.requireNonZeroFungibleAmount(fungibleAmount) {
+        try TokenOperationValidator.requireNonZeroFungibleAmount(fungibleAmount) {
             Account.Error.tokenMintFungibleAmountIsZero
         }
     }
@@ -105,7 +105,7 @@ private enum TokenMintValidation {
     }
     
     static func validateCommitment(_ commitment: Data) throws {
-        try TokenOperationValidation.validateCommitmentLength(commitment) { maximum, actual in
+        try TokenOperationValidator.validateCommitmentLength(commitment) { maximum, actual in
             Account.Error.tokenMintNonFungibleTokenCommitmentTooLong(
                 maximum: maximum,
                 actual: actual

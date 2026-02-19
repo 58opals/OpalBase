@@ -13,7 +13,7 @@ extension Network {
         case critical
     }
     
-    public protocol LogHandler: Sendable {
+    public protocol LogClient: Sendable {
         func log(_ level: LogLevel,
                  _ message: @autoclosure () -> String,
                  metadata: [String: String]?,

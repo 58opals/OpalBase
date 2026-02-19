@@ -6,10 +6,10 @@ public actor Storage {
     let security: Security
     let encoder: JSONEncoder
     let decoder: JSONDecoder
-    let valueStore: ValueStore
+    let valueStore: ValueRepository
     
     public init(
-        valueStore: ValueStore = .makeInMemory(),
+        valueStore: ValueRepository = .makeInMemory(),
         security: Security = .makePlaintextOnly()
     ) throws {
         self.valueStore = valueStore
