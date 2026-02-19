@@ -69,6 +69,36 @@ struct NetworkServerCatalogValidator {
         #expect(!servers.contains(where: { $0.host == "testnet.imaginary.cash" }))
     }
     
+    @Test("loader augments testnet defaults with provided fallback")
+    func configurationMergesFallbackWithTestnetDefaults() async throws {
+        let fallbackServer = URL(string: "wss://fallback.testnet.example:50004")!
+        let configuration = Network.Configuration(
+            serverURLs: .init(),
+            network: .testnet
+        )
+        
+        let loader = configuration.makeFulcrumServerCatalogRepository()
+        let servers = try await loader.loadServers(for: configuration.network.fulcrumNetwork, fallback: [fallbackServer])
+        
+        #expect(servers.contains(fallbackServer))
+        #expect(servers.contains(where: { $0.host == "testnet.imaginary.cash" }))
+        #expect(!servers.contains(where: { $0.host == "chipnet.imaginary.cash" }))
+    }
+    
+    @Test("bootstrap server selection respects configured environment")
+    func bootstrapServersRespectConfiguredEnvironment() {
+        let chipnetConfiguration = Network.Configuration(serverURLs: .init(), network: .chipnet)
+        let testnetConfiguration = Network.Configuration(serverURLs: .init(), network: .testnet)
+        
+        let chipnetBootstrap = chipnetConfiguration.fulcrumBootstrapServers
+        let testnetBootstrap = testnetConfiguration.fulcrumBootstrapServers
+        
+        #expect(chipnetBootstrap.contains(where: { $0.host == "chipnet.imaginary.cash" }))
+        #expect(!chipnetBootstrap.contains(where: { $0.host == "testnet.imaginary.cash" }))
+        #expect(testnetBootstrap.contains(where: { $0.host == "testnet.imaginary.cash" }))
+        #expect(!testnetBootstrap.contains(where: { $0.host == "chipnet.imaginary.cash" }))
+    }
+    
     @Test("normalizes schemes, removes invalid entries, and deduplicates")
     func normalizationFiltersAndDeduplicatesServers() {
         let rawServers = [
