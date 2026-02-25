@@ -22,9 +22,9 @@ struct NetworkFulcrumAddressReaderValidator {
             let balance = try await reader.fetchBalance(for: Self.sampleCashAddress, tokenFilter: .include)
             #expect(balance.confirmed >= 0)
 
-            let rpcBalance: SwiftFulcrum.Response.ResultModel.BlockchainModel.AddressModel.GetBalanceModel = try await client.request(
+            let rpcBalance: SwiftFulcrum.FulcrumResponse.ResultModel.BlockchainModel.AddressModel.GetBalanceModel = try await client.request(
                 method: .blockchain(.address(.getBalance(address: Self.sampleCashAddress, tokenFilter: .include))),
-                responseType: SwiftFulcrum.Response.ResultModel.BlockchainModel.AddressModel.GetBalanceModel.self
+                responseType: SwiftFulcrum.FulcrumResponse.ResultModel.BlockchainModel.AddressModel.GetBalanceModel.self
             )
             #expect(rpcBalance.confirmed == balance.confirmed)
             #expect(rpcBalance.unconfirmed == balance.unconfirmed)
@@ -125,20 +125,20 @@ struct NetworkFulcrumAddressReaderValidator {
 
         try await NetworkTestClient.withClient(configuration: configuration) { client in
             let reader = Network.FulcrumAddressReader(client: client)
-            let rawUnspent: SwiftFulcrum.Response.ResultModel.BlockchainModel.AddressModel.ListUnspentModel = try await client.request(
+            let rawUnspent: SwiftFulcrum.FulcrumResponse.ResultModel.BlockchainModel.AddressModel.ListUnspentModel = try await client.request(
                 method: .blockchain(
                     .address(
                         .listUnspent(address: Self.sampleCashAddress, tokenFilter: .include)
                     )
                 ),
-                responseType: SwiftFulcrum.Response.ResultModel.BlockchainModel.AddressModel.ListUnspentModel.self
+                responseType: SwiftFulcrum.FulcrumResponse.ResultModel.BlockchainModel.AddressModel.ListUnspentModel.self
             )
 
             let walletUnspent = try await reader.fetchUnspentOutputs(for: Self.sampleCashAddress, tokenFilter: .include)
             #expect(walletUnspent.count == rawUnspent.items.count)
 
             let expectedLockingScript = try Address(Self.sampleCashAddress).lockingScript.data
-            let itemsByIdentifier = rawUnspent.items.reduce(into: [String: SwiftFulcrum.Response.ResultModel.BlockchainModel.AddressModel.ListUnspentModel.ItemModel]()) { result, item in
+            let itemsByIdentifier = rawUnspent.items.reduce(into: [String: SwiftFulcrum.FulcrumResponse.ResultModel.BlockchainModel.AddressModel.ListUnspentModel.ItemModel]()) { result, item in
                 let key = "\(item.transactionHash):\(item.transactionPosition)"
                 result[key] = item
             }

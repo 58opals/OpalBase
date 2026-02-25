@@ -137,6 +137,15 @@ extension Network {
                                        metadata: identifier.map { ["requestIdentifier": $0.uuidString] } ?? .init())
             case .protocolMismatch(let message):
                 return Network.Error(reason: .protocolViolation, message: message)
+            case .invalidProtocolNegotiationRange(minimumVersion: let min, maximumVersion: let max):
+                return Network.Error(
+                    reason: .protocolViolation,
+                    message: "Invalid protocol negotiation range",
+                    metadata: [
+                        "minimumVersion": min.description,
+                        "maximumVersion": max.description
+                    ]
+                )
             case .unknown(let underlying):
                 guard let underlying else {
                     return Network.Error(reason: .unknown, message: nil)

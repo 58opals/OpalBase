@@ -37,8 +37,8 @@ struct NetworkFulcrumClientSubscriptionBoxValidator {
             let (terminationStream, terminationContinuation) = AsyncStream<UUID>.makeStream()
             
             let subscription = Network.FulcrumSubscriptionBox<
-                SwiftFulcrum.Response.ResultModel.BlockchainModel.AddressModel.SubscribeModel,
-                SwiftFulcrum.Response.ResultModel.BlockchainModel.AddressModel.SubscribeNotificationModel
+                SwiftFulcrum.FulcrumResponse.ResultModel.BlockchainModel.AddressModel.SubscribeModel,
+                SwiftFulcrum.FulcrumResponse.ResultModel.BlockchainModel.AddressModel.SubscribeNotificationModel
             >(
                 method: .blockchain(.address(.subscribe(address: Self.sampleCashAddress))),
                 options: .init()
@@ -50,7 +50,7 @@ struct NetworkFulcrumClientSubscriptionBoxValidator {
             #expect(!(initial.status?.isEmpty ?? true))
             
             var iterator = await subscription.stream.makeAsyncIterator()
-            let pendingUpdate = Task<SwiftFulcrum.Response.ResultModel.BlockchainModel.AddressModel.SubscribeNotificationModel?, Swift.Error> {
+            let pendingUpdate = Task<SwiftFulcrum.FulcrumResponse.ResultModel.BlockchainModel.AddressModel.SubscribeNotificationModel?, Swift.Error> {
                 try await iterator.next()
             }
             
@@ -107,8 +107,8 @@ struct NetworkFulcrumClientSubscriptionBoxValidator {
             }
             
             let subscription = Network.FulcrumSubscriptionBox<
-                SwiftFulcrum.Response.ResultModel.BlockchainModel.AddressModel.SubscribeModel,
-                SwiftFulcrum.Response.ResultModel.BlockchainModel.AddressModel.SubscribeNotificationModel
+                SwiftFulcrum.FulcrumResponse.ResultModel.BlockchainModel.AddressModel.SubscribeModel,
+                SwiftFulcrum.FulcrumResponse.ResultModel.BlockchainModel.AddressModel.SubscribeNotificationModel
             >(
                 method: .blockchain(.address(.subscribe(address: Self.sampleCashAddress))),
                 options: .init()

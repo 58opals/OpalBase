@@ -39,7 +39,7 @@ extension Network {
                             )
                         )
                     ),
-                    responseType: Response.ResultModel.BlockchainModel.ScriptHashModel.GetHistoryModel.self,
+                    responseType: SwiftFulcrum.FulcrumResponse.ResultModel.BlockchainModel.ScriptHashModel.GetHistoryModel.self,
                     options: .init(timeout: timeouts.scriptHashHistory)
                 )
                 
@@ -67,7 +67,7 @@ extension Network {
                             )
                         )
                     ),
-                    responseType: Response.ResultModel.BlockchainModel.ScriptHashModel.ListUnspentModel.self,
+                    responseType: SwiftFulcrum.FulcrumResponse.ResultModel.BlockchainModel.ScriptHashModel.ListUnspentModel.self,
                     options: .init(timeout: timeouts.scriptHashUnspent)
                 )
                 
@@ -80,7 +80,7 @@ extension Network {
         }
         
         private func makeUnspentOutput(
-            from item: Response.ResultModel.BlockchainModel.ScriptHashModel.ListUnspentModel.ItemModel
+            from item: SwiftFulcrum.FulcrumResponse.ResultModel.BlockchainModel.ScriptHashModel.ListUnspentModel.ItemModel
         ) async throws -> Transaction.Output.Unspent {
             guard let index = UInt32(exactly: item.transactionPosition) else {
                 throw Network.Error(reason: .decoding, message: "Transaction position overflow")

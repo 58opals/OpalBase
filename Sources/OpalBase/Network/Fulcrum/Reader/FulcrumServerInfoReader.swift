@@ -17,7 +17,7 @@ extension Network {
             try await Network.performWithFailureTranslation {
                 _ = try await client.request(
                     method: .server(.ping),
-                    responseType: Response.ResultModel.ServerModel.PingModel.self,
+                    responseType: SwiftFulcrum.FulcrumResponse.ResultModel.ServerModel.PingModel.self,
                     options: .init(timeout: timeouts.serverPing)
                 )
             }
@@ -27,7 +27,7 @@ extension Network {
             try await Network.performWithFailureTranslation {
                 let result = try await client.request(
                     method: .server(.version(clientName: clientName, protocolNegotiation: protocolNegotiation)),
-                    responseType: Response.ResultModel.ServerModel.VersionModel.self,
+                    responseType: SwiftFulcrum.FulcrumResponse.ResultModel.ServerModel.VersionModel.self,
                     options: .init(timeout: timeouts.serverVersion)
                 )
                 
@@ -42,7 +42,7 @@ extension Network {
             try await Network.performWithFailureTranslation {
                 let result = try await client.request(
                     method: .server(.features),
-                    responseType: Response.ResultModel.ServerModel.FeaturesModel.self,
+                    responseType: SwiftFulcrum.FulcrumResponse.ResultModel.ServerModel.FeaturesModel.self,
                     options: .init(timeout: timeouts.serverFeatures)
                 )
                 
@@ -81,7 +81,7 @@ extension Network {
             try await Network.performWithFailureTranslation {
                 let result = try await client.request(
                     method: .blockchain(.relayFee),
-                    responseType: Response.ResultModel.BlockchainModel.RelayFeeModel.self,
+                    responseType: SwiftFulcrum.FulcrumResponse.ResultModel.BlockchainModel.RelayFeeModel.self,
                     options: .init(timeout: timeouts.relayFee)
                 )
                 return result.fee
@@ -92,7 +92,7 @@ extension Network {
             try await Network.performWithFailureTranslation {
                 let result = try await client.request(
                     method: .blockchain(.estimateFee(numberOfBlocks: confirmationTarget)),
-                    responseType: Response.ResultModel.BlockchainModel.EstimateFeeModel.self,
+                    responseType: SwiftFulcrum.FulcrumResponse.ResultModel.BlockchainModel.EstimateFeeModel.self,
                     options: .init(timeout: timeouts.feeEstimation)
                 )
                 return result.fee

@@ -17,7 +17,7 @@ extension Network {
             try await Network.performWithFailureTranslation {
                 let result = try await client.request(
                     method: .blockchain(.headers(.getTip)),
-                    responseType: Response.ResultModel.BlockchainModel.HeadersModel.GetTipModel.self,
+                    responseType: SwiftFulcrum.FulcrumResponse.ResultModel.BlockchainModel.HeadersModel.GetTipModel.self,
                     options: .init(timeout: timeouts.headersTip)
                 )
                 return BlockHeaderSnapshot(height: result.height, headerHexadecimal: result.hex)
@@ -28,8 +28,8 @@ extension Network {
             try await Network.performWithFailureTranslation {
                 let (initial, updates, cancel) = try await client.subscribe(
                     method: .blockchain(.headers(.subscribe)),
-                    initialType: Response.ResultModel.BlockchainModel.HeadersModel.SubscribeModel.self,
-                    notificationType: Response.ResultModel.BlockchainModel.HeadersModel.SubscribeNotificationModel.self,
+                    initialType: SwiftFulcrum.FulcrumResponse.ResultModel.BlockchainModel.HeadersModel.SubscribeModel.self,
+                    notificationType: SwiftFulcrum.FulcrumResponse.ResultModel.BlockchainModel.HeadersModel.SubscribeNotificationModel.self,
                     options: .init(timeout: timeouts.headersSubscription)
                 )
                 
