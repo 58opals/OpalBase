@@ -10,6 +10,7 @@ struct AddressBookUnspentTransactionOutputRefreshNetworkValidator {
 
     @Test("listunspent token data reaches the UTXO store", .timeLimit(.minutes(1)))
     func ingestNetworkTokenUnspentTransactionOutputs() async throws {
+        guard NetworkTestClient.isExtendedLiveNetworkEnabled else { return }
         let book = try await AddressBookCashTokensTestData.makeAddressBook()
         let address = try Address(Self.tokenCashAddress)
 

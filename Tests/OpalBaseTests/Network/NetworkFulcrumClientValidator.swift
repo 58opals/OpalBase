@@ -14,6 +14,7 @@ struct NetworkFulcrumClientValidator {
     
     @Test("performs wallet-centric requests and reconnects", .timeLimit(.minutes(1)))
     func walletOperationsWithLiveFulcrum() async throws {
+        guard NetworkTestClient.isExtendedLiveNetworkEnabled else { return }
         let configuration = Network.Configuration(
             serverURLs: [Self.primaryServerAddress, Self.backupServerAddress],
             connectionTimeout: .seconds(12),
@@ -67,6 +68,7 @@ struct NetworkFulcrumClientValidator {
     
     @Test("performs wallet critical unary calls and reconnects", .timeLimit(.minutes(1)))
     func clientPerformsWalletCriticalRequests() async throws {
+        guard NetworkTestClient.isExtendedLiveNetworkEnabled else { return }
         let configuration = Network.Configuration(
             serverURLs: [Self.primaryServerAddress, Self.backupServerAddress],
             connectionTimeout: .seconds(12),
@@ -118,6 +120,7 @@ struct NetworkFulcrumClientValidator {
     
     @Test("subscribes to address updates and supports cancellation", .timeLimit(.minutes(1)))
     func subscribeToAddressDeliversInitialSnapshot() async throws {
+        guard NetworkTestClient.isExtendedLiveNetworkEnabled else { return }
         let configuration = Network.Configuration(serverURLs: [Self.primaryServerAddress, Self.backupServerAddress])
         try await NetworkTestClient.withClient(configuration: configuration) { client in
             let (initial, updates, cancel) = try await client.subscribe(
@@ -143,6 +146,7 @@ struct NetworkFulcrumClientValidator {
     
     @Test("subscribes to live header stream and cancels cleanly", .timeLimit(.minutes(1)))
     func subscribeReturnsStreamAndSupportsCancellation() async throws {
+        guard NetworkTestClient.isExtendedLiveNetworkEnabled else { return }
         let configuration = Network.Configuration(serverURLs: [Self.primaryServerAddress, Self.backupServerAddress])
         try await NetworkTestClient.withClient(configuration: configuration) { client in
             let (initial, stream, cancel) = try await client.subscribe(

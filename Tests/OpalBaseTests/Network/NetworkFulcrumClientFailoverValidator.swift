@@ -17,6 +17,7 @@ struct NetworkFulcrumClientFailoverValidator {
     
     @Test("recovers unary request after unhealthy server failover", .timeLimit(.minutes(1)))
     func unaryRequestSucceedsAfterFailover() async throws {
+        guard NetworkTestClient.isExtendedLiveNetworkEnabled else { return }
         let configuration = Network.Configuration(
             serverURLs: Self.unhealthyServerAddresses + Self.healthyServerAddresses,
             connectionTimeout: .seconds(12),
@@ -53,6 +54,7 @@ struct NetworkFulcrumClientFailoverValidator {
     
     @Test("skips an unhealthy bootstrap server and fulfils requests", .timeLimit(.minutes(1)))
     func requestSucceedsAfterFailover() async throws {
+        guard NetworkTestClient.isExtendedLiveNetworkEnabled else { return }
         let configuration = Network.Configuration(
             serverURLs: Self.unhealthyServerAddresses + Self.healthyServerAddresses,
             connectionTimeout: .seconds(10),
@@ -105,6 +107,7 @@ struct NetworkFulcrumClientFailoverValidator {
     
     @Test("performs requests after failing over from an unhealthy server", .timeLimit(.minutes(1)))
     func clientRequestsSurviveInitialServerFailure() async throws {
+        guard NetworkTestClient.isExtendedLiveNetworkEnabled else { return }
         let configuration = Network.Configuration(
             serverURLs: Self.unhealthyServerAddresses + Self.healthyServerAddresses,
             connectionTimeout: .seconds(8),

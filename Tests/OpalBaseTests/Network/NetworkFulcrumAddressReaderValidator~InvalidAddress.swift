@@ -4,6 +4,7 @@ import Testing
 extension NetworkFulcrumAddressReaderValidator {
     @Test("rejects invalid addresses before network usage", .timeLimit(.minutes(1)))
     func fetchUnspentOutputsRejectsInvalidAddress1() async throws {
+        guard NetworkTestClient.isExtendedLiveNetworkEnabled else { return }
         let configuration = Network.Configuration(serverURLs: [Self.primaryServerAddress, Self.backupServerAddress])
         try await NetworkTestClient.withClient(configuration: configuration) { client in
             let reader = Network.FulcrumAddressReader(client: client)
@@ -24,6 +25,7 @@ extension NetworkFulcrumAddressReaderValidator {
 
     @Test("rejects invalid addresses before reaching the network", .timeLimit(.minutes(1)))
     func fetchUnspentOutputsRejectsInvalidAddress2() async throws {
+        guard NetworkTestClient.isExtendedLiveNetworkEnabled else { return }
         let configuration = Network.Configuration(serverURLs: [Self.primaryServerAddress, Self.backupServerAddress])
         try await NetworkTestClient.withClient(configuration: configuration) { client in
             let reader = Network.FulcrumAddressReader(client: client)
@@ -39,6 +41,7 @@ extension NetworkFulcrumAddressReaderValidator {
 
     @Test("translates invalid address errors for wallet validation", .timeLimit(.minutes(1)))
     func fetchUnspentOutputsFailsForInvalidAddress() async throws {
+        guard NetworkTestClient.isExtendedLiveNetworkEnabled else { return }
         let configuration = Network.Configuration(
             serverURLs: [Self.primaryServerAddress, Self.backupServerAddress],
             connectionTimeout: .seconds(12),

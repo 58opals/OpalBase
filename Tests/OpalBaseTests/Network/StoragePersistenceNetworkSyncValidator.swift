@@ -6,6 +6,7 @@ import Testing
 struct StoragePersistenceNetworkSyncValidator {
     @Test("fulcrum sync updates account state, then persistence restores it", .timeLimit(.minutes(1)))
     func syncFulcrumPersistAndRestore() async throws {
+        guard NetworkTestClient.isExtendedLiveNetworkEnabled else { return }
         let fulcrumURLFromEnv = ProcessInfo.processInfo.environment["OPAL_FULCRUM_URL"]
         let candidateServerStrings: [String] = [
             fulcrumURLFromEnv,

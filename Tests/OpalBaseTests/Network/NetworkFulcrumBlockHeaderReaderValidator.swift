@@ -14,6 +14,7 @@ struct NetworkFulcrumBlockHeaderReaderValidator {
     
     @Test("fetches tip snapshot consistent with fulcrum RPC", .timeLimit(.minutes(1)))
     func fetchTipMatchesServerResponse1() async throws {
+        guard NetworkTestClient.isExtendedLiveNetworkEnabled else { return }
         let configuration = Network.Configuration(serverURLs: [Self.primaryServerAddress, Self.backupServerAddress])
         try await NetworkTestClient.withClient(configuration: configuration) { client in
             let reader = Network.FulcrumBlockHeaderReader(client: client)
@@ -32,6 +33,7 @@ struct NetworkFulcrumBlockHeaderReaderValidator {
     
     @Test("fetches the current block tip and mirrors raw headers response", .timeLimit(.minutes(1)))
     func fetchTipMatchesServerResponse2() async throws {
+        guard NetworkTestClient.isExtendedLiveNetworkEnabled else { return }
         let configuration = Network.Configuration(serverURLs: [Self.primaryServerAddress, Self.backupServerAddress])
         try await NetworkTestClient.withClient(configuration: configuration) { client in
             let reader = Network.FulcrumBlockHeaderReader(client: client)
@@ -51,6 +53,7 @@ struct NetworkFulcrumBlockHeaderReaderValidator {
     
     @Test("fetches the live tip for wallet sync", .timeLimit(.minutes(1)))
     func fetchTipProvidesCurrentSnapshot() async throws {
+        guard NetworkTestClient.isExtendedLiveNetworkEnabled else { return }
         let configuration = Network.Configuration(
             serverURLs: [Self.primaryServerAddress, Self.backupServerAddress],
             connectionTimeout: .seconds(12),
@@ -82,6 +85,7 @@ struct NetworkFulcrumBlockHeaderReaderValidator {
     
     @Test("falls back to the next available server when the first endpoint fails", .timeLimit(.minutes(1)))
     func fetchTipWithServerFailover() async throws {
+        guard NetworkTestClient.isExtendedLiveNetworkEnabled else { return }
         let configuration = Network.Configuration(
             serverURLs: [Self.faultyServerAddress, Self.primaryServerAddress, Self.backupServerAddress],
             connectionTimeout: .seconds(8),
@@ -97,6 +101,7 @@ struct NetworkFulcrumBlockHeaderReaderValidator {
     
     @Test("streams live headers and surfaces disconnects", .timeLimit(.minutes(1)))
     func subscribeToTipDeliversSnapshotsAndErrors() async throws {
+        guard NetworkTestClient.isExtendedLiveNetworkEnabled else { return }
         let configuration = Network.Configuration(
             serverURLs: [Self.primaryServerAddress, Self.backupServerAddress],
             connectionTimeout: .seconds(12),

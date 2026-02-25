@@ -5,6 +5,7 @@ import Testing
 extension NetworkFulcrumAddressReaderValidator {
     @Test("lists token-bearing outputs with parsed token data", .timeLimit(.minutes(1)))
     func fetchTokenUnspentOutputsIncludesTokenData() async throws {
+        guard NetworkTestClient.isExtendedLiveNetworkEnabled else { return }
         let configuration = Network.Configuration(serverURLs: [Self.primaryServerAddress, Self.backupServerAddress])
         try await NetworkTestClient.withClient(configuration: configuration) { client in
             let reader = Network.FulcrumAddressReader(client: client)
@@ -17,6 +18,7 @@ extension NetworkFulcrumAddressReaderValidator {
 
     @Test("subscribes to address updates and cancels cleanly", .timeLimit(.minutes(1)))
     func subscribeToAddressDeliversInitialSnapshot() async throws {
+        guard NetworkTestClient.isExtendedLiveNetworkEnabled else { return }
         let configuration = Network.Configuration(serverURLs: [Self.primaryServerAddress, Self.backupServerAddress])
         try await NetworkTestClient.withClient(configuration: configuration) { client in
             let reader = Network.FulcrumAddressReader(client: client)

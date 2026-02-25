@@ -11,6 +11,7 @@ struct NetworkFulcrumClientSubscriptionBoxValidator {
     
     @Test("establishes live subscription, resubscribes, and cancels", .timeLimit(.minutes(1)))
     func subscriptionLifecycleResubscribesAndCancels() async throws {
+        guard NetworkTestClient.isExtendedLiveNetworkEnabled else { return }
         let reconnectConfiguration = FulcrumClient.Configuration.ReconnectModel(
             maximumReconnectionAttempts: 2,
             reconnectionDelay: 1,
@@ -79,6 +80,7 @@ struct NetworkFulcrumClientSubscriptionBoxValidator {
     
     @Test("establishes live address subscription and cancels gracefully", .timeLimit(.minutes(1)))
     func subscriptionBoxCancelsWithTerminationNotification() async throws {
+        guard NetworkTestClient.isExtendedLiveNetworkEnabled else { return }
         let configuration = FulcrumClient.Configuration(
             reconnect: .init(
                 maximumReconnectionAttempts: 3,

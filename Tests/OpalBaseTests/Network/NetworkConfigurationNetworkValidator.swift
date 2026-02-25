@@ -10,6 +10,7 @@ struct NetworkConfigurationNetworkValidator {
 
     @Test("connects to a live Fulcrum server", .timeLimit(.minutes(1)))
     func connectionToFulcrumServer() async throws {
+        guard NetworkTestClient.isExtendedLiveNetworkEnabled else { return }
         let configuration = Network.Configuration(
             serverURLs: [
                 URL(string: "wss://bch.imaginary.cash:50004")!,
@@ -36,6 +37,7 @@ struct NetworkConfigurationNetworkValidator {
 
     @Test("connects to fulcrum using wallet-centric configuration", .timeLimit(.minutes(1)))
     func connectFulcrumWithCustomConfiguration() async throws {
+        guard NetworkTestClient.isExtendedLiveNetworkEnabled else { return }
         let configuration = Network.Configuration(
             serverURLs: [Self.primaryServerAddress, Self.backupServerAddress],
             connectionTimeout: .seconds(8),
@@ -62,6 +64,7 @@ struct NetworkConfigurationNetworkValidator {
 
     @Test("connects with bundled bootstrap when server list is empty", .timeLimit(.minutes(1)))
     func connectFulcrumUsingBundledBootstrapServers() async throws {
+        guard NetworkTestClient.isExtendedLiveNetworkEnabled else { return }
         let configuration = Network.Configuration(serverURLs: .init())
 
         try await NetworkTestClient.withClient(configuration: configuration) { client in

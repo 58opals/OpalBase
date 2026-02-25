@@ -15,6 +15,7 @@ struct NetworkFulcrumAddressReaderValidator {
 
     @Test("fetches balance consistent with RPC response", .timeLimit(.minutes(1)))
     func fetchBalanceReflectsServerState() async throws {
+        guard NetworkTestClient.isExtendedLiveNetworkEnabled else { return }
         let configuration = Network.Configuration(serverURLs: [Self.primaryServerAddress, Self.backupServerAddress])
         try await NetworkTestClient.withClient(configuration: configuration) { client in
             let reader = Network.FulcrumAddressReader(client: client)
@@ -32,6 +33,7 @@ struct NetworkFulcrumAddressReaderValidator {
 
     @Test("fetches balances and history from a live fulcrum server", .timeLimit(.minutes(1)))
     func fetchBalanceAndHistoryFromLiveServer() async throws {
+        guard NetworkTestClient.isExtendedLiveNetworkEnabled else { return }
         let configuration = Network.Configuration(
             serverURLs: [Self.primaryServerAddress, Self.backupServerAddress],
             connectionTimeout: .seconds(12),
@@ -70,6 +72,7 @@ struct NetworkFulcrumAddressReaderValidator {
 
     @Test("lists spendable outputs with expected locking script", .timeLimit(.minutes(1)))
     func fetchUnspentOutputsProducesSpendableEntries() async throws {
+        guard NetworkTestClient.isExtendedLiveNetworkEnabled else { return }
         let configuration = Network.Configuration(serverURLs: [Self.primaryServerAddress, Self.backupServerAddress])
         try await NetworkTestClient.withClient(configuration: configuration) { client in
             let reader = Network.FulcrumAddressReader(client: client)
@@ -88,6 +91,7 @@ struct NetworkFulcrumAddressReaderValidator {
 
     @Test("retrieves history and respects unconfirmed flag", .timeLimit(.minutes(1)))
     func fetchHistoryDifferentiatesUnconfirmedEntries() async throws {
+        guard NetworkTestClient.isExtendedLiveNetworkEnabled else { return }
         let configuration = Network.Configuration(serverURLs: [Self.primaryServerAddress, Self.backupServerAddress])
         try await NetworkTestClient.withClient(configuration: configuration) { client in
             let reader = Network.FulcrumAddressReader(client: client)
@@ -106,6 +110,7 @@ struct NetworkFulcrumAddressReaderValidator {
 
     @Test("converts unspent outputs from the live server into wallet friendly structures", .timeLimit(.minutes(1)))
     func fetchUnspentOutputsMatchesServerData() async throws {
+        guard NetworkTestClient.isExtendedLiveNetworkEnabled else { return }
         let configuration = Network.Configuration(
             serverURLs: [Self.primaryServerAddress, Self.backupServerAddress],
             connectionTimeout: .seconds(12),
