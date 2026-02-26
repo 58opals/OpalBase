@@ -20,7 +20,7 @@ extension NetworkModel {
             self.subscriptions = .init()
             
             let fulcrumMetrics = metrics.map { FulcrumMetricsAdapter(environment: configuration.network, collector: $0) }
-            let fulcrumLogger = logger.map(FulcrumLogHandlerAdapter.init(handler:))
+            let fulcrumLogger: (any SwiftFulcrum.LogModel.AdapterModel)? = logger.map { FulcrumLogHandlerAdapter(handler: $0) }
             
             let reconnectConfiguration = SwiftFulcrum.FulcrumClient.Configuration.ReconnectModel(
                 maximumReconnectionAttempts: configuration.reconnectConfiguration.maximumAttempts,
@@ -172,7 +172,7 @@ private struct FulcrumMetricsAdapter: SwiftFulcrum.MetricsClient {
     }
 }
 
-private struct FulcrumLogHandlerAdapter: SwiftFulcrum.LogModel.HandlerModel {
+private struct FulcrumLogHandlerAdapter: SwiftFulcrum.LogModel.AdapterModel {
     private let handler: any NetworkModel.LogClient
     
     init(handler: any NetworkModel.LogClient) {
