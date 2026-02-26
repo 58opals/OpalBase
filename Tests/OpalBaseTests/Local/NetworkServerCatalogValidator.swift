@@ -53,6 +53,32 @@ struct NetworkServerCatalogValidator {
         #expect(servers.contains(defaultServer))
     }
     
+    @Test("loader rejects mismatched Fulcrum network")
+    func configurationLoaderRejectsMismatchedFulcrumNetwork() async throws {
+        let configuration = NetworkModel.Configuration(
+            serverURLs: .init(),
+            network: .mainnet
+        )
+        
+        let loader = configuration.makeFulcrumServerCatalogRepository()
+        
+        do {
+            _ = try await loader.loadServers(for: .testnet, fallback: .init())
+            Issue.record("Expected protocol mismatch when requested Fulcrum network does not match configuration.")
+        } catch let error as FulcrumClient.Error {
+            switch error {
+            case .client(.protocolMismatch(let message)):
+                #expect(message?.contains("configuredEnvironment=mainnet") == true)
+                #expect(message?.contains("expectedFulcrumNetwork=mainnet") == true)
+                #expect(message?.contains("requestedFulcrumNetwork=testnet") == true)
+            default:
+                Issue.record("Expected FulcrumClient.Error.client(.protocolMismatch), got \(error).")
+            }
+        } catch {
+            Issue.record("Unexpected error type: \(error)")
+        }
+    }
+    
     @Test("loader augments chipnet defaults with provided fallback")
     func configurationMergesFallbackWithChipnetDefaults() async throws {
         let fallbackServer = URL(string: "wss://fallback.chipnet.example:50004")!

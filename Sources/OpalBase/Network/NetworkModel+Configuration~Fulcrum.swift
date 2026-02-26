@@ -16,7 +16,13 @@ extension NetworkModel.Configuration {
         let expectedFulcrumNetwork = network.fulcrumNetwork
         
         return SwiftFulcrum.FulcrumServerCatalogRepository { fulcrumNetwork, fallback in
-            assert(fulcrumNetwork == expectedFulcrumNetwork, "FulcrumClient network mismatch for configuration environment: \(network)")
+            guard fulcrumNetwork == expectedFulcrumNetwork else {
+                throw SwiftFulcrum.FulcrumClient.Error.client(
+                    .protocolMismatch(
+                        "FulcrumClient network mismatch. configuredEnvironment=\(network), expectedFulcrumNetwork=\(expectedFulcrumNetwork), requestedFulcrumNetwork=\(fulcrumNetwork)"
+                    )
+                )
+            }
             let merged = NetworkModel.ServerCatalogModel.makeMergedServers(
                 primary: overrides,
                 secondary: defaults,
