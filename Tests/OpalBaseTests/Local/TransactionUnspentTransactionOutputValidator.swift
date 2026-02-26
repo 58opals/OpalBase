@@ -2,46 +2,46 @@ import Foundation
 import Testing
 @testable import OpalBase
 
-@Suite("Transaction UTXO", .tags(.unit, .transaction))
+@Suite("TransactionModel UTXOModel", .tags(.unit, .transaction))
 struct TransactionUnspentTransactionOutputValidator {
     @Test("build applies canonical BIP-69 output ordering when requested")
     func buildAppliesCanonicalOutputOrdering() throws {
-        let privateKey = try PrivateKey(data: Data(repeating: 0x02, count: 32))
+        let privateKey = try PrivateKeyModel(data: Data(repeating: 0x02, count: 32))
         let lockingScript = Data([
-            ScriptOperationCode._DUP.rawValue,
-            ScriptOperationCode._HASH160.rawValue,
+            ScriptOperationCodeModel._DUP.rawValue,
+            ScriptOperationCodeModel._HASH160.rawValue,
             0x14
         ] + Array(repeating: 0x01, count: 20) + [
-            ScriptOperationCode._EQUALVERIFY.rawValue,
-            ScriptOperationCode._CHECKSIG.rawValue
+            ScriptOperationCodeModel._EQUALVERIFY.rawValue,
+            ScriptOperationCodeModel._CHECKSIG.rawValue
         ])
         
-        let previousTransactionHash = Transaction.Hash(naturalOrder: Data(repeating: 0x00, count: 32))
-        let unspent = Transaction.Output.Unspent(
+        let previousTransactionHash = TransactionModel.HashModel(naturalOrder: Data(repeating: 0x00, count: 32))
+        let unspent = TransactionModel.OutputModel.UnspentModel(
             value: 10_000,
             lockingScript: lockingScript,
             previousTransactionHash: previousTransactionHash,
             previousTransactionOutputIndex: 0
         )
         
-        let privateKeys: [Transaction.Output.Unspent: PrivateKey] = [unspent: privateKey]
+        let privateKeys: [TransactionModel.OutputModel.UnspentModel: PrivateKeyModel] = [unspent: privateKey]
         
         let recipientOutputs = [
-            Transaction.Output(value: 6_000, lockingScript: Data([0x51])),
-            Transaction.Output(value: 1_000, lockingScript: Data([0x52]))
+            TransactionModel.OutputModel(value: 6_000, lockingScript: Data([0x51])),
+            TransactionModel.OutputModel(value: 1_000, lockingScript: Data([0x52]))
         ]
         
         let changeScript = Data([
-            ScriptOperationCode._DUP.rawValue,
-            ScriptOperationCode._HASH160.rawValue,
+            ScriptOperationCodeModel._DUP.rawValue,
+            ScriptOperationCodeModel._HASH160.rawValue,
             0x14
         ] + Array(repeating: 0x02, count: 20) + [
-            ScriptOperationCode._EQUALVERIFY.rawValue,
-            ScriptOperationCode._CHECKSIG.rawValue
+            ScriptOperationCodeModel._EQUALVERIFY.rawValue,
+            ScriptOperationCodeModel._CHECKSIG.rawValue
         ])
-        let changeOutput = Transaction.Output(value: 3_000, lockingScript: changeScript)
+        let changeOutput = TransactionModel.OutputModel(value: 3_000, lockingScript: changeScript)
         
-        let transaction = try Transaction.build(
+        let transaction = try TransactionModel.build(
             utxoPrivateKeyPairs: privateKeys,
             recipientOutputs: recipientOutputs,
             changeOutput: changeOutput,
@@ -61,7 +61,7 @@ struct TransactionUnspentTransactionOutputValidator {
         let feePerByteValues: [UInt64] = [1, 3]
         
         for feePerByte in feePerByteValues {
-            let transaction = try Transaction.build(
+            let transaction = try TransactionModel.build(
                 utxoPrivateKeyPairs: components.privateKeys,
                 recipientOutputs: components.recipientOutputs,
                 changeOutput: components.changeOutput,
@@ -84,10 +84,10 @@ struct TransactionUnspentTransactionOutputValidator {
     @Test("build correction respects output ordering strategies")
     func buildCorrectionRespectsOutputOrderingStrategies() throws {
         let components = try makeTransactionBuilderComponents()
-        let outputOrderingStrategies: [Transaction.OutputOrderingStrategy] = [.privacyRandomized, .canonicalBIP69]
+        let outputOrderingStrategies: [TransactionModel.OutputOrderingStrategyModel] = [.privacyRandomized, .canonicalBIP69]
         
         for strategy in outputOrderingStrategies {
-            let transaction = try Transaction.build(
+            let transaction = try TransactionModel.build(
                 utxoPrivateKeyPairs: components.privateKeys,
                 recipientOutputs: components.recipientOutputs,
                 changeOutput: components.changeOutput,
@@ -106,11 +106,11 @@ struct TransactionUnspentTransactionOutputValidator {
     
     @Test("computeOutputsForTargetFee handles dust donation policy")
     func computeOutputsForTargetFeeHandlesDustDonationPolicy() throws {
-        let recipientOutputs = [Transaction.Output(value: 1_000, lockingScript: Data([0x51]))]
-        let changeOutput = Transaction.Output(value: 900, lockingScript: Data([0x52]))
+        let recipientOutputs = [TransactionModel.OutputModel(value: 1_000, lockingScript: Data([0x51]))]
+        let changeOutput = TransactionModel.OutputModel(value: 900, lockingScript: Data([0x52]))
         let targetFee = UInt64(850)
         
-        let donationOutputs = try Transaction.computeOutputsForTargetFee(recipientOutputs: recipientOutputs,
+        let donationOutputs = try TransactionModel.computeOutputsForTargetFee(recipientOutputs: recipientOutputs,
                                                                          changeOutputTemplate: changeOutput,
                                                                          outputOrderingStrategy: .privacyRandomized,
                                                                          targetFee: targetFee,
@@ -118,8 +118,8 @@ struct TransactionUnspentTransactionOutputValidator {
         
         #expect(donationOutputs.count == recipientOutputs.count)
         
-        #expect(throws: Transaction.Error.outputValueIsLessThanTheDustLimit) {
-            _ = try Transaction.computeOutputsForTargetFee(recipientOutputs: recipientOutputs,
+        #expect(throws: TransactionModel.Error.outputValueIsLessThanTheDustLimit) {
+            _ = try TransactionModel.computeOutputsForTargetFee(recipientOutputs: recipientOutputs,
                                                            changeOutputTemplate: changeOutput,
                                                            outputOrderingStrategy: .privacyRandomized,
                                                            targetFee: targetFee,
@@ -127,44 +127,44 @@ struct TransactionUnspentTransactionOutputValidator {
         }
     }
     
-    private func makeTransactionBuilderComponents() throws -> (privateKeys: [Transaction.Output.Unspent: PrivateKey],
-                                                               recipientOutputs: [Transaction.Output],
-                                                               changeOutput: Transaction.Output,
+    private func makeTransactionBuilderComponents() throws -> (privateKeys: [TransactionModel.OutputModel.UnspentModel: PrivateKeyModel],
+                                                               recipientOutputs: [TransactionModel.OutputModel],
+                                                               changeOutput: TransactionModel.OutputModel,
                                                                inputTotal: UInt64) {
-        let privateKey = try PrivateKey(data: Data(repeating: 0x02, count: 32))
+        let privateKey = try PrivateKeyModel(data: Data(repeating: 0x02, count: 32))
         let lockingScript = Data([
-            ScriptOperationCode._DUP.rawValue,
-            ScriptOperationCode._HASH160.rawValue,
+            ScriptOperationCodeModel._DUP.rawValue,
+            ScriptOperationCodeModel._HASH160.rawValue,
             0x14
         ] + Array(repeating: 0x01, count: 20) + [
-            ScriptOperationCode._EQUALVERIFY.rawValue,
-            ScriptOperationCode._CHECKSIG.rawValue
+            ScriptOperationCodeModel._EQUALVERIFY.rawValue,
+            ScriptOperationCodeModel._CHECKSIG.rawValue
         ])
         
-        let previousTransactionHash = Transaction.Hash(naturalOrder: Data(repeating: 0x00, count: 32))
-        let unspent = Transaction.Output.Unspent(
+        let previousTransactionHash = TransactionModel.HashModel(naturalOrder: Data(repeating: 0x00, count: 32))
+        let unspent = TransactionModel.OutputModel.UnspentModel(
             value: 10_000,
             lockingScript: lockingScript,
             previousTransactionHash: previousTransactionHash,
             previousTransactionOutputIndex: 0
         )
         
-        let privateKeys: [Transaction.Output.Unspent: PrivateKey] = [unspent: privateKey]
+        let privateKeys: [TransactionModel.OutputModel.UnspentModel: PrivateKeyModel] = [unspent: privateKey]
         
         let recipientOutputs = [
-            Transaction.Output(value: 6_000, lockingScript: Data([0x51])),
-            Transaction.Output(value: 1_000, lockingScript: Data([0x52]))
+            TransactionModel.OutputModel(value: 6_000, lockingScript: Data([0x51])),
+            TransactionModel.OutputModel(value: 1_000, lockingScript: Data([0x52]))
         ]
         
         let changeScript = Data([
-            ScriptOperationCode._DUP.rawValue,
-            ScriptOperationCode._HASH160.rawValue,
+            ScriptOperationCodeModel._DUP.rawValue,
+            ScriptOperationCodeModel._HASH160.rawValue,
             0x14
         ] + Array(repeating: 0x02, count: 20) + [
-            ScriptOperationCode._EQUALVERIFY.rawValue,
-            ScriptOperationCode._CHECKSIG.rawValue
+            ScriptOperationCodeModel._EQUALVERIFY.rawValue,
+            ScriptOperationCodeModel._CHECKSIG.rawValue
         ])
-        let changeOutput = Transaction.Output(value: 3_000, lockingScript: changeScript)
+        let changeOutput = TransactionModel.OutputModel(value: 3_000, lockingScript: changeScript)
         
         return (privateKeys: privateKeys,
                 recipientOutputs: recipientOutputs,

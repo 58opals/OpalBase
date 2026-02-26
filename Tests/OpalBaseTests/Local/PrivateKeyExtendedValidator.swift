@@ -2,15 +2,15 @@ import Foundation
 import Testing
 @testable import OpalBase
 
-@Suite("PrivateKey.Extended", .tags(.unit, .key))
+@Suite("PrivateKeyModel.ExtendedModel", .tags(.unit, .key))
 struct PrivateKeyExtendedValidator {
     @Test("serialize encodes the mainnet version prefix")
     func serializeEncodesMainnetVersionPrefix() throws {
-        let mnemonic = try Mnemonic(words: [
+        let mnemonic = try MnemonicModel(words: [
             "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "about"
         ])
-        let rootKey = try PrivateKey.Extended.Root(seed: mnemonic.seed)
-        let extendedPrivateKey = PrivateKey.Extended(rootKey: rootKey)
+        let rootKey = try PrivateKeyModel.ExtendedModel.RootModel(seed: mnemonic.seed)
+        let extendedPrivateKey = PrivateKeyModel.ExtendedModel(rootKey: rootKey)
         
         let serialized = extendedPrivateKey.serialize()
         let prefix = serialized.prefix(4)
@@ -20,15 +20,15 @@ struct PrivateKeyExtendedValidator {
     
     @Test("init rejects invalid format and length")
     func initRejectsInvalidFormatAndLength() throws {
-        #expect(throws: PrivateKey.Error.invalidFormat) {
-            _ = try PrivateKey.Extended(xprv: "xprv0invalidformat")
+        #expect(throws: PrivateKeyModel.Error.invalidFormat) {
+            _ = try PrivateKeyModel.ExtendedModel(xprv: "xprv0invalidformat")
         }
         
         let invalidLengthData = Data(repeating: 0x01, count: 10)
-        let invalidLengthString = Base58.encode(invalidLengthData)
+        let invalidLengthString = Base58Model.encode(invalidLengthData)
         
-        #expect(throws: PrivateKey.Error.invalidLength) {
-            _ = try PrivateKey.Extended(xprv: invalidLengthString)
+        #expect(throws: PrivateKeyModel.Error.invalidLength) {
+            _ = try PrivateKeyModel.ExtendedModel(xprv: invalidLengthString)
         }
     }
 }

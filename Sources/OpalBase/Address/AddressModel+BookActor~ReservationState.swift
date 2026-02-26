@@ -1,0 +1,31 @@
+// AddressModel+BookActor+SpendReservationModel~StateStore.swift
+
+import Foundation
+
+// MARK: - State
+extension AddressModel.BookActor {
+    func findMatchingReservation(for utxos: Set<TransactionModel.OutputModel.UnspentModel>) -> (identifier: UUID, state: SpendReservationModel.State)? {
+        spendReservationStates.first { _, state in
+            state.utxos == utxos
+        }
+        .map { element in
+            (identifier: element.key, state: element.value)
+        }
+    }
+    
+    func removeReservationState(for identifier: UUID) -> SpendReservationModel.State? {
+        cancelAutomaticSpendReservationRelease(for: identifier)
+        return spendReservationStates.removeValue(forKey: identifier)
+    }
+}
+
+extension AddressModel.BookActor {
+    func clearSpendReservationState() {
+        for task in spendReservationReleaseTasks.values {
+            task.cancel()
+        }
+        
+        spendReservationReleaseTasks.removeAll()
+        spendReservationStates.removeAll()
+    }
+}

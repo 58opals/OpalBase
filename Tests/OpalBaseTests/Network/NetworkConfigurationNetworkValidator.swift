@@ -2,7 +2,7 @@ import Foundation
 import Testing
 @testable import OpalBase
 
-@Suite("Network.Configuration (Network)", .tags(.network))
+@Suite("NetworkModel.Configuration (NetworkModel)", .tags(.network))
 struct NetworkConfigurationNetworkValidator {
     private static let primaryServerAddress = URL(string: "wss://bch.imaginary.cash:50004")!
     private static let backupServerAddress = URL(string: "wss://bch.loping.net:50002")!
@@ -11,7 +11,7 @@ struct NetworkConfigurationNetworkValidator {
     @Test("connects to a live Fulcrum server", .timeLimit(.minutes(1)))
     func connectionToFulcrumServer() async throws {
         guard NetworkTestClient.isExtendedLiveNetworkEnabled else { return }
-        let configuration = Network.Configuration(
+        let configuration = NetworkModel.Configuration(
             serverURLs: [
                 URL(string: "wss://bch.imaginary.cash:50004")!,
                 URL(string: "wss://bch.loping.net:50002")!
@@ -27,7 +27,7 @@ struct NetworkConfigurationNetworkValidator {
         )
 
         try await NetworkTestClient.withClient(configuration: configuration) { client in
-            let headerReader = Network.FulcrumBlockHeaderReader(client: client)
+            let headerReader = NetworkModel.FulcrumBlockHeaderReaderModel(client: client)
             let tip = try await headerReader.fetchTip()
 
             #expect(tip.height > 0)
@@ -38,7 +38,7 @@ struct NetworkConfigurationNetworkValidator {
     @Test("connects to fulcrum using wallet-centric configuration", .timeLimit(.minutes(1)))
     func connectFulcrumWithCustomConfiguration() async throws {
         guard NetworkTestClient.isExtendedLiveNetworkEnabled else { return }
-        let configuration = Network.Configuration(
+        let configuration = NetworkModel.Configuration(
             serverURLs: [Self.primaryServerAddress, Self.backupServerAddress],
             connectionTimeout: .seconds(8),
             maximumMessageSize: 8 * 1_024 * 1_024,
@@ -51,7 +51,7 @@ struct NetworkConfigurationNetworkValidator {
         )
 
         try await NetworkTestClient.withClient(configuration: configuration) { client in
-            let addressReader = Network.FulcrumAddressReader(client: client)
+            let addressReader = NetworkModel.FulcrumAddressReaderModel(client: client)
             let balance = try await addressReader.fetchBalance(for: Self.sampleCashAddress, tokenFilter: .include)
             #expect(balance.confirmed >= 0)
 
@@ -65,10 +65,10 @@ struct NetworkConfigurationNetworkValidator {
     @Test("connects with bundled bootstrap when server list is empty", .timeLimit(.minutes(1)))
     func connectFulcrumUsingBundledBootstrapServers() async throws {
         guard NetworkTestClient.isExtendedLiveNetworkEnabled else { return }
-        let configuration = Network.Configuration(serverURLs: .init())
+        let configuration = NetworkModel.Configuration(serverURLs: .init())
 
         try await NetworkTestClient.withClient(configuration: configuration) { client in
-            let headerReader = Network.FulcrumBlockHeaderReader(client: client)
+            let headerReader = NetworkModel.FulcrumBlockHeaderReaderModel(client: client)
             let tip = try await headerReader.fetchTip()
 
             #expect(tip.height > 0)

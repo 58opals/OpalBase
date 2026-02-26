@@ -2,7 +2,7 @@ import Foundation
 import Testing
 @testable import OpalBase
 
-@Suite("Base58", .tags(.unit, .coding))
+@Suite("Base58Model", .tags(.unit, .coding))
 struct Base58Validator {
     struct LinearCongruentialGenerator {
         private var state: UInt64
@@ -36,8 +36,8 @@ struct Base58Validator {
             let payloadBytes = generator.makeBytes(count: length)
             let payload = Data(repeating: 0, count: leadingZeroCount) + Data(payloadBytes)
             
-            let encoded = Base58.encode(payload)
-            let decoded = Base58.decode(encoded)
+            let encoded = Base58Model.encode(payload)
+            let decoded = Base58Model.decode(encoded)
             
             #expect(decoded == payload)
         }
@@ -46,11 +46,11 @@ struct Base58Validator {
     @Test("encodes and decodes known wallet import format vector")
     func encodesAndDecodesKnownWalletImportFormatVector() throws {
         let privateKeyData = Data(repeating: 0, count: 31) + Data([0x01])
-        let privateKey = try PrivateKey(data: privateKeyData)
+        let privateKey = try PrivateKeyModel(data: privateKeyData)
         let expectedWalletImportFormat = "KwDiBf89QgGbjEhKnhXJuH7LrciVrZi3qYjgd9M7rFU73sVHnoWn"
         
         let encodedWalletImportFormat = privateKey.wif
-        let decodedPrivateKey = try PrivateKey(wif: expectedWalletImportFormat)
+        let decodedPrivateKey = try PrivateKeyModel(wif: expectedWalletImportFormat)
         
         #expect(encodedWalletImportFormat == expectedWalletImportFormat)
         #expect(decodedPrivateKey.rawData == privateKey.rawData)

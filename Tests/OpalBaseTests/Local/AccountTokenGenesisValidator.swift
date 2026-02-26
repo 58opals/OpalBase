@@ -2,24 +2,24 @@ import Foundation
 import Testing
 @testable import OpalBase
 
-@Suite("Account Token Genesis", .tags(.unit, .wallet, .cashTokens))
+@Suite("AccountActor Token Genesis", .tags(.unit, .wallet, .cashTokens))
 struct AccountTokenGenesisValidator {
     @Test("rejects genesis input with non-zero output index")
     func rejectsGenesisInputWithNonZeroOutputIndex() async throws {
         let account = try await makeAccount()
-        let previousTransactionHash = Transaction.Hash(naturalOrder: Data(repeating: 0x11, count: 32))
+        let previousTransactionHash = TransactionModel.HashModel(naturalOrder: Data(repeating: 0x11, count: 32))
         let unspentOutput = try await addSpendableOutput(
             to: account,
             previousTransactionHash: previousTransactionHash,
             previousTransactionOutputIndex: 1
         )
         
-        let recipientAddress = try Address("bitcoincash:zpm2qsznhks23z7629mms6s4cwef74vcwvrqekrq9w")
-        let genesis = try Account.TokenGenesis(recipients: [
+        let recipientAddress = try AddressModel("bitcoincash:zpm2qsznhks23z7629mms6s4cwef74vcwvrqekrq9w")
+        let genesis = try AccountActor.TokenGenesisModel(recipients: [
             .init(address: recipientAddress, fungibleAmount: 1)
         ])
         
-        await #expect(throws: Account.Error.tokenGenesisInvalidGenesisInput) {
+        await #expect(throws: AccountActor.Error.tokenGenesisInvalidGenesisInput) {
             _ = try await account.prepareTokenGenesis(genesis, preferredGenesisInput: unspentOutput)
         }
     }
@@ -27,15 +27,15 @@ struct AccountTokenGenesisValidator {
     @Test("derives token category from genesis input hash")
     func derivesTokenCategoryFromGenesisInputHash() async throws {
         let account = try await makeAccount()
-        let previousTransactionHash = Transaction.Hash(naturalOrder: Data(repeating: 0x22, count: 32))
+        let previousTransactionHash = TransactionModel.HashModel(naturalOrder: Data(repeating: 0x22, count: 32))
         let unspentOutput = try await addSpendableOutput(
             to: account,
             previousTransactionHash: previousTransactionHash,
             previousTransactionOutputIndex: 0
         )
         
-        let recipientAddress = try Address("bitcoincash:zpm2qsznhks23z7629mms6s4cwef74vcwvrqekrq9w")
-        let genesis = try Account.TokenGenesis(recipients: [
+        let recipientAddress = try AddressModel("bitcoincash:zpm2qsznhks23z7629mms6s4cwef74vcwvrqekrq9w")
+        let genesis = try AccountActor.TokenGenesisModel(recipients: [
             .init(address: recipientAddress, fungibleAmount: 1)
         ])
         
@@ -54,27 +54,27 @@ struct AccountTokenGenesisValidator {
     @Test("uses dust threshold when genesis recipient lacks BCH amount")
     func usesDustThresholdWhenRecipientAmountIsNil() async throws {
         let account = try await makeAccount()
-        let previousTransactionHash = Transaction.Hash(naturalOrder: Data(repeating: 0x33, count: 32))
+        let previousTransactionHash = TransactionModel.HashModel(naturalOrder: Data(repeating: 0x33, count: 32))
         _ = try await addSpendableOutput(
             to: account,
             previousTransactionHash: previousTransactionHash,
             previousTransactionOutputIndex: 0
         )
         
-        let recipientAddress = try Address("bitcoincash:zpm2qsznhks23z7629mms6s4cwef74vcwvrqekrq9w")
-        let genesis = try Account.TokenGenesis(recipients: [
+        let recipientAddress = try AddressModel("bitcoincash:zpm2qsznhks23z7629mms6s4cwef74vcwvrqekrq9w")
+        let genesis = try AccountActor.TokenGenesisModel(recipients: [
             .init(address: recipientAddress, fungibleAmount: 1)
         ])
         
         let plan = try await account.prepareTokenGenesis(genesis)
         let tokenOutput = try #require(plan.outputs.first { $0.tokenData != nil })
-        let expectedDustOutput = Transaction.Output(
+        let expectedDustOutput = TransactionModel.OutputModel(
             value: 0,
             address: recipientAddress,
             tokenData: tokenOutput.tokenData
         )
         let expectedDustThreshold = try expectedDustOutput.calculateDustThreshold(
-            feeRate: Transaction.minimumRelayFeeRate
+            feeRate: TransactionModel.minimumRelayFeeRate
         )
         #expect(tokenOutput.value == expectedDustThreshold)
     }
@@ -82,42 +82,42 @@ struct AccountTokenGenesisValidator {
     @Test("rejects non-token-aware genesis recipients")
     func rejectsNonTokenAwareRecipients() async throws {
         let account = try await makeAccount()
-        let previousTransactionHash = Transaction.Hash(naturalOrder: Data(repeating: 0x44, count: 32))
+        let previousTransactionHash = TransactionModel.HashModel(naturalOrder: Data(repeating: 0x44, count: 32))
         let unspentOutput = try await addSpendableOutput(
             to: account,
             previousTransactionHash: previousTransactionHash,
             previousTransactionOutputIndex: 0
         )
         
-        let recipientAddress = try Address("bitcoincash:qpm2qsznhks23z7629mms6s4cwef74vcwvy22gdx6a")
-        let genesis = try Account.TokenGenesis(recipients: [
+        let recipientAddress = try AddressModel("bitcoincash:qpm2qsznhks23z7629mms6s4cwef74vcwvy22gdx6a")
+        let genesis = try AccountActor.TokenGenesisModel(recipients: [
             .init(address: recipientAddress, fungibleAmount: 1)
         ])
         
-        await #expect(throws: Account.Error.tokenGenesisRequiresTokenAwareAddress([recipientAddress])) {
+        await #expect(throws: AccountActor.Error.tokenGenesisRequiresTokenAwareAddress([recipientAddress])) {
             _ = try await account.prepareTokenGenesis(genesis, preferredGenesisInput: unspentOutput)
         }
     }
 }
 
-private func makeAccount() async throws -> Account {
-    let mnemonic = try Mnemonic(
+private func makeAccount() async throws -> AccountActor {
+    let mnemonic = try MnemonicModel(
         words: ["abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "about"]
     )
-    let wallet = Wallet(mnemonic: mnemonic)
+    let wallet = WalletActor(mnemonic: mnemonic)
     try await wallet.addAccount(unhardenedIndex: 0)
     return try await wallet.fetchAccount(at: 0)
 }
 
 private func addSpendableOutput(
-    to account: Account,
-    previousTransactionHash: Transaction.Hash,
+    to account: AccountActor,
+    previousTransactionHash: TransactionModel.HashModel,
     previousTransactionOutputIndex: UInt32,
     value: UInt64 = 50_000
-) async throws -> Transaction.Output.Unspent {
+) async throws -> TransactionModel.OutputModel.UnspentModel {
     let addressBook = await account.addressBook
     let receivingEntry = try await addressBook.selectNextEntry(for: .receiving)
-    let unspentOutput = Transaction.Output.Unspent(
+    let unspentOutput = TransactionModel.OutputModel.UnspentModel(
         value: value,
         lockingScript: receivingEntry.address.lockingScript.data,
         previousTransactionHash: previousTransactionHash,

@@ -3,11 +3,11 @@ import SwiftFulcrum
 import Testing
 @testable import OpalBase
 
-@Suite("Network.ServerCatalog", .tags(.unit, .network))
+@Suite("NetworkModel.ServerCatalogModel", .tags(.unit, .network))
 struct NetworkServerCatalogValidator {
     @Test("opal defaults provide per-environment catalogs")
     func opalDefaultsProvidePerEnvironmentCatalogs() {
-        let catalog = Network.ServerCatalog.opalDefault
+        let catalog = NetworkModel.ServerCatalogModel.opalDefault
         
         let mainnetServers = catalog.listServers(for: .mainnet)
         let chipnetServers = catalog.listServers(for: .chipnet)
@@ -21,19 +21,19 @@ struct NetworkServerCatalogValidator {
     
     @Test("chipnet maps to FulcrumClient testnet framing")
     func chipnetMapsToFulcrumTestnet() {
-        #expect(Network.Environment.chipnet.fulcrumNetwork == FulcrumClient.Configuration.NetworkModel.testnet)
+        #expect(NetworkModel.EnvironmentModel.chipnet.fulcrumNetwork == FulcrumClient.Configuration.NetworkModel.testnet)
     }
     
     @Test("server catalog loader merges overrides before defaults")
     func configurationLoaderMergesOverridesBeforeDefaults() async throws {
         let overrideServer = URL(string: "wss://override.opalwallet.example:50004")!
         let defaultServer = URL(string: "wss://bch.imaginary.cash:50004")!
-        let catalog = Network.ServerCatalog(
+        let catalog = NetworkModel.ServerCatalogModel(
             mainnetServers: [defaultServer],
             chipnetServers: .init(),
             testnetServers: .init()
         )
-        let configuration = Network.Configuration(
+        let configuration = NetworkModel.Configuration(
             serverURLs: [overrideServer],
             serverCatalog: catalog,
             connectionTimeout: .seconds(1),
@@ -56,7 +56,7 @@ struct NetworkServerCatalogValidator {
     @Test("loader augments chipnet defaults with provided fallback")
     func configurationMergesFallbackWithChipnetDefaults() async throws {
         let fallbackServer = URL(string: "wss://fallback.chipnet.example:50004")!
-        let configuration = Network.Configuration(
+        let configuration = NetworkModel.Configuration(
             serverURLs: .init(),
             network: .chipnet
         )
@@ -72,7 +72,7 @@ struct NetworkServerCatalogValidator {
     @Test("loader augments testnet defaults with provided fallback")
     func configurationMergesFallbackWithTestnetDefaults() async throws {
         let fallbackServer = URL(string: "wss://fallback.testnet.example:50004")!
-        let configuration = Network.Configuration(
+        let configuration = NetworkModel.Configuration(
             serverURLs: .init(),
             network: .testnet
         )
@@ -87,8 +87,8 @@ struct NetworkServerCatalogValidator {
     
     @Test("bootstrap server selection respects configured environment")
     func bootstrapServersRespectConfiguredEnvironment() {
-        let chipnetConfiguration = Network.Configuration(serverURLs: .init(), network: .chipnet)
-        let testnetConfiguration = Network.Configuration(serverURLs: .init(), network: .testnet)
+        let chipnetConfiguration = NetworkModel.Configuration(serverURLs: .init(), network: .chipnet)
+        let testnetConfiguration = NetworkModel.Configuration(serverURLs: .init(), network: .testnet)
         
         let chipnetBootstrap = chipnetConfiguration.fulcrumBootstrapServers
         let testnetBootstrap = testnetConfiguration.fulcrumBootstrapServers
@@ -108,7 +108,7 @@ struct NetworkServerCatalogValidator {
             URL(string: "ftp://should-be-ignored.example.com")!
         ]
         
-        let normalized = Network.ServerCatalog.makeNormalizedServers(rawServers)
+        let normalized = NetworkModel.ServerCatalogModel.makeNormalizedServers(rawServers)
         #expect(normalized.count == 2)
         #expect(normalized.first?.scheme == "wss")
         #expect(normalized.contains(where: { $0.scheme == "ws" && $0.host == "chipnet.imaginary.cash" }))
@@ -129,7 +129,7 @@ struct NetworkServerCatalogValidator {
             URL(string: "wss://fallback.example.com")!
         ]
         
-        let merged = Network.ServerCatalog.makeMergedServers(primary: primary, secondary: secondary, fallback: fallback)
+        let merged = NetworkModel.ServerCatalogModel.makeMergedServers(primary: primary, secondary: secondary, fallback: fallback)
         
         #expect(merged.count == 4)
         #expect(merged[0].host == "primary.example.com")

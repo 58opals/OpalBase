@@ -2,16 +2,16 @@ import Foundation
 import Testing
 @testable import OpalBase
 
-@Suite("PublicKey.Extended", .tags(.unit, .key))
+@Suite("PublicKeyModel.ExtendedModel", .tags(.unit, .key))
 struct PublicKeyExtendedValidator {
     @Test("serialize encodes the mainnet version prefix")
     func serializeEncodesMainnetVersionPrefix() throws {
-        let mnemonic = try Mnemonic(words: [
+        let mnemonic = try MnemonicModel(words: [
             "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "about"
         ])
-        let rootKey = try PrivateKey.Extended.Root(seed: mnemonic.seed)
-        let extendedPrivateKey = PrivateKey.Extended(rootKey: rootKey)
-        let extendedPublicKey = try PublicKey.Extended(extendedPrivateKey: extendedPrivateKey)
+        let rootKey = try PrivateKeyModel.ExtendedModel.RootModel(seed: mnemonic.seed)
+        let extendedPrivateKey = PrivateKeyModel.ExtendedModel(rootKey: rootKey)
+        let extendedPublicKey = try PublicKeyModel.ExtendedModel(extendedPrivateKey: extendedPrivateKey)
         
         let serialized = extendedPublicKey.serialize()
         let prefix = serialized.prefix(4)
@@ -21,15 +21,15 @@ struct PublicKeyExtendedValidator {
     
     @Test("init rejects invalid format and length")
     func initRejectsInvalidFormatAndLength() throws {
-        #expect(throws: PublicKey.Error.invalidFormat) {
-            _ = try PublicKey.Extended(xpub: "xpub0invalidformat")
+        #expect(throws: PublicKeyModel.Error.invalidFormat) {
+            _ = try PublicKeyModel.ExtendedModel(xpub: "xpub0invalidformat")
         }
         
         let invalidLengthData = Data(repeating: 0x01, count: 10)
-        let invalidLengthString = Base58.encode(invalidLengthData)
+        let invalidLengthString = Base58Model.encode(invalidLengthData)
         
-        #expect(throws: PublicKey.Error.invalidLength) {
-            _ = try PublicKey.Extended(xpub: invalidLengthString)
+        #expect(throws: PublicKeyModel.Error.invalidLength) {
+            _ = try PublicKeyModel.ExtendedModel(xpub: invalidLengthString)
         }
     }
 }

@@ -3,7 +3,7 @@ import Testing
 import SwiftFulcrum
 @testable import OpalBase
 
-@Suite("Network.FulcrumClient", .tags(.network))
+@Suite("NetworkModel.FulcrumClient", .tags(.network))
 struct NetworkFulcrumClientValidator {
     private static let primaryServerAddress = URL(string: "wss://bch.imaginary.cash:50004")!
     private static let backupServerAddress = URL(string: "wss://bch.loping.net:50002")!
@@ -15,7 +15,7 @@ struct NetworkFulcrumClientValidator {
     @Test("performs wallet-centric requests and reconnects", .timeLimit(.minutes(1)))
     func walletOperationsWithLiveFulcrum() async throws {
         guard NetworkTestClient.isExtendedLiveNetworkEnabled else { return }
-        let configuration = Network.Configuration(
+        let configuration = NetworkModel.Configuration(
             serverURLs: [Self.primaryServerAddress, Self.backupServerAddress],
             connectionTimeout: .seconds(12),
             maximumMessageSize: 16 * 1_024 * 1_024,
@@ -69,7 +69,7 @@ struct NetworkFulcrumClientValidator {
     @Test("performs wallet critical unary calls and reconnects", .timeLimit(.minutes(1)))
     func clientPerformsWalletCriticalRequests() async throws {
         guard NetworkTestClient.isExtendedLiveNetworkEnabled else { return }
-        let configuration = Network.Configuration(
+        let configuration = NetworkModel.Configuration(
             serverURLs: [Self.primaryServerAddress, Self.backupServerAddress],
             connectionTimeout: .seconds(12),
             maximumMessageSize: 32 * 1_024 * 1_024,
@@ -121,7 +121,7 @@ struct NetworkFulcrumClientValidator {
     @Test("subscribes to address updates and supports cancellation", .timeLimit(.minutes(1)))
     func subscribeToAddressDeliversInitialSnapshot() async throws {
         guard NetworkTestClient.isExtendedLiveNetworkEnabled else { return }
-        let configuration = Network.Configuration(serverURLs: [Self.primaryServerAddress, Self.backupServerAddress])
+        let configuration = NetworkModel.Configuration(serverURLs: [Self.primaryServerAddress, Self.backupServerAddress])
         try await NetworkTestClient.withClient(configuration: configuration) { client in
             let (initial, updates, cancel) = try await client.subscribe(
                 method: .blockchain(.address(.subscribe(address: Self.sampleCashAddress))),
@@ -147,7 +147,7 @@ struct NetworkFulcrumClientValidator {
     @Test("subscribes to live header stream and cancels cleanly", .timeLimit(.minutes(1)))
     func subscribeReturnsStreamAndSupportsCancellation() async throws {
         guard NetworkTestClient.isExtendedLiveNetworkEnabled else { return }
-        let configuration = Network.Configuration(serverURLs: [Self.primaryServerAddress, Self.backupServerAddress])
+        let configuration = NetworkModel.Configuration(serverURLs: [Self.primaryServerAddress, Self.backupServerAddress])
         try await NetworkTestClient.withClient(configuration: configuration) { client in
             let (initial, stream, cancel) = try await client.subscribe(
                 method: .blockchain(.headers(.subscribe)),

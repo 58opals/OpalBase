@@ -2,21 +2,21 @@ import Foundation
 import Testing
 @testable import OpalBase
 
-@Suite("Transaction hash type unspent transaction outputs", .tags(.unit))
+@Suite("TransactionModel hash type unspent transaction outputs", .tags(.unit))
 struct TransactionHashTypeUnspentTransactionOutputsValidator {
     @Test("hash type validation rejects unspent outputs with anyone-can-pay")
     func hashTypeValidationRejectsUnspentOutputsWithAnyoneCanPay() throws {
-        let hashType = Transaction.HashType.makeAll(anyoneCanPay: true,
+        let hashType = TransactionModel.HashTypeModel.makeAll(anyoneCanPay: true,
                                                     includesUnspentTransactionOutputs: true)
         
-        #expect(throws: Transaction.Error.unsupportedHashType) {
+        #expect(throws: TransactionModel.Error.unsupportedHashType) {
             try hashType.validate()
         }
     }
     
     @Test("hash type includes unspent outputs flag")
     func hashTypeIncludesUnspentOutputsFlag() {
-        let hashType = Transaction.HashType.makeAll(includesUnspentTransactionOutputs: true)
+        let hashType = TransactionModel.HashTypeModel.makeAll(includesUnspentTransactionOutputs: true)
         
         #expect((hashType.value & 0x20) == 0x20)
     }
@@ -26,10 +26,10 @@ struct TransactionHashTypeUnspentTransactionOutputsValidator {
         let lockingScript = try makeLockingScript()
         let transaction = makeTransaction(lockingScript: lockingScript)
         let spentOutputs = [
-            Transaction.Output(value: 9_000, lockingScript: lockingScript),
-            Transaction.Output(value: 12_000, lockingScript: lockingScript)
+            TransactionModel.OutputModel(value: 9_000, lockingScript: lockingScript),
+            TransactionModel.OutputModel(value: 12_000, lockingScript: lockingScript)
         ]
-        let hashType = Transaction.HashType.makeAll(includesUnspentTransactionOutputs: true)
+        let hashType = TransactionModel.HashTypeModel.makeAll(includesUnspentTransactionOutputs: true)
         let preimage = try transaction.generatePreimage(for: 0,
                                                         hashType: hashType,
                                                         outputBeingSpent: spentOutputs[0],
@@ -46,10 +46,10 @@ struct TransactionHashTypeUnspentTransactionOutputsValidator {
     func preimageRequiresUnspentTransactionOutputsWhenEnabled() throws {
         let lockingScript = try makeLockingScript()
         let transaction = makeTransaction(lockingScript: lockingScript)
-        let spentOutput = Transaction.Output(value: 9_000, lockingScript: lockingScript)
-        let hashType = Transaction.HashType.makeAll(includesUnspentTransactionOutputs: true)
+        let spentOutput = TransactionModel.OutputModel(value: 9_000, lockingScript: lockingScript)
+        let hashType = TransactionModel.HashTypeModel.makeAll(includesUnspentTransactionOutputs: true)
         
-        #expect(throws: Transaction.Error.missingUnspentTransactionOutputs) {
+        #expect(throws: TransactionModel.Error.missingUnspentTransactionOutputs) {
             _ = try transaction.generatePreimage(for: 0,
                                                  hashType: hashType,
                                                  outputBeingSpent: spentOutput,
@@ -57,20 +57,20 @@ struct TransactionHashTypeUnspentTransactionOutputsValidator {
         }
     }
     
-    private func makeTransaction(lockingScript: Data) -> Transaction {
-        let previousTransactionHash = Transaction.Hash(naturalOrder: Data(repeating: 0x11, count: 32))
+    private func makeTransaction(lockingScript: Data) -> TransactionModel {
+        let previousTransactionHash = TransactionModel.HashModel(naturalOrder: Data(repeating: 0x11, count: 32))
         let inputs = [
-            Transaction.Input(previousTransactionHash: previousTransactionHash,
+            TransactionModel.InputModel(previousTransactionHash: previousTransactionHash,
                               previousTransactionOutputIndex: 0,
                               unlockingScript: Data(),
                               sequence: 0xffffffff),
-            Transaction.Input(previousTransactionHash: previousTransactionHash,
+            TransactionModel.InputModel(previousTransactionHash: previousTransactionHash,
                               previousTransactionOutputIndex: 1,
                               unlockingScript: Data(),
                               sequence: 0xffffffff)
         ]
-        let output = Transaction.Output(value: 7_000, lockingScript: lockingScript)
-        return Transaction(version: 2, inputs: inputs, outputs: [output], lockTime: 0)
+        let output = TransactionModel.OutputModel(value: 7_000, lockingScript: lockingScript)
+        return TransactionModel(version: 2, inputs: inputs, outputs: [output], lockTime: 0)
     }
     
     private func makeLockingScript() throws -> Data {
@@ -78,11 +78,11 @@ struct TransactionHashTypeUnspentTransactionOutputsValidator {
         return try Data(hexadecimalString: lockingScriptHexadecimal)
     }
     
-    private func makeUnspentTransactionOutputsHash(from outputs: [Transaction.Output]) throws -> Data {
+    private func makeUnspentTransactionOutputsHash(from outputs: [TransactionModel.OutputModel]) throws -> Data {
         var data = Data()
         for output in outputs {
             data.append(try output.encode())
         }
-        return HASH256.hash(data)
+        return HASH256Model.hash(data)
     }
 }

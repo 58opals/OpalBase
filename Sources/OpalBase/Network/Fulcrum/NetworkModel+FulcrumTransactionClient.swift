@@ -1,0 +1,118 @@
+// NetworkModel+FulcrumTransactionClient.swift
+
+import Foundation
+import SwiftFulcrum
+
+extension NetworkModel {
+    public struct FulcrumTransactionClient: TransactionHandling {
+        private let client: FulcrumClient
+        private let timeouts: FulcrumRequestTimeoutModel
+        
+        public init(client: FulcrumClient, timeouts: FulcrumRequestTimeoutModel = .init()) {
+            self.client = client
+            self.timeouts = timeouts
+        }
+        
+        public func broadcastTransaction(rawTransactionHexadecimal: String) async throws -> String {
+            try await NetworkModel.performWithFailureTranslation {
+                let response = try await client.request(
+                    method: .blockchain(.transaction(.broadcast(rawTransaction: rawTransactionHexadecimal))),
+                    responseType: SwiftFulcrum.FulcrumResponse.ResultModel.BlockchainModel.TransactionModel.BroadcastModel.self,
+                    options: .init(timeout: timeouts.transactionBroadcast)
+                )
+                return response.transactionHash.hexadecimalString
+            }
+        }
+        
+        public func fetchConfirmations(forTransactionIdentifier transactionIdentifier: String) async throws -> UInt? {
+            let hash = try NetworkModel.decodeTransactionHash(from: transactionIdentifier)
+            let status = try await fetchConfirmationStatus(for: hash)
+            return status.confirmations
+        }
+        
+        public func fetchConfirmationStatus(for transactionHash: TransactionModel.HashModel) async throws -> NetworkModel.TransactionConfirmationStatusModel {
+            let identifier = transactionHash.reverseOrder.hexadecimalString
+            
+            return try await NetworkModel.performWithFailureTranslation {
+                async let transactionHeightResponse = client.request(
+                    method: .blockchain(.transaction(.getHeight(transactionHash: identifier))),
+                    responseType: SwiftFulcrum.FulcrumResponse.ResultModel.BlockchainModel.TransactionModel.GetHeightModel.self,
+                    options: .init(timeout: timeouts.transactionConfirmations)
+                )
+                async let tipHeightResponse = client.request(
+                    method: .blockchain(.headers(.getTip)),
+                    responseType: SwiftFulcrum.FulcrumResponse.ResultModel.BlockchainModel.HeadersModel.GetTipModel.self,
+                    options: .init(timeout: timeouts.headersTip)
+                )
+                
+                let transactionHeightResult = try await transactionHeightResponse
+                let tipHeightResult = try await tipHeightResponse
+                
+                let transactionHeight = transactionHeightResult.height
+                let tipHeight = tipHeightResult.height
+                
+                let confirmationCount = Self.calculateConfirmationCount(
+                    transactionHeight: transactionHeight,
+                    tipHeight: tipHeight
+                )
+                
+                let resolvedHeight = Self.resolveTransactionHeight(transactionHeight)
+                let resolvedTipHeight = Self.resolveTipHeight(tipHeight)
+                
+                return NetworkModel.TransactionConfirmationStatusModel(transactionHash: transactionHash,
+                                                             transactionHeight: resolvedHeight,
+                                                             tipHeight: resolvedTipHeight,
+                                                             confirmations: confirmationCount)
+            }
+        }
+        
+        static func calculateConfirmationCount<Height: BinaryInteger>(
+            transactionHeight: Height,
+            tipHeight: Height
+        ) -> UInt? {
+            guard transactionHeight >= 0 else { return nil }
+            guard tipHeight >= transactionHeight else { return nil }
+            
+            let confirmationCount = tipHeight - transactionHeight + 1
+            return UInt(confirmationCount)
+        }
+        
+        private static func resolveTransactionHeight<Height: BinaryInteger>(_ height: Height) -> Int? {
+            guard height >= 0 else { return nil }
+            if let resolved = Int(exactly: height) {
+                return resolved
+            }
+            return Int.max
+        }
+        
+        private static func resolveTipHeight<Height: BinaryInteger>(_ height: Height) -> UInt64 {
+            if let resolved = UInt64(exactly: height) {
+                return resolved
+            }
+            if height < 0 { return 0 }
+            return UInt64.max
+        }
+    }
+}
+
+extension NetworkModel {
+    static func resolveFee<Fee: BinaryInteger>(_ fee: Fee?) -> UInt64? {
+        guard let fee else { return nil }
+        return UInt64(exactly: fee)
+    }
+    
+    static func mapHistoryTransactions<TransactionModel>(
+        _ transactions: [TransactionModel],
+        transactionIdentifier: KeyPath<TransactionModel, String>,
+        blockHeight: KeyPath<TransactionModel, Int>,
+        fee: KeyPath<TransactionModel, UInt?>
+    ) -> [TransactionHistoryEntryModel] {
+        transactions.map { transaction in
+            TransactionHistoryEntryModel(
+                transactionIdentifier: transaction[keyPath: transactionIdentifier],
+                blockHeight: transaction[keyPath: blockHeight],
+                fee: resolveFee(transaction[keyPath: fee])
+            )
+        }
+    }
+}

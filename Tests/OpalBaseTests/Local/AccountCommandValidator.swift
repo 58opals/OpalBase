@@ -2,23 +2,23 @@ import Foundation
 import Testing
 @testable import OpalBase
 
-@Suite("Account Command", .tags(.unit, .wallet))
+@Suite("AccountActor Command", .tags(.unit, .wallet))
 struct AccountCommandValidator {
     @Test("prepareSpend reports insufficient funds when sweep-all shortfall occurs")
     func prepareSpendReportsShortfallForSweepAllCoinSelection() async throws {
-        let mnemonic = try Mnemonic(
+        let mnemonic = try MnemonicModel(
             words: [
                 "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "about"
             ]
         )
-        let wallet = Wallet(mnemonic: mnemonic)
+        let wallet = WalletActor(mnemonic: mnemonic)
         try await wallet.addAccount(unhardenedIndex: 0)
         let account = try await wallet.fetchAccount(at: 0)
 
         let addressBook = await account.addressBook
         let receivingEntry = try await addressBook.selectNextEntry(for: .receiving)
-        let previousTransactionHash = Transaction.Hash(naturalOrder: Data(repeating: 0, count: 32))
-        let utxo = Transaction.Output.Unspent(
+        let previousTransactionHash = TransactionModel.HashModel(naturalOrder: Data(repeating: 0, count: 32))
+        let utxo = TransactionModel.OutputModel.UnspentModel(
             value: 1_000,
             lockingScript: receivingEntry.address.lockingScript.data,
             previousTransactionHash: previousTransactionHash,
@@ -26,9 +26,9 @@ struct AccountCommandValidator {
         )
         await addressBook.addUTXOs([utxo])
 
-        let recipientAddress = try Address("bitcoincash:qpm2qsznhks23z7629mms6s4cwef74vcwvy22gdx6a")
-        let paymentAmount = try Satoshi(2_000)
-        let payment = Account.Payment(
+        let recipientAddress = try AddressModel("bitcoincash:qpm2qsznhks23z7629mms6s4cwef74vcwvy22gdx6a")
+        let paymentAmount = try SatoshiModel(2_000)
+        let payment = AccountActor.PaymentModel(
             recipients: [.init(address: recipientAddress, amount: paymentAmount)],
             coinSelection: .sweepAll
         )
@@ -36,11 +36,11 @@ struct AccountCommandValidator {
         do {
             _ = try await account.prepareSpend(payment)
             Issue.record("Expected prepareSpend to surface insufficient funds")
-        } catch let error as Account.Error {
+        } catch let error as AccountActor.Error {
             switch error {
             case .coinSelectionFailed(let underlyingError):
-                guard let transactionError = underlyingError as? Transaction.Error else {
-                    Issue.record("Expected Transaction.Error but received \(type(of: underlyingError))")
+                guard let transactionError = underlyingError as? TransactionModel.Error else {
+                    Issue.record("Expected TransactionModel.Error but received \(type(of: underlyingError))")
                     return
                 }
 
@@ -60,19 +60,19 @@ struct AccountCommandValidator {
 
     @Test("prepareSpend reserves spend resources until explicitly released")
     func prepareSpendReservesUntilReleased() async throws {
-        let mnemonic = try Mnemonic(
+        let mnemonic = try MnemonicModel(
             words: [
                 "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "about"
             ]
         )
-        let wallet = Wallet(mnemonic: mnemonic)
+        let wallet = WalletActor(mnemonic: mnemonic)
         try await wallet.addAccount(unhardenedIndex: 0)
         let account = try await wallet.fetchAccount(at: 0)
 
         let addressBook = await account.addressBook
         let receivingEntry = try await addressBook.selectNextEntry(for: .receiving)
-        let previousTransactionHash = Transaction.Hash(naturalOrder: Data(repeating: 1, count: 32))
-        let utxo = Transaction.Output.Unspent(
+        let previousTransactionHash = TransactionModel.HashModel(naturalOrder: Data(repeating: 1, count: 32))
+        let utxo = TransactionModel.OutputModel.UnspentModel(
             value: 25_000,
             lockingScript: receivingEntry.address.lockingScript.data,
             previousTransactionHash: previousTransactionHash,
@@ -80,9 +80,9 @@ struct AccountCommandValidator {
         )
         await addressBook.addUTXOs([utxo])
 
-        let recipientAddress = try Address("bitcoincash:qpm2qsznhks23z7629mms6s4cwef74vcwvy22gdx6a")
-        let paymentAmount = try Satoshi(10_000)
-        let payment = Account.Payment(recipients: [.init(address: recipientAddress, amount: paymentAmount)])
+        let recipientAddress = try AddressModel("bitcoincash:qpm2qsznhks23z7629mms6s4cwef74vcwvy22gdx6a")
+        let paymentAmount = try SatoshiModel(10_000)
+        let payment = AccountActor.PaymentModel(recipients: [.init(address: recipientAddress, amount: paymentAmount)])
 
         let initialPlan = try await account.prepareSpend(payment)
         let initialChangeEntries = await addressBook.listEntries(for: .change)
@@ -123,12 +123,12 @@ struct AccountCommandValidator {
 
     @Test("reserveNextReceivingEntry advances receiving entries")
     func reserveNextReceivingEntryAdvancesReceivingEntries() async throws {
-        let mnemonic = try Mnemonic(
+        let mnemonic = try MnemonicModel(
             words: [
                 "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "about"
             ]
         )
-        let wallet = Wallet(mnemonic: mnemonic)
+        let wallet = WalletActor(mnemonic: mnemonic)
         try await wallet.addAccount(unhardenedIndex: 0)
         let account = try await wallet.fetchAccount(at: 0)
 

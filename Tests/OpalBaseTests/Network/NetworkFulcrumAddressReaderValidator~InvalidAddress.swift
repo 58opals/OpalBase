@@ -5,9 +5,9 @@ extension NetworkFulcrumAddressReaderValidator {
     @Test("rejects invalid addresses before network usage", .timeLimit(.minutes(1)))
     func fetchUnspentOutputsRejectsInvalidAddress1() async throws {
         guard NetworkTestClient.isExtendedLiveNetworkEnabled else { return }
-        let configuration = Network.Configuration(serverURLs: [Self.primaryServerAddress, Self.backupServerAddress])
+        let configuration = NetworkModel.Configuration(serverURLs: [Self.primaryServerAddress, Self.backupServerAddress])
         try await NetworkTestClient.withClient(configuration: configuration) { client in
-            let reader = Network.FulcrumAddressReader(client: client)
+            let reader = NetworkModel.FulcrumAddressReaderModel(client: client)
             var thrownError: Error?
             do {
                 _ = try await reader.fetchUnspentOutputs(for: "not-an-address", tokenFilter: .include)
@@ -15,7 +15,7 @@ extension NetworkFulcrumAddressReaderValidator {
                 thrownError = error
             }
 
-            let failure = try #require(thrownError as? Network.Error)
+            let failure = try #require(thrownError as? NetworkModel.Error)
             #expect(failure.reason == .protocolViolation)
             if let message = failure.message {
                 #expect(message.contains("Invalid address"))
@@ -26,13 +26,13 @@ extension NetworkFulcrumAddressReaderValidator {
     @Test("rejects invalid addresses before reaching the network", .timeLimit(.minutes(1)))
     func fetchUnspentOutputsRejectsInvalidAddress2() async throws {
         guard NetworkTestClient.isExtendedLiveNetworkEnabled else { return }
-        let configuration = Network.Configuration(serverURLs: [Self.primaryServerAddress, Self.backupServerAddress])
+        let configuration = NetworkModel.Configuration(serverURLs: [Self.primaryServerAddress, Self.backupServerAddress])
         try await NetworkTestClient.withClient(configuration: configuration) { client in
-            let reader = Network.FulcrumAddressReader(client: client)
+            let reader = NetworkModel.FulcrumAddressReaderModel(client: client)
             do {
                 _ = try await reader.fetchUnspentOutputs(for: "invalid-address", tokenFilter: .include)
                 #expect(Bool(false), "Expected an invalid address to throw a protocol violation failure")
-            } catch let failure as Network.Error {
+            } catch let failure as NetworkModel.Error {
                 #expect(failure.reason == .protocolViolation)
                 #expect(failure.message?.contains("Invalid address") ?? false)
             }
@@ -42,7 +42,7 @@ extension NetworkFulcrumAddressReaderValidator {
     @Test("translates invalid address errors for wallet validation", .timeLimit(.minutes(1)))
     func fetchUnspentOutputsFailsForInvalidAddress() async throws {
         guard NetworkTestClient.isExtendedLiveNetworkEnabled else { return }
-        let configuration = Network.Configuration(
+        let configuration = NetworkModel.Configuration(
             serverURLs: [Self.primaryServerAddress, Self.backupServerAddress],
             connectionTimeout: .seconds(12),
             maximumMessageSize: 8 * 1_024 * 1_024,
@@ -57,10 +57,10 @@ extension NetworkFulcrumAddressReaderValidator {
         try await NetworkTestClient.withClient(configuration: configuration) { client in
             var capturedError: (any Error)?
             do {
-                let reader = Network.FulcrumAddressReader(client: client)
+                let reader = NetworkModel.FulcrumAddressReaderModel(client: client)
                 _ = try await reader.fetchUnspentOutputs(for: Self.invalidCashAddress, tokenFilter: .include)
                 Issue.record("Expected fetch to throw for invalid address")
-            } catch let failure as Network.Error {
+            } catch let failure as NetworkModel.Error {
                 #expect(failure.reason == .protocolViolation)
                 if let message = failure.message {
                     #expect(message.contains("Invalid address"))

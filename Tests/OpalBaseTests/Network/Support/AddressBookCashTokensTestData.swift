@@ -2,15 +2,15 @@ import Foundation
 @testable import OpalBase
 
 enum AddressBookCashTokensTestData {
-    static func makeAddressBook() async throws -> Address.Book {
-        let mnemonic = try Mnemonic(words: [
+    static func makeAddressBook() async throws -> AddressModel.BookActor {
+        let mnemonic = try MnemonicModel(words: [
             "abandon", "abandon", "abandon", "abandon", "abandon", "abandon",
             "abandon", "abandon", "abandon", "abandon", "abandon", "about",
         ])
 
-        let rootExtendedPrivateKey = PrivateKey.Extended(rootKey: try .init(seed: mnemonic.seed))
+        let rootExtendedPrivateKey = PrivateKeyModel.ExtendedModel(rootKey: try .init(seed: mnemonic.seed))
 
-        return try await Address.Book(
+        return try await AddressModel.BookActor(
             rootExtendedPrivateKey: rootExtendedPrivateKey,
             purpose: .bip44,
             coinType: .bitcoinCash,

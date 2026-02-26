@@ -2,7 +2,7 @@ import Foundation
 import Testing
 @testable import OpalBase
 
-@Suite("Bitcoin Cash Metadata Registry", .tags(.unit, .cashTokens))
+@Suite("Bitcoin Cash Metadata RegistryModel", .tags(.unit, .cashTokens))
 struct BitcoinCashMetadataRegistryValidator {
     @Test("parses publication output script")
     func parsePublicationOutputScript() throws {
@@ -23,7 +23,7 @@ struct BitcoinCashMetadataRegistryValidator {
     
     @Test("verifies registry hash")
     func verifyRegistryHash() {
-        let registryHash = SHA256.hash(BitcoinCashMetadataRegistryTestData.registryData)
+        let registryHash = SHA256Model.hash(BitcoinCashMetadataRegistryTestData.registryData)
         #expect(registryHash == BitcoinCashMetadataRegistryTestData.registryHash)
     }
     

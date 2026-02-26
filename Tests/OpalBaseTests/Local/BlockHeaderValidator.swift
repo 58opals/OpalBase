@@ -2,7 +2,7 @@ import Foundation
 import Testing
 @testable import OpalBase
 
-@Suite("Block.Header", .tags(.unit, .block))
+@Suite("BlockModel.HeaderModel", .tags(.unit, .block))
 struct BlockHeaderValidator {
     @Test("decode rejects insufficient data")
     func decodeRejectsInsufficientData() {
@@ -10,7 +10,7 @@ struct BlockHeaderValidator {
         let truncatedHeader = Data(validHeader.dropLast())
         
         #expect(throws: Data.Error.indexOutOfRange) {
-            _ = try Block.Header.decode(from: truncatedHeader)
+            _ = try BlockModel.HeaderModel.decode(from: truncatedHeader)
         }
     }
     
@@ -18,7 +18,7 @@ struct BlockHeaderValidator {
     func decodeRoundTripsEncodedHeader() throws {
         let previousBlockHash = Data(repeating: 0x02, count: 32)
         let merkleRoot = Data(repeating: 0x03, count: 32)
-        let header = Block.Header(
+        let header = BlockModel.HeaderModel(
             version: 2,
             previousBlockHash: previousBlockHash,
             merkleRoot: merkleRoot,
@@ -28,7 +28,7 @@ struct BlockHeaderValidator {
         )
         
         let encoded = header.encode()
-        let (decoded, bytesRead) = try Block.Header.decode(from: encoded)
+        let (decoded, bytesRead) = try BlockModel.HeaderModel.decode(from: encoded)
         
         #expect(bytesRead == encoded.count)
         #expect(decoded.version == header.version)
@@ -41,7 +41,7 @@ struct BlockHeaderValidator {
     
     @Test("proof-of-work hash uses little-endian order")
     func proofOfWorkHashUsesLittleEndianOrder() {
-        let header = Block.Header(
+        let header = BlockModel.HeaderModel(
             version: 1,
             previousBlockHash: Data(repeating: 0x11, count: 32),
             merkleRoot: Data(repeating: 0x22, count: 32),
@@ -51,7 +51,7 @@ struct BlockHeaderValidator {
         )
         
         let headerEncoding = header.encode()
-        let expectedHash = HASH256.hash(headerEncoding).reversedData
+        let expectedHash = HASH256Model.hash(headerEncoding).reversedData
         
         #expect(header.proofOfWorkHash == expectedHash)
     }
@@ -60,9 +60,9 @@ struct BlockHeaderValidator {
     func calculateTargetMatchesKnownCompactValue() throws {
         let bits: UInt32 = 0x1d00ffff
         let expectedTargetData = try Data(hexadecimalString: "00000000ffff0000000000000000000000000000000000000000000000000000")
-        let expectedTarget = LargeUnsignedInteger(expectedTargetData)
+        let expectedTarget = LargeUnsignedIntegerModel(expectedTargetData)
         
-        let target = Block.Header.calculateTarget(for: bits)
+        let target = BlockModel.HeaderModel.calculateTarget(for: bits)
         
         #expect(target == expectedTarget)
     }
@@ -73,12 +73,12 @@ struct BlockHeaderValidator {
         "000000003ba3edfd7a7b12b27ac72c3e67768f617fc81bc3888a51323a9fb8aa4b" +
         "1e5e4a29ab5f49ffff001d1dac2b7c"
         let headerData = try Data(hexadecimalString: genesisHeaderHex)
-        let (header, bytesRead) = try Block.Header.decode(from: headerData)
+        let (header, bytesRead) = try BlockModel.HeaderModel.decode(from: headerData)
         
         #expect(bytesRead == headerData.count)
         #expect(header.isProofOfWorkSatisfied)
         
-        let invalidHeader = Block.Header(version: header.version,
+        let invalidHeader = BlockModel.HeaderModel(version: header.version,
                                          previousBlockHash: header.previousBlockHash,
                                          merkleRoot: header.merkleRoot,
                                          time: header.time,

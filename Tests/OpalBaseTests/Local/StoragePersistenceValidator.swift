@@ -2,25 +2,25 @@ import Foundation
 import Testing
 @testable import OpalBase
 
-@Suite("Storage persistence and wallet workflows", .tags(.unit, .wallet))
+@Suite("StorageActor persistence and wallet workflows", .tags(.unit, .wallet))
 struct StoragePersistenceValidator {
     @Test("storage uses canonical keys for wallet artifacts")
     func verifyStorageUsesCanonicalKeys() {
         let accountIdentifier = Data("account-0".utf8)
         let encodedIdentifier = accountIdentifier.base64EncodedString()
 
-        #expect(Storage.Key.walletSnapshot.rawValue == "wallet.snapshot")
-        #expect(Storage.Key.accountSnapshot(accountIdentifier).rawValue == "account.snapshot.\(encodedIdentifier)")
-        #expect(Storage.Key.addressBookSnapshot(accountIdentifier).rawValue == "address-book.snapshot.\(encodedIdentifier)")
-        #expect(Storage.Key.mnemonicCiphertext.rawValue == "mnemonic.enc")
+        #expect(StorageActor.KeyModel.walletSnapshot.rawValue == "wallet.snapshot")
+        #expect(StorageActor.KeyModel.accountSnapshot(accountIdentifier).rawValue == "account.snapshot.\(encodedIdentifier)")
+        #expect(StorageActor.KeyModel.addressBookSnapshot(accountIdentifier).rawValue == "address-book.snapshot.\(encodedIdentifier)")
+        #expect(StorageActor.KeyModel.mnemonicCiphertext.rawValue == "mnemonic.enc")
     }
 
     @Test("mnemonic persistence does not require retaining a wallet instance")
     func persistMnemonicWithoutWalletRetention() async throws {
-        let valueStore = Storage.ValueRepository.makeInMemory()
-        let storage = try Storage(valueStore: valueStore)
+        let valueStore = StorageActor.ValueRepository.makeInMemory()
+        let storage = try StorageActor(valueStore: valueStore)
 
-        let mnemonic = Storage.Mnemonic(
+        let mnemonic = StorageActor.MnemonicModel(
             words: [
                 "abandon", "abandon", "abandon", "abandon", "abandon", "abandon",
                 "abandon", "abandon", "abandon", "abandon", "abandon", "about"
@@ -29,9 +29,9 @@ struct StoragePersistenceValidator {
         )
 
         let protectionMode = try await storage.saveMnemonic(mnemonic, fallbackToPlaintext: true)
-        #expect([Storage.Security.ProtectionMode.plaintext, .software, .secureEnclave].contains(protectionMode))
+        #expect([StorageActor.SecurityModel.ProtectionMode.plaintext, .software, .secureEnclave].contains(protectionMode))
 
-        let restoredStorage = try Storage(valueStore: valueStore)
+        let restoredStorage = try StorageActor(valueStore: valueStore)
         let restored = try await restoredStorage.loadMnemonicState()
 
         #expect(restored?.mnemonic.words == mnemonic.words)

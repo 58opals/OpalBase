@@ -4,15 +4,15 @@ import Testing
 
 @Suite("Elliptic curve digital signatures", .tags(.unit, .cryptography))
 struct EllipticCurveDigitalSignatureValidator {
-    @Test("Distinguished Encoding Rules signatures verify with SwiftSchnorr ECDSA verifier")
+    @Test("Distinguished Encoding Rules signatures verify with SwiftSchnorr ECDSAModel verifier")
     func distinguishedEncodingRulesSignatureVerifiesWithSwiftSchnorr() throws {
-        let privateKey = try PrivateKey()
-        let publicKey = try PublicKey(privateKey: privateKey)
-        let message = Data("OpalBase ECDSA verification".utf8)
+        let privateKey = try PrivateKeyModel()
+        let publicKey = try PublicKeyModel(privateKey: privateKey)
+        let message = Data("OpalBase ECDSAModel verification".utf8)
         
-        let signature = try ECDSA.sign(message: message, with: privateKey, in: .ecdsa(.der))
-        let digest = SHA256.hash(message)
-        let isValid = try Secp256k1.verify(derEncodedSignature: signature,
+        let signature = try ECDSAModel.sign(message: message, with: privateKey, in: .ecdsa(.der))
+        let digest = SHA256Model.hash(message)
+        let isValid = try Secp256k1Model.verify(derEncodedSignature: signature,
                                            digest32: digest,
                                            publicKey: publicKey.compressedData)
         
@@ -21,14 +21,14 @@ struct EllipticCurveDigitalSignatureValidator {
     
     @Test("Distinguished Encoding Rules signatures reject mismatched messages")
     func distinguishedEncodingRulesSignatureRejectsMismatchedMessages() throws {
-        let privateKey = try PrivateKey()
-        let publicKey = try PublicKey(privateKey: privateKey)
-        let message = Data("ECDSA message".utf8)
-        let alteredMessage = Data("ECDSA message (altered)".utf8)
+        let privateKey = try PrivateKeyModel()
+        let publicKey = try PublicKeyModel(privateKey: privateKey)
+        let message = Data("ECDSAModel message".utf8)
+        let alteredMessage = Data("ECDSAModel message (altered)".utf8)
         
-        let signature = try ECDSA.sign(message: message, with: privateKey, in: .ecdsa(.der))
-        let alteredDigest = SHA256.hash(alteredMessage)
-        let isValid = try Secp256k1.verify(derEncodedSignature: signature,
+        let signature = try ECDSAModel.sign(message: message, with: privateKey, in: .ecdsa(.der))
+        let alteredDigest = SHA256Model.hash(alteredMessage)
+        let isValid = try Secp256k1Model.verify(derEncodedSignature: signature,
                                            digest32: alteredDigest,
                                            publicKey: publicKey.compressedData)
         

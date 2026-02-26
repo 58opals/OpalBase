@@ -3,47 +3,47 @@
 import Foundation
 
 public actor TokenMetadataRepository {
-    private var byCategory: [CashTokens.CategoryID: TokenMetadata] = .init()
+    private var byCategory: [CashTokensModel.CategoryIDModel: TokenMetadataModel] = .init()
     
     public init() {}
     
-    public func upsert(_ items: [CashTokens.CategoryID: TokenMetadata]) {
+    public func upsert(_ items: [CashTokensModel.CategoryIDModel: TokenMetadataModel]) {
         for (category, metadata) in items {
             byCategory[category] = makeNormalizedMetadata(metadata, for: category)
         }
     }
     
-    public func fetchMetadata(for category: CashTokens.CategoryID) -> TokenMetadata? {
+    public func fetchMetadata(for category: CashTokensModel.CategoryIDModel) -> TokenMetadataModel? {
         return byCategory[category]
     }
     
-    public func snapshot() -> Snapshot {
-        let snapshotItems = byCategory.reduce(into: [String: TokenMetadata]()) { partial, entry in
+    public func snapshot() -> SnapshotModel {
+        let snapshotItems = byCategory.reduce(into: [String: TokenMetadataModel]()) { partial, entry in
             partial[entry.key.hexForDisplay] = entry.value
         }
-        return Snapshot(byCategory: snapshotItems)
+        return SnapshotModel(byCategory: snapshotItems)
     }
     
-    public func applySnapshot(_ snapshot: Snapshot) {
+    public func applySnapshot(_ snapshot: SnapshotModel) {
         byCategory.removeAll(keepingCapacity: true)
         for (hexadecimalString, metadata) in snapshot.byCategory {
-            guard let category = try? CashTokens.CategoryID(hexFromRPC: hexadecimalString) else { continue }
+            guard let category = try? CashTokensModel.CategoryIDModel(hexFromRPC: hexadecimalString) else { continue }
             byCategory[category] = makeNormalizedMetadata(metadata, for: category)
         }
     }
     
-    public struct Snapshot: Codable, Sendable {
-        public let byCategory: [String: TokenMetadata]
+    public struct SnapshotModel: Codable, Sendable {
+        public let byCategory: [String: TokenMetadataModel]
         
-        public init(byCategory: [String: TokenMetadata]) {
+        public init(byCategory: [String: TokenMetadataModel]) {
             self.byCategory = byCategory
         }
     }
     
-    private func makeNormalizedMetadata(_ metadata: TokenMetadata,
-                                        for category: CashTokens.CategoryID) -> TokenMetadata {
+    private func makeNormalizedMetadata(_ metadata: TokenMetadataModel,
+                                        for category: CashTokensModel.CategoryIDModel) -> TokenMetadataModel {
         guard metadata.category != category else { return metadata }
-        return TokenMetadata(category: category,
+        return TokenMetadataModel(category: category,
                              name: metadata.name,
                              symbol: metadata.symbol,
                              decimals: metadata.decimals,

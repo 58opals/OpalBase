@@ -7,7 +7,7 @@ struct TokenMetadataRepositorySnapshotValidator {
     @Test("roundtrips store snapshots with metadata")
     func roundtripStoreSnapshotsWithMetadata() async throws {
         let store = TokenMetadataRepository()
-        let metadata = TokenMetadata(
+        let metadata = TokenMetadataModel(
             category: BitcoinCashMetadataRegistryTestData.categoryIdentifier,
             name: "Example Token",
             symbol: "EXAMPLE",
@@ -21,7 +21,7 @@ struct TokenMetadataRepositorySnapshotValidator {
         let snapshot = await store.snapshot()
         
         let encodedSnapshot = try JSONEncoder().encode(snapshot)
-        let decodedSnapshot = try JSONDecoder().decode(TokenMetadataRepository.Snapshot.self, from: encodedSnapshot)
+        let decodedSnapshot = try JSONDecoder().decode(TokenMetadataRepository.SnapshotModel.self, from: encodedSnapshot)
         
         let restoredStore = TokenMetadataRepository()
         await restoredStore.applySnapshot(decodedSnapshot)

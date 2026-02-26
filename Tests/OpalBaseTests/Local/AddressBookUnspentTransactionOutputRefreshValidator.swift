@@ -2,7 +2,7 @@ import Foundation
 import Testing
 @testable import OpalBase
 
-@Suite("Address Book UTXO Refresh", .tags(.unit, .address, .cashTokens))
+@Suite("AddressModel BookActor UTXOModel Refresh", .tags(.unit, .address, .cashTokens))
 struct AddressBookUnspentTransactionOutputRefreshValidator {
     @Test("refresh stores token data from unspent outputs (explicit usage)")
     func refreshStoresTokenDataFromUnspentOutputs() async throws {
@@ -10,11 +10,11 @@ struct AddressBookUnspentTransactionOutputRefreshValidator {
         let entry = try await book.selectNextEntry(for: .receiving)
 
         let tokenData = try AddressBookCashTokensTestData.makeTokenData()
-        let utxo = Transaction.Output.Unspent(
+        let utxo = TransactionModel.OutputModel.UnspentModel(
             value: 12_345,
             lockingScript: entry.address.lockingScript.data,
             tokenData: tokenData,
-            previousTransactionHash: Transaction.Hash(
+            previousTransactionHash: TransactionModel.HashModel(
                 naturalOrder: Data(repeating: 0x11, count: 32)
             ),
             previousTransactionOutputIndex: 1
@@ -39,11 +39,11 @@ struct AddressBookUnspentTransactionOutputRefreshValidator {
         let entry = try await book.selectNextEntry(for: .receiving)
 
         let tokenData = try AddressBookCashTokensTestData.makeTokenData()
-        let utxo = Transaction.Output.Unspent(
+        let utxo = TransactionModel.OutputModel.UnspentModel(
             value: 7_000,
             lockingScript: entry.address.lockingScript.data,
             tokenData: tokenData,
-            previousTransactionHash: Transaction.Hash(
+            previousTransactionHash: TransactionModel.HashModel(
                 naturalOrder: Data(repeating: 0x33, count: 32)
             ),
             previousTransactionOutputIndex: 0

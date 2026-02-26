@@ -2,23 +2,23 @@ import Foundation
 import Testing
 @testable import OpalBase
 
-@Suite("Wallet.FulcrumAddress", .tags(.unit, .wallet))
+@Suite("WalletActor.FulcrumAddressActor", .tags(.unit, .wallet))
 struct WalletFulcrumAddressValidator {
     @Test("refreshBalances forwards usage and includeUnconfirmed flags")
     func refreshBalancesForwardsUsageAndIncludeUnconfirmed() async throws {
-        let account = try await AccountTestFixtures.makeAccount()
+        let account = try await AccountTestFixturesModel.makeAccount()
         let targetEntry = try await account.selectNextEntry(for: .receiving)
 
-        let addressReader = WalletAddressReaderStub(
+        let addressReader = WalletAddressReaderTestActor(
             balancesByAddress: [
                 targetEntry.address.string: .init(confirmed: 1_200, unconfirmed: 300)
             ],
             historyByAddress: [
-                targetEntry.address.string: [AccountTestFixtures.makeHistoryEntry(hashByte: 0x10)]
+                targetEntry.address.string: [AccountTestFixturesModel.makeHistoryEntry(hashByte: 0x10)]
             ]
         )
-        let confirmationClient = TransactionConfirmationClientStub()
-        let fulcrum = Wallet.FulcrumAddress(
+        let confirmationClient = TransactionConfirmationClientTestActor()
+        let fulcrum = WalletActor.FulcrumAddressActor(
             addressReader: addressReader,
             transactionHandler: confirmationClient
         )
@@ -30,7 +30,7 @@ struct WalletFulcrumAddressValidator {
         )
 
         #expect(Set(refresh.balancesByUsage.keys) == Set([.receiving]))
-        let expectedTotal = try Satoshi(1_500)
+        let expectedTotal = try SatoshiModel(1_500)
         #expect(refresh.total == expectedTotal)
 
         let historyRequests = await addressReader.readHistoryRequests()
@@ -45,20 +45,20 @@ struct WalletFulcrumAddressValidator {
 
     @Test("refreshTransactionHistory forwards includeUnconfirmed and usage")
     func refreshTransactionHistoryForwardsFlags() async throws {
-        let account = try await AccountTestFixtures.makeAccount()
+        let account = try await AccountTestFixturesModel.makeAccount()
         let targetEntry = try await account.selectNextEntry(for: .receiving)
-        let hash = AccountTestFixtures.makeHash(byte: 0x21)
-        let historyEntry = Network.TransactionHistoryEntry(
+        let hash = AccountTestFixturesModel.makeHash(byte: 0x21)
+        let historyEntry = NetworkModel.TransactionHistoryEntryModel(
             transactionIdentifier: hash.reverseOrder.hexadecimalString,
             blockHeight: 7,
             fee: 120
         )
 
-        let addressReader = WalletAddressReaderStub(
+        let addressReader = WalletAddressReaderTestActor(
             historyByAddress: [targetEntry.address.string: [historyEntry]]
         )
-        let confirmationClient = TransactionConfirmationClientStub()
-        let fulcrum = Wallet.FulcrumAddress(
+        let confirmationClient = TransactionConfirmationClientTestActor()
+        let fulcrum = WalletActor.FulcrumAddressActor(
             addressReader: addressReader,
             transactionHandler: confirmationClient
         )
@@ -80,24 +80,24 @@ struct WalletFulcrumAddressValidator {
 
     @Test("updateTransactionConfirmations forwards explicit hashes")
     func updateTransactionConfirmationsForwardsHashes() async throws {
-        let account = try await AccountTestFixtures.makeAccount()
+        let account = try await AccountTestFixturesModel.makeAccount()
         let targetEntry = try await account.selectNextEntry(for: .receiving)
-        let hash = AccountTestFixtures.makeHash(byte: 0x31)
-        let historyEntry = Network.TransactionHistoryEntry(
+        let hash = AccountTestFixturesModel.makeHash(byte: 0x31)
+        let historyEntry = NetworkModel.TransactionHistoryEntryModel(
             transactionIdentifier: hash.reverseOrder.hexadecimalString,
             blockHeight: 5,
             fee: nil
         )
 
-        let addressReader = WalletAddressReaderStub(
+        let addressReader = WalletAddressReaderTestActor(
             historyByAddress: [targetEntry.address.string: [historyEntry]]
         )
-        let confirmationClient = TransactionConfirmationClientStub(
+        let confirmationClient = TransactionConfirmationClientTestActor(
             statusesByHash: [
                 hash: .init(transactionHash: hash, transactionHeight: 10, tipHeight: 20, confirmations: 11)
             ]
         )
-        let fulcrum = Wallet.FulcrumAddress(
+        let fulcrum = WalletActor.FulcrumAddressActor(
             addressReader: addressReader,
             transactionHandler: confirmationClient
         )
@@ -112,25 +112,25 @@ struct WalletFulcrumAddressValidator {
 
     @Test("refreshTransactionConfirmations updates all tracked transactions")
     func refreshTransactionConfirmationsUsesKnownHistory() async throws {
-        let account = try await AccountTestFixtures.makeAccount()
+        let account = try await AccountTestFixturesModel.makeAccount()
         let firstEntry = try await account.reserveNextReceivingEntry()
         let secondEntry = try await account.reserveNextReceivingEntry()
-        let hashA = AccountTestFixtures.makeHash(byte: 0x41)
-        let hashB = AccountTestFixtures.makeHash(byte: 0x42)
+        let hashA = AccountTestFixturesModel.makeHash(byte: 0x41)
+        let hashB = AccountTestFixturesModel.makeHash(byte: 0x42)
 
-        let addressReader = WalletAddressReaderStub(
+        let addressReader = WalletAddressReaderTestActor(
             historyByAddress: [
                 firstEntry.address.string: [.init(transactionIdentifier: hashA.reverseOrder.hexadecimalString, blockHeight: 3, fee: nil)],
                 secondEntry.address.string: [.init(transactionIdentifier: hashB.reverseOrder.hexadecimalString, blockHeight: 4, fee: nil)]
             ]
         )
-        let confirmationClient = TransactionConfirmationClientStub(
+        let confirmationClient = TransactionConfirmationClientTestActor(
             statusesByHash: [
                 hashA: .init(transactionHash: hashA, transactionHeight: 8, tipHeight: 20, confirmations: 13),
                 hashB: .init(transactionHash: hashB, transactionHeight: 9, tipHeight: 20, confirmations: 12)
             ]
         )
-        let fulcrum = Wallet.FulcrumAddress(
+        let fulcrum = WalletActor.FulcrumAddressActor(
             addressReader: addressReader,
             transactionHandler: confirmationClient
         )

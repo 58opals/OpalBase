@@ -30,9 +30,9 @@ enum BitcoinCashMetadataRegistryTestData {
         return script
     }
     
-    static var categoryIdentifier: CashTokens.CategoryID {
+    static var categoryIdentifier: CashTokensModel.CategoryIDModel {
         do {
-            return try CashTokens.CategoryID(hexFromRPC: categoryHexadecimal)
+            return try CashTokensModel.CategoryIDModel(hexFromRPC: categoryHexadecimal)
         } catch {
             fatalError("Expected valid category identifier: \(error)")
         }

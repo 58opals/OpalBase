@@ -2,12 +2,12 @@ import Foundation
 import Testing
 @testable import OpalBase
 
-@Suite("PrivateKey.WalletImportFormat", .tags(.unit))
+@Suite("PrivateKeyModel.WalletImportFormat", .tags(.unit))
 struct PrivateKeyWalletImportFormatValidator {
     @Test("wallet import format encodes compressed private key")
     func encodeCompressedWalletImportFormat() throws {
         let privateKeyData = Data(repeating: 0x00, count: 31) + Data([0x01])
-        let privateKey = try PrivateKey(data: privateKeyData)
+        let privateKey = try PrivateKeyModel(data: privateKeyData)
         let expectedCompressedWalletImportFormat = "KwDiBf89QgGbjEhKnhXJuH7LrciVrZi3qYjgd9M7rFU73sVHnoWn"
         
         #expect(
@@ -18,7 +18,7 @@ struct PrivateKeyWalletImportFormatValidator {
     @Test("wallet import format encodes uncompressed private key")
     func encodeUncompressedWalletImportFormat() throws {
         let privateKeyData = Data(repeating: 0x00, count: 31) + Data([0x01])
-        let privateKey = try PrivateKey(data: privateKeyData)
+        let privateKey = try PrivateKeyModel(data: privateKeyData)
         let expectedCompressedWalletImportFormat = "5HpHagT65TZzG1PH3CSu63k8DbpvD8s5ip4nEB3kEsreAnchuDf"
         
         #expect(
@@ -31,7 +31,7 @@ struct PrivateKeyWalletImportFormatValidator {
         let expectedCompressedWalletImportFormat = "KwDiBf89QgGbjEhKnhXJuH7LrciVrZi3qYjgd9M7rFU73sVHnoWn"
         let privateKeyData = Data(repeating: 0x00, count: 31) + Data([0x01])
         
-        let decodedPrivateKey = try PrivateKey(
+        let decodedPrivateKey = try PrivateKeyModel(
             wif: expectedCompressedWalletImportFormat,
             expectedCompression: .compressed
         )

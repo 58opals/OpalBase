@@ -3,7 +3,7 @@ import Testing
 import SwiftFulcrum
 @testable import OpalBase
 
-@Suite("Network.FulcrumAddressReader", .tags(.network))
+@Suite("NetworkModel.FulcrumAddressReaderModel", .tags(.network))
 struct NetworkFulcrumAddressReaderValidator {
     static let primaryServerAddress = URL(string: "wss://bch.imaginary.cash:50004")!
     static let backupServerAddress = URL(string: "wss://bch.loping.net:50002")!
@@ -16,9 +16,9 @@ struct NetworkFulcrumAddressReaderValidator {
     @Test("fetches balance consistent with RPC response", .timeLimit(.minutes(1)))
     func fetchBalanceReflectsServerState() async throws {
         guard NetworkTestClient.isExtendedLiveNetworkEnabled else { return }
-        let configuration = Network.Configuration(serverURLs: [Self.primaryServerAddress, Self.backupServerAddress])
+        let configuration = NetworkModel.Configuration(serverURLs: [Self.primaryServerAddress, Self.backupServerAddress])
         try await NetworkTestClient.withClient(configuration: configuration) { client in
-            let reader = Network.FulcrumAddressReader(client: client)
+            let reader = NetworkModel.FulcrumAddressReaderModel(client: client)
             let balance = try await reader.fetchBalance(for: Self.sampleCashAddress, tokenFilter: .include)
             #expect(balance.confirmed >= 0)
 
@@ -34,7 +34,7 @@ struct NetworkFulcrumAddressReaderValidator {
     @Test("fetches balances and history from a live fulcrum server", .timeLimit(.minutes(1)))
     func fetchBalanceAndHistoryFromLiveServer() async throws {
         guard NetworkTestClient.isExtendedLiveNetworkEnabled else { return }
-        let configuration = Network.Configuration(
+        let configuration = NetworkModel.Configuration(
             serverURLs: [Self.primaryServerAddress, Self.backupServerAddress],
             connectionTimeout: .seconds(12),
             maximumMessageSize: 16 * 1_024 * 1_024,
@@ -47,7 +47,7 @@ struct NetworkFulcrumAddressReaderValidator {
         )
 
         try await NetworkTestClient.withClient(configuration: configuration) { client in
-            let reader = Network.FulcrumAddressReader(client: client)
+            let reader = NetworkModel.FulcrumAddressReaderModel(client: client)
             let balance = try await reader.fetchBalance(for: Self.sampleCashAddress, tokenFilter: .include)
             #expect(balance.confirmed >= 0)
             #expect(balance.unconfirmed >= 0)
@@ -73,10 +73,10 @@ struct NetworkFulcrumAddressReaderValidator {
     @Test("lists spendable outputs with expected locking script", .timeLimit(.minutes(1)))
     func fetchUnspentOutputsProducesSpendableEntries() async throws {
         guard NetworkTestClient.isExtendedLiveNetworkEnabled else { return }
-        let configuration = Network.Configuration(serverURLs: [Self.primaryServerAddress, Self.backupServerAddress])
+        let configuration = NetworkModel.Configuration(serverURLs: [Self.primaryServerAddress, Self.backupServerAddress])
         try await NetworkTestClient.withClient(configuration: configuration) { client in
-            let reader = Network.FulcrumAddressReader(client: client)
-            let expectedLockingScript = try Address(Self.sampleCashAddress).lockingScript.data
+            let reader = NetworkModel.FulcrumAddressReaderModel(client: client)
+            let expectedLockingScript = try AddressModel(Self.sampleCashAddress).lockingScript.data
 
             let unspentOutputs = try await reader.fetchUnspentOutputs(for: Self.sampleCashAddress, tokenFilter: .include)
             #expect(!unspentOutputs.isEmpty)
@@ -92,9 +92,9 @@ struct NetworkFulcrumAddressReaderValidator {
     @Test("retrieves history and respects unconfirmed flag", .timeLimit(.minutes(1)))
     func fetchHistoryDifferentiatesUnconfirmedEntries() async throws {
         guard NetworkTestClient.isExtendedLiveNetworkEnabled else { return }
-        let configuration = Network.Configuration(serverURLs: [Self.primaryServerAddress, Self.backupServerAddress])
+        let configuration = NetworkModel.Configuration(serverURLs: [Self.primaryServerAddress, Self.backupServerAddress])
         try await NetworkTestClient.withClient(configuration: configuration) { client in
-            let reader = Network.FulcrumAddressReader(client: client)
+            let reader = NetworkModel.FulcrumAddressReaderModel(client: client)
             let confirmedHistory = try await reader.fetchHistory(for: Self.sampleCashAddress, includeUnconfirmed: false)
             let inclusiveHistory = try await reader.fetchHistory(for: Self.sampleCashAddress, includeUnconfirmed: true)
 
@@ -111,7 +111,7 @@ struct NetworkFulcrumAddressReaderValidator {
     @Test("converts unspent outputs from the live server into wallet friendly structures", .timeLimit(.minutes(1)))
     func fetchUnspentOutputsMatchesServerData() async throws {
         guard NetworkTestClient.isExtendedLiveNetworkEnabled else { return }
-        let configuration = Network.Configuration(
+        let configuration = NetworkModel.Configuration(
             serverURLs: [Self.primaryServerAddress, Self.backupServerAddress],
             connectionTimeout: .seconds(12),
             maximumMessageSize: 16 * 1_024 * 1_024,
@@ -124,7 +124,7 @@ struct NetworkFulcrumAddressReaderValidator {
         )
 
         try await NetworkTestClient.withClient(configuration: configuration) { client in
-            let reader = Network.FulcrumAddressReader(client: client)
+            let reader = NetworkModel.FulcrumAddressReaderModel(client: client)
             let rawUnspent: SwiftFulcrum.FulcrumResponse.ResultModel.BlockchainModel.AddressModel.ListUnspentModel = try await client.request(
                 method: .blockchain(
                     .address(
@@ -137,7 +137,7 @@ struct NetworkFulcrumAddressReaderValidator {
             let walletUnspent = try await reader.fetchUnspentOutputs(for: Self.sampleCashAddress, tokenFilter: .include)
             #expect(walletUnspent.count == rawUnspent.items.count)
 
-            let expectedLockingScript = try Address(Self.sampleCashAddress).lockingScript.data
+            let expectedLockingScript = try AddressModel(Self.sampleCashAddress).lockingScript.data
             let itemsByIdentifier = rawUnspent.items.reduce(into: [String: SwiftFulcrum.FulcrumResponse.ResultModel.BlockchainModel.AddressModel.ListUnspentModel.ItemModel]()) { result, item in
                 let key = "\(item.transactionHash):\(item.transactionPosition)"
                 result[key] = item

@@ -5,17 +5,17 @@ import Testing
 extension StoragePersistenceValidator {
     @Test("restore tolerates missing account/address book snapshots while still restoring wallet snapshot")
     func tolerateMissingAccountSnapshotsDuringRestore() async throws {
-        let valueStore = Storage.ValueRepository.makeInMemory()
-        let storage = try Storage(valueStore: valueStore)
+        let valueStore = StorageActor.ValueRepository.makeInMemory()
+        let storage = try StorageActor(valueStore: valueStore)
 
-        let mnemonic = try Mnemonic(
+        let mnemonic = try MnemonicModel(
             words: [
                 "abandon", "abandon", "abandon", "abandon", "abandon", "abandon",
                 "abandon", "abandon", "abandon", "abandon", "abandon", "about"
             ],
             passphrase: "passphrase"
         )
-        let wallet = Wallet(mnemonic: mnemonic)
+        let wallet = WalletActor(mnemonic: mnemonic)
         try await wallet.addAccount(unhardenedIndex: 0)
 
         let account = try await wallet.fetchAccount(at: 0)
@@ -26,7 +26,7 @@ extension StoragePersistenceValidator {
         try await storage.removeValue(for: .accountSnapshot(accountIdentifier))
         try await storage.removeValue(for: .addressBookSnapshot(accountIdentifier))
 
-        let session = Storage.PersistenceSession(storage: storage)
+        let session = StorageActor.PersistenceSessionModel(storage: storage)
         let restored = try await session.restore(accountIdentifiers: [accountIdentifier])
 
         #expect(restored.walletSnapshot != nil)
@@ -37,17 +37,17 @@ extension StoragePersistenceValidator {
 
     @Test("restore tolerates missing mnemonic ciphertext (e.g., keychain cleared) while still restoring snapshots")
     func tolerateMissingMnemonicCiphertextDuringRestore() async throws {
-        let valueStore = Storage.ValueRepository.makeInMemory()
-        let storage = try Storage(valueStore: valueStore)
+        let valueStore = StorageActor.ValueRepository.makeInMemory()
+        let storage = try StorageActor(valueStore: valueStore)
 
-        let mnemonic = try Mnemonic(
+        let mnemonic = try MnemonicModel(
             words: [
                 "abandon", "abandon", "abandon", "abandon", "abandon", "abandon",
                 "abandon", "abandon", "abandon", "abandon", "abandon", "about"
             ],
             passphrase: "passphrase"
         )
-        let wallet = Wallet(mnemonic: mnemonic)
+        let wallet = WalletActor(mnemonic: mnemonic)
         try await wallet.addAccount(unhardenedIndex: 0)
 
         let account = try await wallet.fetchAccount(at: 0)
@@ -57,7 +57,7 @@ extension StoragePersistenceValidator {
 
         try await storage.removeValue(for: .mnemonicCiphertext)
 
-        let session = Storage.PersistenceSession(storage: storage)
+        let session = StorageActor.PersistenceSessionModel(storage: storage)
         let restored = try await session.restore(accountIdentifiers: [accountIdentifier])
 
         #expect(restored.walletSnapshot != nil)
@@ -69,17 +69,17 @@ extension StoragePersistenceValidator {
 
     @Test("wipeAll removes persisted wallet artifacts")
     func removePersistedArtifactsWithWipeAll() async throws {
-        let valueStore = Storage.ValueRepository.makeInMemory()
-        let storage = try Storage(valueStore: valueStore)
+        let valueStore = StorageActor.ValueRepository.makeInMemory()
+        let storage = try StorageActor(valueStore: valueStore)
 
-        let mnemonic = try Mnemonic(
+        let mnemonic = try MnemonicModel(
             words: [
                 "abandon", "abandon", "abandon", "abandon", "abandon", "abandon",
                 "abandon", "abandon", "abandon", "abandon", "abandon", "about"
             ],
             passphrase: "wipe-passphrase"
         )
-        let wallet = Wallet(mnemonic: mnemonic)
+        let wallet = WalletActor(mnemonic: mnemonic)
         try await wallet.addAccount(unhardenedIndex: 0)
 
         let account = try await wallet.fetchAccount(at: 0)
@@ -88,7 +88,7 @@ extension StoragePersistenceValidator {
         _ = try await storage.persistState(for: wallet)
         try await storage.wipeAll()
 
-        let session = Storage.PersistenceSession(storage: storage)
+        let session = StorageActor.PersistenceSessionModel(storage: storage)
         let restored = try await session.restore(accountIdentifiers: [accountIdentifier])
 
         #expect(restored.walletSnapshot == nil)

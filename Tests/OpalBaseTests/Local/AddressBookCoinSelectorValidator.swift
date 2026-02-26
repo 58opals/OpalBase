@@ -2,34 +2,34 @@ import Foundation
 import Testing
 @testable import OpalBase
 
-@Suite("Address Book Coin Selector", .tags(.unit, .address))
+@Suite("AddressModel BookActor Coin Selector", .tags(.unit, .address))
 struct AddressBookCoinSelectorValidator {
     @Test("select greedy throws when summing unspent outputs overflows UInt64")
     func selectGreedyDetectsOverflow1() {
-        let previousTransactionHash = Transaction.Hash(naturalOrder: Data(repeating: 0, count: 32))
+        let previousTransactionHash = TransactionModel.HashModel(naturalOrder: Data(repeating: 0, count: 32))
         let lockingScript = Data([0x51])
 
-        let firstUnspent = Transaction.Output.Unspent(
+        let firstUnspent = TransactionModel.OutputModel.UnspentModel(
             value: UInt64.max &- 1,
             lockingScript: lockingScript,
             previousTransactionHash: previousTransactionHash,
             previousTransactionOutputIndex: 0
         )
 
-        let secondUnspent = Transaction.Output.Unspent(
+        let secondUnspent = TransactionModel.OutputModel.UnspentModel(
             value: 10,
             lockingScript: lockingScript,
             previousTransactionHash: previousTransactionHash,
             previousTransactionOutputIndex: 1
         )
 
-        let configuration = Address.Book.CoinSelection.Configuration(
+        let configuration = AddressModel.BookActor.CoinSelectionModel.Configuration(
             recipientOutputs: .init(),
             outputsWithChange: .init(),
             strategy: .greedyLargestFirst
         )
 
-        let selector = Address.Book.CoinSelector(
+        let selector = AddressModel.BookActor.CoinSelectorModel(
             utxos: [firstUnspent, secondUnspent],
             configuration: configuration,
             targetAmount: UInt64.max,
@@ -37,7 +37,7 @@ struct AddressBookCoinSelectorValidator {
             minimumRelayFeeRate: 0
         )
 
-        #expect(throws: Address.Book.Error.paymentExceedsMaximumAmount) {
+        #expect(throws: AddressModel.BookActor.Error.paymentExceedsMaximumAmount) {
             _ = try selector.select()
         }
     }
@@ -45,23 +45,23 @@ struct AddressBookCoinSelectorValidator {
     @Test("select throws when the accumulated value exceeds the maximum amount")
     func selectGreedyDetectsOverflow2() throws {
         let lockingScript = Data(repeating: 0, count: 25)
-        let placeholderHash = Transaction.Hash(naturalOrder: Data(repeating: 0, count: 32))
+        let placeholderHash = TransactionModel.HashModel(naturalOrder: Data(repeating: 0, count: 32))
 
-        let nearMaximumUnspent = Transaction.Output.Unspent(
+        let nearMaximumUnspent = TransactionModel.OutputModel.UnspentModel(
             value: UInt64.max - 1,
             lockingScript: lockingScript,
             previousTransactionHash: placeholderHash,
             previousTransactionOutputIndex: 0
         )
 
-        let smallUnspent = Transaction.Output.Unspent(
+        let smallUnspent = TransactionModel.OutputModel.UnspentModel(
             value: 2,
             lockingScript: lockingScript,
             previousTransactionHash: placeholderHash,
             previousTransactionOutputIndex: 1
         )
 
-        let selector = Address.Book.CoinSelector(
+        let selector = AddressModel.BookActor.CoinSelectorModel(
             utxos: [nearMaximumUnspent, smallUnspent],
             configuration: .makeTemplateConfiguration(strategy: .greedyLargestFirst),
             targetAmount: UInt64.max,
@@ -69,29 +69,29 @@ struct AddressBookCoinSelectorValidator {
             minimumRelayFeeRate: 0
         )
 
-        #expect(throws: Address.Book.Error.paymentExceedsMaximumAmount) {
+        #expect(throws: AddressModel.BookActor.Error.paymentExceedsMaximumAmount) {
             _ = try selector.select()
         }
     }
 
     @Test("select throws when utxo accumulation overflows UInt64")
     func selectGreedyThrowsOnOverflow() async throws {
-        let previousTransactionHash = Transaction.Hash(naturalOrder: Data(repeating: 0, count: 32))
-        let utxoWithMaximumValue = Transaction.Output.Unspent(
+        let previousTransactionHash = TransactionModel.HashModel(naturalOrder: Data(repeating: 0, count: 32))
+        let utxoWithMaximumValue = TransactionModel.OutputModel.UnspentModel(
             value: UInt64.max - 1,
             lockingScript: Data(),
             previousTransactionHash: previousTransactionHash,
             previousTransactionOutputIndex: 0
         )
-        let utxoTriggeringOverflow = Transaction.Output.Unspent(
+        let utxoTriggeringOverflow = TransactionModel.OutputModel.UnspentModel(
             value: 10,
             lockingScript: Data(),
             previousTransactionHash: previousTransactionHash,
             previousTransactionOutputIndex: 1
         )
 
-        let configuration = Address.Book.CoinSelection.Configuration.makeTemplateConfiguration(strategy: .greedyLargestFirst)
-        let coinSelector = Address.Book.CoinSelector(
+        let configuration = AddressModel.BookActor.CoinSelectionModel.Configuration.makeTemplateConfiguration(strategy: .greedyLargestFirst)
+        let coinSelector = AddressModel.BookActor.CoinSelectorModel(
             utxos: [utxoWithMaximumValue, utxoTriggeringOverflow],
             configuration: configuration,
             targetAmount: UInt64.max,
@@ -99,7 +99,7 @@ struct AddressBookCoinSelectorValidator {
             minimumRelayFeeRate: 0
         )
 
-        #expect(throws: Address.Book.Error.paymentExceedsMaximumAmount) {
+        #expect(throws: AddressModel.BookActor.Error.paymentExceedsMaximumAmount) {
             _ = try coinSelector.select()
         }
     }

@@ -3,7 +3,7 @@ import Testing
 import SwiftFulcrum
 @testable import OpalBase
 
-@Suite("Network.FulcrumTransactionClientReader", .tags(.network))
+@Suite("NetworkModel.FulcrumTransactionClientReader", .tags(.network))
 struct NetworkFulcrumTransactionClientReaderValidator {
     private static let primaryServerAddress = URL(string: "wss://bch.imaginary.cash:50004")!
     private static let backupServerAddress = URL(string: "wss://bch.loping.net:50002")!
@@ -17,9 +17,9 @@ struct NetworkFulcrumTransactionClientReaderValidator {
     @Test("fetches confirmation count consistent with live tip", .timeLimit(.minutes(1)))
     func fetchConfirmationsMatchesTipHeight() async throws {
         guard NetworkTestClient.isExtendedLiveNetworkEnabled else { return }
-        let configuration = Network.Configuration(serverURLs: [Self.primaryServerAddress, Self.backupServerAddress])
+        let configuration = NetworkModel.Configuration(serverURLs: [Self.primaryServerAddress, Self.backupServerAddress])
         try await NetworkTestClient.withClient(configuration: configuration) { client in
-            let handler = Network.FulcrumTransactionClient(client: client)
+            let handler = NetworkModel.FulcrumTransactionClient(client: client)
             let history: SwiftFulcrum.FulcrumResponse.ResultModel.BlockchainModel.AddressModel.GetHistoryModel = try await client.request(
                 method: .blockchain(
                     .address(
@@ -48,7 +48,7 @@ struct NetworkFulcrumTransactionClientReaderValidator {
                 forTransactionIdentifier: confirmedEntry.transactionHash
             )
 
-            let expectedConfirmations = Network.FulcrumTransactionClient.calculateConfirmationCount(
+            let expectedConfirmations = NetworkModel.FulcrumTransactionClient.calculateConfirmationCount(
                 transactionHeight: UInt(confirmedEntry.height),
                 tipHeight: tip.height
             )
@@ -61,10 +61,10 @@ struct NetworkFulcrumTransactionClientReaderValidator {
     @Test("fetches confirmations matching direct height queries", .timeLimit(.minutes(1)))
     func fetchConfirmationsMatchesServerHeights() async throws {
         guard NetworkTestClient.isExtendedLiveNetworkEnabled else { return }
-        let configuration = Network.Configuration(serverURLs: [Self.primaryServerAddress, Self.backupServerAddress])
+        let configuration = NetworkModel.Configuration(serverURLs: [Self.primaryServerAddress, Self.backupServerAddress])
         try await NetworkTestClient.withClient(configuration: configuration) { client in
-            let handler = Network.FulcrumTransactionClient(client: client)
-            let addressReader = Network.FulcrumAddressReader(client: client)
+            let handler = NetworkModel.FulcrumTransactionClient(client: client)
+            let addressReader = NetworkModel.FulcrumAddressReaderModel(client: client)
             let confirmedHistory = try await addressReader.fetchHistory(for: Self.sampleCashAddress, includeUnconfirmed: false)
             let confirmedEntry = try #require(confirmedHistory.first(where: { $0.blockHeight > 0 }))
 
@@ -79,7 +79,7 @@ struct NetworkFulcrumTransactionClientReaderValidator {
                 responseType: SwiftFulcrum.FulcrumResponse.ResultModel.BlockchainModel.HeadersModel.GetTipModel.self
             )
 
-            let expectedConfirmations = Network.FulcrumTransactionClient.calculateConfirmationCount(
+            let expectedConfirmations = NetworkModel.FulcrumTransactionClient.calculateConfirmationCount(
                 transactionHeight: transactionHeight.height,
                 tipHeight: tipHeight.height
             )
@@ -94,9 +94,9 @@ struct NetworkFulcrumTransactionClientReaderValidator {
     @Test("propagates server errors for unknown transactions", .timeLimit(.minutes(1)))
     func fetchConfirmationsPropagatesServerErrors() async throws {
         guard NetworkTestClient.isExtendedLiveNetworkEnabled else { return }
-        let configuration = Network.Configuration(serverURLs: [Self.primaryServerAddress, Self.backupServerAddress])
+        let configuration = NetworkModel.Configuration(serverURLs: [Self.primaryServerAddress, Self.backupServerAddress])
         try await NetworkTestClient.withClient(configuration: configuration) { client in
-            let handler = Network.FulcrumTransactionClient(client: client)
+            let handler = NetworkModel.FulcrumTransactionClient(client: client)
             var thrownError: Error?
             do {
                 _ = try await handler.fetchConfirmations(forTransactionIdentifier: Self.unknownTransactionIdentifier)
@@ -104,7 +104,7 @@ struct NetworkFulcrumTransactionClientReaderValidator {
                 thrownError = error
             }
 
-            let failure = try #require(thrownError as? Network.Error)
+            let failure = try #require(thrownError as? NetworkModel.Error)
             switch failure.reason {
             case .server:
                 #expect(true)
@@ -118,9 +118,9 @@ struct NetworkFulcrumTransactionClientReaderValidator {
     @Test("rejects invalid raw transactions", .timeLimit(.minutes(1)))
     func broadcastTransactionRejectsInvalidPayload() async throws {
         guard NetworkTestClient.isExtendedLiveNetworkEnabled else { return }
-        let configuration = Network.Configuration(serverURLs: [Self.primaryServerAddress, Self.backupServerAddress])
+        let configuration = NetworkModel.Configuration(serverURLs: [Self.primaryServerAddress, Self.backupServerAddress])
         try await NetworkTestClient.withClient(configuration: configuration) { client in
-            let handler = Network.FulcrumTransactionClient(client: client)
+            let handler = NetworkModel.FulcrumTransactionClient(client: client)
             var thrownError: Error?
             do {
                 _ = try await handler.broadcastTransaction(rawTransactionHexadecimal: Self.invalidRawTransaction)
@@ -128,7 +128,7 @@ struct NetworkFulcrumTransactionClientReaderValidator {
                 thrownError = error
             }
 
-            let failure = try #require(thrownError as? Network.Error)
+            let failure = try #require(thrownError as? NetworkModel.Error)
             switch failure.reason {
             case .server, .protocolViolation:
                 #expect(true)
@@ -142,13 +142,13 @@ struct NetworkFulcrumTransactionClientReaderValidator {
     @Test("rejects malformed transaction broadcast", .timeLimit(.minutes(1)))
     func broadcastTransactionTranslatesServerError() async throws {
         guard NetworkTestClient.isExtendedLiveNetworkEnabled else { return }
-        let configuration = Network.Configuration(serverURLs: [Self.primaryServerAddress, Self.backupServerAddress])
+        let configuration = NetworkModel.Configuration(serverURLs: [Self.primaryServerAddress, Self.backupServerAddress])
         try await NetworkTestClient.withClient(configuration: configuration) { client in
-            let handler = Network.FulcrumTransactionClient(client: client)
+            let handler = NetworkModel.FulcrumTransactionClient(client: client)
             do {
                 _ = try await handler.broadcastTransaction(rawTransactionHexadecimal: "00")
                 Issue.record("Broadcast should have failed for malformed payload")
-            } catch let failure as Network.Error {
+            } catch let failure as NetworkModel.Error {
                 #expect(failure.message != nil)
             } catch {
                 Issue.record("Unexpected error type: \(error)")

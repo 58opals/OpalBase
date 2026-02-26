@@ -1,26 +1,26 @@
 import Foundation
 @testable import OpalBase
 
-struct AddressReaderClient: Network.AddressReadable {
-    let unspentByAddress: [String: [Transaction.Output.Unspent]]
+struct AddressReaderClient: NetworkModel.AddressReadable {
+    let unspentByAddress: [String: [TransactionModel.OutputModel.UnspentModel]]
 
-    func fetchBalance(for address: String, tokenFilter: Network.TokenFilter) async throws -> Network.AddressBalance {
-        Network.AddressBalance(confirmed: 0, unconfirmed: 0)
+    func fetchBalance(for address: String, tokenFilter: NetworkModel.TokenFilter) async throws -> NetworkModel.AddressBalanceModel {
+        NetworkModel.AddressBalanceModel(confirmed: 0, unconfirmed: 0)
     }
 
-    func fetchUnspentOutputs(for address: String, tokenFilter: Network.TokenFilter) async throws -> [Transaction.Output.Unspent] {
+    func fetchUnspentOutputs(for address: String, tokenFilter: NetworkModel.TokenFilter) async throws -> [TransactionModel.OutputModel.UnspentModel] {
         unspentByAddress[address, default: .init()]
     }
 
-    func fetchHistory(for address: String, includeUnconfirmed: Bool) async throws -> [Network.TransactionHistoryEntry] {
+    func fetchHistory(for address: String, includeUnconfirmed: Bool) async throws -> [NetworkModel.TransactionHistoryEntryModel] {
         .init()
     }
 
-    func fetchFirstUse(for address: String) async throws -> Network.AddressFirstUse? {
+    func fetchFirstUse(for address: String) async throws -> NetworkModel.AddressFirstUseModel? {
         nil
     }
 
-    func fetchMempoolTransactions(for address: String) async throws -> [Network.TransactionHistoryEntry] {
+    func fetchMempoolTransactions(for address: String) async throws -> [NetworkModel.TransactionHistoryEntryModel] {
         .init()
     }
 
@@ -28,7 +28,7 @@ struct AddressReaderClient: Network.AddressReadable {
         ""
     }
 
-    func subscribeToAddress(_ address: String) async throws -> AsyncThrowingStream<Network.AddressSubscriptionUpdate, any Swift.Error> {
+    func subscribeToAddress(_ address: String) async throws -> AsyncThrowingStream<NetworkModel.AddressSubscriptionUpdateModel, any Swift.Error> {
         AsyncThrowingStream { continuation in
             continuation.finish()
         }

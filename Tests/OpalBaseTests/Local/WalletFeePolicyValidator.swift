@@ -2,23 +2,23 @@ import Foundation
 import Testing
 @testable import OpalBase
 
-@Suite("Wallet Fee Policy", .tags(.wallet))
+@Suite("WalletActor Fee Policy", .tags(.wallet))
 struct WalletFeePolicyValidator {
     @Test("respects explicit fee overrides")
     func explicitOverrideWinsOverOtherSources() {
-        let policy = Wallet.FeePolicy(defaultFeeRate: 1, preference: .standard) { _ in 2 }
+        let policy = WalletActor.FeePolicy(defaultFeeRate: 1, preference: .standard) { _ in 2 }
         
-        let networkConditions = Wallet.FeePolicy.NetworkConditions(
+        let networkConditions = WalletActor.FeePolicy.NetworkConditions(
             recommendedRates: [.standard: 3, .priority: 4],
             fallbackRate: 5
         )
         
-        let context = Wallet.FeePolicy.RecommendationContext(
+        let context = WalletActor.FeePolicy.RecommendationContext(
             targetConfirmationBlocks: 24,
             networkConditions: networkConditions
         )
         
-        let override = Wallet.FeePolicy.Override(
+        let override = WalletActor.FeePolicy.Override(
             explicitFeeRate: 99,
             preference: .economy,
             targetConfirmationBlocks: 2
@@ -31,7 +31,7 @@ struct WalletFeePolicyValidator {
     @Test("falls back to defaults with overflow protection")
     func fallbackRatesProtectAgainstOverflow() {
         let defaultRate = UInt64.max
-        let policy = Wallet.FeePolicy(defaultFeeRate: defaultRate, preference: .economy, estimator: nil)
+        let policy = WalletActor.FeePolicy(defaultFeeRate: defaultRate, preference: .economy, estimator: nil)
         
         let baseline = policy.recommendFeeRate()
         #expect(baseline == defaultRate)
@@ -45,8 +45,8 @@ struct WalletFeePolicyValidator {
     
     @Test("returns explicit override fee rate")
     func explicitOverrideFeeRateIsReturned() {
-        let policy = Wallet.FeePolicy(defaultFeeRate: 2)
-        let override = Wallet.FeePolicy.Override(explicitFeeRate: 42)
+        let policy = WalletActor.FeePolicy(defaultFeeRate: 2)
+        let override = WalletActor.FeePolicy.Override(explicitFeeRate: 42)
         
         let rate = policy.recommendFeeRate(override: override)
         
@@ -55,9 +55,9 @@ struct WalletFeePolicyValidator {
     
     @Test("falls back to network conditions when estimator is nil")
     func estimatorFallsBackToNetworkConditionsWhenNil() {
-        let policy = Wallet.FeePolicy(defaultFeeRate: 1, preference: .economy, estimator: nil)
-        let networkConditions = Wallet.FeePolicy.NetworkConditions(recommendedRates: [.economy: 55], fallbackRate: 12)
-        let context = Wallet.FeePolicy.RecommendationContext(targetConfirmationBlocks: nil, networkConditions: networkConditions)
+        let policy = WalletActor.FeePolicy(defaultFeeRate: 1, preference: .economy, estimator: nil)
+        let networkConditions = WalletActor.FeePolicy.NetworkConditions(recommendedRates: [.economy: 55], fallbackRate: 12)
+        let context = WalletActor.FeePolicy.RecommendationContext(targetConfirmationBlocks: nil, networkConditions: networkConditions)
         
         let rate = policy.recommendFeeRate(for: context)
         
@@ -66,11 +66,11 @@ struct WalletFeePolicyValidator {
     
     @Test("uses standard and priority multipliers for fallback rates")
     func fallbackUsesMultipliersForStandardAndPriority() {
-        let policy = Wallet.FeePolicy(defaultFeeRate: 10, preference: .economy, estimator: nil)
-        let context = Wallet.FeePolicy.RecommendationContext()
+        let policy = WalletActor.FeePolicy(defaultFeeRate: 10, preference: .economy, estimator: nil)
+        let context = WalletActor.FeePolicy.RecommendationContext()
         
-        let standardOverride = Wallet.FeePolicy.Override(preference: .standard)
-        let priorityOverride = Wallet.FeePolicy.Override(preference: .priority)
+        let standardOverride = WalletActor.FeePolicy.Override(preference: .standard)
+        let priorityOverride = WalletActor.FeePolicy.Override(preference: .priority)
         
         let standardRate = policy.recommendFeeRate(for: context, override: standardOverride)
         let priorityRate = policy.recommendFeeRate(for: context, override: priorityOverride)
@@ -82,7 +82,7 @@ struct WalletFeePolicyValidator {
     @Test("clamps fallback rate on overflow")
     func fallbackRateClampsOnOverflow() {
         let highDefault = UInt64.max / 2 + 1
-        let policy = Wallet.FeePolicy(defaultFeeRate: highDefault, preference: .priority, estimator: nil)
+        let policy = WalletActor.FeePolicy(defaultFeeRate: highDefault, preference: .priority, estimator: nil)
         
         let rate = policy.recommendFeeRate()
         

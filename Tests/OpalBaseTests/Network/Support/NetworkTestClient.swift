@@ -11,10 +11,10 @@ enum NetworkTestClient {
     }
 
     static func withClient<T>(
-        configuration: Network.Configuration,
-        _ body: (Network.FulcrumClient) async throws -> T
+        configuration: NetworkModel.Configuration,
+        _ body: (NetworkModel.FulcrumClient) async throws -> T
     ) async throws -> T {
-        let client = try await Network.FulcrumClient(configuration: configuration)
+        let client = try await NetworkModel.FulcrumClient(configuration: configuration)
         do {
             let result = try await body(client)
             await client.stop()

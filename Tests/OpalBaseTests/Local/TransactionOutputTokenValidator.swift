@@ -2,14 +2,14 @@ import Foundation
 import Testing
 @testable import OpalBase
 
-@Suite("Transaction output encoding", .tags(.unit, .cashTokens))
+@Suite("TransactionModel output encoding", .tags(.unit, .cashTokens))
 struct TransactionOutputTokenValidator {
     @Test("output round trip without token data")
     func outputRoundTripWithoutTokenData() throws {
-        let output = Transaction.Output(value: 546, lockingScript: Data([0x51]))
+        let output = TransactionModel.OutputModel(value: 546, lockingScript: Data([0x51]))
         
         let encoded = try output.encode()
-        let (decoded, bytesRead) = try Transaction.Output.decode(from: encoded)
+        let (decoded, bytesRead) = try TransactionModel.OutputModel.decode(from: encoded)
         let reencoded = try decoded.encode()
         
         #expect(bytesRead == encoded.count)
@@ -22,14 +22,14 @@ struct TransactionOutputTokenValidator {
         let fixture = try #require(TokenPrefixTestData.validVectors.first)
         let tokenData = try makeTokenData(from: fixture.data)
         let lockingScript = Data([0x51])
-        let output = Transaction.Output(value: 546, lockingScript: lockingScript, tokenData: tokenData)
+        let output = TransactionModel.OutputModel(value: 546, lockingScript: lockingScript, tokenData: tokenData)
         
         let encoded = try output.encode()
         let expectedHexadecimal = "2202000000000000" + "24" + fixture.prefix + "51"
         
         #expect(encoded.hexadecimalString == expectedHexadecimal)
         
-        let (decoded, bytesRead) = try Transaction.Output.decode(from: encoded)
+        let (decoded, bytesRead) = try TransactionModel.OutputModel.decode(from: encoded)
         let reencoded = try decoded.encode()
         
         #expect(bytesRead == encoded.count)
@@ -39,11 +39,11 @@ struct TransactionOutputTokenValidator {
         #expect(reencoded == encoded)
     }
     
-    private func makeTokenData(from fixture: TokenPrefixTokenData) throws -> CashTokens.TokenData {
-        let category = try CashTokens.CategoryID(hexFromRPC: fixture.category)
+    private func makeTokenData(from fixture: TokenPrefixTokenData) throws -> CashTokensModel.TokenData {
+        let category = try CashTokensModel.CategoryIDModel(hexFromRPC: fixture.category)
         let amount = try parseAmount(from: fixture.amount)
         let nonFungibleToken = try fixture.nonFungibleToken.map { try makeNonFungibleToken(from: $0) }
-        return CashTokens.TokenData(category: category, amount: amount, nft: nonFungibleToken)
+        return CashTokensModel.TokenData(category: category, amount: amount, nft: nonFungibleToken)
     }
     
     private func parseAmount(from amountString: String?) throws -> UInt64? {
@@ -51,18 +51,18 @@ struct TransactionOutputTokenValidator {
             return nil
         }
         guard let amountValue = UInt64(amountString) else {
-            throw CashTokens.Error.invalidFungibleAmountString(amountString)
+            throw CashTokensModel.Error.invalidFungibleAmountString(amountString)
         }
         return amountValue == 0 ? nil : amountValue
     }
     
-    private func makeNonFungibleToken(from fixture: TokenPrefixNonFungibleTokenData) throws -> CashTokens.NFT {
+    private func makeNonFungibleToken(from fixture: TokenPrefixNonFungibleTokenData) throws -> CashTokensModel.NFTModel {
         let capability = try makeNonFungibleCapability(from: fixture.capability)
         let commitment = try Data(hexadecimalString: fixture.commitment)
-        return try CashTokens.NFT(capability: capability, commitment: commitment)
+        return try CashTokensModel.NFTModel(capability: capability, commitment: commitment)
     }
     
-    private func makeNonFungibleCapability(from capabilityString: String) throws -> CashTokens.NFT.Capability {
+    private func makeNonFungibleCapability(from capabilityString: String) throws -> CashTokensModel.NFTModel.Capability {
         switch capabilityString {
         case "none":
             return .none
@@ -71,7 +71,7 @@ struct TransactionOutputTokenValidator {
         case "minting":
             return .minting
         default:
-            throw CashTokens.Error.invalidTokenPrefixCapability
+            throw CashTokensModel.Error.invalidTokenPrefixCapability
         }
     }
 }
