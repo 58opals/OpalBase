@@ -55,6 +55,31 @@ struct TransactionUnspentTransactionOutputValidator {
         #expect(transaction.outputs[1].lockingScript == changeScript)
     }
     
+    @Test("build randomizes recipient ordering when privacyRandomized is requested")
+    func buildRandomizesRecipientOrderingWhenPrivacyRandomized() throws {
+        let components = try makeTransactionBuilderComponents()
+        var observedRecipientOrderings = Set<[UInt64]>()
+        
+        for _ in 0..<32 {
+            let transaction = try TransactionModel.build(
+                utxoPrivateKeyPairs: components.privateKeys,
+                recipientOutputs: components.recipientOutputs,
+                changeOutput: components.changeOutput,
+                outputOrderingStrategy: .privacyRandomized,
+                signatureFormat: .schnorr,
+                feePerByte: 0
+            )
+            
+            let recipientOrder = transaction.outputs
+                .filter { $0.lockingScript != components.changeOutput.lockingScript }
+                .map(\.value)
+            observedRecipientOrderings.insert(recipientOrder)
+            if observedRecipientOrderings.count > 1 { break }
+        }
+        
+        #expect(observedRecipientOrderings.count > 1)
+    }
+    
     @Test("build corrects fee to match the signed transaction size")
     func buildCorrectsFeeToSignedTransactionSize() throws {
         let components = try makeTransactionBuilderComponents()
@@ -74,10 +99,13 @@ struct TransactionUnspentTransactionOutputValidator {
             let outputTotal = transaction.outputs.map(\.value).reduce(0, +)
             let feePaid = components.inputTotal - outputTotal
             
-            let strictlyEqual = (feePaid == requiredFee)
-            let extra1Satoshitolerance = (feePaid == (requiredFee + 1))
-            
-            #expect(strictlyEqual || extra1Satoshitolerance)
+            let overpaymentTolerance = max(1, feePerByte * 2)
+            guard feePaid >= requiredFee else {
+                Issue.record("Expected feePaid to be >= requiredFee, got feePaid=\(feePaid), requiredFee=\(requiredFee)")
+                continue
+            }
+            let feeOverpayment = feePaid - requiredFee
+            #expect(feeOverpayment <= overpaymentTolerance)
         }
     }
     

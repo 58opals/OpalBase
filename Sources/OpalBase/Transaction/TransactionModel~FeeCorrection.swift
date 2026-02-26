@@ -66,7 +66,7 @@ extension TransactionModel {
         let inputTotal = builder.orderedUnspentOutputs.map(\.value).reduce(0, +)
         let firstSignedTransaction = signedTransaction
         var correctedTransaction = signedTransaction
-        let maximumPasses = 3
+        let maximumPasses = 8
         
         for _ in 0..<maximumPasses {
             let requiredFee = try correctedTransaction.calculateRequiredFee(feePerByte: feePerByte)

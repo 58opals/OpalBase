@@ -28,10 +28,17 @@ extension TransactionModel {
                               unlockers: unlockers)
         
         let inputs = builder.makeInputs()
+        let orderedRecipientOutputs: [OutputModel]
+        switch outputOrderingStrategy {
+        case .privacyRandomized:
+            orderedRecipientOutputs = recipientOutputs.count > 1 ? recipientOutputs.shuffled() : recipientOutputs
+        case .canonicalBIP69:
+            orderedRecipientOutputs = recipientOutputs
+        }
         
         let (outputs, _) = try computeOutputsAndFee(version: version,
                                                     inputs: inputs,
-                                                    recipientOutputs: recipientOutputs,
+                                                    recipientOutputs: orderedRecipientOutputs,
                                                     changeOutput: changeOutput,
                                                     outputOrderingStrategy: outputOrderingStrategy,
                                                     feePerByte: feePerByte,
@@ -44,7 +51,7 @@ extension TransactionModel {
         return try correctFeeAfterSigning(signedTransaction: signedTransaction,
                                           inputs: inputs,
                                           builder: builder,
-                                          recipientOutputs: recipientOutputs,
+                                          recipientOutputs: orderedRecipientOutputs,
                                           changeOutput: changeOutput,
                                           outputOrderingStrategy: outputOrderingStrategy,
                                           feePerByte: feePerByte,
