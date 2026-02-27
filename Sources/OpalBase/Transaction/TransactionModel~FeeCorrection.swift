@@ -16,7 +16,8 @@ extension TransactionModel {
                                            changeOutputTemplate: OutputModel,
                                            outputOrderingStrategy: OutputOrderingStrategyModel,
                                            targetFee: UInt64,
-                                           shouldAllowDustDonation: Bool) throws -> [OutputModel] {
+                                           shouldAllowDustDonation: Bool,
+                                           privacyOutputShuffle: ([OutputModel]) -> [OutputModel] = defaultPrivacyOutputShuffle) throws -> [OutputModel] {
         let changePool = changeOutputTemplate.value
         guard changePool >= targetFee else {
             throw Error.insufficientFunds(required: targetFee - changePool)
@@ -38,7 +39,7 @@ extension TransactionModel {
         let orderedOutputs: [OutputModel]
         switch outputOrderingStrategy {
         case .privacyRandomized:
-            orderedOutputs = outputs
+            orderedOutputs = privacyOutputShuffle(outputs)
         case .canonicalBIP69:
             orderedOutputs = OutputModel.applyBIP69Ordering(outputs)
         }
@@ -62,7 +63,8 @@ extension TransactionModel {
                                        outputOrderingStrategy: OutputOrderingStrategyModel,
                                        feePerByte: UInt64,
                                        lockTime: UInt32,
-                                       shouldAllowDustDonation: Bool) throws -> TransactionModel {
+                                       shouldAllowDustDonation: Bool,
+                                       privacyOutputShuffle: ([OutputModel]) -> [OutputModel] = defaultPrivacyOutputShuffle) throws -> TransactionModel {
         let inputTotal = builder.orderedUnspentOutputs.map(\.value).reduce(0, +)
         let firstSignedTransaction = signedTransaction
         var correctedTransaction = signedTransaction
@@ -79,7 +81,8 @@ extension TransactionModel {
                                                                   changeOutputTemplate: changeOutput,
                                                                   outputOrderingStrategy: outputOrderingStrategy,
                                                                   targetFee: requiredFee,
-                                                                  shouldAllowDustDonation: shouldAllowDustDonation)
+                                                                  shouldAllowDustDonation: shouldAllowDustDonation,
+                                                                  privacyOutputShuffle: privacyOutputShuffle)
             
             guard correctedOutputs != correctedTransaction.outputs else { return correctedTransaction }
             
@@ -106,7 +109,13 @@ extension TransactionModel {
 
 extension TransactionModel.OutputModel {
     var isOpReturnScript: Bool {
-        guard let opcode = lockingScript.first else { return false }
-        return opcode == ScriptOperationCodeModel._RETURN.rawValue
+        let returnOpcode = ScriptOperationCodeModel._RETURN.rawValue
+        if lockingScript.starts(with: [returnOpcode]) {
+            return true
+        }
+        
+        return lockingScript.starts(
+            with: [ScriptOperationCodeModel._0.rawValue, returnOpcode]
+        )
     }
 }

@@ -55,29 +55,25 @@ struct TransactionUnspentTransactionOutputValidator {
         #expect(transaction.outputs[1].lockingScript == changeScript)
     }
     
-    @Test("build randomizes recipient ordering when privacyRandomized is requested")
-    func buildRandomizesRecipientOrderingWhenPrivacyRandomized() throws {
+    @Test("build applies privacy output shuffler to recipients and change outputs")
+    func buildAppliesPrivacyOutputShufflerToRecipientsAndChangeOutputs() throws {
         let components = try makeTransactionBuilderComponents()
-        var observedRecipientOrderings = Set<[UInt64]>()
+        let transaction = try TransactionModel.build(
+            utxoPrivateKeyPairs: components.privateKeys,
+            recipientOutputs: components.recipientOutputs,
+            changeOutput: components.changeOutput,
+            outputOrderingStrategy: .privacyRandomized,
+            signatureFormat: .schnorr,
+            feePerByte: 0,
+            privacyOutputShuffle: { outputs in
+                Array(outputs.reversed())
+            }
+        )
         
-        for _ in 0..<32 {
-            let transaction = try TransactionModel.build(
-                utxoPrivateKeyPairs: components.privateKeys,
-                recipientOutputs: components.recipientOutputs,
-                changeOutput: components.changeOutput,
-                outputOrderingStrategy: .privacyRandomized,
-                signatureFormat: .schnorr,
-                feePerByte: 0
-            )
-            
-            let recipientOrder = transaction.outputs
-                .filter { $0.lockingScript != components.changeOutput.lockingScript }
-                .map(\.value)
-            observedRecipientOrderings.insert(recipientOrder)
-            if observedRecipientOrderings.count > 1 { break }
-        }
-        
-        #expect(observedRecipientOrderings.count > 1)
+        #expect(transaction.outputs.count == 3)
+        #expect(transaction.outputs.map(\.value) == [3_000, 1_000, 6_000])
+        #expect(transaction.outputs.first?.lockingScript == components.changeOutput.lockingScript)
+        #expect(transaction.outputs.last?.lockingScript != components.changeOutput.lockingScript)
     }
     
     @Test("build corrects fee to match the signed transaction size")
@@ -153,6 +149,25 @@ struct TransactionUnspentTransactionOutputValidator {
                                                            targetFee: targetFee,
                                                            shouldAllowDustDonation: false)
         }
+    }
+    
+    @Test("computeOutputsForTargetFee applies privacy output shuffler to change output")
+    func computeOutputsForTargetFeeAppliesPrivacyOutputShuffler() throws {
+        let recipientA = TransactionModel.OutputModel(value: 6_000, lockingScript: Data([0x51]))
+        let recipientB = TransactionModel.OutputModel(value: 1_000, lockingScript: Data([0x52]))
+        let changeOutput = TransactionModel.OutputModel(value: 3_000, lockingScript: Data([0x53]))
+        
+        let outputs = try TransactionModel.computeOutputsForTargetFee(
+            recipientOutputs: [recipientA, recipientB],
+            changeOutputTemplate: changeOutput,
+            outputOrderingStrategy: .privacyRandomized,
+            targetFee: 0,
+            shouldAllowDustDonation: false,
+            privacyOutputShuffle: { values in Array(values.reversed()) }
+        )
+        
+        #expect(outputs.map(\.value) == [3_000, 1_000, 6_000])
+        #expect(outputs.first?.lockingScript == changeOutput.lockingScript)
     }
     
     private func makeTransactionBuilderComponents() throws -> (privateKeys: [TransactionModel.OutputModel.UnspentModel: PrivateKeyModel],

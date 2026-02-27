@@ -1,4 +1,4 @@
-// TransactionModel~UTXOModel.swift
+// TransactionModel+OutputOrderingStrategyModel.swift
 
 import Foundation
 
@@ -11,6 +11,10 @@ extension TransactionModel {
         case canonicalBIP69
     }
     
+    static func defaultPrivacyOutputShuffle(_ outputs: [OutputModel]) -> [OutputModel] {
+        outputs.count > 1 ? outputs.shuffled() : outputs
+    }
+    
     static func build(version: UInt32 = 2,
                       utxoPrivateKeyPairs: [TransactionModel.OutputModel.UnspentModel: PrivateKeyModel],
                       recipientOutputs: [OutputModel],
@@ -21,6 +25,7 @@ extension TransactionModel {
                       sequence: UInt32 = 0xFFFFFFFF,
                       lockTime: UInt32 = 0,
                       shouldAllowDustDonation: Bool = false,
+                      privacyOutputShuffle: ([OutputModel]) -> [OutputModel] = defaultPrivacyOutputShuffle,
                       unlockers: [TransactionModel.OutputModel.UnspentModel: UnlockerModel] = .init()) throws -> TransactionModel {
         let builder = BuilderModel(utxoPrivateKeyPairs: utxoPrivateKeyPairs,
                               signatureFormat: signatureFormat,
@@ -28,13 +33,7 @@ extension TransactionModel {
                               unlockers: unlockers)
         
         let inputs = builder.makeInputs()
-        let orderedRecipientOutputs: [OutputModel]
-        switch outputOrderingStrategy {
-        case .privacyRandomized:
-            orderedRecipientOutputs = recipientOutputs.count > 1 ? recipientOutputs.shuffled() : recipientOutputs
-        case .canonicalBIP69:
-            orderedRecipientOutputs = recipientOutputs
-        }
+        let orderedRecipientOutputs = recipientOutputs
         
         let (outputs, _) = try computeOutputsAndFee(version: version,
                                                     inputs: inputs,
@@ -43,7 +42,8 @@ extension TransactionModel {
                                                     outputOrderingStrategy: outputOrderingStrategy,
                                                     feePerByte: feePerByte,
                                                     lockTime: lockTime,
-                                                    shouldAllowDustDonation: shouldAllowDustDonation)
+                                                    shouldAllowDustDonation: shouldAllowDustDonation,
+                                                    privacyOutputShuffle: privacyOutputShuffle)
         
         let unsignedTransaction = TransactionModel(version: version, inputs: inputs, outputs: outputs, lockTime: lockTime)
         let signedTransaction = try signTransaction(unsignedTransaction, using: builder)
@@ -56,7 +56,8 @@ extension TransactionModel {
                                           outputOrderingStrategy: outputOrderingStrategy,
                                           feePerByte: feePerByte,
                                           lockTime: lockTime,
-                                          shouldAllowDustDonation: shouldAllowDustDonation)
+                                          shouldAllowDustDonation: shouldAllowDustDonation,
+                                          privacyOutputShuffle: privacyOutputShuffle)
     }
     
     private static func computeOutputsAndFee(version: UInt32,
@@ -66,7 +67,8 @@ extension TransactionModel {
                                              outputOrderingStrategy: OutputOrderingStrategyModel,
                                              feePerByte: UInt64,
                                              lockTime: UInt32,
-                                             shouldAllowDustDonation: Bool) throws -> ([OutputModel], UInt64) {
+                                             shouldAllowDustDonation: Bool,
+                                             privacyOutputShuffle: ([OutputModel]) -> [OutputModel]) throws -> ([OutputModel], UInt64) {
         let transactionWithChange = TransactionModel(version: version,
                                                 inputs: inputs,
                                                 outputs: recipientOutputs + [changeOutput],
@@ -117,7 +119,7 @@ extension TransactionModel {
         let orderedOutputs: [OutputModel]
         switch outputOrderingStrategy {
         case .privacyRandomized:
-            orderedOutputs = outputs
+            orderedOutputs = privacyOutputShuffle(outputs)
         case .canonicalBIP69:
             orderedOutputs = OutputModel.applyBIP69Ordering(outputs)
         }
