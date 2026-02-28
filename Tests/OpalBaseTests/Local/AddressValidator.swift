@@ -61,6 +61,15 @@ struct AddressValidator {
         }
     }
     
+    @Test("mixed-case cash address payload is rejected")
+    func rejectMixedCaseCashAddressPayload() {
+        let mixedCasePayload = "qpm2qsznHks23z7629mms6s4cwef74vcwvy22gdx6a"
+        
+        #expect(throws: AddressModel.Error.invalidCashAddressFormat) {
+            _ = try AddressModel(mixedCasePayload)
+        }
+    }
+    
     @Test("cash address accepts uppercase prefix")
     func decodeCashAddressWithUppercasePrefix() throws {
         let cashaddr = "qpm2qsznhks23z7629mms6s4cwef74vcwvy22gdx6a"
