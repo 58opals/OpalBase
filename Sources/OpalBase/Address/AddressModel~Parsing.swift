@@ -27,6 +27,16 @@ extension AddressModel {
             encodedPayload = string
         }
         
+        let hasUppercase = encodedPayload.contains { character in
+            guard let asciiValue = character.asciiValue else { return false }
+            return (0x41...0x5A).contains(asciiValue)
+        }
+        let hasLowercase = encodedPayload.contains { character in
+            guard let asciiValue = character.asciiValue else { return false }
+            return (0x61...0x7A).contains(asciiValue)
+        }
+        guard !(hasUppercase && hasLowercase) else { throw Error.invalidCashAddressFormat }
+        
         let decodedData = try Base32Model.decode(encodedPayload, interpretedAs5Bit: true)
         guard decodedData.count >= 8 else { throw Error.invalidPayloadLength }
         
