@@ -33,7 +33,9 @@ extension TransactionModel {
         } else if desiredChange < changeDustThreshold {
             guard shouldAllowDustDonation else { throw Error.outputValueIsLessThanTheDustLimit }
         } else {
-            outputs.append(.init(value: desiredChange, lockingScript: changeOutputTemplate.lockingScript))
+            outputs.append(.init(value: desiredChange,
+                                 lockingScript: changeOutputTemplate.lockingScript,
+                                 tokenData: changeOutputTemplate.tokenData))
         }
         
         let orderedOutputs: [OutputModel]

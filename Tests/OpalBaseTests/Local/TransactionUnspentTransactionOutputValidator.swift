@@ -128,6 +128,32 @@ struct TransactionUnspentTransactionOutputValidator {
         }
     }
     
+    @Test("build preserves token metadata on change outputs")
+    func buildPreservesTokenMetadataOnChangeOutputs() throws {
+        let components = try makeTransactionBuilderComponents()
+        let tokenData = try makeTokenData(fillByte: 0xA5, amount: 21)
+        let tokenizedChangeOutput = TransactionModel.OutputModel(
+            value: components.changeOutput.value,
+            lockingScript: components.changeOutput.lockingScript,
+            tokenData: tokenData
+        )
+        
+        let transaction = try TransactionModel.build(
+            utxoPrivateKeyPairs: components.privateKeys,
+            recipientOutputs: components.recipientOutputs,
+            changeOutput: tokenizedChangeOutput,
+            outputOrderingStrategy: .privacyRandomized,
+            signatureFormat: .schnorr,
+            feePerByte: 0,
+            privacyOutputShuffle: { $0 }
+        )
+        
+        let resolvedChangeOutput = try #require(transaction.outputs.first { output in
+            output.lockingScript == tokenizedChangeOutput.lockingScript && output.value == tokenizedChangeOutput.value
+        })
+        #expect(resolvedChangeOutput.tokenData == tokenData)
+    }
+    
     @Test("computeOutputsForTargetFee handles dust donation policy")
     func computeOutputsForTargetFeeHandlesDustDonationPolicy() throws {
         let recipientOutputs = [TransactionModel.OutputModel(value: 1_000, lockingScript: Data([0x51]))]
@@ -168,6 +194,31 @@ struct TransactionUnspentTransactionOutputValidator {
         
         #expect(outputs.map(\.value) == [3_000, 1_000, 6_000])
         #expect(outputs.first?.lockingScript == changeOutput.lockingScript)
+    }
+    
+    @Test("computeOutputsForTargetFee preserves token metadata on change outputs")
+    func computeOutputsForTargetFeePreservesTokenMetadataOnChangeOutputs() throws {
+        let recipientOutput = TransactionModel.OutputModel(value: 1_000, lockingScript: Data([0x51]))
+        let tokenData = try makeTokenData(fillByte: 0x5A, amount: 7)
+        let changeOutput = TransactionModel.OutputModel(
+            value: 3_000,
+            lockingScript: Data([0x53]),
+            tokenData: tokenData
+        )
+        
+        let outputs = try TransactionModel.computeOutputsForTargetFee(
+            recipientOutputs: [recipientOutput],
+            changeOutputTemplate: changeOutput,
+            outputOrderingStrategy: .privacyRandomized,
+            targetFee: 0,
+            shouldAllowDustDonation: false,
+            privacyOutputShuffle: { $0 }
+        )
+        
+        let resolvedChangeOutput = try #require(outputs.first { output in
+            output.lockingScript == changeOutput.lockingScript && output.value == changeOutput.value
+        })
+        #expect(resolvedChangeOutput.tokenData == tokenData)
     }
     
     private func makeTransactionBuilderComponents() throws -> (privateKeys: [TransactionModel.OutputModel.UnspentModel: PrivateKeyModel],
@@ -213,5 +264,12 @@ struct TransactionUnspentTransactionOutputValidator {
                 recipientOutputs: recipientOutputs,
                 changeOutput: changeOutput,
                 inputTotal: unspent.value)
+    }
+    
+    private func makeTokenData(fillByte: UInt8, amount: UInt64) throws -> CashTokensModel.TokenData {
+        let category = try CashTokensModel.CategoryIDModel(
+            transactionOrderData: Data(repeating: fillByte, count: 32)
+        )
+        return CashTokensModel.TokenData(category: category, amount: amount, nft: nil)
     }
 }

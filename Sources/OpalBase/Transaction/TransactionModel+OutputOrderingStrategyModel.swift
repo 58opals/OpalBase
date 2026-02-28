@@ -111,7 +111,9 @@ extension TransactionModel {
                 if remainingChange < changeDustThreshold {
                     guard shouldAllowDustDonation else { throw Error.outputValueIsLessThanTheDustLimit }
                 } else {
-                    outputs.append(.init(value: remainingChange, lockingScript: changeOutput.lockingScript))
+                    outputs.append(.init(value: remainingChange,
+                                         lockingScript: changeOutput.lockingScript,
+                                         tokenData: changeOutput.tokenData))
                 }
             }
         }
