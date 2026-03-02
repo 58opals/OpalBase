@@ -1,10 +1,11 @@
 // PrivateKeyModel+ExtendedModel~Serialization.swift
 
 import Foundation
+import OpalCrypto
 
 extension PrivateKeyModel.ExtendedModel {
     var address: String {
-        return Base58Model.encode(serialize())
+        return Base58EncodingModel.encode(serialize())
     }
 
     func serialize() -> Data {
@@ -16,7 +17,7 @@ extension PrivateKeyModel.ExtendedModel {
         data.append(self.childIndexNumber.bigEndianData)
         data.append(self.chainCode)
         data.append(Data([0x00]) + self.privateKey)
-        let checksum = HASH256Model.hash(data).prefix(4)
+        let checksum = SecureHash256Model.hash(data).prefix(4)
         data.append(checksum)
 
         return data

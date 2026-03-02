@@ -1,6 +1,7 @@
 // PrivateKeyModel+ExtendedModel+RootModel.swift
 
 import Foundation
+import OpalCrypto
 
 extension PrivateKeyModel.ExtendedModel {
     struct RootModel {
@@ -9,7 +10,7 @@ extension PrivateKeyModel.ExtendedModel {
         
         init(seed: Data, stringKey: String = "Bitcoin seed") throws {
             guard let key = stringKey.data(using: .utf8) else { throw PrivateKeyModel.Error.invalidStringKey }
-            let hmac = HMACSHA512Model.hash(seed, key: key)
+            let hmac = HashBasedMessageAuthenticationCodeSecureHashAlgorithm512Model.hash(seed, key: key)
             let privateKeyData = Data(hmac.prefix(32))
             let chainCodeData = Data(hmac.suffix(32))
             

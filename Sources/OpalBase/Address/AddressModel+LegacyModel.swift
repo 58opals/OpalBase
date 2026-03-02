@@ -1,6 +1,7 @@
 // AddressModel+LegacyModel.swift
 
 import Foundation
+import OpalCrypto
 
 extension AddressModel {
     struct LegacyModel {
@@ -12,8 +13,8 @@ extension AddressModel {
                 let prefix = Data([0x00])
                 let hash160 = hash.data
                 let data = prefix + hash160
-                let checksum = HASH256Model.computeChecksum(for: data)
-                let base58 = Base58Model.encode(data + checksum)
+                let checksum = SecureHash256Model.computeChecksum(for: data)
+                let base58 = Base58EncodingModel.encode(data + checksum)
                 self.string = base58
                 
             default:

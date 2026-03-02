@@ -1,6 +1,7 @@
 // AddressModel+BookActor+EntryModel.swift
 
 import Foundation
+import OpalCrypto
 
 extension AddressModel.BookActor {
     public struct EntryModel {
@@ -122,7 +123,7 @@ extension AddressModel.BookActor {
             derivationPaths.append(try createDerivationPath(usage: usage, index: index))
         }
         
-        let compressedPublicKeys = try await Secp256k1Model.OperationModel.deriveCompressedPublicKeys(
+        let compressedPublicKeys = try await StandardsForEfficientCryptography256k1CurveModel.OperationModel.deriveCompressedPublicKeys(
             fromPrivateKeys32: childPrivateKeys,
             assumingValidPrivateKeys: true
         )

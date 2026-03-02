@@ -1,6 +1,7 @@
 // AddressModel~ParsingModel.swift
 
 import Foundation
+import OpalCrypto
 
 extension AddressModel {
     private static let standardPublicKeyHashVersionByte: UInt8 = 0x00
@@ -37,14 +38,14 @@ extension AddressModel {
         }
         guard !(hasUppercase && hasLowercase) else { throw Error.invalidCashAddressFormat }
         
-        let decodedData = try Base32Model.decode(encodedPayload, interpretedAs5Bit: true)
+        let decodedData = try Base32EncodingModel.decode(encodedPayload, interpretedAsFiveBitValues: true)
         guard decodedData.count >= 8 else { throw Error.invalidPayloadLength }
         
         let payload5BitValuesWithChecksum = decodedData
         let payload5BitValues = payload5BitValuesWithChecksum.dropLast(8)
         let checksumValues = payload5BitValuesWithChecksum.suffix(8)
         let checksumInput = try AddressModel.convertPrefixToFiveBitValues(prefix: prefix) + [0x00] + Array(payload5BitValues) + Array(checksumValues)
-        guard PolymodModel.compute(checksumInput) == 0 else { throw Error.invalidChecksum }
+        guard PolynomialModuloChecksumModel.compute(checksumInput) == 0 else { throw Error.invalidChecksum }
         let payload: Data
         do {
             payload = try AddressModel.convertFiveBitValuesToData(fiveBitValues: Array(payload5BitValues))
@@ -74,11 +75,11 @@ extension AddressModel {
     }
     
     static func parseLegacyAddress(from string: String) throws -> AddressModel {
-        guard let decoded = Base58Model.decode(string) else { throw Error.invalidLegacyAddressFormat }
+        guard let decoded = Base58EncodingModel.decode(string) else { throw Error.invalidLegacyAddressFormat }
         guard decoded.count >= 5 else { throw Error.invalidLegacyAddressFormat }
         let payload = decoded.dropLast(4)
         let checksum = decoded.suffix(4)
-        let expectedChecksum = HASH256Model.computeChecksum(for: payload)
+        let expectedChecksum = SecureHash256Model.computeChecksum(for: payload)
         guard checksum == expectedChecksum else { throw Error.invalidLegacyChecksum }
         guard let versionByte = payload.first else { throw Error.invalidLegacyAddressFormat }
         let hashData = payload.dropFirst()

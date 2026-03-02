@@ -1,6 +1,7 @@
 // TransactionModel~Signing.swift
 
 import Foundation
+import OpalCrypto
 
 extension TransactionModel {
     /// Constructs the preimage for signing a specific input.
@@ -45,7 +46,7 @@ extension TransactionModel {
                     input.previousTransactionOutputIndex.littleEndianData
                 )
             }
-            previousOutputsHash = HASH256Model.hash(data)
+            previousOutputsHash = SecureHash256Model.hash(data)
         }
         preimage.append(previousOutputsHash)
         
@@ -67,7 +68,7 @@ extension TransactionModel {
             for input in inputs {
                 data.append(input.sequence.littleEndianData)
             }
-            sequenceNumbersHash = HASH256Model.hash(data)
+            sequenceNumbersHash = SecureHash256Model.hash(data)
         } else {
             sequenceNumbersHash = Data(repeating: 0x00, count: 32)
         }
@@ -99,12 +100,12 @@ extension TransactionModel {
             for output in outputs {
                 data.append(try output.encode())
             }
-            transactionOutputsHash = HASH256Model.hash(data)
+            transactionOutputsHash = SecureHash256Model.hash(data)
         case .none:
             transactionOutputsHash = Data(repeating: 0x00, count: 32)
         case .single:
             let outputWithTheSameIndexAsTheInputBeingSigned = try outputs[index].encode()
-            transactionOutputsHash = HASH256Model.hash(outputWithTheSameIndexAsTheInputBeingSigned)
+            transactionOutputsHash = SecureHash256Model.hash(outputWithTheSameIndexAsTheInputBeingSigned)
         }
         preimage.append(transactionOutputsHash)
         
@@ -124,7 +125,7 @@ private extension TransactionModel {
         for output in outputs {
             data.append(try output.encode())
         }
-        return HASH256Model.hash(data)
+        return SecureHash256Model.hash(data)
     }
 }
 

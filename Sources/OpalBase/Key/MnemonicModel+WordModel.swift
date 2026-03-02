@@ -1,6 +1,7 @@
 // MnemonicModel+WordModel.swift
 
 import Foundation
+import OpalCrypto
 
 extension MnemonicModel {
     public enum WordModel {}
@@ -53,7 +54,7 @@ extension MnemonicModel.WordModel {
         let checksumBits = bitString.suffix(checksumLength)
         
         let entropyData = String(entropyBits).convertBitsToData()
-        let calculatedChecksum = SHA256Model.hash(entropyData).convertToBitString().prefix(checksumLength)
+        let calculatedChecksum = SecureHashAlgorithm256Model.hash(entropyData).convertToBitString().prefix(checksumLength)
         
         if checksumBits != calculatedChecksum {
             throw Error.invalidChecksum

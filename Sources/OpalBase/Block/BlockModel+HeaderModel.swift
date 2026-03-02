@@ -1,6 +1,7 @@
 // BlockModel+HeaderModel.swift
 
 import Foundation
+import OpalCrypto
 
 extension BlockModel {
     public struct HeaderModel {
@@ -64,11 +65,11 @@ extension BlockModel.HeaderModel: Sendable {}
 extension BlockModel.HeaderModel: Equatable {}
 
 extension BlockModel.HeaderModel {
-    var proofOfWorkHash: Data { return HASH256Model.hash(encode()).reversedData }
+    var proofOfWorkHash: Data { return SecureHash256Model.hash(encode()).reversedData }
     
-    public static func calculateTarget(for bits: UInt32) -> LargeUnsignedIntegerModel {
+    public static func calculateTarget(for bits: UInt32) -> LargeUnsignedIntegerArithmeticModel {
         let exponent = Int(bits >> 24)
-        var mantissa = LargeUnsignedIntegerModel(UInt64(bits & 0x00ff_ffff))
+        var mantissa = LargeUnsignedIntegerArithmeticModel(UInt64(bits & 0x00ff_ffff))
         
         if exponent <= 3 {
             mantissa = mantissa.shiftRight(by: 8 * (3 - exponent))
@@ -79,7 +80,7 @@ extension BlockModel.HeaderModel {
     }
     
     public var isProofOfWorkSatisfied: Bool {
-        let hashNumber = LargeUnsignedIntegerModel(proofOfWorkHash)
+        let hashNumber = LargeUnsignedIntegerArithmeticModel(proofOfWorkHash)
         let target = BlockModel.HeaderModel.calculateTarget(for: bits)
         return hashNumber <= target
     }

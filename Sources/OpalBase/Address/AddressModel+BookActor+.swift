@@ -1,6 +1,7 @@
 // AddressModel+BookActor+HistoryModel+TokenDeltaModel.swift
 
 import Foundation
+import OpalCrypto
 
 extension AddressModel.BookActor {
     func listWalletScriptHashes() -> Set<String> {
@@ -100,7 +101,7 @@ extension AddressModel.BookActor {
     }
     
     func makeScriptHashHex(from lockingScript: Data) -> String {
-        SHA256Model.hash(lockingScript).reversedData.hexadecimalString
+        SecureHashAlgorithm256Model.hash(lockingScript).reversedData.hexadecimalString
     }
     
     func makeNonFungibleTokenData(from tokenData: CashTokensModel.TokenData) -> CashTokensModel.TokenData? {

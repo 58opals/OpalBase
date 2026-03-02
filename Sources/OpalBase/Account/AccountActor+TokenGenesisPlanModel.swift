@@ -1,6 +1,7 @@
 // AccountActor+TokenGenesisPlanModel.swift
 
 import Foundation
+import OpalCrypto
 
 extension AccountActor {
     public struct TokenGenesisPlanModel: Sendable {
@@ -65,7 +66,7 @@ extension AccountActor {
             self.shouldRandomizeRecipientOrdering = shouldRandomizeRecipientOrdering
         }
         
-        public func buildTransaction(signatureFormat: ECDSAModel.SignatureFormatModel = .schnorr,
+        public func buildTransaction(signatureFormat: EllipticCurveDigitalSignatureAlgorithmModel.SignatureFormatModel = .schnorr,
                                      unlockers: [TransactionModel.OutputModel.UnspentModel: TransactionModel.UnlockerModel] = .init()) throws -> TransactionResult {
             let core = try AccountActor.buildTransactionCore(privateKeys: privateKeys,
                                                         recipientOutputs: outputs,
@@ -96,7 +97,7 @@ extension AccountActor {
         }
         
         public func buildAndBroadcast(via handler: NetworkModel.TransactionHandling,
-                                      signatureFormat: ECDSAModel.SignatureFormatModel = .schnorr,
+                                      signatureFormat: EllipticCurveDigitalSignatureAlgorithmModel.SignatureFormatModel = .schnorr,
                                       unlockers: [TransactionModel.OutputModel.UnspentModel: TransactionModel.UnlockerModel] = .init()) async throws -> (hash: TransactionModel.HashModel, result: TransactionResult) {
             try await reservationHandle.buildAndBroadcast(
                 build: { try buildTransaction(signatureFormat: signatureFormat, unlockers: unlockers) },

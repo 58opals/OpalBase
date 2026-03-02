@@ -1,6 +1,7 @@
 // PrivateKeyModel.swift
 
 import Foundation
+import OpalCrypto
 
 public struct PrivateKeyModel {
     let rawData: Data
@@ -11,19 +12,19 @@ public struct PrivateKeyModel {
         
         repeat {
             do {
-                randomBytes = try SecureRandomModel.makeBytes(count: 32)
+                randomBytes = try SecureRandomByteGenerationModel.makeBytes(count: 32)
             } catch {
                 throw Error.randomBytesGenerationFailed
             }
             
-            isValidPrivateKey = Secp256k1Model.OperationModel.validatePrivateKey32(Data(randomBytes))
+            isValidPrivateKey = StandardsForEfficientCryptography256k1CurveModel.OperationModel.validatePrivateKeyData32Bytes(Data(randomBytes))
         } while !isValidPrivateKey
         
         self.rawData = Data(randomBytes)
     }
     
     public init(data: Data) throws {
-        guard Secp256k1Model.OperationModel.validatePrivateKey32(data) else { throw Error.outOfBounds }
+        guard StandardsForEfficientCryptography256k1CurveModel.OperationModel.validatePrivateKeyData32Bytes(data) else { throw Error.outOfBounds }
         self.rawData = data
     }
 }

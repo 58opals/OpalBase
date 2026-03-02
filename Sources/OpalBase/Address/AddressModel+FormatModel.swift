@@ -1,6 +1,7 @@
 // AddressModel.swift
 
 import Foundation
+import OpalCrypto
 
 public struct AddressModel {
     public static let prefix: String = "bitcoincash"
@@ -82,7 +83,7 @@ extension AddressModel {
         values += payload5BitValues
         let templateForChecksum: [UInt8] = [0, 0, 0, 0, 0, 0, 0, 0]
         values += templateForChecksum
-        let polymod = PolymodModel.compute(values)
+        let polymod = PolynomialModuloChecksumModel.compute(values)
         var checksum = [UInt8]()
         
         for index in 0..<8 {
@@ -109,7 +110,7 @@ extension AddressModel {
         let payload5BitValues = try AddressModel.convertPayloadToFiveBitValues(payload: payload)
         let checksum = try AddressModel.generateChecksum(prefix: AddressModel.prefix, payload5BitValues: payload5BitValues)
         let combined = payload5BitValues + checksum
-        return Base32Model.encode(Data(combined), interpretedAs5Bit: true)
+        return Base32EncodingModel.encode(Data(combined), interpretedAsFiveBitValues: true)
     }
     
     private static func makeVersionByte(for script: ScriptModel, format: FormatModel) throws -> UInt8 {
@@ -125,6 +126,8 @@ extension AddressModel {
 }
 
 extension AddressModel {
+    private static let cashAddressBase32CharacterSet: Set<Character> = Set("qpzry9x8gf2tvdw0s3jn54khce6mua7l")
+
     public static func filterBase32(from string: String) -> String {
         let prefixWithSeparator = AddressModel.prefix + AddressModel.separator
         
@@ -152,7 +155,7 @@ extension AddressModel {
             let normalizedScalar = UnicodeScalar(normalizedAscii)
             let normalizedCharacter = Character(normalizedScalar)
             
-            guard Base32Model.characters.contains(normalizedCharacter)
+            guard AddressModel.cashAddressBase32CharacterSet.contains(normalizedCharacter)
             else { return }
             
             partialResult.append(normalizedCharacter)
@@ -165,7 +168,7 @@ extension AddressModel {
 extension AddressModel {
     public func makeScriptHash() -> Data {
         let scriptData = lockingScript.data
-        return SHA256Model.hash(scriptData).reversedData
+        return SecureHashAlgorithm256Model.hash(scriptData).reversedData
     }
 }
 

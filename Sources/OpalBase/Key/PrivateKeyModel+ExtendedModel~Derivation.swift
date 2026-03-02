@@ -1,6 +1,7 @@
 // PrivateKeyModel+ExtendedModel~Derivation.swift
 
 import Foundation
+import OpalCrypto
 
 extension PrivateKeyModel.ExtendedModel {
     private func deriveChildPrivateKey(at index: UInt32, computeParentFingerprint: Bool) throws -> PrivateKeyModel.ExtendedModel {
@@ -28,13 +29,13 @@ extension PrivateKeyModel.ExtendedModel {
 
         data.append(index.bigEndianData)
 
-        let hashMessageAuthenticationCode = HMACSHA512Model.hash(data, key: chainCode)
+        let hashMessageAuthenticationCode = HashBasedMessageAuthenticationCodeSecureHashAlgorithm512Model.hash(data, key: chainCode)
         let leftHashMessageAuthenticationCodePart = Data(hashMessageAuthenticationCode.prefix(32))
         let rightHashMessageAuthenticationCodePart = Data(hashMessageAuthenticationCode.suffix(32))
 
         let childPrivateKey: Data
         do {
-            childPrivateKey = try Secp256k1Model.OperationModel.tweakAddPrivateKey32(parentPrivateKey, tweak32: leftHashMessageAuthenticationCodePart)
+            childPrivateKey = try StandardsForEfficientCryptography256k1CurveModel.OperationModel.tweakAddPrivateKeyData32Bytes(parentPrivateKey, tweakData32Bytes: leftHashMessageAuthenticationCodePart)
         } catch {
             throw PrivateKeyModel.Error.invalidDerivedKey
         }
@@ -44,7 +45,7 @@ extension PrivateKeyModel.ExtendedModel {
 
         if computeParentFingerprint {
             guard let parentPublicKey else { throw PrivateKeyModel.Error.invalidDerivedKey }
-            childParentFingerprint = Data(HASH160Model.hash(parentPublicKey).prefix(4))
+            childParentFingerprint = Data(SecureHash160Model.hash(parentPublicKey).prefix(4))
         } else {
             childParentFingerprint = Data(repeating: 0, count: 4)
         }
@@ -63,13 +64,13 @@ extension PrivateKeyModel.ExtendedModel {
         data.append(parentCompressedPublicKey)
         data.append(index.bigEndianData)
 
-        let hmac = HMACSHA512Model.hash(data, key: chainCode)
+        let hmac = HashBasedMessageAuthenticationCodeSecureHashAlgorithm512Model.hash(data, key: chainCode)
         let leftHMACPart = Data(hmac.prefix(32))
         let rightHMACPart = Data(hmac.suffix(32))
 
         let childPrivateKey: Data
         do {
-            childPrivateKey = try Secp256k1Model.OperationModel.tweakAddPrivateKey32(privateKey, tweak32: leftHMACPart)
+            childPrivateKey = try StandardsForEfficientCryptography256k1CurveModel.OperationModel.tweakAddPrivateKeyData32Bytes(privateKey, tweakData32Bytes: leftHMACPart)
         } catch {
             throw PrivateKeyModel.Error.invalidDerivedKey
         }

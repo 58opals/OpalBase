@@ -17,12 +17,14 @@ let package = Package(
             targets: ["OpalBase"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/58opals/SwiftFulcrum.git", branch: "develop")
+        .package(url: "https://github.com/58opals/SwiftFulcrum.git", branch: "develop"),
+        .package(url: "https://github.com/58opals/OpalCrypto.git", branch: "develop")
     ],
     targets: [
         .target(name: "OpalBase",
                 dependencies: [
-                    .product(name: "SwiftFulcrum", package: "SwiftFulcrum")
+                    .product(name: "SwiftFulcrum", package: "SwiftFulcrum"),
+                    .product(name: "OpalCrypto", package: "OpalCrypto")
                 ],
                 resources: [
                     .process("Resources/BIP-0039/English.txt"),

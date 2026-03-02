@@ -1,6 +1,7 @@
 // TransactionModel+OutputOrderingStrategyModel.swift
 
 import Foundation
+import OpalCrypto
 
 extension TransactionModel {
     public static let minimumRelayFeeRate: UInt64 = 1
@@ -20,7 +21,7 @@ extension TransactionModel {
                       recipientOutputs: [OutputModel],
                       changeOutput: OutputModel,
                       outputOrderingStrategy: OutputOrderingStrategyModel = .privacyRandomized,
-                      signatureFormat: ECDSAModel.SignatureFormatModel = .schnorr,
+                      signatureFormat: EllipticCurveDigitalSignatureAlgorithmModel.SignatureFormatModel = .schnorr,
                       feePerByte: UInt64 = 1,
                       sequence: UInt32 = 0xFFFFFFFF,
                       lockTime: UInt32 = 0,
@@ -181,9 +182,9 @@ extension TransactionModel {
                                                                         outputBeingSpent: outputBeingSpent,
                                                                         spentOutputs: spentOutputs)
                 
-                let message = ECDSAModel.MessageModel.makeDoubleSHA256(preimage)
-                let signature = try ECDSAModel.sign(message: message,
-                                               with: privateKey,
+                let message = EllipticCurveDigitalSignatureAlgorithmModel.MessageModel.makeDoubleSecureHashAlgorithm256(preimage)
+                let signature = try EllipticCurveDigitalSignatureAlgorithmModel.sign(message: message,
+                                               with: privateKey.rawData,
                                                in: builder.signatureFormat)
                 let signatureWithType = signature + Data([UInt8(hashType.value)])
                 let unlockingScript = Data.push(signatureWithType) + Data.push(publicKey.compressedData)
@@ -191,9 +192,9 @@ extension TransactionModel {
                 transaction = try transaction.injectUnlockingScript(unlockingScript, inputIndex: index)
             case .p2pkh_CheckDataSig(let message):
                 let messageBytes = message
-                let message = ECDSAModel.MessageModel.makeSingleSHA256(messageBytes)
-                let signature = try ECDSAModel.sign(message: message,
-                                               with: privateKey,
+                let message = EllipticCurveDigitalSignatureAlgorithmModel.MessageModel.makeSingleSecureHashAlgorithm256(messageBytes)
+                let signature = try EllipticCurveDigitalSignatureAlgorithmModel.sign(message: message,
+                                               with: privateKey.rawData,
                                                in: builder.signatureFormat)
                 let unlockingSignature = Data.push(signature) + Data.push(messageBytes) + Data.push(publicKey.compressedData)
                 

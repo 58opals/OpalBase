@@ -1,6 +1,7 @@
 // BCMR+AuthchainResolverModel.swift
 
 import Foundation
+import OpalCrypto
 
 extension BitcoinCashMetadataRegistryClient {
     public struct AuthchainResolverModel: Sendable {
@@ -104,7 +105,7 @@ private extension BitcoinCashMetadataRegistryClient.AuthchainResolverModel {
             throw Error.scriptHashReaderUnavailable(transactionHash)
         }
         
-        let scriptHash = SHA256Model.hash(lockingScript).reversedData.hexadecimalString
+        let scriptHash = SecureHashAlgorithm256Model.hash(lockingScript).reversedData.hexadecimalString
         return try await scriptHashReader.fetchHistory(
             forScriptHash: scriptHash,
             includeUnconfirmed: true

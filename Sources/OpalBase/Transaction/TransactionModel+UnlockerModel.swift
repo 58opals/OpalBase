@@ -1,6 +1,7 @@
 // TransactionModel+UnlockerModel.swift
 
 import Foundation
+import OpalCrypto
 
 extension TransactionModel {
     public enum UnlockerModel: Sendable {
@@ -10,10 +11,10 @@ extension TransactionModel {
 }
 
 extension TransactionModel.UnlockerModel {
-    func makePlaceholderUnlockingScript(signatureFormat: ECDSAModel.SignatureFormatModel) -> Data {
+    func makePlaceholderUnlockingScript(signatureFormat: EllipticCurveDigitalSignatureAlgorithmModel.SignatureFormatModel) -> Data {
         switch signatureFormat {
         case .ecdsa(.raw), .ecdsa(.compact):
-            assertionFailure("OP_CHECKSIG or OP_CHECKDATASIG requires DERModel-encoded ECDSAModel. Use .ecdsa(.der) or .schnorr (BCH).")
+            assertionFailure("OP_CHECKSIG or OP_CHECKDATASIG requires DERModel-encoded EllipticCurveDigitalSignatureAlgorithmModel. Use .ecdsa(.distinguishedEncodingRules) or .schnorr (BCH).")
         default:
             break
         }
@@ -21,12 +22,12 @@ extension TransactionModel.UnlockerModel {
         let publicKeyLength: Int = 33
         let coreSignatureLength: Int = {
             switch signatureFormat {
-            case .ecdsa(.der):
+            case .ecdsa(.distinguishedEncodingRules):
                 return 72
             case .schnorr:
                 return 64
             case .ecdsa(.raw), .ecdsa(.compact):
-                assertionFailure("Unsupported ECDSAModel format. Use .ecdsa(.der) or .schnorr (BCH).")
+                assertionFailure("Unsupported EllipticCurveDigitalSignatureAlgorithmModel format. Use .ecdsa(.distinguishedEncodingRules) or .schnorr (BCH).")
                 return 72
             }
         }()

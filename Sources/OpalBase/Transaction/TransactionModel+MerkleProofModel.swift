@@ -1,6 +1,7 @@
 // TransactionModel+MerkleProofModel.swift
 
 import Foundation
+import OpalCrypto
 
 extension TransactionModel {
     public struct MerkleProofModel {
@@ -25,9 +26,9 @@ extension TransactionModel {
             
             for node in branch {
                 if index & 1 == 1 {
-                    current = HASH256Model.hash(node + current)
+                    current = SecureHash256Model.hash(node + current)
                 } else {
-                    current = HASH256Model.hash(current + node)
+                    current = SecureHash256Model.hash(current + node)
                 }
                 index >>= 1
             }

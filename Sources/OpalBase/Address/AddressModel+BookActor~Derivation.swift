@@ -1,6 +1,7 @@
 // AddressModel+BookActor~Derivation.swift
 
 import Foundation
+import OpalCrypto
 
 extension AddressModel.BookActor {
     func buildUsageDerivationCacheIfNeeded() throws {
@@ -13,7 +14,7 @@ extension AddressModel.BookActor {
             accountIndex
         ])
         let accountCompressedPublicKey = try PublicKeyModel(privateKey: .init(data: accountExtendedPrivateKey.privateKey)).compressedData
-        let accountFingerprint = Data(HASH160Model.hash(accountCompressedPublicKey).prefix(4))
+        let accountFingerprint = Data(SecureHash160Model.hash(accountCompressedPublicKey).prefix(4))
         
         for usage in [DerivationPathModel.UsageModel.receiving, .change] {
             let usageExtendedPrivateKey = try accountExtendedPrivateKey.deriveNonHardenedChildUsingParentKey(
@@ -22,7 +23,7 @@ extension AddressModel.BookActor {
                 parentFingerprint: accountFingerprint
             )
             let usageCompressedPublicKey = try PublicKeyModel(privateKey: .init(data: usageExtendedPrivateKey.privateKey)).compressedData
-            let usageFingerprint = Data(HASH160Model.hash(usageCompressedPublicKey).prefix(4))
+            let usageFingerprint = Data(SecureHash160Model.hash(usageCompressedPublicKey).prefix(4))
             usageDerivationCache[usage] = .init(baseExtendedPrivateKey: usageExtendedPrivateKey,
                                                 baseCompressedPublicKey: usageCompressedPublicKey,
                                                 baseFingerprint: usageFingerprint)
