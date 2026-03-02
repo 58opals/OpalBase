@@ -36,11 +36,27 @@ private extension BitcoinCashMetadataRegistryClient {
     }
     
     func parseRegistryIdentityHash(from registryIdentity: String) throws -> TransactionModel.HashModel {
+        let data: Data
         do {
-            let data = try Data(hexadecimalString: registryIdentity)
-            return TransactionModel.HashModel(dataFromRPC: data)
+            data = try Data(hexadecimalString: registryIdentity)
         } catch {
             throw Error.invalidRegistryIdentity(registryIdentity, error)
         }
+        
+        guard data.count == TransactionModel.HashModel.expectedByteCount else {
+            throw Error.invalidRegistryIdentity(
+                registryIdentity,
+                RegistryIdentityHashValidationError.invalidByteCount(
+                    expected: TransactionModel.HashModel.expectedByteCount,
+                    actual: data.count
+                )
+            )
+        }
+        
+        return TransactionModel.HashModel(dataFromRPC: data)
     }
+}
+
+private enum RegistryIdentityHashValidationError: Swift.Error {
+    case invalidByteCount(expected: Int, actual: Int)
 }

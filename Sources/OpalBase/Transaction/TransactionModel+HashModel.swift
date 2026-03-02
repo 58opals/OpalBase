@@ -4,6 +4,7 @@ import Foundation
 
 extension TransactionModel {
     public struct HashModel {
+        static let expectedByteCount = 32
         public let originalData: Data
         
         // Initializer for data received in natural order (little-endian)

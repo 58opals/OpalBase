@@ -46,8 +46,10 @@ extension NetworkModel {
                     guard let index = UInt32(exactly: item.transactionPosition) else {
                         throw NetworkModel.Error(reason: .decoding, message: "TransactionModel position overflow")
                     }
-                    let data = try Data(hexadecimalString: item.transactionHash)
-                    let hash = TransactionModel.HashModel(dataFromRPC: data)
+                    let hash = try NetworkModel.decodeTransactionHash(
+                        from: item.transactionHash,
+                        label: "unspent transaction hash"
+                    )
                     let tokenData = try item.tokenData.map { try CashTokensModel.TokenData(swiftFulcrumTokenData: $0) }
                     return TransactionModel.OutputModel.UnspentModel(
                         value: item.value,

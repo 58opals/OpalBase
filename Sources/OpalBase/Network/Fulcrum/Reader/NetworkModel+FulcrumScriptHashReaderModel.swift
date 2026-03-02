@@ -86,8 +86,10 @@ extension NetworkModel {
                 throw NetworkModel.Error(reason: .decoding, message: "TransactionModel position overflow")
             }
             
-            let data = try Data(hexadecimalString: item.transactionHash)
-            let hash = TransactionModel.HashModel(dataFromRPC: data)
+            let hash = try NetworkModel.decodeTransactionHash(
+                from: item.transactionHash,
+                label: "script-hash unspent transaction hash"
+            )
             let rawTransactionData = try await transactionReader.fetchRawTransaction(for: hash)
             let (transaction, _) = try TransactionModel.decode(from: rawTransactionData)
             let outputIndex = Int(index)

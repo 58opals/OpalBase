@@ -11,13 +11,22 @@ extension NetworkModel {
         from identifier: String,
         label: String = "transaction identifier"
     ) throws -> TransactionModel.HashModel {
+        let data: Data
         do {
-            let data = try Data(hexadecimalString: identifier)
-            return TransactionModel.HashModel(dataFromRPC: data)
+            data = try Data(hexadecimalString: identifier)
         } catch {
             throw NetworkModel.Error(reason: .decoding,
                                 message: "Cannot decode \(label): \(identifier)")
         }
+        
+        guard data.count == TransactionModel.HashModel.expectedByteCount else {
+            throw NetworkModel.Error(
+                reason: .decoding,
+                message: "Invalid \(label) length: expected \(TransactionModel.HashModel.expectedByteCount) bytes, got \(data.count)"
+            )
+        }
+        
+        return TransactionModel.HashModel(dataFromRPC: data)
     }
 }
 
