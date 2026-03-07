@@ -1,3 +1,5 @@
+// TransactionOutputOrderValidator.swift
+
 import Foundation
 import Testing
 @testable import OpalBase
@@ -67,3 +69,4 @@ struct TransactionOutputOrderValidator {
         try CashTokensModel.CategoryIDModel(transactionOrderData: Data(repeating: byte, count: 32))
     }
 }
+

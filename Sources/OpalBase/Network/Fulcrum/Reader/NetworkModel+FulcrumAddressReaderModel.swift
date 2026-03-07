@@ -16,8 +16,8 @@ extension NetworkModel {
         public func fetchBalance(for address: String, tokenFilter: NetworkModel.TokenFilter) async throws -> AddressBalanceModel {
             try await NetworkModel.performWithFailureTranslation {
                 let result = try await client.request(
-                    method: .blockchain(.address(.getBalance(address: address, tokenFilter: tokenFilter))),
-                    responseType: SwiftFulcrum.FulcrumResponse.ResultModel.BlockchainModel.AddressModel.GetBalanceModel.self,
+                    method: .blockchain(.address(.getBalance(address: address, tokenFilter: tokenFilter.fulcrumTokenFilter))),
+                    responseType: SwiftFulcrum.RPC.Response.Result.Blockchain.Address.GetBalance.self,
                     options: .init(timeout: timeouts.addressBalance)
                 )
                 return AddressBalanceModel(confirmed: result.confirmed, unconfirmed: result.unconfirmed)
@@ -37,8 +37,8 @@ extension NetworkModel {
                 }
                 
                 let result = try await client.request(
-                    method: .blockchain(.address(.listUnspent(address: address, tokenFilter: tokenFilter))),
-                    responseType: SwiftFulcrum.FulcrumResponse.ResultModel.BlockchainModel.AddressModel.ListUnspentModel.self,
+                    method: .blockchain(.address(.listUnspent(address: address, tokenFilter: tokenFilter.fulcrumTokenFilter))),
+                    responseType: SwiftFulcrum.RPC.Response.Result.Blockchain.Address.ListUnspent.self,
                     options: .init(timeout: timeouts.addressUnspent)
                 )
                 
@@ -77,7 +77,7 @@ extension NetworkModel {
                             )
                         )
                     ),
-                    responseType: SwiftFulcrum.FulcrumResponse.ResultModel.BlockchainModel.AddressModel.GetHistoryModel.self,
+                    responseType: SwiftFulcrum.RPC.Response.Result.Blockchain.Address.GetHistory.self,
                     options: .init(timeout: timeouts.addressHistory)
                 )
                 
@@ -95,7 +95,7 @@ extension NetworkModel {
             try await NetworkModel.performWithFailureTranslation {
                 let result = try await client.request(
                     method: .blockchain(.address(.getFirstUse(address: address))),
-                    responseType: SwiftFulcrum.FulcrumResponse.ResultModel.BlockchainModel.AddressModel.GetFirstUseModel.self,
+                    responseType: SwiftFulcrum.RPC.Response.Result.Blockchain.Address.GetFirstUse.self,
                     options: .init(timeout: timeouts.addressFirstUse)
                 )
                 
@@ -115,7 +115,7 @@ extension NetworkModel {
             try await NetworkModel.performWithFailureTranslation {
                 let result = try await client.request(
                     method: .blockchain(.address(.getMempool(address: address))),
-                    responseType: SwiftFulcrum.FulcrumResponse.ResultModel.BlockchainModel.AddressModel.GetMempoolModel.self,
+                    responseType: SwiftFulcrum.RPC.Response.Result.Blockchain.Address.GetMempool.self,
                     options: .init(timeout: timeouts.addressMempool)
                 )
                 
@@ -133,7 +133,7 @@ extension NetworkModel {
             try await NetworkModel.performWithFailureTranslation {
                 let result = try await client.request(
                     method: .blockchain(.address(.getScriptHash(address: address))),
-                    responseType: SwiftFulcrum.FulcrumResponse.ResultModel.BlockchainModel.AddressModel.GetScriptHashModel.self,
+                    responseType: SwiftFulcrum.RPC.Response.Result.Blockchain.Address.GetScriptHash.self,
                     options: .init(timeout: timeouts.addressScriptHash)
                 )
                 return result.scriptHash
@@ -144,8 +144,8 @@ extension NetworkModel {
             try await NetworkModel.performWithFailureTranslation {
                 let (initial, updates, cancel) = try await client.subscribe(
                     method: .blockchain(.address(.subscribe(address: address))),
-                    initialType: SwiftFulcrum.FulcrumResponse.ResultModel.BlockchainModel.AddressModel.SubscribeModel.self,
-                    notificationType: SwiftFulcrum.FulcrumResponse.ResultModel.BlockchainModel.AddressModel.SubscribeNotificationModel.self,
+                    initialType: SwiftFulcrum.RPC.Response.Result.Blockchain.Address.Subscribe.self,
+                    notificationType: SwiftFulcrum.RPC.Response.Result.Blockchain.Address.SubscribeNotification.self,
                     options: .init(timeout: timeouts.addressSubscription)
                 )
                 

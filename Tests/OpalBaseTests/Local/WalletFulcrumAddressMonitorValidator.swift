@@ -1,3 +1,5 @@
+// WalletFulcrumAddressMonitorValidator.swift
+
 import Foundation
 import Testing
 @testable import OpalBase
@@ -197,3 +199,4 @@ struct WalletFulcrumAddressMonitorValidator {
         _ = await collector.result
     }
 }
+

@@ -1,7 +1,6 @@
-// PrivateKeyModel~WIF.swift
+// PrivateKeyModel+WalletImportFormatCompressionModel.swift
 
 import Foundation
-import OpalCrypto
 
 extension PrivateKeyModel {
     public enum WalletImportFormatCompressionModel: Sendable, Equatable {
@@ -20,10 +19,10 @@ extension PrivateKeyModel {
             payload.append(Self.walletImportFormatCompressedPublicKeyFlag)
         }
         
-        let checksum = SecureHash256Model.computeChecksum(for: payload)
+        let checksum = HASH256Model.computeChecksum(for: payload)
         let walletImportFormatData = payload + checksum
         
-        return Base58EncodingModel.encode(walletImportFormatData)
+        return Base58Model.encode(walletImportFormatData)
     }
     
     var compressedWalletImportFormat: String {
@@ -35,12 +34,12 @@ extension PrivateKeyModel {
     }
     
     public init(wif: String, expectedCompression: WalletImportFormatCompressionModel = .compressed) throws {
-        guard let decoded = Base58EncodingModel.decode(wif) else { throw Error.cannotDecodeWIF }
+        guard let decoded = Base58Model.decode(wif) else { throw Error.cannotDecodeWIF }
         guard decoded.count == 37 || decoded.count == 38 else { throw Error.invalidLength }
         
         let payload = decoded.prefix(decoded.count - 4)
         let checksum = decoded.suffix(4)
-        let computedChecksum = SecureHash256Model.computeChecksum(for: Data(payload))
+        let computedChecksum = HASH256Model.computeChecksum(for: Data(payload))
         
         guard checksum.elementsEqual(computedChecksum) else { throw Error.invalidChecksum }
         guard payload.first == Self.walletImportFormatMainnetVersionByte else { throw Error.invalidVersion }
@@ -64,3 +63,4 @@ extension PrivateKeyModel {
         try self.init(data: keyData)
     }
 }
+

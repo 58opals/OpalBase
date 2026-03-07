@@ -1,3 +1,5 @@
+// TokenMetadataRepositorySnapshotValidator.swift
+
 import Foundation
 import Testing
 @testable import OpalBase
@@ -33,3 +35,4 @@ struct TokenMetadataRepositorySnapshotValidator {
         #expect(restoredMetadata == metadata)
     }
 }
+

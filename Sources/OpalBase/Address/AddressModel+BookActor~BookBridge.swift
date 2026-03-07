@@ -1,4 +1,4 @@
-// AddressModel+BookActor+UTXORepository~BookBridge.swift
+// AddressModel+BookActor~BookBridge.swift
 
 import Foundation
 
@@ -74,3 +74,4 @@ extension AddressModel.BookActor {
                                      tokenSelectionPolicy: tokenSelectionPolicy)
     }
 }
+

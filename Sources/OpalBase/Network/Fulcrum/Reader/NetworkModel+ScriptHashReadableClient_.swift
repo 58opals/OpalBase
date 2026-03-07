@@ -1,4 +1,4 @@
-// NetworkModel+ScriptHashReadable_.swift
+// NetworkModel+ScriptHashReadableClient_.swift
 
 import Foundation
 
@@ -8,3 +8,4 @@ extension NetworkModel {
         func fetchUnspent(forScriptHash scriptHashHex: String, tokenFilter: NetworkModel.TokenFilter) async throws -> [TransactionModel.OutputModel.UnspentModel]
     }
 }
+

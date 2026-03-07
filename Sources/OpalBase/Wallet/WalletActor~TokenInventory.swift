@@ -1,4 +1,4 @@
-// WalletActor~TokenInventoryModel.swift
+// WalletActor~TokenInventory.swift
 
 import Foundation
 
@@ -51,3 +51,4 @@ private extension WalletActor {
         }
     }
 }
+

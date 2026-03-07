@@ -1,4 +1,4 @@
-// BCMR+FetcherModel.swift
+// BitcoinCashMetadataRegistryClient+FetcherModel.swift
 
 import Foundation
 
@@ -180,3 +180,4 @@ private extension BitcoinCashMetadataRegistryClient.FetcherModel {
         }
     }
 }
+

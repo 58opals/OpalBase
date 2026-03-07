@@ -1,3 +1,5 @@
+// StoragePersistenceValidator~RestoreTolerance.swift
+
 import Foundation
 import Testing
 @testable import OpalBase
@@ -98,3 +100,4 @@ extension StoragePersistenceValidator {
         #expect(restored.mnemonicProtectionMode == nil)
     }
 }
+

@@ -1,19 +1,18 @@
 // TransactionModel+BuilderModel.swift
 
 import Foundation
-import OpalCrypto
 
 extension TransactionModel {
     struct BuilderModel {
         let orderedUnspentOutputs: [TransactionModel.OutputModel.UnspentModel]
-        let signatureFormat: EllipticCurveDigitalSignatureAlgorithmModel.SignatureFormatModel
+        let signatureFormat: ECDSAModel.SignatureFormatModel
         let sequence: UInt32
         
         private let privateKeysByUnspent: [TransactionModel.OutputModel.UnspentModel: PrivateKeyModel]
         private let unlockersByUnspent: [TransactionModel.OutputModel.UnspentModel: TransactionModel.UnlockerModel]
         
         init(utxoPrivateKeyPairs: [TransactionModel.OutputModel.UnspentModel: PrivateKeyModel],
-             signatureFormat: EllipticCurveDigitalSignatureAlgorithmModel.SignatureFormatModel,
+             signatureFormat: ECDSAModel.SignatureFormatModel,
              sequence: UInt32,
              unlockers: [TransactionModel.OutputModel.UnspentModel: TransactionModel.UnlockerModel]) {
             self.privateKeysByUnspent = utxoPrivateKeyPairs

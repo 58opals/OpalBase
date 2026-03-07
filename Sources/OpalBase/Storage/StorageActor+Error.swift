@@ -1,4 +1,4 @@
-// StorageActor.swift
+// StorageActor+Error.swift
 
 import Foundation
 
@@ -31,3 +31,4 @@ extension StorageActor {
         case missingAccountIdentifier(UInt32)
     }
 }
+

@@ -1,4 +1,4 @@
-// Networ+AddressFirstUseModel.swift
+// NetworkModel+AddressFirstUseModel.swift
 
 import Foundation
 
@@ -15,3 +15,4 @@ extension NetworkModel {
         }
     }
 }
+

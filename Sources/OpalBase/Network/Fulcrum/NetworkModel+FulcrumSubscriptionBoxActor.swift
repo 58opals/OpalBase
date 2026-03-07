@@ -1,15 +1,15 @@
-// NetworkModel+FulcrumClient+SubscriptionBox.swift
+// NetworkModel+FulcrumSubscriptionBoxActor.swift
 
 import Foundation
 import SwiftFulcrum
 
 extension NetworkModel {
-    actor FulcrumSubscriptionBoxActor<Initial: JSONRPCResponse, Notification: JSONRPCResponse>: FulcrumSubscriptionClient {
+    actor FulcrumSubscriptionBoxActor<Initial: SwiftFulcrum.RPC.JSONRPCResponseAdapter, Notification: SwiftFulcrum.RPC.JSONRPCResponseAdapter>: FulcrumSubscriptionClient {
         let id: UUID
         let stream: AsyncThrowingStream<Notification, Swift.Error>
 
-        private let method: SwiftFulcrum.FulcrumMethodRequest
-        private let options: SwiftFulcrum.FulcrumClient.CallModel.OptionsModel
+        private let method: SwiftFulcrum.RPC.Method
+        private let options: SwiftFulcrum.Client.Call.Options
         let onTermination: @Sendable (UUID) async -> Void
 
         var continuation: AsyncThrowingStream<Notification, Swift.Error>.Continuation
@@ -21,8 +21,8 @@ extension NetworkModel {
         var hasNotifiedTermination = false
 
         init(
-            method: SwiftFulcrum.FulcrumMethodRequest,
-            options: SwiftFulcrum.FulcrumClient.CallModel.OptionsModel,
+            method: SwiftFulcrum.RPC.Method,
+            options: SwiftFulcrum.Client.Call.Options,
             onTermination: @escaping @Sendable (UUID) async -> Void
         ) {
             self.id = UUID()
@@ -35,7 +35,7 @@ extension NetworkModel {
             self.continuation = continuation
         }
 
-        func establish(using fulcrum: SwiftFulcrum.FulcrumClient) async throws -> Initial {
+        func establish(using fulcrum: SwiftFulcrum.Client) async throws -> Initial {
             let (initial, updates, cancel) = try await fulcrum.subscribe(
                 method: method,
                 initialType: Initial.self,
@@ -60,7 +60,7 @@ extension NetworkModel {
             }
         }
 
-        func resubscribe(using fulcrum: SwiftFulcrum.FulcrumClient) async {
+        func resubscribe(using fulcrum: SwiftFulcrum.Client) async {
             guard !isTerminated else { return }
             do {
                 isExpectingResubscribe = true
@@ -105,3 +105,4 @@ extension NetworkModel {
         }
     }
 }
+

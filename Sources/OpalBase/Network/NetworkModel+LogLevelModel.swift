@@ -1,4 +1,4 @@
-// NetworkModel~Instrumentation.swift
+// NetworkModel+LogLevelModel.swift
 
 import Foundation
 
@@ -61,3 +61,4 @@ extension NetworkModel {
         func recordSubscriptionRegistryUpdate(url: URL, subscriptions: [DiagnosticsSubscriptionModel]) async
     }
 }
+

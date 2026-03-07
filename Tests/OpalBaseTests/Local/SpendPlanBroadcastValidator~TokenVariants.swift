@@ -1,3 +1,5 @@
+// SpendPlanBroadcastValidator~TokenVariants.swift
+
 import Foundation
 import Testing
 @testable import OpalBase
@@ -119,3 +121,4 @@ private extension SpendPlanBroadcastValidator {
         return try await account.prepareTokenCommitmentMutation(mutation)
     }
 }
+

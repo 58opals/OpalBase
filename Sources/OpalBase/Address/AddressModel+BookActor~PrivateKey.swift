@@ -1,4 +1,4 @@
-// AddressModel+BookActor~PrivateKeyModel.swift
+// AddressModel+BookActor~PrivateKey.swift
 
 import Foundation
 
@@ -45,3 +45,4 @@ extension AddressModel.BookActor {
         return derived
     }
 }
+

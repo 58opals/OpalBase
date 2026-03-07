@@ -1,3 +1,5 @@
+// AccountPrivacyShaperValidator.swift
+
 import Foundation
 import Testing
 @testable import OpalBase
@@ -24,3 +26,4 @@ struct AccountPrivacyShaperValidator {
         #expect(organizedOutputs[2].lockingScript == Data([0x02]))
     }
 }
+

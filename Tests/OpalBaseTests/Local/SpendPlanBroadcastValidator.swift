@@ -1,3 +1,5 @@
+// SpendPlanBroadcastValidator.swift
+
 import Foundation
 import Testing
 @testable import OpalBase
@@ -129,3 +131,4 @@ struct SpendPlanBroadcastValidator {
         try await failingPlan.cancelReservation()
     }
 }
+

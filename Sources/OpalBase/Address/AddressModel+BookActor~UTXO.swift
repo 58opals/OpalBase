@@ -1,4 +1,4 @@
-// AddressModel+BookActor~UTXOModel.swift
+// AddressModel+BookActor~UTXO.swift
 
 import Foundation
 
@@ -28,3 +28,4 @@ extension AddressModel.BookActor {
         return try selector.select()
     }
 }
+

@@ -1,3 +1,5 @@
+// Secp256k1EndomorphismValidator.swift
+
 import Foundation
 import Testing
 @testable import OpalBase
@@ -83,3 +85,4 @@ struct Secp256k1EndomorphismValidator {
         return mostSignificantBitIndex < 128
     }
 }
+

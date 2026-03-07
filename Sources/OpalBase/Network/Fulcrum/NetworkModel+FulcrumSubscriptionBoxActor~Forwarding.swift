@@ -1,4 +1,4 @@
-// FulcrumClient+SubscriptionBox~Forwarding.swift
+// NetworkModel+FulcrumSubscriptionBoxActor~Forwarding.swift
 
 import Foundation
 import SwiftFulcrum
@@ -84,3 +84,4 @@ extension NetworkModel.FulcrumSubscriptionBoxActor {
         await handler()
     }
 }
+

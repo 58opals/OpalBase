@@ -1,3 +1,5 @@
+// BitcoinImprovementProposalSchnorrTestData.swift
+
 import Foundation
 
 enum BitcoinImprovementProposalSchnorrTestData {
@@ -158,3 +160,4 @@ enum BitcoinImprovementProposalSchnorrTestData {
         ),
     ]
 }
+

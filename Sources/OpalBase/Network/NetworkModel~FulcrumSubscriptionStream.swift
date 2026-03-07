@@ -1,4 +1,4 @@
-// NetworkModel+FulcrumSubscriptionStream.swift
+// NetworkModel~FulcrumSubscriptionStream.swift
 
 import Foundation
 
@@ -52,3 +52,4 @@ extension NetworkModel {
         }
     }
 }
+

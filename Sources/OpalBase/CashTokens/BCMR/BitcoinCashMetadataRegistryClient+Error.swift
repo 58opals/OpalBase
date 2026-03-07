@@ -1,4 +1,4 @@
-// BCMR~RegistryImport.swift
+// BitcoinCashMetadataRegistryClient+Error.swift
 
 import Foundation
 
@@ -60,3 +60,4 @@ private extension BitcoinCashMetadataRegistryClient {
 private enum RegistryIdentityHashValidationError: Swift.Error {
     case invalidByteCount(expected: Int, actual: Int)
 }
+

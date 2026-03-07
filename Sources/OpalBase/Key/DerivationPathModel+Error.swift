@@ -1,4 +1,4 @@
-// DerivationPathModel.swift
+// DerivationPathModel+Error.swift
 
 import Foundation
 
@@ -44,3 +44,4 @@ extension DerivationPathModel {
         case indexTooSmallForUnhardening
     }
 }
+

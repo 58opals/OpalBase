@@ -1,3 +1,5 @@
+// NetworkFulcrumClientFailoverValidator.swift
+
 import Foundation
 import Testing
 import SwiftFulcrum
@@ -33,14 +35,14 @@ struct NetworkFulcrumClientFailoverValidator {
         try await NetworkTestClient.withClient(configuration: configuration) { client in
             try await client.reconnect()
             
-            let tip: SwiftFulcrum.FulcrumResponse.ResultModel.BlockchainModel.HeadersModel.GetTipModel = try await client.request(
+            let tip: SwiftFulcrum.RPC.Response.Result.Blockchain.Headers.GetTip = try await client.request(
                 method: .blockchain(.headers(.getTip)),
-                responseType: SwiftFulcrum.FulcrumResponse.ResultModel.BlockchainModel.HeadersModel.GetTipModel.self
+                responseType: SwiftFulcrum.RPC.Response.Result.Blockchain.Headers.GetTip.self
             )
             #expect(tip.height > 0)
             #expect(!tip.hex.isEmpty)
             
-            let balance: SwiftFulcrum.FulcrumResponse.ResultModel.BlockchainModel.AddressModel.GetBalanceModel = try await client.request(
+            let balance: SwiftFulcrum.RPC.Response.Result.Blockchain.Address.GetBalance = try await client.request(
                 method: .blockchain(
                     .address(
                         .getBalance(address: Self.sampleCashAddress, tokenFilter: .include)
@@ -68,27 +70,27 @@ struct NetworkFulcrumClientFailoverValidator {
         )
         
         try await NetworkTestClient.withClient(configuration: configuration) { client in
-            let tip: SwiftFulcrum.FulcrumResponse.ResultModel.BlockchainModel.HeadersModel.GetTipModel = try await client.request(
+            let tip: SwiftFulcrum.RPC.Response.Result.Blockchain.Headers.GetTip = try await client.request(
                 method: .blockchain(.headers(.getTip)),
-                responseType: SwiftFulcrum.FulcrumResponse.ResultModel.BlockchainModel.HeadersModel.GetTipModel.self
+                responseType: SwiftFulcrum.RPC.Response.Result.Blockchain.Headers.GetTip.self
             )
             #expect(tip.height > 0)
             #expect(!tip.hex.isEmpty)
             
-            let balance: SwiftFulcrum.FulcrumResponse.ResultModel.BlockchainModel.AddressModel.GetBalanceModel = try await client.request(
+            let balance: SwiftFulcrum.RPC.Response.Result.Blockchain.Address.GetBalance = try await client.request(
                 method: .blockchain(
                     .address(
                         .getBalance(address: Self.sampleCashAddress, tokenFilter: .include)
                     )
                 ),
-                responseType: SwiftFulcrum.FulcrumResponse.ResultModel.BlockchainModel.AddressModel.GetBalanceModel.self
+                responseType: SwiftFulcrum.RPC.Response.Result.Blockchain.Address.GetBalance.self
             )
             #expect(balance.confirmed >= 0)
             #expect(balance.unconfirmed >= 0)
             
             try await client.reconnect()
             
-            let history: SwiftFulcrum.FulcrumResponse.ResultModel.BlockchainModel.AddressModel.GetHistoryModel = try await client.request(
+            let history: SwiftFulcrum.RPC.Response.Result.Blockchain.Address.GetHistory = try await client.request(
                 method: .blockchain(
                     .address(
                         .getHistory(
@@ -99,7 +101,7 @@ struct NetworkFulcrumClientFailoverValidator {
                         )
                     )
                 ),
-                responseType: SwiftFulcrum.FulcrumResponse.ResultModel.BlockchainModel.AddressModel.GetHistoryModel.self
+                responseType: SwiftFulcrum.RPC.Response.Result.Blockchain.Address.GetHistory.self
             )
             #expect(!history.transactions.isEmpty)
         }
@@ -121,7 +123,7 @@ struct NetworkFulcrumClientFailoverValidator {
         )
         
         try await NetworkTestClient.withClient(configuration: configuration) { client in
-            let balance: SwiftFulcrum.FulcrumResponse.ResultModel.BlockchainModel.AddressModel.GetBalanceModel = try await client.request(
+            let balance: SwiftFulcrum.RPC.Response.Result.Blockchain.Address.GetBalance = try await client.request(
                 method: .blockchain(
                     .address(
                         .getBalance(address: Self.sampleCashAddress, tokenFilter: .include)
@@ -132,7 +134,7 @@ struct NetworkFulcrumClientFailoverValidator {
             #expect(balance.confirmed >= 0)
             #expect(balance.unconfirmed >= 0)
             
-            let history: SwiftFulcrum.FulcrumResponse.ResultModel.BlockchainModel.AddressModel.GetHistoryModel = try await client.request(
+            let history: SwiftFulcrum.RPC.Response.Result.Blockchain.Address.GetHistory = try await client.request(
                 method: .blockchain(
                     .address(
                         .getHistory(
@@ -149,3 +151,4 @@ struct NetworkFulcrumClientFailoverValidator {
         }
     }
 }
+

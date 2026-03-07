@@ -6,9 +6,9 @@ import SwiftFulcrum
 extension NetworkModel {
     public struct FulcrumServerVersionModel: Sendable, Equatable {
         public let serverVersion: String
-        public let negotiatedProtocolVersion: ProtocolVersionModel
+        public let negotiatedProtocolVersion: NetworkModel.ProtocolVersion
         
-        public init(serverVersion: String, negotiatedProtocolVersion: ProtocolVersionModel) {
+        public init(serverVersion: String, negotiatedProtocolVersion: NetworkModel.ProtocolVersion) {
             self.serverVersion = serverVersion
             self.negotiatedProtocolVersion = negotiatedProtocolVersion
         }

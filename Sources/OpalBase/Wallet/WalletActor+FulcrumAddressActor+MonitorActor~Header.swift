@@ -1,4 +1,4 @@
-// WalletActor+FulcrumAddressActor+MonitorActor~HeaderModel.swift
+// WalletActor+FulcrumAddressActor+MonitorActor~Header.swift
 
 import Foundation
 
@@ -48,3 +48,4 @@ extension WalletActor.FulcrumAddressActor.MonitorActor {
         }
     }
 }
+

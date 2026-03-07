@@ -1,4 +1,4 @@
-// AccountActor.swift
+// AccountActor+.swift
 
 import Foundation
 
@@ -125,3 +125,4 @@ extension AccountActor {
         await addressBook.readGapLimit()
     }
 }
+

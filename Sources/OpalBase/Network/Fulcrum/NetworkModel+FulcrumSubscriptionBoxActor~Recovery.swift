@@ -1,4 +1,4 @@
-// FulcrumClient+SubscriptionBox~Recovery.swift
+// NetworkModel+FulcrumSubscriptionBoxActor~Recovery.swift
 
 import Foundation
 import SwiftFulcrum
@@ -24,7 +24,7 @@ extension NetworkModel.FulcrumSubscriptionBoxActor {
     }
 
     func checkRecoverability(_ error: Swift.Error) -> Bool {
-        guard let fulcrumError = error as? SwiftFulcrum.FulcrumClient.Error else { return false }
+        guard let fulcrumError = error as? SwiftFulcrum.Client.Error else { return false }
         switch fulcrumError {
         case .transport(.connectionClosed),
                 .transport(.reconnectFailed),
@@ -37,10 +37,11 @@ extension NetworkModel.FulcrumSubscriptionBoxActor {
     }
 
     func checkClientCancellation(_ error: Swift.Error) -> Bool {
-        guard let fulcrumError = error as? SwiftFulcrum.FulcrumClient.Error else { return false }
+        guard let fulcrumError = error as? SwiftFulcrum.Client.Error else { return false }
         if case .client(.cancelled) = fulcrumError {
             return true
         }
         return false
     }
 }
+

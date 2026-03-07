@@ -1,4 +1,4 @@
-// AddressModel+BookActor+SpendReservationModel~AutomaticRelease.swift
+// AddressModel+BookActor~AutomaticRelease.swift
 
 import Foundation
 
@@ -37,3 +37,4 @@ extension AddressModel.BookActor {
         return UInt64(rawValue)
     }
 }
+

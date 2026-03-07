@@ -1,3 +1,5 @@
+// BitcoinCashMetadataRegistryTestData.swift
+
 import Foundation
 @testable import OpalBase
 
@@ -53,3 +55,4 @@ enum BitcoinCashMetadataRegistryTestData {
         }
     }
 }
+

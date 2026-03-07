@@ -1,4 +1,4 @@
-//  AccountActor~SpendReservationModel.swift
+// AccountActor~SpendReservation.swift
 
 import Foundation
 
@@ -35,3 +35,4 @@ extension AccountActor {
         }
     }
 }
+

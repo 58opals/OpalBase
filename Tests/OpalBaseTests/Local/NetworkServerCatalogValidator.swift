@@ -1,3 +1,5 @@
+// NetworkServerCatalogValidator.swift
+
 import Foundation
 import SwiftFulcrum
 import Testing
@@ -21,7 +23,7 @@ struct NetworkServerCatalogValidator {
     
     @Test("chipnet maps to FulcrumClient testnet framing")
     func chipnetMapsToFulcrumTestnet() {
-        #expect(NetworkModel.EnvironmentModel.chipnet.fulcrumNetwork == FulcrumClient.Configuration.NetworkModel.testnet)
+        #expect(NetworkModel.EnvironmentModel.chipnet.fulcrumNetwork == SwiftFulcrum.Client.Configuration.Network.testnet)
     }
     
     @Test("server catalog loader merges overrides before defaults")
@@ -65,7 +67,7 @@ struct NetworkServerCatalogValidator {
         do {
             _ = try await loader.loadServers(for: .testnet, fallback: .init())
             Issue.record("Expected protocol mismatch when requested Fulcrum network does not match configuration.")
-        } catch let error as FulcrumClient.Error {
+        } catch let error as SwiftFulcrum.Client.Error {
             switch error {
             case .client(.protocolMismatch(let message)):
                 #expect(message?.contains("configuredEnvironment=mainnet") == true)
@@ -165,3 +167,4 @@ struct NetworkServerCatalogValidator {
         #expect(merged[3].host == "fallback.example.com")
     }
 }
+

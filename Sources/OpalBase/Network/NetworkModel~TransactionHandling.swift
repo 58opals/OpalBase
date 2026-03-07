@@ -1,4 +1,4 @@
-// NetworkModel+TransactionHandling.swift
+// NetworkModel~TransactionHandling.swift
 
 import Foundation
 
@@ -37,3 +37,4 @@ extension NetworkModel.TransactionBroadcastClient {
         return try NetworkModel.decodeTransactionHash(from: transactionIdentifier)
     }
 }
+

@@ -1,3 +1,5 @@
+// Base58Validator.swift
+
 import Foundation
 import Testing
 @testable import OpalBase
@@ -56,3 +58,4 @@ struct Base58Validator {
         #expect(decodedPrivateKey.rawData == privateKey.rawData)
     }
 }
+

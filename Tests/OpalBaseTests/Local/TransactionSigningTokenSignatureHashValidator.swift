@@ -1,3 +1,5 @@
+// TransactionSigningTokenSignatureHashValidator.swift
+
 import Foundation
 import Testing
 @testable import OpalBase
@@ -95,3 +97,4 @@ struct TransactionSigningTokenSignatureHashValidator {
         }
     }
 }
+

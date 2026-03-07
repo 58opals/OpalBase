@@ -1,3 +1,5 @@
+// AddressTokenAwareValidator.swift
+
 import Foundation
 import Testing
 @testable import OpalBase
@@ -60,3 +62,4 @@ struct AddressTokenAwareValidator {
         #expect(address.generateString(withPrefix: true) == "bitcoincash:\(expectedPayload)")
     }
 }
+

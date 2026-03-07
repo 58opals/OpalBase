@@ -1,7 +1,6 @@
 // PrivateKeyModel+ExtendedModel.swift
 
 import Foundation
-import OpalCrypto
 
 extension PrivateKeyModel {
     struct ExtendedModel {
@@ -28,12 +27,12 @@ extension PrivateKeyModel {
         }
 
         init(xprv: String) throws {
-            guard let data = Base58EncodingModel.decode(xprv) else { throw Error.invalidFormat }
+            guard let data = Base58Model.decode(xprv) else { throw Error.invalidFormat }
             guard data.count == 82 else { throw Error.invalidLength }
 
             let payload = data.prefix(data.count - 4)
             let checksum = data.suffix(4)
-            let computedChecksum = SecureHash256Model.computeChecksum(for: payload)
+            let computedChecksum = HASH256Model.computeChecksum(for: payload)
             guard checksum.elementsEqual(computedChecksum) else { throw Error.invalidChecksum }
 
             let version = payload[0..<4].withUnsafeBytes { UInt32(bigEndian: $0.loadUnaligned(as: UInt32.self)) }

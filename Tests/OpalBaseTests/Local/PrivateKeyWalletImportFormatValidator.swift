@@ -1,3 +1,5 @@
+// PrivateKeyWalletImportFormatValidator.swift
+
 import Foundation
 import Testing
 @testable import OpalBase
@@ -39,3 +41,4 @@ struct PrivateKeyWalletImportFormatValidator {
         #expect(decodedPrivateKey.rawData == privateKeyData)
     }
 }
+

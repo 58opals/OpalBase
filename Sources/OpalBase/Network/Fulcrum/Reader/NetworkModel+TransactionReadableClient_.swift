@@ -1,4 +1,4 @@
-// NetworkModel+TransactionReadable_.swift
+// NetworkModel+TransactionReadableClient_.swift
 
 import Foundation
 
@@ -7,3 +7,4 @@ extension NetworkModel {
         func fetchRawTransaction(for transactionHash: TransactionModel.HashModel) async throws -> Data
     }
 }
+

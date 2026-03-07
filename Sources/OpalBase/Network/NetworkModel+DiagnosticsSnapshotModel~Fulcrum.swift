@@ -1,9 +1,9 @@
-// NetworkModel~Instrumentation~FulcrumClient.swift
+// NetworkModel+DiagnosticsSnapshotModel~Fulcrum.swift
 
 import SwiftFulcrum
 
 extension NetworkModel.DiagnosticsSnapshotModel {
-    init(_ snapshot: SwiftFulcrum.FulcrumClient.DiagnosticsModel.SnapshotModel) {
+    init(_ snapshot: SwiftFulcrum.Client.Diagnostics.Snapshot) {
         self.init(
             reconnectionAttemptCount: snapshot.reconnectAttempts,
             reconnectSuccesses: snapshot.reconnectSuccesses,
@@ -14,13 +14,13 @@ extension NetworkModel.DiagnosticsSnapshotModel {
 }
 
 extension NetworkModel.DiagnosticsSubscriptionModel {
-    init(_ subscription: SwiftFulcrum.FulcrumClient.DiagnosticsModel.SubscriptionModel) {
+    init(_ subscription: SwiftFulcrum.Client.Diagnostics.Subscription) {
         self.init(methodPath: subscription.methodPath, identifier: subscription.identifier)
     }
 }
 
 extension NetworkModel.LogLevelModel {
-    init(_ level: LogModel.LevelModel) {
+    init(_ level: SwiftFulcrum.Logging.Level) {
         switch level {
         case .trace: self = .trace
         case .debug: self = .debug
@@ -32,7 +32,7 @@ extension NetworkModel.LogLevelModel {
         }
     }
     
-    var fulcrumLevel: LogModel.LevelModel {
+    var fulcrumLevel: SwiftFulcrum.Logging.Level {
         switch self {
         case .trace: return .trace
         case .debug: return .debug
@@ -44,3 +44,4 @@ extension NetworkModel.LogLevelModel {
         }
     }
 }
+

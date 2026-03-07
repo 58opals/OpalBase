@@ -1,3 +1,5 @@
+// Tag+.swift
+
 import Testing
 
 extension Tag {
@@ -14,3 +16,4 @@ extension Tag {
     @Tag static var transaction: Self
     @Tag static var cashTokens: Self
 }
+

@@ -1,7 +1,6 @@
 // PublicKeyModel+ExtendedModel.swift
 
 import Foundation
-import OpalCrypto
 
 extension PublicKeyModel {
     struct ExtendedModel {
@@ -20,12 +19,12 @@ extension PublicKeyModel {
         }
         
         init(xpub: String) throws {
-            guard let data = Base58EncodingModel.decode(xpub) else { throw Error.invalidFormat }
+            guard let data = Base58Model.decode(xpub) else { throw Error.invalidFormat }
             guard data.count == 82 else { throw Error.invalidLength }
             
             let payload = data.prefix(data.count - 4)
             let checksum = data.suffix(4)
-            let computedChecksum = SecureHash256Model.computeChecksum(for: payload)
+            let computedChecksum = HASH256Model.computeChecksum(for: payload)
             guard checksum.elementsEqual(computedChecksum) else { throw Error.invalidChecksum }
             
             let version = UInt32(bigEndian: payload[0..<4].withUnsafeBytes { $0.load(as: UInt32.self) })
@@ -82,21 +81,21 @@ extension PublicKeyModel.ExtendedModel {
         data.append(publicKey)
         data.append(index.bigEndianData)
         
-        let hmac = HashBasedMessageAuthenticationCodeSecureHashAlgorithm512Model.hash(data, key: chainCode)
+        let hmac = HMACSHA512Model.hash(data, key: chainCode)
         let leftHMACPart = Data(hmac.prefix(32))
         let rightHMACPart = Data(hmac.suffix(32))
         
         let childPublicKey: Data
         do {
-            childPublicKey = try StandardsForEfficientCryptography256k1CurveModel.OperationModel.tweakAddPublicKey(publicKey,
-                                                                       tweakData32Bytes: leftHMACPart,
+            childPublicKey = try Secp256k1Model.OperationModel.tweakAddPublicKey(publicKey,
+                                                                       tweak32: leftHMACPart,
                                                                        format: .compressed)
         } catch {
             throw PublicKeyModel.Error.publicKeyDerivationFailed
         }
         let childChainCode = rightHMACPart
         let childDepth = depth + 1
-        let childParentFingerprint = Data(SecureHash160Model.hash(publicKey).prefix(4))
+        let childParentFingerprint = Data(HASH160Model.hash(publicKey).prefix(4))
         let childIndexNumber = index
         
         return .init(publicKey: childPublicKey, chainCode: childChainCode, depth: childDepth, parentFingerprint: childParentFingerprint, childIndexNumber: childIndexNumber)
@@ -125,7 +124,7 @@ extension PublicKeyModel.ExtendedModel {
 
 extension PublicKeyModel.ExtendedModel {
     var address: String {
-        Base58EncodingModel.encode(serialize())
+        Base58Model.encode(serialize())
     }
     
     func serialize() -> Data {
@@ -137,7 +136,7 @@ extension PublicKeyModel.ExtendedModel {
         data.append(childIndexNumber.bigEndianData)
         data.append(chainCode)
         data.append(publicKey)
-        let checksum = SecureHash256Model.hash(data).prefix(4)
+        let checksum = HASH256Model.hash(data).prefix(4)
         data.append(checksum)
         return data
     }

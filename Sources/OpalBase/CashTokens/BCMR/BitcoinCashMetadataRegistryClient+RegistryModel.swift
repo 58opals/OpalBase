@@ -1,4 +1,4 @@
-// BCMR.swift
+// BitcoinCashMetadataRegistryClient+RegistryModel.swift
 
 import Foundation
 
@@ -60,3 +60,4 @@ extension BitcoinCashMetadataRegistryClient {
         }
     }
 }
+

@@ -1,3 +1,5 @@
+// NetworkFulcrumBlockHeaderReaderValidator.swift
+
 import Foundation
 import Testing
 import SwiftFulcrum
@@ -18,9 +20,9 @@ struct NetworkFulcrumBlockHeaderReaderValidator {
         let configuration = NetworkModel.Configuration(serverURLs: [Self.primaryServerAddress, Self.backupServerAddress])
         try await NetworkTestClient.withClient(configuration: configuration) { client in
             let reader = NetworkModel.FulcrumBlockHeaderReaderModel(client: client)
-            let rpcTip: SwiftFulcrum.FulcrumResponse.ResultModel.BlockchainModel.HeadersModel.GetTipModel = try await client.request(
+            let rpcTip: SwiftFulcrum.RPC.Response.Result.Blockchain.Headers.GetTip = try await client.request(
                 method: .blockchain(.headers(.getTip)),
-                responseType: SwiftFulcrum.FulcrumResponse.ResultModel.BlockchainModel.HeadersModel.GetTipModel.self
+                responseType: SwiftFulcrum.RPC.Response.Result.Blockchain.Headers.GetTip.self
             )
             
             let snapshot = try await reader.fetchTip()
@@ -41,9 +43,9 @@ struct NetworkFulcrumBlockHeaderReaderValidator {
             #expect(snapshot.height >= 0)
             #expect(snapshot.headerHexadecimal.count == 160)
             
-            let rpcTip: SwiftFulcrum.FulcrumResponse.ResultModel.BlockchainModel.HeadersModel.GetTipModel = try await client.request(
+            let rpcTip: SwiftFulcrum.RPC.Response.Result.Blockchain.Headers.GetTip = try await client.request(
                 method: .blockchain(.headers(.getTip)),
-                responseType: SwiftFulcrum.FulcrumResponse.ResultModel.BlockchainModel.HeadersModel.GetTipModel.self
+                responseType: SwiftFulcrum.RPC.Response.Result.Blockchain.Headers.GetTip.self
             )
             
             #expect(rpcTip.height == snapshot.height)
@@ -68,9 +70,9 @@ struct NetworkFulcrumBlockHeaderReaderValidator {
         
         try await NetworkTestClient.withClient(configuration: configuration) { client in
             let reader = NetworkModel.FulcrumBlockHeaderReaderModel(client: client)
-            let baseline: SwiftFulcrum.FulcrumResponse.ResultModel.BlockchainModel.HeadersModel.GetTipModel = try await client.request(
+            let baseline: SwiftFulcrum.RPC.Response.Result.Blockchain.Headers.GetTip = try await client.request(
                 method: .blockchain(.headers(.getTip)),
-                responseType: SwiftFulcrum.FulcrumResponse.ResultModel.BlockchainModel.HeadersModel.GetTipModel.self
+                responseType: SwiftFulcrum.RPC.Response.Result.Blockchain.Headers.GetTip.self
             )
             
             let snapshot = try await reader.fetchTip()
@@ -144,3 +146,4 @@ struct NetworkFulcrumBlockHeaderReaderValidator {
         }
     }
 }
+

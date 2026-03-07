@@ -1,3 +1,5 @@
+// AddressBookUnspentTransactionOutputRefreshValidator.swift
+
 import Foundation
 import Testing
 @testable import OpalBase
@@ -62,3 +64,4 @@ struct AddressBookUnspentTransactionOutputRefreshValidator {
         #expect(storedOutputs.first?.tokenData == tokenData)
     }
 }
+

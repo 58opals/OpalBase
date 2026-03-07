@@ -1,3 +1,5 @@
+// NetworkFulcrumClientSubscriptionBoxValidator.swift
+
 import Foundation
 import Testing
 import SwiftFulcrum
@@ -12,14 +14,14 @@ struct NetworkFulcrumClientSubscriptionBoxValidator {
     @Test("establishes live subscription, resubscribes, and cancels", .timeLimit(.minutes(1)))
     func subscriptionLifecycleResubscribesAndCancels() async throws {
         guard NetworkTestClient.isExtendedLiveNetworkEnabled else { return }
-        let reconnectConfiguration = FulcrumClient.Configuration.ReconnectModel(
+        let reconnectConfiguration = SwiftFulcrum.Client.Configuration.ReconnectPolicy(
             maximumReconnectionAttempts: 2,
             reconnectionDelay: 1,
             maximumDelay: 5,
             jitterRange: 0.9 ... 1.1
         )
         
-        let fulcrumConfiguration = FulcrumClient.Configuration(
+        let fulcrumConfiguration = SwiftFulcrum.Client.Configuration(
             reconnect: reconnectConfiguration,
             metrics: nil,
             logger: nil,
@@ -29,7 +31,7 @@ struct NetworkFulcrumClientSubscriptionBoxValidator {
             bootstrapServers: [Self.primaryServerAddress, Self.backupServerAddress]
         )
         
-        let fulcrum = try await FulcrumClient(configuration: fulcrumConfiguration)
+        let fulcrum = try await SwiftFulcrum.Client(configuration: fulcrumConfiguration)
         
         do {
             try await fulcrum.start()
@@ -37,8 +39,8 @@ struct NetworkFulcrumClientSubscriptionBoxValidator {
             let (terminationStream, terminationContinuation) = AsyncStream<UUID>.makeStream()
             
             let subscription = NetworkModel.FulcrumSubscriptionBoxActor<
-                SwiftFulcrum.FulcrumResponse.ResultModel.BlockchainModel.AddressModel.SubscribeModel,
-                SwiftFulcrum.FulcrumResponse.ResultModel.BlockchainModel.AddressModel.SubscribeNotificationModel
+                SwiftFulcrum.RPC.Response.Result.Blockchain.Address.Subscribe,
+                SwiftFulcrum.RPC.Response.Result.Blockchain.Address.SubscribeNotification
             >(
                 method: .blockchain(.address(.subscribe(address: Self.sampleCashAddress))),
                 options: .init()
@@ -50,7 +52,7 @@ struct NetworkFulcrumClientSubscriptionBoxValidator {
             #expect(!(initial.status?.isEmpty ?? true))
             
             var iterator = await subscription.stream.makeAsyncIterator()
-            let pendingUpdate = Task<SwiftFulcrum.FulcrumResponse.ResultModel.BlockchainModel.AddressModel.SubscribeNotificationModel?, Swift.Error> {
+            let pendingUpdate = Task<SwiftFulcrum.RPC.Response.Result.Blockchain.Address.SubscribeNotification?, Swift.Error> {
                 try await iterator.next()
             }
             
@@ -81,7 +83,7 @@ struct NetworkFulcrumClientSubscriptionBoxValidator {
     @Test("establishes live address subscription and cancels gracefully", .timeLimit(.minutes(1)))
     func subscriptionBoxCancelsWithTerminationNotification() async throws {
         guard NetworkTestClient.isExtendedLiveNetworkEnabled else { return }
-        let configuration = FulcrumClient.Configuration(
+        let configuration = SwiftFulcrum.Client.Configuration(
             reconnect: .init(
                 maximumReconnectionAttempts: 3,
                 reconnectionDelay: 1.5,
@@ -93,7 +95,7 @@ struct NetworkFulcrumClientSubscriptionBoxValidator {
             bootstrapServers: [Self.primaryServerAddress, Self.backupServerAddress]
         )
         
-        let fulcrum = try await FulcrumClient(configuration: configuration)
+        let fulcrum = try await SwiftFulcrum.Client(configuration: configuration)
         try await fulcrum.start()
         
         do {
@@ -107,8 +109,8 @@ struct NetworkFulcrumClientSubscriptionBoxValidator {
             }
             
             let subscription = NetworkModel.FulcrumSubscriptionBoxActor<
-                SwiftFulcrum.FulcrumResponse.ResultModel.BlockchainModel.AddressModel.SubscribeModel,
-                SwiftFulcrum.FulcrumResponse.ResultModel.BlockchainModel.AddressModel.SubscribeNotificationModel
+                SwiftFulcrum.RPC.Response.Result.Blockchain.Address.Subscribe,
+                SwiftFulcrum.RPC.Response.Result.Blockchain.Address.SubscribeNotification
             >(
                 method: .blockchain(.address(.subscribe(address: Self.sampleCashAddress))),
                 options: .init()
@@ -147,3 +149,4 @@ struct NetworkFulcrumClientSubscriptionBoxValidator {
         }
     }
 }
+

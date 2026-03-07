@@ -1,4 +1,4 @@
-// CompactSizeModel.swift
+// CompactSizeModel+Error.swift
 
 import Foundation
 
@@ -113,3 +113,4 @@ extension CompactSizeModel {
         case invalidPrefix
     }
 }
+

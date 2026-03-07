@@ -1,3 +1,5 @@
+// TransactionDecodeValidator.swift
+
 import Foundation
 import Testing
 @testable import OpalBase
@@ -102,3 +104,4 @@ struct TransactionDecodeValidator {
         #expect(bytesRead == encoded.count)
     }
 }
+

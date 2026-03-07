@@ -1,4 +1,4 @@
-// NetworkModel+Configuration~FulcrumClient.swift
+// NetworkModel+Configuration~Fulcrum.swift
 
 import Foundation
 import SwiftFulcrum
@@ -10,14 +10,14 @@ extension NetworkModel.Configuration {
         return serverCatalog.listServers(for: network)
     }
     
-    func makeFulcrumServerCatalogRepository() -> SwiftFulcrum.FulcrumServerCatalogRepository {
+    func makeFulcrumServerCatalogRepository() -> SwiftFulcrum.ServerCatalog.Repository {
         let overrides = NetworkModel.ServerCatalogModel.makeNormalizedServers(serverURLs)
         let defaults = serverCatalog.listServers(for: network)
         let expectedFulcrumNetwork = network.fulcrumNetwork
         
-        return SwiftFulcrum.FulcrumServerCatalogRepository { fulcrumNetwork, fallback in
+        return SwiftFulcrum.ServerCatalog.Repository(load: { fulcrumNetwork, fallback in
             guard fulcrumNetwork == expectedFulcrumNetwork else {
-                throw SwiftFulcrum.FulcrumClient.Error.client(
+                throw SwiftFulcrum.Client.Error.client(
                     .protocolMismatch(
                         "FulcrumClient network mismatch. configuredEnvironment=\(network), expectedFulcrumNetwork=\(expectedFulcrumNetwork), requestedFulcrumNetwork=\(fulcrumNetwork)"
                     )
@@ -28,8 +28,9 @@ extension NetworkModel.Configuration {
                 secondary: defaults,
                 fallback: fallback
             )
-            guard !merged.isEmpty else { throw SwiftFulcrum.FulcrumClient.Error.transport(.setupFailed) }
+            guard !merged.isEmpty else { throw SwiftFulcrum.Client.Error.transport(.setupFailed) }
             return merged
-        }
+        })
     }
 }
+

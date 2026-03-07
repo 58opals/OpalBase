@@ -1,3 +1,5 @@
+// CashTokensCashAddressData.swift
+
 import Foundation
 
 struct CashTokensCashAddressData: Codable {
@@ -5,3 +7,4 @@ struct CashTokensCashAddressData: Codable {
     let payload: String
     let type: Int
 }
+

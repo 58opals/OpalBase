@@ -17,7 +17,7 @@ extension NetworkModel {
             try await NetworkModel.performWithFailureTranslation {
                 let response = try await client.request(
                     method: .mempool(.getInfo),
-                    responseType: SwiftFulcrum.FulcrumResponse.ResultModel.MempoolModel.GetInfoModel.self,
+                    responseType: SwiftFulcrum.RPC.Response.Result.Mempool.GetInfo.self,
                     options: .init(timeout: timeouts.mempoolInfo)
                 )
                 
@@ -35,7 +35,7 @@ extension NetworkModel {
             try await NetworkModel.performWithFailureTranslation {
                 let response = try await client.request(
                     method: .mempool(.getFeeHistogram),
-                    responseType: SwiftFulcrum.FulcrumResponse.ResultModel.MempoolModel.GetFeeHistogramModel.self,
+                    responseType: SwiftFulcrum.RPC.Response.Result.Mempool.GetFeeHistogram.self,
                     options: .init(timeout: timeouts.mempoolFeeHistogram)
                 )
                 

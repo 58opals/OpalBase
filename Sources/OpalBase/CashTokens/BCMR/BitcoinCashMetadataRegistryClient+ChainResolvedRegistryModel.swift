@@ -1,7 +1,6 @@
-// BCMR+ChainRegistryResolver.swift
+// BitcoinCashMetadataRegistryClient+ChainResolvedRegistryModel.swift
 
 import Foundation
-import OpalCrypto
 
 extension BitcoinCashMetadataRegistryClient {
     public struct ChainResolvedRegistryModel: Sendable {
@@ -39,7 +38,7 @@ extension BitcoinCashMetadataRegistryClient {
         }
         
         let registryBytes = try await fetchRegistryBytes(for: publication, authhead: authhead)
-        let registryHash = SecureHashAlgorithm256Model.hash(registryBytes)
+        let registryHash = SHA256Model.hash(registryBytes)
         guard registryHash == publication.sha256 else {
             throw ChainRegistryResolverError.invalidRegistryHash(
                 expected: publication.sha256,
@@ -102,3 +101,4 @@ private extension BitcoinCashMetadataRegistryClient {
         }
     }
 }
+

@@ -1,4 +1,4 @@
-// AddressModel+BookActor+SnapshotModel~Persistence.swift
+// AddressModel+BookActor~Persistence.swift
 
 import Foundation
 
@@ -187,3 +187,4 @@ extension AddressModel.BookActor {
         }
     }
 }
+

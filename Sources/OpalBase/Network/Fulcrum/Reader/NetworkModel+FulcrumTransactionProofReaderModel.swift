@@ -19,7 +19,7 @@ extension NetworkModel {
             return try await NetworkModel.performWithFailureTranslation {
                 let result = try await client.request(
                     method: .blockchain(.transaction(.getMerkle(transactionHash: identifier))),
-                    responseType: SwiftFulcrum.FulcrumResponse.ResultModel.BlockchainModel.TransactionModel.GetMerkleModel.self,
+                    responseType: SwiftFulcrum.RPC.Response.Result.Blockchain.Transaction.GetMerkle.self,
                     options: .init(timeout: timeouts.transactionMerkleProof)
                 )
                 
@@ -37,7 +37,7 @@ extension NetworkModel {
                     method: .blockchain(.transaction(.idFromPos(blockHeight: blockHeight,
                                                                 transactionPosition: position,
                                                                 shouldIncludeMerkleProof: shouldIncludeMerkleProof))),
-                    responseType: SwiftFulcrum.FulcrumResponse.ResultModel.BlockchainModel.TransactionModel.IDFromPosModel.self,
+                    responseType: SwiftFulcrum.RPC.Response.Result.Blockchain.Transaction.IDFromPos.self,
                     options: .init(timeout: timeouts.transactionPositionResolution)
                 )
                 

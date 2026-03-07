@@ -1,4 +1,4 @@
-// BCMR+Extraction.swift
+// BitcoinCashMetadataRegistryClient+LatestSnapshotSelectionModel.swift
 
 import Foundation
 
@@ -95,3 +95,4 @@ private extension BitcoinCashMetadataRegistryClient {
         return formatter.date(from: snapshotKey)
     }
 }
+

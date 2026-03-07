@@ -1,4 +1,4 @@
-// BCMR+PublicationOutput.swift
+// BitcoinCashMetadataRegistryClient+PublicationModel.swift
 
 import Foundation
 
@@ -82,3 +82,4 @@ extension BitcoinCashMetadataRegistryClient {
         return nil
     }
 }
+

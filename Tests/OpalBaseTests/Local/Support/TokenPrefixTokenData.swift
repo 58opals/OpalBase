@@ -1,3 +1,5 @@
+// TokenPrefixTokenData.swift
+
 import Foundation
 
 struct TokenPrefixTokenData: Codable {
@@ -11,3 +13,4 @@ struct TokenPrefixTokenData: Codable {
         case nonFungibleToken = "nft"
     }
 }
+

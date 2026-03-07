@@ -1,7 +1,6 @@
 // AccountActor+TransactionCoreModel.swift
 
 import Foundation
-import OpalCrypto
 
 extension AccountActor {
     struct TransactionCoreModel: Sendable {
@@ -18,7 +17,7 @@ extension AccountActor {
         shouldAllowDustDonation: Bool,
         shouldRandomizeRecipientOrdering: Bool,
         changeEntry: AddressModel.BookActor.EntryModel,
-        signatureFormat: EllipticCurveDigitalSignatureAlgorithmModel.SignatureFormatModel,
+        signatureFormat: ECDSAModel.SignatureFormatModel,
         unlockers: [TransactionModel.OutputModel.UnspentModel: TransactionModel.UnlockerModel],
         mapBuildError: (Swift.Error) -> AccountActor.Error
     ) throws -> TransactionCoreModel {

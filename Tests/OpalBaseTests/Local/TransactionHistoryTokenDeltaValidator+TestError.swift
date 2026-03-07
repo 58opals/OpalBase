@@ -1,3 +1,5 @@
+// TransactionHistoryTokenDeltaValidator+TestError.swift
+
 import Foundation
 import Testing
 @testable import OpalBase
@@ -147,3 +149,4 @@ private extension TransactionHistoryTokenDeltaValidator {
         return try AddressModel(script: .p2pkh_OPCHECKSIG(hash: .init(publicKey: publicKey)))
     }
 }
+

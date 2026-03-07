@@ -1,4 +1,4 @@
-// AccountActor+TokenSpendPlanModel~Selection.swift
+// AccountActor~Selection.swift
 
 import Foundation
 
@@ -115,3 +115,4 @@ extension AccountActor {
         throw Error.tokenTransferInsufficientFunds(required: requiredAdditional)
     }
 }
+

@@ -1,3 +1,5 @@
+// StoragePersistenceValidator~SnapshotPersistence.swift
+
 import Foundation
 import Testing
 @testable import OpalBase
@@ -123,3 +125,4 @@ extension StoragePersistenceValidator {
         }
     }
 }
+

@@ -1,4 +1,4 @@
-//  AccountActor~TokenCommitmentMutationPlanning.swift
+// AccountActor~TokenCommitmentMutationPlanning.swift
 
 import Foundation
 
@@ -116,3 +116,4 @@ extension AccountActor {
                                            shouldRandomizeRecipientOrdering: privacyConfiguration.shouldRandomizeRecipientOrdering)
     }
 }
+

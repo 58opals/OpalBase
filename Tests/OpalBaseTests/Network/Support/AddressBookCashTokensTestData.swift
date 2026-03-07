@@ -1,3 +1,5 @@
+// AddressBookCashTokensTestData.swift
+
 import Foundation
 @testable import OpalBase
 
@@ -19,3 +21,4 @@ enum AddressBookCashTokensTestData {
         )
     }
 }
+

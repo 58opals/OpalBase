@@ -1,4 +1,4 @@
-// StorageActor~OperationsModel.swift
+// StorageActor~Operations.swift
 
 import Foundation
 
@@ -144,3 +144,4 @@ private extension StorageActor {
         }
     }
 }
+

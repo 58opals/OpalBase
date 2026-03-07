@@ -1,3 +1,5 @@
+// WalletFulcrumAddressMonitorSupportModel.swift
+
 import Foundation
 @testable import OpalBase
 
@@ -75,3 +77,4 @@ enum WalletFulcrumAddressMonitorSupportModel {
         }
     }
 }
+

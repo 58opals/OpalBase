@@ -1,4 +1,4 @@
-// ScriptModel.swift
+// ScriptModel+Error.swift
 
 import Foundation
 
@@ -188,3 +188,4 @@ extension ScriptModel: Hashable {
 }
 
 extension ScriptModel: Sendable {}
+

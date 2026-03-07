@@ -1,4 +1,4 @@
-// AccountActor+TokenSpendPlanModel~InventoryModel.swift
+// AccountActor+TokenRequirementsModel.swift
 
 import Foundation
 
@@ -147,3 +147,4 @@ extension AccountActor {
         return outputs
     }
 }
+

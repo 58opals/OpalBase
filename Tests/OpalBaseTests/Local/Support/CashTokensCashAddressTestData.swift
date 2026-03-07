@@ -1,3 +1,5 @@
+// CashTokensCashAddressTestData.swift
+
 import Foundation
 
 enum CashTokensCashAddressTestData {
@@ -14,3 +16,4 @@ enum CashTokensCashAddressTestData {
         )
     ]
 }
+

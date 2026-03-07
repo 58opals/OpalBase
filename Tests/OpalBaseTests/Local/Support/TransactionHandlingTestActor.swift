@@ -1,3 +1,5 @@
+// TransactionHandlingTestActor.swift
+
 import Foundation
 @testable import OpalBase
 
@@ -41,3 +43,4 @@ actor TransactionHandlingTestActor: NetworkModel.TransactionHandling {
         broadcastedTransactions
     }
 }
+

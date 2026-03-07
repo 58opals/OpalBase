@@ -1,3 +1,5 @@
+// TransactionHashTypeUnspentTransactionOutputsValidator.swift
+
 import Foundation
 import Testing
 @testable import OpalBase
@@ -86,3 +88,4 @@ struct TransactionHashTypeUnspentTransactionOutputsValidator {
         return HASH256Model.hash(data)
     }
 }
+

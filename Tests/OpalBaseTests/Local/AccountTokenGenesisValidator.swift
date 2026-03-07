@@ -1,3 +1,5 @@
+// AccountTokenGenesisValidator.swift
+
 import Foundation
 import Testing
 @testable import OpalBase
@@ -126,3 +128,4 @@ private func addSpendableOutput(
     await addressBook.addUTXOs([unspentOutput])
     return unspentOutput
 }
+

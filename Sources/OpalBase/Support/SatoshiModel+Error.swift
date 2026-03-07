@@ -1,4 +1,4 @@
-// SatoshiModel.swift
+// SatoshiModel+Error.swift
 
 import Foundation
 
@@ -137,3 +137,4 @@ extension Sequence where Element: Hashable {
         return filter { seen.insert($0).inserted }
     }
 }
+

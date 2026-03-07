@@ -1,3 +1,5 @@
+// AccountCommandValidator.swift
+
 import Foundation
 import Testing
 @testable import OpalBase
@@ -149,3 +151,4 @@ struct AccountCommandValidator {
         #expect(nextAvailableEntry.isUsed == false)
     }
 }
+

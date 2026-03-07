@@ -17,23 +17,32 @@ extension NetworkModel {
             try await NetworkModel.performWithFailureTranslation {
                 _ = try await client.request(
                     method: .server(.ping),
-                    responseType: SwiftFulcrum.FulcrumResponse.ResultModel.ServerModel.PingModel.self,
+                    responseType: SwiftFulcrum.RPC.Response.Result.Server.Ping.self,
                     options: .init(timeout: timeouts.serverPing)
                 )
             }
         }
         
-        public func fetchServerVersion(clientName: String, protocolNegotiation: SwiftFulcrum.FulcrumClient.Configuration.ProtocolNegotiationModel.ArgumentModel) async throws -> FulcrumServerVersionModel {
+        public func fetchServerVersion(
+            clientName: String,
+            minimumProtocolVersion: NetworkModel.ProtocolVersion,
+            maximumProtocolVersion: NetworkModel.ProtocolVersion
+        ) async throws -> FulcrumServerVersionModel {
             try await NetworkModel.performWithFailureTranslation {
+                let protocolNegotiation = try SwiftFulcrum.Client.Configuration.ProtocolNegotiation.Argument(
+                    minimumVersion: minimumProtocolVersion.swiftFulcrumProtocolVersion,
+                    maximumVersion: maximumProtocolVersion.swiftFulcrumProtocolVersion
+                )
+                
                 let result = try await client.request(
                     method: .server(.version(clientName: clientName, protocolNegotiation: protocolNegotiation)),
-                    responseType: SwiftFulcrum.FulcrumResponse.ResultModel.ServerModel.VersionModel.self,
+                    responseType: SwiftFulcrum.RPC.Response.Result.Server.Version.self,
                     options: .init(timeout: timeouts.serverVersion)
                 )
                 
                 return FulcrumServerVersionModel(
                     serverVersion: result.serverVersion,
-                    negotiatedProtocolVersion: result.negotiatedProtocolVersion
+                    negotiatedProtocolVersion: .init(result.negotiatedProtocolVersion)
                 )
             }
         }
@@ -42,7 +51,7 @@ extension NetworkModel {
             try await NetworkModel.performWithFailureTranslation {
                 let result = try await client.request(
                     method: .server(.features),
-                    responseType: SwiftFulcrum.FulcrumResponse.ResultModel.ServerModel.FeaturesModel.self,
+                    responseType: SwiftFulcrum.RPC.Response.Result.Server.Features.self,
                     options: .init(timeout: timeouts.serverFeatures)
                 )
                 
@@ -50,8 +59,8 @@ extension NetworkModel {
                     genesisHash: result.genesisHash,
                     hashFunction: result.hashFunction,
                     serverVersion: result.serverVersion,
-                    minimumProtocolVersion: result.minimumProtocolVersion,
-                    maximumProtocolVersion: result.maximumProtocolVersion,
+                    minimumProtocolVersion: .init(result.minimumProtocolVersion),
+                    maximumProtocolVersion: .init(result.maximumProtocolVersion),
                     pruningLimit: result.pruningLimit,
                     hosts: result.hosts?.mapValues { host in
                         FulcrumServerFeaturesModel.Host(
@@ -81,7 +90,7 @@ extension NetworkModel {
             try await NetworkModel.performWithFailureTranslation {
                 let result = try await client.request(
                     method: .blockchain(.relayFee),
-                    responseType: SwiftFulcrum.FulcrumResponse.ResultModel.BlockchainModel.RelayFeeModel.self,
+                    responseType: SwiftFulcrum.RPC.Response.Result.Blockchain.RelayFee.self,
                     options: .init(timeout: timeouts.relayFee)
                 )
                 return result.fee
@@ -92,7 +101,7 @@ extension NetworkModel {
             try await NetworkModel.performWithFailureTranslation {
                 let result = try await client.request(
                     method: .blockchain(.estimateFee(numberOfBlocks: confirmationTarget)),
-                    responseType: SwiftFulcrum.FulcrumResponse.ResultModel.BlockchainModel.EstimateFeeModel.self,
+                    responseType: SwiftFulcrum.RPC.Response.Result.Blockchain.EstimateFee.self,
                     options: .init(timeout: timeouts.feeEstimation)
                 )
                 return result.fee

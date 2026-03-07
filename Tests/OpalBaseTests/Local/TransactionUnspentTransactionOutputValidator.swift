@@ -1,3 +1,5 @@
+// TransactionUnspentTransactionOutputValidator.swift
+
 import Foundation
 import Testing
 @testable import OpalBase
@@ -273,3 +275,4 @@ struct TransactionUnspentTransactionOutputValidator {
         return CashTokensModel.TokenData(category: category, amount: amount, nft: nil)
     }
 }
+

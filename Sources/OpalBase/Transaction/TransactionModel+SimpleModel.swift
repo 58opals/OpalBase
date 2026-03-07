@@ -1,4 +1,4 @@
-// TransactionModel.swift
+// TransactionModel+SimpleModel.swift
 
 import Foundation
 
@@ -183,3 +183,4 @@ private extension TransactionModel {
         return data
     }
 }
+

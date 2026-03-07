@@ -1,4 +1,4 @@
-// AddressModel+BookActor+SnapshotModel~TokenData.swift
+// AddressModel+BookActor+SnapshotModel+UTXOModel.swift
 
 import Foundation
 
@@ -93,3 +93,4 @@ extension AddressModel.BookActor.SnapshotModel {
         }
     }
 }
+

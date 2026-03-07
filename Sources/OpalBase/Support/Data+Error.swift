@@ -1,7 +1,6 @@
-// Data+.swift
+// Data+Error.swift
 
 import Foundation
-import OpalCrypto
 
 extension Data {
     enum Error: Swift.Error {
@@ -92,7 +91,7 @@ extension Array<Data> {
         for input in self {
             hashInput.append(input)
         }
-        let sha256Hash = SecureHashAlgorithm256Model.hash(hashInput)
+        let sha256Hash = SHA256Model.hash(hashInput)
         return sha256Hash
     }
 }
@@ -120,3 +119,4 @@ extension Data {
         return writer.data
     }
 }
+

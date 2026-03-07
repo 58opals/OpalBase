@@ -87,7 +87,7 @@ extension NetworkModel {
             return try await NetworkModel.performWithFailureTranslation {
                 let result = try await client.request(
                     method: .blockchain(.transaction(.get(transactionHash: identifier, isVerbose: false))),
-                    responseType: SwiftFulcrum.FulcrumResponse.ResultModel.BlockchainModel.TransactionModel.GetModel.self,
+                    responseType: SwiftFulcrum.RPC.Response.Result.Blockchain.Transaction.Get.self,
                     options: .init(timeout: timeouts.transactionConfirmations)
                 )
                 
@@ -101,7 +101,7 @@ extension NetworkModel {
             return try await NetworkModel.performWithFailureTranslation {
                 let result = try await client.request(
                     method: .blockchain(.transaction(.get(transactionHash: identifier, isVerbose: true))),
-                    responseType: SwiftFulcrum.FulcrumResponse.ResultModel.BlockchainModel.TransactionModel.GetModel.self,
+                    responseType: SwiftFulcrum.RPC.Response.Result.Blockchain.Transaction.Get.self,
                     options: .init(timeout: timeouts.transactionConfirmations)
                 )
                 return .init(hex: result.hex,

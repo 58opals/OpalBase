@@ -1,3 +1,5 @@
+// StoragePersistenceValidator.swift
+
 import Foundation
 import Testing
 @testable import OpalBase
@@ -39,3 +41,4 @@ struct StoragePersistenceValidator {
         #expect(restored?.protectionMode == protectionMode)
     }
 }
+

@@ -1,4 +1,4 @@
-// AccountActor~TokenInventoryModel.swift
+// AccountActor~TokenInventory.swift
 
 import Foundation
 
@@ -11,3 +11,4 @@ extension AccountActor {
         try await addressBook.calculateTokenInventory()
     }
 }
+

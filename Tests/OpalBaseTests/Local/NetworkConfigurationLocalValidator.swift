@@ -1,3 +1,5 @@
+// NetworkConfigurationLocalValidator.swift
+
 import Foundation
 import Testing
 @testable import OpalBase
@@ -83,3 +85,4 @@ struct NetworkConfigurationLocalValidator {
         #expect(adjustedConfiguration.reconnectConfiguration.jitterMultiplierRange == 1.0 ... 1.0)
     }
 }
+

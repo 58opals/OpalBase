@@ -43,7 +43,7 @@ extension NetworkModel {
                 return NetworkModel.Error(reason: .cancelled, message: "OperationModel cancelled")
             }
             
-            guard let fulcrumError = error as? SwiftFulcrum.FulcrumClient.Error else {
+            guard let fulcrumError = error as? SwiftFulcrum.Client.Error else {
                 return NetworkModel.Error(reason: .unknown, message: String(describing: error))
             }
             
@@ -70,14 +70,14 @@ extension NetworkModel {
         static func checkCancellation(_ error: Swift.Error) -> Bool {
             if error is CancellationError { return true }
             if let failure = error as? NetworkModel.Error { return failure.reason == .cancelled }
-            if let fulcrumError = error as? SwiftFulcrum.FulcrumClient.Error,
+            if let fulcrumError = error as? SwiftFulcrum.Client.Error,
                case .client(.cancelled) = fulcrumError {
                 return true
             }
             return false
         }
         
-        private static func translateTransport(_ transport: SwiftFulcrum.FulcrumClient.Error.TransportModel) -> NetworkModel.Error {
+        private static func translateTransport(_ transport: SwiftFulcrum.Client.Error.TransportModel) -> NetworkModel.Error {
             switch transport {
             case .setupFailed:
                 return NetworkModel.Error(reason: .transport, message: "Failed to create transport")
@@ -96,7 +96,7 @@ extension NetworkModel {
             }
         }
         
-        private static func translateNetwork(_ network: SwiftFulcrum.FulcrumClient.Error.NetworkModel) -> NetworkModel.Error {
+        private static func translateNetwork(_ network: SwiftFulcrum.Client.Error.Network) -> NetworkModel.Error {
             switch network {
             case .tlsNegotiationFailed(let underlying):
                 return NetworkModel.Error(
@@ -106,7 +106,7 @@ extension NetworkModel {
             }
         }
         
-        private static func translateCoding(_ coding: SwiftFulcrum.FulcrumClient.Error.CodingModel) -> NetworkModel.Error {
+        private static func translateCoding(_ coding: SwiftFulcrum.Client.Error.CodingModel) -> NetworkModel.Error {
             switch coding {
             case .encode(let underlying):
                 return NetworkModel.Error(reason: .encoding, message: describe(underlying))
@@ -115,7 +115,7 @@ extension NetworkModel {
             }
         }
         
-        private static func translateClient(_ client: SwiftFulcrum.FulcrumClient.Error.Client) -> NetworkModel.Error {
+        private static func translateClient(_ client: SwiftFulcrum.Client.Error.ClientIssue) -> NetworkModel.Error {
             switch client {
             case .urlNotFound:
                 return NetworkModel.Error(reason: .transport, message: "No server URL available")

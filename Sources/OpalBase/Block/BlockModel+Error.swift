@@ -1,4 +1,4 @@
-// BlockModel.swift
+// BlockModel+Error.swift
 
 import Foundation
 
@@ -40,3 +40,4 @@ extension BlockModel {
         case transactionCountOverflow(UInt64)
     }
 }
+

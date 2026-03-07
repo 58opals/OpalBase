@@ -1,4 +1,4 @@
-// AddressModel+BookActor+InventoryModel~OperationsModel.swift
+// AddressModel+BookActor~Operations.swift
 
 import Foundation
 
@@ -77,3 +77,4 @@ extension AddressModel.BookActor {
         try inventory.releaseReservation(address: address, shouldKeepUsed: shouldKeepUsed)
     }
 }
+

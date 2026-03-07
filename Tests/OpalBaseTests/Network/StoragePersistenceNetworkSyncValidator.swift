@@ -1,3 +1,5 @@
+// StoragePersistenceNetworkSyncValidator.swift
+
 import Foundation
 import Testing
 @testable import OpalBase
@@ -151,3 +153,4 @@ struct StoragePersistenceNetworkSyncValidator {
         Issue.record("Failed to connect to any Fulcrum server. Last error: \(String(describing: lastConnectionError))")
     }
 }
+

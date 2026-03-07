@@ -1,3 +1,5 @@
+// PrivateKeyValidator.swift
+
 import Foundation
 import Testing
 @testable import OpalBase
@@ -23,3 +25,4 @@ struct PrivateKeyValidator {
         #expect(decodedPrivateKey.rawData == privateKeyData)
     }
 }
+

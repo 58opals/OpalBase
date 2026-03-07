@@ -1,4 +1,4 @@
-// ConcurrencyModel.swift
+// Collection+.swift
 
 import Foundation
 
@@ -70,3 +70,4 @@ extension Collection where Element: Sendable {
         return unwrapped
     }
 }
+

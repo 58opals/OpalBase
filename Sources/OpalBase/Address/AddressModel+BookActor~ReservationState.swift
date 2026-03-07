@@ -1,4 +1,4 @@
-// AddressModel+BookActor+SpendReservationModel~StateStore.swift
+// AddressModel+BookActor~ReservationState.swift
 
 import Foundation
 
@@ -29,3 +29,4 @@ extension AddressModel.BookActor {
         spendReservationStates.removeAll()
     }
 }
+

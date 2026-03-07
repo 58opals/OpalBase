@@ -1,4 +1,4 @@
-// TransactionModel+HistoryModel+TokenDeltaModel.swift
+// TransactionModel+HistoryModel+RecordModel+TokenDeltaModel.swift
 
 import Foundation
 
@@ -22,3 +22,4 @@ extension TransactionModel.HistoryModel.RecordModel {
         }
     }
 }
+

@@ -1,3 +1,5 @@
+// NetworkStubError.swift
+
 import Foundation
 @testable import OpalBase
 
@@ -167,3 +169,4 @@ actor BlockHeaderReaderTestActor: NetworkModel.BlockHeaderReadable {
         }
     }
 }
+

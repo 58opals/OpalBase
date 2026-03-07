@@ -12,7 +12,7 @@ extension NetworkModel {
 }
 
 extension NetworkModel.EnvironmentModel {
-    var fulcrumNetwork: SwiftFulcrum.FulcrumClient.Configuration.NetworkModel {
+    var fulcrumNetwork: SwiftFulcrum.Client.Configuration.Network {
         switch self {
         case .mainnet:
             return .mainnet
@@ -21,7 +21,7 @@ extension NetworkModel.EnvironmentModel {
         }
     }
     
-    init(_ fulcrumNetwork: SwiftFulcrum.FulcrumClient.Configuration.NetworkModel) {
+    init(_ fulcrumNetwork: SwiftFulcrum.Client.Configuration.Network) {
         switch fulcrumNetwork {
         case .mainnet: self = .mainnet
         case .testnet: self = .testnet

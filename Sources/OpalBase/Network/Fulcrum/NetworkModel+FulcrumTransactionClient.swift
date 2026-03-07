@@ -17,7 +17,7 @@ extension NetworkModel {
             try await NetworkModel.performWithFailureTranslation {
                 let response = try await client.request(
                     method: .blockchain(.transaction(.broadcast(rawTransaction: rawTransactionHexadecimal))),
-                    responseType: SwiftFulcrum.FulcrumResponse.ResultModel.BlockchainModel.TransactionModel.BroadcastModel.self,
+                    responseType: SwiftFulcrum.RPC.Response.Result.Blockchain.Transaction.Broadcast.self,
                     options: .init(timeout: timeouts.transactionBroadcast)
                 )
                 return response.transactionHash.hexadecimalString
@@ -36,12 +36,12 @@ extension NetworkModel {
             return try await NetworkModel.performWithFailureTranslation {
                 async let transactionHeightResponse = client.request(
                     method: .blockchain(.transaction(.getHeight(transactionHash: identifier))),
-                    responseType: SwiftFulcrum.FulcrumResponse.ResultModel.BlockchainModel.TransactionModel.GetHeightModel.self,
+                    responseType: SwiftFulcrum.RPC.Response.Result.Blockchain.Transaction.GetHeight.self,
                     options: .init(timeout: timeouts.transactionConfirmations)
                 )
                 async let tipHeightResponse = client.request(
                     method: .blockchain(.headers(.getTip)),
-                    responseType: SwiftFulcrum.FulcrumResponse.ResultModel.BlockchainModel.HeadersModel.GetTipModel.self,
+                    responseType: SwiftFulcrum.RPC.Response.Result.Blockchain.Headers.GetTip.self,
                     options: .init(timeout: timeouts.headersTip)
                 )
                 

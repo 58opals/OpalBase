@@ -1,13 +1,12 @@
-// PublicKeyModel.swift
+// PublicKeyModel+HashModel.swift
 
 import Foundation
-import OpalCrypto
 
 public struct PublicKeyModel {
     let compressedData: Data
     
     public init(privateKey: PrivateKeyModel) throws {
-        self.compressedData = try StandardsForEfficientCryptography256k1CurveModel.OperationModel.derivePublicKey(fromPrivateKeyData32Bytes: privateKey.rawData, format: .compressed)
+        self.compressedData = try Secp256k1Model.OperationModel.derivePublicKey(fromPrivateKey32: privateKey.rawData, format: .compressed)
     }
     
     public init(compressedData: Data) throws {
@@ -18,7 +17,10 @@ public struct PublicKeyModel {
 
 extension PublicKeyModel {
     public var hash: Data {
-        SecureHash160Model.hash(compressedData)
+        let sha256 = SHA256Model.hash(compressedData)
+        let ripemd160 = RIPEMD160Model.hash(sha256)
+        let hash = ripemd160
+        return hash
     }
     
     public struct HashModel {
@@ -52,3 +54,4 @@ extension PublicKeyModel {
         case derivationPathTooShort
     }
 }
+

@@ -1,3 +1,5 @@
+// NetworkTestClient.swift
+
 import Foundation
 @testable import OpalBase
 
@@ -32,3 +34,4 @@ enum NetworkTestClient {
         return raw == "1" || raw == "true" || raw == "yes" || raw == "on"
     }
 }
+

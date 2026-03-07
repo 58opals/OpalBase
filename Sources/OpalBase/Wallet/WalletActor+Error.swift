@@ -1,4 +1,4 @@
-// WalletActor.swift
+// WalletActor+Error.swift
 
 import Foundation
 
@@ -132,3 +132,4 @@ extension WalletActor {
         return total
     }
 }
+

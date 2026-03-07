@@ -1,4 +1,5 @@
-// ScriptOperationCodeModel.generated.swift
+// ScriptOperationCodeModel.swift
+
 // Naming/file-size exception: generated opcode table constants block.
 // Rationale: splitting harms one-to-one opcode map readability and verification fidelity.
 // Category: generated tables/constants block.
@@ -282,3 +283,4 @@ enum ScriptOperationCodeModel: UInt8 {
     case _RETURN_254 = 0xfe
     case _INVALIDOPCODE = 0xff
 }
+

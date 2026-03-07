@@ -1,3 +1,5 @@
+// BitcoinCashMetadataRegistryTestClient.swift
+
 import Foundation
 @testable import OpalBase
 
@@ -70,3 +72,4 @@ private struct PlaceholderAddressReaderModel: NetworkModel.AddressReadable {
         }
     }
 }
+

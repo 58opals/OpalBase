@@ -1,3 +1,5 @@
+// AccountTestFixturesModel.swift
+
 import Foundation
 @testable import OpalBase
 
@@ -71,3 +73,4 @@ enum AccountTestFixturesModel {
         )
     }
 }
+

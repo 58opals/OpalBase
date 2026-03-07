@@ -1,3 +1,5 @@
+// EllipticCurveDigitalSignatureValidator.swift
+
 import Foundation
 import Testing
 @testable import OpalBase
@@ -35,3 +37,4 @@ struct EllipticCurveDigitalSignatureValidator {
         #expect(!isValid)
     }
 }
+

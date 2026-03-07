@@ -1,4 +1,4 @@
-// Int+.swift
+// FixedWidthInteger+~Part2.swift
 
 import Foundation
 
@@ -38,3 +38,4 @@ enum HardenModel {
     static func harden(_ value: UInt32) -> UInt32 { value | bit }
     static func unharden(_ value: UInt32) -> UInt32 { value & ~bit }
 }
+

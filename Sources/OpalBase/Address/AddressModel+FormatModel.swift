@@ -1,7 +1,6 @@
-// AddressModel.swift
+// AddressModel+FormatModel.swift
 
 import Foundation
-import OpalCrypto
 
 public struct AddressModel {
     public static let prefix: String = "bitcoincash"
@@ -83,7 +82,7 @@ extension AddressModel {
         values += payload5BitValues
         let templateForChecksum: [UInt8] = [0, 0, 0, 0, 0, 0, 0, 0]
         values += templateForChecksum
-        let polymod = PolynomialModuloChecksumModel.compute(values)
+        let polymod = PolymodModel.compute(values)
         var checksum = [UInt8]()
         
         for index in 0..<8 {
@@ -110,7 +109,7 @@ extension AddressModel {
         let payload5BitValues = try AddressModel.convertPayloadToFiveBitValues(payload: payload)
         let checksum = try AddressModel.generateChecksum(prefix: AddressModel.prefix, payload5BitValues: payload5BitValues)
         let combined = payload5BitValues + checksum
-        return Base32EncodingModel.encode(Data(combined), interpretedAsFiveBitValues: true)
+        return Base32Model.encode(Data(combined), interpretedAs5Bit: true)
     }
     
     private static func makeVersionByte(for script: ScriptModel, format: FormatModel) throws -> UInt8 {
@@ -126,8 +125,6 @@ extension AddressModel {
 }
 
 extension AddressModel {
-    private static let cashAddressBase32CharacterSet: Set<Character> = Set("qpzry9x8gf2tvdw0s3jn54khce6mua7l")
-
     public static func filterBase32(from string: String) -> String {
         let prefixWithSeparator = AddressModel.prefix + AddressModel.separator
         
@@ -155,7 +152,7 @@ extension AddressModel {
             let normalizedScalar = UnicodeScalar(normalizedAscii)
             let normalizedCharacter = Character(normalizedScalar)
             
-            guard AddressModel.cashAddressBase32CharacterSet.contains(normalizedCharacter)
+            guard Base32Model.characters.contains(normalizedCharacter)
             else { return }
             
             partialResult.append(normalizedCharacter)
@@ -168,7 +165,7 @@ extension AddressModel {
 extension AddressModel {
     public func makeScriptHash() -> Data {
         let scriptData = lockingScript.data
-        return SecureHashAlgorithm256Model.hash(scriptData).reversedData
+        return SHA256Model.hash(scriptData).reversedData
     }
 }
 
@@ -194,3 +191,4 @@ extension AddressModel: Hashable {
 
 extension AddressModel: Sendable {}
 extension AddressModel: Equatable {}
+

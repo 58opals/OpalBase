@@ -1,3 +1,5 @@
+// BitcoinCashMetadataRegistryValidator.swift
+
 import Foundation
 import Testing
 @testable import OpalBase
@@ -48,3 +50,4 @@ struct BitcoinCashMetadataRegistryValidator {
         #expect(metadata.lastUpdated == expectedDate)
     }
 }
+

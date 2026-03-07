@@ -1,4 +1,4 @@
-// SnapshotPersistencePort_.swift
+// SnapshotPersistenceAdapter_.swift
 
 import Foundation
 
@@ -11,3 +11,4 @@ public protocol SnapshotPersistenceAdapter: Sendable {
     func loadAddressBookSnapshot(accountIdentifier: Data) async throws -> AddressModel.BookActor.SnapshotModel?
     func wipeAll() async throws
 }
+

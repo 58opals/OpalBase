@@ -1,4 +1,4 @@
-// Data+BinaryInputOutput.swift
+// Data+ReaderModel.swift
 
 import Foundation
 
@@ -94,3 +94,4 @@ extension Data {
         }
     }
 }
+

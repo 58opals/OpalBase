@@ -1,3 +1,5 @@
+// AddressValidator.swift
+
 import Testing
 @testable import OpalBase
 
@@ -182,3 +184,4 @@ struct AddressValidator {
         #expect(receivingEntry.address != changeEntry.address)
     }
 }
+

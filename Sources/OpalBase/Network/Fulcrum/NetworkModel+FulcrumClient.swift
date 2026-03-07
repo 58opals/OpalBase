@@ -5,7 +5,7 @@ import SwiftFulcrum
 
 extension NetworkModel {
     public actor FulcrumClient {
-        private let fulcrum: SwiftFulcrum.FulcrumClient
+        private let fulcrum: SwiftFulcrum.Client
         public let configuration: NetworkModel.Configuration
         private var subscriptions: [UUID: any FulcrumSubscriptionClient]
         
@@ -20,9 +20,9 @@ extension NetworkModel {
             self.subscriptions = .init()
             
             let fulcrumMetrics = metrics.map { FulcrumMetricsAdapter(environment: configuration.network, collector: $0) }
-            let fulcrumLogger: (any SwiftFulcrum.LogModel.AdapterModel)? = logger.map { FulcrumLogHandlerAdapter(handler: $0) }
+            let fulcrumLogger: (any SwiftFulcrum.Logging.Adapter)? = logger.map { FulcrumLogHandlerAdapter(handler: $0) }
             
-            let reconnectConfiguration = SwiftFulcrum.FulcrumClient.Configuration.ReconnectModel(
+            let reconnectConfiguration = SwiftFulcrum.Client.Configuration.ReconnectPolicy(
                 maximumReconnectionAttempts: configuration.reconnectConfiguration.maximumAttempts,
                 reconnectionDelay: configuration.reconnectConfiguration.initialDelay.totalSeconds,
                 maximumDelay: configuration.reconnectConfiguration.maximumDelay.totalSeconds,
@@ -30,7 +30,7 @@ extension NetworkModel {
             )
             
             let bootstrapServers = configuration.fulcrumBootstrapServers
-            let fulcrumConfiguration = SwiftFulcrum.FulcrumClient.Configuration(
+            let fulcrumConfiguration = SwiftFulcrum.Client.Configuration(
                 reconnect: reconnectConfiguration,
                 metrics: fulcrumMetrics,
                 logger: fulcrumLogger,
@@ -43,8 +43,10 @@ extension NetworkModel {
                 network: configuration.network.fulcrumNetwork
             )
             
-            self.fulcrum = try await SwiftFulcrum.FulcrumClient(url: nil,
-                                             configuration: fulcrumConfiguration)
+            self.fulcrum = try await SwiftFulcrum.Client(
+                url: nil,
+                configuration: fulcrumConfiguration
+            )
             try await self.fulcrum.start()
         }
         
@@ -75,23 +77,23 @@ extension NetworkModel {
             }
         }
         
-        func request<Result: JSONRPCResponse>(
-            method: SwiftFulcrum.FulcrumMethodRequest,
+        func request<Result: SwiftFulcrum.RPC.JSONRPCResponseAdapter>(
+            method: SwiftFulcrum.RPC.Method,
             responseType: Result.Type = Result.self,
-            options: SwiftFulcrum.FulcrumClient.CallModel.OptionsModel = .init()
+            options: SwiftFulcrum.Client.Call.Options = .init()
         ) async throws -> Result {
             let response = try await fulcrum.submit(method: method, responseType: responseType, options: options)
             guard let value = response.extractRegularResponse() else {
-                throw SwiftFulcrum.FulcrumClient.Error.client(.protocolMismatch("Expected unary response for method: \(method)"))
+                throw SwiftFulcrum.Client.Error.client(.protocolMismatch("Expected unary response for method: \(method)"))
             }
             return value
         }
         
-        func subscribe<Initial: JSONRPCResponse, Notification: JSONRPCResponse>(
-            method: SwiftFulcrum.FulcrumMethodRequest,
+        func subscribe<Initial: SwiftFulcrum.RPC.JSONRPCResponseAdapter, Notification: SwiftFulcrum.RPC.JSONRPCResponseAdapter>(
+            method: SwiftFulcrum.RPC.Method,
             initialType: Initial.Type = Initial.self,
             notificationType: Notification.Type = Notification.self,
-            options: SwiftFulcrum.FulcrumClient.CallModel.OptionsModel = .init()
+            options: SwiftFulcrum.Client.Call.Options = .init()
         ) async throws -> (Initial, AsyncThrowingStream<Notification, Swift.Error>, @Sendable () async -> Void) {
             let subscription = FulcrumSubscriptionBoxActor<Initial, Notification>(
                 method: method,
@@ -134,7 +136,7 @@ extension NetworkModel {
     }
 }
 
-private struct FulcrumMetricsAdapter: SwiftFulcrum.MetricsClient {
+private struct FulcrumMetricsAdapter: SwiftFulcrum.Metrics.MetricsClient {
     private let environment: NetworkModel.EnvironmentModel
     private let collector: any NetworkModel.MetricsClient
     
@@ -143,7 +145,7 @@ private struct FulcrumMetricsAdapter: SwiftFulcrum.MetricsClient {
         self.collector = collector
     }
     
-    func recordConnect(url: URL, network _: SwiftFulcrum.FulcrumClient.Configuration.NetworkModel) async {
+    func recordConnect(url: URL, network _: SwiftFulcrum.Client.Configuration.Network) async {
         await collector.recordConnection(url: url, network: environment)
     }
     
@@ -163,23 +165,23 @@ private struct FulcrumMetricsAdapter: SwiftFulcrum.MetricsClient {
         await collector.recordPing(url: url, error: error)
     }
     
-    func recordDiagnosticsUpdate(url: URL, snapshot: SwiftFulcrum.FulcrumClient.DiagnosticsModel.SnapshotModel) async {
+    func recordDiagnosticsUpdate(url: URL, snapshot: SwiftFulcrum.Client.Diagnostics.Snapshot) async {
         await collector.recordDiagnosticsSnapshot(url: url, snapshot: .init(snapshot))
     }
     
-    func recordSubscriptionRegistryUpdate(url: URL, subscriptions: [SwiftFulcrum.FulcrumClient.DiagnosticsModel.SubscriptionModel]) async {
+    func recordSubscriptionRegistryUpdate(url: URL, subscriptions: [SwiftFulcrum.Client.Diagnostics.Subscription]) async {
         await collector.recordSubscriptionRegistryUpdate(url: url, subscriptions: subscriptions.map(NetworkModel.DiagnosticsSubscriptionModel.init(_:)))
     }
 }
 
-private struct FulcrumLogHandlerAdapter: SwiftFulcrum.LogModel.AdapterModel {
+private struct FulcrumLogHandlerAdapter: SwiftFulcrum.Logging.Adapter {
     private let handler: any NetworkModel.LogClient
     
     init(handler: any NetworkModel.LogClient) {
         self.handler = handler
     }
     
-    func log(_ level: SwiftFulcrum.LogModel.LevelModel,
+    func log(_ level: SwiftFulcrum.Logging.Level,
              _ message: @autoclosure () -> String,
              metadata: [String : String]?,
              file: String,

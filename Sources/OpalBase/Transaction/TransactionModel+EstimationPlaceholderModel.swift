@@ -1,4 +1,4 @@
-// TransactionModel~Fee.swift
+// TransactionModel+EstimationPlaceholderModel.swift
 
 import Foundation
 
@@ -126,3 +126,4 @@ private extension CompactSizeModel {
         }
     }
 }
+
