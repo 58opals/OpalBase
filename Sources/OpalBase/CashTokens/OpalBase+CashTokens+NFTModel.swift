@@ -1,4 +1,4 @@
-// OpalBase.CashTokens+NFTModel.swift
+// OpalBase+CashTokens+NFTModel.swift
 
 import Foundation
 

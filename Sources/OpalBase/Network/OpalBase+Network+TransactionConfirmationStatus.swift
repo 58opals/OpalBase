@@ -1,4 +1,4 @@
-// OpalBase.Network+TransactionConfirmationStatus.swift
+// OpalBase+Network+TransactionConfirmationStatus.swift
 
 import Foundation
 

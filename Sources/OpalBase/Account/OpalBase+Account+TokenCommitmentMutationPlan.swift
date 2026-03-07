@@ -1,4 +1,4 @@
-// OpalBase.Account+TokenCommitmentMutationPlan.swift
+// OpalBase+Account+TokenCommitmentMutationPlan.swift
 
 import Foundation
 

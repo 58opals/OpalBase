@@ -1,4 +1,4 @@
-// OpalBase.Network+ScriptHashReadableClient_.swift
+// OpalBase+Network+ScriptHashReadableClient_.swift
 
 import Foundation
 

@@ -1,4 +1,4 @@
-// OpalBase.Wallet+FulcrumAddressActor+Monitor~Header.swift
+// OpalBase+Wallet+Fulcrum+Monitor~Header.swift
 
 import Foundation
 

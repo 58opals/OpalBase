@@ -1,4 +1,4 @@
-// OpalBase.Network+FulcrumRequestTimeoutModel.swift
+// OpalBase+Network+FulcrumRequestTimeoutModel.swift
 
 import Foundation
 

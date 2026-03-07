@@ -1,4 +1,4 @@
-// OpalBase.Network+FulcrumErrorTranslatorModel.swift
+// OpalBase+Network+FulcrumErrorTranslatorModel.swift
 
 import Foundation
 import SwiftFulcrum

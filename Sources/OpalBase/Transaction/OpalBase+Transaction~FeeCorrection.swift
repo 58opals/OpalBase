@@ -1,4 +1,4 @@
-// OpalBase.Transaction~FeeCorrection.swift
+// OpalBase+Transaction~FeeCorrection.swift
 
 import Foundation
 

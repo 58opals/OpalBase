@@ -1,4 +1,4 @@
-// OpalBase.Account+SnapshotModel.swift
+// OpalBase+Account+SnapshotModel.swift
 
 import Foundation
 

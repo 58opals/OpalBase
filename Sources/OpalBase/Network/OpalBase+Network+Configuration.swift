@@ -1,4 +1,4 @@
-// OpalBase.Network+Configuration.swift
+// OpalBase+Network+Configuration.swift
 
 import Foundation
 

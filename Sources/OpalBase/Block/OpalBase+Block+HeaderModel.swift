@@ -1,4 +1,4 @@
-// OpalBase.Block+HeaderModel.swift
+// OpalBase+Block+HeaderModel.swift
 
 import Foundation
 

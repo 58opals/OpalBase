@@ -1,4 +1,4 @@
-// OpalBase.Address+BookActor+Error.swift
+// OpalBase+Address+Book+Error.swift
 
 import Foundation
 

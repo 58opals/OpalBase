@@ -1,4 +1,4 @@
-// OpalBase.Account+TokenRequirementsModel.swift
+// OpalBase+Account+TokenRequirementsModel.swift
 
 import Foundation
 

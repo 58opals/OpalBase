@@ -1,4 +1,4 @@
-// OpalBase.Transaction+Cache.swift
+// OpalBase+Transaction+Cache.swift
 
 import Foundation
 

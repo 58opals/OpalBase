@@ -1,4 +1,4 @@
-// OpalBase.Account~Command.swift
+// OpalBase+Account~Command.swift
 
 import Foundation
 

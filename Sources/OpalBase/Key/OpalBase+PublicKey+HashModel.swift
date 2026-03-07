@@ -1,4 +1,4 @@
-// OpalBase.PublicKey+HashModel.swift
+// OpalBase+PublicKey+HashModel.swift
 
 import Foundation
 

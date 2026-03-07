@@ -1,4 +1,4 @@
-// OpalBase.DerivationPath+UsageModel.swift
+// OpalBase+DerivationPath+UsageModel.swift
 
 import Foundation
 

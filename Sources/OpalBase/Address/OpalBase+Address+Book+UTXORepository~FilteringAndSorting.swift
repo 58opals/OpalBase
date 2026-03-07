@@ -1,4 +1,4 @@
-// OpalBase.Address+BookActor+UTXORepository~FilteringAndSorting.swift
+// OpalBase+Address+Book+UTXORepository~FilteringAndSorting.swift
 
 import Foundation
 

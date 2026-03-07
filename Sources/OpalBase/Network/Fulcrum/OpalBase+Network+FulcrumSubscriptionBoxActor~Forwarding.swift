@@ -1,4 +1,4 @@
-// OpalBase.Network+FulcrumSubscriptionBoxActor~Forwarding.swift
+// OpalBase+Network+FulcrumSubscriptionBoxActor~Forwarding.swift
 
 import Foundation
 import SwiftFulcrum

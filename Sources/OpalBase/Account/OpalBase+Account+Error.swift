@@ -1,4 +1,4 @@
-// OpalBase.Account+Error.swift
+// OpalBase+Account+Error.swift
 
 import Foundation
 

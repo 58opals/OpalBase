@@ -1,4 +1,4 @@
-// OpalBase.Network+ServerCatalogModel.swift
+// OpalBase+Network+ServerCatalogModel.swift
 
 import Foundation
 

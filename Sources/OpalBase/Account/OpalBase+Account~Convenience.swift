@@ -1,4 +1,4 @@
-// OpalBase.Account~Convenience.swift
+// OpalBase+Account~Convenience.swift
 
 import Foundation
 

@@ -1,4 +1,4 @@
-// OpalBase.Wallet~BCMR.swift
+// OpalBase+Wallet~BCMR.swift
 
 import Foundation
 

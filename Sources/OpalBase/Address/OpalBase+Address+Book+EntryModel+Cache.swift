@@ -1,4 +1,4 @@
-// OpalBase.Address+BookActor+EntryModel+Cache.swift
+// OpalBase+Address+Book+EntryModel+Cache.swift
 
 import Foundation
 

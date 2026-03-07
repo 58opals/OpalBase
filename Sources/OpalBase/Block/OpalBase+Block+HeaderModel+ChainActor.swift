@@ -1,4 +1,4 @@
-// OpalBase.Block+HeaderModel+ChainActor.swift
+// OpalBase+Block+HeaderModel+ChainActor.swift
 
 import Foundation
 

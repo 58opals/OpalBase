@@ -1,4 +1,4 @@
-// OpalBase.DerivationPath+CoinTypeModel.swift
+// OpalBase+DerivationPath+CoinTypeModel.swift
 
 import Foundation
 

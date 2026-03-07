@@ -1,4 +1,4 @@
-// OpalBase.Network+Configuration~Fulcrum.swift
+// OpalBase+Network+Configuration~Fulcrum.swift
 
 import Foundation
 import SwiftFulcrum

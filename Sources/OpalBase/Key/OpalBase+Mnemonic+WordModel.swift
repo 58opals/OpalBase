@@ -1,4 +1,4 @@
-// OpalBase.Mnemonic+WordModel.swift
+// OpalBase+Mnemonic+WordModel.swift
 
 import Foundation
 

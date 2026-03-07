@@ -1,4 +1,4 @@
-// OpalBase.Transaction+EstimationPlaceholderModel.swift
+// OpalBase+Transaction+EstimationPlaceholderModel.swift
 
 import Foundation
 

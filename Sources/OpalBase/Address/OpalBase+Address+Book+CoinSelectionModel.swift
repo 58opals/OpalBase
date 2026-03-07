@@ -1,4 +1,4 @@
-// OpalBase.Address+BookActor+CoinSelectionModel.swift
+// OpalBase+Address+Book+CoinSelectionModel.swift
 
 import Foundation
 

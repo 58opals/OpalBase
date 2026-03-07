@@ -1,4 +1,4 @@
-// OpalBase.Network+TransactionHistoryEntry.swift
+// OpalBase+Network+TransactionHistoryEntry.swift
 
 import Foundation
 

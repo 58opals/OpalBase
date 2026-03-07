@@ -1,4 +1,4 @@
-// OpalBase.Account~TokenInventory.swift
+// OpalBase+Account~TokenInventory.swift
 
 import Foundation
 

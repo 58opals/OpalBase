@@ -18,12 +18,12 @@ extension _OpalBase.Transaction.HistoryModel {
         }
         
         public struct VerificationMetadata: Sendable, Hashable, Equatable {
-            public var status: StatusModel.Verification
+            public var status: Status.Verification
             public var merkleProof: OpalBase.Transaction.MerkleProof?
             public var lastVerifiedHeight: UInt32?
             public var lastCheckedAt: Date?
-            
-            mutating func synchronize(with recordStatus: OpalBase.Transaction.HistoryModel.StatusModel,
+
+            mutating func synchronize(with recordStatus: OpalBase.Transaction.HistoryModel.Status,
                                       timestamp: Date,
                                       shouldResetExistingVerification: Bool) {
                 switch recordStatus {
@@ -53,13 +53,13 @@ extension _OpalBase.Transaction.HistoryModel {
         public var confirmationMetadata: ConfirmationMetadata
         public var verificationMetadata: VerificationMetadata
         public var tokenDelta: TokenDeltaModel
-        
-        public var status: StatusModel
-        
+
+        public var status: Status
+
         public var isConfirmed: Bool { status == .confirmed }
-        
+
         public init(transactionHash: OpalBase.Transaction.HashModel,
-                    status: StatusModel,
+                    status: Status,
                     chainMetadata: ChainMetadata,
                     confirmationMetadata: ConfirmationMetadata,
                     verificationMetadata: VerificationMetadata,
@@ -79,8 +79,8 @@ extension _OpalBase.Transaction.HistoryModel.RecordModel {
                                 scriptHash: String,
                                 timestamp: Date) {
         applyEntryDetails(from: entry, scriptHash: scriptHash, timestamp: timestamp)
-        
-        let statusTransition = OpalBase.Transaction.HistoryModel.StatusModel
+
+        let statusTransition = OpalBase.Transaction.HistoryModel.Status
             .makeTransition(forHeight: entry.height, from: status)
         applyStatusTransition(statusTransition,
                               entryHeight: entry.height,
@@ -90,12 +90,12 @@ extension _OpalBase.Transaction.HistoryModel.RecordModel {
     static func makeRecord(for entry: OpalBase.Transaction.HistoryModel.EntryModel,
                            scriptHash: String,
                            timestamp: Date) -> OpalBase.Transaction.HistoryModel.RecordModel {
-        let statusTransition = OpalBase.Transaction.HistoryModel.StatusModel
+        let statusTransition = OpalBase.Transaction.HistoryModel.Status
             .makeTransition(forHeight: entry.height, from: nil)
         let confirmationHeight = statusTransition
             .resolveConfirmationHeight(forHeight: entry.height)
         let confirmedAt = statusTransition.isConfirmed ? timestamp : nil
-        let verificationStatus: OpalBase.Transaction.HistoryModel.StatusModel.Verification = statusTransition.isConfirmed ? .pending : .unknown
+        let verificationStatus: OpalBase.Transaction.HistoryModel.Status.Verification = statusTransition.isConfirmed ? .pending : .unknown
         let chainMetadata = OpalBase.Transaction.HistoryModel.RecordModel.ChainMetadata(height: entry.height,
                                                                      fee: entry.fee,
                                                                      scriptHashes: [scriptHash],
@@ -114,15 +114,15 @@ extension _OpalBase.Transaction.HistoryModel.RecordModel {
                                           verificationMetadata: verificationMetadata,
                                                                                    tokenDelta: .init())
     }
-    
-    mutating func resetVerification(for status: OpalBase.Transaction.HistoryModel.StatusModel,
+
+    mutating func resetVerification(for status: OpalBase.Transaction.HistoryModel.Status,
                                     timestamp: Date) {
         verificationMetadata.synchronize(with: status,
                                          timestamp: timestamp,
                                          shouldResetExistingVerification: true)
     }
-    
-    mutating func updateVerification(status: OpalBase.Transaction.HistoryModel.StatusModel.Verification,
+
+    mutating func updateVerification(status: OpalBase.Transaction.HistoryModel.Status.Verification,
                                      proof: OpalBase.Transaction.MerkleProof?,
                                      verifiedHeight: UInt32?,
                                      checkedAt: Date) {
@@ -154,16 +154,16 @@ extension _OpalBase.Transaction.HistoryModel.RecordModel {
         chainMetadata.lastUpdatedAt = timestamp
         chainMetadata.scriptHashes.insert(scriptHash)
     }
-    
-    private mutating func applyStatusTransition(_ transition: OpalBase.Transaction.HistoryModel.StatusModel.TransitionModel,
+
+    private mutating func applyStatusTransition(_ transition: OpalBase.Transaction.HistoryModel.Status.TransitionModel,
                                                 entryHeight: Int,
                                                 timestamp: Date) {
         status = transition.status
         updateConfirmation(for: transition, entryHeight: entryHeight, timestamp: timestamp)
         updateVerification(afterStatusChange: transition.status, timestamp: timestamp)
     }
-    
-    private mutating func updateConfirmation(for transition: OpalBase.Transaction.HistoryModel.StatusModel.TransitionModel,
+
+    private mutating func updateConfirmation(for transition: OpalBase.Transaction.HistoryModel.Status.TransitionModel,
                                              entryHeight: Int,
                                              timestamp: Date) {
         if let newHeight = transition.resolveConfirmationHeight(forHeight: entryHeight) {
@@ -178,8 +178,8 @@ extension _OpalBase.Transaction.HistoryModel.RecordModel {
             confirmationMetadata.confirmedAt = nil
         }
     }
-    
-    private mutating func updateVerification(afterStatusChange status: OpalBase.Transaction.HistoryModel.StatusModel,
+
+    private mutating func updateVerification(afterStatusChange status: OpalBase.Transaction.HistoryModel.Status,
                                              timestamp: Date) {
         verificationMetadata.synchronize(with: status,
                                          timestamp: timestamp,

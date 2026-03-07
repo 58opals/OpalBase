@@ -1,4 +1,4 @@
-// OpalBase.Wallet+FulcrumAddressActor+Monitor~Subscription.swift
+// OpalBase+Wallet+Fulcrum+Monitor~Subscription.swift
 
 import Foundation
 

@@ -1,4 +1,4 @@
-// OpalBase.PrivateKey+WalletImportFormatCompressionModel.swift
+// OpalBase+PrivateKey+WalletImportFormatCompressionModel.swift
 
 import Foundation
 

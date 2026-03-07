@@ -1,4 +1,4 @@
-// OpalBase.Account+BalanceRefresh.swift
+// OpalBase+Account+BalanceRefresh.swift
 
 import Foundation
 

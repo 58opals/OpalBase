@@ -1,4 +1,4 @@
-// OpalBase.PrivateKey+Error.swift
+// OpalBase+PrivateKey+Error.swift
 
 import Foundation
 

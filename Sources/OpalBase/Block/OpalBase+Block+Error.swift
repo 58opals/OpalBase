@@ -1,4 +1,4 @@
-// OpalBase.Block+Error.swift
+// OpalBase+Block+Error.swift
 
 import Foundation
 

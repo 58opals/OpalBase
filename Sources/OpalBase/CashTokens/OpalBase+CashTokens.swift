@@ -1,4 +1,4 @@
-// OpalBase.CashTokens.swift
+// OpalBase+CashTokens.swift
 
 import Foundation
 

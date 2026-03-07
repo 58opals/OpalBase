@@ -1,4 +1,4 @@
-// OpalBase.Network+Error.swift
+// OpalBase+Network+Error.swift
 
 import Foundation
 

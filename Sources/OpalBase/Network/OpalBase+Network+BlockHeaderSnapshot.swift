@@ -1,4 +1,4 @@
-// OpalBase.Network+BlockHeaderSnapshot.swift
+// OpalBase+Network+BlockHeaderSnapshot.swift
 
 import Foundation
 

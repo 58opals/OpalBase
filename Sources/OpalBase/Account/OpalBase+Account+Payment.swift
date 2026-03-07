@@ -1,4 +1,4 @@
-// OpalBase.Account+Payment.swift
+// OpalBase+Account+Payment.swift
 
 import Foundation
 

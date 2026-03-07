@@ -1,4 +1,4 @@
-// OpalBase.Address+BookActor~ReservationState.swift
+// OpalBase+Address+Book~ReservationState.swift
 
 import Foundation
 

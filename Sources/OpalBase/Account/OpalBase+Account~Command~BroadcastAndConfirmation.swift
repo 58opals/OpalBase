@@ -1,4 +1,4 @@
-// OpalBase.Account~Command~BroadcastAndConfirmation.swift
+// OpalBase+Account~Command~BroadcastAndConfirmation.swift
 
 import Foundation
 

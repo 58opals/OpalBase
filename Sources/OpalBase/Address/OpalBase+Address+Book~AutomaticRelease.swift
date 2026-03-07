@@ -1,4 +1,4 @@
-// OpalBase.Address+BookActor~AutomaticRelease.swift
+// OpalBase+Address+Book~AutomaticRelease.swift
 
 import Foundation
 

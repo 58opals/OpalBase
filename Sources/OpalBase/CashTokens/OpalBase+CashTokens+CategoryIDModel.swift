@@ -1,4 +1,4 @@
-// OpalBase.CashTokens+CategoryIDModel.swift
+// OpalBase+CashTokens+CategoryIDModel.swift
 
 import Foundation
 

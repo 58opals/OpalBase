@@ -1,4 +1,4 @@
-// OpalBase.Account+SpendReservationModel.swift
+// OpalBase+Account+SpendReservationModel.swift
 
 import Foundation
 

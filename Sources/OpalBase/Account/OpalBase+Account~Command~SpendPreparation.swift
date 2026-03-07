@@ -1,4 +1,4 @@
-// OpalBase.Account~Command~SpendPreparation.swift
+// OpalBase+Account~Command~SpendPreparation.swift
 
 import Foundation
 

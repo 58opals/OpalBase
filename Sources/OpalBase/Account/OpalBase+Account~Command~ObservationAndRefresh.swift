@@ -1,4 +1,4 @@
-// OpalBase.Account~Command~ObservationAndRefresh.swift
+// OpalBase+Account~Command~ObservationAndRefresh.swift
 
 import Foundation
 

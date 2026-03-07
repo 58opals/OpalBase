@@ -1,4 +1,4 @@
-// OpalBase.Transaction+OutputModel.swift
+// OpalBase+Transaction+OutputModel.swift
 
 import Foundation
 

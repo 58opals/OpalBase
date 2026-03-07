@@ -1,4 +1,4 @@
-// OpalBase.Account~TokenGenesisPlanning.swift
+// OpalBase+Account~TokenGenesisPlanning.swift
 
 import Foundation
 

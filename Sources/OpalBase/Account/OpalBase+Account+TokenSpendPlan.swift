@@ -1,4 +1,4 @@
-// OpalBase.Account+TokenSpendPlan.swift
+// OpalBase+Account+TokenSpendPlan.swift
 
 import Foundation
 

@@ -1,4 +1,4 @@
-// OpalBase.Network+MempoolInfoModel.swift
+// OpalBase+Network+MempoolInfoModel.swift
 
 import Foundation
 

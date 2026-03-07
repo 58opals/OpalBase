@@ -1,4 +1,4 @@
-// OpalBase.Mnemonic+LengthModel.swift
+// OpalBase+Mnemonic+LengthModel.swift
 
 import Foundation
 

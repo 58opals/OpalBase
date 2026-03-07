@@ -1,4 +1,4 @@
-// OpalBase.Network+ProtocolVersion.swift
+// OpalBase+Network+ProtocolVersion.swift
 
 import Foundation
 import SwiftFulcrum

@@ -1,4 +1,4 @@
-// OpalBase.PublicKey+ExtendedModel.swift
+// OpalBase+PublicKey+ExtendedModel.swift
 
 import Foundation
 

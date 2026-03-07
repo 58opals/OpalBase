@@ -1,4 +1,4 @@
-// OpalBase.CashTokens+TokenPrefixModel.swift
+// OpalBase+CashTokens+TokenPrefixModel.swift
 
 import Foundation
 

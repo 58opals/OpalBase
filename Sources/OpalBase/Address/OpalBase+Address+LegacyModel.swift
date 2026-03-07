@@ -1,4 +1,4 @@
-// OpalBase.Address+LegacyModel.swift
+// OpalBase+Address+LegacyModel.swift
 
 import Foundation
 

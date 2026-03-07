@@ -53,10 +53,10 @@ extension _OpalBase.Address.Book {
             public let scriptHashes: [String]
             public let firstSeenAt: Date
             public let lastUpdatedAt: Date
-            public let status: AddressBookSnapshotTransactionHistory.StatusModel
+            public let status: AddressBookSnapshotTransactionHistory.Status
             public let confirmationHeight: UInt64?
             public let confirmedAt: Date?
-            public let verificationStatus: AddressBookSnapshotTransactionHistory.StatusModel.Verification
+            public let verificationStatus: AddressBookSnapshotTransactionHistory.Status.Verification
             public let merkleProof: MerkleProof?
             public let lastVerifiedHeight: UInt32?
             public let lastCheckedAt: Date?
@@ -71,10 +71,10 @@ extension _OpalBase.Address.Book {
                         scriptHashes: [String],
                         firstSeenAt: Date,
                         lastUpdatedAt: Date,
-                        status: AddressBookSnapshotTransactionHistory.StatusModel,
+                        status: AddressBookSnapshotTransactionHistory.Status,
                         confirmationHeight: UInt64?,
                         confirmedAt: Date?,
-                        verificationStatus: AddressBookSnapshotTransactionHistory.StatusModel.Verification,
+                        verificationStatus: AddressBookSnapshotTransactionHistory.Status.Verification,
                         merkleProof: MerkleProof?,
                         lastVerifiedHeight: UInt32?,
                         lastCheckedAt: Date?,

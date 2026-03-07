@@ -1,4 +1,4 @@
-// OpalBase.Address+FormatModel.swift
+// OpalBase+Address+FormatModel.swift
 
 import Foundation
 

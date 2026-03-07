@@ -1,4 +1,4 @@
-// OpalBase.Wallet+FeePolicy.swift
+// OpalBase+Wallet+FeePolicy.swift
 
 import Foundation
 

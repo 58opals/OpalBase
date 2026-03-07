@@ -1,4 +1,4 @@
-// OpalBase.Address+BookActor+InventoryModel+UsageBucketModel.swift
+// OpalBase+Address+Book+InventoryModel+UsageBucketModel.swift
 
 import Foundation
 

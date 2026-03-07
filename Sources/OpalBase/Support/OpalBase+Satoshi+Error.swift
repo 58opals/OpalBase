@@ -1,4 +1,4 @@
-// OpalBase.Satoshi+Error.swift
+// OpalBase+Satoshi+Error.swift
 
 import Foundation
 

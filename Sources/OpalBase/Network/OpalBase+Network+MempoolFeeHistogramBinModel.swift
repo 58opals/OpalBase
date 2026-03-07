@@ -1,4 +1,4 @@
-// OpalBase.Network+MempoolFeeHistogramBinModel.swift
+// OpalBase+Network+MempoolFeeHistogramBinModel.swift
 
 import Foundation
 

@@ -1,4 +1,4 @@
-// OpalBase.Wallet+Fulcrum.swift
+// OpalBase+Wallet+Fulcrum.swift
 
 import Foundation
 

@@ -1,4 +1,4 @@
-// OpalBase.CashTokens+TokenData~Fulcrum.swift
+// OpalBase+CashTokens+TokenData~Fulcrum.swift
 
 import Foundation
 import SwiftFulcrum

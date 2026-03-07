@@ -1,4 +1,4 @@
-// OpalBase.Network+TransactionConfirmationClient_.swift
+// OpalBase+Network+TransactionConfirmationClient_.swift
 
 import Foundation
 

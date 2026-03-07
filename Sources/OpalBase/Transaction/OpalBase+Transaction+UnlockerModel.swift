@@ -1,4 +1,4 @@
-// OpalBase.Transaction+UnlockerModel.swift
+// OpalBase+Transaction+UnlockerModel.swift
 
 import Foundation
 

@@ -5,7 +5,7 @@ import Testing
 
 @Suite("CashAddr", .tags(.unit, .address))
 struct AddressValidator {
-    @Test("create")
+    @Test("generates a cash address containing the requested substring")
     func randomCreateCashAddress() throws {
         let word: String = "q"
         var count: Int = 0

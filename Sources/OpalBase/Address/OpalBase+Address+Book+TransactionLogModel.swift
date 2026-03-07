@@ -121,7 +121,7 @@ extension _OpalBase.Address.Book {
         }
         
         mutating func updateVerification(for transactionHash: OpalBase.Transaction.HashModel,
-                                         status: OpalBase.Transaction.HistoryModel.StatusModel.Verification,
+                                         status: OpalBase.Transaction.HistoryModel.Status.Verification,
                                          proof: OpalBase.Transaction.MerkleProof?,
                                          verifiedHeight: UInt32?,
                                          timestamp: Date) -> OpalBase.Transaction.HistoryModel.RecordModel? {

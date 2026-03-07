@@ -1,4 +1,4 @@
-// OpalBase.Account+PrivacyShaperActor+Configuration.swift
+// OpalBase+Account+PrivacyShaperActor+Configuration.swift
 
 import Foundation
 

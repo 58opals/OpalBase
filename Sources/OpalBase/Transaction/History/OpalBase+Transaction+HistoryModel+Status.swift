@@ -1,9 +1,9 @@
-// OpalBase.Transaction+HistoryModel+StatusModel.swift
+// OpalBase+Transaction+HistoryModel+Status.swift
 
 import Foundation
 
 extension _OpalBase.Transaction.HistoryModel {
-    public enum StatusModel: String, Sendable, Hashable, Codable {
+    public enum Status: String, Sendable, Hashable, Codable {
         case discovered
         case pending
         case confirmed
@@ -18,12 +18,12 @@ extension _OpalBase.Transaction.HistoryModel {
     }
 }
 
-extension _OpalBase.Transaction.HistoryModel.StatusModel {
+extension _OpalBase.Transaction.HistoryModel.Status {
     struct TransitionModel: Sendable, Hashable {
-        let status: OpalBase.Transaction.HistoryModel.StatusModel
+        let status: OpalBase.Transaction.HistoryModel.Status
         private let explicitConfirmationHeight: UInt64?
-        
-        init(status: OpalBase.Transaction.HistoryModel.StatusModel, confirmationHeight: UInt64?) {
+
+        init(status: OpalBase.Transaction.HistoryModel.Status, confirmationHeight: UInt64?) {
             self.status = status
             self.explicitConfirmationHeight = confirmationHeight
         }
@@ -41,9 +41,9 @@ extension _OpalBase.Transaction.HistoryModel.StatusModel {
         
         var confirmationHeight: UInt64? { explicitConfirmationHeight }
     }
-    
+
     static func makeTransition(forHeight height: Int,
-                               from previousStatus: OpalBase.Transaction.HistoryModel.StatusModel?) -> TransitionModel
+                               from previousStatus: OpalBase.Transaction.HistoryModel.Status?) -> TransitionModel
     {
         if height > 0 {
             return TransitionModel(status: .confirmed, confirmationHeight: UInt64(height))

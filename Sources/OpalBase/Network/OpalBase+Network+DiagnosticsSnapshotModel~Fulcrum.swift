@@ -1,4 +1,4 @@
-// OpalBase.Network+DiagnosticsSnapshotModel~Fulcrum.swift
+// OpalBase+Network+DiagnosticsSnapshotModel~Fulcrum.swift
 
 import SwiftFulcrum
 

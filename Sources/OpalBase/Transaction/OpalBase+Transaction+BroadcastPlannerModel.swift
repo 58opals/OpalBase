@@ -1,4 +1,4 @@
-// OpalBase.Transaction+BroadcastPlannerModel.swift
+// OpalBase+Transaction+BroadcastPlannerModel.swift
 
 import Foundation
 

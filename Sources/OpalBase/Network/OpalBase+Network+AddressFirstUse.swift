@@ -1,4 +1,4 @@
-// OpalBase.Network+AddressFirstUse.swift
+// OpalBase+Network+AddressFirstUse.swift
 
 import Foundation
 

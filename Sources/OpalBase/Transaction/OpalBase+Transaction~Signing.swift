@@ -1,4 +1,4 @@
-// OpalBase.Transaction~Signing.swift
+// OpalBase+Transaction~Signing.swift
 
 import Foundation
 

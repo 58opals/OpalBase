@@ -1,4 +1,4 @@
-// OpalBase.Address+BookActor+UTXOChangeSetModel.swift
+// OpalBase+Address+Book+UTXOChangeSetModel.swift
 
 import Foundation
 

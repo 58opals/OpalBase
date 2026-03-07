@@ -1,4 +1,4 @@
-// OpalBase.Network+TransactionMerkleProof.swift
+// OpalBase+Network+TransactionMerkleProof.swift
 
 import Foundation
 

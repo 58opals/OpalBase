@@ -1,4 +1,4 @@
-// OpalBase.Mnemonic+Error.swift
+// OpalBase+Mnemonic+Error.swift
 
 import Foundation
 

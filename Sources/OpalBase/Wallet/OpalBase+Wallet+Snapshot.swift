@@ -1,4 +1,4 @@
-// OpalBase.Wallet+Snapshot.swift
+// OpalBase+Wallet+Snapshot.swift
 
 import Foundation
 

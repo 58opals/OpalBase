@@ -1,4 +1,4 @@
-// OpalBase.Network+AddressSubscriptionUpdate.swift
+// OpalBase+Network+AddressSubscriptionUpdate.swift
 
 import Foundation
 

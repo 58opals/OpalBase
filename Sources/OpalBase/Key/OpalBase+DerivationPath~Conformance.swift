@@ -1,4 +1,4 @@
-// OpalBase.DerivationPath~Conformance.swift
+// OpalBase+DerivationPath~Conformance.swift
 
 import Foundation
 
