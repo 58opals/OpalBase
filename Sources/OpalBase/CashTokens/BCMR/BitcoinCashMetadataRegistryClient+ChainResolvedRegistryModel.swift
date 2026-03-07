@@ -21,15 +21,7 @@ extension BitcoinCashMetadataRegistryClient {
             self.registry = registry
         }
     }
-    
-    public enum ChainRegistryResolverError: Swift.Error, Sendable {
-        case missingPublicationOutput(OpalBase.Transaction.HashModel)
-        case invalidRegistryHash(expected: Data, actual: Data)
-        case registryDecodingFailed(Swift.Error)
-        case registryFetchingFailed(String, Swift.Error)
-        case noRegistryLocation(OpalBase.Transaction.HashModel)
-    }
-    
+
     public func resolveChainRegistry(authbase: OpalBase.Transaction.HashModel) async throws -> ChainResolvedRegistryModel {
         let authhead = try await authchainResolver.resolveAuthhead(from: authbase)
         let transaction = try await fetchTransaction(for: authhead)
@@ -101,4 +93,3 @@ private extension BitcoinCashMetadataRegistryClient {
         }
     }
 }
-

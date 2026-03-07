@@ -45,22 +45,6 @@ extension _OpalBase.Account {
             self.shouldAllowDustDonation = shouldAllowDustDonation
         }
     }
-    
-    public struct ReservedSupplyModel: Sendable {
-        public let fungibleAmount: UInt64
-        public let shouldIncludeMintingNonFungibleToken: Bool
-        public let commitment: Data
-        
-        public init(fungibleAmount: UInt64,
-                    shouldIncludeMintingNonFungibleToken: Bool,
-                    commitment: Data = .init()) throws {
-            try TokenGenesisValidationModel.validateFungibleAmount(fungibleAmount)
-            try TokenGenesisValidationModel.validateCommitment(commitment)
-            self.fungibleAmount = fungibleAmount
-            self.shouldIncludeMintingNonFungibleToken = shouldIncludeMintingNonFungibleToken
-            self.commitment = commitment
-        }
-    }
 }
 
 private enum TokenGenesisValidationModel {

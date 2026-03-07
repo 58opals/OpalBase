@@ -27,31 +27,6 @@ extension _OpalBase.Address.Book {
             self.nonFungibleTokensByGroup = nonFungibleTokensByGroup
         }
     }
-    
-    public struct UnspentOutputPartitionModel: Sendable, Equatable {
-        public let bchOnlyUTXOs: Set<OpalBase.Transaction.OutputModel.Unspent>
-        public let tokenUTXOs: Set<OpalBase.Transaction.OutputModel.Unspent>
-        
-        public init(bchOnlyUTXOs: Set<OpalBase.Transaction.OutputModel.Unspent>,
-                    tokenUTXOs: Set<OpalBase.Transaction.OutputModel.Unspent>) {
-            self.bchOnlyUTXOs = bchOnlyUTXOs
-            self.tokenUTXOs = tokenUTXOs
-        }
-    }
-    
-    public struct UnspentOutputBalancesModel: Sendable, Equatable {
-        public let bchTotal: OpalBase.Satoshi
-        public let bchSpendable: OpalBase.Satoshi
-        public let tokenInventory: TokenInventoryModel
-        
-        public init(bchTotal: OpalBase.Satoshi,
-                    bchSpendable: OpalBase.Satoshi,
-                    tokenInventory: TokenInventoryModel) {
-            self.bchTotal = bchTotal
-            self.bchSpendable = bchSpendable
-            self.tokenInventory = tokenInventory
-        }
-    }
 }
 
 extension _OpalBase.Address.Book {

@@ -10,12 +10,6 @@ extension _OpalBase.Account {
         let fungibleAmount: UInt64
         let nonFungibleTokens: [OpalBase.Address.Book.TokenInventoryModel.NonFungibleTokenGroup: Int]
     }
-    
-    struct TokenInventoryModel {
-        let category: OpalBase.CashTokens.CategoryIDModel
-        let fungibleAmount: UInt64
-        let nonFungibleTokens: [OpalBase.Address.Book.TokenInventoryModel.NonFungibleTokenGroup: Int]
-    }
 }
 
 extension _OpalBase.Account {
@@ -147,4 +141,3 @@ extension _OpalBase.Account {
         return outputs
     }
 }
-
