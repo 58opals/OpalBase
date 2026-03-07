@@ -44,7 +44,7 @@ extension ECDSAModel {
 
 extension ECDSAModel {
     static func sign(message: Data,
-                     with privateKey: PrivateKeyModel,
+                     with privateKey: OpalBase.PrivateKey,
                      in format: SignatureFormatModel,
                      nonceFunction: NonceFunctionModel = .rfc6979BchDefault) throws -> Data {
         switch format {
@@ -71,7 +71,7 @@ extension ECDSAModel {
     }
     
     static func sign(message: ECDSAModel.MessageModel,
-                     with privateKey: PrivateKeyModel,
+                     with privateKey: OpalBase.PrivateKey,
                      in format: SignatureFormatModel,
                      nonceFunction: NonceFunctionModel = .rfc6979BchDefault) throws -> Data {
         switch format {
@@ -86,7 +86,7 @@ extension ECDSAModel {
 }
 
 extension ECDSAModel {
-    static func verify(signature: Data, message: Data, publicKey: PublicKeyModel, format: SignatureFormatModel) throws -> Bool {
+    static func verify(signature: Data, message: Data, publicKey: OpalBase.PublicKey, format: SignatureFormatModel) throws -> Bool {
         let compressedPublicKey = publicKey.compressedData
         guard compressedPublicKey.count == 33 else { throw Error.invalidCompressedPublicKeyLength }
         let prefix = compressedPublicKey[0]
@@ -120,7 +120,7 @@ extension ECDSAModel {
         }
     }
     
-    static func verify(signature: Data, message: ECDSAModel.MessageModel, publicKey: PublicKeyModel, format: SignatureFormatModel) throws -> Bool {
+    static func verify(signature: Data, message: ECDSAModel.MessageModel, publicKey: OpalBase.PublicKey, format: SignatureFormatModel) throws -> Bool {
         switch format {
         case .ecdsa:
             let signerInput = try message.makeDataForSignerHashingOnceSHA256Internally()

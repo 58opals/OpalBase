@@ -15,8 +15,8 @@ struct ExtendedKeyDerivationValidator {
     @Test("derives canonical hierarchical deterministic vectors")
     func derivesCanonicalHierarchicalDeterministicVectors() throws {
         let seed = try Data(hexadecimalString: "000102030405060708090a0b0c0d0e0f")
-        let rootKey = try PrivateKeyModel.ExtendedModel.RootModel(seed: seed)
-        let rootPrivateKey = PrivateKeyModel.ExtendedModel(rootKey: rootKey)
+        let rootKey = try OpalBase.PrivateKey.ExtendedModel.RootModel(seed: seed)
+        let rootPrivateKey = OpalBase.PrivateKey.ExtendedModel(rootKey: rootKey)
         
         let vectors: [DerivationVector] = [
             .init(
@@ -51,11 +51,11 @@ struct ExtendedKeyDerivationValidator {
             )
         ]
         
-        var parentPublicKey = try PublicKeyModel.ExtendedModel(extendedPrivateKey: rootPrivateKey)
+        var parentPublicKey = try OpalBase.PublicKey.ExtendedModel(extendedPrivateKey: rootPrivateKey)
         
         for vector in vectors {
             let derivedPrivateKey = try rootPrivateKey.deriveChild(at: vector.indices)
-            let derivedPublicKeyFromPrivate = try PublicKeyModel.ExtendedModel(extendedPrivateKey: derivedPrivateKey)
+            let derivedPublicKeyFromPrivate = try OpalBase.PublicKey.ExtendedModel(extendedPrivateKey: derivedPrivateKey)
             
             #expect(derivedPrivateKey.address == vector.expectedExtendedPrivateKey)
             #expect(derivedPublicKeyFromPrivate.address == vector.expectedExtendedPublicKey)

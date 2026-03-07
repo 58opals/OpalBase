@@ -5,7 +5,7 @@ import Testing
 import SwiftFulcrum
 @testable import OpalBase
 
-@Suite("NetworkModel.FulcrumClient.SubscriptionBox", .tags(.network))
+@Suite("OpalBase.Network.Fulcrum.Client.SubscriptionBox", .tags(.network))
 struct NetworkFulcrumClientSubscriptionBoxValidator {
     private static let primaryServerAddress = URL(string: "wss://bch.imaginary.cash:50004")!
     private static let backupServerAddress = URL(string: "wss://bch.loping.net:50002")!
@@ -38,7 +38,7 @@ struct NetworkFulcrumClientSubscriptionBoxValidator {
             
             let (terminationStream, terminationContinuation) = AsyncStream<UUID>.makeStream()
             
-            let subscription = NetworkModel.FulcrumSubscriptionBoxActor<
+            let subscription = OpalBase.Network.FulcrumSubscriptionBoxActor<
                 SwiftFulcrum.RPC.Response.Result.Blockchain.Address.Subscribe,
                 SwiftFulcrum.RPC.Response.Result.Blockchain.Address.SubscribeNotification
             >(
@@ -108,7 +108,7 @@ struct NetworkFulcrumClientSubscriptionBoxValidator {
                 return identifiers
             }
             
-            let subscription = NetworkModel.FulcrumSubscriptionBoxActor<
+            let subscription = OpalBase.Network.FulcrumSubscriptionBoxActor<
                 SwiftFulcrum.RPC.Response.Result.Blockchain.Address.Subscribe,
                 SwiftFulcrum.RPC.Response.Result.Blockchain.Address.SubscribeNotification
             >(

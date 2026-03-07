@@ -14,11 +14,11 @@ struct SpendPlanBroadcastValidator {
             value: 45_000,
             hashByte: 0x71
         )
-        let payment = AccountActor.PaymentModel(
+        let payment = OpalBase.Account.Payment(
             recipients: [
                 .init(
-                    address: try AddressModel(AccountTestFixturesModel.standardAddressString),
-                    amount: try SatoshiModel(15_000)
+                    address: try OpalBase.Address(AccountTestFixturesModel.standardAddressString),
+                    amount: try OpalBase.Satoshi(15_000)
                 )
             ]
         )
@@ -48,11 +48,11 @@ struct SpendPlanBroadcastValidator {
             value: 35_000,
             hashByte: 0x73
         )
-        let payment = AccountActor.PaymentModel(
+        let payment = OpalBase.Account.Payment(
             recipients: [
                 .init(
-                    address: try AddressModel(AccountTestFixturesModel.standardAddressString),
-                    amount: try SatoshiModel(12_000)
+                    address: try OpalBase.Address(AccountTestFixturesModel.standardAddressString),
+                    amount: try OpalBase.Satoshi(12_000)
                 )
             ]
         )
@@ -64,7 +64,7 @@ struct SpendPlanBroadcastValidator {
         do {
             _ = try await plan.buildAndBroadcast(via: handler)
             Issue.record("Expected spend buildAndBroadcast to throw")
-        } catch let error as AccountActor.Error {
+        } catch let error as OpalBase.Account.Error {
             guard case .broadcastFailed = error else {
                 Issue.record("Expected broadcastFailed but got \(error)")
                 return
@@ -84,8 +84,8 @@ struct SpendPlanBroadcastValidator {
     @Test("token spend buildAndBroadcast supports success and failure mapping")
     func tokenSpendPlanBuildAndBroadcastSupportsSuccessAndFailure() async throws {
         let account = try await AccountTestFixturesModel.makeAccount()
-        let category = try CashTokensModel.CategoryIDModel(transactionOrderData: Data(repeating: 0x74, count: 32))
-        let tokenData = CashTokensModel.TokenData(category: category, amount: 100, nft: nil)
+        let category = try OpalBase.CashTokens.CategoryIDModel(transactionOrderData: Data(repeating: 0x74, count: 32))
+        let tokenData = OpalBase.CashTokens.TokenData(category: category, amount: 100, nft: nil)
         _ = try await AccountTestFixturesModel.addUnspentOutput(
             to: account,
             value: 20_000,
@@ -97,11 +97,11 @@ struct SpendPlanBroadcastValidator {
             value: 90_000,
             hashByte: 0x76
         )
-        let transfer = AccountActor.TokenTransferModel(
+        let transfer = OpalBase.Account.TokenTransfer(
             recipients: [
                 .init(
-                    address: try AddressModel(AccountTestFixturesModel.tokenAwareAddressString),
-                    amount: try SatoshiModel(1_000),
+                    address: try OpalBase.Address(AccountTestFixturesModel.tokenAwareAddressString),
+                    amount: try OpalBase.Satoshi(1_000),
                     tokenData: .init(category: category, amount: 40, nft: nil)
                 )
             ]
@@ -122,7 +122,7 @@ struct SpendPlanBroadcastValidator {
         do {
             _ = try await failingPlan.buildAndBroadcast(via: failingHandler)
             Issue.record("Expected token spend buildAndBroadcast to throw")
-        } catch let error as AccountActor.Error {
+        } catch let error as OpalBase.Account.Error {
             guard case .broadcastFailed = error else {
                 Issue.record("Expected broadcastFailed but got \(error)")
                 return

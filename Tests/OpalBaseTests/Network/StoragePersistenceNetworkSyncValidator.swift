@@ -4,7 +4,7 @@ import Foundation
 import Testing
 @testable import OpalBase
 
-@Suite("StorageActor persistence (NetworkModel)", .tags(.network))
+@Suite("OpalBase.Storage persistence (OpalBase.Network)", .tags(.network))
 struct StoragePersistenceNetworkSyncValidator {
     @Test("fulcrum sync updates account state, then persistence restores it", .timeLimit(.minutes(1)))
     func syncFulcrumPersistAndRestore() async throws {
@@ -24,7 +24,7 @@ struct StoragePersistenceNetworkSyncValidator {
         var lastConnectionError: Swift.Error?
 
         for url in candidateServers {
-            let configuration = NetworkModel.Configuration(
+            let configuration = OpalBase.Network.Configuration(
                 serverURLs: [url],
                 connectionTimeout: .seconds(10),
                 maximumMessageSize: 1024 * 1024,
@@ -33,21 +33,21 @@ struct StoragePersistenceNetworkSyncValidator {
             )
             do {
                 try await NetworkTestClient.withClient(configuration: configuration) { client in
-                    let timeouts = NetworkModel.FulcrumRequestTimeoutModel(
+                    let timeouts = OpalBase.Network.FulcrumRequestTimeoutModel(
                         headersTip: .seconds(10),
                         addressBalance: .seconds(10),
                         addressUnspent: .seconds(15),
                         addressHistory: .seconds(15)
                     )
-                    let blockHeaderReader = NetworkModel.FulcrumBlockHeaderReaderModel(client: client, timeouts: timeouts)
-                    let addressReader = NetworkModel.FulcrumAddressReaderModel(client: client, timeouts: timeouts)
+                    let blockHeaderReader = OpalBase.Network.Fulcrum.BlockHeaderReader(client: client, timeouts: timeouts)
+                    let addressReader = OpalBase.Network.Fulcrum.AddressReader(client: client, timeouts: timeouts)
 
                     let tip = try await blockHeaderReader.fetchTip()
                     #expect(tip.height > 0)
                     #expect(!tip.headerHexadecimal.isEmpty)
 
-                    let mnemonic = try MnemonicModel(length: .short, passphrase: "")
-                    let wallet = WalletActor(mnemonic: mnemonic)
+                    let mnemonic = try OpalBase.Mnemonic(length: .short, passphrase: "")
+                    let wallet = OpalBase.Wallet(mnemonic: mnemonic)
                     try await wallet.addAccount(unhardenedIndex: 0)
                     let account = try await wallet.fetchAccount(at: 0)
                     let accountIdentifier = await account.id
@@ -94,13 +94,13 @@ struct StoragePersistenceNetworkSyncValidator {
 
                     let snapshotBeforePersist = await wallet.makeSnapshot()
 
-                    let valueStore = StorageActor.ValueRepository.makeInMemory()
-                    let storage = try StorageActor(valueStore: valueStore)
+                    let valueStore = OpalBase.Storage.ValueRepository.makeInMemory()
+                    let storage = try OpalBase.Storage(valueStore: valueStore)
                     let mode = try await storage.persistState(for: wallet)
-                    #expect([StorageActor.SecurityModel.ProtectionMode.plaintext, .software, .secureEnclave].contains(mode))
+                    #expect([OpalBase.Storage.SecurityModel.ProtectionMode.plaintext, .software, .secureEnclave].contains(mode))
 
-                    let restoredStorage = try StorageActor(valueStore: valueStore)
-                    let session = StorageActor.PersistenceSessionModel(storage: restoredStorage)
+                    let restoredStorage = try OpalBase.Storage(valueStore: valueStore)
+                    let session = OpalBase.Storage.PersistenceSessionModel(storage: restoredStorage)
                     let restored = try await session.restore(accountIdentifiers: [accountIdentifier])
 
                     guard let restoredWalletSnapshot = restored.walletSnapshot else {

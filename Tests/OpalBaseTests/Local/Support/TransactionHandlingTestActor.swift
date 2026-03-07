@@ -3,17 +3,17 @@
 import Foundation
 @testable import OpalBase
 
-actor TransactionHandlingTestActor: NetworkModel.TransactionHandling {
+actor TransactionHandlingTestActor: OpalBase.Network.TransactionHandling {
     private let broadcastResult: Result<String, Swift.Error>
     private let confirmationsByIdentifier: [String: UInt?]
-    private let statusesByHash: [TransactionModel.HashModel: NetworkModel.TransactionConfirmationStatusModel]
+    private let statusesByHash: [OpalBase.Transaction.HashModel: OpalBase.Network.TransactionConfirmationStatus]
 
     private var broadcastedTransactions: [String] = .init()
 
     init(
         broadcastResult: Result<String, Swift.Error>,
         confirmationsByIdentifier: [String: UInt?] = .init(),
-        statusesByHash: [TransactionModel.HashModel: NetworkModel.TransactionConfirmationStatusModel] = .init()
+        statusesByHash: [OpalBase.Transaction.HashModel: OpalBase.Network.TransactionConfirmationStatus] = .init()
     ) {
         self.broadcastResult = broadcastResult
         self.confirmationsByIdentifier = confirmationsByIdentifier
@@ -34,7 +34,7 @@ actor TransactionHandlingTestActor: NetworkModel.TransactionHandling {
         confirmationsByIdentifier[transactionIdentifier] ?? nil
     }
 
-    func fetchConfirmationStatus(for transactionHash: TransactionModel.HashModel) async throws -> NetworkModel.TransactionConfirmationStatusModel {
+    func fetchConfirmationStatus(for transactionHash: OpalBase.Transaction.HashModel) async throws -> OpalBase.Network.TransactionConfirmationStatus {
         statusesByHash[transactionHash] ??
             .init(transactionHash: transactionHash, transactionHeight: nil, tipHeight: 0, confirmations: nil)
     }

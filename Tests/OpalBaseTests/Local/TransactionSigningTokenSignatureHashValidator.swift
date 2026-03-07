@@ -4,14 +4,14 @@ import Foundation
 import Testing
 @testable import OpalBase
 
-@Suite("TransactionModel signing token signature hash", .tags(.unit, .cashTokens))
+@Suite("OpalBase.Transaction signing token signature hash", .tags(.unit, .cashTokens))
 struct TransactionSigningTokenSignatureHashValidator {
     @Test("signature hash includes token prefix when spending token output")
     func signatureHashIncludesTokenPrefixWhenSpendingTokenOutput() throws {
         let lockingScript = try makeLockingScript()
         let transaction = makeTransaction(lockingScript: lockingScript)
         let tokenData = try makeTokenData()
-        let outputBeingSpent = TransactionModel.OutputModel(value: 10_000,
+        let outputBeingSpent = OpalBase.Transaction.OutputModel(value: 10_000,
                                                   lockingScript: lockingScript,
                                                   tokenData: tokenData)
         let preimage = try transaction.generatePreimage(for: 0,
@@ -28,7 +28,7 @@ struct TransactionSigningTokenSignatureHashValidator {
     func signatureHashForNonTokenOutputIsUnchanged() throws {
         let lockingScript = try makeLockingScript()
         let transaction = makeTransaction(lockingScript: lockingScript)
-        let outputBeingSpent = TransactionModel.OutputModel(value: 10_000,
+        let outputBeingSpent = OpalBase.Transaction.OutputModel(value: 10_000,
                                                   lockingScript: lockingScript,
                                                   tokenData: nil)
         let preimage = try transaction.generatePreimage(for: 0,
@@ -41,14 +41,14 @@ struct TransactionSigningTokenSignatureHashValidator {
         #expect(messageDigest == expectedDigest)
     }
     
-    private func makeTransaction(lockingScript: Data) -> TransactionModel {
-        let previousTransactionHash = TransactionModel.HashModel(naturalOrder: Data(repeating: 0x11, count: 32))
-        let input = TransactionModel.InputModel(previousTransactionHash: previousTransactionHash,
+    private func makeTransaction(lockingScript: Data) -> OpalBase.Transaction {
+        let previousTransactionHash = OpalBase.Transaction.HashModel(naturalOrder: Data(repeating: 0x11, count: 32))
+        let input = OpalBase.Transaction.InputModel(previousTransactionHash: previousTransactionHash,
                                       previousTransactionOutputIndex: 0,
                                       unlockingScript: Data(),
                                       sequence: 0xffffffff)
-        let output = TransactionModel.OutputModel(value: 9_000, lockingScript: lockingScript)
-        return TransactionModel(version: 2, inputs: [input], outputs: [output], lockTime: 0)
+        let output = OpalBase.Transaction.OutputModel(value: 9_000, lockingScript: lockingScript)
+        return OpalBase.Transaction(version: 2, inputs: [input], outputs: [output], lockTime: 0)
     }
     
     private func makeLockingScript() throws -> Data {
@@ -56,16 +56,16 @@ struct TransactionSigningTokenSignatureHashValidator {
         return try Data(hexadecimalString: lockingScriptHexadecimal)
     }
     
-    private func makeTokenData() throws -> CashTokensModel.TokenData {
+    private func makeTokenData() throws -> OpalBase.CashTokens.TokenData {
         let fixture = try #require(TokenPrefixTestData.validVectors.first)
         return try makeTokenData(from: fixture.data)
     }
     
-    private func makeTokenData(from fixture: TokenPrefixTokenData) throws -> CashTokensModel.TokenData {
-        let category = try CashTokensModel.CategoryIDModel(hexFromRPC: fixture.category)
+    private func makeTokenData(from fixture: TokenPrefixTokenData) throws -> OpalBase.CashTokens.TokenData {
+        let category = try OpalBase.CashTokens.CategoryIDModel(hexFromRPC: fixture.category)
         let amount = try parseAmount(from: fixture.amount)
         let nonFungibleToken = try fixture.nonFungibleToken.map { try makeNonFungibleToken(from: $0) }
-        return CashTokensModel.TokenData(category: category, amount: amount, nft: nonFungibleToken)
+        return OpalBase.CashTokens.TokenData(category: category, amount: amount, nft: nonFungibleToken)
     }
     
     private func parseAmount(from amountString: String?) throws -> UInt64? {
@@ -73,18 +73,18 @@ struct TransactionSigningTokenSignatureHashValidator {
             return nil
         }
         guard let amountValue = UInt64(amountString) else {
-            throw CashTokensModel.Error.invalidFungibleAmountString(amountString)
+            throw OpalBase.CashTokens.Error.invalidFungibleAmountString(amountString)
         }
         return amountValue == 0 ? nil : amountValue
     }
     
-    private func makeNonFungibleToken(from fixture: TokenPrefixNonFungibleTokenData) throws -> CashTokensModel.NFTModel {
+    private func makeNonFungibleToken(from fixture: TokenPrefixNonFungibleTokenData) throws -> OpalBase.CashTokens.NFTModel {
         let capability = try makeNonFungibleCapability(from: fixture.capability)
         let commitment = try Data(hexadecimalString: fixture.commitment)
-        return try CashTokensModel.NFTModel(capability: capability, commitment: commitment)
+        return try OpalBase.CashTokens.NFTModel(capability: capability, commitment: commitment)
     }
     
-    private func makeNonFungibleCapability(from capabilityString: String) throws -> CashTokensModel.NFTModel.Capability {
+    private func makeNonFungibleCapability(from capabilityString: String) throws -> OpalBase.CashTokens.NFTModel.Capability {
         switch capabilityString {
         case "none":
             return .none
@@ -93,7 +93,7 @@ struct TransactionSigningTokenSignatureHashValidator {
         case "minting":
             return .minting
         default:
-            throw CashTokensModel.Error.invalidTokenPrefixCapability
+            throw OpalBase.CashTokens.Error.invalidTokenPrefixCapability
         }
     }
 }

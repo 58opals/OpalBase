@@ -4,14 +4,14 @@ import Foundation
 
 extension BitcoinCashMetadataRegistryClient {
     public struct ChainResolvedRegistryModel: Sendable {
-        public let authbase: TransactionModel.HashModel
-        public let authhead: TransactionModel.HashModel
+        public let authbase: OpalBase.Transaction.HashModel
+        public let authhead: OpalBase.Transaction.HashModel
         public let publication: PublicationModel
         public let registry: RegistryModel
         
         public init(
-            authbase: TransactionModel.HashModel,
-            authhead: TransactionModel.HashModel,
+            authbase: OpalBase.Transaction.HashModel,
+            authhead: OpalBase.Transaction.HashModel,
             publication: PublicationModel,
             registry: RegistryModel
         ) {
@@ -23,14 +23,14 @@ extension BitcoinCashMetadataRegistryClient {
     }
     
     public enum ChainRegistryResolverError: Swift.Error, Sendable {
-        case missingPublicationOutput(TransactionModel.HashModel)
+        case missingPublicationOutput(OpalBase.Transaction.HashModel)
         case invalidRegistryHash(expected: Data, actual: Data)
         case registryDecodingFailed(Swift.Error)
         case registryFetchingFailed(String, Swift.Error)
-        case noRegistryLocation(TransactionModel.HashModel)
+        case noRegistryLocation(OpalBase.Transaction.HashModel)
     }
     
-    public func resolveChainRegistry(authbase: TransactionModel.HashModel) async throws -> ChainResolvedRegistryModel {
+    public func resolveChainRegistry(authbase: OpalBase.Transaction.HashModel) async throws -> ChainResolvedRegistryModel {
         let authhead = try await authchainResolver.resolveAuthhead(from: authbase)
         let transaction = try await fetchTransaction(for: authhead)
         guard let publication = findPublication(in: transaction) else {
@@ -57,18 +57,18 @@ extension BitcoinCashMetadataRegistryClient {
 }
 
 private extension BitcoinCashMetadataRegistryClient {
-    func fetchTransaction(for transactionHash: TransactionModel.HashModel) async throws -> TransactionModel {
+    func fetchTransaction(for transactionHash: OpalBase.Transaction.HashModel) async throws -> OpalBase.Transaction {
         let rawTransactionData = try await authchainResolver.transactionReader.fetchRawTransaction(
             for: transactionHash
         )
         do {
-            return try TransactionModel.decode(from: rawTransactionData).transaction
+            return try OpalBase.Transaction.decode(from: rawTransactionData).transaction
         } catch {
             throw AuthchainResolverModel.Error.transactionDecodingFailed(transactionHash, error)
         }
     }
     
-    func findPublication(in transaction: TransactionModel) -> PublicationModel? {
+    func findPublication(in transaction: OpalBase.Transaction) -> PublicationModel? {
         for output in transaction.outputs {
             if let publication = Self.parsePublicationOutput(lockingScript: output.lockingScript) {
                 return publication
@@ -79,7 +79,7 @@ private extension BitcoinCashMetadataRegistryClient {
     
     func fetchRegistryBytes(
         for publication: PublicationModel,
-        authhead: TransactionModel.HashModel
+        authhead: OpalBase.Transaction.HashModel
     ) async throws -> Data {
         guard let uri = publication.uris.first else {
             throw ChainRegistryResolverError.noRegistryLocation(authhead)

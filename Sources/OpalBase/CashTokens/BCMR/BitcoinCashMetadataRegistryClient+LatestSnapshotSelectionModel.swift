@@ -3,26 +3,26 @@
 import Foundation
 
 extension BitcoinCashMetadataRegistryClient {
-    public func extractTokenMetadata(from registry: RegistryModel) -> [CashTokensModel.CategoryIDModel: TokenMetadataModel] {
+    public func extractTokenMetadata(from registry: RegistryModel) -> [OpalBase.CashTokens.CategoryIDModel: TokenMetadataModel] {
         extractTokenMetadata(from: registry, source: .embedded)
     }
     
     public func extractTokenMetadata(
         from registry: RegistryModel,
         source: TokenMetadataModel.Source
-    ) -> [CashTokensModel.CategoryIDModel: TokenMetadataModel] {
+    ) -> [OpalBase.CashTokens.CategoryIDModel: TokenMetadataModel] {
         guard let identities = registry.identities else { return .init() }
         
-        var metadataByCategory: [CashTokensModel.CategoryIDModel: TokenMetadataModel] = .init()
+        var metadataByCategory: [OpalBase.CashTokens.CategoryIDModel: TokenMetadataModel] = .init()
         
         for snapshots in identities.values {
             guard let latestSnapshot = selectLatestSnapshot(from: snapshots) else { continue }
             guard let tokenSnapshot = latestSnapshot.snapshot.token,
                   let categoryHexadecimal = tokenSnapshot.category else { continue }
             
-            let categoryIdentifier: CashTokensModel.CategoryIDModel
+            let categoryIdentifier: OpalBase.CashTokens.CategoryIDModel
             do {
-                categoryIdentifier = try CashTokensModel.CategoryIDModel(hexFromRPC: categoryHexadecimal)
+                categoryIdentifier = try OpalBase.CashTokens.CategoryIDModel(hexFromRPC: categoryHexadecimal)
             } catch {
                 continue
             }

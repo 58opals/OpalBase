@@ -8,8 +8,8 @@ import Testing
 struct EllipticCurveDigitalSignatureValidator {
     @Test("Distinguished Encoding Rules signatures verify with SwiftSchnorr ECDSAModel verifier")
     func distinguishedEncodingRulesSignatureVerifiesWithSwiftSchnorr() throws {
-        let privateKey = try PrivateKeyModel()
-        let publicKey = try PublicKeyModel(privateKey: privateKey)
+        let privateKey = try OpalBase.PrivateKey()
+        let publicKey = try OpalBase.PublicKey(privateKey: privateKey)
         let message = Data("OpalBase ECDSAModel verification".utf8)
         
         let signature = try ECDSAModel.sign(message: message, with: privateKey, in: .ecdsa(.der))
@@ -23,8 +23,8 @@ struct EllipticCurveDigitalSignatureValidator {
     
     @Test("Distinguished Encoding Rules signatures reject mismatched messages")
     func distinguishedEncodingRulesSignatureRejectsMismatchedMessages() throws {
-        let privateKey = try PrivateKeyModel()
-        let publicKey = try PublicKeyModel(privateKey: privateKey)
+        let privateKey = try OpalBase.PrivateKey()
+        let publicKey = try OpalBase.PublicKey(privateKey: privateKey)
         let message = Data("ECDSAModel message".utf8)
         let alteredMessage = Data("ECDSAModel message (altered)".utf8)
         

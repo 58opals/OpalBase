@@ -8,14 +8,14 @@ extension AddressBookCoinSelectorValidator {
     @Test("select branch and bound throws when minimal requirement overflows")
     func selectBranchAndBoundThrowsWhenMinimalRequirementOverflows() throws {
         let lockingScript = Data([0x51])
-        let recipientOutputs = [TransactionModel.OutputModel(value: 1, lockingScript: lockingScript)]
-        let configuration = AddressModel.BookActor.CoinSelectionModel.Configuration(
+        let recipientOutputs = [OpalBase.Transaction.OutputModel(value: 1, lockingScript: lockingScript)]
+        let configuration = OpalBase.Address.Book.CoinSelectionModel.Configuration(
             recipientOutputs: recipientOutputs,
             outputsWithChange: recipientOutputs,
             strategy: .branchAndBound
         )
         let feePerByte: UInt64 = 1
-        let minimalFee = try TransactionModel.estimateFee(
+        let minimalFee = try OpalBase.Transaction.estimateFee(
             inputCount: 0,
             outputs: configuration.recipientOutputs,
             feePerByte: feePerByte
@@ -27,15 +27,15 @@ extension AddressBookCoinSelectorValidator {
         }
 
         let targetAmount = UInt64.max - (minimalFee - 1)
-        let previousTransactionHash = TransactionModel.HashModel(naturalOrder: Data(repeating: 0, count: 32))
-        let largeUnspent = TransactionModel.OutputModel.UnspentModel(
+        let previousTransactionHash = OpalBase.Transaction.HashModel(naturalOrder: Data(repeating: 0, count: 32))
+        let largeUnspent = OpalBase.Transaction.OutputModel.UnspentModel(
             value: UInt64.max,
             lockingScript: lockingScript,
             previousTransactionHash: previousTransactionHash,
             previousTransactionOutputIndex: 0
         )
 
-        let coinSelector = AddressModel.BookActor.CoinSelectorModel(
+        let coinSelector = OpalBase.Address.Book.CoinSelectorModel(
             utxos: [largeUnspent],
             configuration: configuration,
             targetAmount: targetAmount,
@@ -43,7 +43,7 @@ extension AddressBookCoinSelectorValidator {
             minimumRelayFeeRate: 0
         )
 
-        #expect(throws: AddressModel.BookActor.Error.paymentExceedsMaximumAmount) {
+        #expect(throws: OpalBase.Address.Book.Error.paymentExceedsMaximumAmount) {
             _ = try coinSelector.select()
         }
     }
@@ -51,29 +51,29 @@ extension AddressBookCoinSelectorValidator {
     @Test("select branch and bound throws when suffix totals overflow")
     func selectBranchAndBoundThrowsWhenSuffixTotalsOverflow() {
         let lockingScript = Data([0x51])
-        let previousTransactionHash = TransactionModel.HashModel(naturalOrder: Data(repeating: 0, count: 32))
+        let previousTransactionHash = OpalBase.Transaction.HashModel(naturalOrder: Data(repeating: 0, count: 32))
 
-        let nearMaximumUnspent = TransactionModel.OutputModel.UnspentModel(
+        let nearMaximumUnspent = OpalBase.Transaction.OutputModel.UnspentModel(
             value: UInt64.max,
             lockingScript: lockingScript,
             previousTransactionHash: previousTransactionHash,
             previousTransactionOutputIndex: 0
         )
 
-        let smallUnspent = TransactionModel.OutputModel.UnspentModel(
+        let smallUnspent = OpalBase.Transaction.OutputModel.UnspentModel(
             value: 1,
             lockingScript: lockingScript,
             previousTransactionHash: previousTransactionHash,
             previousTransactionOutputIndex: 1
         )
 
-        let configuration = AddressModel.BookActor.CoinSelectionModel.Configuration(
+        let configuration = OpalBase.Address.Book.CoinSelectionModel.Configuration(
             recipientOutputs: .init(),
             outputsWithChange: .init(),
             strategy: .branchAndBound
         )
 
-        let coinSelector = AddressModel.BookActor.CoinSelectorModel(
+        let coinSelector = OpalBase.Address.Book.CoinSelectorModel(
             utxos: [nearMaximumUnspent, smallUnspent],
             configuration: configuration,
             targetAmount: 0,
@@ -81,33 +81,33 @@ extension AddressBookCoinSelectorValidator {
             minimumRelayFeeRate: 0
         )
 
-        #expect(throws: AddressModel.BookActor.Error.paymentExceedsMaximumAmount) {
+        #expect(throws: OpalBase.Address.Book.Error.paymentExceedsMaximumAmount) {
             _ = try coinSelector.select()
         }
     }
 
     @Test("branch and bound selection throws when suffix totals overflow UInt64")
     func selectBranchAndBoundDetectsSuffixOverflow() {
-        let previousTransactionHash = TransactionModel.HashModel(naturalOrder: Data(repeating: 0, count: 32))
+        let previousTransactionHash = OpalBase.Transaction.HashModel(naturalOrder: Data(repeating: 0, count: 32))
         let lockingScript = Data([0x51])
 
-        let minimalUnspent = TransactionModel.OutputModel.UnspentModel(
+        let minimalUnspent = OpalBase.Transaction.OutputModel.UnspentModel(
             value: 1,
             lockingScript: lockingScript,
             previousTransactionHash: previousTransactionHash,
             previousTransactionOutputIndex: 0
         )
 
-        let maximumUnspent = TransactionModel.OutputModel.UnspentModel(
+        let maximumUnspent = OpalBase.Transaction.OutputModel.UnspentModel(
             value: UInt64.max,
             lockingScript: lockingScript,
             previousTransactionHash: previousTransactionHash,
             previousTransactionOutputIndex: 1
         )
 
-        let configuration = AddressModel.BookActor.CoinSelectionModel.Configuration.makeTemplateConfiguration(strategy: .branchAndBound)
+        let configuration = OpalBase.Address.Book.CoinSelectionModel.Configuration.makeTemplateConfiguration(strategy: .branchAndBound)
 
-        let selector = AddressModel.BookActor.CoinSelectorModel(
+        let selector = OpalBase.Address.Book.CoinSelectorModel(
             utxos: [minimalUnspent, maximumUnspent],
             configuration: configuration,
             targetAmount: UInt64.max,
@@ -115,7 +115,7 @@ extension AddressBookCoinSelectorValidator {
             minimumRelayFeeRate: 0
         )
 
-        #expect(throws: AddressModel.BookActor.Error.paymentExceedsMaximumAmount) {
+        #expect(throws: OpalBase.Address.Book.Error.paymentExceedsMaximumAmount) {
             _ = try selector.select()
         }
     }

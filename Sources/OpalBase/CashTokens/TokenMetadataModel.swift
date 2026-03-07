@@ -3,7 +3,7 @@
 import Foundation
 
 public struct TokenMetadataModel: Codable, Equatable, Sendable {
-    public let category: CashTokensModel.CategoryIDModel
+    public let category: OpalBase.CashTokens.CategoryIDModel
     public let name: String?
     public let symbol: String?
     public let decimals: Int?
@@ -14,6 +14,6 @@ public struct TokenMetadataModel: Codable, Equatable, Sendable {
     public enum Source: Codable, Equatable, Sendable {
         case embedded
         case dns(URL)
-        case chain(TransactionModel.HashModel)
+        case chain(OpalBase.Transaction.HashModel)
     }
 }

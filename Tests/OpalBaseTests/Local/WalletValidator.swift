@@ -4,16 +4,16 @@ import Foundation
 import Testing
 @testable import OpalBase
 
-@Suite("WalletActor", .tags(.unit, .wallet))
+@Suite("OpalBase.Wallet", .tags(.unit, .wallet))
 struct WalletValidator {
     @Test("fetchAccount locates accounts regardless of insertion order")
     func fetchAccountLocatesOutOfOrderAccountIndices() async throws {
-        let mnemonic = try MnemonicModel(
+        let mnemonic = try OpalBase.Mnemonic(
             words: [
                 "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "about"
             ]
         )
-        let wallet = WalletActor(mnemonic: mnemonic)
+        let wallet = OpalBase.Wallet(mnemonic: mnemonic)
         
         try await wallet.addAccount(unhardenedIndex: 3)
         try await wallet.addAccount(unhardenedIndex: 0)
@@ -27,30 +27,30 @@ struct WalletValidator {
     
     @Test("fetchAccount throws when the index is missing")
     func fetchAccountRejectsMissingAccount() async throws {
-        let mnemonic = try MnemonicModel(
+        let mnemonic = try OpalBase.Mnemonic(
             words: [
                 "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "about"
             ]
         )
-        let wallet = WalletActor(mnemonic: mnemonic)
+        let wallet = OpalBase.Wallet(mnemonic: mnemonic)
         
-        await #expect(throws: WalletActor.Error.cannotFetchAccount(index: 0)) {
+        await #expect(throws: OpalBase.Wallet.Error.cannotFetchAccount(index: 0)) {
             _ = try await wallet.fetchAccount(at: 0)
         }
     }
     
     @Test("fetchAccount rejects unknown account indices")
     func fetchAccountRejectsUnknownAccountIndices() async throws {
-        let mnemonic = try MnemonicModel(
+        let mnemonic = try OpalBase.Mnemonic(
             words: [
                 "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "about"
             ]
         )
-        let wallet = WalletActor(mnemonic: mnemonic)
+        let wallet = OpalBase.Wallet(mnemonic: mnemonic)
         
         let missingIndex: UInt32 = 7
         
-        await #expect(throws: WalletActor.Error.cannotFetchAccount(index: missingIndex)) {
+        await #expect(throws: OpalBase.Wallet.Error.cannotFetchAccount(index: missingIndex)) {
             _ = try await wallet.fetchAccount(at: missingIndex)
         }
     }

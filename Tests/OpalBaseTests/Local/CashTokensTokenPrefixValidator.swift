@@ -4,12 +4,12 @@ import Foundation
 import Testing
 @testable import OpalBase
 
-@Suite("CashTokensModel Token Prefix", .tags(.unit, .cashTokens))
+@Suite("OpalBase.CashTokens Token Prefix", .tags(.unit, .cashTokens))
 struct CashTokensTokenPrefixValidator {
     @Test("decode returns nil token data when no prefix is present")
     func decodeWithoutPrefix() throws {
         let lockingBytecode = Data([0x51, 0x21, 0x00])
-        let result = try CashTokensModel.TokenPrefixModel.decode(prefixPlusBytecode: lockingBytecode)
+        let result = try OpalBase.CashTokens.TokenPrefixModel.decode(prefixPlusBytecode: lockingBytecode)
         #expect(result.tokenData == nil)
         #expect(result.lockingBytecode == lockingBytecode)
     }
@@ -19,7 +19,7 @@ struct CashTokensTokenPrefixValidator {
         #expect(!TokenPrefixTestData.validVectors.isEmpty)
         for vector in TokenPrefixTestData.validVectors {
             let tokenData = try makeTokenData(from: vector.data)
-            let encoded = try CashTokensModel.TokenPrefixModel.encode(tokenData: tokenData)
+            let encoded = try OpalBase.CashTokens.TokenPrefixModel.encode(tokenData: tokenData)
             #expect(encoded.hexadecimalString == vector.prefix)
         }
     }
@@ -33,7 +33,7 @@ struct CashTokensTokenPrefixValidator {
             var combined = prefixData
             combined.append(trailingBytecode)
             
-            let result = try CashTokensModel.TokenPrefixModel.decode(prefixPlusBytecode: combined)
+            let result = try OpalBase.CashTokens.TokenPrefixModel.decode(prefixPlusBytecode: combined)
             let expectedTokenData = try makeTokenData(from: vector.data)
             
             let decodedTokenData = try #require(result.tokenData)
@@ -50,12 +50,12 @@ struct CashTokensTokenPrefixValidator {
         for vector in TokenPrefixTestData.validVectors {
             let expectedTokenData = try makeTokenData(from: vector.data)
             let prefixData = try Data(hexadecimalString: vector.prefix)
-            let encoded = try CashTokensModel.TokenPrefixModel.encode(tokenData: expectedTokenData)
+            let encoded = try OpalBase.CashTokens.TokenPrefixModel.encode(tokenData: expectedTokenData)
             #expect(encoded == prefixData)
             
             var combined = prefixData
             combined.append(contentsOf: [0x6a, 0x01, 0x01])
-            let decoded = try CashTokensModel.TokenPrefixModel.decode(prefixPlusBytecode: combined)
+            let decoded = try OpalBase.CashTokens.TokenPrefixModel.decode(prefixPlusBytecode: combined)
             let decodedTokenData = try #require(decoded.tokenData)
             #expect(decodedTokenData.amount == expectedTokenData.amount)
             #expect(decodedTokenData.nft == expectedTokenData.nft)
@@ -69,7 +69,7 @@ struct CashTokensTokenPrefixValidator {
             let hasThrown: Bool
             do {
                 let prefixData = try Data(hexadecimalString: vector.prefix)
-                _ = try CashTokensModel.TokenPrefixModel.decode(prefixPlusBytecode: prefixData)
+                _ = try OpalBase.CashTokens.TokenPrefixModel.decode(prefixPlusBytecode: prefixData)
                 hasThrown = false
             } catch {
                 hasThrown = true
@@ -81,19 +81,19 @@ struct CashTokensTokenPrefixValidator {
     @Test("encode then decode preserves token data")
     func encodeDecodeRoundTripPreservesTokenData() throws {
         let category = try makeCategoryIdentifier(using: 0x11)
-        let nonFungibleToken = try CashTokensModel.NFTModel(capability: .mutable, commitment: Data([0x0a, 0x0b]))
+        let nonFungibleToken = try OpalBase.CashTokens.NFTModel(capability: .mutable, commitment: Data([0x0a, 0x0b]))
         let tokenDataValues = [
-            CashTokensModel.TokenData(category: category, amount: 1, nft: nil),
-            CashTokensModel.TokenData(category: category, amount: nil, nft: nonFungibleToken),
-            CashTokensModel.TokenData(category: category, amount: 42, nft: nonFungibleToken)
+            OpalBase.CashTokens.TokenData(category: category, amount: 1, nft: nil),
+            OpalBase.CashTokens.TokenData(category: category, amount: nil, nft: nonFungibleToken),
+            OpalBase.CashTokens.TokenData(category: category, amount: 42, nft: nonFungibleToken)
         ]
         let trailingBytecode = Data([0x6a, 0x01])
         
         for expectedTokenData in tokenDataValues {
-            var combined = try CashTokensModel.TokenPrefixModel.encode(tokenData: expectedTokenData)
+            var combined = try OpalBase.CashTokens.TokenPrefixModel.encode(tokenData: expectedTokenData)
             combined.append(trailingBytecode)
             
-            let result = try CashTokensModel.TokenPrefixModel.decode(prefixPlusBytecode: combined)
+            let result = try OpalBase.CashTokens.TokenPrefixModel.decode(prefixPlusBytecode: combined)
             let decodedTokenData = try #require(result.tokenData)
             #expect(decodedTokenData == expectedTokenData)
             #expect(result.lockingBytecode == trailingBytecode)
@@ -102,10 +102,10 @@ struct CashTokensTokenPrefixValidator {
     
     @Test("category bytes are encoded in transaction order")
     func encodeUsesTransactionOrderForCategory() throws {
-        let category = try CashTokensModel.CategoryIDModel(transactionOrderData: Data((0..<32).map { UInt8($0) }))
-        let tokenData = CashTokensModel.TokenData(category: category, amount: 1, nft: nil)
+        let category = try OpalBase.CashTokens.CategoryIDModel(transactionOrderData: Data((0..<32).map { UInt8($0) }))
+        let tokenData = OpalBase.CashTokens.TokenData(category: category, amount: 1, nft: nil)
         
-        let encoded = try CashTokensModel.TokenPrefixModel.encode(tokenData: tokenData)
+        let encoded = try OpalBase.CashTokens.TokenPrefixModel.encode(tokenData: tokenData)
         let encodedCategoryBytes = encoded.dropFirst().prefix(32)
         #expect(encodedCategoryBytes == category.transactionOrderData)
     }
@@ -115,16 +115,16 @@ struct CashTokensTokenPrefixValidator {
         let commitmentLengths = [0, 1, 40]
         for commitmentLength in commitmentLengths {
             let commitment = Data(repeating: 0x01, count: commitmentLength)
-            let nonFungibleToken = try CashTokensModel.NFTModel(capability: .none, commitment: commitment)
+            let nonFungibleToken = try OpalBase.CashTokens.NFTModel(capability: .none, commitment: commitment)
             #expect(nonFungibleToken.commitment.count == commitmentLength)
         }
         
         let oversizedCommitment = Data(repeating: 0x02, count: 41)
         let hasThrownCommitmentLengthOutOfRange: Bool
         do {
-            _ = try CashTokensModel.NFTModel(capability: .none, commitment: oversizedCommitment)
+            _ = try OpalBase.CashTokens.NFTModel(capability: .none, commitment: oversizedCommitment)
             hasThrownCommitmentLengthOutOfRange = false
-        } catch CashTokensModel.Error.commitmentLengthOutOfRange {
+        } catch OpalBase.CashTokens.Error.commitmentLengthOutOfRange {
             hasThrownCommitmentLengthOutOfRange = true
         } catch {
             hasThrownCommitmentLengthOutOfRange = false
@@ -133,16 +133,16 @@ struct CashTokensTokenPrefixValidator {
         
         let category = try makeCategoryIdentifier(using: 0x22)
         let oversizedPrefix = makeOversizedCommitmentPrefix(category: category, commitmentByteCount: 41)
-        #expect(throws: CashTokensModel.Error.invalidTokenPrefixCommitmentLength) {
-            _ = try CashTokensModel.TokenPrefixModel.decode(prefixPlusBytecode: oversizedPrefix)
+        #expect(throws: OpalBase.CashTokens.Error.invalidTokenPrefixCommitmentLength) {
+            _ = try OpalBase.CashTokens.TokenPrefixModel.decode(prefixPlusBytecode: oversizedPrefix)
         }
     }
     
-    private func makeTokenData(from fixture: TokenPrefixTokenData) throws -> CashTokensModel.TokenData {
-        let category = try CashTokensModel.CategoryIDModel(hexFromRPC: fixture.category)
+    private func makeTokenData(from fixture: TokenPrefixTokenData) throws -> OpalBase.CashTokens.TokenData {
+        let category = try OpalBase.CashTokens.CategoryIDModel(hexFromRPC: fixture.category)
         let amount = try parseAmount(from: fixture.amount)
         let nonFungibleToken = try fixture.nonFungibleToken.map { try makeNonFungibleToken(from: $0) }
-        return CashTokensModel.TokenData(category: category, amount: amount, nft: nonFungibleToken)
+        return OpalBase.CashTokens.TokenData(category: category, amount: amount, nft: nonFungibleToken)
     }
     
     private func parseAmount(from amountString: String?) throws -> UInt64? {
@@ -150,18 +150,18 @@ struct CashTokensTokenPrefixValidator {
             return nil
         }
         guard let amountValue = UInt64(amountString) else {
-            throw CashTokensModel.Error.invalidFungibleAmountString(amountString)
+            throw OpalBase.CashTokens.Error.invalidFungibleAmountString(amountString)
         }
         return amountValue == 0 ? nil : amountValue
     }
     
-    private func makeNonFungibleToken(from fixture: TokenPrefixNonFungibleTokenData) throws -> CashTokensModel.NFTModel {
+    private func makeNonFungibleToken(from fixture: TokenPrefixNonFungibleTokenData) throws -> OpalBase.CashTokens.NFTModel {
         let capability = try makeNonFungibleCapability(from: fixture.capability)
         let commitment = try Data(hexadecimalString: fixture.commitment)
-        return try CashTokensModel.NFTModel(capability: capability, commitment: commitment)
+        return try OpalBase.CashTokens.NFTModel(capability: capability, commitment: commitment)
     }
     
-    private func makeNonFungibleCapability(from capabilityString: String) throws -> CashTokensModel.NFTModel.Capability {
+    private func makeNonFungibleCapability(from capabilityString: String) throws -> OpalBase.CashTokens.NFTModel.Capability {
         switch capabilityString {
         case "none":
             return .none
@@ -170,18 +170,18 @@ struct CashTokensTokenPrefixValidator {
         case "minting":
             return .minting
         default:
-            throw CashTokensModel.Error.invalidTokenPrefixCapability
+            throw OpalBase.CashTokens.Error.invalidTokenPrefixCapability
         }
     }
     
-    private func makeCategoryIdentifier(using byte: UInt8) throws -> CashTokensModel.CategoryIDModel {
-        try CashTokensModel.CategoryIDModel(transactionOrderData: Data(repeating: byte, count: 32))
+    private func makeCategoryIdentifier(using byte: UInt8) throws -> OpalBase.CashTokens.CategoryIDModel {
+        try OpalBase.CashTokens.CategoryIDModel(transactionOrderData: Data(repeating: byte, count: 32))
     }
     
-    private func makeOversizedCommitmentPrefix(category: CashTokensModel.CategoryIDModel,
+    private func makeOversizedCommitmentPrefix(category: OpalBase.CashTokens.CategoryIDModel,
                                                commitmentByteCount: UInt8) -> Data {
         var data = Data()
-        data.append(CashTokensModel.TokenPrefixModel.prefixToken)
+        data.append(OpalBase.CashTokens.TokenPrefixModel.prefixToken)
         data.append(category.transactionOrderData)
         data.append(0x60)
         data.append(commitmentByteCount)

@@ -8,7 +8,7 @@ extension BitcoinCashMetadataRegistryClient {
         case invalidRegistryIdentity(String, Swift.Error)
     }
     
-    public func importRegistry(from url: URL) async throws -> [CashTokensModel.CategoryIDModel: TokenMetadataModel] {
+    public func importRegistry(from url: URL) async throws -> [OpalBase.CashTokens.CategoryIDModel: TokenMetadataModel] {
         let registryBytes = try await registryFetcher.fetchRegistryBytes(from: url.absoluteString)
         let registry = try decodeRegistryData(from: registryBytes)
         if let registryIdentity = registry.registryIdentity {
@@ -19,7 +19,7 @@ extension BitcoinCashMetadataRegistryClient {
         return extractTokenMetadata(from: registry, source: .dns(url))
     }
     
-    public func addEmbeddedRegistry(data: Data) throws -> [CashTokensModel.CategoryIDModel: TokenMetadataModel] {
+    public func addEmbeddedRegistry(data: Data) throws -> [OpalBase.CashTokens.CategoryIDModel: TokenMetadataModel] {
         let registry = try decodeRegistryData(from: data)
         return extractTokenMetadata(from: registry, source: .embedded)
     }
@@ -35,7 +35,7 @@ private extension BitcoinCashMetadataRegistryClient {
         }
     }
     
-    func parseRegistryIdentityHash(from registryIdentity: String) throws -> TransactionModel.HashModel {
+    func parseRegistryIdentityHash(from registryIdentity: String) throws -> OpalBase.Transaction.HashModel {
         let data: Data
         do {
             data = try Data(hexadecimalString: registryIdentity)
@@ -43,17 +43,17 @@ private extension BitcoinCashMetadataRegistryClient {
             throw Error.invalidRegistryIdentity(registryIdentity, error)
         }
         
-        guard data.count == TransactionModel.HashModel.expectedByteCount else {
+        guard data.count == OpalBase.Transaction.HashModel.expectedByteCount else {
             throw Error.invalidRegistryIdentity(
                 registryIdentity,
                 RegistryIdentityHashValidationError.invalidByteCount(
-                    expected: TransactionModel.HashModel.expectedByteCount,
+                    expected: OpalBase.Transaction.HashModel.expectedByteCount,
                     actual: data.count
                 )
             )
         }
         
-        return TransactionModel.HashModel(dataFromRPC: data)
+        return OpalBase.Transaction.HashModel(dataFromRPC: data)
     }
 }
 

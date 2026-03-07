@@ -5,7 +5,7 @@ import Testing
 import SwiftFulcrum
 @testable import OpalBase
 
-@Suite("NetworkModel.FulcrumClient.Failover", .tags(.network))
+@Suite("OpalBase.Network.Fulcrum.Client.Failover", .tags(.network))
 struct NetworkFulcrumClientFailoverValidator {
     private static let unhealthyServerAddresses: [URL] = [
         URL(string: "wss://fulcrum.jettscythe.xyz:50004")!
@@ -20,7 +20,7 @@ struct NetworkFulcrumClientFailoverValidator {
     @Test("recovers unary request after unhealthy server failover", .timeLimit(.minutes(1)))
     func unaryRequestSucceedsAfterFailover() async throws {
         guard NetworkTestClient.isExtendedLiveNetworkEnabled else { return }
-        let configuration = NetworkModel.Configuration(
+        let configuration = OpalBase.Network.Configuration(
             serverURLs: Self.unhealthyServerAddresses + Self.healthyServerAddresses,
             connectionTimeout: .seconds(12),
             maximumMessageSize: 16 * 1_024 * 1_024,
@@ -57,7 +57,7 @@ struct NetworkFulcrumClientFailoverValidator {
     @Test("skips an unhealthy bootstrap server and fulfils requests", .timeLimit(.minutes(1)))
     func requestSucceedsAfterFailover() async throws {
         guard NetworkTestClient.isExtendedLiveNetworkEnabled else { return }
-        let configuration = NetworkModel.Configuration(
+        let configuration = OpalBase.Network.Configuration(
             serverURLs: Self.unhealthyServerAddresses + Self.healthyServerAddresses,
             connectionTimeout: .seconds(10),
             maximumMessageSize: 16 * 1_024 * 1_024,
@@ -110,7 +110,7 @@ struct NetworkFulcrumClientFailoverValidator {
     @Test("performs requests after failing over from an unhealthy server", .timeLimit(.minutes(1)))
     func clientRequestsSurviveInitialServerFailure() async throws {
         guard NetworkTestClient.isExtendedLiveNetworkEnabled else { return }
-        let configuration = NetworkModel.Configuration(
+        let configuration = OpalBase.Network.Configuration(
             serverURLs: Self.unhealthyServerAddresses + Self.healthyServerAddresses,
             connectionTimeout: .seconds(8),
             maximumMessageSize: 32 * 1_024 * 1_024,

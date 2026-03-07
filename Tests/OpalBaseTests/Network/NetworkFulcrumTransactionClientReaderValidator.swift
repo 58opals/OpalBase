@@ -5,7 +5,7 @@ import Testing
 import SwiftFulcrum
 @testable import OpalBase
 
-@Suite("NetworkModel.FulcrumTransactionClientReader", .tags(.network))
+@Suite("OpalBase.Network.Fulcrum.TransactionClientReader", .tags(.network))
 struct NetworkFulcrumTransactionClientReaderValidator {
     private static let primaryServerAddress = URL(string: "wss://bch.imaginary.cash:50004")!
     private static let backupServerAddress = URL(string: "wss://bch.loping.net:50002")!
@@ -19,9 +19,9 @@ struct NetworkFulcrumTransactionClientReaderValidator {
     @Test("fetches confirmation count consistent with live tip", .timeLimit(.minutes(1)))
     func fetchConfirmationsMatchesTipHeight() async throws {
         guard NetworkTestClient.isExtendedLiveNetworkEnabled else { return }
-        let configuration = NetworkModel.Configuration(serverURLs: [Self.primaryServerAddress, Self.backupServerAddress])
+        let configuration = OpalBase.Network.Configuration(serverURLs: [Self.primaryServerAddress, Self.backupServerAddress])
         try await NetworkTestClient.withClient(configuration: configuration) { client in
-            let handler = NetworkModel.FulcrumTransactionClient(client: client)
+            let handler = OpalBase.Network.Fulcrum.TransactionClient(client: client)
             let history: SwiftFulcrum.RPC.Response.Result.Blockchain.Address.GetHistory = try await client.request(
                 method: .blockchain(
                     .address(
@@ -50,7 +50,7 @@ struct NetworkFulcrumTransactionClientReaderValidator {
                 forTransactionIdentifier: confirmedEntry.transactionHash
             )
 
-            let expectedConfirmations = NetworkModel.FulcrumTransactionClient.calculateConfirmationCount(
+            let expectedConfirmations = OpalBase.Network.Fulcrum.TransactionClient.calculateConfirmationCount(
                 transactionHeight: UInt(confirmedEntry.height),
                 tipHeight: tip.height
             )
@@ -63,10 +63,10 @@ struct NetworkFulcrumTransactionClientReaderValidator {
     @Test("fetches confirmations matching direct height queries", .timeLimit(.minutes(1)))
     func fetchConfirmationsMatchesServerHeights() async throws {
         guard NetworkTestClient.isExtendedLiveNetworkEnabled else { return }
-        let configuration = NetworkModel.Configuration(serverURLs: [Self.primaryServerAddress, Self.backupServerAddress])
+        let configuration = OpalBase.Network.Configuration(serverURLs: [Self.primaryServerAddress, Self.backupServerAddress])
         try await NetworkTestClient.withClient(configuration: configuration) { client in
-            let handler = NetworkModel.FulcrumTransactionClient(client: client)
-            let addressReader = NetworkModel.FulcrumAddressReaderModel(client: client)
+            let handler = OpalBase.Network.Fulcrum.TransactionClient(client: client)
+            let addressReader = OpalBase.Network.Fulcrum.AddressReader(client: client)
             let confirmedHistory = try await addressReader.fetchHistory(for: Self.sampleCashAddress, includeUnconfirmed: false)
             let confirmedEntry = try #require(confirmedHistory.first(where: { $0.blockHeight > 0 }))
 
@@ -81,7 +81,7 @@ struct NetworkFulcrumTransactionClientReaderValidator {
                 responseType: SwiftFulcrum.RPC.Response.Result.Blockchain.Headers.GetTip.self
             )
 
-            let expectedConfirmations = NetworkModel.FulcrumTransactionClient.calculateConfirmationCount(
+            let expectedConfirmations = OpalBase.Network.Fulcrum.TransactionClient.calculateConfirmationCount(
                 transactionHeight: transactionHeight.height,
                 tipHeight: tipHeight.height
             )
@@ -96,9 +96,9 @@ struct NetworkFulcrumTransactionClientReaderValidator {
     @Test("propagates server errors for unknown transactions", .timeLimit(.minutes(1)))
     func fetchConfirmationsPropagatesServerErrors() async throws {
         guard NetworkTestClient.isExtendedLiveNetworkEnabled else { return }
-        let configuration = NetworkModel.Configuration(serverURLs: [Self.primaryServerAddress, Self.backupServerAddress])
+        let configuration = OpalBase.Network.Configuration(serverURLs: [Self.primaryServerAddress, Self.backupServerAddress])
         try await NetworkTestClient.withClient(configuration: configuration) { client in
-            let handler = NetworkModel.FulcrumTransactionClient(client: client)
+            let handler = OpalBase.Network.Fulcrum.TransactionClient(client: client)
             var thrownError: Error?
             do {
                 _ = try await handler.fetchConfirmations(forTransactionIdentifier: Self.unknownTransactionIdentifier)
@@ -106,7 +106,7 @@ struct NetworkFulcrumTransactionClientReaderValidator {
                 thrownError = error
             }
 
-            let failure = try #require(thrownError as? NetworkModel.Error)
+            let failure = try #require(thrownError as? OpalBase.Network.Error)
             switch failure.reason {
             case .server:
                 #expect(true)
@@ -120,9 +120,9 @@ struct NetworkFulcrumTransactionClientReaderValidator {
     @Test("rejects invalid raw transactions", .timeLimit(.minutes(1)))
     func broadcastTransactionRejectsInvalidPayload() async throws {
         guard NetworkTestClient.isExtendedLiveNetworkEnabled else { return }
-        let configuration = NetworkModel.Configuration(serverURLs: [Self.primaryServerAddress, Self.backupServerAddress])
+        let configuration = OpalBase.Network.Configuration(serverURLs: [Self.primaryServerAddress, Self.backupServerAddress])
         try await NetworkTestClient.withClient(configuration: configuration) { client in
-            let handler = NetworkModel.FulcrumTransactionClient(client: client)
+            let handler = OpalBase.Network.Fulcrum.TransactionClient(client: client)
             var thrownError: Error?
             do {
                 _ = try await handler.broadcastTransaction(rawTransactionHexadecimal: Self.invalidRawTransaction)
@@ -130,7 +130,7 @@ struct NetworkFulcrumTransactionClientReaderValidator {
                 thrownError = error
             }
 
-            let failure = try #require(thrownError as? NetworkModel.Error)
+            let failure = try #require(thrownError as? OpalBase.Network.Error)
             switch failure.reason {
             case .server, .protocolViolation:
                 #expect(true)
@@ -144,13 +144,13 @@ struct NetworkFulcrumTransactionClientReaderValidator {
     @Test("rejects malformed transaction broadcast", .timeLimit(.minutes(1)))
     func broadcastTransactionTranslatesServerError() async throws {
         guard NetworkTestClient.isExtendedLiveNetworkEnabled else { return }
-        let configuration = NetworkModel.Configuration(serverURLs: [Self.primaryServerAddress, Self.backupServerAddress])
+        let configuration = OpalBase.Network.Configuration(serverURLs: [Self.primaryServerAddress, Self.backupServerAddress])
         try await NetworkTestClient.withClient(configuration: configuration) { client in
-            let handler = NetworkModel.FulcrumTransactionClient(client: client)
+            let handler = OpalBase.Network.Fulcrum.TransactionClient(client: client)
             do {
                 _ = try await handler.broadcastTransaction(rawTransactionHexadecimal: "00")
                 Issue.record("Broadcast should have failed for malformed payload")
-            } catch let failure as NetworkModel.Error {
+            } catch let failure as OpalBase.Network.Error {
                 #expect(failure.message != nil)
             } catch {
                 Issue.record("Unexpected error type: \(error)")

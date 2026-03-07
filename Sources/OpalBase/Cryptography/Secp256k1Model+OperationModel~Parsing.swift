@@ -52,8 +52,8 @@ extension Secp256k1Model.OperationModel {
 
     static func parsePublicKeyAffine(_ data: Data) throws -> AffinePointModel {
         do {
-            return try PublicKeyModel.ParsingModel.parsePublicKey(data)
-        } catch PublicKeyModel.ParsingModel.Error.invalidLength(let actual) {
+            return try OpalBase.PublicKey.ParsingModel.parsePublicKey(data)
+        } catch OpalBase.PublicKey.ParsingModel.Error.invalidLength(let actual) {
             throw Error.invalidPublicKeyLength(actual: actual)
         } catch {
             throw Error.invalidPublicKeyValue

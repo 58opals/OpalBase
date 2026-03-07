@@ -3,17 +3,17 @@
 import Foundation
 
 public actor TokenMetadataRepository {
-    private var byCategory: [CashTokensModel.CategoryIDModel: TokenMetadataModel] = .init()
+    private var byCategory: [OpalBase.CashTokens.CategoryIDModel: TokenMetadataModel] = .init()
     
     public init() {}
     
-    public func upsert(_ items: [CashTokensModel.CategoryIDModel: TokenMetadataModel]) {
+    public func upsert(_ items: [OpalBase.CashTokens.CategoryIDModel: TokenMetadataModel]) {
         for (category, metadata) in items {
             byCategory[category] = makeNormalizedMetadata(metadata, for: category)
         }
     }
     
-    public func fetchMetadata(for category: CashTokensModel.CategoryIDModel) -> TokenMetadataModel? {
+    public func fetchMetadata(for category: OpalBase.CashTokens.CategoryIDModel) -> TokenMetadataModel? {
         return byCategory[category]
     }
     
@@ -27,7 +27,7 @@ public actor TokenMetadataRepository {
     public func applySnapshot(_ snapshot: SnapshotModel) {
         byCategory.removeAll(keepingCapacity: true)
         for (hexadecimalString, metadata) in snapshot.byCategory {
-            guard let category = try? CashTokensModel.CategoryIDModel(hexFromRPC: hexadecimalString) else { continue }
+            guard let category = try? OpalBase.CashTokens.CategoryIDModel(hexFromRPC: hexadecimalString) else { continue }
             byCategory[category] = makeNormalizedMetadata(metadata, for: category)
         }
     }
@@ -41,7 +41,7 @@ public actor TokenMetadataRepository {
     }
     
     private func makeNormalizedMetadata(_ metadata: TokenMetadataModel,
-                                        for category: CashTokensModel.CategoryIDModel) -> TokenMetadataModel {
+                                        for category: OpalBase.CashTokens.CategoryIDModel) -> TokenMetadataModel {
         guard metadata.category != category else { return metadata }
         return TokenMetadataModel(category: category,
                              name: metadata.name,

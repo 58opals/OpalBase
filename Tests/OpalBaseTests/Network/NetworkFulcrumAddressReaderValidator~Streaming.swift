@@ -8,9 +8,9 @@ extension NetworkFulcrumAddressReaderValidator {
     @Test("lists token-bearing outputs with parsed token data", .timeLimit(.minutes(1)))
     func fetchTokenUnspentOutputsIncludesTokenData() async throws {
         guard NetworkTestClient.isExtendedLiveNetworkEnabled else { return }
-        let configuration = NetworkModel.Configuration(serverURLs: [Self.primaryServerAddress, Self.backupServerAddress])
+        let configuration = OpalBase.Network.Configuration(serverURLs: [Self.primaryServerAddress, Self.backupServerAddress])
         try await NetworkTestClient.withClient(configuration: configuration) { client in
-            let reader = NetworkModel.FulcrumAddressReaderModel(client: client)
+            let reader = OpalBase.Network.Fulcrum.AddressReader(client: client)
             let tokenOutputs = try await reader.fetchUnspentOutputs(for: Self.tokenCashAddress, tokenFilter: .only)
 
             #expect(!tokenOutputs.isEmpty)
@@ -21,9 +21,9 @@ extension NetworkFulcrumAddressReaderValidator {
     @Test("subscribes to address updates and cancels cleanly", .timeLimit(.minutes(1)))
     func subscribeToAddressDeliversInitialSnapshot() async throws {
         guard NetworkTestClient.isExtendedLiveNetworkEnabled else { return }
-        let configuration = NetworkModel.Configuration(serverURLs: [Self.primaryServerAddress, Self.backupServerAddress])
+        let configuration = OpalBase.Network.Configuration(serverURLs: [Self.primaryServerAddress, Self.backupServerAddress])
         try await NetworkTestClient.withClient(configuration: configuration) { client in
-            let reader = NetworkModel.FulcrumAddressReaderModel(client: client)
+            let reader = OpalBase.Network.Fulcrum.AddressReader(client: client)
             let stream = try await reader.subscribeToAddress(Self.sampleCashAddress)
             var iterator = stream.makeAsyncIterator()
 

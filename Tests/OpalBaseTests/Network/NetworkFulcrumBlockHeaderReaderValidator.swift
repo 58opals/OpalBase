@@ -5,7 +5,7 @@ import Testing
 import SwiftFulcrum
 @testable import OpalBase
 
-@Suite("NetworkModel.FulcrumBlockHeaderReaderModel", .tags(.network))
+@Suite("OpalBase.Network.Fulcrum.BlockHeaderReader", .tags(.network))
 struct NetworkFulcrumBlockHeaderReaderValidator {
     private static let primaryServerAddress = URL(string: "wss://bch.imaginary.cash:50004")!
     private static let backupServerAddress = URL(string: "wss://bch.loping.net:50002")!
@@ -17,9 +17,9 @@ struct NetworkFulcrumBlockHeaderReaderValidator {
     @Test("fetches tip snapshot consistent with fulcrum RPC", .timeLimit(.minutes(1)))
     func fetchTipMatchesServerResponse1() async throws {
         guard NetworkTestClient.isExtendedLiveNetworkEnabled else { return }
-        let configuration = NetworkModel.Configuration(serverURLs: [Self.primaryServerAddress, Self.backupServerAddress])
+        let configuration = OpalBase.Network.Configuration(serverURLs: [Self.primaryServerAddress, Self.backupServerAddress])
         try await NetworkTestClient.withClient(configuration: configuration) { client in
-            let reader = NetworkModel.FulcrumBlockHeaderReaderModel(client: client)
+            let reader = OpalBase.Network.Fulcrum.BlockHeaderReader(client: client)
             let rpcTip: SwiftFulcrum.RPC.Response.Result.Blockchain.Headers.GetTip = try await client.request(
                 method: .blockchain(.headers(.getTip)),
                 responseType: SwiftFulcrum.RPC.Response.Result.Blockchain.Headers.GetTip.self
@@ -36,9 +36,9 @@ struct NetworkFulcrumBlockHeaderReaderValidator {
     @Test("fetches the current block tip and mirrors raw headers response", .timeLimit(.minutes(1)))
     func fetchTipMatchesServerResponse2() async throws {
         guard NetworkTestClient.isExtendedLiveNetworkEnabled else { return }
-        let configuration = NetworkModel.Configuration(serverURLs: [Self.primaryServerAddress, Self.backupServerAddress])
+        let configuration = OpalBase.Network.Configuration(serverURLs: [Self.primaryServerAddress, Self.backupServerAddress])
         try await NetworkTestClient.withClient(configuration: configuration) { client in
-            let reader = NetworkModel.FulcrumBlockHeaderReaderModel(client: client)
+            let reader = OpalBase.Network.Fulcrum.BlockHeaderReader(client: client)
             let snapshot = try await reader.fetchTip()
             #expect(snapshot.height >= 0)
             #expect(snapshot.headerHexadecimal.count == 160)
@@ -56,7 +56,7 @@ struct NetworkFulcrumBlockHeaderReaderValidator {
     @Test("fetches the live tip for wallet sync", .timeLimit(.minutes(1)))
     func fetchTipProvidesCurrentSnapshot() async throws {
         guard NetworkTestClient.isExtendedLiveNetworkEnabled else { return }
-        let configuration = NetworkModel.Configuration(
+        let configuration = OpalBase.Network.Configuration(
             serverURLs: [Self.primaryServerAddress, Self.backupServerAddress],
             connectionTimeout: .seconds(12),
             maximumMessageSize: 16 * 1_024 * 1_024,
@@ -69,7 +69,7 @@ struct NetworkFulcrumBlockHeaderReaderValidator {
         )
         
         try await NetworkTestClient.withClient(configuration: configuration) { client in
-            let reader = NetworkModel.FulcrumBlockHeaderReaderModel(client: client)
+            let reader = OpalBase.Network.Fulcrum.BlockHeaderReader(client: client)
             let baseline: SwiftFulcrum.RPC.Response.Result.Blockchain.Headers.GetTip = try await client.request(
                 method: .blockchain(.headers(.getTip)),
                 responseType: SwiftFulcrum.RPC.Response.Result.Blockchain.Headers.GetTip.self
@@ -88,13 +88,13 @@ struct NetworkFulcrumBlockHeaderReaderValidator {
     @Test("falls back to the next available server when the first endpoint fails", .timeLimit(.minutes(1)))
     func fetchTipWithServerFailover() async throws {
         guard NetworkTestClient.isExtendedLiveNetworkEnabled else { return }
-        let configuration = NetworkModel.Configuration(
+        let configuration = OpalBase.Network.Configuration(
             serverURLs: [Self.faultyServerAddress, Self.primaryServerAddress, Self.backupServerAddress],
             connectionTimeout: .seconds(8),
             reconnect: .init(maximumAttempts: 3, initialDelay: .seconds(1), maximumDelay: .seconds(5),  jitterMultiplierRange: 0.9 ... 1.2)
         )
         try await NetworkTestClient.withClient(configuration: configuration) { client in
-            let reader = NetworkModel.FulcrumBlockHeaderReaderModel(client: client)
+            let reader = OpalBase.Network.Fulcrum.BlockHeaderReader(client: client)
             let snapshot = try await reader.fetchTip()
             #expect(snapshot.height > 0)
             #expect(snapshot.headerHexadecimal.count == 160)
@@ -104,7 +104,7 @@ struct NetworkFulcrumBlockHeaderReaderValidator {
     @Test("streams live headers and surfaces disconnects", .timeLimit(.minutes(1)))
     func subscribeToTipDeliversSnapshotsAndErrors() async throws {
         guard NetworkTestClient.isExtendedLiveNetworkEnabled else { return }
-        let configuration = NetworkModel.Configuration(
+        let configuration = OpalBase.Network.Configuration(
             serverURLs: [Self.primaryServerAddress, Self.backupServerAddress],
             connectionTimeout: .seconds(12),
             maximumMessageSize: 16 * 1_024 * 1_024,
@@ -117,7 +117,7 @@ struct NetworkFulcrumBlockHeaderReaderValidator {
         )
         
         try await NetworkTestClient.withClient(configuration: configuration) { client in
-            let reader = NetworkModel.FulcrumBlockHeaderReaderModel(client: client)
+            let reader = OpalBase.Network.Fulcrum.BlockHeaderReader(client: client)
             let stream = try await reader.subscribeToTip()
             var iterator = stream.makeAsyncIterator()
             
@@ -140,7 +140,7 @@ struct NetworkFulcrumBlockHeaderReaderValidator {
                 } else {
                     #expect(true, "Stream ended cleanly after client stop")
                 }
-            } catch let failure as NetworkModel.Error {
+            } catch let failure as OpalBase.Network.Error {
                 #expect(!(failure.message == nil) || failure.reason == .cancelled)
             }
         }

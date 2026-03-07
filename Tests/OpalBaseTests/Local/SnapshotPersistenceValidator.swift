@@ -8,14 +8,14 @@ import Testing
 struct SnapshotPersistenceValidator {
     @MainActor @Test("address book snapshot encodes token fields")
     func addressBookSnapshotEncodesTokenFields() throws {
-        let storage = try StorageActor()
+        let storage = try OpalBase.Storage()
         let tokenData = try makeTokenDataWithNonFungibleToken()
         let tokenCategory = tokenData.category.hexForDisplay
         let tokenAmount = tokenData.amount
         let nonFungibleToken = tokenData.nft
         let tokenCommitment = nonFungibleToken?.commitment.hexadecimalString
         
-        let unspentOutputSnapshot = AddressModel.BookActor.SnapshotModel.UTXOModel(
+        let unspentOutputSnapshot = OpalBase.Address.Book.SnapshotModel.UTXOModel(
             value: 500,
             lockingScript: "51",
             tokenCategory: tokenCategory,
@@ -25,7 +25,7 @@ struct SnapshotPersistenceValidator {
             transactionHash: "abcd",
             outputIndex: 1
         )
-        let snapshot = AddressModel.BookActor.SnapshotModel(
+        let snapshot = OpalBase.Address.Book.SnapshotModel(
             receivingEntries: .init(),
             changeEntries: .init(),
             utxos: [unspentOutputSnapshot],
@@ -33,7 +33,7 @@ struct SnapshotPersistenceValidator {
         )
         
         let data = try storage.encodeSnapshot(snapshot)
-        let decoded = try storage.decodeSnapshot(AddressModel.BookActor.SnapshotModel.self, from: data)
+        let decoded = try storage.decodeSnapshot(OpalBase.Address.Book.SnapshotModel.self, from: data)
         let decodedUnspentOutput = try #require(decoded.utxos.first)
         
         #expect(decodedUnspentOutput.tokenCategory == tokenCategory)
@@ -50,13 +50,13 @@ struct SnapshotPersistenceValidator {
     
     @MainActor @Test("address book snapshot decodes without token fields")
     func addressBookSnapshotDecodesWithoutTokenFields() throws {
-        let storage = try StorageActor()
+        let storage = try OpalBase.Storage()
         let snapshotJSON = """
         {"receivingEntries":[],"changeEntries":[],"utxos":[{"value":1000,"lockingScript":"51","transactionHash":"abcd","outputIndex":0}],"transactions":[]}
         """
         let data = Data(snapshotJSON.utf8)
         
-        let decoded = try storage.decodeSnapshot(AddressModel.BookActor.SnapshotModel.self, from: data)
+        let decoded = try storage.decodeSnapshot(OpalBase.Address.Book.SnapshotModel.self, from: data)
         let decodedUnspentOutput = try #require(decoded.utxos.first)
         
         #expect(decodedUnspentOutput.tokenCategory == nil)
@@ -66,18 +66,18 @@ struct SnapshotPersistenceValidator {
         #expect(try decodedUnspentOutput.makeTokenData() == nil)
     }
     
-    private func makeTokenDataWithNonFungibleToken() throws -> CashTokensModel.TokenData {
+    private func makeTokenDataWithNonFungibleToken() throws -> OpalBase.CashTokens.TokenData {
         let fixture = try #require(TokenPrefixTestData.validVectors.first { vector in
             vector.data.nonFungibleToken != nil
         })
         return try makeTokenData(from: fixture.data)
     }
     
-    private func makeTokenData(from fixture: TokenPrefixTokenData) throws -> CashTokensModel.TokenData {
-        let category = try CashTokensModel.CategoryIDModel(hexFromRPC: fixture.category)
+    private func makeTokenData(from fixture: TokenPrefixTokenData) throws -> OpalBase.CashTokens.TokenData {
+        let category = try OpalBase.CashTokens.CategoryIDModel(hexFromRPC: fixture.category)
         let amount = try parseAmount(from: fixture.amount)
         let nonFungibleToken = try fixture.nonFungibleToken.map { try makeNonFungibleToken(from: $0) }
-        return CashTokensModel.TokenData(category: category, amount: amount, nft: nonFungibleToken)
+        return OpalBase.CashTokens.TokenData(category: category, amount: amount, nft: nonFungibleToken)
     }
     
     private func parseAmount(from amountString: String?) throws -> UInt64? {
@@ -85,18 +85,18 @@ struct SnapshotPersistenceValidator {
             return nil
         }
         guard let amountValue = UInt64(amountString) else {
-            throw CashTokensModel.Error.invalidFungibleAmountString(amountString)
+            throw OpalBase.CashTokens.Error.invalidFungibleAmountString(amountString)
         }
         return amountValue == 0 ? nil : amountValue
     }
     
-    private func makeNonFungibleToken(from fixture: TokenPrefixNonFungibleTokenData) throws -> CashTokensModel.NFTModel {
+    private func makeNonFungibleToken(from fixture: TokenPrefixNonFungibleTokenData) throws -> OpalBase.CashTokens.NFTModel {
         let capability = try makeNonFungibleCapability(from: fixture.capability)
         let commitment = try Data(hexadecimalString: fixture.commitment)
-        return try CashTokensModel.NFTModel(capability: capability, commitment: commitment)
+        return try OpalBase.CashTokens.NFTModel(capability: capability, commitment: commitment)
     }
     
-    private func makeNonFungibleCapability(from capabilityString: String) throws -> CashTokensModel.NFTModel.Capability {
+    private func makeNonFungibleCapability(from capabilityString: String) throws -> OpalBase.CashTokens.NFTModel.Capability {
         switch capabilityString {
         case "none":
             return .none
@@ -105,7 +105,7 @@ struct SnapshotPersistenceValidator {
         case "minting":
             return .minting
         default:
-            throw CashTokensModel.Error.invalidTokenPrefixCapability
+            throw OpalBase.CashTokens.Error.invalidTokenPrefixCapability
         }
     }
 }

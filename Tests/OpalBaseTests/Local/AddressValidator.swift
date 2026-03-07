@@ -11,23 +11,23 @@ struct AddressValidator {
         var count: Int = 0
         var isDetected: Bool = false
         repeat {
-            let privateKey = try PrivateKeyModel()
+            let privateKey = try OpalBase.PrivateKey()
             let walletImportFormat = privateKey.makeWalletImportFormat(compression: .compressed)
-            let publicKey = try PublicKeyModel(privateKey: privateKey)
-            let hash = PublicKeyModel.HashModel(publicKey: publicKey)
-            let script = ScriptModel.p2pkh_OPCHECKSIG(hash: hash)
-            let legacyAddress = try AddressModel.LegacyModel(script)
-            let address = try AddressModel(script: script)
+            let publicKey = try OpalBase.PublicKey(privateKey: privateKey)
+            let hash = OpalBase.PublicKey.HashModel(publicKey: publicKey)
+            let script = OpalBase.Script.p2pkh_OPCHECKSIG(hash: hash)
+            let legacyAddress = try OpalBase.Address.LegacyModel(script)
+            let address = try OpalBase.Address(script: script)
             let lockingScript = address.lockingScript.data.hexadecimalString
             if address.string.contains(word) {
                 print("Private KeyModel - Raw Data Hexadecimal: \(privateKey.rawData.hexadecimalString)")
                 print("Private KeyModel - WIF: \(walletImportFormat)")
                 print("Public KeyModel - Compressed Data Hexadecimal: \(publicKey.compressedData.hexadecimalString)")
                 print("Public KeyModel - HashModel Hexadecimal: \(hash.data.hexadecimalString)")
-                print("ScriptModel: \(script.data.hexadecimalString)")
-                print("LegacyModel ScriptModel: \(legacyAddress.string)")
-                print("AddressModel: \(address.string)")
-                print("AddressModel - Locking ScriptModel Hexadecimal: \(lockingScript)")
+                print("OpalBase.Script: \(script.data.hexadecimalString)")
+                print("LegacyModel OpalBase.Script: \(legacyAddress.string)")
+                print("OpalBase.Address: \(address.string)")
+                print("OpalBase.Address - Locking OpalBase.Script Hexadecimal: \(lockingScript)")
                 isDetected = true
             }
             count += 1
@@ -38,7 +38,7 @@ struct AddressValidator {
     @Test("cash address decodes to P2PKH script")
     func decodeCashAddressToP2PKHScript() throws {
         let cashaddr = "qpm2qsznhks23z7629mms6s4cwef74vcwvy22gdx6a"
-        let address = try AddressModel(cashaddr)
+        let address = try OpalBase.Address(cashaddr)
         #expect(address.string == cashaddr)
         
         switch address.lockingScript {
@@ -52,7 +52,7 @@ struct AddressValidator {
     @Test("cash address accepts uppercase payload")
     func decodeCashAddressWithUppercasePayload() throws {
         let cashaddr = "QPM2QSZNHKS23Z7629MMS6S4CWEF74VCWVY22GDX6A"
-        let address = try AddressModel(cashaddr)
+        let address = try OpalBase.Address(cashaddr)
         #expect(address.string == cashaddr)
         
         switch address.lockingScript {
@@ -67,15 +67,15 @@ struct AddressValidator {
     func rejectMixedCaseCashAddressPayload() {
         let mixedCasePayload = "qpm2qsznHks23z7629mms6s4cwef74vcwvy22gdx6a"
         
-        #expect(throws: AddressModel.Error.invalidCashAddressFormat) {
-            _ = try AddressModel(mixedCasePayload)
+        #expect(throws: OpalBase.Address.Error.invalidCashAddressFormat) {
+            _ = try OpalBase.Address(mixedCasePayload)
         }
     }
     
     @Test("cash address accepts uppercase prefix")
     func decodeCashAddressWithUppercasePrefix() throws {
         let cashaddr = "qpm2qsznhks23z7629mms6s4cwef74vcwvy22gdx6a"
-        let address = try AddressModel(cashaddr)
+        let address = try OpalBase.Address(cashaddr)
         #expect(address.string == cashaddr)
         
         switch address.lockingScript {
@@ -89,57 +89,57 @@ struct AddressValidator {
     @Test("filter removes invalid characters")
     func filterRemovesInvalidCharacters() {
         let noisy = "BITCOINCASH:QPM2-QSZN HK S23Z7629MMS6S4CWEF74VCWVY22GDX6A"
-        let filtered = AddressModel.filterBase32(from: noisy)
+        let filtered = OpalBase.Address.filterBase32(from: noisy)
         #expect(filtered == "qpm2qsznhks23z7629mms6s4cwef74vcwvy22gdx6a")
     }
     
     @Test("filter lowercases uppercase characters")
     func filterLowercasesUppercaseCharacters1() {
         let noisy = "BITCOINCASH:QPY0"
-        let filtered = AddressModel.filterBase32(from: noisy)
+        let filtered = OpalBase.Address.filterBase32(from: noisy)
         #expect(filtered == "qpy0")
     }
     
     @Test("filter normalizes uppercase Base32Model characters", .tags(.unit))
     func filterBase32LowercasesUppercaseCharacters() {
         let uppercaseCandidate = "BITCOINCASH:QPZA"
-        let filtered = AddressModel.filterBase32(from: uppercaseCandidate)
+        let filtered = OpalBase.Address.filterBase32(from: uppercaseCandidate)
         #expect(filtered == "qpza")
     }
     
     @Test("filter normalizes uppercase characters to lowercase")
     func filterNormalizesUppercaseCharactersToLowercase() {
         let uppercasePayload = "BITCOINCASH:QPM2QSZNHKS23Z7629MMS6S4CWEF74VCWVY22GDX6A"
-        let filtered = AddressModel.filterBase32(from: uppercasePayload)
+        let filtered = OpalBase.Address.filterBase32(from: uppercasePayload)
         #expect(filtered == "qpm2qsznhks23z7629mms6s4cwef74vcwvy22gdx6a")
     }
     
     @Test("filter lowercases uppercase characters")
     func filterLowercasesUppercaseCharacters2() {
         let uppercase = "BITCOINCASH:QPM2QSZNHKS23Z7629MMS6S4CWEF74VCWVY22GDX6A"
-        let filtered = AddressModel.filterBase32(from: uppercase)
+        let filtered = OpalBase.Address.filterBase32(from: uppercase)
         #expect(filtered == "qpm2qsznhks23z7629mms6s4cwef74vcwvy22gdx6a")
     }
     
     @Test("invalid checksum is rejected")
     func rejectInvalidChecksum() {
         let invalid = "bitcoincash:qpm2qsznhks23z7629mms6s4cwef74vcwvy22gdx6z"
-        #expect(throws: AddressModel.Error.invalidChecksum) {
-            _ = try AddressModel(invalid)
+        #expect(throws: OpalBase.Address.Error.invalidChecksum) {
+            _ = try OpalBase.Address(invalid)
         }
     }
     
     @Test("address book only replenishes the gap deficit")
     func addressBookMaintainsGapLimit() async throws {
-        let mnemonic = try MnemonicModel(
+        let mnemonic = try OpalBase.Mnemonic(
             words: [
                 "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "about"
             ]
         )
-        let rootExtendedPrivateKey = PrivateKeyModel.ExtendedModel(rootKey: try .init(seed: mnemonic.seed))
-        let account = try DerivationPathModel.AccountActor(rawIndexInteger: 0)
+        let rootExtendedPrivateKey = OpalBase.PrivateKey.ExtendedModel(rootKey: try .init(seed: mnemonic.seed))
+        let account = try OpalBase.DerivationPath.Account(rawIndexInteger: 0)
         let gapLimit = 5
-        let book = try await AddressModel.BookActor(
+        let book = try await OpalBase.Address.Book(
             rootExtendedPrivateKey: rootExtendedPrivateKey,
             purpose: .bip44,
             coinType: .bitcoinCash,
@@ -163,14 +163,14 @@ struct AddressValidator {
     
     @Test("address book uses distinct receiving and change addresses")
     func addressBookUsesDistinctReceivingAndChangeAddresses() async throws {
-        let mnemonic = try MnemonicModel(
+        let mnemonic = try OpalBase.Mnemonic(
             words: [
                 "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "about"
             ]
         )
-        let rootExtendedPrivateKey = PrivateKeyModel.ExtendedModel(rootKey: try .init(seed: mnemonic.seed))
-        let account = try DerivationPathModel.AccountActor(rawIndexInteger: 0)
-        let book = try await AddressModel.BookActor(
+        let rootExtendedPrivateKey = OpalBase.PrivateKey.ExtendedModel(rootKey: try .init(seed: mnemonic.seed))
+        let account = try OpalBase.DerivationPath.Account(rawIndexInteger: 0)
+        let book = try await OpalBase.Address.Book(
             rootExtendedPrivateKey: rootExtendedPrivateKey,
             purpose: .bip44,
             coinType: .bitcoinCash,
@@ -184,4 +184,3 @@ struct AddressValidator {
         #expect(receivingEntry.address != changeEntry.address)
     }
 }
-

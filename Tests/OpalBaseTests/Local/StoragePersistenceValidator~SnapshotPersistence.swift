@@ -7,17 +7,17 @@ import Testing
 extension StoragePersistenceValidator {
     @Test("persistState(for:) + restore(accountIdentifiers:) round-trips wallet snapshots and mnemonic state")
     func persistAndRestoreWalletArtifacts() async throws {
-        let valueStore = StorageActor.ValueRepository.makeInMemory()
-        let storage = try StorageActor(valueStore: valueStore)
+        let valueStore = OpalBase.Storage.ValueRepository.makeInMemory()
+        let storage = try OpalBase.Storage(valueStore: valueStore)
 
-        let mnemonic = try MnemonicModel(
+        let mnemonic = try OpalBase.Mnemonic(
             words: [
                 "abandon", "abandon", "abandon", "abandon", "abandon", "abandon",
                 "abandon", "abandon", "abandon", "abandon", "abandon", "about"
             ],
             passphrase: "session-passphrase"
         )
-        let wallet = WalletActor(mnemonic: mnemonic)
+        let wallet = OpalBase.Wallet(mnemonic: mnemonic)
         try await wallet.addAccount(unhardenedIndex: 0)
 
         let account = try await wallet.fetchAccount(at: 0)
@@ -27,10 +27,10 @@ extension StoragePersistenceValidator {
         let expectedSnapshot = await wallet.makeSnapshot()
 
         let protectionMode = try await storage.persistState(for: wallet)
-        #expect([StorageActor.SecurityModel.ProtectionMode.plaintext, .software, .secureEnclave].contains(protectionMode))
+        #expect([OpalBase.Storage.SecurityModel.ProtectionMode.plaintext, .software, .secureEnclave].contains(protectionMode))
 
-        let restoredStorage = try StorageActor(valueStore: valueStore)
-        let session = StorageActor.PersistenceSessionModel(storage: restoredStorage)
+        let restoredStorage = try OpalBase.Storage(valueStore: valueStore)
+        let session = OpalBase.Storage.PersistenceSessionModel(storage: restoredStorage)
         let restored = try await session.restore(accountIdentifiers: [accountIdentifier])
 
         guard let restoredWalletSnapshot = restored.walletSnapshot else {
@@ -76,9 +76,9 @@ extension StoragePersistenceValidator {
 
     @Test("restore returns an empty state for a fresh install")
     func restoreEmptyStateWhenNothingPersisted() async throws {
-        let valueStore = StorageActor.ValueRepository.makeInMemory()
-        let storage = try StorageActor(valueStore: valueStore)
-        let session = StorageActor.PersistenceSessionModel(storage: storage)
+        let valueStore = OpalBase.Storage.ValueRepository.makeInMemory()
+        let storage = try OpalBase.Storage(valueStore: valueStore)
+        let session = OpalBase.Storage.PersistenceSessionModel(storage: storage)
 
         let restored = try await session.restore(accountIdentifiers: .init())
 
@@ -91,18 +91,18 @@ extension StoragePersistenceValidator {
 
     @Test("save(snapshot:accountIdentifiers:) rejects missing account identifiers")
     func rejectMissingAccountIdentifiersWhenSavingSnapshot() async throws {
-        let valueStore = StorageActor.ValueRepository.makeInMemory()
-        let storage = try StorageActor(valueStore: valueStore)
-        let session = StorageActor.PersistenceSessionModel(storage: storage)
+        let valueStore = OpalBase.Storage.ValueRepository.makeInMemory()
+        let storage = try OpalBase.Storage(valueStore: valueStore)
+        let session = OpalBase.Storage.PersistenceSessionModel(storage: storage)
 
-        let mnemonic = try MnemonicModel(
+        let mnemonic = try OpalBase.Mnemonic(
             words: [
                 "abandon", "abandon", "abandon", "abandon", "abandon", "abandon",
                 "abandon", "abandon", "abandon", "abandon", "abandon", "about"
             ],
             passphrase: ""
         )
-        let wallet = WalletActor(mnemonic: mnemonic)
+        let wallet = OpalBase.Wallet(mnemonic: mnemonic)
         try await wallet.addAccount(unhardenedIndex: 0)
 
         let snapshot = await wallet.makeSnapshot()
@@ -117,8 +117,8 @@ extension StoragePersistenceValidator {
                 accountIdentifiers: .init(),
                 fallbackToPlaintext: true
             )
-            Issue.record("Expected StorageActor.Error.missingAccountIdentifier(\(missingIndex)) but save completed.")
-        } catch StorageActor.Error.missingAccountIdentifier(let index) {
+            Issue.record("Expected OpalBase.Storage.Error.missingAccountIdentifier(\(missingIndex)) but save completed.")
+        } catch OpalBase.Storage.Error.missingAccountIdentifier(let index) {
             #expect(index == missingIndex)
         } catch {
             Issue.record("Unexpected error: \(error)")

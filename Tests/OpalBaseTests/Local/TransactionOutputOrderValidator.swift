@@ -4,17 +4,17 @@ import Foundation
 import Testing
 @testable import OpalBase
 
-@Suite("TransactionModel output ordering", .tags(.unit, .transaction))
+@Suite("OpalBase.Transaction output ordering", .tags(.unit, .transaction))
 struct TransactionOutputOrderValidator {
     @Test("applyBIP69Ordering sorts token presence after locking script bytes")
     func applyBIP69OrderingSortsTokenPresence() throws {
         let lockingScript = Data([0x51])
         let category = try makeCategory(using: 0x01)
-        let tokenData = CashTokensModel.TokenData(category: category, amount: 1, nft: nil)
-        let tokenOutput = TransactionModel.OutputModel(value: 1_000, lockingScript: lockingScript, tokenData: tokenData)
-        let plainOutput = TransactionModel.OutputModel(value: 1_000, lockingScript: lockingScript)
+        let tokenData = OpalBase.CashTokens.TokenData(category: category, amount: 1, nft: nil)
+        let tokenOutput = OpalBase.Transaction.OutputModel(value: 1_000, lockingScript: lockingScript, tokenData: tokenData)
+        let plainOutput = OpalBase.Transaction.OutputModel(value: 1_000, lockingScript: lockingScript)
         
-        let orderedOutputs = TransactionModel.OutputModel.applyBIP69Ordering([tokenOutput, plainOutput])
+        let orderedOutputs = OpalBase.Transaction.OutputModel.applyBIP69Ordering([tokenOutput, plainOutput])
         
         #expect(orderedOutputs == [plainOutput, tokenOutput])
     }
@@ -23,12 +23,12 @@ struct TransactionOutputOrderValidator {
     func applyBIP69OrderingSortsTokenAmount() throws {
         let lockingScript = Data([0x51])
         let category = try makeCategory(using: 0x01)
-        let smallerAmount = CashTokensModel.TokenData(category: category, amount: 1, nft: nil)
-        let largerAmount = CashTokensModel.TokenData(category: category, amount: 2, nft: nil)
-        let smallerOutput = TransactionModel.OutputModel(value: 1_000, lockingScript: lockingScript, tokenData: smallerAmount)
-        let largerOutput = TransactionModel.OutputModel(value: 1_000, lockingScript: lockingScript, tokenData: largerAmount)
+        let smallerAmount = OpalBase.CashTokens.TokenData(category: category, amount: 1, nft: nil)
+        let largerAmount = OpalBase.CashTokens.TokenData(category: category, amount: 2, nft: nil)
+        let smallerOutput = OpalBase.Transaction.OutputModel(value: 1_000, lockingScript: lockingScript, tokenData: smallerAmount)
+        let largerOutput = OpalBase.Transaction.OutputModel(value: 1_000, lockingScript: lockingScript, tokenData: largerAmount)
         
-        let orderedOutputs = TransactionModel.OutputModel.applyBIP69Ordering([largerOutput, smallerOutput])
+        let orderedOutputs = OpalBase.Transaction.OutputModel.applyBIP69Ordering([largerOutput, smallerOutput])
         
         #expect(orderedOutputs == [smallerOutput, largerOutput])
     }
@@ -37,14 +37,14 @@ struct TransactionOutputOrderValidator {
     func applyBIP69OrderingSortsNonFungibleTokenData() throws {
         let lockingScript = Data([0x51])
         let category = try makeCategory(using: 0x01)
-        let noneCapability = try CashTokensModel.NFTModel(capability: .none, commitment: Data())
-        let mintingCapability = try CashTokensModel.NFTModel(capability: .minting, commitment: Data())
-        let smallerToken = CashTokensModel.TokenData(category: category, amount: 1, nft: noneCapability)
-        let largerToken = CashTokensModel.TokenData(category: category, amount: 1, nft: mintingCapability)
-        let smallerOutput = TransactionModel.OutputModel(value: 1_000, lockingScript: lockingScript, tokenData: smallerToken)
-        let largerOutput = TransactionModel.OutputModel(value: 1_000, lockingScript: lockingScript, tokenData: largerToken)
+        let noneCapability = try OpalBase.CashTokens.NFTModel(capability: .none, commitment: Data())
+        let mintingCapability = try OpalBase.CashTokens.NFTModel(capability: .minting, commitment: Data())
+        let smallerToken = OpalBase.CashTokens.TokenData(category: category, amount: 1, nft: noneCapability)
+        let largerToken = OpalBase.CashTokens.TokenData(category: category, amount: 1, nft: mintingCapability)
+        let smallerOutput = OpalBase.Transaction.OutputModel(value: 1_000, lockingScript: lockingScript, tokenData: smallerToken)
+        let largerOutput = OpalBase.Transaction.OutputModel(value: 1_000, lockingScript: lockingScript, tokenData: largerToken)
         
-        let orderedOutputs = TransactionModel.OutputModel.applyBIP69Ordering([largerOutput, smallerOutput])
+        let orderedOutputs = OpalBase.Transaction.OutputModel.applyBIP69Ordering([largerOutput, smallerOutput])
         
         #expect(orderedOutputs == [smallerOutput, largerOutput])
     }
@@ -54,19 +54,19 @@ struct TransactionOutputOrderValidator {
         let lockingScript = Data([0x51])
         let smallerCategory = try makeCategory(using: 0x01)
         let largerCategory = try makeCategory(using: 0x02)
-        let baseToken = try CashTokensModel.NFTModel(capability: .none, commitment: Data())
-        let smallerToken = CashTokensModel.TokenData(category: smallerCategory, amount: 1, nft: baseToken)
-        let largerToken = CashTokensModel.TokenData(category: largerCategory, amount: 1, nft: baseToken)
-        let smallerOutput = TransactionModel.OutputModel(value: 1_000, lockingScript: lockingScript, tokenData: smallerToken)
-        let largerOutput = TransactionModel.OutputModel(value: 1_000, lockingScript: lockingScript, tokenData: largerToken)
+        let baseToken = try OpalBase.CashTokens.NFTModel(capability: .none, commitment: Data())
+        let smallerToken = OpalBase.CashTokens.TokenData(category: smallerCategory, amount: 1, nft: baseToken)
+        let largerToken = OpalBase.CashTokens.TokenData(category: largerCategory, amount: 1, nft: baseToken)
+        let smallerOutput = OpalBase.Transaction.OutputModel(value: 1_000, lockingScript: lockingScript, tokenData: smallerToken)
+        let largerOutput = OpalBase.Transaction.OutputModel(value: 1_000, lockingScript: lockingScript, tokenData: largerToken)
         
-        let orderedOutputs = TransactionModel.OutputModel.applyBIP69Ordering([largerOutput, smallerOutput])
+        let orderedOutputs = OpalBase.Transaction.OutputModel.applyBIP69Ordering([largerOutput, smallerOutput])
         
         #expect(orderedOutputs == [smallerOutput, largerOutput])
     }
     
-    private func makeCategory(using byte: UInt8) throws -> CashTokensModel.CategoryIDModel {
-        try CashTokensModel.CategoryIDModel(transactionOrderData: Data(repeating: byte, count: 32))
+    private func makeCategory(using byte: UInt8) throws -> OpalBase.CashTokens.CategoryIDModel {
+        try OpalBase.CashTokens.CategoryIDModel(transactionOrderData: Data(repeating: byte, count: 32))
     }
 }
 

@@ -3,26 +3,26 @@
 import Foundation
 @testable import OpalBase
 
-struct AddressReaderClient: NetworkModel.AddressReadable {
-    let unspentByAddress: [String: [TransactionModel.OutputModel.UnspentModel]]
+struct AddressReaderClient: OpalBase.Network.AddressReadable {
+    let unspentByAddress: [String: [OpalBase.Transaction.OutputModel.UnspentModel]]
 
-    func fetchBalance(for address: String, tokenFilter: NetworkModel.TokenFilter) async throws -> NetworkModel.AddressBalanceModel {
-        NetworkModel.AddressBalanceModel(confirmed: 0, unconfirmed: 0)
+    func fetchBalance(for address: String, tokenFilter: OpalBase.Network.TokenFilter) async throws -> OpalBase.Network.AddressBalance {
+        OpalBase.Network.AddressBalance(confirmed: 0, unconfirmed: 0)
     }
 
-    func fetchUnspentOutputs(for address: String, tokenFilter: NetworkModel.TokenFilter) async throws -> [TransactionModel.OutputModel.UnspentModel] {
+    func fetchUnspentOutputs(for address: String, tokenFilter: OpalBase.Network.TokenFilter) async throws -> [OpalBase.Transaction.OutputModel.UnspentModel] {
         unspentByAddress[address, default: .init()]
     }
 
-    func fetchHistory(for address: String, includeUnconfirmed: Bool) async throws -> [NetworkModel.TransactionHistoryEntryModel] {
+    func fetchHistory(for address: String, includeUnconfirmed: Bool) async throws -> [OpalBase.Network.TransactionHistoryEntry] {
         .init()
     }
 
-    func fetchFirstUse(for address: String) async throws -> NetworkModel.AddressFirstUseModel? {
+    func fetchFirstUse(for address: String) async throws -> OpalBase.Network.AddressFirstUse? {
         nil
     }
 
-    func fetchMempoolTransactions(for address: String) async throws -> [NetworkModel.TransactionHistoryEntryModel] {
+    func fetchMempoolTransactions(for address: String) async throws -> [OpalBase.Network.TransactionHistoryEntry] {
         .init()
     }
 
@@ -30,7 +30,7 @@ struct AddressReaderClient: NetworkModel.AddressReadable {
         ""
     }
 
-    func subscribeToAddress(_ address: String) async throws -> AsyncThrowingStream<NetworkModel.AddressSubscriptionUpdateModel, any Swift.Error> {
+    func subscribeToAddress(_ address: String) async throws -> AsyncThrowingStream<OpalBase.Network.AddressSubscriptionUpdate, any Swift.Error> {
         AsyncThrowingStream { continuation in
             continuation.finish()
         }

@@ -4,14 +4,14 @@ import Foundation
 import Testing
 @testable import OpalBase
 
-@Suite("NetworkModel.Configuration (Local)", .tags(.unit))
+@Suite("OpalBase.Network.Configuration (Local)", .tags(.unit))
 struct NetworkConfigurationLocalValidator {
     private static let primaryServerAddress = URL(string: "wss://bch.imaginary.cash:50004")!
     private static let backupServerAddress = URL(string: "wss://bch.loping.net:50002")!
     
     @Test("initializes with default connection values")
     func initializeConfigurationWithDefaults() {
-        let configuration = NetworkModel.Configuration(serverURLs: [Self.primaryServerAddress])
+        let configuration = OpalBase.Network.Configuration(serverURLs: [Self.primaryServerAddress])
         
         #expect(configuration.serverURLs == [Self.primaryServerAddress])
         #expect(configuration.connectionTimeout == .seconds(10))
@@ -23,7 +23,7 @@ struct NetworkConfigurationLocalValidator {
     @Test("Provides wallet-friendly defaults")
     func defaultsProvideWalletFriendlySettings() throws {
         let primaryServer = URL(string: "wss://bch.imaginary.cash:50004")!
-        let configuration = NetworkModel.Configuration(serverURLs: [primaryServer])
+        let configuration = OpalBase.Network.Configuration(serverURLs: [primaryServer])
         
         #expect(configuration.serverURLs == [primaryServer])
         #expect(configuration.connectionTimeout == .seconds(10))
@@ -38,7 +38,7 @@ struct NetworkConfigurationLocalValidator {
     
     @Test("default reconnect strategy matches recommended jitter and delays")
     func reconnectDefaultConfigurationValues() {
-        let reconnect = NetworkModel.ReconnectConfiguration.defaultValue
+        let reconnect = OpalBase.Network.ReconnectConfiguration.defaultValue
         
         #expect(reconnect.maximumAttempts == 8)
         #expect(reconnect.initialDelay == .seconds(1.5))
@@ -52,7 +52,7 @@ struct NetworkConfigurationLocalValidator {
         let primaryServer = URL(string: "wss://bch.imaginary.cash:50004")!
         let fallbackServer = URL(string: "wss://bch.loping.net:50002")!
         
-        let baseConfiguration = NetworkModel.Configuration(
+        let baseConfiguration = OpalBase.Network.Configuration(
             serverURLs: [primaryServer, fallbackServer],
             connectionTimeout: .seconds(20),
             maximumMessageSize: 16 * 1_024 * 1_024,
@@ -64,7 +64,7 @@ struct NetworkConfigurationLocalValidator {
             )
         )
         
-        let identicalConfiguration = NetworkModel.Configuration(
+        let identicalConfiguration = OpalBase.Network.Configuration(
             serverURLs: [primaryServer, fallbackServer],
             connectionTimeout: .seconds(20),
             maximumMessageSize: 16 * 1_024 * 1_024,

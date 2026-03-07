@@ -10,7 +10,7 @@ struct SchnorrSignatureVerificationValidator {
     func verifiesSchnorrSignatureVectors() throws {
         for vector in BitcoinImprovementProposalSchnorrTestData.all {
             let publicKeyData = try Data(hexadecimalString: vector.publicKeyHexadecimal)
-            let publicKey = try PublicKeyModel(compressedData: publicKeyData)
+            let publicKey = try OpalBase.PublicKey(compressedData: publicKeyData)
             let message = try Data(hexadecimalString: vector.messageHexadecimal)
             let signature = try Data(hexadecimalString: vector.signatureHexadecimal)
             

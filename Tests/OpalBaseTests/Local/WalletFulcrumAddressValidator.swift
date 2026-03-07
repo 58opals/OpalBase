@@ -4,7 +4,7 @@ import Foundation
 import Testing
 @testable import OpalBase
 
-@Suite("WalletActor.FulcrumAddressActor", .tags(.unit, .wallet))
+@Suite("OpalBase.Wallet.Fulcrum", .tags(.unit, .wallet))
 struct WalletFulcrumAddressValidator {
     @Test("refreshBalances forwards usage and includeUnconfirmed flags")
     func refreshBalancesForwardsUsageAndIncludeUnconfirmed() async throws {
@@ -20,7 +20,7 @@ struct WalletFulcrumAddressValidator {
             ]
         )
         let confirmationClient = TransactionConfirmationClientTestActor()
-        let fulcrum = WalletActor.FulcrumAddressActor(
+        let fulcrum = OpalBase.Wallet.Fulcrum(
             addressReader: addressReader,
             transactionHandler: confirmationClient
         )
@@ -32,7 +32,7 @@ struct WalletFulcrumAddressValidator {
         )
 
         #expect(Set(refresh.balancesByUsage.keys) == Set([.receiving]))
-        let expectedTotal = try SatoshiModel(1_500)
+        let expectedTotal = try OpalBase.Satoshi(1_500)
         #expect(refresh.total == expectedTotal)
 
         let historyRequests = await addressReader.readHistoryRequests()
@@ -50,7 +50,7 @@ struct WalletFulcrumAddressValidator {
         let account = try await AccountTestFixturesModel.makeAccount()
         let targetEntry = try await account.selectNextEntry(for: .receiving)
         let hash = AccountTestFixturesModel.makeHash(byte: 0x21)
-        let historyEntry = NetworkModel.TransactionHistoryEntryModel(
+        let historyEntry = OpalBase.Network.TransactionHistoryEntry(
             transactionIdentifier: hash.reverseOrder.hexadecimalString,
             blockHeight: 7,
             fee: 120
@@ -60,7 +60,7 @@ struct WalletFulcrumAddressValidator {
             historyByAddress: [targetEntry.address.string: [historyEntry]]
         )
         let confirmationClient = TransactionConfirmationClientTestActor()
-        let fulcrum = WalletActor.FulcrumAddressActor(
+        let fulcrum = OpalBase.Wallet.Fulcrum(
             addressReader: addressReader,
             transactionHandler: confirmationClient
         )
@@ -85,7 +85,7 @@ struct WalletFulcrumAddressValidator {
         let account = try await AccountTestFixturesModel.makeAccount()
         let targetEntry = try await account.selectNextEntry(for: .receiving)
         let hash = AccountTestFixturesModel.makeHash(byte: 0x31)
-        let historyEntry = NetworkModel.TransactionHistoryEntryModel(
+        let historyEntry = OpalBase.Network.TransactionHistoryEntry(
             transactionIdentifier: hash.reverseOrder.hexadecimalString,
             blockHeight: 5,
             fee: nil
@@ -99,7 +99,7 @@ struct WalletFulcrumAddressValidator {
                 hash: .init(transactionHash: hash, transactionHeight: 10, tipHeight: 20, confirmations: 11)
             ]
         )
-        let fulcrum = WalletActor.FulcrumAddressActor(
+        let fulcrum = OpalBase.Wallet.Fulcrum(
             addressReader: addressReader,
             transactionHandler: confirmationClient
         )
@@ -132,7 +132,7 @@ struct WalletFulcrumAddressValidator {
                 hashB: .init(transactionHash: hashB, transactionHeight: 9, tipHeight: 20, confirmations: 12)
             ]
         )
-        let fulcrum = WalletActor.FulcrumAddressActor(
+        let fulcrum = OpalBase.Wallet.Fulcrum(
             addressReader: addressReader,
             transactionHandler: confirmationClient
         )

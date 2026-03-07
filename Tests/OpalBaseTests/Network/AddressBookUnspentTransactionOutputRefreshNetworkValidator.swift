@@ -4,7 +4,7 @@ import Foundation
 import Testing
 @testable import OpalBase
 
-@Suite("AddressModel BookActor UTXOModel Refresh (NetworkModel)", .tags(.network, .cashTokens))
+@Suite("OpalBase.Address BookActor UTXOModel Refresh (OpalBase.Network)", .tags(.network, .cashTokens))
 struct AddressBookUnspentTransactionOutputRefreshNetworkValidator {
     private static let primaryServerAddress = URL(string: "wss://bch.imaginary.cash:50004")!
     private static let backupServerAddress = URL(string: "wss://bch.loping.net:50002")!
@@ -14,11 +14,11 @@ struct AddressBookUnspentTransactionOutputRefreshNetworkValidator {
     func ingestNetworkTokenUnspentTransactionOutputs() async throws {
         guard NetworkTestClient.isExtendedLiveNetworkEnabled else { return }
         let book = try await AddressBookCashTokensTestData.makeAddressBook()
-        let address = try AddressModel(Self.tokenCashAddress)
+        let address = try OpalBase.Address(Self.tokenCashAddress)
 
-        let configuration = NetworkModel.Configuration(serverURLs: [Self.primaryServerAddress, Self.backupServerAddress])
+        let configuration = OpalBase.Network.Configuration(serverURLs: [Self.primaryServerAddress, Self.backupServerAddress])
         try await NetworkTestClient.withClient(configuration: configuration) { client in
-            let reader = NetworkModel.FulcrumAddressReaderModel(client: client)
+            let reader = OpalBase.Network.Fulcrum.AddressReader(client: client)
 
             let tokenOutputs = try await reader.fetchUnspentOutputs(
                 for: Self.tokenCashAddress,

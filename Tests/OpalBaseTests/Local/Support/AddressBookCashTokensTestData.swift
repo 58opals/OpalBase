@@ -5,15 +5,15 @@ import Testing
 @testable import OpalBase
 
 enum AddressBookCashTokensTestData {
-    static func makeAddressBook() async throws -> AddressModel.BookActor {
-        let mnemonic = try MnemonicModel(words: [
+    static func makeAddressBook() async throws -> OpalBase.Address.Book {
+        let mnemonic = try OpalBase.Mnemonic(words: [
             "abandon", "abandon", "abandon", "abandon", "abandon", "abandon",
             "abandon", "abandon", "abandon", "abandon", "abandon", "about",
         ])
 
-        let rootExtendedPrivateKey = PrivateKeyModel.ExtendedModel(rootKey: try .init(seed: mnemonic.seed))
+        let rootExtendedPrivateKey = OpalBase.PrivateKey.ExtendedModel(rootKey: try .init(seed: mnemonic.seed))
 
-        return try await AddressModel.BookActor(
+        return try await OpalBase.Address.Book(
             rootExtendedPrivateKey: rootExtendedPrivateKey,
             purpose: .bip44,
             coinType: .bitcoinCash,
@@ -22,34 +22,34 @@ enum AddressBookCashTokensTestData {
         )
     }
 
-    static func makeTokenData() throws -> CashTokensModel.TokenData {
+    static func makeTokenData() throws -> OpalBase.CashTokens.TokenData {
         let fixture = try #require(TokenPrefixTestData.validVectors.first)
         return try makeTokenData(from: fixture.data)
     }
 
-    static func makeTokenData(from fixture: TokenPrefixTokenData) throws -> CashTokensModel.TokenData {
-        let category = try CashTokensModel.CategoryIDModel(hexFromRPC: fixture.category)
+    static func makeTokenData(from fixture: TokenPrefixTokenData) throws -> OpalBase.CashTokens.TokenData {
+        let category = try OpalBase.CashTokens.CategoryIDModel(hexFromRPC: fixture.category)
         let amount = try parseAmount(from: fixture.amount)
         let nonFungibleToken = try fixture.nonFungibleToken.map { try makeNonFungibleToken(from: $0) }
 
-        return CashTokensModel.TokenData(category: category, amount: amount, nft: nonFungibleToken)
+        return OpalBase.CashTokens.TokenData(category: category, amount: amount, nft: nonFungibleToken)
     }
 
     static func parseAmount(from amountString: String?) throws -> UInt64? {
         guard let amountString else { return nil }
         guard let amountValue = UInt64(amountString) else {
-            throw CashTokensModel.Error.invalidFungibleAmountString(amountString)
+            throw OpalBase.CashTokens.Error.invalidFungibleAmountString(amountString)
         }
         return amountValue == 0 ? nil : amountValue
     }
 
-    static func makeNonFungibleToken(from fixture: TokenPrefixNonFungibleTokenData) throws -> CashTokensModel.NFTModel {
+    static func makeNonFungibleToken(from fixture: TokenPrefixNonFungibleTokenData) throws -> OpalBase.CashTokens.NFTModel {
         let capability = try makeNonFungibleCapability(from: fixture.capability)
         let commitment = try Data(hexadecimalString: fixture.commitment)
-        return try CashTokensModel.NFTModel(capability: capability, commitment: commitment)
+        return try OpalBase.CashTokens.NFTModel(capability: capability, commitment: commitment)
     }
 
-    static func makeNonFungibleCapability(from capabilityString: String) throws -> CashTokensModel.NFTModel.Capability {
+    static func makeNonFungibleCapability(from capabilityString: String) throws -> OpalBase.CashTokens.NFTModel.Capability {
         switch capabilityString {
         case "none":
             return .none
@@ -58,7 +58,7 @@ enum AddressBookCashTokensTestData {
         case "minting":
             return .minting
         default:
-            throw CashTokensModel.Error.invalidTokenPrefixCapability
+            throw OpalBase.CashTokens.Error.invalidTokenPrefixCapability
         }
     }
 }

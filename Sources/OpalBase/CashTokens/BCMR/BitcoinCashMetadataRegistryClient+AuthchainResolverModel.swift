@@ -4,15 +4,15 @@ import Foundation
 
 extension BitcoinCashMetadataRegistryClient {
     public struct AuthchainResolverModel: Sendable {
-        public let transactionReader: NetworkModel.TransactionReadableClient
-        public let addressReader: NetworkModel.AddressReadable
-        public let scriptHashReader: NetworkModel.ScriptHashReadableClient?
+        public let transactionReader: OpalBase.Network.TransactionReadableClient
+        public let addressReader: OpalBase.Network.AddressReadable
+        public let scriptHashReader: OpalBase.Network.ScriptHashReadableClient?
         public let maxDepth: Int
         
         public init(
-            transactionReader: NetworkModel.TransactionReadableClient,
-            addressReader: NetworkModel.AddressReadable,
-            scriptHashReader: NetworkModel.ScriptHashReadableClient? = nil,
+            transactionReader: OpalBase.Network.TransactionReadableClient,
+            addressReader: OpalBase.Network.AddressReadable,
+            scriptHashReader: OpalBase.Network.ScriptHashReadableClient? = nil,
             maxDepth: Int
         ) {
             self.transactionReader = transactionReader
@@ -26,14 +26,14 @@ extension BitcoinCashMetadataRegistryClient {
 extension BitcoinCashMetadataRegistryClient.AuthchainResolverModel {
     enum Error: Swift.Error, Sendable {
         case invalidMaximumDepth(Int)
-        case maximumDepthExceeded(maxDepth: Int, lastTransactionHash: TransactionModel.HashModel)
-        case missingIdentityOutput(TransactionModel.HashModel)
-        case scriptHashReaderUnavailable(TransactionModel.HashModel)
-        case transactionDecodingFailed(TransactionModel.HashModel, Swift.Error)
-        case lockingScriptDecodingFailed(TransactionModel.HashModel, Swift.Error)
+        case maximumDepthExceeded(maxDepth: Int, lastTransactionHash: OpalBase.Transaction.HashModel)
+        case missingIdentityOutput(OpalBase.Transaction.HashModel)
+        case scriptHashReaderUnavailable(OpalBase.Transaction.HashModel)
+        case transactionDecodingFailed(OpalBase.Transaction.HashModel, Swift.Error)
+        case lockingScriptDecodingFailed(OpalBase.Transaction.HashModel, Swift.Error)
     }
     
-    public func resolveAuthhead(from authbase: TransactionModel.HashModel) async throws -> TransactionModel.HashModel {
+    public func resolveAuthhead(from authbase: OpalBase.Transaction.HashModel) async throws -> OpalBase.Transaction.HashModel {
         guard maxDepth >= 0 else {
             throw Error.invalidMaximumDepth(maxDepth)
         }
@@ -72,10 +72,10 @@ extension BitcoinCashMetadataRegistryClient.AuthchainResolverModel {
 }
 
 private extension BitcoinCashMetadataRegistryClient.AuthchainResolverModel {
-    func fetchTransaction(for transactionHash: TransactionModel.HashModel) async throws -> TransactionModel {
+    func fetchTransaction(for transactionHash: OpalBase.Transaction.HashModel) async throws -> OpalBase.Transaction {
         let rawTransactionData = try await transactionReader.fetchRawTransaction(for: transactionHash)
         do {
-            return try TransactionModel.decode(from: rawTransactionData).transaction
+            return try OpalBase.Transaction.decode(from: rawTransactionData).transaction
         } catch {
             throw Error.transactionDecodingFailed(transactionHash, error)
         }
@@ -83,11 +83,11 @@ private extension BitcoinCashMetadataRegistryClient.AuthchainResolverModel {
     
     func fetchHistoryEntries(
         for lockingScript: Data,
-        transactionHash: TransactionModel.HashModel
-    ) async throws -> [NetworkModel.TransactionHistoryEntryModel] {
-        if let script = try? ScriptModel.decode(lockingScript: lockingScript) {
+        transactionHash: OpalBase.Transaction.HashModel
+    ) async throws -> [OpalBase.Network.TransactionHistoryEntry] {
+        if let script = try? OpalBase.Script.decode(lockingScript: lockingScript) {
             if script.isDerivableFromAddress {
-                let address = try AddressModel(script: script, format: .tokenAware)
+                let address = try OpalBase.Address(script: script, format: .tokenAware)
                 return try await addressReader.fetchHistory(
                     for: address.tokenAwareString,
                     includeUnconfirmed: true
@@ -96,7 +96,7 @@ private extension BitcoinCashMetadataRegistryClient.AuthchainResolverModel {
         } else if scriptHashReader == nil {
             throw Error.lockingScriptDecodingFailed(
                 transactionHash,
-                ScriptModel.Error.cannotDecodeScript
+                OpalBase.Script.Error.cannotDecodeScript
             )
         }
         
@@ -112,12 +112,12 @@ private extension BitcoinCashMetadataRegistryClient.AuthchainResolverModel {
     }
     
     func findSpendingTransactionHash(
-        in historyEntries: [NetworkModel.TransactionHistoryEntryModel],
-        spentTransactionHash: TransactionModel.HashModel,
+        in historyEntries: [OpalBase.Network.TransactionHistoryEntry],
+        spentTransactionHash: OpalBase.Transaction.HashModel,
         outputIndex: UInt32
-    ) async throws -> TransactionModel.HashModel? {
+    ) async throws -> OpalBase.Transaction.HashModel? {
         for entry in historyEntries {
-            let candidateHash = try NetworkModel.decodeTransactionHash(
+            let candidateHash = try OpalBase.Network.decodeTransactionHash(
                 from: entry.transactionIdentifier,
                 label: "transaction identifier"
             )

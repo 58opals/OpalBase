@@ -3,29 +3,29 @@
 import Testing
 @testable import OpalBase
 
-@Suite("NetworkModel.FulcrumTransactionClient confirmation count", .tags(.unit))
+@Suite("OpalBase.Network.Fulcrum.TransactionClient confirmation count", .tags(.unit))
 struct NetworkFulcrumTransactionConfirmationCountValidator {
     @Test("calculates confirmation counts across edge conditions")
     func calculateConfirmationCountHandlesBoundaries() {
-        let direct = NetworkModel.FulcrumTransactionClient.calculateConfirmationCount(
+        let direct = OpalBase.Network.Fulcrum.TransactionClient.calculateConfirmationCount(
             transactionHeight: 100,
             tipHeight: 100
         )
         #expect(direct == 1)
 
-        let advanced = NetworkModel.FulcrumTransactionClient.calculateConfirmationCount(
+        let advanced = OpalBase.Network.Fulcrum.TransactionClient.calculateConfirmationCount(
             transactionHeight: 98,
             tipHeight: 102
         )
         #expect(advanced == 5)
 
-        let negativeHeight = NetworkModel.FulcrumTransactionClient.calculateConfirmationCount(
+        let negativeHeight = OpalBase.Network.Fulcrum.TransactionClient.calculateConfirmationCount(
             transactionHeight: -1,
             tipHeight: 10
         )
         #expect(negativeHeight == nil)
 
-        let futureTransaction = NetworkModel.FulcrumTransactionClient.calculateConfirmationCount(
+        let futureTransaction = OpalBase.Network.Fulcrum.TransactionClient.calculateConfirmationCount(
             transactionHeight: 150,
             tipHeight: 140
         )
@@ -34,19 +34,19 @@ struct NetworkFulcrumTransactionConfirmationCountValidator {
 
     @Test("calculates confirmation counts for edge cases")
     func calculateConfirmationCountEdgeCases() {
-        let expectedConfirmations = NetworkModel.FulcrumTransactionClient.calculateConfirmationCount(
+        let expectedConfirmations = OpalBase.Network.Fulcrum.TransactionClient.calculateConfirmationCount(
             transactionHeight: 100_000,
             tipHeight: 100_010
         )
         #expect(expectedConfirmations == 11)
 
-        let futureBlock = NetworkModel.FulcrumTransactionClient.calculateConfirmationCount(
+        let futureBlock = OpalBase.Network.Fulcrum.TransactionClient.calculateConfirmationCount(
             transactionHeight: 100_011,
             tipHeight: 100_010
         )
         #expect(futureBlock == nil)
 
-        let negativeHeight = NetworkModel.FulcrumTransactionClient.calculateConfirmationCount(
+        let negativeHeight = OpalBase.Network.Fulcrum.TransactionClient.calculateConfirmationCount(
             transactionHeight: -1,
             tipHeight: 100_010
         )

@@ -4,7 +4,7 @@ import Foundation
 import Testing
 @testable import OpalBase
 
-@Suite("WalletActor orchestration", .tags(.unit, .wallet))
+@Suite("OpalBase.Wallet orchestration", .tags(.unit, .wallet))
 struct WalletOrchestrationValidator {
     @Test("prepareSpend(forAccountAt:) delegates to the selected account")
     func prepareSpendDelegatesToSelectedAccount() async throws {
@@ -16,11 +16,11 @@ struct WalletOrchestrationValidator {
             hashByte: 0x01
         )
 
-        let recipient = AccountActor.PaymentModel.Recipient(
-            address: try AddressModel(AccountTestFixturesModel.standardAddressString),
-            amount: try SatoshiModel(10_000)
+        let recipient = OpalBase.Account.Payment.Recipient(
+            address: try OpalBase.Address(AccountTestFixturesModel.standardAddressString),
+            amount: try OpalBase.Satoshi(10_000)
         )
-        let payment = AccountActor.PaymentModel(recipients: [recipient])
+        let payment = OpalBase.Account.Payment(recipients: [recipient])
 
         let plan = try await wallet.prepareSpend(forAccountAt: 0, payment: payment)
         #expect(plan.inputs.count == 1)
@@ -29,17 +29,17 @@ struct WalletOrchestrationValidator {
 
     @Test("prepareSpend(forAccountAt:) surfaces cannotFetchAccount for missing indices")
     func prepareSpendPropagatesMissingAccountErrors() async throws {
-        let wallet = WalletActor(mnemonic: try AccountTestFixturesModel.makeMnemonic())
-        let payment = AccountActor.PaymentModel(
+        let wallet = OpalBase.Wallet(mnemonic: try AccountTestFixturesModel.makeMnemonic())
+        let payment = OpalBase.Account.Payment(
             recipients: [
                 .init(
-                    address: try AddressModel(AccountTestFixturesModel.standardAddressString),
-                    amount: try SatoshiModel(1_000)
+                    address: try OpalBase.Address(AccountTestFixturesModel.standardAddressString),
+                    amount: try OpalBase.Satoshi(1_000)
                 )
             ]
         )
 
-        await #expect(throws: WalletActor.Error.cannotFetchAccount(index: 9)) {
+        await #expect(throws: OpalBase.Wallet.Error.cannotFetchAccount(index: 9)) {
             _ = try await wallet.prepareSpend(forAccountAt: 9, payment: payment)
         }
     }
@@ -53,15 +53,15 @@ struct WalletOrchestrationValidator {
         let account0Address = try await account0.selectNextEntry(for: .receiving).address
         let account1Address = try await account1.selectNextEntry(for: .receiving).address
 
-        let balanceByAddress: [AddressModel: SatoshiModel] = [
-            account0Address: try SatoshiModel(1_200),
-            account1Address: try SatoshiModel(3_400)
+        let balanceByAddress: [OpalBase.Address: OpalBase.Satoshi] = [
+            account0Address: try OpalBase.Satoshi(1_200),
+            account1Address: try OpalBase.Satoshi(3_400)
         ]
 
         let liveTotal = try await wallet.calculateBalance { address in
-            balanceByAddress[address] ?? SatoshiModel()
+            balanceByAddress[address] ?? OpalBase.Satoshi()
         }
-        let expectedTotal = try SatoshiModel(1_200) + SatoshiModel(3_400)
+        let expectedTotal = try OpalBase.Satoshi(1_200) + OpalBase.Satoshi(3_400)
         #expect(liveTotal == expectedTotal)
 
         let cachedTotal = try await wallet.calculateCachedBalance()
@@ -75,7 +75,7 @@ struct WalletOrchestrationValidator {
         _ = try await sourceAccount.reserveNextReceivingAddress()
         let snapshot = await sourceWallet.makeSnapshot()
 
-        let targetWallet = WalletActor(mnemonic: try AccountTestFixturesModel.makeMnemonic())
+        let targetWallet = OpalBase.Wallet(mnemonic: try AccountTestFixturesModel.makeMnemonic())
         try await targetWallet.addAccount(unhardenedIndex: 7)
 
         try await targetWallet.applySnapshot(snapshot)
@@ -87,7 +87,7 @@ struct WalletOrchestrationValidator {
         let nextReceiving = try await restoredAccount.selectNextEntry(for: .receiving)
         #expect(nextReceiving.derivationPath.index == 1)
 
-        await #expect(throws: WalletActor.Error.cannotFetchAccount(index: 7)) {
+        await #expect(throws: OpalBase.Wallet.Error.cannotFetchAccount(index: 7)) {
             _ = try await targetWallet.fetchAccount(at: 7)
         }
     }
@@ -97,7 +97,7 @@ struct WalletOrchestrationValidator {
         let wallet = try await AccountTestFixturesModel.makeWallet(accountIndices: [0])
         let snapshot = await wallet.makeSnapshot()
 
-        let mismatchedSnapshot = WalletActor.SnapshotModel(
+        let mismatchedSnapshot = OpalBase.Wallet.Snapshot(
             words: snapshot.words,
             passphrase: "different-passphrase",
             purpose: snapshot.purpose,
@@ -106,7 +106,7 @@ struct WalletOrchestrationValidator {
             tokenMetadata: snapshot.tokenMetadata
         )
 
-        await #expect(throws: WalletActor.Error.snapshotDoesNotMatchWallet) {
+        await #expect(throws: OpalBase.Wallet.Error.snapshotDoesNotMatchWallet) {
             try await wallet.applySnapshot(mismatchedSnapshot)
         }
     }

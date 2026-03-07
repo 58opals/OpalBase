@@ -16,7 +16,7 @@ public extension SchnorrModel {
         }
         let publicKeyPoint: AffinePointModel
         do {
-            publicKeyPoint = try PublicKeyModel.ParsingModel.parsePublicKey(publicKey)
+            publicKeyPoint = try OpalBase.PublicKey.ParsingModel.parsePublicKey(publicKey)
         } catch {
             return false
         }

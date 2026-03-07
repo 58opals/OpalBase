@@ -4,7 +4,7 @@ import Foundation
 import Testing
 @testable import OpalBase
 
-@Suite("NetworkModel live smoke", .tags(.network))
+@Suite("OpalBase.Network live smoke", .tags(.network))
 struct NetworkLiveSmokeValidator {
     private static let fallbackServers: [URL] = [
         URL(string: "wss://bch.imaginary.cash:50004")!,
@@ -19,7 +19,7 @@ struct NetworkLiveSmokeValidator {
         let configuration = makeSmokeConfiguration()
 
         try await NetworkTestClient.withClient(configuration: configuration) { client in
-            let reader = NetworkModel.FulcrumBlockHeaderReaderModel(client: client)
+            let reader = OpalBase.Network.Fulcrum.BlockHeaderReader(client: client)
             let tip = try await reader.fetchTip()
             #expect(tip.height > 0)
             #expect(!tip.headerHexadecimal.isEmpty)
@@ -32,7 +32,7 @@ struct NetworkLiveSmokeValidator {
         let configuration = makeSmokeConfiguration()
 
         try await NetworkTestClient.withClient(configuration: configuration) { client in
-            let reader = NetworkModel.FulcrumAddressReaderModel(client: client)
+            let reader = OpalBase.Network.Fulcrum.AddressReader(client: client)
             let balance = try await reader.fetchBalance(for: Self.sampleCashAddress, tokenFilter: .include)
             #expect(balance.confirmed >= 0)
             #expect(balance.unconfirmed >= 0)
@@ -41,10 +41,10 @@ struct NetworkLiveSmokeValidator {
 }
 
 private extension NetworkLiveSmokeValidator {
-    func makeSmokeConfiguration() -> NetworkModel.Configuration {
+    func makeSmokeConfiguration() -> OpalBase.Network.Configuration {
         let envServer = ProcessInfo.processInfo.environment["OPAL_FULCRUM_URL"].flatMap(URL.init(string:))
         let servers = [envServer].compactMap { $0 } + Self.fallbackServers
-        return NetworkModel.Configuration(
+        return OpalBase.Network.Configuration(
             serverURLs: servers,
             connectionTimeout: .seconds(10),
             maximumMessageSize: 16 * 1_024 * 1_024,

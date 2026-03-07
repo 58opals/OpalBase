@@ -15,7 +15,7 @@ extension SpendPlanBroadcastValidator {
         do {
             _ = try await genesisPlan.buildAndBroadcast(via: failingHandler)
             Issue.record("Expected token genesis broadcast to throw")
-        } catch let error as AccountActor.Error {
+        } catch let error as OpalBase.Account.Error {
             guard case .tokenGenesisBroadcastFailed = error else {
                 Issue.record("Expected tokenGenesisBroadcastFailed but got \(error)")
                 return
@@ -27,7 +27,7 @@ extension SpendPlanBroadcastValidator {
         do {
             _ = try await mintPlan.buildAndBroadcast(via: failingHandler)
             Issue.record("Expected token mint broadcast to throw")
-        } catch let error as AccountActor.Error {
+        } catch let error as OpalBase.Account.Error {
             guard case .tokenMintBroadcastFailed = error else {
                 Issue.record("Expected tokenMintBroadcastFailed but got \(error)")
                 return
@@ -39,7 +39,7 @@ extension SpendPlanBroadcastValidator {
         do {
             _ = try await mutationPlan.buildAndBroadcast(via: failingHandler)
             Issue.record("Expected token mutation broadcast to throw")
-        } catch let error as AccountActor.Error {
+        } catch let error as OpalBase.Account.Error {
             guard case .tokenMutationBroadcastFailed = error else {
                 Issue.record("Expected tokenMutationBroadcastFailed but got \(error)")
                 return
@@ -50,7 +50,7 @@ extension SpendPlanBroadcastValidator {
 }
 
 private extension SpendPlanBroadcastValidator {
-    func makeTokenGenesisPlan() async throws -> AccountActor.TokenGenesisPlanModel {
+    func makeTokenGenesisPlan() async throws -> OpalBase.Account.TokenGenesisPlan {
         let account = try await AccountTestFixturesModel.makeAccount()
         let genesisInput = try await AccountTestFixturesModel.addUnspentOutput(
             to: account,
@@ -58,10 +58,10 @@ private extension SpendPlanBroadcastValidator {
             hashByte: 0x81,
             outputIndex: 0
         )
-        let genesis = try AccountActor.TokenGenesisModel(
+        let genesis = try OpalBase.Account.TokenGenesis(
             recipients: [
                 .init(
-                    address: try AddressModel(AccountTestFixturesModel.tokenAwareAddressString),
+                    address: try OpalBase.Address(AccountTestFixturesModel.tokenAwareAddressString),
                     fungibleAmount: 1
                 )
             ]
@@ -69,11 +69,11 @@ private extension SpendPlanBroadcastValidator {
         return try await account.prepareTokenGenesis(genesis, preferredGenesisInput: genesisInput)
     }
 
-    func makeTokenMintPlan() async throws -> AccountActor.TokenMintPlanModel {
+    func makeTokenMintPlan() async throws -> OpalBase.Account.TokenMintPlan {
         let account = try await AccountTestFixturesModel.makeAccount()
-        let category = try CashTokensModel.CategoryIDModel(transactionOrderData: Data(repeating: 0x82, count: 32))
-        let mintingNonFungibleToken = try CashTokensModel.NFTModel(capability: .minting, commitment: Data([0x01]))
-        let authorityToken = CashTokensModel.TokenData(category: category, amount: 10, nft: mintingNonFungibleToken)
+        let category = try OpalBase.CashTokens.CategoryIDModel(transactionOrderData: Data(repeating: 0x82, count: 32))
+        let mintingNonFungibleToken = try OpalBase.CashTokens.NFTModel(capability: .minting, commitment: Data([0x01]))
+        let authorityToken = OpalBase.CashTokens.TokenData(category: category, amount: 10, nft: mintingNonFungibleToken)
         _ = try await AccountTestFixturesModel.addUnspentOutput(
             to: account,
             value: 20_000,
@@ -85,11 +85,11 @@ private extension SpendPlanBroadcastValidator {
             value: 100_000,
             hashByte: 0x84
         )
-        let mint = try AccountActor.TokenMintModel(
+        let mint = try OpalBase.Account.TokenMint(
             category: category,
             recipients: [
                 .init(
-                    address: try AddressModel(AccountTestFixturesModel.tokenAwareAddressString),
+                    address: try OpalBase.Address(AccountTestFixturesModel.tokenAwareAddressString),
                     nft: try .init(capability: .none, commitment: Data([0x02]))
                 )
             ]
@@ -97,11 +97,11 @@ private extension SpendPlanBroadcastValidator {
         return try await account.prepareTokenMint(mint)
     }
 
-    func makeTokenMutationPlan() async throws -> AccountActor.TokenCommitmentMutationPlanModel {
+    func makeTokenMutationPlan() async throws -> OpalBase.Account.TokenCommitmentMutationPlan {
         let account = try await AccountTestFixturesModel.makeAccount()
-        let category = try CashTokensModel.CategoryIDModel(transactionOrderData: Data(repeating: 0x85, count: 32))
-        let mutableToken = try CashTokensModel.NFTModel(capability: .mutable, commitment: Data([0x03]))
-        let authorityToken = CashTokensModel.TokenData(category: category, amount: 5, nft: mutableToken)
+        let category = try OpalBase.CashTokens.CategoryIDModel(transactionOrderData: Data(repeating: 0x85, count: 32))
+        let mutableToken = try OpalBase.CashTokens.NFTModel(capability: .mutable, commitment: Data([0x03]))
+        let authorityToken = OpalBase.CashTokens.TokenData(category: category, amount: 5, nft: mutableToken)
         let authorityInput = try await AccountTestFixturesModel.addUnspentOutput(
             to: account,
             value: 24_000,
@@ -113,10 +113,10 @@ private extension SpendPlanBroadcastValidator {
             value: 120_000,
             hashByte: 0x87
         )
-        let mutation = try AccountActor.TokenCommitmentMutationModel(
+        let mutation = try OpalBase.Account.TokenCommitmentMutation(
             target: .preferredInput(authorityInput),
             newCommitment: Data([0x04]),
-            destination: try AddressModel(AccountTestFixturesModel.tokenAwareAddressString)
+            destination: try OpalBase.Address(AccountTestFixturesModel.tokenAwareAddressString)
         )
         return try await account.prepareTokenCommitmentMutation(mutation)
     }

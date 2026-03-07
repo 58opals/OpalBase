@@ -48,11 +48,11 @@ struct Base58Validator {
     @Test("encodes and decodes known wallet import format vector")
     func encodesAndDecodesKnownWalletImportFormatVector() throws {
         let privateKeyData = Data(repeating: 0, count: 31) + Data([0x01])
-        let privateKey = try PrivateKeyModel(data: privateKeyData)
+        let privateKey = try OpalBase.PrivateKey(data: privateKeyData)
         let expectedWalletImportFormat = "KwDiBf89QgGbjEhKnhXJuH7LrciVrZi3qYjgd9M7rFU73sVHnoWn"
         
         let encodedWalletImportFormat = privateKey.wif
-        let decodedPrivateKey = try PrivateKeyModel(wif: expectedWalletImportFormat)
+        let decodedPrivateKey = try OpalBase.PrivateKey(wif: expectedWalletImportFormat)
         
         #expect(encodedWalletImportFormat == expectedWalletImportFormat)
         #expect(decodedPrivateKey.rawData == privateKey.rawData)

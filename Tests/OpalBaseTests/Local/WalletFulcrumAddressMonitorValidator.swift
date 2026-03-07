@@ -4,14 +4,14 @@ import Foundation
 import Testing
 @testable import OpalBase
 
-@Suite("WalletActor.FulcrumAddressActor.MonitorActor", .tags(.unit, .wallet))
+@Suite("OpalBase.Wallet.Fulcrum.Monitor", .tags(.unit, .wallet))
 struct WalletFulcrumAddressMonitorValidator {
     @Test("monitor emits tracked, UTXOModel/history, and stopped termination events")
     func monitorEmitsCoreLifecycleEvents() async throws {
         let account = try await AccountTestFixturesModel.makeAccount()
         let targetEntry = try await account.selectNextEntry(for: .receiving)
         let hash = AccountTestFixturesModel.makeHash(byte: 0x51)
-        let unspentOutput = TransactionModel.OutputModel.UnspentModel(
+        let unspentOutput = OpalBase.Transaction.OutputModel.UnspentModel(
             value: 14_000,
             lockingScript: targetEntry.address.lockingScript.data,
             previousTransactionHash: AccountTestFixturesModel.makeHash(byte: 0x52),
@@ -33,7 +33,7 @@ struct WalletFulcrumAddressMonitorValidator {
         let headerReader = BlockHeaderReaderTestActor(
             snapshots: [.init(height: 15, headerHexadecimal: String(repeating: "a", count: 160))]
         )
-        let fulcrum = WalletActor.FulcrumAddressActor(
+        let fulcrum = OpalBase.Wallet.Fulcrum(
             addressReader: addressReader,
             transactionHandler: confirmationClient
         )
@@ -99,7 +99,7 @@ struct WalletFulcrumAddressMonitorValidator {
         let headerReader = BlockHeaderReaderTestActor(
             snapshots: [.init(height: 20, headerHexadecimal: String(repeating: "b", count: 160))]
         )
-        let fulcrum = WalletActor.FulcrumAddressActor(
+        let fulcrum = OpalBase.Wallet.Fulcrum(
             addressReader: addressReader,
             transactionHandler: confirmationClient
         )
@@ -139,7 +139,7 @@ struct WalletFulcrumAddressMonitorValidator {
         let account = try await AccountTestFixturesModel.makeAccount()
         let targetEntry = try await account.selectNextEntry(for: .receiving)
         let hash = AccountTestFixturesModel.makeHash(byte: 0x61)
-        let unspentOutput = TransactionModel.OutputModel.UnspentModel(
+        let unspentOutput = OpalBase.Transaction.OutputModel.UnspentModel(
             value: 7_000,
             lockingScript: targetEntry.address.lockingScript.data,
             previousTransactionHash: AccountTestFixturesModel.makeHash(byte: 0x62),
@@ -158,7 +158,7 @@ struct WalletFulcrumAddressMonitorValidator {
         )
         let confirmationClient = TransactionConfirmationClientTestActor()
         let headerReader = BlockHeaderReaderTestActor(snapshots: .init())
-        let fulcrum = WalletActor.FulcrumAddressActor(
+        let fulcrum = OpalBase.Wallet.Fulcrum(
             addressReader: addressReader,
             transactionHandler: confirmationClient
         )
