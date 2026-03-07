@@ -5,14 +5,14 @@ import Foundation
 extension _OpalBase.Account {
     struct SpendContextModel {
         let reservationHandle: SpendReservationModel
-        let privateKeys: [OpalBase.Transaction.OutputModel.UnspentModel: OpalBase.PrivateKey]
+        let privateKeys: [OpalBase.Transaction.OutputModel.Unspent: OpalBase.PrivateKey]
         let changeOutput: OpalBase.Transaction.OutputModel
         let totalSelectedAmount: OpalBase.Satoshi
         let targetAmount: OpalBase.Satoshi
     }
     
     func reserveSpendContext(
-        inputs: [OpalBase.Transaction.OutputModel.UnspentModel],
+        inputs: [OpalBase.Transaction.OutputModel.Unspent],
         outputs: [OpalBase.Transaction.OutputModel],
         changeEntry: OpalBase.Address.Book.EntryModel,
         tokenSelectionPolicy: OpalBase.Address.Book.CoinSelectionModel.TokenSelectionPolicy,

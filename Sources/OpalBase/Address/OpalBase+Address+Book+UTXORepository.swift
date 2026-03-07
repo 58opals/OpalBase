@@ -13,15 +13,15 @@ extension _OpalBase.Address.Book {
                 self.outputIndex = input.previousTransactionOutputIndex
             }
             
-            init(_ utxo: OpalBase.Transaction.OutputModel.UnspentModel) {
+            init(_ utxo: OpalBase.Transaction.OutputModel.Unspent) {
                 self.transactionHash = utxo.previousTransactionHash
                 self.outputIndex = utxo.previousTransactionOutputIndex
             }
         }
         
-        var utxosByLockingScript: [Data: Set<OpalBase.Transaction.OutputModel.UnspentModel>]
-        var utxosByOutpoint: [Outpoint: OpalBase.Transaction.OutputModel.UnspentModel]
-        var reservedUTXOs: Set<OpalBase.Transaction.OutputModel.UnspentModel>
+        var utxosByLockingScript: [Data: Set<OpalBase.Transaction.OutputModel.Unspent>]
+        var utxosByOutpoint: [Outpoint: OpalBase.Transaction.OutputModel.Unspent]
+        var reservedUTXOs: Set<OpalBase.Transaction.OutputModel.Unspent>
         
         init() {
             self.utxosByLockingScript = .init()
@@ -29,11 +29,11 @@ extension _OpalBase.Address.Book {
             self.reservedUTXOs = .init()
         }
         
-        mutating func add(_ utxo: OpalBase.Transaction.OutputModel.UnspentModel) {
+        mutating func add(_ utxo: OpalBase.Transaction.OutputModel.Unspent) {
             store(utxo)
         }
         
-        mutating func add(_ utxos: [OpalBase.Transaction.OutputModel.UnspentModel]) {
+        mutating func add(_ utxos: [OpalBase.Transaction.OutputModel.Unspent]) {
             guard !utxos.isEmpty else {
                 return
             }
@@ -43,8 +43,8 @@ extension _OpalBase.Address.Book {
             }
         }
         
-        mutating func replace(with utxos: Set<OpalBase.Transaction.OutputModel.UnspentModel>) {
-            utxosByLockingScript = utxos.reduce(into: [Data: Set<OpalBase.Transaction.OutputModel.UnspentModel>]()) { result, unspent in
+        mutating func replace(with utxos: Set<OpalBase.Transaction.OutputModel.Unspent>) {
+            utxosByLockingScript = utxos.reduce(into: [Data: Set<OpalBase.Transaction.OutputModel.Unspent>]()) { result, unspent in
                 result[unspent.lockingScript, default: .init()].insert(unspent)
             }
             utxosByOutpoint = utxos.reduce(into: .init()) { result, unspent in
@@ -53,7 +53,7 @@ extension _OpalBase.Address.Book {
             reservedUTXOs = reservedUTXOs.intersection(utxos)
         }
         
-        mutating func replace(for address: OpalBase.Address, with utxos: [OpalBase.Transaction.OutputModel.UnspentModel]) {
+        mutating func replace(for address: OpalBase.Address, with utxos: [OpalBase.Transaction.OutputModel.Unspent]) {
             let lockingScript = address.lockingScript.data
             let newUTXOs = Set(utxos)
             
@@ -76,12 +76,12 @@ extension _OpalBase.Address.Book {
             reservedUTXOs = reservedUTXOs.intersection(allUTXOs)
         }
         
-        mutating func remove(_ utxo: OpalBase.Transaction.OutputModel.UnspentModel) {
+        mutating func remove(_ utxo: OpalBase.Transaction.OutputModel.Unspent) {
             discard(utxo)
             reservedUTXOs.remove(utxo)
         }
         
-        mutating func remove(_ utxos: [OpalBase.Transaction.OutputModel.UnspentModel]) {
+        mutating func remove(_ utxos: [OpalBase.Transaction.OutputModel.Unspent]) {
             let removals = Set(utxos)
             guard !removals.isEmpty else {
                 return
@@ -99,11 +99,11 @@ extension _OpalBase.Address.Book {
             reservedUTXOs.removeAll()
         }
         
-        mutating func reserve(_ utxos: Set<OpalBase.Transaction.OutputModel.UnspentModel>) throws {
+        mutating func reserve(_ utxos: Set<OpalBase.Transaction.OutputModel.Unspent>) throws {
             try reserve(utxos, tokenSelectionPolicy: .allowTokenUTXOs)
         }
         
-        mutating func reserve(_ utxos: Set<OpalBase.Transaction.OutputModel.UnspentModel>,
+        mutating func reserve(_ utxos: Set<OpalBase.Transaction.OutputModel.Unspent>,
                               tokenSelectionPolicy: OpalBase.Address.Book.CoinSelectionModel.TokenSelectionPolicy) throws {
             let allowedUTXOs = filterUTXOs(allUTXOs, tokenSelectionPolicy: tokenSelectionPolicy)
             guard utxos.isSubset(of: allowedUTXOs) else { throw OpalBase.Address.Book.Error.utxoNotFound }
@@ -115,23 +115,23 @@ extension _OpalBase.Address.Book {
             reservedUTXOs.formUnion(utxos)
         }
         
-        mutating func release(_ utxos: Set<OpalBase.Transaction.OutputModel.UnspentModel>) {
+        mutating func release(_ utxos: Set<OpalBase.Transaction.OutputModel.Unspent>) {
             guard !utxos.isEmpty else { return }
             reservedUTXOs.subtract(utxos)
         }
         
-        func findUTXO(matching input: OpalBase.Transaction.InputModel) -> OpalBase.Transaction.OutputModel.UnspentModel? {
+        func findUTXO(matching input: OpalBase.Transaction.InputModel) -> OpalBase.Transaction.OutputModel.Unspent? {
             utxosByOutpoint[Outpoint(input)]
         }
         
-        private mutating func store(_ utxo: OpalBase.Transaction.OutputModel.UnspentModel) {
+        private mutating func store(_ utxo: OpalBase.Transaction.OutputModel.Unspent) {
             var utxos = utxosByLockingScript[utxo.lockingScript] ?? .init()
             utxos.insert(utxo)
             utxosByLockingScript[utxo.lockingScript] = utxos
             utxosByOutpoint[Outpoint(utxo)] = utxo
         }
         
-        private mutating func discard(_ utxo: OpalBase.Transaction.OutputModel.UnspentModel) {
+        private mutating func discard(_ utxo: OpalBase.Transaction.OutputModel.Unspent) {
             guard var indexedUTXOs = utxosByLockingScript[utxo.lockingScript] else {
                 return
             }

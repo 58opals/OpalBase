@@ -116,10 +116,10 @@ private func addSpendableOutput(
     previousTransactionHash: OpalBase.Transaction.HashModel,
     previousTransactionOutputIndex: UInt32,
     value: UInt64 = 50_000
-) async throws -> OpalBase.Transaction.OutputModel.UnspentModel {
+) async throws -> OpalBase.Transaction.OutputModel.Unspent {
     let addressBook = await account.addressBook
     let receivingEntry = try await addressBook.selectNextEntry(for: .receiving)
-    let unspentOutput = OpalBase.Transaction.OutputModel.UnspentModel(
+    let unspentOutput = OpalBase.Transaction.OutputModel.Unspent(
         value: value,
         lockingScript: receivingEntry.address.lockingScript.data,
         previousTransactionHash: previousTransactionHash,

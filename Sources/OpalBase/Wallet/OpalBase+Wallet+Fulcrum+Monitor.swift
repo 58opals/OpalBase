@@ -30,9 +30,9 @@ extension _OpalBase.Wallet.Fulcrum {
         public enum Event: Sendable {
             case addressTracked(OpalBase.Address)
             case utxosChanged(OpalBase.Address.Book.UTXOChangeSetModel)
-            case historyChanged(OpalBase.Transaction.HistoryModel.ChangeSetModel)
-            case confirmationsChanged(OpalBase.Transaction.HistoryModel.ChangeSetModel)
-            case performedFullRefresh(OpalBase.Address.Book.UTXORefreshModel, OpalBase.Transaction.HistoryModel.ChangeSetModel)
+            case historyChanged(OpalBase.Transaction.HistoryModel.ChangeSet)
+            case confirmationsChanged(OpalBase.Transaction.HistoryModel.ChangeSet)
+            case performedFullRefresh(OpalBase.Address.Book.UTXORefreshModel, OpalBase.Transaction.HistoryModel.ChangeSet)
             case encounteredFailure(Failure)
             case terminated(Termination)
         }

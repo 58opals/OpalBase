@@ -4,11 +4,11 @@ import Foundation
 
 extension _OpalBase.Address.Book {
     public struct UTXORefreshModel {
-        public let utxosByAddress: [OpalBase.Address: [OpalBase.Transaction.OutputModel.UnspentModel]]
+        public let utxosByAddress: [OpalBase.Address: [OpalBase.Transaction.OutputModel.Unspent]]
         public let changeSets: [UTXOChangeSetModel]
         public let totalBalance: OpalBase.Satoshi
         
-        public init(utxosByAddress: [OpalBase.Address : [OpalBase.Transaction.OutputModel.UnspentModel]],
+        public init(utxosByAddress: [OpalBase.Address : [OpalBase.Transaction.OutputModel.Unspent]],
                     changeSets: [UTXOChangeSetModel],
                     totalBalance: OpalBase.Satoshi) {
             self.utxosByAddress = utxosByAddress
@@ -24,7 +24,7 @@ extension _OpalBase.Address.Book.UTXORefreshModel: Equatable {}
 extension _OpalBase.Address.Book {
     public func refreshUTXOSet(using service: OpalBase.Network.AddressReadable,
                                usage: OpalBase.DerivationPath.UsageModel? = nil) async throws -> UTXORefreshModel {
-        var refreshedUTXOs: [OpalBase.Address: [OpalBase.Transaction.OutputModel.UnspentModel]] = .init()
+        var refreshedUTXOs: [OpalBase.Address: [OpalBase.Transaction.OutputModel.Unspent]] = .init()
         var changeSets: [UTXOChangeSetModel] = .init()
         
         let refreshTimestamp = Date.now

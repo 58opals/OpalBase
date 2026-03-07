@@ -19,7 +19,7 @@ extension _OpalBase.Transaction.HistoryModel {
 }
 
 extension _OpalBase.Transaction.HistoryModel.Status {
-    struct TransitionModel: Sendable, Hashable {
+    struct Transition: Sendable, Hashable {
         let status: OpalBase.Transaction.HistoryModel.Status
         private let explicitConfirmationHeight: UInt64?
 
@@ -43,21 +43,21 @@ extension _OpalBase.Transaction.HistoryModel.Status {
     }
 
     static func makeTransition(forHeight height: Int,
-                               from previousStatus: OpalBase.Transaction.HistoryModel.Status?) -> TransitionModel
+                               from previousStatus: OpalBase.Transaction.HistoryModel.Status?) -> Transition
     {
         if height > 0 {
-            return TransitionModel(status: .confirmed, confirmationHeight: UInt64(height))
+            return Transition(status: .confirmed, confirmationHeight: UInt64(height))
         }
         
         guard let previousStatus else {
-            return TransitionModel(status: .discovered, confirmationHeight: nil)
+            return Transition(status: .discovered, confirmationHeight: nil)
         }
         
         switch previousStatus {
         case .confirmed, .discovered:
-            return TransitionModel(status: .pending, confirmationHeight: nil)
+            return Transition(status: .pending, confirmationHeight: nil)
         case .pending, .failed:
-            return TransitionModel(status: previousStatus, confirmationHeight: nil)
+            return Transition(status: previousStatus, confirmationHeight: nil)
         }
     }
 }

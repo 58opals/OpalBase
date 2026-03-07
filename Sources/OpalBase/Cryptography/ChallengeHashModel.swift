@@ -25,8 +25,8 @@ enum ChallengeHashModel {
         let hashData = Data(SHA256Model.hash(input))
         let hashValue = try UInt256Model(data32: hashData)
         var reducedValue = hashValue
-        if reducedValue.compare(to: Secp256k1Model.ConstantModel.n) != .orderedAscending {
-            reducedValue = reducedValue.subtract(Secp256k1Model.ConstantModel.n).difference
+        if reducedValue.compare(to: Secp256k1Model.Constant.n) != .orderedAscending {
+            reducedValue = reducedValue.subtract(Secp256k1Model.Constant.n).difference
         }
         return ScalarModel(unchecked: reducedValue)
     }

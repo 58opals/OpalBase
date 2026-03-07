@@ -1,10 +1,10 @@
-// NonceGeneratorModel+RFC6979Model.swift
+// NonceGeneratorModel+RFC6979.swift
 
 import Foundation
 import CryptoKit
 
 extension NonceGeneratorModel {
-    struct RFC6979Model {
+    struct RFC6979 {
         private var keyBytes: Data
         private var valueBytes: Data
         private let privateKeyData: Data

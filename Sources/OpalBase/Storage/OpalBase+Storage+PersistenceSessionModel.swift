@@ -4,7 +4,7 @@ import Foundation
 
 extension _OpalBase.Storage {
     public struct PersistenceSessionModel: Sendable {
-        public typealias ProgressHandler = @Sendable (ProgressModel) async -> Void
+        public typealias ProgressHandler = @Sendable (Progress) async -> Void
         
         private let ports: OpalBase.Storage.PortsModel
         private let progressHandler: ProgressHandler
@@ -18,7 +18,7 @@ extension _OpalBase.Storage {
             self.progressHandler = progressHandler
         }
         
-        public init(operations: OperationsModel, progressHandler: @escaping ProgressHandler = { _ in }) {
+        public init(operations: Operations, progressHandler: @escaping ProgressHandler = { _ in }) {
             self.init(ports: .init(operations: operations), progressHandler: progressHandler)
         }
         
@@ -108,7 +108,7 @@ extension _OpalBase.Storage {
 }
 
 extension _OpalBase.Storage.PersistenceSessionModel {
-    public struct OperationsModel: Sendable {
+    public struct Operations: Sendable {
         public var walletSnapshotSaver: @Sendable (OpalBase.Wallet.Snapshot) async throws -> Void
         public var walletSnapshotLoader: @Sendable () async throws -> OpalBase.Wallet.Snapshot?
         public var accountSnapshotSaver: @Sendable (OpalBase.Account.SnapshotModel, Data) async throws -> Void
@@ -142,7 +142,7 @@ extension _OpalBase.Storage.PersistenceSessionModel {
         }
     }
     
-    public enum ProgressModel: Sendable, Equatable {
+    public enum Progress: Sendable, Equatable {
         case beganSave
         case savedWalletSnapshot
         case savedAccount(identifier: Data, unhardenedIndex: UInt32)

@@ -15,7 +15,7 @@ struct ExtendedKeyDerivationValidator {
     @Test("derives canonical hierarchical deterministic vectors")
     func derivesCanonicalHierarchicalDeterministicVectors() throws {
         let seed = try Data(hexadecimalString: "000102030405060708090a0b0c0d0e0f")
-        let rootKey = try OpalBase.PrivateKey.ExtendedModel.RootModel(seed: seed)
+        let rootKey = try OpalBase.PrivateKey.ExtendedModel.Root(seed: seed)
         let rootPrivateKey = OpalBase.PrivateKey.ExtendedModel(rootKey: rootKey)
         
         let vectors: [DerivationVector] = [

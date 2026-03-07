@@ -1,9 +1,9 @@
-// Secp256k1Model+DERLengthModel.swift
+// Secp256k1Model+DERLength.swift
 
 import Foundation
 
 extension Secp256k1Model {
-    enum DERLengthModel {
+    enum DERLength {
         static func encode(_ length: Int) throws -> Data {
             guard length >= 0 else {
                 throw Secp256k1Model.Error.derMalformed

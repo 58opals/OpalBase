@@ -40,7 +40,7 @@ extension _OpalBase.Network {
             }
             
             if error is CancellationError {
-                return OpalBase.Network.Error(reason: .cancelled, message: "OperationModel cancelled")
+                return OpalBase.Network.Error(reason: .cancelled, message: "Operation cancelled")
             }
             
             guard let fulcrumError = error as? SwiftFulcrum.Client.Error else {
@@ -124,11 +124,11 @@ extension _OpalBase.Network {
             case .duplicateHandler:
                 return OpalBase.Network.Error(reason: .unknown, message: "Duplicate handler registered")
             case .cancelled:
-                return OpalBase.Network.Error(reason: .cancelled, message: "OperationModel cancelled")
+                return OpalBase.Network.Error(reason: .cancelled, message: "Operation cancelled")
             case .timeout(let duration):
                 return OpalBase.Network.Error(
                     reason: .timeout,
-                    message: "OperationModel timed out",
+                    message: "Operation timed out",
                     metadata: ["timeoutSeconds": String(duration.totalSeconds)]
                 )
             case .emptyResponse(let identifier):

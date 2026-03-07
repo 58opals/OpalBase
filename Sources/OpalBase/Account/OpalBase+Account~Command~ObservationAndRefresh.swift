@@ -17,7 +17,7 @@ extension _OpalBase.Account {
 
 extension _OpalBase.Account {
     public func replaceUTXOs(for address: OpalBase.Address,
-                             with utxos: [OpalBase.Transaction.OutputModel.UnspentModel],
+                             with utxos: [OpalBase.Transaction.OutputModel.Unspent],
                              timestamp: Date = .now) async throws -> OpalBase.Address.Book.UTXOChangeSetModel {
         let changeSet = try await addressBook.replaceUTXOs(for: address,
                                                            with: utxos,
@@ -38,7 +38,7 @@ extension _OpalBase.Account {
     public func refreshTransactionHistory(for address: OpalBase.Address,
                                           using service: OpalBase.Network.AddressReadable,
                                           includeUnconfirmed: Bool = true,
-                                          transactionReader: OpalBase.Network.TransactionReadableClient? = nil) async throws -> OpalBase.Transaction.HistoryModel.ChangeSetModel {
+                                          transactionReader: OpalBase.Network.TransactionReadableClient? = nil) async throws -> OpalBase.Transaction.HistoryModel.ChangeSet {
         try await addressBook.refreshTransactionHistory(for: address,
                                                         using: service,
                                                         includeUnconfirmed: includeUnconfirmed,

@@ -11,14 +11,14 @@ struct AddressBookCoinSelectorValidator {
         let previousTransactionHash = OpalBase.Transaction.HashModel(naturalOrder: Data(repeating: 0, count: 32))
         let lockingScript = Data([0x51])
 
-        let firstUnspent = OpalBase.Transaction.OutputModel.UnspentModel(
+        let firstUnspent = OpalBase.Transaction.OutputModel.Unspent(
             value: UInt64.max &- 1,
             lockingScript: lockingScript,
             previousTransactionHash: previousTransactionHash,
             previousTransactionOutputIndex: 0
         )
 
-        let secondUnspent = OpalBase.Transaction.OutputModel.UnspentModel(
+        let secondUnspent = OpalBase.Transaction.OutputModel.Unspent(
             value: 10,
             lockingScript: lockingScript,
             previousTransactionHash: previousTransactionHash,
@@ -49,14 +49,14 @@ struct AddressBookCoinSelectorValidator {
         let lockingScript = Data(repeating: 0, count: 25)
         let placeholderHash = OpalBase.Transaction.HashModel(naturalOrder: Data(repeating: 0, count: 32))
 
-        let nearMaximumUnspent = OpalBase.Transaction.OutputModel.UnspentModel(
+        let nearMaximumUnspent = OpalBase.Transaction.OutputModel.Unspent(
             value: UInt64.max - 1,
             lockingScript: lockingScript,
             previousTransactionHash: placeholderHash,
             previousTransactionOutputIndex: 0
         )
 
-        let smallUnspent = OpalBase.Transaction.OutputModel.UnspentModel(
+        let smallUnspent = OpalBase.Transaction.OutputModel.Unspent(
             value: 2,
             lockingScript: lockingScript,
             previousTransactionHash: placeholderHash,
@@ -79,13 +79,13 @@ struct AddressBookCoinSelectorValidator {
     @Test("select throws when utxo accumulation overflows UInt64")
     func selectGreedyThrowsOnOverflow() async throws {
         let previousTransactionHash = OpalBase.Transaction.HashModel(naturalOrder: Data(repeating: 0, count: 32))
-        let utxoWithMaximumValue = OpalBase.Transaction.OutputModel.UnspentModel(
+        let utxoWithMaximumValue = OpalBase.Transaction.OutputModel.Unspent(
             value: UInt64.max - 1,
             lockingScript: Data(),
             previousTransactionHash: previousTransactionHash,
             previousTransactionOutputIndex: 0
         )
-        let utxoTriggeringOverflow = OpalBase.Transaction.OutputModel.UnspentModel(
+        let utxoTriggeringOverflow = OpalBase.Transaction.OutputModel.Unspent(
             value: 10,
             lockingScript: Data(),
             previousTransactionHash: previousTransactionHash,

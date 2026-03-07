@@ -23,7 +23,7 @@ struct EllipticCurveDigitalSignatureSchnorrBitcoinCashValidator {
         let privateKey = try OpalBase.PrivateKey()
         let publicKey = try OpalBase.PublicKey(privateKey: privateKey)
         let preimage = Data("SchnorrModel round trip preimage".utf8)
-        let message = ECDSAModel.MessageModel.makeDoubleSHA256(preimage)
+        let message = ECDSAModel.Message.makeDoubleSHA256(preimage)
         let signature = try ECDSAModel.sign(message: message, with: privateKey, in: .schnorr)
         let isValid = try ECDSAModel.verify(signature: signature,
                                        message: message,
@@ -39,7 +39,7 @@ struct EllipticCurveDigitalSignatureSchnorrBitcoinCashValidator {
         let publicKey = try OpalBase.PublicKey(privateKey: privateKey)
         let lockingScript = OpalBase.Script.p2pkh_OPCHECKSIG(hash: OpalBase.PublicKey.HashModel(publicKey: publicKey)).data
         let previousTransactionHash = OpalBase.Transaction.HashModel(naturalOrder: Data(repeating: 0x11, count: 32))
-        let unspent = OpalBase.Transaction.OutputModel.UnspentModel(value: 10_000,
+        let unspent = OpalBase.Transaction.OutputModel.Unspent(value: 10_000,
                                                  lockingScript: lockingScript,
                                                  previousTransactionHash: previousTransactionHash,
                                                  previousTransactionOutputIndex: 0)

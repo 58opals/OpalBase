@@ -3,7 +3,7 @@
 import Foundation
 
 enum BitcoinImprovementProposalSchnorrTestData {
-    struct VectorData: Sendable {
+    struct Vector: Sendable {
         let index: Int
         let secretKeyHexadecimal: String?
         let publicKeyHexadecimal: String
@@ -13,7 +13,7 @@ enum BitcoinImprovementProposalSchnorrTestData {
         let comment: String?
     }
     
-    static let all: [VectorData] = [
+    static let all: [Vector] = [
         .init(
             index: 1,
             secretKeyHexadecimal: "0000000000000000000000000000000000000000000000000000000000000001",

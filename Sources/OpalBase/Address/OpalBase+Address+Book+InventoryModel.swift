@@ -4,7 +4,7 @@ import Foundation
 
 extension _OpalBase.Address.Book {
     struct InventoryModel {
-        private var bucket: UsageBucketModel
+        private var bucket: UsageBucket
         private var addressIndex: [OpalBase.Address: (usage: OpalBase.DerivationPath.UsageModel, index: Int)]
         private var cacheValidityDurationValue: TimeInterval
         

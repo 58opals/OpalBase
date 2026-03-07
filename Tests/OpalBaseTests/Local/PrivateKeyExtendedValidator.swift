@@ -11,7 +11,7 @@ struct PrivateKeyExtendedValidator {
         let mnemonic = try OpalBase.Mnemonic(words: [
             "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "about"
         ])
-        let rootKey = try OpalBase.PrivateKey.ExtendedModel.RootModel(seed: mnemonic.seed)
+        let rootKey = try OpalBase.PrivateKey.ExtendedModel.Root(seed: mnemonic.seed)
         let extendedPrivateKey = OpalBase.PrivateKey.ExtendedModel(rootKey: rootKey)
         
         let serialized = extendedPrivateKey.serialize()

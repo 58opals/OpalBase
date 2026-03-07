@@ -1,9 +1,9 @@
-// Secp256k1Model+OperationModel.swift
+// Secp256k1Model+Operation.swift
 
 import Foundation
 
 extension Secp256k1Model {
-    public enum OperationModel {
+    public enum Operation {
         public enum PublicKeyFormat {
             case compressed
             case uncompressed
@@ -21,7 +21,7 @@ extension Secp256k1Model {
         }
 
         public static var curveOrderN: Data {
-            Secp256k1Model.ConstantModel.n.data32
+            Secp256k1Model.Constant.n.data32
         }
 
         public static func validatePrivateKey32(_ privateKey32: Data) -> Bool {

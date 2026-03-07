@@ -10,8 +10,8 @@ extension _OpalBase.Address.Book {
         return privateKey
     }
     
-    func derivePrivateKeys(for utxos: [OpalBase.Transaction.OutputModel.UnspentModel]) throws -> [OpalBase.Transaction.OutputModel.UnspentModel: OpalBase.PrivateKey] {
-        var derived: [OpalBase.Transaction.OutputModel.UnspentModel: OpalBase.PrivateKey] = .init()
+    func derivePrivateKeys(for utxos: [OpalBase.Transaction.OutputModel.Unspent]) throws -> [OpalBase.Transaction.OutputModel.Unspent: OpalBase.PrivateKey] {
+        var derived: [OpalBase.Transaction.OutputModel.Unspent: OpalBase.PrivateKey] = .init()
         derived.reserveCapacity(utxos.count)
         
         var addressByLockingScript: [Data: OpalBase.Address] = .init()

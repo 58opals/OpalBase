@@ -27,8 +27,8 @@ enum FieldReductionModel {
         var result = UInt256Model(limbs: [
             reducedLimbs[0], reducedLimbs[1], reducedLimbs[2], reducedLimbs[3]
         ])
-        if result.compare(to: Secp256k1Model.ConstantModel.p) != .orderedAscending {
-            result = result.subtract(Secp256k1Model.ConstantModel.p).difference
+        if result.compare(to: Secp256k1Model.Constant.p) != .orderedAscending {
+            result = result.subtract(Secp256k1Model.Constant.p).difference
         }
         return result
     }

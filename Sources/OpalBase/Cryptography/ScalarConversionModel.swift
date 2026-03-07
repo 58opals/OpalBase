@@ -6,8 +6,8 @@ enum ScalarConversionModel {
     static func makeScalarFromFieldElement(_ fieldElement: FieldElementModel) throws -> ScalarModel {
         let parsed = try UInt256Model(data32: fieldElement.data32)
         var reduced = parsed
-        if reduced.compare(to: Secp256k1Model.ConstantModel.n) != .orderedAscending {
-            reduced = reduced.subtract(Secp256k1Model.ConstantModel.n).difference
+        if reduced.compare(to: Secp256k1Model.Constant.n) != .orderedAscending {
+            reduced = reduced.subtract(Secp256k1Model.Constant.n).difference
         }
         return ScalarModel(unchecked: reduced)
     }
@@ -15,8 +15,8 @@ enum ScalarConversionModel {
     static func makeReducedScalarFromDigest(_ digest32: Data) throws -> ScalarModel {
         let parsed = try UInt256Model(data32: digest32)
         var reduced = parsed
-        if reduced.compare(to: Secp256k1Model.ConstantModel.n) != .orderedAscending {
-            reduced = reduced.subtract(Secp256k1Model.ConstantModel.n).difference
+        if reduced.compare(to: Secp256k1Model.Constant.n) != .orderedAscending {
+            reduced = reduced.subtract(Secp256k1Model.Constant.n).difference
         }
         return ScalarModel(unchecked: reduced)
     }

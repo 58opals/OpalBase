@@ -28,14 +28,14 @@ struct Secp256k1EndomorphismValidator {
         )
         let expected = AffinePointModel(
             x: expectedX,
-            y: FieldElementModel(unchecked: Secp256k1Model.ConstantModel.Gy)
+            y: FieldElementModel(unchecked: Secp256k1Model.Constant.Gy)
         )
         #expect(ScalarMultiplicationModel.generator.applyEndomorphism() == expected)
     }
     
     @Test("Endomorphism matches scalar lambda multiplication")
     func endomorphismMatchesLambdaMultiplication() {
-        let lambda = ScalarModel(unchecked: Secp256k1Model.ConstantModel.endomorphismLambda)
+        let lambda = ScalarModel(unchecked: Secp256k1Model.Constant.endomorphismLambda)
         let lambdaPoint = ScalarMultiplicationModel.mul(lambda, ScalarMultiplicationModel.generator).convertToAffine()
         #expect(lambdaPoint == ScalarMultiplicationModel.generator.applyEndomorphism())
     }
@@ -67,7 +67,7 @@ struct Secp256k1EndomorphismValidator {
     private func recombine(
         split: (firstScalar: SignedScalar128Model, secondScalar: SignedScalar128Model, isFirstNegative: Bool, isSecondNegative: Bool)
     ) -> ScalarModel {
-        let lambda = ScalarModel(unchecked: Secp256k1Model.ConstantModel.endomorphismLambda)
+        let lambda = ScalarModel(unchecked: Secp256k1Model.Constant.endomorphismLambda)
         let firstScalar = makeScalar(from: split.firstScalar)
         let secondScalar = makeScalar(from: split.secondScalar)
         return firstScalar.addModN(secondScalar.mulModN(lambda))

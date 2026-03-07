@@ -10,10 +10,10 @@ extension _OpalBase.Transaction {
 }
 
 extension _OpalBase.Transaction.UnlockerModel {
-    func makePlaceholderUnlockingScript(signatureFormat: ECDSAModel.SignatureFormatModel) -> Data {
+    func makePlaceholderUnlockingScript(signatureFormat: ECDSAModel.SignatureFormat) -> Data {
         switch signatureFormat {
         case .ecdsa(.raw), .ecdsa(.compact):
-            assertionFailure("OP_CHECKSIG or OP_CHECKDATASIG requires DERModel-encoded ECDSAModel. Use .ecdsa(.der) or .schnorr (BCH).")
+            assertionFailure("OP_CHECKSIG or OP_CHECKDATASIG requires DER-encoded ECDSAModel. Use .ecdsa(.der) or .schnorr (BCH).")
         default:
             break
         }

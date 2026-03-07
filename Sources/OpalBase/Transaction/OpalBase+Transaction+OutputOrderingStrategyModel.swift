@@ -16,17 +16,17 @@ extension _OpalBase.Transaction {
     }
     
     static func build(version: UInt32 = 2,
-                      utxoPrivateKeyPairs: [OpalBase.Transaction.OutputModel.UnspentModel: OpalBase.PrivateKey],
+                      utxoPrivateKeyPairs: [OpalBase.Transaction.OutputModel.Unspent: OpalBase.PrivateKey],
                       recipientOutputs: [OutputModel],
                       changeOutput: OutputModel,
                       outputOrderingStrategy: OutputOrderingStrategyModel = .privacyRandomized,
-                      signatureFormat: ECDSAModel.SignatureFormatModel = .schnorr,
+                      signatureFormat: ECDSAModel.SignatureFormat = .schnorr,
                       feePerByte: UInt64 = 1,
                       sequence: UInt32 = 0xFFFFFFFF,
                       lockTime: UInt32 = 0,
                       shouldAllowDustDonation: Bool = false,
                       privacyOutputShuffle: ([OutputModel]) -> [OutputModel] = defaultPrivacyOutputShuffle,
-                      unlockers: [OpalBase.Transaction.OutputModel.UnspentModel: UnlockerModel] = .init()) throws -> OpalBase.Transaction {
+                      unlockers: [OpalBase.Transaction.OutputModel.Unspent: UnlockerModel] = .init()) throws -> OpalBase.Transaction {
         let builder = BuilderModel(utxoPrivateKeyPairs: utxoPrivateKeyPairs,
                               signatureFormat: signatureFormat,
                               sequence: sequence,
@@ -181,7 +181,7 @@ extension _OpalBase.Transaction {
                                                                         outputBeingSpent: outputBeingSpent,
                                                                         spentOutputs: spentOutputs)
                 
-                let message = ECDSAModel.MessageModel.makeDoubleSHA256(preimage)
+                let message = ECDSAModel.Message.makeDoubleSHA256(preimage)
                 let signature = try ECDSAModel.sign(message: message,
                                                with: privateKey,
                                                in: builder.signatureFormat)
@@ -191,7 +191,7 @@ extension _OpalBase.Transaction {
                 transaction = try transaction.injectUnlockingScript(unlockingScript, inputIndex: index)
             case .p2pkh_CheckDataSig(let message):
                 let messageBytes = message
-                let message = ECDSAModel.MessageModel.makeSingleSHA256(messageBytes)
+                let message = ECDSAModel.Message.makeSingleSHA256(messageBytes)
                 let signature = try ECDSAModel.sign(message: message,
                                                with: privateKey,
                                                in: builder.signatureFormat)

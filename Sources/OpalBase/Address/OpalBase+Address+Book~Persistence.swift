@@ -28,7 +28,7 @@ extension _OpalBase.Address.Book {
         let change = makeEntrySnapshots(for: .change)
 
         let utxoSnaps = utxoStore.listUTXOs().map {
-            SnapshotModel.UTXOModel(value: $0.value,
+            SnapshotModel.UTXO(value: $0.value,
                           lockingScript: $0.lockingScript.hexadecimalString,
                           tokenData: $0.tokenData,
                           transactionHash: $0.previousTransactionHash.naturalOrder.hexadecimalString,
@@ -75,9 +75,9 @@ extension _OpalBase.Address.Book {
                         transactions: transactionSnaps)
     }
 
-    private func makeEntrySnapshots(for usage: OpalBase.DerivationPath.UsageModel) -> [SnapshotModel.EntryModel] {
+    private func makeEntrySnapshots(for usage: OpalBase.DerivationPath.UsageModel) -> [SnapshotModel.Entry] {
         inventory.listEntries(for: usage).map { entry in
-            SnapshotModel.EntryModel(usage: entry.derivationPath.usage,
+            SnapshotModel.Entry(usage: entry.derivationPath.usage,
                            index: entry.derivationPath.index,
                            isUsed: entry.isUsed,
                            isReserved: entry.isReserved,
@@ -92,7 +92,7 @@ extension _OpalBase.Address.Book {
 
         let restoredUTXOs = try snapshot.utxos.map {
             let tokenData = try $0.makeTokenData()
-            return OpalBase.Transaction.OutputModel.UnspentModel(value: $0.value,
+            return OpalBase.Transaction.OutputModel.Unspent(value: $0.value,
                                               lockingScript: try Data(hexadecimalString: $0.lockingScript),
                                               tokenData: tokenData,
                                               previousTransactionHash: .init(naturalOrder: try Data(hexadecimalString: $0.transactionHash)),
@@ -115,24 +115,24 @@ extension _OpalBase.Address.Book {
                     blockHash: blockHash
                 )
             }
-            let chainMetadata = OpalBase.Transaction.HistoryModel.RecordModel.ChainMetadata(height: transaction.height,
+            let chainMetadata = OpalBase.Transaction.HistoryModel.Record.ChainMetadata(height: transaction.height,
                                                                          fee: transaction.fee,
                                                                          scriptHashes: Set(transaction.scriptHashes),
                                                                          firstSeenAt: transaction.firstSeenAt,
                                                                          lastUpdatedAt: transaction.lastUpdatedAt)
-            let confirmationMetadata = OpalBase.Transaction.HistoryModel.RecordModel.ConfirmationMetadata(height: transaction.confirmationHeight,
+            let confirmationMetadata = OpalBase.Transaction.HistoryModel.Record.ConfirmationMetadata(height: transaction.confirmationHeight,
                                                                                        confirmedAt: transaction.confirmedAt)
-            let verificationMetadata = OpalBase.Transaction.HistoryModel.RecordModel.VerificationMetadata(status: transaction.verificationStatus,
+            let verificationMetadata = OpalBase.Transaction.HistoryModel.Record.VerificationMetadata(status: transaction.verificationStatus,
                                                                                        merkleProof: proof,
                                                                                        lastVerifiedHeight: transaction.lastVerifiedHeight,
                                                                                        lastCheckedAt: transaction.lastCheckedAt)
-            let tokenDelta = OpalBase.Transaction.HistoryModel.RecordModel.TokenDeltaModel(
+            let tokenDelta = OpalBase.Transaction.HistoryModel.Record.TokenDelta(
                 fungibleDeltasByCategory: transaction.fungibleTokenDeltasByCategory ?? .init(),
                 nonFungibleTokenAdditions: Set(transaction.nonFungibleTokenAdditions ?? .init()),
                 nonFungibleTokenRemovals: Set(transaction.nonFungibleTokenRemovals ?? .init()),
                 bitcoinCashLockedInTokenOutputDelta: transaction.bitcoinCashLockedInTokenOutputDelta ?? 0
             )
-            let record = OpalBase.Transaction.HistoryModel.RecordModel(transactionHash: hash,
+            let record = OpalBase.Transaction.HistoryModel.Record(transactionHash: hash,
                                                     status: transaction.status,
                                                     chainMetadata: chainMetadata,
                                                     confirmationMetadata: confirmationMetadata,
@@ -142,7 +142,7 @@ extension _OpalBase.Address.Book {
         }
     }
 
-    private func apply(entrySnapshots: [SnapshotModel.EntryModel], usage: OpalBase.DerivationPath.UsageModel) async throws {
+    private func apply(entrySnapshots: [SnapshotModel.Entry], usage: OpalBase.DerivationPath.UsageModel) async throws {
         guard !entrySnapshots.isEmpty else { return }
 
         guard let highestIndex = entrySnapshots.map(\.index).max() else { return }

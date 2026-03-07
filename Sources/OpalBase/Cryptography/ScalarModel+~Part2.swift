@@ -19,7 +19,7 @@ struct ScalarModel: Sendable, Equatable {
             throw Error.invalidDataLength(expected: 32, actual: data32.count)
         }
         let parsed = try UInt256Model(data32: data32)
-        guard parsed.compare(to: Secp256k1Model.ConstantModel.n) == .orderedAscending else {
+        guard parsed.compare(to: Secp256k1Model.Constant.n) == .orderedAscending else {
             throw Error.invalidScalarValue
         }
         guard !requireNonZero || !parsed.isZero else {
@@ -29,7 +29,7 @@ struct ScalarModel: Sendable, Equatable {
     }
     
     init(value: UInt256Model) throws {
-        guard value.compare(to: Secp256k1Model.ConstantModel.n) == .orderedAscending else {
+        guard value.compare(to: Secp256k1Model.Constant.n) == .orderedAscending else {
             throw Error.invalidScalarValue
         }
         self.value = value
@@ -38,8 +38,8 @@ struct ScalarModel: Sendable, Equatable {
     func addModN(_ other: ScalarModel) -> ScalarModel {
         let (sum, carry) = value.add(other.value)
         var reduced = sum
-        if carry || reduced.compare(to: Secp256k1Model.ConstantModel.n) != .orderedAscending {
-            reduced = reduced.subtract(Secp256k1Model.ConstantModel.n).difference
+        if carry || reduced.compare(to: Secp256k1Model.Constant.n) != .orderedAscending {
+            reduced = reduced.subtract(Secp256k1Model.Constant.n).difference
         }
         return ScalarModel(unchecked: reduced)
     }
@@ -48,7 +48,7 @@ struct ScalarModel: Sendable, Equatable {
         let (difference, borrow) = value.subtract(other.value)
         var reduced = difference
         if borrow {
-            reduced = reduced.add(Secp256k1Model.ConstantModel.n).sum
+            reduced = reduced.add(Secp256k1Model.Constant.n).sum
         }
         return ScalarModel(unchecked: reduced)
     }
@@ -63,7 +63,7 @@ struct ScalarModel: Sendable, Equatable {
         guard !value.isZero else {
             return .zero
         }
-        let difference = Secp256k1Model.ConstantModel.n.subtract(value).difference
+        let difference = Secp256k1Model.Constant.n.subtract(value).difference
         return ScalarModel(unchecked: difference)
     }
     

@@ -1,9 +1,9 @@
-// OpalBase+Address+Book+InventoryModel+UsageBucketModel.swift
+// OpalBase+Address+Book+InventoryModel+UsageBucket.swift
 
 import Foundation
 
 extension _OpalBase.Address.Book.InventoryModel {
-    struct UsageBucketModel {
+    struct UsageBucket {
         var receivingEntries: [OpalBase.Address.Book.EntryModel]
         var changeEntries: [OpalBase.Address.Book.EntryModel]
         
@@ -84,4 +84,4 @@ extension _OpalBase.Address.Book.InventoryModel {
     }
 }
 
-extension _OpalBase.Address.Book.InventoryModel.UsageBucketModel: Sendable {}
+extension _OpalBase.Address.Book.InventoryModel.UsageBucket: Sendable {}

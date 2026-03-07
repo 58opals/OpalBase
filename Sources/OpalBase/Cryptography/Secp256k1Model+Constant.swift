@@ -1,9 +1,9 @@
-// Secp256k1Model+ConstantModel.swift
+// Secp256k1Model+Constant.swift
 
 import Foundation
 
 extension Secp256k1Model {
-    enum ConstantModel {
+    enum Constant {
         @usableFromInline static let p = UInt256Model(
             limbs: [
                 0xfffffffefffffc2f,

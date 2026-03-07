@@ -90,7 +90,7 @@ private extension TransactionHistoryTokenDeltaValidator {
             throw TestError.unexpectedRequest
         }
         
-        func fetchUnspentOutputs(for address: String, tokenFilter: OpalBase.Network.TokenFilter) async throws -> [OpalBase.Transaction.OutputModel.UnspentModel] {
+        func fetchUnspentOutputs(for address: String, tokenFilter: OpalBase.Network.TokenFilter) async throws -> [OpalBase.Transaction.OutputModel.Unspent] {
             .init()
         }
         

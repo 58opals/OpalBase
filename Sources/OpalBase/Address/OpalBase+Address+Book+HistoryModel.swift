@@ -7,14 +7,14 @@ extension _OpalBase.Address.Book {
 }
 
 extension _OpalBase.Address.Book.HistoryModel {
-    struct QueryResultModel: Sendable {
+    struct QueryResult: Sendable {
         let address: OpalBase.Address
         let scriptHash: String
-        let entries: [OpalBase.Transaction.HistoryModel.EntryModel]
+        let entries: [OpalBase.Transaction.HistoryModel.Entry]
     }
     
-    struct ConfirmationUpdateModel: Sendable {
-        let record: OpalBase.Transaction.HistoryModel.RecordModel
+    struct ConfirmationUpdate: Sendable {
+        let record: OpalBase.Transaction.HistoryModel.Record
         let status: OpalBase.Network.TransactionConfirmationStatus
     }
 }
@@ -23,9 +23,9 @@ extension _OpalBase.Address.Book {
     public func refreshTransactionHistory(using service: OpalBase.Network.AddressReadable,
                                           usage: OpalBase.DerivationPath.UsageModel? = nil,
                                           includeUnconfirmed: Bool = true,
-                                          transactionReader: OpalBase.Network.TransactionReadableClient? = nil) async throws -> OpalBase.Transaction.HistoryModel.ChangeSetModel {
-        var aggregatedChangeSet = OpalBase.Transaction.HistoryModel.ChangeSetModel()
-        var tokenDeltaCache: [OpalBase.Transaction.HashModel: OpalBase.Transaction.HistoryModel.RecordModel.TokenDeltaModel] = .init()
+                                          transactionReader: OpalBase.Network.TransactionReadableClient? = nil) async throws -> OpalBase.Transaction.HistoryModel.ChangeSet {
+        var aggregatedChangeSet = OpalBase.Transaction.HistoryModel.ChangeSet()
+        var tokenDeltaCache: [OpalBase.Transaction.HashModel: OpalBase.Transaction.HistoryModel.Record.TokenDelta] = .init()
         let walletScriptHashes = listWalletScriptHashes()
         
         let refreshTimestamp = Date.now
@@ -72,7 +72,7 @@ extension _OpalBase.Address.Book {
     public func refreshTransactionHistory(for address: OpalBase.Address,
                                           using service: OpalBase.Network.AddressReadable,
                                           includeUnconfirmed: Bool,
-                                          transactionReader: OpalBase.Network.TransactionReadableClient? = nil) async throws -> OpalBase.Transaction.HistoryModel.ChangeSetModel {
+                                          transactionReader: OpalBase.Network.TransactionReadableClient? = nil) async throws -> OpalBase.Transaction.HistoryModel.ChangeSet {
         
         let scriptHash = address.makeScriptHash().hexadecimalString
         let result = try await fetchHistoryQueryResult(for: address,
@@ -84,7 +84,7 @@ extension _OpalBase.Address.Book {
         }
         
         let timestamp = Date.now
-        var tokenDeltaCache: [OpalBase.Transaction.HashModel: OpalBase.Transaction.HistoryModel.RecordModel.TokenDeltaModel] = .init()
+        var tokenDeltaCache: [OpalBase.Transaction.HashModel: OpalBase.Transaction.HistoryModel.Record.TokenDelta] = .init()
         if let transactionReader {
             let walletScriptHashes = listWalletScriptHashes()
             try await updateTokenDeltaCache(for: result.entries,
@@ -105,12 +105,12 @@ private extension _OpalBase.Address.Book {
         scriptHash: String,
         using service: OpalBase.Network.AddressReadable,
         includeUnconfirmed: Bool
-    ) async throws -> OpalBase.Address.Book.HistoryModel.QueryResultModel {
+    ) async throws -> OpalBase.Address.Book.HistoryModel.QueryResult {
         do {
             let history = try await service.fetchHistory(for: address.string,
                                                          includeUnconfirmed: includeUnconfirmed)
             let mappedEntries = try history.map { try $0.makeHistoryEntry() }
-            return OpalBase.Address.Book.HistoryModel.QueryResultModel(address: address,
+            return OpalBase.Address.Book.HistoryModel.QueryResult(address: address,
                                                     scriptHash: scriptHash,
                                                     entries: mappedEntries)
         } catch {
@@ -121,11 +121,11 @@ private extension _OpalBase.Address.Book {
 
 extension _OpalBase.Address.Book {
     public func updateTransactionConfirmations(using handler: OpalBase.Network.TransactionConfirmationClient,
-                                               for transactionHashes: [OpalBase.Transaction.HashModel]) async throws -> OpalBase.Transaction.HistoryModel.ChangeSetModel {
+                                               for transactionHashes: [OpalBase.Transaction.HashModel]) async throws -> OpalBase.Transaction.HistoryModel.ChangeSet {
         guard !transactionHashes.isEmpty else { return .init() }
         
         let uniqueHashes = transactionHashes.deduplicate()
-        var recordsToUpdate: [OpalBase.Transaction.HistoryModel.RecordModel] = .init()
+        var recordsToUpdate: [OpalBase.Transaction.HistoryModel.Record] = .init()
         for transactionHash in uniqueHashes {
             guard let record = transactionLog.loadRecord(for: transactionHash) else { continue }
             recordsToUpdate.append(record)
@@ -138,17 +138,17 @@ extension _OpalBase.Address.Book {
             }
         ) { record in
             let status = try await handler.fetchConfirmationStatus(for: record.transactionHash)
-            return OpalBase.Address.Book.HistoryModel.ConfirmationUpdateModel(record: record, status: status)
+            return OpalBase.Address.Book.HistoryModel.ConfirmationUpdate(record: record, status: status)
         }
         
-        var aggregatedChangeSet = OpalBase.Transaction.HistoryModel.ChangeSetModel()
+        var aggregatedChangeSet = OpalBase.Transaction.HistoryModel.ChangeSet()
         let refreshTimestamp = Date.now
-        var entriesByScriptHash: [String: [OpalBase.Transaction.HistoryModel.EntryModel]] = .init()
+        var entriesByScriptHash: [String: [OpalBase.Transaction.HistoryModel.Entry]] = .init()
         entriesByScriptHash.reserveCapacity(updates.count)
         
         for update in updates {
             let resolvedHeight = update.status.transactionHeight ?? -1
-            let entry = OpalBase.Transaction.HistoryModel.EntryModel(
+            let entry = OpalBase.Transaction.HistoryModel.Entry(
                 transactionHash: update.record.transactionHash,
                 height: resolvedHeight,
                 fee: update.record.chainMetadata.fee
@@ -171,7 +171,7 @@ extension _OpalBase.Address.Book {
         return aggregatedChangeSet
     }
     
-    public func refreshTransactionConfirmations(using handler: OpalBase.Network.TransactionConfirmationClient) async throws -> OpalBase.Transaction.HistoryModel.ChangeSetModel {
+    public func refreshTransactionConfirmations(using handler: OpalBase.Network.TransactionConfirmationClient) async throws -> OpalBase.Transaction.HistoryModel.ChangeSet {
         let records = transactionLog.listRecords()
         guard !records.isEmpty else { return .init() }
         let hashes = records.map(\.transactionHash)

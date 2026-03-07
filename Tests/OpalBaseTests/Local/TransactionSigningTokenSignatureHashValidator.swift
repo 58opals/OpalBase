@@ -17,7 +17,7 @@ struct TransactionSigningTokenSignatureHashValidator {
         let preimage = try transaction.generatePreimage(for: 0,
                                                         hashType: .makeAll(),
                                                         outputBeingSpent: outputBeingSpent)
-        let message = ECDSAModel.MessageModel.makeDoubleSHA256(preimage)
+        let message = ECDSAModel.Message.makeDoubleSHA256(preimage)
         let messageDigest = try message.makeConsensusDigest32()
         let expectedDigest = try Data(hexadecimalString: "c9c908b5f351dcc1d2e6b5966a48c5be1be5a8f5e3c426efa5e97aacb8f971e7")
         
@@ -34,7 +34,7 @@ struct TransactionSigningTokenSignatureHashValidator {
         let preimage = try transaction.generatePreimage(for: 0,
                                                         hashType: .makeAll(),
                                                         outputBeingSpent: outputBeingSpent)
-        let message = ECDSAModel.MessageModel.makeDoubleSHA256(preimage)
+        let message = ECDSAModel.Message.makeDoubleSHA256(preimage)
         let messageDigest = try message.makeConsensusDigest32()
         let expectedDigest = try Data(hexadecimalString: "e62ddb675df41732686246b8f0f9f7415da321b4a9e5a4e9d5057551a32594b7")
         

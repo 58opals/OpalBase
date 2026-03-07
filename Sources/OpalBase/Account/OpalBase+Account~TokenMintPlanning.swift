@@ -5,11 +5,11 @@ import Foundation
 extension _OpalBase.Account {
     public func prepareTokenMint(
         _ mint: TokenMint,
-        preferredMintingInput: OpalBase.Transaction.OutputModel.UnspentModel? = nil,
+        preferredMintingInput: OpalBase.Transaction.OutputModel.Unspent? = nil,
         feePolicy: OpalBase.Wallet.FeePolicy = .init()
     ) async throws -> TokenMintPlan {
         let spendableOutputs = await addressBook.sortSpendableUTXOs(by: { $0.value > $1.value })
-        let authorityInput: OpalBase.Transaction.OutputModel.UnspentModel
+        let authorityInput: OpalBase.Transaction.OutputModel.Unspent
         if let preferredMintingInput {
             guard spendableOutputs.contains(preferredMintingInput),
                   let tokenData = preferredMintingInput.tokenData,
@@ -35,7 +35,7 @@ extension _OpalBase.Account {
         }
         let authorityFungibleIn: UInt64 = authorityInput.tokenData?.amount ?? 0
         
-        var extraFungibleInputs: [OpalBase.Transaction.OutputModel.UnspentModel] = .init()
+        var extraFungibleInputs: [OpalBase.Transaction.OutputModel.Unspent] = .init()
         var totalSelectedFungible: UInt64 = authorityFungibleIn
         if requiredFungibleOut > authorityFungibleIn {
             let fungibleCandidates = spendableOutputs

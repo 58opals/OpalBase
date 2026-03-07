@@ -20,7 +20,7 @@ struct AccountCommandValidator {
         let addressBook = await account.addressBook
         let receivingEntry = try await addressBook.selectNextEntry(for: .receiving)
         let previousTransactionHash = OpalBase.Transaction.HashModel(naturalOrder: Data(repeating: 0, count: 32))
-        let utxo = OpalBase.Transaction.OutputModel.UnspentModel(
+        let utxo = OpalBase.Transaction.OutputModel.Unspent(
             value: 1_000,
             lockingScript: receivingEntry.address.lockingScript.data,
             previousTransactionHash: previousTransactionHash,
@@ -74,7 +74,7 @@ struct AccountCommandValidator {
         let addressBook = await account.addressBook
         let receivingEntry = try await addressBook.selectNextEntry(for: .receiving)
         let previousTransactionHash = OpalBase.Transaction.HashModel(naturalOrder: Data(repeating: 1, count: 32))
-        let utxo = OpalBase.Transaction.OutputModel.UnspentModel(
+        let utxo = OpalBase.Transaction.OutputModel.Unspent(
             value: 25_000,
             lockingScript: receivingEntry.address.lockingScript.data,
             previousTransactionHash: previousTransactionHash,

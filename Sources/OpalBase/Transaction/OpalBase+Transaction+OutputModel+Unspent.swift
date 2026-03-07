@@ -1,9 +1,9 @@
-// OpalBase+Transaction+OutputModel+UnspentModel.swift
+// OpalBase+Transaction+OutputModel+Unspent.swift
 
 import Foundation
 
 extension _OpalBase.Transaction.OutputModel {
-    public struct UnspentModel {
+    public struct Unspent {
         public let previousTransactionHash: OpalBase.Transaction.HashModel
         public let previousTransactionOutputIndex: UInt32
         public let value: UInt64
@@ -32,22 +32,22 @@ extension _OpalBase.Transaction.OutputModel {
     }
 }
 
-extension _OpalBase.Transaction.OutputModel.UnspentModel: Sendable {}
-extension _OpalBase.Transaction.OutputModel.UnspentModel: Hashable {
+extension _OpalBase.Transaction.OutputModel.Unspent: Sendable {}
+extension _OpalBase.Transaction.OutputModel.Unspent: Hashable {
     public func hash(into hasher: inout Hasher) {
         hasher.combine(previousTransactionHash)
         hasher.combine(previousTransactionOutputIndex)
     }
 }
-extension _OpalBase.Transaction.OutputModel.UnspentModel: Equatable {
-    public static func == (lhs: OpalBase.Transaction.OutputModel.UnspentModel, rhs: OpalBase.Transaction.OutputModel.UnspentModel) -> Bool {
+extension _OpalBase.Transaction.OutputModel.Unspent: Equatable {
+    public static func == (lhs: OpalBase.Transaction.OutputModel.Unspent, rhs: OpalBase.Transaction.OutputModel.Unspent) -> Bool {
         lhs.previousTransactionHash == rhs.previousTransactionHash
         && lhs.previousTransactionOutputIndex == rhs.previousTransactionOutputIndex
     }
 }
 
-extension _OpalBase.Transaction.OutputModel.UnspentModel {
-    func compareOrder(before other: OpalBase.Transaction.OutputModel.UnspentModel) -> Bool {
+extension _OpalBase.Transaction.OutputModel.Unspent {
+    func compareOrder(before other: OpalBase.Transaction.OutputModel.Unspent) -> Bool {
         let leftHash = previousTransactionHash.naturalOrder
         let rightHash = other.previousTransactionHash.naturalOrder
         if leftHash == rightHash {
@@ -57,10 +57,10 @@ extension _OpalBase.Transaction.OutputModel.UnspentModel {
     }
 }
 
-extension _OpalBase.Transaction.OutputModel.UnspentModel: CustomStringConvertible {
+extension _OpalBase.Transaction.OutputModel.Unspent: CustomStringConvertible {
     public var description: String {
         """
-        UnspentModel OpalBase.Transaction OutputModel:
+        Unspent OpalBase.Transaction OutputModel:
             Previous OpalBase.Transaction HashModel: \(previousTransactionHash.naturalOrder.hexadecimalString) (↔︎: \(previousTransactionHash.reverseOrder.hexadecimalString))
             Previous OpalBase.Transaction OutputModel Index: \(previousTransactionOutputIndex)
             Value: \(value)

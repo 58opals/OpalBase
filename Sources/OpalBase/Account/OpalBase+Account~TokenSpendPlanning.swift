@@ -18,13 +18,13 @@ extension _OpalBase.Account {
         let spendableOutputs = await addressBook.sortSpendableUTXOs(by: { $0.value > $1.value })
         let changeEntry = try await addressBook.selectNextEntry(for: .change)
         let tokenChangeAddress = try OpalBase.Address(script: changeEntry.address.lockingScript, format: .tokenAware)
-        var spendableTokenByCategory: [OpalBase.CashTokens.CategoryIDModel: [OpalBase.Transaction.OutputModel.UnspentModel]] = .init()
+        var spendableTokenByCategory: [OpalBase.CashTokens.CategoryIDModel: [OpalBase.Transaction.OutputModel.Unspent]] = .init()
         for unspentOutput in spendableOutputs {
             guard let category = unspentOutput.tokenData?.category else { continue }
             spendableTokenByCategory[category, default: .init()].append(unspentOutput)
         }
         
-        var selectedTokenInputs: [OpalBase.Transaction.OutputModel.UnspentModel] = .init()
+        var selectedTokenInputs: [OpalBase.Transaction.OutputModel.Unspent] = .init()
         selectedTokenInputs.reserveCapacity(spendableOutputs.count)
         var tokenChangeOutputs: [OpalBase.Transaction.OutputModel] = .init()
         tokenChangeOutputs.reserveCapacity(requirementsByCategory.count)

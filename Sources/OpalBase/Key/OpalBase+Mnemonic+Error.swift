@@ -41,7 +41,7 @@ extension OpalBase {
     public init(
         words: [String],
         passphrase: String = "",
-        wordLists: [OpalBase.Mnemonic.WordModel.LanguageModel: OpalBase.Mnemonic.WordListModel]
+        wordLists: [OpalBase.Mnemonic.WordModel.Language: OpalBase.Mnemonic.WordListModel]
     ) throws {
         guard try WordModel.validateMnemonicWords(words, wordLists: wordLists) else { throw Error.invalidMnemonicWords }
         

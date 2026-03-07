@@ -29,11 +29,11 @@ extension _OpalBase.Address.Book {
     }
     
     public struct UnspentOutputPartitionModel: Sendable, Equatable {
-        public let bchOnlyUTXOs: Set<OpalBase.Transaction.OutputModel.UnspentModel>
-        public let tokenUTXOs: Set<OpalBase.Transaction.OutputModel.UnspentModel>
+        public let bchOnlyUTXOs: Set<OpalBase.Transaction.OutputModel.Unspent>
+        public let tokenUTXOs: Set<OpalBase.Transaction.OutputModel.Unspent>
         
-        public init(bchOnlyUTXOs: Set<OpalBase.Transaction.OutputModel.UnspentModel>,
-                    tokenUTXOs: Set<OpalBase.Transaction.OutputModel.UnspentModel>) {
+        public init(bchOnlyUTXOs: Set<OpalBase.Transaction.OutputModel.Unspent>,
+                    tokenUTXOs: Set<OpalBase.Transaction.OutputModel.Unspent>) {
             self.bchOnlyUTXOs = bchOnlyUTXOs
             self.tokenUTXOs = tokenUTXOs
         }
@@ -57,8 +57,8 @@ extension _OpalBase.Address.Book {
 extension _OpalBase.Address.Book {
     public func partitionUnspentOutputs() -> UnspentOutputPartitionModel {
         let utxos = listUTXOs()
-        var bchOnlyUTXOs: Set<OpalBase.Transaction.OutputModel.UnspentModel> = .init()
-        var tokenUTXOs: Set<OpalBase.Transaction.OutputModel.UnspentModel> = .init()
+        var bchOnlyUTXOs: Set<OpalBase.Transaction.OutputModel.Unspent> = .init()
+        var tokenUTXOs: Set<OpalBase.Transaction.OutputModel.Unspent> = .init()
         for utxo in utxos {
             if utxo.tokenData == nil {
                 bchOnlyUTXOs.insert(utxo)
@@ -72,7 +72,7 @@ extension _OpalBase.Address.Book {
     
     public func calculateUnspentOutputBalances() async throws -> UnspentOutputBalancesModel {
         let utxos = listUTXOs()
-        var tokenUTXOs: Set<OpalBase.Transaction.OutputModel.UnspentModel> = .init()
+        var tokenUTXOs: Set<OpalBase.Transaction.OutputModel.Unspent> = .init()
         tokenUTXOs.reserveCapacity(utxos.count)
         
         var bchTotal: OpalBase.Satoshi = try .init(0)
@@ -98,7 +98,7 @@ extension _OpalBase.Address.Book {
 }
 
 private extension _OpalBase.Address.Book {
-    func makeTokenInventory(from utxos: Set<OpalBase.Transaction.OutputModel.UnspentModel>) throws -> TokenInventoryModel {
+    func makeTokenInventory(from utxos: Set<OpalBase.Transaction.OutputModel.Unspent>) throws -> TokenInventoryModel {
         var fungibleAmountsByCategory: [OpalBase.CashTokens.CategoryIDModel: UInt64] = .init()
         var nonFungibleTokensByGroup: [TokenInventoryModel.NonFungibleTokenGroup: Int] = .init()
         for utxo in utxos {

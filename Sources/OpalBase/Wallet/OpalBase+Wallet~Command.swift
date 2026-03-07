@@ -37,7 +37,7 @@ extension _OpalBase.Wallet {
     public func prepareTokenMint(
         forAccountAt unhardenedIndex: UInt32,
         mint: OpalBase.Account.TokenMint,
-        preferredMintingInput: OpalBase.Transaction.OutputModel.UnspentModel? = nil,
+        preferredMintingInput: OpalBase.Transaction.OutputModel.Unspent? = nil,
         feePolicy: FeePolicy = .init()
     ) async throws -> OpalBase.Account.TokenMintPlan {
         try await performWithAccount(at: unhardenedIndex) { account in
@@ -69,7 +69,7 @@ extension _OpalBase.Wallet {
                                           usage: OpalBase.DerivationPath.UsageModel? = nil,
                                           includeUnconfirmed: Bool = true,
                                           using service: OpalBase.Network.AddressReadable,
-                                          transactionReader: OpalBase.Network.TransactionReadableClient? = nil) async throws -> OpalBase.Transaction.HistoryModel.ChangeSetModel {
+                                          transactionReader: OpalBase.Network.TransactionReadableClient? = nil) async throws -> OpalBase.Transaction.HistoryModel.ChangeSet {
         try await performWithAccount(at: unhardenedIndex) { account in
             try await account.refreshTransactionHistory(using: service,
                                                         usage: usage,
@@ -80,7 +80,7 @@ extension _OpalBase.Wallet {
     
     public func updateTransactionConfirmations(forAccountAt unhardenedIndex: UInt32,
                                                transactionHashes: [OpalBase.Transaction.HashModel],
-                                               using handler: OpalBase.Network.TransactionConfirmationClient) async throws -> OpalBase.Transaction.HistoryModel.ChangeSetModel {
+                                               using handler: OpalBase.Network.TransactionConfirmationClient) async throws -> OpalBase.Transaction.HistoryModel.ChangeSet {
         try await performWithAccount(at: unhardenedIndex) { account in
             try await account.updateTransactionConfirmations(using: handler,
                                                              for: transactionHashes)
@@ -88,7 +88,7 @@ extension _OpalBase.Wallet {
     }
     
     public func refreshTransactionConfirmations(forAccountAt unhardenedIndex: UInt32,
-                                                using handler: OpalBase.Network.TransactionConfirmationClient) async throws -> OpalBase.Transaction.HistoryModel.ChangeSetModel {
+                                                using handler: OpalBase.Network.TransactionConfirmationClient) async throws -> OpalBase.Transaction.HistoryModel.ChangeSet {
         try await performWithAccount(at: unhardenedIndex) { account in
             try await account.refreshTransactionConfirmations(using: handler)
         }

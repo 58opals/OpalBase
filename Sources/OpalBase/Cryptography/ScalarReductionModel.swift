@@ -30,8 +30,8 @@ enum ScalarReductionModel {
                     foldedValue.limbs[2],
                     foldedValue.limbs[3]
                 ])
-                if result.compare(to: Secp256k1Model.ConstantModel.n) != .orderedAscending {
-                    result = result.subtract(Secp256k1Model.ConstantModel.n).difference
+                if result.compare(to: Secp256k1Model.Constant.n) != .orderedAscending {
+                    result = result.subtract(Secp256k1Model.Constant.n).difference
                 }
                 return result
             }

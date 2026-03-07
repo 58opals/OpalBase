@@ -15,7 +15,7 @@ struct SnapshotPersistenceValidator {
         let nonFungibleToken = tokenData.nft
         let tokenCommitment = nonFungibleToken?.commitment.hexadecimalString
         
-        let unspentOutputSnapshot = OpalBase.Address.Book.SnapshotModel.UTXOModel(
+        let unspentOutputSnapshot = OpalBase.Address.Book.SnapshotModel.UTXO(
             value: 500,
             lockingScript: "51",
             tokenCategory: tokenCategory,

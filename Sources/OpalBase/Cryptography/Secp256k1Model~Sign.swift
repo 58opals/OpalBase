@@ -7,7 +7,7 @@ public extension Secp256k1Model {
     static func sign(
         digest32: Data,
         privateKey32: Data,
-        nonce: NonceFunctionModel.ECDSAModel = .rfc6979Sha256,
+        nonce: NonceFunctionModel.ECDSA = .rfc6979Sha256,
         enforceLowS: Bool = true
     ) throws -> Signature {
         guard digest32.count == 32 else {
@@ -26,7 +26,7 @@ public extension Secp256k1Model {
         let makeNextNonce: () throws -> ScalarModel
         switch nonce {
         case .rfc6979Sha256:
-            var generator = try NonceGeneratorModel.RFC6979Model(privateKey: privateKeyScalar, digest32: digest32)
+            var generator = try NonceGeneratorModel.RFC6979(privateKey: privateKeyScalar, digest32: digest32)
             makeNextNonce = {
                 try generator.makeNextScalar()
             }

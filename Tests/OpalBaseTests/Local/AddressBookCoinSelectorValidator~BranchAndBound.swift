@@ -28,7 +28,7 @@ extension AddressBookCoinSelectorValidator {
 
         let targetAmount = UInt64.max - (minimalFee - 1)
         let previousTransactionHash = OpalBase.Transaction.HashModel(naturalOrder: Data(repeating: 0, count: 32))
-        let largeUnspent = OpalBase.Transaction.OutputModel.UnspentModel(
+        let largeUnspent = OpalBase.Transaction.OutputModel.Unspent(
             value: UInt64.max,
             lockingScript: lockingScript,
             previousTransactionHash: previousTransactionHash,
@@ -53,14 +53,14 @@ extension AddressBookCoinSelectorValidator {
         let lockingScript = Data([0x51])
         let previousTransactionHash = OpalBase.Transaction.HashModel(naturalOrder: Data(repeating: 0, count: 32))
 
-        let nearMaximumUnspent = OpalBase.Transaction.OutputModel.UnspentModel(
+        let nearMaximumUnspent = OpalBase.Transaction.OutputModel.Unspent(
             value: UInt64.max,
             lockingScript: lockingScript,
             previousTransactionHash: previousTransactionHash,
             previousTransactionOutputIndex: 0
         )
 
-        let smallUnspent = OpalBase.Transaction.OutputModel.UnspentModel(
+        let smallUnspent = OpalBase.Transaction.OutputModel.Unspent(
             value: 1,
             lockingScript: lockingScript,
             previousTransactionHash: previousTransactionHash,
@@ -91,14 +91,14 @@ extension AddressBookCoinSelectorValidator {
         let previousTransactionHash = OpalBase.Transaction.HashModel(naturalOrder: Data(repeating: 0, count: 32))
         let lockingScript = Data([0x51])
 
-        let minimalUnspent = OpalBase.Transaction.OutputModel.UnspentModel(
+        let minimalUnspent = OpalBase.Transaction.OutputModel.Unspent(
             value: 1,
             lockingScript: lockingScript,
             previousTransactionHash: previousTransactionHash,
             previousTransactionOutputIndex: 0
         )
 
-        let maximumUnspent = OpalBase.Transaction.OutputModel.UnspentModel(
+        let maximumUnspent = OpalBase.Transaction.OutputModel.Unspent(
             value: UInt64.max,
             lockingScript: lockingScript,
             previousTransactionHash: previousTransactionHash,

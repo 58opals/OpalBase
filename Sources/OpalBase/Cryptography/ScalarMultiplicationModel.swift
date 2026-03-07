@@ -64,7 +64,7 @@ enum ScalarMultiplicationModel {
     }
     
     @usableFromInline static let generator = AffinePointModel(
-        x: FieldElementModel(unchecked: Secp256k1Model.ConstantModel.Gx),
-        y: FieldElementModel(unchecked: Secp256k1Model.ConstantModel.Gy)
+        x: FieldElementModel(unchecked: Secp256k1Model.Constant.Gx),
+        y: FieldElementModel(unchecked: Secp256k1Model.Constant.Gy)
     )
 }

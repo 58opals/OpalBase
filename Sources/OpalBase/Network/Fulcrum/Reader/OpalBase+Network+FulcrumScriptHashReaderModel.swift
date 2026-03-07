@@ -56,7 +56,7 @@ extension _OpalBase.Network {
         public func fetchUnspent(
             forScriptHash scriptHashHex: String,
             tokenFilter: OpalBase.Network.TokenFilter
-        ) async throws -> [OpalBase.Transaction.OutputModel.UnspentModel] {
+        ) async throws -> [OpalBase.Transaction.OutputModel.Unspent] {
             try await OpalBase.Network.performWithFailureTranslation {
                 let result = try await client.request(
                     method: .blockchain(
@@ -81,7 +81,7 @@ extension _OpalBase.Network {
         
         private func makeUnspentOutput(
             from item: SwiftFulcrum.RPC.Response.Result.Blockchain.ScriptHash.ListUnspent.Item
-        ) async throws -> OpalBase.Transaction.OutputModel.UnspentModel {
+        ) async throws -> OpalBase.Transaction.OutputModel.Unspent {
             guard let index = UInt32(exactly: item.transactionPosition) else {
                 throw OpalBase.Network.Error(reason: .decoding, message: "OpalBase.Transaction position overflow")
             }
@@ -102,7 +102,7 @@ extension _OpalBase.Network {
             }
             
             let output = transaction.outputs[outputIndex]
-            return OpalBase.Transaction.OutputModel.UnspentModel(
+            return OpalBase.Transaction.OutputModel.Unspent(
                 output: output,
                 previousTransactionHash: hash,
                 previousTransactionOutputIndex: index

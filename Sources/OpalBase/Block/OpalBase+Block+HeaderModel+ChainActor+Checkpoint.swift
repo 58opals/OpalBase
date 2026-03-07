@@ -1,9 +1,9 @@
-// OpalBase+Block+HeaderModel+ChainActor+CheckpointModel.swift
+// OpalBase+Block+HeaderModel+ChainActor+Checkpoint.swift
 
 import Foundation
 
 extension _OpalBase.Block.HeaderModel.ChainActor {
-    struct CheckpointModel: Equatable, Sendable {
+    struct Checkpoint: Equatable, Sendable {
         public let height: UInt32
         public let hash: Data
         
@@ -13,7 +13,7 @@ extension _OpalBase.Block.HeaderModel.ChainActor {
         }
     }
     
-    struct TipStatusModel: Equatable, Sendable {
+    struct TipStatus: Equatable, Sendable {
         enum Condition: Equatable, Sendable {
             case fresh
             case stale(by: TimeInterval)
@@ -37,14 +37,14 @@ extension _OpalBase.Block.HeaderModel.ChainActor {
         }
     }
     
-    enum MaintenanceEventModel: Equatable, Sendable {
-        case requiresResynchronization(from: CheckpointModel)
-        case staleTip(status: TipStatusModel)
+    enum MaintenanceEvent: Equatable, Sendable {
+        case requiresResynchronization(from: Checkpoint)
+        case staleTip(status: TipStatus)
     }
 }
 
-extension _OpalBase.Block.HeaderModel.ChainActor.CheckpointModel {
-    static var defaultCheckpoint: OpalBase.Block.HeaderModel.ChainActor.CheckpointModel {
+extension _OpalBase.Block.HeaderModel.ChainActor.Checkpoint {
+    static var defaultCheckpoint: OpalBase.Block.HeaderModel.ChainActor.Checkpoint {
         let hashHexadecimalString = "000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f"
         let hash = (try? Data(hexadecimalString: hashHexadecimalString))?.reversedData ?? Data(repeating: 0, count: 32)
         return .init(height: 0, hash: hash)

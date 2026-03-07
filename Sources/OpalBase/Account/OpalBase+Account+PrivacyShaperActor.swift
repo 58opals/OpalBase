@@ -69,7 +69,7 @@ extension _OpalBase.Account.PrivacyShaperActor {
         }
     }
     
-    func applyCoinSelectionHeuristics(to utxos: [OpalBase.Transaction.OutputModel.UnspentModel]) -> [OpalBase.Transaction.OutputModel.UnspentModel] {
+    func applyCoinSelectionHeuristics(to utxos: [OpalBase.Transaction.OutputModel.Unspent]) -> [OpalBase.Transaction.OutputModel.Unspent] {
         guard configuration.shouldRandomizeUTXOOrdering, utxos.count > 1 else { return utxos }
         return utxos.shuffled(using: &generator)
     }

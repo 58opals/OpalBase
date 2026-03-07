@@ -32,7 +32,7 @@ public extension SchnorrModel {
                 try generator.makeNextScalar()
             }
         case .bipSchnorrDeterministic:
-            var generator = try NonceGeneratorModel.BIPSchnorrModel(
+            var generator = try NonceGeneratorModel.BIPSchnorr(
                 privateKey: privateKeyScalar,
                 digest32: digest32
             )

@@ -1,9 +1,9 @@
-// OpalBase+Transaction+HistoryModel+RecordModel.swift
+// OpalBase+Transaction+HistoryModel+Record.swift
 
 import Foundation
 
 extension _OpalBase.Transaction.HistoryModel {
-    public struct RecordModel: Sendable, Hashable, Equatable {
+    public struct Record: Sendable, Hashable, Equatable {
         public struct ChainMetadata: Sendable, Hashable, Equatable {
             public var height: Int
             public var fee: UInt64?
@@ -52,7 +52,7 @@ extension _OpalBase.Transaction.HistoryModel {
         public var chainMetadata: ChainMetadata
         public var confirmationMetadata: ConfirmationMetadata
         public var verificationMetadata: VerificationMetadata
-        public var tokenDelta: TokenDeltaModel
+        public var tokenDelta: TokenDelta
 
         public var status: Status
 
@@ -63,7 +63,7 @@ extension _OpalBase.Transaction.HistoryModel {
                     chainMetadata: ChainMetadata,
                     confirmationMetadata: ConfirmationMetadata,
                     verificationMetadata: VerificationMetadata,
-                                        tokenDelta: TokenDeltaModel = .init()) {
+                                        tokenDelta: TokenDelta = .init()) {
             self.transactionHash = transactionHash
             self.chainMetadata = chainMetadata
             self.confirmationMetadata = confirmationMetadata
@@ -74,8 +74,8 @@ extension _OpalBase.Transaction.HistoryModel {
     }
 }
 
-extension _OpalBase.Transaction.HistoryModel.RecordModel {
-    mutating func resolveUpdate(from entry: OpalBase.Transaction.HistoryModel.EntryModel,
+extension _OpalBase.Transaction.HistoryModel.Record {
+    mutating func resolveUpdate(from entry: OpalBase.Transaction.HistoryModel.Entry,
                                 scriptHash: String,
                                 timestamp: Date) {
         applyEntryDetails(from: entry, scriptHash: scriptHash, timestamp: timestamp)
@@ -87,27 +87,27 @@ extension _OpalBase.Transaction.HistoryModel.RecordModel {
                               timestamp: timestamp)
     }
     
-    static func makeRecord(for entry: OpalBase.Transaction.HistoryModel.EntryModel,
+    static func makeRecord(for entry: OpalBase.Transaction.HistoryModel.Entry,
                            scriptHash: String,
-                           timestamp: Date) -> OpalBase.Transaction.HistoryModel.RecordModel {
+                           timestamp: Date) -> OpalBase.Transaction.HistoryModel.Record {
         let statusTransition = OpalBase.Transaction.HistoryModel.Status
             .makeTransition(forHeight: entry.height, from: nil)
         let confirmationHeight = statusTransition
             .resolveConfirmationHeight(forHeight: entry.height)
         let confirmedAt = statusTransition.isConfirmed ? timestamp : nil
         let verificationStatus: OpalBase.Transaction.HistoryModel.Status.Verification = statusTransition.isConfirmed ? .pending : .unknown
-        let chainMetadata = OpalBase.Transaction.HistoryModel.RecordModel.ChainMetadata(height: entry.height,
+        let chainMetadata = OpalBase.Transaction.HistoryModel.Record.ChainMetadata(height: entry.height,
                                                                      fee: entry.fee,
                                                                      scriptHashes: [scriptHash],
                                                                      firstSeenAt: timestamp,
                                                                      lastUpdatedAt: timestamp)
-        let confirmationMetadata = OpalBase.Transaction.HistoryModel.RecordModel.ConfirmationMetadata(height: confirmationHeight,
+        let confirmationMetadata = OpalBase.Transaction.HistoryModel.Record.ConfirmationMetadata(height: confirmationHeight,
                                                                                    confirmedAt: confirmedAt)
-        let verificationMetadata = OpalBase.Transaction.HistoryModel.RecordModel.VerificationMetadata(status: verificationStatus,
+        let verificationMetadata = OpalBase.Transaction.HistoryModel.Record.VerificationMetadata(status: verificationStatus,
                                                                                    merkleProof: nil,
                                                                                    lastVerifiedHeight: nil,
                                                                                    lastCheckedAt: nil)
-        return OpalBase.Transaction.HistoryModel.RecordModel(transactionHash: entry.transactionHash,
+        return OpalBase.Transaction.HistoryModel.Record(transactionHash: entry.transactionHash,
                                           status: statusTransition.status,
                                           chainMetadata: chainMetadata,
                                           confirmationMetadata: confirmationMetadata,
@@ -132,7 +132,7 @@ extension _OpalBase.Transaction.HistoryModel.RecordModel {
         verificationMetadata.lastCheckedAt = checkedAt
     }
     
-    mutating func updateTokenDelta(_ tokenDelta: TokenDeltaModel) {
+    mutating func updateTokenDelta(_ tokenDelta: TokenDelta) {
             self.tokenDelta = tokenDelta
         }
     
@@ -146,7 +146,7 @@ extension _OpalBase.Transaction.HistoryModel.RecordModel {
                                          shouldResetExistingVerification: true)
     }
     
-    private mutating func applyEntryDetails(from entry: OpalBase.Transaction.HistoryModel.EntryModel,
+    private mutating func applyEntryDetails(from entry: OpalBase.Transaction.HistoryModel.Entry,
                                             scriptHash: String,
                                             timestamp: Date) {
         chainMetadata.height = entry.height
@@ -155,7 +155,7 @@ extension _OpalBase.Transaction.HistoryModel.RecordModel {
         chainMetadata.scriptHashes.insert(scriptHash)
     }
 
-    private mutating func applyStatusTransition(_ transition: OpalBase.Transaction.HistoryModel.Status.TransitionModel,
+    private mutating func applyStatusTransition(_ transition: OpalBase.Transaction.HistoryModel.Status.Transition,
                                                 entryHeight: Int,
                                                 timestamp: Date) {
         status = transition.status
@@ -163,7 +163,7 @@ extension _OpalBase.Transaction.HistoryModel.RecordModel {
         updateVerification(afterStatusChange: transition.status, timestamp: timestamp)
     }
 
-    private mutating func updateConfirmation(for transition: OpalBase.Transaction.HistoryModel.Status.TransitionModel,
+    private mutating func updateConfirmation(for transition: OpalBase.Transaction.HistoryModel.Status.Transition,
                                              entryHeight: Int,
                                              timestamp: Date) {
         if let newHeight = transition.resolveConfirmationHeight(forHeight: entryHeight) {

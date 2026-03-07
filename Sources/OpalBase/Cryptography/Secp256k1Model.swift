@@ -31,11 +31,11 @@ public enum Secp256k1Model {
         }
         
         public func encodeDER() throws -> Data {
-            try Secp256k1Model.DERModel.encodeSignature(r: r, s: s)
+            try Secp256k1Model.DER.encodeSignature(r: r, s: s)
         }
         
         public init(derEncoded: Data) throws {
-            let signatureValues = try Secp256k1Model.DERModel.decodeSignature(derEncoded)
+            let signatureValues = try Secp256k1Model.DER.decodeSignature(derEncoded)
             try self.init(r: signatureValues.r, s: signatureValues.s)
         }
         

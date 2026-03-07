@@ -1,9 +1,9 @@
-// Secp256k1Model+DERModel.swift
+// Secp256k1Model+DER.swift
 
 import Foundation
 
 extension Secp256k1Model {
-    enum DERModel {
+    enum DER {
         static func encodeSignature(r: Data, s: Data) throws -> Data {
             guard r.count == 32, s.count == 32 else {
                 throw Secp256k1Model.Error.invalidSignatureLength(actual: r.count + s.count)
@@ -12,14 +12,14 @@ extension Secp256k1Model {
             let sEncoded = encodeIntegerBytes(s)
             var sequence = Data()
             sequence.append(0x02)
-            sequence.append(try DERLengthModel.encode(rEncoded.count))
+            sequence.append(try DERLength.encode(rEncoded.count))
             sequence.append(rEncoded)
             sequence.append(0x02)
-            sequence.append(try DERLengthModel.encode(sEncoded.count))
+            sequence.append(try DERLength.encode(sEncoded.count))
             sequence.append(sEncoded)
             var result = Data()
             result.append(0x30)
-            result.append(try DERLengthModel.encode(sequence.count))
+            result.append(try DERLength.encode(sequence.count))
             result.append(sequence)
             return result
         }
@@ -33,7 +33,7 @@ extension Secp256k1Model {
                 throw Secp256k1Model.Error.derMalformed
             }
             index += 1
-            let lengthData = try DERLengthModel.decode(from: derEncoded, startingAt: index)
+            let lengthData = try DERLength.decode(from: derEncoded, startingAt: index)
             index = lengthData.nextIndex
             let endIndex = index + lengthData.length
             guard endIndex == derEncoded.count else {
@@ -66,7 +66,7 @@ extension Secp256k1Model {
                 throw Secp256k1Model.Error.derMalformed
             }
             index += 1
-            let lengthData = try DERLengthModel.decode(from: data, startingAt: index)
+            let lengthData = try DERLength.decode(from: data, startingAt: index)
             index = lengthData.nextIndex
             let length = lengthData.length
             guard length > 0 else {

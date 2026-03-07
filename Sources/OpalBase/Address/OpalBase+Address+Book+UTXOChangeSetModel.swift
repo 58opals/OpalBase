@@ -5,17 +5,17 @@ import Foundation
 extension _OpalBase.Address.Book {
     public struct UTXOChangeSetModel {
         public let address: OpalBase.Address
-        public let previous: [OpalBase.Transaction.OutputModel.UnspentModel]
-        public let updated: [OpalBase.Transaction.OutputModel.UnspentModel]
-        public let inserted: [OpalBase.Transaction.OutputModel.UnspentModel]
-        public let removed: [OpalBase.Transaction.OutputModel.UnspentModel]
-        public let retained: [OpalBase.Transaction.OutputModel.UnspentModel]
+        public let previous: [OpalBase.Transaction.OutputModel.Unspent]
+        public let updated: [OpalBase.Transaction.OutputModel.Unspent]
+        public let inserted: [OpalBase.Transaction.OutputModel.Unspent]
+        public let removed: [OpalBase.Transaction.OutputModel.Unspent]
+        public let retained: [OpalBase.Transaction.OutputModel.Unspent]
         public let balance: OpalBase.Satoshi
         public let timestamp: Date
         
         public init(address: OpalBase.Address,
-                    previous: [OpalBase.Transaction.OutputModel.UnspentModel],
-                    updated: [OpalBase.Transaction.OutputModel.UnspentModel],
+                    previous: [OpalBase.Transaction.OutputModel.Unspent],
+                    updated: [OpalBase.Transaction.OutputModel.Unspent],
                     timestamp: Date = .now) throws {
             self.address = address
             self.previous = previous
@@ -39,7 +39,7 @@ extension _OpalBase.Address.Book.UTXOChangeSetModel: Sendable {}
 extension _OpalBase.Address.Book.UTXOChangeSetModel: Equatable {}
 
 private extension _OpalBase.Address.Book.UTXOChangeSetModel {
-    static func makeBalance(from utxos: Set<OpalBase.Transaction.OutputModel.UnspentModel>) throws -> OpalBase.Satoshi {
+    static func makeBalance(from utxos: Set<OpalBase.Transaction.OutputModel.Unspent>) throws -> OpalBase.Satoshi {
         return try utxos.sumSatoshi { try OpalBase.Satoshi($0.value) }
     }
 }

@@ -4,12 +4,12 @@ import Foundation
 
 extension _OpalBase.Mnemonic {
     public struct WordListModel: Sendable {
-        public let language: OpalBase.Mnemonic.WordModel.LanguageModel
+        public let language: OpalBase.Mnemonic.WordModel.Language
         public let words: [String]
         public let wordSet: Set<String>
         public let indexByWord: [String: Int]
         
-        public init(language: OpalBase.Mnemonic.WordModel.LanguageModel) throws {
+        public init(language: OpalBase.Mnemonic.WordModel.Language) throws {
             let words = try OpalBase.Mnemonic.WordModel.loadWordList(language: language)
             self.language = language
             self.words = words

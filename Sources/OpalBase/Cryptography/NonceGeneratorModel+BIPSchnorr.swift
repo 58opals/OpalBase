@@ -1,10 +1,10 @@
-// NonceGeneratorModel+BIPSchnorrModel.swift
+// NonceGeneratorModel+BIPSchnorr.swift
 
 import Foundation
 import CryptoKit
 
 extension NonceGeneratorModel {
-    struct BIPSchnorrModel {
+    struct BIPSchnorr {
         private let privateKeyData: Data
         private let digestData: Data
         private var counter: UInt32 = 0
@@ -35,8 +35,8 @@ extension NonceGeneratorModel {
                 let hashValue = try UInt256Model(data32: hashData)
                 
                 var reducedValue = hashValue
-                if reducedValue.compare(to: Secp256k1Model.ConstantModel.n) != .orderedAscending {
-                    reducedValue = reducedValue.subtract(Secp256k1Model.ConstantModel.n).difference
+                if reducedValue.compare(to: Secp256k1Model.Constant.n) != .orderedAscending {
+                    reducedValue = reducedValue.subtract(Secp256k1Model.Constant.n).difference
                 }
                 
                 let scalar = ScalarModel(unchecked: reducedValue)

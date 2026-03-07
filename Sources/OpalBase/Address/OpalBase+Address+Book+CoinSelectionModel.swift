@@ -59,19 +59,19 @@ extension _OpalBase.Address.Book.CoinSelectionModel {
         static func makeTemplateConfiguration(strategy: OpalBase.Address.Book.CoinSelectionModel = .greedyLargestFirst,
                                               shouldAllowDustDonation: Bool = false,
                                               tokenSelectionPolicy: TokenSelectionPolicy = .excludeTokenUTXOs) -> Self {
-            Self(recipientOutputs: OpalBase.Address.Book.CoinSelectionModel.TemplatesModel.recipientOutputs,
-                 outputsWithChange: OpalBase.Address.Book.CoinSelectionModel.TemplatesModel.outputsWithChange,
+            Self(recipientOutputs: OpalBase.Address.Book.CoinSelectionModel.Templates.recipientOutputs,
+                 outputsWithChange: OpalBase.Address.Book.CoinSelectionModel.Templates.outputsWithChange,
                  strategy: strategy,
                  shouldAllowDustDonation: shouldAllowDustDonation,
                  tokenSelectionPolicy: tokenSelectionPolicy)
         }
     }
     
-    struct EvaluationModel {
+    struct Evaluation {
         let excess: UInt64
     }
     
-    enum TemplatesModel {
+    enum Templates {
         static let lockingScript: Data = Data(repeating: 0, count: 25)
         static let recipientOutputs: [OpalBase.Transaction.OutputModel] = [OpalBase.Transaction.OutputModel(value: 0,
                                                                                 lockingScript: lockingScript)]
@@ -89,7 +89,7 @@ extension _OpalBase.Address.Book.CoinSelectionModel {
                          recipientOutputs: [OpalBase.Transaction.OutputModel],
                          outputsWithChange: [OpalBase.Transaction.OutputModel],
                          minimumRelayFeeRate: UInt64,
-                         feePerByte: UInt64) throws -> EvaluationModel? {
+                         feePerByte: UInt64) throws -> Evaluation? {
         let changeOutputTemplate: OpalBase.Transaction.OutputModel? = outputsWithChange.count > recipientOutputs.count
         ? outputsWithChange.last
         : nil
@@ -105,10 +105,10 @@ extension _OpalBase.Address.Book.CoinSelectionModel {
         if total >= requiredWithoutChange {
             let excess = total - requiredWithoutChange
             if excess == 0 {
-                return EvaluationModel(excess: excess)
+                return Evaluation(excess: excess)
             }
             if configuration.shouldAllowDustDonation && excess < changeDustThreshold {
-                return EvaluationModel(excess: excess)
+                return Evaluation(excess: excess)
             }
         }
         
@@ -125,6 +125,6 @@ extension _OpalBase.Address.Book.CoinSelectionModel {
         let change = total - requiredWithChange
         guard change == 0 || change >= changeDustThreshold else { return nil }
         
-        return EvaluationModel(excess: change)
+        return Evaluation(excess: change)
     }
 }

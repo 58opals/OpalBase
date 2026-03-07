@@ -4,7 +4,7 @@ import Foundation
 
 public struct ECDSAModel {
     static func add(to compressedPublicKey: Data, tweak: Data) throws -> Data {
-        try Secp256k1Model.OperationModel.tweakAddPublicKey(compressedPublicKey,
+        try Secp256k1Model.Operation.tweakAddPublicKey(compressedPublicKey,
                                                   tweak32: tweak,
                                                   format: .compressed)
     }
@@ -21,20 +21,20 @@ extension ECDSAModel {
 
 extension ECDSAModel {
     static func derivePublicKey(from privateKey: Data) throws -> Data {
-        try Secp256k1Model.OperationModel.derivePublicKey(fromPrivateKey32: privateKey, format: .compressed)
+        try Secp256k1Model.Operation.derivePublicKey(fromPrivateKey32: privateKey, format: .compressed)
     }
 }
 
 extension ECDSAModel {
-    public enum SignatureFormatModel: Sendable {
+    public enum SignatureFormat: Sendable {
         /// Signature wire-format used by signing and verification.
         /// - Note:
-        ///   - **OP_CHECKSIG + ECDSAModel requires DERModel**. Using `.raw` or `.compact` with CHECKSIG is invalid at consensus.
+        ///   - **OP_CHECKSIG + ECDSAModel requires DER**. Using `.raw` or `.compact` with CHECKSIG is invalid at consensus.
         ///   - SchnorrModel is allowed for CHECKSIG as per BCH consensus.
-        case ecdsa(ECDSAModel)
+        case ecdsa(ECDSA)
         case schnorr // Bitcoin Cash SchnorrModel (May 2019+).
         
-        public enum ECDSAModel: Sendable {
+        public enum ECDSA: Sendable {
             case raw
             case compact
             case der
@@ -45,7 +45,7 @@ extension ECDSAModel {
 extension ECDSAModel {
     static func sign(message: Data,
                      with privateKey: OpalBase.PrivateKey,
-                     in format: SignatureFormatModel,
+                     in format: SignatureFormat,
                      nonceFunction: NonceFunctionModel = .rfc6979BchDefault) throws -> Data {
         switch format {
         case .ecdsa(let ecdsa):
@@ -70,9 +70,9 @@ extension ECDSAModel {
         }
     }
     
-    static func sign(message: ECDSAModel.MessageModel,
+    static func sign(message: ECDSAModel.Message,
                      with privateKey: OpalBase.PrivateKey,
-                     in format: SignatureFormatModel,
+                     in format: SignatureFormat,
                      nonceFunction: NonceFunctionModel = .rfc6979BchDefault) throws -> Data {
         switch format {
         case .ecdsa:
@@ -86,7 +86,7 @@ extension ECDSAModel {
 }
 
 extension ECDSAModel {
-    static func verify(signature: Data, message: Data, publicKey: OpalBase.PublicKey, format: SignatureFormatModel) throws -> Bool {
+    static func verify(signature: Data, message: Data, publicKey: OpalBase.PublicKey, format: SignatureFormat) throws -> Bool {
         let compressedPublicKey = publicKey.compressedData
         guard compressedPublicKey.count == 33 else { throw Error.invalidCompressedPublicKeyLength }
         let prefix = compressedPublicKey[0]
@@ -120,7 +120,7 @@ extension ECDSAModel {
         }
     }
     
-    static func verify(signature: Data, message: ECDSAModel.MessageModel, publicKey: OpalBase.PublicKey, format: SignatureFormatModel) throws -> Bool {
+    static func verify(signature: Data, message: ECDSAModel.Message, publicKey: OpalBase.PublicKey, format: SignatureFormat) throws -> Bool {
         switch format {
         case .ecdsa:
             let signerInput = try message.makeDataForSignerHashingOnceSHA256Internally()
@@ -133,7 +133,7 @@ extension ECDSAModel {
 }
 
 extension ECDSAModel {
-    static func detectFormat(signatureCore: Data) -> SignatureFormatModel? {
+    static func detectFormat(signatureCore: Data) -> SignatureFormat? {
         if signatureCore.count == 64 { return .schnorr }
         do {
             _ = try Secp256k1Model.Signature(derEncoded: signatureCore)
@@ -145,7 +145,7 @@ extension ECDSAModel {
 }
 
 private extension ECDSAModel {
-    static func makeEcdsaNonce(from nonceFunction: NonceFunctionModel) -> NonceFunctionModel.ECDSAModel {
+    static func makeEcdsaNonce(from nonceFunction: NonceFunctionModel) -> NonceFunctionModel.ECDSA {
         switch nonceFunction {
         case .systemRandom:
             return .systemRandom

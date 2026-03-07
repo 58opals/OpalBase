@@ -10,7 +10,7 @@ extension _OpalBase.Address.Book {
         }
         
         struct State: Sendable {
-            let utxos: Set<OpalBase.Transaction.OutputModel.UnspentModel>
+            let utxos: Set<OpalBase.Transaction.OutputModel.Unspent>
             let entry: EntryModel
             let hasBeenUsedPreviously: Bool
             let reservedAt: Date
@@ -29,7 +29,7 @@ extension _OpalBase.Address.Book {
 }
 
 extension _OpalBase.Address.Book {
-    func reserveSpend(utxos: [OpalBase.Transaction.OutputModel.UnspentModel],
+    func reserveSpend(utxos: [OpalBase.Transaction.OutputModel.Unspent],
                       changeEntry: EntryModel,
                       tokenSelectionPolicy: OpalBase.Address.Book.CoinSelectionModel.TokenSelectionPolicy) async throws -> SpendReservationModel {
         let utxoSet = Set(utxos)

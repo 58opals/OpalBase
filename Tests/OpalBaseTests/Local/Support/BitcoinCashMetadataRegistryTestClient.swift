@@ -39,7 +39,7 @@ private struct PlaceholderAddressReaderModel: OpalBase.Network.AddressReadable {
     func fetchUnspentOutputs(
         for address: String,
         tokenFilter: OpalBase.Network.TokenFilter
-    ) async throws -> [OpalBase.Transaction.OutputModel.UnspentModel] {
+    ) async throws -> [OpalBase.Transaction.OutputModel.Unspent] {
         throw PlaceholderNetworkError.notImplemented
     }
     

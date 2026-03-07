@@ -1,9 +1,9 @@
-// OpalBase+Mnemonic+WordModel+LanguageModel.swift
+// OpalBase+Mnemonic+WordModel+Language.swift
 
 import Foundation
 
 extension _OpalBase.Mnemonic.WordModel {
-    public enum LanguageModel: Sendable, CaseIterable {
+    public enum Language: Sendable, CaseIterable {
         case english
         case korean
         

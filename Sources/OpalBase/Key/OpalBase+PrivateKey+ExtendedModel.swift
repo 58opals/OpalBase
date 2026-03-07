@@ -10,7 +10,7 @@ extension _OpalBase.PrivateKey {
         let parentFingerprint: Data
         let childIndexNumber: UInt32
 
-        init(rootKey: OpalBase.PrivateKey.ExtendedModel.RootModel) {
+        init(rootKey: OpalBase.PrivateKey.ExtendedModel.Root) {
             self.privateKey = rootKey.privateKey
             self.chainCode = rootKey.chainCode
             self.depth = 0

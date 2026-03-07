@@ -1,9 +1,9 @@
-// OpalBase+PrivateKey+ExtendedModel+RootModel.swift
+// OpalBase+PrivateKey+ExtendedModel+Root.swift
 
 import Foundation
 
 extension _OpalBase.PrivateKey.ExtendedModel {
-    struct RootModel {
+    struct Root {
         let privateKey: Data
         let chainCode: Data
         

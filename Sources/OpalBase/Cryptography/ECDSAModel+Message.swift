@@ -1,10 +1,10 @@
-// ECDSAModel+MessageModel.swift
+// ECDSAModel+Message.swift
 
 import Foundation
 import CryptoKit
 
 extension ECDSAModel {
-    struct MessageModel {
+    struct Message {
         enum Error: Swift.Error {
             case hashCountMustBeGreaterThanZero
             case invalidDigestByteCount(expected: Int, actual: Int)
@@ -23,30 +23,30 @@ extension ECDSAModel {
     }
 }
 
-extension ECDSAModel.MessageModel {
-    static func makeRaw(_ data: Data) -> ECDSAModel.MessageModel {
+extension ECDSAModel.Message {
+    static func makeRaw(_ data: Data) -> ECDSAModel.Message {
         .init(representation: .payload(data: data, hashRounds: 0))
     }
     
-    static func makeSingleSHA256(_ data: Data) -> ECDSAModel.MessageModel {
+    static func makeSingleSHA256(_ data: Data) -> ECDSAModel.Message {
         .init(representation: .payload(data: data, hashRounds: 1))
     }
     
-    static func makeDoubleSHA256(_ data: Data) -> ECDSAModel.MessageModel {
+    static func makeDoubleSHA256(_ data: Data) -> ECDSAModel.Message {
         .init(representation: .payload(data: data, hashRounds: 2))
     }
     
-    static func makeHashing(_ data: Data, rounds: UInt8) throws -> ECDSAModel.MessageModel {
+    static func makeHashing(_ data: Data, rounds: UInt8) throws -> ECDSAModel.Message {
         guard rounds > 0 else { throw Error.hashCountMustBeGreaterThanZero }
         return .init(representation: .payload(data: data, hashRounds: rounds))
     }
     
-    static func makeDigest(_ digest: CryptoKit.SHA256.Digest, hashCount: UInt8 = 1) -> ECDSAModel.MessageModel {
+    static func makeDigest(_ digest: CryptoKit.SHA256.Digest, hashCount: UInt8 = 1) -> ECDSAModel.Message {
         .init(representation: .digest(digest: digest, hashRounds: hashCount))
     }
 }
 
-extension ECDSAModel.MessageModel {
+extension ECDSAModel.Message {
     func makeConsensusDigest32() throws -> Data {
         let baseData = makeDataForHashingRounds()
         let rounds = Int(hashRounds)
@@ -66,7 +66,7 @@ extension ECDSAModel.MessageModel {
     }
 }
 
-private extension ECDSAModel.MessageModel {
+private extension ECDSAModel.Message {
     var hashRounds: UInt8 {
         switch representation {
         case .payload(_, let rounds):

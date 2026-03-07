@@ -17,14 +17,14 @@ extension OpalBase {
                 throw Error.randomBytesGenerationFailed
             }
             
-            isValidPrivateKey = Secp256k1Model.OperationModel.validatePrivateKey32(Data(randomBytes))
+            isValidPrivateKey = Secp256k1Model.Operation.validatePrivateKey32(Data(randomBytes))
         } while !isValidPrivateKey
         
         self.rawData = Data(randomBytes)
     }
     
     public init(data: Data) throws {
-        guard Secp256k1Model.OperationModel.validatePrivateKey32(data) else { throw Error.outOfBounds }
+        guard Secp256k1Model.Operation.validatePrivateKey32(data) else { throw Error.outOfBounds }
         self.rawData = data
     }
     }

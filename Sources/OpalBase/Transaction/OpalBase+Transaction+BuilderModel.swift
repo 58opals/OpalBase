@@ -4,17 +4,17 @@ import Foundation
 
 extension _OpalBase.Transaction {
     struct BuilderModel {
-        let orderedUnspentOutputs: [OpalBase.Transaction.OutputModel.UnspentModel]
-        let signatureFormat: ECDSAModel.SignatureFormatModel
+        let orderedUnspentOutputs: [OpalBase.Transaction.OutputModel.Unspent]
+        let signatureFormat: ECDSAModel.SignatureFormat
         let sequence: UInt32
         
-        private let privateKeysByUnspent: [OpalBase.Transaction.OutputModel.UnspentModel: OpalBase.PrivateKey]
-        private let unlockersByUnspent: [OpalBase.Transaction.OutputModel.UnspentModel: OpalBase.Transaction.UnlockerModel]
+        private let privateKeysByUnspent: [OpalBase.Transaction.OutputModel.Unspent: OpalBase.PrivateKey]
+        private let unlockersByUnspent: [OpalBase.Transaction.OutputModel.Unspent: OpalBase.Transaction.UnlockerModel]
         
-        init(utxoPrivateKeyPairs: [OpalBase.Transaction.OutputModel.UnspentModel: OpalBase.PrivateKey],
-             signatureFormat: ECDSAModel.SignatureFormatModel,
+        init(utxoPrivateKeyPairs: [OpalBase.Transaction.OutputModel.Unspent: OpalBase.PrivateKey],
+             signatureFormat: ECDSAModel.SignatureFormat,
              sequence: UInt32,
-             unlockers: [OpalBase.Transaction.OutputModel.UnspentModel: OpalBase.Transaction.UnlockerModel]) {
+             unlockers: [OpalBase.Transaction.OutputModel.Unspent: OpalBase.Transaction.UnlockerModel]) {
             self.privateKeysByUnspent = utxoPrivateKeyPairs
             self.signatureFormat = signatureFormat
             self.sequence = sequence
@@ -52,11 +52,11 @@ extension _OpalBase.Transaction {
             }
         }
         
-        func makeUnlocker(for unspentOutput: OpalBase.Transaction.OutputModel.UnspentModel) -> OpalBase.Transaction.UnlockerModel {
+        func makeUnlocker(for unspentOutput: OpalBase.Transaction.OutputModel.Unspent) -> OpalBase.Transaction.UnlockerModel {
             unlockersByUnspent[unspentOutput] ?? .p2pkh_CheckSig()
         }
         
-        func findPrivateKey(for unspentOutput: OpalBase.Transaction.OutputModel.UnspentModel) -> OpalBase.PrivateKey? {
+        func findPrivateKey(for unspentOutput: OpalBase.Transaction.OutputModel.Unspent) -> OpalBase.PrivateKey? {
             privateKeysByUnspent[unspentOutput]
         }
     }

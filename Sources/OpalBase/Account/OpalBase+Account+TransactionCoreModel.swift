@@ -10,15 +10,15 @@ extension _OpalBase.Account {
     }
     
     static func buildTransactionCore(
-        privateKeys: [OpalBase.Transaction.OutputModel.UnspentModel: OpalBase.PrivateKey],
+        privateKeys: [OpalBase.Transaction.OutputModel.Unspent: OpalBase.PrivateKey],
         recipientOutputs: [OpalBase.Transaction.OutputModel],
         changeOutput: OpalBase.Transaction.OutputModel,
         feeRate: UInt64,
         shouldAllowDustDonation: Bool,
         shouldRandomizeRecipientOrdering: Bool,
         changeEntry: OpalBase.Address.Book.EntryModel,
-        signatureFormat: ECDSAModel.SignatureFormatModel,
-        unlockers: [OpalBase.Transaction.OutputModel.UnspentModel: OpalBase.Transaction.UnlockerModel],
+        signatureFormat: ECDSAModel.SignatureFormat,
+        unlockers: [OpalBase.Transaction.OutputModel.Unspent: OpalBase.Transaction.UnlockerModel],
         mapBuildError: (Swift.Error) -> OpalBase.Account.Error
     ) throws -> TransactionCoreModel {
         let outputOrderingStrategy: OpalBase.Transaction.OutputOrderingStrategyModel = shouldRandomizeRecipientOrdering

@@ -1,4 +1,4 @@
-// NonceFunctionModel+ECDSAModel.swift
+// NonceFunctionModel+ECDSA.swift
 
 import Foundation
 
@@ -9,7 +9,7 @@ public enum NonceFunctionModel: Sendable, Equatable {
 }
 
 extension NonceFunctionModel {
-    public enum ECDSAModel: Sendable, Equatable {
+    public enum ECDSA: Sendable, Equatable {
         case rfc6979Sha256
         case systemRandom
     }

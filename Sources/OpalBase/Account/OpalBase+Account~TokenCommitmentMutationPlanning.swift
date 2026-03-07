@@ -8,7 +8,7 @@ extension _OpalBase.Account {
         feePolicy: OpalBase.Wallet.FeePolicy = .init()
     ) async throws -> TokenCommitmentMutationPlan {
         let spendableOutputs = await addressBook.sortSpendableUTXOs(by: { $0.value > $1.value })
-        let authorityInput: OpalBase.Transaction.OutputModel.UnspentModel
+        let authorityInput: OpalBase.Transaction.OutputModel.Unspent
         switch mutation.target {
         case .preferredInput(let preferredInput):
             guard spendableOutputs.contains(preferredInput) else {

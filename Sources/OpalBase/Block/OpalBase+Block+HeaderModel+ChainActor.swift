@@ -6,7 +6,7 @@ extension _OpalBase.Block.HeaderModel {
     public actor ChainActor {
         public struct UpdateResult: Sendable {
             let detachedHeights: [UInt32]
-            let newTip: CheckpointModel
+            let newTip: Checkpoint
         }
         
         private let checkpointHeight: UInt32
@@ -15,13 +15,13 @@ extension _OpalBase.Block.HeaderModel {
         
         private var headers: [UInt32: OpalBase.Block.HeaderModel] = .init()
         private var hashes: [UInt32: Data] = .init()
-        private var checkpoints: [CheckpointModel]
+        private var checkpoints: [Checkpoint]
         private var tipHeight: UInt32
         private var tipHash: Data
         
         private var tipTimestamp: UInt32?
-        private var queuedMaintenanceEvents: [MaintenanceEventModel] = .init()
-        private var lastTipStatus: TipStatusModel?
+        private var queuedMaintenanceEvents: [MaintenanceEvent] = .init()
+        private var lastTipStatus: TipStatus?
         
         init(checkpointHeight: UInt32, checkpointHash: Data, maxCheckpointDepth: Int = 24) {
             self.checkpointHeight = checkpointHeight
@@ -39,13 +39,13 @@ extension _OpalBase.Block.HeaderModel.ChainActor {
     enum Error: Swift.Error {
         case invalidProofOfWork(height: UInt32)
         case doesNotConnect(height: UInt32)
-        case checkpointViolation(expected: CheckpointModel, actual: CheckpointModel?)
+        case checkpointViolation(expected: Checkpoint, actual: Checkpoint?)
     }
 }
 
 extension _OpalBase.Block.HeaderModel.ChainActor {
-    var currentTip: CheckpointModel {
-        CheckpointModel(height: tipHeight, hash: tipHash)
+    var currentTip: Checkpoint {
+        Checkpoint(height: tipHeight, hash: tipHash)
     }
     
     func lookupHash(at height: UInt32) -> Data? {
@@ -63,7 +63,7 @@ extension _OpalBase.Block.HeaderModel.ChainActor {
         let headerTime = Date(timeIntervalSince1970: TimeInterval(tipTimestamp))
         let drift = now.timeIntervalSince(headerTime)
         
-        let condition: TipStatusModel.Condition
+        let condition: TipStatus.Condition
         if drift > staleInterval {
             condition = .stale(by: drift)
         } else if drift < -futureDriftTolerance {
@@ -72,7 +72,7 @@ extension _OpalBase.Block.HeaderModel.ChainActor {
             condition = .fresh
         }
         
-        let status = TipStatusModel(condition: condition,
+        let status = TipStatus(condition: condition,
                                headerTime: headerTime,
                                assessedAt: now,
                                height: tipHeight)
@@ -85,7 +85,7 @@ extension _OpalBase.Block.HeaderModel.ChainActor {
         }
     }
     
-    func dequeueMaintenanceEvents() -> [MaintenanceEventModel] {
+    func dequeueMaintenanceEvents() -> [MaintenanceEvent] {
         guard !queuedMaintenanceEvents.isEmpty else { return .init() }
         let events = queuedMaintenanceEvents
         queuedMaintenanceEvents.removeAll()
@@ -131,7 +131,7 @@ extension _OpalBase.Block.HeaderModel.ChainActor {
             headers.removeAll()
             hashes.removeAll()
             hashes[checkpointHeight] = checkpointHash
-            checkpoints = [CheckpointModel(height: checkpointHeight, hash: checkpointHash)]
+            checkpoints = [Checkpoint(height: checkpointHeight, hash: checkpointHash)]
             tipHeight = checkpointHeight
             tipHash = checkpointHash
             queuedMaintenanceEvents.append(.requiresResynchronization(from: .init(height: height, hash: headerHash)))

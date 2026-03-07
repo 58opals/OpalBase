@@ -24,7 +24,7 @@ extension _OpalBase.Network.Fulcrum {
             }
         }
         
-        public func fetchUnspentOutputs(for address: String, tokenFilter: OpalBase.Network.TokenFilter) async throws -> [OpalBase.Transaction.OutputModel.UnspentModel] {
+        public func fetchUnspentOutputs(for address: String, tokenFilter: OpalBase.Network.TokenFilter) async throws -> [OpalBase.Transaction.OutputModel.Unspent] {
             try await OpalBase.Network.performWithFailureTranslation {
                 let lockingScriptData: Data
                 do {
@@ -51,7 +51,7 @@ extension _OpalBase.Network.Fulcrum {
                         label: "unspent transaction hash"
                     )
                     let tokenData = try item.tokenData.map { try OpalBase.CashTokens.TokenData(swiftFulcrumTokenData: $0) }
-                    return OpalBase.Transaction.OutputModel.UnspentModel(
+                    return OpalBase.Transaction.OutputModel.Unspent(
                         value: item.value,
                         lockingScript: lockingScriptData,
                         tokenData: tokenData,

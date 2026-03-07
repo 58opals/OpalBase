@@ -1,9 +1,9 @@
-// OpalBase+Transaction+HistoryModel+RecordModel+TokenDeltaModel.swift
+// OpalBase+Transaction+HistoryModel+Record+TokenDelta.swift
 
 import Foundation
 
-extension _OpalBase.Transaction.HistoryModel.RecordModel {
-    public struct TokenDeltaModel: Sendable, Hashable, Equatable {
+extension _OpalBase.Transaction.HistoryModel.Record {
+    public struct TokenDelta: Sendable, Hashable, Equatable {
         public var fungibleDeltasByCategory: [OpalBase.CashTokens.CategoryIDModel: Int64]
         public var nonFungibleTokenAdditions: Set<OpalBase.CashTokens.TokenData>
         public var nonFungibleTokenRemovals: Set<OpalBase.CashTokens.TokenData>

@@ -5,7 +5,7 @@ import Foundation
 extension _OpalBase.Account {
     public func prepareTokenGenesis(
         _ genesis: TokenGenesis,
-        preferredGenesisInput: OpalBase.Transaction.OutputModel.UnspentModel? = nil,
+        preferredGenesisInput: OpalBase.Transaction.OutputModel.Unspent? = nil,
         feePolicy: OpalBase.Wallet.FeePolicy = .init()
     ) async throws -> TokenGenesisPlan {
         guard !genesis.recipients.isEmpty || genesis.reservedSupplyToSelf != nil else {
@@ -18,7 +18,7 @@ extension _OpalBase.Account {
         }
         
         let spendableOutputs = await addressBook.sortSpendableUTXOs(by: { $0.value > $1.value })
-        let genesisInput: OpalBase.Transaction.OutputModel.UnspentModel
+        let genesisInput: OpalBase.Transaction.OutputModel.Unspent
         if let preferredGenesisInput {
             guard preferredGenesisInput.tokenData == nil,
                   preferredGenesisInput.previousTransactionOutputIndex == 0 else {

@@ -4,7 +4,7 @@ import Foundation
 
 extension _OpalBase.Address.Book {
     struct TransactionLogModel {
-        private var records: [OpalBase.Transaction.HashModel: OpalBase.Transaction.HistoryModel.RecordModel]
+        private var records: [OpalBase.Transaction.HashModel: OpalBase.Transaction.HistoryModel.Record]
         private var transactionHashesByScriptHash: [String: Set<OpalBase.Transaction.HashModel>]
         
         init() {
@@ -12,22 +12,22 @@ extension _OpalBase.Address.Book {
             self.transactionHashesByScriptHash = .init()
         }
         
-        func listRecords() -> [OpalBase.Transaction.HistoryModel.RecordModel] {
+        func listRecords() -> [OpalBase.Transaction.HistoryModel.Record] {
             Array(records.values)
         }
         
-        func loadRecord(for transactionHash: OpalBase.Transaction.HashModel) -> OpalBase.Transaction.HistoryModel.RecordModel? {
+        func loadRecord(for transactionHash: OpalBase.Transaction.HashModel) -> OpalBase.Transaction.HistoryModel.Record? {
             records[transactionHash]
         }
         
         mutating func replaceHistory(for scriptHash: String,
-                                     entries: [OpalBase.Transaction.HistoryModel.EntryModel],
-                                     tokenDeltasByHash: [OpalBase.Transaction.HashModel: OpalBase.Transaction.HistoryModel.RecordModel.TokenDeltaModel],
-                                     timestamp: Date) -> OpalBase.Transaction.HistoryModel.ChangeSetModel {
+                                     entries: [OpalBase.Transaction.HistoryModel.Entry],
+                                     tokenDeltasByHash: [OpalBase.Transaction.HashModel: OpalBase.Transaction.HistoryModel.Record.TokenDelta],
+                                     timestamp: Date) -> OpalBase.Transaction.HistoryModel.ChangeSet {
             let newTransactions = Set(entries.map { $0.transactionHash })
             let previousTransactions = transactionHashesByScriptHash[scriptHash] ?? .init()
-            var inserted: [OpalBase.Transaction.HashModel: OpalBase.Transaction.HistoryModel.RecordModel] = .init()
-            var updated: [OpalBase.Transaction.HashModel: OpalBase.Transaction.HistoryModel.RecordModel] = .init()
+            var inserted: [OpalBase.Transaction.HashModel: OpalBase.Transaction.HistoryModel.Record] = .init()
+            var updated: [OpalBase.Transaction.HashModel: OpalBase.Transaction.HistoryModel.Record] = .init()
             var removed: Set<OpalBase.Transaction.HashModel> = .init()
             
             for entry in entries {
@@ -42,7 +42,7 @@ extension _OpalBase.Address.Book {
                         updated[entry.transactionHash] = record
                     }
                 } else {
-                    var record = OpalBase.Transaction.HistoryModel.RecordModel.makeRecord(for: entry,
+                    var record = OpalBase.Transaction.HistoryModel.Record.makeRecord(for: entry,
                                                                        scriptHash: scriptHash,
                                                                        timestamp: timestamp)
                     if let tokenDelta = tokenDeltasByHash[entry.transactionHash] {
@@ -76,19 +76,19 @@ extension _OpalBase.Address.Book {
                 transactionHashesByScriptHash[scriptHash] = newTransactions
             }
             
-            return OpalBase.Transaction.HistoryModel.ChangeSetModel(inserted: Array(inserted.values),
+            return OpalBase.Transaction.HistoryModel.ChangeSet(inserted: Array(inserted.values),
                                                  updated: Array(updated.values),
                                                  removed: Array(removed))
         }
         
         mutating func mergeHistoryEntries(for scriptHash: String,
-                                          entries: [OpalBase.Transaction.HistoryModel.EntryModel],
-                                          tokenDeltasByHash: [OpalBase.Transaction.HashModel: OpalBase.Transaction.HistoryModel.RecordModel.TokenDeltaModel],
-                                          timestamp: Date) -> OpalBase.Transaction.HistoryModel.ChangeSetModel {
+                                          entries: [OpalBase.Transaction.HistoryModel.Entry],
+                                          tokenDeltasByHash: [OpalBase.Transaction.HashModel: OpalBase.Transaction.HistoryModel.Record.TokenDelta],
+                                          timestamp: Date) -> OpalBase.Transaction.HistoryModel.ChangeSet {
             guard !entries.isEmpty else { return .init() }
             
-            var inserted: [OpalBase.Transaction.HashModel: OpalBase.Transaction.HistoryModel.RecordModel] = .init()
-            var updated: [OpalBase.Transaction.HashModel: OpalBase.Transaction.HistoryModel.RecordModel] = .init()
+            var inserted: [OpalBase.Transaction.HashModel: OpalBase.Transaction.HistoryModel.Record] = .init()
+            var updated: [OpalBase.Transaction.HashModel: OpalBase.Transaction.HistoryModel.Record] = .init()
             
             for entry in entries {
                 if var record = records[entry.transactionHash] {
@@ -102,7 +102,7 @@ extension _OpalBase.Address.Book {
                         updated[entry.transactionHash] = record
                     }
                 } else {
-                    var record = OpalBase.Transaction.HistoryModel.RecordModel.makeRecord(for: entry,
+                    var record = OpalBase.Transaction.HistoryModel.Record.makeRecord(for: entry,
                                                                        scriptHash: scriptHash,
                                                                        timestamp: timestamp)
                     if let tokenDelta = tokenDeltasByHash[entry.transactionHash] {
@@ -115,7 +115,7 @@ extension _OpalBase.Address.Book {
                 transactionHashesByScriptHash[scriptHash, default: .init()].insert(entry.transactionHash)
             }
             
-            return OpalBase.Transaction.HistoryModel.ChangeSetModel(inserted: Array(inserted.values),
+            return OpalBase.Transaction.HistoryModel.ChangeSet(inserted: Array(inserted.values),
                                                  updated: Array(updated.values),
                                                  removed: .init())
         }
@@ -124,7 +124,7 @@ extension _OpalBase.Address.Book {
                                          status: OpalBase.Transaction.HistoryModel.Status.Verification,
                                          proof: OpalBase.Transaction.MerkleProof?,
                                          verifiedHeight: UInt32?,
-                                         timestamp: Date) -> OpalBase.Transaction.HistoryModel.RecordModel? {
+                                         timestamp: Date) -> OpalBase.Transaction.HistoryModel.Record? {
             guard var record = records[transactionHash] else { return nil }
             let original = record
             record.updateVerification(status: status,
@@ -138,10 +138,10 @@ extension _OpalBase.Address.Book {
         }
         
         mutating func invalidateConfirmations(startingAt height: UInt32,
-                                              timestamp: Date) -> [OpalBase.Transaction.HistoryModel.RecordModel] {
+                                              timestamp: Date) -> [OpalBase.Transaction.HistoryModel.Record] {
             guard !records.isEmpty else { return .init() }
             let threshold = UInt64(height)
-            var updated: [OpalBase.Transaction.HistoryModel.RecordModel] = .init()
+            var updated: [OpalBase.Transaction.HistoryModel.Record] = .init()
             for (transactionHash, record) in records {
                 guard let confirmationHeight = record.confirmationMetadata.height,
                       confirmationHeight >= threshold else { continue }
@@ -159,7 +159,7 @@ extension _OpalBase.Address.Book {
             transactionHashesByScriptHash.removeAll()
         }
         
-        mutating func store(_ record: OpalBase.Transaction.HistoryModel.RecordModel) {
+        mutating func store(_ record: OpalBase.Transaction.HistoryModel.Record) {
             records[record.transactionHash] = record
             for scriptHash in record.chainMetadata.scriptHashes {
                 transactionHashesByScriptHash[scriptHash, default: .init()].insert(record.transactionHash)
@@ -175,7 +175,7 @@ extension _OpalBase.Address.Book {
 extension _OpalBase.Address.Book.TransactionLogModel: Sendable {}
 
 extension _OpalBase.Address.Book {
-    func listTransactionRecords() -> [OpalBase.Transaction.HistoryModel.RecordModel] {
+    func listTransactionRecords() -> [OpalBase.Transaction.HistoryModel.Record] {
         transactionLog.listRecords()
     }
     
@@ -183,7 +183,7 @@ extension _OpalBase.Address.Book {
         transactionLog.reset()
     }
     
-    func storeTransactionRecord(_ record: OpalBase.Transaction.HistoryModel.RecordModel) {
+    func storeTransactionRecord(_ record: OpalBase.Transaction.HistoryModel.Record) {
         transactionLog.store(record)
     }
 }

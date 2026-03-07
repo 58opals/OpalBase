@@ -1,9 +1,9 @@
-// OpalBase+Address+Book+SnapshotModel+UTXOModel.swift
+// OpalBase+Address+Book+SnapshotModel+UTXO.swift
 
 import Foundation
 
 extension _OpalBase.Address.Book.SnapshotModel {
-    public struct UTXOModel: Codable, Equatable, Hashable, Sendable {
+    public struct UTXO: Codable, Equatable, Hashable, Sendable {
         public let value: UInt64
         public let lockingScript: String
         public let tokenCategory: String?

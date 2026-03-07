@@ -58,7 +58,7 @@ extension _OpalBase.Account {
         return requirementsByCategory
     }
     
-    func makeTokenInventory(from unspentOutputs: [OpalBase.Transaction.OutputModel.UnspentModel],
+    func makeTokenInventory(from unspentOutputs: [OpalBase.Transaction.OutputModel.Unspent],
                             category: OpalBase.CashTokens.CategoryIDModel) throws -> TokenInventoryModel {
         var fungibleAmount: UInt64 = 0
         var nonFungibleTokens: [OpalBase.Address.Book.TokenInventoryModel.NonFungibleTokenGroup: Int] = .init()

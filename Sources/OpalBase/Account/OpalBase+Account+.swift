@@ -127,7 +127,7 @@ extension _OpalBase.Account {
 }
 
 extension _OpalBase.Account {
-    public func loadTransactionHistory() async -> [OpalBase.Transaction.HistoryModel.RecordModel] {
+    public func loadTransactionHistory() async -> [OpalBase.Transaction.HistoryModel.Record] {
         await listTransactions()
     }
 }

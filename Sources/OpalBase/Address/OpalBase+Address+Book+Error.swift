@@ -19,7 +19,7 @@ extension _OpalBase.Address.Book {
         case paymentExceedsMaximumAmount
         
         case utxoNotFound
-        case utxoAlreadyReserved(OpalBase.Transaction.OutputModel.UnspentModel)
+        case utxoAlreadyReserved(OpalBase.Transaction.OutputModel.Unspent)
         
         case cacheInvalid
         case cacheUpdateFailed(OpalBase.Address, Swift.Error)

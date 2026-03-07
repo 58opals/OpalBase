@@ -4,7 +4,7 @@ import Foundation
 import Testing
 @testable import OpalBase
 
-@Suite("OpalBase.Address BookActor UTXOModel Refresh", .tags(.unit, .address, .cashTokens))
+@Suite("OpalBase.Address BookActor UTXO Refresh", .tags(.unit, .address, .cashTokens))
 struct AddressBookUnspentTransactionOutputRefreshValidator {
     @Test("refresh stores token data from unspent outputs (explicit usage)")
     func refreshStoresTokenDataFromUnspentOutputs() async throws {
@@ -12,7 +12,7 @@ struct AddressBookUnspentTransactionOutputRefreshValidator {
         let entry = try await book.selectNextEntry(for: .receiving)
 
         let tokenData = try AddressBookCashTokensTestData.makeTokenData()
-        let utxo = OpalBase.Transaction.OutputModel.UnspentModel(
+        let utxo = OpalBase.Transaction.OutputModel.Unspent(
             value: 12_345,
             lockingScript: entry.address.lockingScript.data,
             tokenData: tokenData,
@@ -41,7 +41,7 @@ struct AddressBookUnspentTransactionOutputRefreshValidator {
         let entry = try await book.selectNextEntry(for: .receiving)
 
         let tokenData = try AddressBookCashTokensTestData.makeTokenData()
-        let utxo = OpalBase.Transaction.OutputModel.UnspentModel(
+        let utxo = OpalBase.Transaction.OutputModel.Unspent(
             value: 7_000,
             lockingScript: entry.address.lockingScript.data,
             tokenData: tokenData,

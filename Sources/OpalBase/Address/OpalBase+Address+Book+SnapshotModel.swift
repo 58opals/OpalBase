@@ -6,7 +6,7 @@ extension _OpalBase.Address.Book {
     public typealias AddressBookSnapshotTransactionHistory = OpalBase.Transaction.HistoryModel
 
     public struct SnapshotModel: Codable, Equatable, Hashable, Sendable {
-        public struct EntryModel: Codable, Equatable, Hashable, Sendable {
+        public struct Entry: Codable, Equatable, Hashable, Sendable {
             public let usage: OpalBase.DerivationPath.UsageModel
             public let index: UInt32
             public let isUsed: Bool
@@ -102,14 +102,14 @@ extension _OpalBase.Address.Book {
             }
         }
 
-        public let receivingEntries: [EntryModel]
-        public let changeEntries: [EntryModel]
-        public let utxos: [UTXOModel]
+        public let receivingEntries: [Entry]
+        public let changeEntries: [Entry]
+        public let utxos: [UTXO]
         public let transactions: [Transaction]
 
-        public init(receivingEntries: [EntryModel],
-                    changeEntries: [EntryModel],
-                    utxos: [UTXOModel],
+        public init(receivingEntries: [Entry],
+                    changeEntries: [Entry],
+                    utxos: [UTXO],
                     transactions: [Transaction]) {
             self.receivingEntries = receivingEntries
             self.changeEntries = changeEntries

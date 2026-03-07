@@ -4,7 +4,7 @@ import Foundation
 import Testing
 @testable import OpalBase
 
-@Suite("OpalBase.Transaction UTXOModel", .tags(.unit, .transaction))
+@Suite("OpalBase.Transaction UTXO", .tags(.unit, .transaction))
 struct TransactionUnspentTransactionOutputValidator {
     @Test("build applies canonical BIP-69 output ordering when requested")
     func buildAppliesCanonicalOutputOrdering() throws {
@@ -19,14 +19,14 @@ struct TransactionUnspentTransactionOutputValidator {
         ])
         
         let previousTransactionHash = OpalBase.Transaction.HashModel(naturalOrder: Data(repeating: 0x00, count: 32))
-        let unspent = OpalBase.Transaction.OutputModel.UnspentModel(
+        let unspent = OpalBase.Transaction.OutputModel.Unspent(
             value: 10_000,
             lockingScript: lockingScript,
             previousTransactionHash: previousTransactionHash,
             previousTransactionOutputIndex: 0
         )
         
-        let privateKeys: [OpalBase.Transaction.OutputModel.UnspentModel: OpalBase.PrivateKey] = [unspent: privateKey]
+        let privateKeys: [OpalBase.Transaction.OutputModel.Unspent: OpalBase.PrivateKey] = [unspent: privateKey]
         
         let recipientOutputs = [
             OpalBase.Transaction.OutputModel(value: 6_000, lockingScript: Data([0x51])),
@@ -223,7 +223,7 @@ struct TransactionUnspentTransactionOutputValidator {
         #expect(resolvedChangeOutput.tokenData == tokenData)
     }
     
-    private func makeTransactionBuilderComponents() throws -> (privateKeys: [OpalBase.Transaction.OutputModel.UnspentModel: OpalBase.PrivateKey],
+    private func makeTransactionBuilderComponents() throws -> (privateKeys: [OpalBase.Transaction.OutputModel.Unspent: OpalBase.PrivateKey],
                                                                recipientOutputs: [OpalBase.Transaction.OutputModel],
                                                                changeOutput: OpalBase.Transaction.OutputModel,
                                                                inputTotal: UInt64) {
@@ -238,14 +238,14 @@ struct TransactionUnspentTransactionOutputValidator {
         ])
         
         let previousTransactionHash = OpalBase.Transaction.HashModel(naturalOrder: Data(repeating: 0x00, count: 32))
-        let unspent = OpalBase.Transaction.OutputModel.UnspentModel(
+        let unspent = OpalBase.Transaction.OutputModel.Unspent(
             value: 10_000,
             lockingScript: lockingScript,
             previousTransactionHash: previousTransactionHash,
             previousTransactionOutputIndex: 0
         )
         
-        let privateKeys: [OpalBase.Transaction.OutputModel.UnspentModel: OpalBase.PrivateKey] = [unspent: privateKey]
+        let privateKeys: [OpalBase.Transaction.OutputModel.Unspent: OpalBase.PrivateKey] = [unspent: privateKey]
         
         let recipientOutputs = [
             OpalBase.Transaction.OutputModel(value: 6_000, lockingScript: Data([0x51])),

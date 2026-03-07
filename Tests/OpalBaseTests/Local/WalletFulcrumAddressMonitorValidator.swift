@@ -6,12 +6,12 @@ import Testing
 
 @Suite("OpalBase.Wallet.Fulcrum.Monitor", .tags(.unit, .wallet))
 struct WalletFulcrumAddressMonitorValidator {
-    @Test("monitor emits tracked, UTXOModel/history, and stopped termination events")
+    @Test("monitor emits tracked, UTXO/history, and stopped termination events")
     func monitorEmitsCoreLifecycleEvents() async throws {
         let account = try await AccountTestFixturesModel.makeAccount()
         let targetEntry = try await account.selectNextEntry(for: .receiving)
         let hash = AccountTestFixturesModel.makeHash(byte: 0x51)
-        let unspentOutput = OpalBase.Transaction.OutputModel.UnspentModel(
+        let unspentOutput = OpalBase.Transaction.OutputModel.Unspent(
             value: 14_000,
             lockingScript: targetEntry.address.lockingScript.data,
             previousTransactionHash: AccountTestFixturesModel.makeHash(byte: 0x52),
@@ -139,7 +139,7 @@ struct WalletFulcrumAddressMonitorValidator {
         let account = try await AccountTestFixturesModel.makeAccount()
         let targetEntry = try await account.selectNextEntry(for: .receiving)
         let hash = AccountTestFixturesModel.makeHash(byte: 0x61)
-        let unspentOutput = OpalBase.Transaction.OutputModel.UnspentModel(
+        let unspentOutput = OpalBase.Transaction.OutputModel.Unspent(
             value: 7_000,
             lockingScript: targetEntry.address.lockingScript.data,
             previousTransactionHash: AccountTestFixturesModel.makeHash(byte: 0x62),

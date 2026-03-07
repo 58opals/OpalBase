@@ -3,14 +3,14 @@
 import Foundation
 
 extension _OpalBase.Storage.PortsModel {
-    init(operations: OpalBase.Storage.PersistenceSessionModel.OperationsModel) {
+    init(operations: OpalBase.Storage.PersistenceSessionModel.Operations) {
         self.init(snapshotPersistence: SnapshotOperationsAdapter(operations: operations),
                   secretAccess: SecureSecretOperationsAdapter(operations: operations))
     }
 }
 
 private struct SnapshotOperationsAdapter: SnapshotPersistenceAdapter {
-    let operations: OpalBase.Storage.PersistenceSessionModel.OperationsModel
+    let operations: OpalBase.Storage.PersistenceSessionModel.Operations
     
     func saveWalletSnapshot(_ snapshot: OpalBase.Wallet.Snapshot) async throws {
         try await operations.walletSnapshotSaver(snapshot)
@@ -42,7 +42,7 @@ private struct SnapshotOperationsAdapter: SnapshotPersistenceAdapter {
 }
 
 private struct SecureSecretOperationsAdapter: SecureSecretAccessAdapter {
-    let operations: OpalBase.Storage.PersistenceSessionModel.OperationsModel
+    let operations: OpalBase.Storage.PersistenceSessionModel.Operations
     
     func saveMnemonic(_ mnemonic: OpalBase.Storage.Mnemonic,
                       fallbackToPlaintext: Bool) async throws -> OpalBase.Storage.SecurityModel.ProtectionMode {

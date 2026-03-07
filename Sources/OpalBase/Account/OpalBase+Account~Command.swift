@@ -2,7 +2,7 @@
 
 import Foundation
 
-// MARK: - UTXOModel
+// MARK: - UTXO
 extension _OpalBase.Account {
     public func refreshUTXOSet(using service: OpalBase.Network.AddressReadable, usage: OpalBase.DerivationPath.UsageModel? = nil) async throws -> OpalBase.Address.Book.UTXORefreshModel {
         try await addressBook.refreshUTXOSet(using: service, usage: usage)
@@ -32,7 +32,7 @@ extension _OpalBase.Account {
     public func refreshTransactionHistory(using service: OpalBase.Network.AddressReadable,
                                           usage: OpalBase.DerivationPath.UsageModel? = nil,
                                           includeUnconfirmed: Bool = true,
-                                          transactionReader: OpalBase.Network.TransactionReadableClient? = nil) async throws -> OpalBase.Transaction.HistoryModel.ChangeSetModel {
+                                          transactionReader: OpalBase.Network.TransactionReadableClient? = nil) async throws -> OpalBase.Transaction.HistoryModel.ChangeSet {
         try await mapAddressBookError {
             try await addressBook.refreshTransactionHistory(using: service,
                                                             usage: usage,
@@ -42,14 +42,14 @@ extension _OpalBase.Account {
     }
     
     public func updateTransactionConfirmations(using handler: OpalBase.Network.TransactionConfirmationClient,
-                                               for transactionHashes: [OpalBase.Transaction.HashModel]) async throws -> OpalBase.Transaction.HistoryModel.ChangeSetModel {
+                                               for transactionHashes: [OpalBase.Transaction.HashModel]) async throws -> OpalBase.Transaction.HistoryModel.ChangeSet {
         try await mapAddressBookError {
             try await addressBook.updateTransactionConfirmations(using: handler,
                                                                  for: transactionHashes)
         }
     }
     
-    public func refreshTransactionConfirmations(using handler: OpalBase.Network.TransactionConfirmationClient) async throws -> OpalBase.Transaction.HistoryModel.ChangeSetModel {
+    public func refreshTransactionConfirmations(using handler: OpalBase.Network.TransactionConfirmationClient) async throws -> OpalBase.Transaction.HistoryModel.ChangeSet {
         let records = await addressBook.listTransactionRecords()
         let hashes = records.map(\.transactionHash)
         guard !hashes.isEmpty else { return .init() }

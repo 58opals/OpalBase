@@ -7,7 +7,7 @@ extension _OpalBase.Mnemonic {
 }
 
 extension _OpalBase.Mnemonic.WordModel {
-    static func loadWordList(language: LanguageModel = .english) throws -> [String] {
+    static func loadWordList(language: Language = .english) throws -> [String] {
         guard let filePath = language.filePath else { throw Error.cannotLoadMnemonicWords }
         let contents = try String(contentsOfFile: filePath, encoding: .utf8)
         let words = contents.components(separatedBy: .newlines).filter { !$0.isEmpty }
@@ -21,9 +21,9 @@ extension _OpalBase.Mnemonic.WordModel {
     
     static func detectLanguage(
         of words: [String],
-        wordLists: [LanguageModel: OpalBase.Mnemonic.WordListModel]
+        wordLists: [Language: OpalBase.Mnemonic.WordListModel]
     ) throws -> OpalBase.Mnemonic.WordListModel {
-        for language in LanguageModel.allCases {
+        for language in Language.allCases {
             guard let wordList = wordLists[language] else { continue }
             if words.allSatisfy({ wordList.wordSet.contains($0) }) {
                 return wordList
@@ -64,7 +64,7 @@ extension _OpalBase.Mnemonic.WordModel {
     
     static func validateMnemonicWords(
         _ words: [String],
-        wordLists: [LanguageModel: OpalBase.Mnemonic.WordListModel]
+        wordLists: [Language: OpalBase.Mnemonic.WordListModel]
     ) throws -> Bool {
         let wordList = try detectLanguage(of: words, wordLists: wordLists)
         return try validateMnemonicWords(words, wordList: wordList)
@@ -81,9 +81,9 @@ extension _OpalBase.Mnemonic.WordModel {
 }
 
 private extension _OpalBase.Mnemonic.WordModel {
-    static func loadWordLists() throws -> [LanguageModel: OpalBase.Mnemonic.WordListModel] {
-        var wordListsByLanguage: [LanguageModel: OpalBase.Mnemonic.WordListModel] = .init()
-        for language in LanguageModel.allCases {
+    static func loadWordLists() throws -> [Language: OpalBase.Mnemonic.WordListModel] {
+        var wordListsByLanguage: [Language: OpalBase.Mnemonic.WordListModel] = .init()
+        for language in Language.allCases {
             wordListsByLanguage[language] = try OpalBase.Mnemonic.WordListModel(language: language)
         }
         return wordListsByLanguage

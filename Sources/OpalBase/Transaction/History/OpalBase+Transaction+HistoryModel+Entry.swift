@@ -1,9 +1,9 @@
-// OpalBase+Transaction+HistoryModel+EntryModel.swift
+// OpalBase+Transaction+HistoryModel+Entry.swift
 
 import Foundation
 
 extension _OpalBase.Transaction.HistoryModel {
-    public struct EntryModel: Sendable, Hashable {
+    public struct Entry: Sendable, Hashable {
         public let transactionHash: OpalBase.Transaction.HashModel
         public let height: Int
         public let fee: UInt64?

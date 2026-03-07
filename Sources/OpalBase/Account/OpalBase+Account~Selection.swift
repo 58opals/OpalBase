@@ -3,15 +3,15 @@
 import Foundation
 
 extension _OpalBase.Account {
-    func selectTokenInputs(from unspentOutputs: [OpalBase.Transaction.OutputModel.UnspentModel],
-                           requirements: TokenRequirementsModel) throws -> [OpalBase.Transaction.OutputModel.UnspentModel] {
+    func selectTokenInputs(from unspentOutputs: [OpalBase.Transaction.OutputModel.Unspent],
+                           requirements: TokenRequirementsModel) throws -> [OpalBase.Transaction.OutputModel.Unspent] {
         guard requirements.fungibleAmount > 0 || !requirements.nonFungibleTokens.isEmpty else {
             throw Error.tokenTransferHasNoRecipients
         }
         
         var remainingFungible = requirements.fungibleAmount
         var remainingNonFungible = requirements.nonFungibleTokens
-        var selected: [OpalBase.Transaction.OutputModel.UnspentModel] = .init()
+        var selected: [OpalBase.Transaction.OutputModel.Unspent] = .init()
         
         for unspentOutput in unspentOutputs {
             guard let tokenData = unspentOutput.tokenData else { continue }
@@ -55,12 +55,12 @@ extension _OpalBase.Account {
         throw Error.tokenTransferInsufficientTokens
     }
     
-    func selectBitcoinCashInputs(from unspentOutputs: [OpalBase.Transaction.OutputModel.UnspentModel],
-                                 existingInputs: [OpalBase.Transaction.OutputModel.UnspentModel],
+    func selectBitcoinCashInputs(from unspentOutputs: [OpalBase.Transaction.OutputModel.Unspent],
+                                 existingInputs: [OpalBase.Transaction.OutputModel.Unspent],
                                  outputs: [OpalBase.Transaction.OutputModel],
                                  feeRate: UInt64,
                                  shouldAllowDustDonation: Bool,
-                                 changeLockingScript: Data) throws -> [OpalBase.Transaction.OutputModel.UnspentModel] {
+                                 changeLockingScript: Data) throws -> [OpalBase.Transaction.OutputModel.Unspent] {
         let bitcoinCashOnlyOutputs = unspentOutputs
             .filter { $0.tokenData == nil }
             .sorted {
@@ -77,7 +77,7 @@ extension _OpalBase.Account {
                                                                      tokenSelectionPolicy: .excludeTokenUTXOs)
         let minimumRelayFeeRate = OpalBase.Transaction.minimumRelayFeeRate
         
-        func evaluate(total: UInt64, inputCount: Int) throws -> OpalBase.Address.Book.CoinSelectionModel.EvaluationModel? {
+        func evaluate(total: UInt64, inputCount: Int) throws -> OpalBase.Address.Book.CoinSelectionModel.Evaluation? {
             try OpalBase.Address.Book.CoinSelectionModel.evaluate(configuration: configuration,
                                                     total: total,
                                                     inputCount: inputCount,
@@ -88,7 +88,7 @@ extension _OpalBase.Account {
                                                     feePerByte: feeRate)
         }
         
-        var selected: [OpalBase.Transaction.OutputModel.UnspentModel] = .init()
+        var selected: [OpalBase.Transaction.OutputModel.Unspent] = .init()
         var total: UInt64 = try existingInputs.reduce(0) { partial, output in
             try partial.addOrThrow(output.value,
                                    overflowError: Error.paymentExceedsMaximumAmount)

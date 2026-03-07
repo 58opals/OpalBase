@@ -42,10 +42,10 @@ enum AccountTestFixturesModel {
         usage: OpalBase.DerivationPath.UsageModel = .receiving,
         hashByte: UInt8,
         outputIndex: UInt32 = 0
-    ) async throws -> OpalBase.Transaction.OutputModel.UnspentModel {
+    ) async throws -> OpalBase.Transaction.OutputModel.Unspent {
         let addressBook = await account.addressBook
         let entry = try await addressBook.selectNextEntry(for: usage)
-        let output = OpalBase.Transaction.OutputModel.UnspentModel(
+        let output = OpalBase.Transaction.OutputModel.Unspent(
             value: value,
             lockingScript: entry.address.lockingScript.data,
             tokenData: tokenData,

@@ -4,13 +4,13 @@ import Foundation
 import Testing
 @testable import OpalBase
 
-@Suite("OpalBase.Address BookActor UTXOModel Refresh (OpalBase.Network)", .tags(.network, .cashTokens))
+@Suite("OpalBase.Address BookActor UTXO Refresh (OpalBase.Network)", .tags(.network, .cashTokens))
 struct AddressBookUnspentTransactionOutputRefreshNetworkValidator {
     private static let primaryServerAddress = URL(string: "wss://bch.imaginary.cash:50004")!
     private static let backupServerAddress = URL(string: "wss://bch.loping.net:50002")!
     private static let tokenCashAddress = "bitcoincash:qqe68ymghsw9derq3v2rgu2jc8a23ddv25t83hevfk"
 
-    @Test("listunspent token data reaches the UTXOModel store", .timeLimit(.minutes(1)))
+    @Test("listunspent token data reaches the UTXO store", .timeLimit(.minutes(1)))
     func ingestNetworkTokenUnspentTransactionOutputs() async throws {
         guard NetworkTestClient.isExtendedLiveNetworkEnabled else { return }
         let book = try await AddressBookCashTokensTestData.makeAddressBook()

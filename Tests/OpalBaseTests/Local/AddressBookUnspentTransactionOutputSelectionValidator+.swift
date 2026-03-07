@@ -4,7 +4,7 @@ import Foundation
 import Testing
 @testable import OpalBase
 
-@Suite("OpalBase.Address BookActor UTXOModel Selection", .tags(.unit, .address))
+@Suite("OpalBase.Address BookActor UTXO Selection", .tags(.unit, .address))
 struct AddressBookUnspentTransactionOutputSelectionValidator {
     @Test("BCH selection excludes token UTXOs by default")
     func selectUnspentTransactionOutputsExcludesTokenOutputsForBitcoinCashPayments() async throws {
@@ -12,12 +12,12 @@ struct AddressBookUnspentTransactionOutputSelectionValidator {
         let tokenData = try makeTokenData()
         let lockingScript = Data([0x51])
         let transactionHash = OpalBase.Transaction.HashModel(naturalOrder: Data(repeating: 0x11, count: 32))
-        let bchOnlyUTXO = OpalBase.Transaction.OutputModel.UnspentModel(value: 5_000,
+        let bchOnlyUTXO = OpalBase.Transaction.OutputModel.Unspent(value: 5_000,
                                                      lockingScript: lockingScript,
                                                      tokenData: nil,
                                                      previousTransactionHash: transactionHash,
                                                      previousTransactionOutputIndex: 0)
-        let tokenUTXO = OpalBase.Transaction.OutputModel.UnspentModel(value: 9_000,
+        let tokenUTXO = OpalBase.Transaction.OutputModel.Unspent(value: 9_000,
                                                    lockingScript: lockingScript,
                                                    tokenData: tokenData,
                                                    previousTransactionHash: transactionHash,
@@ -39,7 +39,7 @@ struct AddressBookUnspentTransactionOutputSelectionValidator {
         let tokenData = try makeTokenData()
         let lockingScript = Data([0x51])
         let transactionHash = OpalBase.Transaction.HashModel(naturalOrder: Data(repeating: 0x22, count: 32))
-        let tokenUTXO = OpalBase.Transaction.OutputModel.UnspentModel(value: 2_000,
+        let tokenUTXO = OpalBase.Transaction.OutputModel.Unspent(value: 2_000,
                                                    lockingScript: lockingScript,
                                                    tokenData: tokenData,
                                                    previousTransactionHash: transactionHash,

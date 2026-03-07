@@ -32,7 +32,7 @@ extension _OpalBase.Account {
                                                                                   shouldAllowDustDonation: payment.shouldAllowDustDonation,
                                                                                   tokenSelectionPolicy: .excludeTokenUTXOs)
         
-        let selectedUTXOs: [OpalBase.Transaction.OutputModel.UnspentModel]
+        let selectedUTXOs: [OpalBase.Transaction.OutputModel.Unspent]
         do {
             selectedUTXOs = try await addressBook.selectUTXOs(targetAmount: targetAmount,
                                                               feePolicy: feePolicy,

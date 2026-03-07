@@ -122,7 +122,7 @@ extension _OpalBase.Address.Book {
             derivationPaths.append(try createDerivationPath(usage: usage, index: index))
         }
         
-        let compressedPublicKeys = try await Secp256k1Model.OperationModel.deriveCompressedPublicKeys(
+        let compressedPublicKeys = try await Secp256k1Model.Operation.deriveCompressedPublicKeys(
             fromPrivateKeys32: childPrivateKeys,
             assumingValidPrivateKeys: true
         )

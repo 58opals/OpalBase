@@ -1,8 +1,8 @@
-// Secp256k1Model+OperationModel~Parsing.swift
+// Secp256k1Model+Operation~Parsing.swift
 
 import Foundation
 
-extension Secp256k1Model.OperationModel {
+extension Secp256k1Model.Operation {
     static func parsePrivateKeyScalar(
         _ data: Data,
         requireNonZero: Bool
