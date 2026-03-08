@@ -7,7 +7,7 @@ import Testing
 extension StoragePersistenceValidator {
     @Test("restore tolerates missing account/address book snapshots while still restoring wallet snapshot")
     func tolerateMissingAccountSnapshotsDuringRestore() async throws {
-        let valueStore = OpalBase.Storage.ValueRepository.makeInMemory()
+        let valueStore = OpalBase.Storage.ValueStore.makeInMemory()
         let storage = try OpalBase.Storage(valueStore: valueStore)
 
         let mnemonic = try OpalBase.Mnemonic(
@@ -28,7 +28,7 @@ extension StoragePersistenceValidator {
         try await storage.removeValue(for: .accountSnapshot(accountIdentifier))
         try await storage.removeValue(for: .addressBookSnapshot(accountIdentifier))
 
-        let session = OpalBase.Storage.PersistenceSessionModel(storage: storage)
+        let session = OpalBase.Storage.PersistenceSession(storage: storage)
         let restored = try await session.restore(accountIdentifiers: [accountIdentifier])
 
         #expect(restored.walletSnapshot != nil)
@@ -39,7 +39,7 @@ extension StoragePersistenceValidator {
 
     @Test("restore tolerates missing mnemonic ciphertext (e.g., keychain cleared) while still restoring snapshots")
     func tolerateMissingMnemonicCiphertextDuringRestore() async throws {
-        let valueStore = OpalBase.Storage.ValueRepository.makeInMemory()
+        let valueStore = OpalBase.Storage.ValueStore.makeInMemory()
         let storage = try OpalBase.Storage(valueStore: valueStore)
 
         let mnemonic = try OpalBase.Mnemonic(
@@ -59,7 +59,7 @@ extension StoragePersistenceValidator {
 
         try await storage.removeValue(for: .mnemonicCiphertext)
 
-        let session = OpalBase.Storage.PersistenceSessionModel(storage: storage)
+        let session = OpalBase.Storage.PersistenceSession(storage: storage)
         let restored = try await session.restore(accountIdentifiers: [accountIdentifier])
 
         #expect(restored.walletSnapshot != nil)
@@ -71,7 +71,7 @@ extension StoragePersistenceValidator {
 
     @Test("wipeAll removes persisted wallet artifacts")
     func removePersistedArtifactsWithWipeAll() async throws {
-        let valueStore = OpalBase.Storage.ValueRepository.makeInMemory()
+        let valueStore = OpalBase.Storage.ValueStore.makeInMemory()
         let storage = try OpalBase.Storage(valueStore: valueStore)
 
         let mnemonic = try OpalBase.Mnemonic(
@@ -90,7 +90,7 @@ extension StoragePersistenceValidator {
         _ = try await storage.persistState(for: wallet)
         try await storage.wipeAll()
 
-        let session = OpalBase.Storage.PersistenceSessionModel(storage: storage)
+        let session = OpalBase.Storage.PersistenceSession(storage: storage)
         let restored = try await session.restore(accountIdentifiers: [accountIdentifier])
 
         #expect(restored.walletSnapshot == nil)

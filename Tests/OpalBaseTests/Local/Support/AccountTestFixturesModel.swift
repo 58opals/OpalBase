@@ -39,13 +39,13 @@ enum AccountTestFixturesModel {
         to account: OpalBase.Account,
         value: UInt64,
         tokenData: OpalBase.CashTokens.TokenData? = nil,
-        usage: OpalBase.DerivationPath.UsageModel = .receiving,
+        usage: OpalBase.DerivationPath.Usage = .receiving,
         hashByte: UInt8,
         outputIndex: UInt32 = 0
-    ) async throws -> OpalBase.Transaction.OutputModel.Unspent {
+    ) async throws -> OpalBase.Transaction.Output.Unspent {
         let addressBook = await account.addressBook
         let entry = try await addressBook.selectNextEntry(for: usage)
-        let output = OpalBase.Transaction.OutputModel.Unspent(
+        let output = OpalBase.Transaction.Output.Unspent(
             value: value,
             lockingScript: entry.address.lockingScript.data,
             tokenData: tokenData,
@@ -56,8 +56,8 @@ enum AccountTestFixturesModel {
         return output
     }
 
-    static func makeHash(byte: UInt8) -> OpalBase.Transaction.HashModel {
-        OpalBase.Transaction.HashModel(naturalOrder: Data(repeating: byte, count: 32))
+    static func makeHash(byte: UInt8) -> OpalBase.Transaction.Hash {
+        OpalBase.Transaction.Hash(naturalOrder: Data(repeating: byte, count: 32))
     }
 
     static func makeHistoryEntry(

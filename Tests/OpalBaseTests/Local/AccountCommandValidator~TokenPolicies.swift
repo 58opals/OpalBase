@@ -16,7 +16,7 @@ extension AccountCommandValidator {
         try await wallet.addAccount(unhardenedIndex: 0)
         let account = try await wallet.fetchAccount(at: 0)
 
-        let tokenCategory = try OpalBase.CashTokens.CategoryIDModel(transactionOrderData: Data(repeating: 1, count: 32))
+        let tokenCategory = try OpalBase.CashTokens.CategoryID(transactionOrderData: Data(repeating: 1, count: 32))
         let tokenData = OpalBase.CashTokens.TokenData(category: tokenCategory, amount: 1, nft: nil)
         let recipientAddress = try OpalBase.Address("bitcoincash:qpm2qsznhks23z7629mms6s4cwef74vcwvy22gdx6a")
         let paymentAmount = try OpalBase.Satoshi(500)

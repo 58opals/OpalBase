@@ -8,12 +8,12 @@ extension _OpalBase.Account {
             public let address: OpalBase.Address
             public let bchAmount: OpalBase.Satoshi?
             public let fungibleAmount: UInt64?
-            public let nft: OpalBase.CashTokens.NFTModel?
+            public let nft: OpalBase.CashTokens.NFT?
             
             public init(address: OpalBase.Address,
                         bchAmount: OpalBase.Satoshi? = nil,
                         fungibleAmount: UInt64? = nil,
-                        nft: OpalBase.CashTokens.NFTModel? = nil) throws {
+                        nft: OpalBase.CashTokens.NFT? = nil) throws {
                 try TokenMintValidationModel.validateTokenData(fungibleAmount: fungibleAmount, nft: nft)
                 try TokenMintValidationModel.validateFungibleAmount(fungibleAmount)
                 try TokenMintValidationModel.validateCommitment(nft)
@@ -30,14 +30,14 @@ extension _OpalBase.Account {
             case burn
         }
         
-        public let category: OpalBase.CashTokens.CategoryIDModel
+        public let category: OpalBase.CashTokens.CategoryID
         public let recipients: [Recipient]
         public let authorityReturn: AuthorityReturn
         public let feeOverride: OpalBase.Wallet.FeePolicy.Override?
         public let feeContext: OpalBase.Wallet.FeePolicy.RecommendationContext
         public let shouldAllowDustDonation: Bool
         
-        public init(category: OpalBase.CashTokens.CategoryIDModel,
+        public init(category: OpalBase.CashTokens.CategoryID,
                     recipients: [Recipient],
                     authorityReturn: AuthorityReturn = .toWalletChange,
                     feeOverride: OpalBase.Wallet.FeePolicy.Override? = nil,
@@ -86,7 +86,7 @@ private enum TokenMintValidationModel {
         }
     }
     
-    static func validateTokenData(fungibleAmount: UInt64?, nft: OpalBase.CashTokens.NFTModel?) throws {
+    static func validateTokenData(fungibleAmount: UInt64?, nft: OpalBase.CashTokens.NFT?) throws {
         guard fungibleAmount != nil || nft != nil else {
             throw OpalBase.Account.Error.tokenMintRecipientHasNoTokenData
         }
@@ -98,7 +98,7 @@ private enum TokenMintValidationModel {
         }
     }
     
-    static func validateCommitment(_ nonFungibleToken: OpalBase.CashTokens.NFTModel?) throws {
+    static func validateCommitment(_ nonFungibleToken: OpalBase.CashTokens.NFT?) throws {
         if let nonFungibleToken {
             try validateCommitment(nonFungibleToken.commitment)
         }

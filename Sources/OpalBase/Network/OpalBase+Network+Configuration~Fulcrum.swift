@@ -5,13 +5,13 @@ import SwiftFulcrum
 
 extension _OpalBase.Network.Configuration {
     var fulcrumBootstrapServers: [URL] {
-        let overrides = OpalBase.Network.ServerCatalogModel.makeNormalizedServers(serverURLs)
+        let overrides = OpalBase.Network.ServerCatalog.makeNormalizedServers(serverURLs)
         if !overrides.isEmpty { return overrides }
         return serverCatalog.listServers(for: network)
     }
     
     func makeFulcrumServerCatalogRepository() -> SwiftFulcrum.ServerCatalog.Repository {
-        let overrides = OpalBase.Network.ServerCatalogModel.makeNormalizedServers(serverURLs)
+        let overrides = OpalBase.Network.ServerCatalog.makeNormalizedServers(serverURLs)
         let defaults = serverCatalog.listServers(for: network)
         let expectedFulcrumNetwork = network.fulcrumNetwork
         
@@ -23,7 +23,7 @@ extension _OpalBase.Network.Configuration {
                     )
                 )
             }
-            let merged = OpalBase.Network.ServerCatalogModel.makeMergedServers(
+            let merged = OpalBase.Network.ServerCatalog.makeMergedServers(
                 primary: overrides,
                 secondary: defaults,
                 fallback: fallback

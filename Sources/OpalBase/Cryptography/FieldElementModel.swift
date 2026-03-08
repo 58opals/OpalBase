@@ -18,7 +18,7 @@ struct FieldElementModel: Sendable, Equatable {
     @usableFromInline static let eight = FieldElementModel(unchecked: UInt256Model(limbs: [8, 0, 0, 0]))
     
     init(value: UInt256Model) throws {
-        guard value.compare(to: Secp256k1Model.Constant.p) == .orderedAscending else {
+        guard value.compare(to: OpalBase.Cryptography.Secp256k1.Constant.p) == .orderedAscending else {
             throw Error.invalidFieldValue
         }
         self.value = value
@@ -36,8 +36,8 @@ struct FieldElementModel: Sendable, Equatable {
     func add(_ other: FieldElementModel) -> FieldElementModel {
         let (sum, carry) = value.add(other.value)
         var reduced = sum
-        if carry || reduced.compare(to: Secp256k1Model.Constant.p) != .orderedAscending {
-            reduced = reduced.subtract(Secp256k1Model.Constant.p).difference
+        if carry || reduced.compare(to: OpalBase.Cryptography.Secp256k1.Constant.p) != .orderedAscending {
+            reduced = reduced.subtract(OpalBase.Cryptography.Secp256k1.Constant.p).difference
         }
         return FieldElementModel(unchecked: reduced)
     }
@@ -47,7 +47,7 @@ struct FieldElementModel: Sendable, Equatable {
         let (difference, borrow) = value.subtract(other.value)
         var reduced = difference
         if borrow {
-            reduced = reduced.add(Secp256k1Model.Constant.p).sum
+            reduced = reduced.add(OpalBase.Cryptography.Secp256k1.Constant.p).sum
         }
         return FieldElementModel(unchecked: reduced)
     }
@@ -57,7 +57,7 @@ struct FieldElementModel: Sendable, Equatable {
         guard !value.isZero else {
             return .zero
         }
-        let difference = Secp256k1Model.Constant.p.subtract(value).difference
+        let difference = OpalBase.Cryptography.Secp256k1.Constant.p.subtract(value).difference
         return FieldElementModel(unchecked: difference)
     }
     

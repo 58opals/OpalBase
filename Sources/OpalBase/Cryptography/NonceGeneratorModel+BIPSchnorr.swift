@@ -35,8 +35,8 @@ extension NonceGeneratorModel {
                 let hashValue = try UInt256Model(data32: hashData)
                 
                 var reducedValue = hashValue
-                if reducedValue.compare(to: Secp256k1Model.Constant.n) != .orderedAscending {
-                    reducedValue = reducedValue.subtract(Secp256k1Model.Constant.n).difference
+                if reducedValue.compare(to: OpalBase.Cryptography.Secp256k1.Constant.n) != .orderedAscending {
+                    reducedValue = reducedValue.subtract(OpalBase.Cryptography.Secp256k1.Constant.n).difference
                 }
                 
                 let scalar = ScalarModel(unchecked: reducedValue)

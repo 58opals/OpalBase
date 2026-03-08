@@ -6,9 +6,9 @@ import SwiftFulcrum
 extension _OpalBase.Network.Fulcrum {
     public struct AddressReader: OpalBase.Network.AddressReadable {
         private let client: Client
-        private let timeouts: OpalBase.Network.FulcrumRequestTimeoutModel
+        private let timeouts: OpalBase.Network.FulcrumRequestTimeout
         
-        public init(client: Client, timeouts: OpalBase.Network.FulcrumRequestTimeoutModel = .init()) {
+        public init(client: Client, timeouts: OpalBase.Network.FulcrumRequestTimeout = .init()) {
             self.client = client
             self.timeouts = timeouts
         }
@@ -24,7 +24,7 @@ extension _OpalBase.Network.Fulcrum {
             }
         }
         
-        public func fetchUnspentOutputs(for address: String, tokenFilter: OpalBase.Network.TokenFilter) async throws -> [OpalBase.Transaction.OutputModel.Unspent] {
+        public func fetchUnspentOutputs(for address: String, tokenFilter: OpalBase.Network.TokenFilter) async throws -> [OpalBase.Transaction.Output.Unspent] {
             try await OpalBase.Network.performWithFailureTranslation {
                 let lockingScriptData: Data
                 do {
@@ -51,7 +51,7 @@ extension _OpalBase.Network.Fulcrum {
                         label: "unspent transaction hash"
                     )
                     let tokenData = try item.tokenData.map { try OpalBase.CashTokens.TokenData(swiftFulcrumTokenData: $0) }
-                    return OpalBase.Transaction.OutputModel.Unspent(
+                    return OpalBase.Transaction.Output.Unspent(
                         value: item.value,
                         lockingScript: lockingScriptData,
                         tokenData: tokenData,

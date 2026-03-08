@@ -34,7 +34,7 @@ extension _OpalBase.PrivateKey.ExtendedModel {
 
         let childPrivateKey: Data
         do {
-            childPrivateKey = try Secp256k1Model.Operation.tweakAddPrivateKey32(parentPrivateKey, tweak32: leftHashMessageAuthenticationCodePart)
+            childPrivateKey = try OpalBase.Cryptography.Secp256k1.Operation.tweakAddPrivateKey32(parentPrivateKey, tweak32: leftHashMessageAuthenticationCodePart)
         } catch {
             throw OpalBase.PrivateKey.Error.invalidDerivedKey
         }
@@ -69,7 +69,7 @@ extension _OpalBase.PrivateKey.ExtendedModel {
 
         let childPrivateKey: Data
         do {
-            childPrivateKey = try Secp256k1Model.Operation.tweakAddPrivateKey32(privateKey, tweak32: leftHMACPart)
+            childPrivateKey = try OpalBase.Cryptography.Secp256k1.Operation.tweakAddPrivateKey32(privateKey, tweak32: leftHMACPart)
         } catch {
             throw OpalBase.PrivateKey.Error.invalidDerivedKey
         }

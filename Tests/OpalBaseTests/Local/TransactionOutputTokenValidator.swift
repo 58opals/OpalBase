@@ -8,10 +8,10 @@ import Testing
 struct TransactionOutputTokenValidator {
     @Test("output round trip without token data")
     func outputRoundTripWithoutTokenData() throws {
-        let output = OpalBase.Transaction.OutputModel(value: 546, lockingScript: Data([0x51]))
+        let output = OpalBase.Transaction.Output(value: 546, lockingScript: Data([0x51]))
         
         let encoded = try output.encode()
-        let (decoded, bytesRead) = try OpalBase.Transaction.OutputModel.decode(from: encoded)
+        let (decoded, bytesRead) = try OpalBase.Transaction.Output.decode(from: encoded)
         let reencoded = try decoded.encode()
         
         #expect(bytesRead == encoded.count)
@@ -24,14 +24,14 @@ struct TransactionOutputTokenValidator {
         let fixture = try #require(TokenPrefixTestData.validVectors.first)
         let tokenData = try makeTokenData(from: fixture.data)
         let lockingScript = Data([0x51])
-        let output = OpalBase.Transaction.OutputModel(value: 546, lockingScript: lockingScript, tokenData: tokenData)
+        let output = OpalBase.Transaction.Output(value: 546, lockingScript: lockingScript, tokenData: tokenData)
         
         let encoded = try output.encode()
         let expectedHexadecimal = "2202000000000000" + "24" + fixture.prefix + "51"
         
         #expect(encoded.hexadecimalString == expectedHexadecimal)
         
-        let (decoded, bytesRead) = try OpalBase.Transaction.OutputModel.decode(from: encoded)
+        let (decoded, bytesRead) = try OpalBase.Transaction.Output.decode(from: encoded)
         let reencoded = try decoded.encode()
         
         #expect(bytesRead == encoded.count)
@@ -42,7 +42,7 @@ struct TransactionOutputTokenValidator {
     }
     
     private func makeTokenData(from fixture: TokenPrefixTokenData) throws -> OpalBase.CashTokens.TokenData {
-        let category = try OpalBase.CashTokens.CategoryIDModel(hexFromRPC: fixture.category)
+        let category = try OpalBase.CashTokens.CategoryID(hexFromRPC: fixture.category)
         let amount = try parseAmount(from: fixture.amount)
         let nonFungibleToken = try fixture.nonFungibleToken.map { try makeNonFungibleToken(from: $0) }
         return OpalBase.CashTokens.TokenData(category: category, amount: amount, nft: nonFungibleToken)
@@ -58,13 +58,13 @@ struct TransactionOutputTokenValidator {
         return amountValue == 0 ? nil : amountValue
     }
     
-    private func makeNonFungibleToken(from fixture: TokenPrefixNonFungibleTokenData) throws -> OpalBase.CashTokens.NFTModel {
+    private func makeNonFungibleToken(from fixture: TokenPrefixNonFungibleTokenData) throws -> OpalBase.CashTokens.NFT {
         let capability = try makeNonFungibleCapability(from: fixture.capability)
         let commitment = try Data(hexadecimalString: fixture.commitment)
-        return try OpalBase.CashTokens.NFTModel(capability: capability, commitment: commitment)
+        return try OpalBase.CashTokens.NFT(capability: capability, commitment: commitment)
     }
     
-    private func makeNonFungibleCapability(from capabilityString: String) throws -> OpalBase.CashTokens.NFTModel.Capability {
+    private func makeNonFungibleCapability(from capabilityString: String) throws -> OpalBase.CashTokens.NFT.Capability {
         switch capabilityString {
         case "none":
             return .none

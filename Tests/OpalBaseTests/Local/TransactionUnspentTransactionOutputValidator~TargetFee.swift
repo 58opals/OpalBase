@@ -7,8 +7,8 @@ import Testing
 extension TransactionUnspentTransactionOutputValidator {
     @Test("computeOutputsForTargetFee handles dust donation policy")
     func computeOutputsForTargetFeeHandlesDustDonationPolicy() throws {
-        let recipientOutputs = [OpalBase.Transaction.OutputModel(value: 1_000, lockingScript: Data([0x51]))]
-        let changeOutput = OpalBase.Transaction.OutputModel(value: 900, lockingScript: Data([0x52]))
+        let recipientOutputs = [OpalBase.Transaction.Output(value: 1_000, lockingScript: Data([0x51]))]
+        let changeOutput = OpalBase.Transaction.Output(value: 900, lockingScript: Data([0x52]))
         let targetFee = UInt64(850)
         
         let donationOutputs = try OpalBase.Transaction.computeOutputsForTargetFee(
@@ -34,9 +34,9 @@ extension TransactionUnspentTransactionOutputValidator {
     
     @Test("computeOutputsForTargetFee applies privacy output shuffler to change output")
     func computeOutputsForTargetFeeAppliesPrivacyOutputShuffler() throws {
-        let recipientA = OpalBase.Transaction.OutputModel(value: 6_000, lockingScript: Data([0x51]))
-        let recipientB = OpalBase.Transaction.OutputModel(value: 1_000, lockingScript: Data([0x52]))
-        let changeOutput = OpalBase.Transaction.OutputModel(value: 3_000, lockingScript: Data([0x53]))
+        let recipientA = OpalBase.Transaction.Output(value: 6_000, lockingScript: Data([0x51]))
+        let recipientB = OpalBase.Transaction.Output(value: 1_000, lockingScript: Data([0x52]))
+        let changeOutput = OpalBase.Transaction.Output(value: 3_000, lockingScript: Data([0x53]))
         
         let outputs = try OpalBase.Transaction.computeOutputsForTargetFee(
             recipientOutputs: [recipientA, recipientB],
@@ -53,9 +53,9 @@ extension TransactionUnspentTransactionOutputValidator {
     
     @Test("computeOutputsForTargetFee preserves token metadata on change outputs")
     func computeOutputsForTargetFeePreservesTokenMetadataOnChangeOutputs() throws {
-        let recipientOutput = OpalBase.Transaction.OutputModel(value: 1_000, lockingScript: Data([0x51]))
+        let recipientOutput = OpalBase.Transaction.Output(value: 1_000, lockingScript: Data([0x51]))
         let tokenData = try makeTokenData(fillByte: 0x5A, amount: 7)
-        let changeOutput = OpalBase.Transaction.OutputModel(
+        let changeOutput = OpalBase.Transaction.Output(
             value: 3_000,
             lockingScript: Data([0x53]),
             tokenData: tokenData

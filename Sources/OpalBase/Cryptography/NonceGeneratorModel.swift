@@ -61,7 +61,7 @@ extension NonceGeneratorModel {
                 return SecRandomCopyBytes(kSecRandomDefault, 32, baseAddress)
             }
             guard status == errSecSuccess else {
-                throw SchnorrModel.Error.randomGenerationFailed(status: status)
+                throw OpalBase.Cryptography.Schnorr.Error.randomGenerationFailed(status: status)
             }
             if let scalar = try? ScalarModel(data32: data, requireNonZero: true) {
                 return scalar

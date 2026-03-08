@@ -27,8 +27,8 @@ enum FieldReductionModel {
         var result = UInt256Model(limbs: [
             reducedLimbs[0], reducedLimbs[1], reducedLimbs[2], reducedLimbs[3]
         ])
-        if result.compare(to: Secp256k1Model.Constant.p) != .orderedAscending {
-            result = result.subtract(Secp256k1Model.Constant.p).difference
+        if result.compare(to: OpalBase.Cryptography.Secp256k1.Constant.p) != .orderedAscending {
+            result = result.subtract(OpalBase.Cryptography.Secp256k1.Constant.p).difference
         }
         return result
     }

@@ -8,8 +8,8 @@ import Testing
 struct TokenMetadataRepositorySnapshotValidator {
     @Test("roundtrips store snapshots with metadata")
     func roundtripStoreSnapshotsWithMetadata() async throws {
-        let store = TokenMetadataRepository()
-        let metadata = TokenMetadataModel(
+        let store = OpalBase.CashTokens.MetadataRepository()
+        let metadata = OpalBase.CashTokens.Metadata(
             category: BitcoinCashMetadataRegistryTestData.categoryIdentifier,
             name: "Example Token",
             symbol: "EXAMPLE",
@@ -23,9 +23,9 @@ struct TokenMetadataRepositorySnapshotValidator {
         let snapshot = await store.snapshot()
         
         let encodedSnapshot = try JSONEncoder().encode(snapshot)
-        let decodedSnapshot = try JSONDecoder().decode(TokenMetadataRepository.SnapshotModel.self, from: encodedSnapshot)
+        let decodedSnapshot = try JSONDecoder().decode(OpalBase.CashTokens.MetadataRepository.Snapshot.self, from: encodedSnapshot)
         
-        let restoredStore = TokenMetadataRepository()
+        let restoredStore = OpalBase.CashTokens.MetadataRepository()
         await restoredStore.applySnapshot(decodedSnapshot)
         
         let restoredMetadata = await restoredStore.fetchMetadata(

@@ -17,19 +17,19 @@ extension TransactionUnspentTransactionOutputValidator {
             ScriptOperationCodeModel._CHECKSIG.rawValue
         ])
         
-        let previousTransactionHash = OpalBase.Transaction.HashModel(naturalOrder: Data(repeating: 0x00, count: 32))
-        let unspent = OpalBase.Transaction.OutputModel.Unspent(
+        let previousTransactionHash = OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0x00, count: 32))
+        let unspent = OpalBase.Transaction.Output.Unspent(
             value: 10_000,
             lockingScript: lockingScript,
             previousTransactionHash: previousTransactionHash,
             previousTransactionOutputIndex: 0
         )
         
-        let privateKeys: [OpalBase.Transaction.OutputModel.Unspent: OpalBase.PrivateKey] = [unspent: privateKey]
+        let privateKeys: [OpalBase.Transaction.Output.Unspent: OpalBase.PrivateKey] = [unspent: privateKey]
         
         let recipientOutputs = [
-            OpalBase.Transaction.OutputModel(value: 6_000, lockingScript: Data([0x51])),
-            OpalBase.Transaction.OutputModel(value: 1_000, lockingScript: Data([0x52]))
+            OpalBase.Transaction.Output(value: 6_000, lockingScript: Data([0x51])),
+            OpalBase.Transaction.Output(value: 1_000, lockingScript: Data([0x52]))
         ]
         
         let changeScript = Data([
@@ -40,7 +40,7 @@ extension TransactionUnspentTransactionOutputValidator {
             ScriptOperationCodeModel._EQUALVERIFY.rawValue,
             ScriptOperationCodeModel._CHECKSIG.rawValue
         ])
-        let changeOutput = OpalBase.Transaction.OutputModel(value: 3_000, lockingScript: changeScript)
+        let changeOutput = OpalBase.Transaction.Output(value: 3_000, lockingScript: changeScript)
         
         let transaction = try OpalBase.Transaction.build(
             utxoPrivateKeyPairs: privateKeys,
@@ -109,7 +109,7 @@ extension TransactionUnspentTransactionOutputValidator {
     @Test("build correction respects output ordering strategies")
     func buildCorrectionRespectsOutputOrderingStrategies() throws {
         let components = try makeTransactionBuilderComponents()
-        let outputOrderingStrategies: [OpalBase.Transaction.OutputOrderingStrategyModel] = [.privacyRandomized, .canonicalBIP69]
+        let outputOrderingStrategies: [OpalBase.Transaction.OutputOrderingStrategy] = [.privacyRandomized, .canonicalBIP69]
         
         for strategy in outputOrderingStrategies {
             let transaction = try OpalBase.Transaction.build(

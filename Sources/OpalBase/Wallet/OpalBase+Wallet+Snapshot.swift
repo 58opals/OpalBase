@@ -6,17 +6,17 @@ extension _OpalBase.Wallet {
     public struct Snapshot: Codable {
         public let words: [String]
         public let passphrase: String
-        public let purpose: OpalBase.DerivationPath.PurposeModel
-        public let coinType: OpalBase.DerivationPath.CoinTypeModel
-        public let accounts: [OpalBase.Account.SnapshotModel]
-        public let tokenMetadata: TokenMetadataRepository.SnapshotModel?
+        public let purpose: OpalBase.DerivationPath.Purpose
+        public let coinType: OpalBase.DerivationPath.CoinType
+        public let accounts: [OpalBase.Account.Snapshot]
+        public let tokenMetadata: OpalBase.CashTokens.MetadataRepository.Snapshot?
         
         public init(words: [String],
                     passphrase: String,
-                    purpose: OpalBase.DerivationPath.PurposeModel,
-                    coinType: OpalBase.DerivationPath.CoinTypeModel,
-                    accounts: [OpalBase.Account.SnapshotModel],
-                    tokenMetadata: TokenMetadataRepository.SnapshotModel? = nil) {
+                    purpose: OpalBase.DerivationPath.Purpose,
+                    coinType: OpalBase.DerivationPath.CoinType,
+                    accounts: [OpalBase.Account.Snapshot],
+                    tokenMetadata: OpalBase.CashTokens.MetadataRepository.Snapshot? = nil) {
             self.words = words
             self.passphrase = passphrase
             self.purpose = purpose
@@ -31,7 +31,7 @@ extension _OpalBase.Wallet.Snapshot: Sendable {}
 
 extension _OpalBase.Wallet {
     public func makeSnapshot() async -> Snapshot {
-        var accountSnaps: [OpalBase.Account.SnapshotModel] = .init()
+        var accountSnaps: [OpalBase.Account.Snapshot] = .init()
         for (_, account) in accounts.sorted(by: { $0.key < $1.key }) {
             let snap = await account.makeSnapshot()
             accountSnaps.append(snap)

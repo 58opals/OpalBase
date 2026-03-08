@@ -84,7 +84,7 @@ struct SpendPlanBroadcastValidator {
     @Test("token spend buildAndBroadcast supports success and failure mapping")
     func tokenSpendPlanBuildAndBroadcastSupportsSuccessAndFailure() async throws {
         let account = try await AccountTestFixturesModel.makeAccount()
-        let category = try OpalBase.CashTokens.CategoryIDModel(transactionOrderData: Data(repeating: 0x74, count: 32))
+        let category = try OpalBase.CashTokens.CategoryID(transactionOrderData: Data(repeating: 0x74, count: 32))
         let tokenData = OpalBase.CashTokens.TokenData(category: category, amount: 100, nft: nil)
         _ = try await AccountTestFixturesModel.addUnspentOutput(
             to: account,

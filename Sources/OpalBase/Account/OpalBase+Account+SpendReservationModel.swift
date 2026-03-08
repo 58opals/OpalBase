@@ -8,7 +8,7 @@ extension _OpalBase.Account {
         let reservation: OpalBase.Address.Book.SpendReservationModel
         
         var reservationDate: Date { reservation.reservationDate }
-        var changeEntry: OpalBase.Address.Book.EntryModel { reservation.changeEntry }
+        var changeEntry: OpalBase.Address.Book.Entry { reservation.changeEntry }
         
         func complete() async throws {
             try await addressBook.releaseSpendReservation(reservation, outcome: .completed)
@@ -26,7 +26,7 @@ extension _OpalBase.Account.SpendReservationModel {
         transaction: @Sendable (Result) -> OpalBase.Transaction,
         via handler: OpalBase.Network.TransactionHandling,
         mapBroadcastError: @Sendable (Swift.Error) -> OpalBase.Account.Error
-    ) async throws -> (hash: OpalBase.Transaction.HashModel, result: Result) {
+    ) async throws -> (hash: OpalBase.Transaction.Hash, result: Result) {
         try await OpalBase.Transaction.BroadcastPlannerModel.buildAndBroadcast(
             build: build,
             transaction: transaction,

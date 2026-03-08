@@ -5,8 +5,8 @@ import Foundation
 extension _OpalBase.Account {
     public struct TokenCommitmentMutation: Sendable {
         public enum Target: Sendable {
-            case preferredInput(OpalBase.Transaction.OutputModel.Unspent)
-            case byGroup(OpalBase.Address.Book.TokenInventoryModel.NonFungibleTokenGroup)
+            case preferredInput(OpalBase.Transaction.Output.Unspent)
+            case byGroup(OpalBase.Address.Book.TokenInventory.NonFungibleTokenGroup)
         }
         
         public let target: Target

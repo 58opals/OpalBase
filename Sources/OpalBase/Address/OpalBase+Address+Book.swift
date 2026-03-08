@@ -12,10 +12,10 @@ extension _OpalBase.Address {
         
         let rootExtendedPrivateKey: OpalBase.PrivateKey.ExtendedModel?
         let rootExtendedPublicKey: OpalBase.PublicKey.ExtendedModel
-        let purpose: OpalBase.DerivationPath.PurposeModel
-        let coinType: OpalBase.DerivationPath.CoinTypeModel
+        let purpose: OpalBase.DerivationPath.Purpose
+        let coinType: OpalBase.DerivationPath.CoinType
         let account: OpalBase.DerivationPath.Account
-        var usageDerivationCache: [OpalBase.DerivationPath.UsageModel: UsageDerivationCache]
+        var usageDerivationCache: [OpalBase.DerivationPath.Usage: UsageDerivationCache]
         
         var inventory: InventoryModel
         var utxoStore: UTXORepository
@@ -27,12 +27,12 @@ extension _OpalBase.Address {
         var spendReservationReleaseTasks: [UUID: Task<Void, Never>]
         var spendReservationStates: [UUID: SpendReservationModel.State]
         
-        let entryPublisher = EntryModel.PublisherActor()
+        let entryPublisher = Entry.PublisherActor()
         
         init(rootExtendedPrivateKey: OpalBase.PrivateKey.ExtendedModel? = nil,
              rootExtendedPublicKey: OpalBase.PublicKey.ExtendedModel? = nil,
-             purpose: OpalBase.DerivationPath.PurposeModel,
-             coinType: OpalBase.DerivationPath.CoinTypeModel,
+             purpose: OpalBase.DerivationPath.Purpose,
+             coinType: OpalBase.DerivationPath.CoinType,
              account: OpalBase.DerivationPath.Account,
              gapLimit: Int = 20,
              cacheValidityDuration: TimeInterval = 10 * 60,

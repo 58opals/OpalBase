@@ -5,7 +5,7 @@ import Foundation
 extension _OpalBase.Account {
     public func prepareTokenGenesisOutpoint(
         feePolicy: OpalBase.Wallet.FeePolicy = .init(),
-        using entryUsage: OpalBase.DerivationPath.UsageModel = .change
+        using entryUsage: OpalBase.DerivationPath.Usage = .change
     ) async throws -> SpendPlan {
         let spendableOutputs = await addressBook.listSpendableUTXOs()
         guard let selectedOutput = selectMaximumSpendableOutput(from: spendableOutputs,
@@ -15,7 +15,7 @@ extension _OpalBase.Account {
         
         let feeRate = feePolicy.recommendFeeRate()
         let changeEntry = try await addressBook.selectNextEntry(for: entryUsage)
-        let outputTemplate = OpalBase.Transaction.OutputModel(value: 0, address: changeEntry.address)
+        let outputTemplate = OpalBase.Transaction.Output(value: 0, address: changeEntry.address)
         
         let estimatedFeeValue: UInt64
         do {
@@ -68,8 +68,8 @@ extension _OpalBase.Account {
             Payment.Recipient(address: reservedEntry.address, amount: outputValue)
         ])
         
-        let recipientOutput = OpalBase.Transaction.OutputModel(value: outputValue.uint64, address: reservedEntry.address)
-        let changeOutput = OpalBase.Transaction.OutputModel(value: estimatedFee.uint64, address: reservedEntry.address)
+        let recipientOutput = OpalBase.Transaction.Output(value: outputValue.uint64, address: reservedEntry.address)
+        let changeOutput = OpalBase.Transaction.Output(value: estimatedFee.uint64, address: reservedEntry.address)
         
         return SpendPlan(payment: payment,
                          feeRate: feeRate,

@@ -4,17 +4,17 @@ import Foundation
 
 extension _OpalBase.Transaction {
     struct BuilderModel {
-        let orderedUnspentOutputs: [OpalBase.Transaction.OutputModel.Unspent]
-        let signatureFormat: ECDSAModel.SignatureFormat
+        let orderedUnspentOutputs: [OpalBase.Transaction.Output.Unspent]
+        let signatureFormat: OpalBase.Cryptography.SignatureFormat
         let sequence: UInt32
         
-        private let privateKeysByUnspent: [OpalBase.Transaction.OutputModel.Unspent: OpalBase.PrivateKey]
-        private let unlockersByUnspent: [OpalBase.Transaction.OutputModel.Unspent: OpalBase.Transaction.UnlockerModel]
+        private let privateKeysByUnspent: [OpalBase.Transaction.Output.Unspent: OpalBase.PrivateKey]
+        private let unlockersByUnspent: [OpalBase.Transaction.Output.Unspent: OpalBase.Transaction.Unlocker]
         
-        init(utxoPrivateKeyPairs: [OpalBase.Transaction.OutputModel.Unspent: OpalBase.PrivateKey],
-             signatureFormat: ECDSAModel.SignatureFormat,
+        init(utxoPrivateKeyPairs: [OpalBase.Transaction.Output.Unspent: OpalBase.PrivateKey],
+             signatureFormat: OpalBase.Cryptography.SignatureFormat,
              sequence: UInt32,
-             unlockers: [OpalBase.Transaction.OutputModel.Unspent: OpalBase.Transaction.UnlockerModel]) {
+             unlockers: [OpalBase.Transaction.Output.Unspent: OpalBase.Transaction.Unlocker]) {
             self.privateKeysByUnspent = utxoPrivateKeyPairs
             self.signatureFormat = signatureFormat
             self.sequence = sequence
@@ -23,7 +23,7 @@ extension _OpalBase.Transaction {
             self.orderedUnspentOutputs = utxoPrivateKeyPairs.keys.sorted { lhs, rhs in
                 let lhsHash = lhs.previousTransactionHash.reverseOrder
                 let rhsHash = rhs.previousTransactionHash.reverseOrder
-                // BIP-69 specifies ordering inputs by the transaction hash as displayed externally (big-endian). `OpalBase.Transaction.HashModel.reverseOrder` exposes that representation, while `naturalOrder` returns the little-endian form used internally. Sorting by the wrong byte order would invert the expected ordering for inputs whose hashes differ only in high-order bytes, producing non-deterministic builders across implementations.
+                // BIP-69 specifies ordering inputs by the transaction hash as displayed externally (big-endian). `OpalBase.Transaction.Hash.reverseOrder` exposes that representation, while `naturalOrder` returns the little-endian form used internally. Sorting by the wrong byte order would invert the expected ordering for inputs whose hashes differ only in high-order bytes, producing non-deterministic builders across implementations.
                 
                 if lhsHash != rhsHash {
                     return lhsHash.lexicographicallyPrecedes(rhsHash)
@@ -41,22 +41,22 @@ extension _OpalBase.Transaction {
             }
         }
         
-        func makeInputs() -> [OpalBase.Transaction.InputModel] {
+        func makeInputs() -> [OpalBase.Transaction.Input] {
             orderedUnspentOutputs.map { unspentOutput in
                 let unlocker = makeUnlocker(for: unspentOutput)
                 let placeholder = unlocker.makePlaceholderUnlockingScript(signatureFormat: signatureFormat)
-                return OpalBase.Transaction.InputModel(previousTransactionHash: unspentOutput.previousTransactionHash,
+                return OpalBase.Transaction.Input(previousTransactionHash: unspentOutput.previousTransactionHash,
                                          previousTransactionOutputIndex: unspentOutput.previousTransactionOutputIndex,
                                          unlockingScript: placeholder,
                                          sequence: sequence)
             }
         }
         
-        func makeUnlocker(for unspentOutput: OpalBase.Transaction.OutputModel.Unspent) -> OpalBase.Transaction.UnlockerModel {
+        func makeUnlocker(for unspentOutput: OpalBase.Transaction.Output.Unspent) -> OpalBase.Transaction.Unlocker {
             unlockersByUnspent[unspentOutput] ?? .p2pkh_CheckSig()
         }
         
-        func findPrivateKey(for unspentOutput: OpalBase.Transaction.OutputModel.Unspent) -> OpalBase.PrivateKey? {
+        func findPrivateKey(for unspentOutput: OpalBase.Transaction.Output.Unspent) -> OpalBase.PrivateKey? {
             privateKeysByUnspent[unspentOutput]
         }
     }

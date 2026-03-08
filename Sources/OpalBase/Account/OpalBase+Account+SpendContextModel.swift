@@ -5,17 +5,17 @@ import Foundation
 extension _OpalBase.Account {
     struct SpendContextModel {
         let reservationHandle: SpendReservationModel
-        let privateKeys: [OpalBase.Transaction.OutputModel.Unspent: OpalBase.PrivateKey]
-        let changeOutput: OpalBase.Transaction.OutputModel
+        let privateKeys: [OpalBase.Transaction.Output.Unspent: OpalBase.PrivateKey]
+        let changeOutput: OpalBase.Transaction.Output
         let totalSelectedAmount: OpalBase.Satoshi
         let targetAmount: OpalBase.Satoshi
     }
     
     func reserveSpendContext(
-        inputs: [OpalBase.Transaction.OutputModel.Unspent],
-        outputs: [OpalBase.Transaction.OutputModel],
-        changeEntry: OpalBase.Address.Book.EntryModel,
-        tokenSelectionPolicy: OpalBase.Address.Book.CoinSelectionModel.TokenSelectionPolicy,
+        inputs: [OpalBase.Transaction.Output.Unspent],
+        outputs: [OpalBase.Transaction.Output],
+        changeEntry: OpalBase.Address.Book.Entry,
+        tokenSelectionPolicy: OpalBase.Address.Book.CoinSelection.TokenSelectionPolicy,
         mapReservationError: @escaping @Sendable (Swift.Error) -> OpalBase.Account.Error,
         mapInsufficientFundsError: @autoclosure () -> OpalBase.Account.Error
     ) async throws -> SpendContextModel {
@@ -46,7 +46,7 @@ extension _OpalBase.Account {
             mapReservationError: mapReservationError
         )
         let reservationHandle = OpalBase.Account.SpendReservationModel(addressBook: addressBook, reservation: reservation)
-        let changeOutput = OpalBase.Transaction.OutputModel(value: changeAmount.uint64, address: reservedChangeEntry.address)
+        let changeOutput = OpalBase.Transaction.Output(value: changeAmount.uint64, address: reservedChangeEntry.address)
         
         return SpendContextModel(reservationHandle: reservationHandle,
                             privateKeys: privateKeys,

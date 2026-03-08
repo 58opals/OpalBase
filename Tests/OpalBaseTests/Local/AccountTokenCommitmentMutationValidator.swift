@@ -9,21 +9,21 @@ struct AccountTokenCommitmentMutationValidator {
     @Test("mutates mutable non-fungible commitment and preserves fungible change externally")
     func mutatesCommitmentAndPreservesFungibleChange() async throws {
         let account = try await makeAccount()
-        let category = try OpalBase.CashTokens.CategoryIDModel(transactionOrderData: Data(repeating: 0xD1, count: 32))
-        let mutableToken = try OpalBase.CashTokens.NFTModel(capability: .mutable, commitment: Data([0x01]))
+        let category = try OpalBase.CashTokens.CategoryID(transactionOrderData: Data(repeating: 0xD1, count: 32))
+        let mutableToken = try OpalBase.CashTokens.NFT(capability: .mutable, commitment: Data([0x01]))
         let authorityTokenData = OpalBase.CashTokens.TokenData(category: category, amount: 25, nft: mutableToken)
         let authorityOutput = try await addUnspentOutput(
             to: account,
             value: 25_000,
             tokenData: authorityTokenData,
-            previousTransactionHash: OpalBase.Transaction.HashModel(naturalOrder: Data(repeating: 0x21, count: 32)),
+            previousTransactionHash: OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0x21, count: 32)),
             previousTransactionOutputIndex: 0
         )
         _ = try await addUnspentOutput(
             to: account,
             value: 120_000,
             tokenData: nil,
-            previousTransactionHash: OpalBase.Transaction.HashModel(naturalOrder: Data(repeating: 0x22, count: 32)),
+            previousTransactionHash: OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0x22, count: 32)),
             previousTransactionOutputIndex: 0
         )
         let destinationAddress = try OpalBase.Address("bitcoincash:zpm2qsznhks23z7629mms6s4cwef74vcwvrqekrq9w")
@@ -54,21 +54,21 @@ struct AccountTokenCommitmentMutationValidator {
     @Test("accepts minting authority input for commitment mutation")
     func acceptsMintingAuthorityInput() async throws {
         let account = try await makeAccount()
-        let category = try OpalBase.CashTokens.CategoryIDModel(transactionOrderData: Data(repeating: 0xD2, count: 32))
-        let mintingToken = try OpalBase.CashTokens.NFTModel(capability: .minting, commitment: Data([0x03]))
+        let category = try OpalBase.CashTokens.CategoryID(transactionOrderData: Data(repeating: 0xD2, count: 32))
+        let mintingToken = try OpalBase.CashTokens.NFT(capability: .minting, commitment: Data([0x03]))
         let authorityTokenData = OpalBase.CashTokens.TokenData(category: category, amount: 5, nft: mintingToken)
         let authorityOutput = try await addUnspentOutput(
             to: account,
             value: 22_000,
             tokenData: authorityTokenData,
-            previousTransactionHash: OpalBase.Transaction.HashModel(naturalOrder: Data(repeating: 0x23, count: 32)),
+            previousTransactionHash: OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0x23, count: 32)),
             previousTransactionOutputIndex: 0
         )
         _ = try await addUnspentOutput(
             to: account,
             value: 90_000,
             tokenData: nil,
-            previousTransactionHash: OpalBase.Transaction.HashModel(naturalOrder: Data(repeating: 0x24, count: 32)),
+            previousTransactionHash: OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0x24, count: 32)),
             previousTransactionOutputIndex: 0
         )
         let addressBook = await account.addressBook
@@ -91,21 +91,21 @@ struct AccountTokenCommitmentMutationValidator {
     @Test("builds a transaction while respecting dust thresholds")
     func buildTransactionRespectsDustThresholds() async throws {
         let account = try await makeAccount()
-        let category = try OpalBase.CashTokens.CategoryIDModel(transactionOrderData: Data(repeating: 0xD3, count: 32))
-        let mutableToken = try OpalBase.CashTokens.NFTModel(capability: .mutable, commitment: Data([0x05]))
+        let category = try OpalBase.CashTokens.CategoryID(transactionOrderData: Data(repeating: 0xD3, count: 32))
+        let mutableToken = try OpalBase.CashTokens.NFT(capability: .mutable, commitment: Data([0x05]))
         let authorityTokenData = OpalBase.CashTokens.TokenData(category: category, amount: 12, nft: mutableToken)
         let authorityOutput = try await addUnspentOutput(
             to: account,
             value: 30_000,
             tokenData: authorityTokenData,
-            previousTransactionHash: OpalBase.Transaction.HashModel(naturalOrder: Data(repeating: 0x25, count: 32)),
+            previousTransactionHash: OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0x25, count: 32)),
             previousTransactionOutputIndex: 0
         )
         _ = try await addUnspentOutput(
             to: account,
             value: 150_000,
             tokenData: nil,
-            previousTransactionHash: OpalBase.Transaction.HashModel(naturalOrder: Data(repeating: 0x26, count: 32)),
+            previousTransactionHash: OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0x26, count: 32)),
             previousTransactionOutputIndex: 0
         )
         let destinationAddress = try OpalBase.Address("bitcoincash:zpm2qsznhks23z7629mms6s4cwef74vcwvrqekrq9w")
@@ -148,12 +148,12 @@ private func addUnspentOutput(
     to account: OpalBase.Account,
     value: UInt64,
     tokenData: OpalBase.CashTokens.TokenData?,
-    previousTransactionHash: OpalBase.Transaction.HashModel,
+    previousTransactionHash: OpalBase.Transaction.Hash,
     previousTransactionOutputIndex: UInt32
-) async throws -> OpalBase.Transaction.OutputModel.Unspent {
+) async throws -> OpalBase.Transaction.Output.Unspent {
     let addressBook = await account.addressBook
     let receivingEntry = try await addressBook.selectNextEntry(for: .receiving)
-    let unspentOutput = OpalBase.Transaction.OutputModel.Unspent(
+    let unspentOutput = OpalBase.Transaction.Output.Unspent(
         value: value,
         lockingScript: receivingEntry.address.lockingScript.data,
         tokenData: tokenData,

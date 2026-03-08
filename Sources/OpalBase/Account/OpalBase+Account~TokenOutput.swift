@@ -9,8 +9,8 @@ extension _OpalBase.Account {
         overrideAmount: OpalBase.Satoshi? = nil,
         minimumRelayFeeRate: UInt64 = OpalBase.Transaction.minimumRelayFeeRate,
         mapDustError: (Swift.Error) -> OpalBase.Account.Error
-    ) throws -> OpalBase.Transaction.OutputModel {
-        let template = OpalBase.Transaction.OutputModel(value: 0, address: address, tokenData: tokenData)
+    ) throws -> OpalBase.Transaction.Output {
+        let template = OpalBase.Transaction.Output(value: 0, address: address, tokenData: tokenData)
         
         let dust: UInt64
         do {
@@ -20,6 +20,6 @@ extension _OpalBase.Account {
         }
         
         let value = overrideAmount?.uint64 ?? dust
-        return OpalBase.Transaction.OutputModel(value: value, address: address, tokenData: tokenData)
+        return OpalBase.Transaction.Output(value: value, address: address, tokenData: tokenData)
     }
 }

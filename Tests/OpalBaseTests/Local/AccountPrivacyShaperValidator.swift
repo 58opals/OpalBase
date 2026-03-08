@@ -12,9 +12,9 @@ struct AccountPrivacyShaperValidator {
         let shaper = OpalBase.Account.PrivacyShaperActor(configuration: configuration)
         
         let outputs = [
-            OpalBase.Transaction.OutputModel(value: 6_000, lockingScript: Data([0x02])),
-            OpalBase.Transaction.OutputModel(value: 1_000, lockingScript: Data([0x03])),
-            OpalBase.Transaction.OutputModel(value: 6_000, lockingScript: Data([0x01]))
+            OpalBase.Transaction.Output(value: 6_000, lockingScript: Data([0x02])),
+            OpalBase.Transaction.Output(value: 1_000, lockingScript: Data([0x03])),
+            OpalBase.Transaction.Output(value: 6_000, lockingScript: Data([0x01]))
         ]
         
         let organizedOutputs = await shaper.organizeOutputs(outputs)

@@ -4,7 +4,7 @@ import Foundation
 import Testing
 @testable import OpalBase
 
-@Suite("Secp256k1Model endomorphism", .tags(.unit, .cryptography))
+@Suite("OpalBase.Cryptography.Secp256k1 endomorphism", .tags(.unit, .cryptography))
 struct Secp256k1EndomorphismValidator {
     @Test("Endomorphism preserves curve membership")
     func endomorphismPreservesCurveMembership() {
@@ -28,14 +28,14 @@ struct Secp256k1EndomorphismValidator {
         )
         let expected = AffinePointModel(
             x: expectedX,
-            y: FieldElementModel(unchecked: Secp256k1Model.Constant.Gy)
+            y: FieldElementModel(unchecked: OpalBase.Cryptography.Secp256k1.Constant.Gy)
         )
         #expect(ScalarMultiplicationModel.generator.applyEndomorphism() == expected)
     }
     
     @Test("Endomorphism matches scalar lambda multiplication")
     func endomorphismMatchesLambdaMultiplication() {
-        let lambda = ScalarModel(unchecked: Secp256k1Model.Constant.endomorphismLambda)
+        let lambda = ScalarModel(unchecked: OpalBase.Cryptography.Secp256k1.Constant.endomorphismLambda)
         let lambdaPoint = ScalarMultiplicationModel.mul(lambda, ScalarMultiplicationModel.generator).convertToAffine()
         #expect(lambdaPoint == ScalarMultiplicationModel.generator.applyEndomorphism())
     }
@@ -67,7 +67,7 @@ struct Secp256k1EndomorphismValidator {
     private func recombine(
         split: (firstScalar: SignedScalar128Model, secondScalar: SignedScalar128Model, isFirstNegative: Bool, isSecondNegative: Bool)
     ) -> ScalarModel {
-        let lambda = ScalarModel(unchecked: Secp256k1Model.Constant.endomorphismLambda)
+        let lambda = ScalarModel(unchecked: OpalBase.Cryptography.Secp256k1.Constant.endomorphismLambda)
         let firstScalar = makeScalar(from: split.firstScalar)
         let secondScalar = makeScalar(from: split.secondScalar)
         return firstScalar.addModN(secondScalar.mulModN(lambda))

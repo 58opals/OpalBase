@@ -6,20 +6,20 @@ extension OpalBase {
     public actor Account: Identifiable {
         private let rootExtendedPrivateKey: OpalBase.PrivateKey.ExtendedModel
 
-        let purpose: OpalBase.DerivationPath.PurposeModel
-        let coinType: OpalBase.DerivationPath.CoinTypeModel
+        let purpose: OpalBase.DerivationPath.Purpose
+        let coinType: OpalBase.DerivationPath.CoinType
         let account: OpalBase.DerivationPath.Account
 
         public let id: Data
-        public let addressBook: OpalBase.Address.Book
+        let addressBook: OpalBase.Address.Book
 
         let privacyShaper: PrivacyShaperActor
         public let privacyConfiguration: PrivacyShaperActor.Configuration
 
         init(
             rootExtendedPrivateKey: OpalBase.PrivateKey.ExtendedModel,
-            purpose: OpalBase.DerivationPath.PurposeModel,
-            coinType: OpalBase.DerivationPath.CoinTypeModel,
+            purpose: OpalBase.DerivationPath.Purpose,
+            coinType: OpalBase.DerivationPath.CoinType,
             account: OpalBase.DerivationPath.Account,
             addressBook: OpalBase.Address.Book,
             privacyConfiguration: PrivacyShaperActor.Configuration = .standard
@@ -42,8 +42,8 @@ extension OpalBase {
 
         init(
             rootExtendedPrivateKey: OpalBase.PrivateKey.ExtendedModel,
-            purpose: OpalBase.DerivationPath.PurposeModel,
-            coinType: OpalBase.DerivationPath.CoinTypeModel,
+            purpose: OpalBase.DerivationPath.Purpose,
+            coinType: OpalBase.DerivationPath.CoinType,
             account: OpalBase.DerivationPath.Account,
             privacyConfiguration: PrivacyShaperActor.Configuration = .standard
         ) async throws {
@@ -65,10 +65,10 @@ extension OpalBase {
         }
 
         init(
-            from snapshot: OpalBase.Account.SnapshotModel,
+            from snapshot: OpalBase.Account.Snapshot,
             rootExtendedPrivateKey: OpalBase.PrivateKey.ExtendedModel,
-            purpose: OpalBase.DerivationPath.PurposeModel,
-            coinType: OpalBase.DerivationPath.CoinTypeModel,
+            purpose: OpalBase.DerivationPath.Purpose,
+            coinType: OpalBase.DerivationPath.CoinType,
             privacyConfiguration: PrivacyShaperActor.Configuration = .standard
         ) async throws {
             let accountPath = try OpalBase.DerivationPath.Account(rawIndexInteger: snapshot.accountUnhardenedIndex)
@@ -113,8 +113,8 @@ extension _OpalBase.Account {
 }
 
 extension _OpalBase.Account {
-    public var derivationPath: (purpose: OpalBase.DerivationPath.PurposeModel,
-                                coinType: OpalBase.DerivationPath.CoinTypeModel,
+    public var derivationPath: (purpose: OpalBase.DerivationPath.Purpose,
+                                coinType: OpalBase.DerivationPath.CoinType,
                                 account: OpalBase.DerivationPath.Account) {
         (purpose, coinType, account)
     }
@@ -127,18 +127,18 @@ extension _OpalBase.Account {
 }
 
 extension _OpalBase.Account {
-    public func loadTransactionHistory() async -> [OpalBase.Transaction.HistoryModel.Record] {
+    public func loadTransactionHistory() async -> [OpalBase.Transaction.History.Record] {
         await listTransactions()
     }
 }
 
 // MARK: - OpalBase.Address BookActor Accessors
 extension _OpalBase.Account {
-    public func listEntries(for usage: OpalBase.DerivationPath.UsageModel) async -> [OpalBase.Address.Book.EntryModel] {
+    public func listEntries(for usage: OpalBase.DerivationPath.Usage) async -> [OpalBase.Address.Book.Entry] {
         await addressBook.listEntries(for: usage)
     }
     
-    public func selectNextEntry(for usage: OpalBase.DerivationPath.UsageModel) async throws -> OpalBase.Address.Book.EntryModel {
+    public func selectNextEntry(for usage: OpalBase.DerivationPath.Usage) async throws -> OpalBase.Address.Book.Entry {
         try await addressBook.selectNextEntry(for: usage)
     }
     

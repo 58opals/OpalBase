@@ -5,20 +5,20 @@ import Foundation
 extension OpalBase {
     public actor Wallet: Identifiable {
         public let mnemonic: OpalBase.Mnemonic
-        public let tokenMetadataStore: TokenMetadataRepository
+        let tokenMetadataStore: OpalBase.CashTokens.MetadataRepository
         
-        let purpose: OpalBase.DerivationPath.PurposeModel
-        let coinType: OpalBase.DerivationPath.CoinTypeModel
+        let purpose: OpalBase.DerivationPath.Purpose
+        let coinType: OpalBase.DerivationPath.CoinType
         
         public let id: Data
         
         var accounts: [UInt32: OpalBase.Account] = .init()
         
         public init(mnemonic: OpalBase.Mnemonic,
-                    purpose: OpalBase.DerivationPath.PurposeModel = .bip44,
-                    coinType: OpalBase.DerivationPath.CoinTypeModel = .bitcoinCash) {
+                    purpose: OpalBase.DerivationPath.Purpose = .bip44,
+                    coinType: OpalBase.DerivationPath.CoinType = .bitcoinCash) {
             self.mnemonic = mnemonic
-            self.tokenMetadataStore = TokenMetadataRepository()
+            self.tokenMetadataStore = OpalBase.CashTokens.MetadataRepository()
             self.purpose = purpose
             self.coinType = coinType
             self.id = [self.mnemonic.seed, self.purpose.hardenedIndex.data, self.coinType.hardenedIndex.data].generateID()
@@ -26,7 +26,7 @@ extension OpalBase {
         
         public init(from snapshot: OpalBase.Wallet.Snapshot) async throws {
             self.mnemonic = try OpalBase.Mnemonic(words: snapshot.words, passphrase: snapshot.passphrase)
-            self.tokenMetadataStore = TokenMetadataRepository()
+            self.tokenMetadataStore = OpalBase.CashTokens.MetadataRepository()
             self.purpose = snapshot.purpose
             self.coinType = snapshot.coinType
             self.id = [self.mnemonic.seed, self.purpose.hardenedIndex.data, self.coinType.hardenedIndex.data].generateID()
@@ -69,6 +69,30 @@ extension _OpalBase.Wallet {
 }
 
 extension _OpalBase.Wallet {
+    public func fetchTokenMetadata(
+        for category: OpalBase.CashTokens.CategoryID
+    ) async -> OpalBase.CashTokens.Metadata? {
+        await tokenMetadataStore.fetchMetadata(for: category)
+    }
+
+    public func upsertTokenMetadata(
+        _ items: [OpalBase.CashTokens.CategoryID: OpalBase.CashTokens.Metadata]
+    ) async {
+        await tokenMetadataStore.upsert(items)
+    }
+
+    public func makeTokenMetadataSnapshot() async -> OpalBase.CashTokens.MetadataRepository.Snapshot {
+        await tokenMetadataStore.snapshot()
+    }
+
+    public func applyTokenMetadataSnapshot(
+        _ snapshot: OpalBase.CashTokens.MetadataRepository.Snapshot
+    ) async {
+        await tokenMetadataStore.applySnapshot(snapshot)
+    }
+}
+
+extension _OpalBase.Wallet {
     public var numberOfAccounts: Int { accounts.count }
     
     func updateAccounts(_ accounts: [OpalBase.Account]) async {
@@ -82,7 +106,7 @@ extension _OpalBase.Wallet {
 }
 
 extension _OpalBase.Wallet {
-    public var derivationPath: (purpose: OpalBase.DerivationPath.PurposeModel, coinType: OpalBase.DerivationPath.CoinTypeModel) {
+    public var derivationPath: (purpose: OpalBase.DerivationPath.Purpose, coinType: OpalBase.DerivationPath.CoinType) {
         (purpose, coinType)
     }
     

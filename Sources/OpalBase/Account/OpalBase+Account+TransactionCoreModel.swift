@@ -10,18 +10,18 @@ extension _OpalBase.Account {
     }
     
     static func buildTransactionCore(
-        privateKeys: [OpalBase.Transaction.OutputModel.Unspent: OpalBase.PrivateKey],
-        recipientOutputs: [OpalBase.Transaction.OutputModel],
-        changeOutput: OpalBase.Transaction.OutputModel,
+        privateKeys: [OpalBase.Transaction.Output.Unspent: OpalBase.PrivateKey],
+        recipientOutputs: [OpalBase.Transaction.Output],
+        changeOutput: OpalBase.Transaction.Output,
         feeRate: UInt64,
         shouldAllowDustDonation: Bool,
         shouldRandomizeRecipientOrdering: Bool,
-        changeEntry: OpalBase.Address.Book.EntryModel,
-        signatureFormat: ECDSAModel.SignatureFormat,
-        unlockers: [OpalBase.Transaction.OutputModel.Unspent: OpalBase.Transaction.UnlockerModel],
+        changeEntry: OpalBase.Address.Book.Entry,
+        signatureFormat: OpalBase.Cryptography.SignatureFormat,
+        unlockers: [OpalBase.Transaction.Output.Unspent: OpalBase.Transaction.Unlocker],
         mapBuildError: (Swift.Error) -> OpalBase.Account.Error
     ) throws -> TransactionCoreModel {
-        let outputOrderingStrategy: OpalBase.Transaction.OutputOrderingStrategyModel = shouldRandomizeRecipientOrdering
+        let outputOrderingStrategy: OpalBase.Transaction.OutputOrderingStrategy = shouldRandomizeRecipientOrdering
         ? .privacyRandomized
         : .canonicalBIP69
         
@@ -68,7 +68,7 @@ extension _OpalBase.Account {
     
     private static func findBitcoinCashChange(
         in transaction: OpalBase.Transaction,
-        changeEntry: OpalBase.Address.Book.EntryModel
+        changeEntry: OpalBase.Address.Book.Entry
     ) throws -> SpendPlan.TransactionResult.Change? {
         let lockingScript = changeEntry.address.lockingScript.data
         

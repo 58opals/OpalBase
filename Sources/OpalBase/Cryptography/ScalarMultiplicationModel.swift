@@ -64,7 +64,7 @@ enum ScalarMultiplicationModel {
     }
     
     @usableFromInline static let generator = AffinePointModel(
-        x: FieldElementModel(unchecked: Secp256k1Model.Constant.Gx),
-        y: FieldElementModel(unchecked: Secp256k1Model.Constant.Gy)
+        x: FieldElementModel(unchecked: OpalBase.Cryptography.Secp256k1.Constant.Gx),
+        y: FieldElementModel(unchecked: OpalBase.Cryptography.Secp256k1.Constant.Gy)
     )
 }

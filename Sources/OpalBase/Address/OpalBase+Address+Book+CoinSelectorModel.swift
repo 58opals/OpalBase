@@ -4,14 +4,14 @@ import Foundation
 
 extension _OpalBase.Address.Book {
     struct CoinSelectorModel {
-        let utxos: [OpalBase.Transaction.OutputModel.Unspent]
-        let configuration: OpalBase.Address.Book.CoinSelectionModel.Configuration
+        let utxos: [OpalBase.Transaction.Output.Unspent]
+        let configuration: OpalBase.Address.Book.CoinSelection.Configuration
         let targetAmount: UInt64
         let feePerByte: UInt64
         let minimumRelayFeeRate: UInt64
         
-        init(utxos: [OpalBase.Transaction.OutputModel.Unspent],
-             configuration: OpalBase.Address.Book.CoinSelectionModel.Configuration,
+        init(utxos: [OpalBase.Transaction.Output.Unspent],
+             configuration: OpalBase.Address.Book.CoinSelection.Configuration,
              targetAmount: UInt64,
              feePerByte: UInt64,
              minimumRelayFeeRate: UInt64) {
@@ -25,7 +25,7 @@ extension _OpalBase.Address.Book {
 }
 
 extension _OpalBase.Address.Book.CoinSelectorModel {
-    func select() throws -> [OpalBase.Transaction.OutputModel.Unspent] {
+    func select() throws -> [OpalBase.Transaction.Output.Unspent] {
         switch configuration.strategy {
         case .greedyLargestFirst:
             return try selectGreedy()
@@ -36,8 +36,8 @@ extension _OpalBase.Address.Book.CoinSelectorModel {
         }
     }
     
-    private func selectGreedy() throws -> [OpalBase.Transaction.OutputModel.Unspent] {
-        var selection: [OpalBase.Transaction.OutputModel.Unspent] = .init()
+    private func selectGreedy() throws -> [OpalBase.Transaction.Output.Unspent] {
+        var selection: [OpalBase.Transaction.Output.Unspent] = .init()
         var total: UInt64 = 0
         
         for utxo in utxos {
@@ -54,9 +54,9 @@ extension _OpalBase.Address.Book.CoinSelectorModel {
         throw OpalBase.Address.Book.Error.insufficientFunds
     }
     
-    func evaluate(selection: [OpalBase.Transaction.OutputModel.Unspent],
-                  sum: UInt64) throws -> OpalBase.Address.Book.CoinSelectionModel.Evaluation? {
-        try OpalBase.Address.Book.CoinSelectionModel.evaluate(configuration: configuration,
+    func evaluate(selection: [OpalBase.Transaction.Output.Unspent],
+                  sum: UInt64) throws -> OpalBase.Address.Book.CoinSelection.Evaluation? {
+        try OpalBase.Address.Book.CoinSelection.evaluate(configuration: configuration,
                                                 total: sum,
                                                 inputCount: selection.count,
                                                 targetAmount: targetAmount,

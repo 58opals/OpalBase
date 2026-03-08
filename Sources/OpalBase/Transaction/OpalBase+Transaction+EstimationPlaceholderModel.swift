@@ -12,12 +12,12 @@ extension _OpalBase.Transaction {
 // MARK: - Centralized estimators for selection and building
 extension _OpalBase.Transaction {
     static func estimateSize(inputCount: Int,
-                             outputs: [OutputModel],
+                             outputs: [Output],
                              version: UInt32 = 2,
                              lockTime: UInt32 = 0) throws -> Int {
         guard inputCount >= 0 else { return 0 }
-        let placeholderHash = OpalBase.Transaction.HashModel(naturalOrder: Data(repeating: 0, count: 32))
-        let templateInput = InputModel(previousTransactionHash: placeholderHash,
+        let placeholderHash = OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0, count: 32))
+        let templateInput = Input(previousTransactionHash: placeholderHash,
                                   previousTransactionOutputIndex: 0,
                                   unlockingScript: Data(),
                                   sequence: 0xFFFFFFFF)
@@ -27,7 +27,7 @@ extension _OpalBase.Transaction {
     }
     
     static func estimateFee(inputCount: Int,
-                            outputs: [OutputModel],
+                            outputs: [Output],
                             feePerByte: UInt64,
                             version: UInt32 = 2,
                             lockTime: UInt32 = 0) throws -> UInt64 {
@@ -38,7 +38,7 @@ extension _OpalBase.Transaction {
 
 extension _OpalBase.Transaction {
     private enum EstimationPlaceholderModel {
-        static let unlockingScript: Data = OpalBase.Transaction.UnlockerModel.p2pkh_CheckSig()
+        static let unlockingScript: Data = OpalBase.Transaction.Unlocker.p2pkh_CheckSig()
             .makePlaceholderUnlockingScript(signatureFormat: .schnorr)
     }
     
@@ -46,10 +46,10 @@ extension _OpalBase.Transaction {
         try makeSerializedTransaction(with: makeInputsForEstimation()).count
     }
     
-    private func makeInputsForEstimation() -> [InputModel] {
+    private func makeInputsForEstimation() -> [Input] {
         inputs.map { input in
             guard input.unlockingScript.isEmpty else { return input }
-            return InputModel(previousTransactionHash: input.previousTransactionHash,
+            return Input(previousTransactionHash: input.previousTransactionHash,
                          previousTransactionOutputIndex: input.previousTransactionOutputIndex,
                          unlockingScript: EstimationPlaceholderModel.unlockingScript,
                          sequence: input.sequence)
@@ -89,7 +89,7 @@ private extension _OpalBase.Transaction {
     }
 }
 
-private extension _OpalBase.Transaction.InputModel {
+private extension _OpalBase.Transaction.Input {
     func estimateSize_Legacy() -> Int {
         var size = 0
         
@@ -104,7 +104,7 @@ private extension _OpalBase.Transaction.InputModel {
     }
 }
 
-private extension _OpalBase.Transaction.OutputModel {
+private extension _OpalBase.Transaction.Output {
     func estimateSize_Legacy() -> Int {
         var size = 0
         

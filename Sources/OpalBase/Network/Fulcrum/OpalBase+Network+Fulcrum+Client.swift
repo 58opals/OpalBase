@@ -137,10 +137,10 @@ extension _OpalBase.Network.Fulcrum {
 }
 
 private struct FulcrumMetricsAdapter: SwiftFulcrum.Metrics.MetricsClient {
-    private let environment: OpalBase.Network.EnvironmentModel
+    private let environment: OpalBase.Network.Environment
     private let collector: any OpalBase.Network.MetricsClient
     
-    init(environment: OpalBase.Network.EnvironmentModel, collector: any OpalBase.Network.MetricsClient) {
+    init(environment: OpalBase.Network.Environment, collector: any OpalBase.Network.MetricsClient) {
         self.environment = environment
         self.collector = collector
     }
@@ -170,7 +170,7 @@ private struct FulcrumMetricsAdapter: SwiftFulcrum.Metrics.MetricsClient {
     }
     
     func recordSubscriptionRegistryUpdate(url: URL, subscriptions: [SwiftFulcrum.Client.Diagnostics.Subscription]) async {
-        await collector.recordSubscriptionRegistryUpdate(url: url, subscriptions: subscriptions.map(OpalBase.Network.DiagnosticsSubscriptionModel.init(_:)))
+        await collector.recordSubscriptionRegistryUpdate(url: url, subscriptions: subscriptions.map(OpalBase.Network.DiagnosticsSubscription.init(_:)))
     }
 }
 

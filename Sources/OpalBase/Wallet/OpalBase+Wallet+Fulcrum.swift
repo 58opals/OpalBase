@@ -17,7 +17,7 @@ extension _OpalBase.Wallet {
         }
         
         public func refreshBalances(for account: OpalBase.Account,
-                                    usage: OpalBase.DerivationPath.UsageModel? = nil,
+                                    usage: OpalBase.DerivationPath.Usage? = nil,
                                     includeUnconfirmedHistory: Bool = true) async throws -> OpalBase.Account.BalanceRefresh {
             _ = try await account.scanForUsedAddresses(using: addressReader,
                                                        usage: usage,
@@ -30,7 +30,7 @@ extension _OpalBase.Wallet {
         
         public func refreshBalances(forAccountAt unhardenedIndex: UInt32,
                                     in wallet: OpalBase.Wallet,
-                                    usage: OpalBase.DerivationPath.UsageModel? = nil,
+                                    usage: OpalBase.DerivationPath.Usage? = nil,
                                     includeUnconfirmedHistory: Bool = true) async throws -> OpalBase.Account.BalanceRefresh {
             let account = try await wallet.fetchAccount(at: unhardenedIndex)
             return try await refreshBalances(for: account,
@@ -39,8 +39,8 @@ extension _OpalBase.Wallet {
         }
         
         public func refreshTransactionHistory(for account: OpalBase.Account,
-                                              usage: OpalBase.DerivationPath.UsageModel? = nil,
-                                              includeUnconfirmed: Bool = true) async throws -> OpalBase.Transaction.HistoryModel.ChangeSet {
+                                              usage: OpalBase.DerivationPath.Usage? = nil,
+                                              includeUnconfirmed: Bool = true) async throws -> OpalBase.Transaction.History.ChangeSet {
             try await account.refreshTransactionHistory(using: addressReader,
                                                         usage: usage,
                                                         includeUnconfirmed: includeUnconfirmed,
@@ -49,8 +49,8 @@ extension _OpalBase.Wallet {
         
         public func refreshTransactionHistory(forAccountAt unhardenedIndex: UInt32,
                                               in wallet: OpalBase.Wallet,
-                                              usage: OpalBase.DerivationPath.UsageModel? = nil,
-                                              includeUnconfirmed: Bool = true) async throws -> OpalBase.Transaction.HistoryModel.ChangeSet {
+                                              usage: OpalBase.DerivationPath.Usage? = nil,
+                                              includeUnconfirmed: Bool = true) async throws -> OpalBase.Transaction.History.ChangeSet {
             let account = try await wallet.fetchAccount(at: unhardenedIndex)
             return try await refreshTransactionHistory(for: account,
                                                        usage: usage,
@@ -58,25 +58,25 @@ extension _OpalBase.Wallet {
         }
         
         public func updateTransactionConfirmations(for account: OpalBase.Account,
-                                                   transactionHashes: [OpalBase.Transaction.HashModel]) async throws -> OpalBase.Transaction.HistoryModel.ChangeSet {
+                                                   transactionHashes: [OpalBase.Transaction.Hash]) async throws -> OpalBase.Transaction.History.ChangeSet {
             try await account.updateTransactionConfirmations(using: transactionHandler,
                                                              for: transactionHashes)
         }
         
         public func updateTransactionConfirmations(forAccountAt unhardenedIndex: UInt32,
                                                    in wallet: OpalBase.Wallet,
-                                                   transactionHashes: [OpalBase.Transaction.HashModel]) async throws -> OpalBase.Transaction.HistoryModel.ChangeSet {
+                                                   transactionHashes: [OpalBase.Transaction.Hash]) async throws -> OpalBase.Transaction.History.ChangeSet {
             let account = try await wallet.fetchAccount(at: unhardenedIndex)
             return try await updateTransactionConfirmations(for: account,
                                                             transactionHashes: transactionHashes)
         }
         
-        public func refreshTransactionConfirmations(for account: OpalBase.Account) async throws -> OpalBase.Transaction.HistoryModel.ChangeSet {
+        public func refreshTransactionConfirmations(for account: OpalBase.Account) async throws -> OpalBase.Transaction.History.ChangeSet {
             try await account.refreshTransactionConfirmations(using: transactionHandler)
         }
         
         public func refreshTransactionConfirmations(forAccountAt unhardenedIndex: UInt32,
-                                                    in wallet: OpalBase.Wallet) async throws -> OpalBase.Transaction.HistoryModel.ChangeSet {
+                                                    in wallet: OpalBase.Wallet) async throws -> OpalBase.Transaction.History.ChangeSet {
             let account = try await wallet.fetchAccount(at: unhardenedIndex)
             return try await refreshTransactionConfirmations(for: account)
         }

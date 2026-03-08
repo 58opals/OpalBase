@@ -8,7 +8,7 @@ import Testing
 struct TransactionHashTypeUnspentTransactionOutputsValidator {
     @Test("hash type validation rejects unspent outputs with anyone-can-pay")
     func hashTypeValidationRejectsUnspentOutputsWithAnyoneCanPay() throws {
-        let hashType = OpalBase.Transaction.HashTypeModel.makeAll(anyoneCanPay: true,
+        let hashType = OpalBase.Transaction.HashType.makeAll(anyoneCanPay: true,
                                                     includesUnspentTransactionOutputs: true)
         
         #expect(throws: OpalBase.Transaction.Error.unsupportedHashType) {
@@ -18,7 +18,7 @@ struct TransactionHashTypeUnspentTransactionOutputsValidator {
     
     @Test("hash type includes unspent outputs flag")
     func hashTypeIncludesUnspentOutputsFlag() {
-        let hashType = OpalBase.Transaction.HashTypeModel.makeAll(includesUnspentTransactionOutputs: true)
+        let hashType = OpalBase.Transaction.HashType.makeAll(includesUnspentTransactionOutputs: true)
         
         #expect((hashType.value & 0x20) == 0x20)
     }
@@ -28,10 +28,10 @@ struct TransactionHashTypeUnspentTransactionOutputsValidator {
         let lockingScript = try makeLockingScript()
         let transaction = makeTransaction(lockingScript: lockingScript)
         let spentOutputs = [
-            OpalBase.Transaction.OutputModel(value: 9_000, lockingScript: lockingScript),
-            OpalBase.Transaction.OutputModel(value: 12_000, lockingScript: lockingScript)
+            OpalBase.Transaction.Output(value: 9_000, lockingScript: lockingScript),
+            OpalBase.Transaction.Output(value: 12_000, lockingScript: lockingScript)
         ]
-        let hashType = OpalBase.Transaction.HashTypeModel.makeAll(includesUnspentTransactionOutputs: true)
+        let hashType = OpalBase.Transaction.HashType.makeAll(includesUnspentTransactionOutputs: true)
         let preimage = try transaction.generatePreimage(for: 0,
                                                         hashType: hashType,
                                                         outputBeingSpent: spentOutputs[0],
@@ -48,8 +48,8 @@ struct TransactionHashTypeUnspentTransactionOutputsValidator {
     func preimageRequiresUnspentTransactionOutputsWhenEnabled() throws {
         let lockingScript = try makeLockingScript()
         let transaction = makeTransaction(lockingScript: lockingScript)
-        let spentOutput = OpalBase.Transaction.OutputModel(value: 9_000, lockingScript: lockingScript)
-        let hashType = OpalBase.Transaction.HashTypeModel.makeAll(includesUnspentTransactionOutputs: true)
+        let spentOutput = OpalBase.Transaction.Output(value: 9_000, lockingScript: lockingScript)
+        let hashType = OpalBase.Transaction.HashType.makeAll(includesUnspentTransactionOutputs: true)
         
         #expect(throws: OpalBase.Transaction.Error.missingUnspentTransactionOutputs) {
             _ = try transaction.generatePreimage(for: 0,
@@ -60,18 +60,18 @@ struct TransactionHashTypeUnspentTransactionOutputsValidator {
     }
     
     private func makeTransaction(lockingScript: Data) -> OpalBase.Transaction {
-        let previousTransactionHash = OpalBase.Transaction.HashModel(naturalOrder: Data(repeating: 0x11, count: 32))
+        let previousTransactionHash = OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0x11, count: 32))
         let inputs = [
-            OpalBase.Transaction.InputModel(previousTransactionHash: previousTransactionHash,
+            OpalBase.Transaction.Input(previousTransactionHash: previousTransactionHash,
                               previousTransactionOutputIndex: 0,
                               unlockingScript: Data(),
                               sequence: 0xffffffff),
-            OpalBase.Transaction.InputModel(previousTransactionHash: previousTransactionHash,
+            OpalBase.Transaction.Input(previousTransactionHash: previousTransactionHash,
                               previousTransactionOutputIndex: 1,
                               unlockingScript: Data(),
                               sequence: 0xffffffff)
         ]
-        let output = OpalBase.Transaction.OutputModel(value: 7_000, lockingScript: lockingScript)
+        let output = OpalBase.Transaction.Output(value: 7_000, lockingScript: lockingScript)
         return OpalBase.Transaction(version: 2, inputs: inputs, outputs: [output], lockTime: 0)
     }
     
@@ -80,7 +80,7 @@ struct TransactionHashTypeUnspentTransactionOutputsValidator {
         return try Data(hexadecimalString: lockingScriptHexadecimal)
     }
     
-    private func makeUnspentTransactionOutputsHash(from outputs: [OpalBase.Transaction.OutputModel]) throws -> Data {
+    private func makeUnspentTransactionOutputsHash(from outputs: [OpalBase.Transaction.Output]) throws -> Data {
         var data = Data()
         for output in outputs {
             data.append(try output.encode())

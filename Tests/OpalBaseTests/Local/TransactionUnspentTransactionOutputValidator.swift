@@ -10,7 +10,7 @@ struct TransactionUnspentTransactionOutputValidator {
     func buildPreservesTokenMetadataOnChangeOutputs() throws {
         let components = try makeTransactionBuilderComponents()
         let tokenData = try makeTokenData(fillByte: 0xA5, amount: 21)
-        let tokenizedChangeOutput = OpalBase.Transaction.OutputModel(
+        let tokenizedChangeOutput = OpalBase.Transaction.Output(
             value: components.changeOutput.value,
             lockingScript: components.changeOutput.lockingScript,
             tokenData: tokenData

@@ -4,7 +4,7 @@ import Foundation
 import Testing
 @testable import OpalBase
 
-@Suite("SnapshotModel encoding and decoding", .tags(.unit))
+@Suite("Snapshot encoding and decoding", .tags(.unit))
 struct SnapshotPersistenceValidator {
     @MainActor @Test("address book snapshot encodes token fields")
     func addressBookSnapshotEncodesTokenFields() throws {
@@ -15,7 +15,7 @@ struct SnapshotPersistenceValidator {
         let nonFungibleToken = tokenData.nft
         let tokenCommitment = nonFungibleToken?.commitment.hexadecimalString
         
-        let unspentOutputSnapshot = OpalBase.Address.Book.SnapshotModel.UTXO(
+        let unspentOutputSnapshot = OpalBase.Address.Book.Snapshot.UTXO(
             value: 500,
             lockingScript: "51",
             tokenCategory: tokenCategory,
@@ -25,7 +25,7 @@ struct SnapshotPersistenceValidator {
             transactionHash: "abcd",
             outputIndex: 1
         )
-        let snapshot = OpalBase.Address.Book.SnapshotModel(
+        let snapshot = OpalBase.Address.Book.Snapshot(
             receivingEntries: .init(),
             changeEntries: .init(),
             utxos: [unspentOutputSnapshot],
@@ -33,7 +33,7 @@ struct SnapshotPersistenceValidator {
         )
         
         let data = try storage.encodeSnapshot(snapshot)
-        let decoded = try storage.decodeSnapshot(OpalBase.Address.Book.SnapshotModel.self, from: data)
+        let decoded = try storage.decodeSnapshot(OpalBase.Address.Book.Snapshot.self, from: data)
         let decodedUnspentOutput = try #require(decoded.utxos.first)
         
         #expect(decodedUnspentOutput.tokenCategory == tokenCategory)
@@ -56,7 +56,7 @@ struct SnapshotPersistenceValidator {
         """
         let data = Data(snapshotJSON.utf8)
         
-        let decoded = try storage.decodeSnapshot(OpalBase.Address.Book.SnapshotModel.self, from: data)
+        let decoded = try storage.decodeSnapshot(OpalBase.Address.Book.Snapshot.self, from: data)
         let decodedUnspentOutput = try #require(decoded.utxos.first)
         
         #expect(decodedUnspentOutput.tokenCategory == nil)
@@ -74,7 +74,7 @@ struct SnapshotPersistenceValidator {
     }
     
     private func makeTokenData(from fixture: TokenPrefixTokenData) throws -> OpalBase.CashTokens.TokenData {
-        let category = try OpalBase.CashTokens.CategoryIDModel(hexFromRPC: fixture.category)
+        let category = try OpalBase.CashTokens.CategoryID(hexFromRPC: fixture.category)
         let amount = try parseAmount(from: fixture.amount)
         let nonFungibleToken = try fixture.nonFungibleToken.map { try makeNonFungibleToken(from: $0) }
         return OpalBase.CashTokens.TokenData(category: category, amount: amount, nft: nonFungibleToken)
@@ -90,13 +90,13 @@ struct SnapshotPersistenceValidator {
         return amountValue == 0 ? nil : amountValue
     }
     
-    private func makeNonFungibleToken(from fixture: TokenPrefixNonFungibleTokenData) throws -> OpalBase.CashTokens.NFTModel {
+    private func makeNonFungibleToken(from fixture: TokenPrefixNonFungibleTokenData) throws -> OpalBase.CashTokens.NFT {
         let capability = try makeNonFungibleCapability(from: fixture.capability)
         let commitment = try Data(hexadecimalString: fixture.commitment)
-        return try OpalBase.CashTokens.NFTModel(capability: capability, commitment: commitment)
+        return try OpalBase.CashTokens.NFT(capability: capability, commitment: commitment)
     }
     
-    private func makeNonFungibleCapability(from capabilityString: String) throws -> OpalBase.CashTokens.NFTModel.Capability {
+    private func makeNonFungibleCapability(from capabilityString: String) throws -> OpalBase.CashTokens.NFT.Capability {
         switch capabilityString {
         case "none":
             return .none

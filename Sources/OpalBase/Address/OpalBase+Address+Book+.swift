@@ -10,10 +10,10 @@ extension _OpalBase.Address.Book {
     }
     
     func updateTokenDeltaCache(
-        for entries: [OpalBase.Transaction.HistoryModel.Entry],
+        for entries: [OpalBase.Transaction.History.Entry],
         transactionReader: OpalBase.Network.TransactionReadableClient,
         walletScriptHashes: Set<String>,
-        tokenDeltaCache: inout [OpalBase.Transaction.HashModel: OpalBase.Transaction.HistoryModel.Record.TokenDelta]
+        tokenDeltaCache: inout [OpalBase.Transaction.Hash: OpalBase.Transaction.History.Record.TokenDelta]
     ) async throws {
         let transactionHashes = entries.map(\.transactionHash).deduplicate()
         let missingHashes = transactionHashes.filter { tokenDeltaCache[$0] == nil }
@@ -36,10 +36,10 @@ extension _OpalBase.Address.Book {
     }
     
     func makeTokenDelta(
-        for transactionHash: OpalBase.Transaction.HashModel,
+        for transactionHash: OpalBase.Transaction.Hash,
         transactionReader: OpalBase.Network.TransactionReadableClient,
         walletScriptHashes: Set<String>
-    ) async throws -> OpalBase.Transaction.HistoryModel.Record.TokenDelta {
+    ) async throws -> OpalBase.Transaction.History.Record.TokenDelta {
         let rawTransactionData = try await transactionReader.fetchRawTransaction(for: transactionHash)
         let (transaction, _) = try OpalBase.Transaction.decode(from: rawTransactionData)
         return try await makeTokenDelta(from: transaction,
@@ -51,7 +51,7 @@ extension _OpalBase.Address.Book {
         from transaction: OpalBase.Transaction,
         transactionReader: OpalBase.Network.TransactionReadableClient,
         walletScriptHashes: Set<String>
-    ) async throws -> OpalBase.Transaction.HistoryModel.Record.TokenDelta {
+    ) async throws -> OpalBase.Transaction.History.Record.TokenDelta {
         let previousHashes = transaction.inputs.map(\.previousTransactionHash).deduplicate()
         let previousTransactions = try await previousHashes.mapConcurrently { hash in
             let rawTransactionData = try await transactionReader.fetchRawTransaction(for: hash)
@@ -60,7 +60,7 @@ extension _OpalBase.Address.Book {
         }
         let previousTransactionsByHash = Dictionary(uniqueKeysWithValues: previousTransactions)
         
-        var fungibleDeltas: [OpalBase.CashTokens.CategoryIDModel: Int64] = .init()
+        var fungibleDeltas: [OpalBase.CashTokens.CategoryID: Int64] = .init()
         var nonFungibleAdditions: Set<OpalBase.CashTokens.TokenData> = .init()
         var nonFungibleRemovals: Set<OpalBase.CashTokens.TokenData> = .init()
         var lockedBitcoinCashDelta: Int64 = 0
@@ -91,7 +91,7 @@ extension _OpalBase.Address.Book {
             lockedBitcoinCashDelta -= Int64(previousOutput.value)
         }
         
-        return OpalBase.Transaction.HistoryModel.Record.TokenDelta(
+        return OpalBase.Transaction.History.Record.TokenDelta(
             fungibleDeltasByCategory: fungibleDeltas,
             nonFungibleTokenAdditions: nonFungibleAdditions,
             nonFungibleTokenRemovals: nonFungibleRemovals,
@@ -113,7 +113,7 @@ extension _OpalBase.Address.Book {
     func addFungibleDelta(
         from tokenData: OpalBase.CashTokens.TokenData,
         sign: Int64,
-        into deltas: inout [OpalBase.CashTokens.CategoryIDModel: Int64]
+        into deltas: inout [OpalBase.CashTokens.CategoryID: Int64]
     ) {
         guard let amount = tokenData.amount else { return }
         let signedAmount = Int64(amount) * sign

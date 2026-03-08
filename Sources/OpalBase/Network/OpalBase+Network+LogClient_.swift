@@ -4,7 +4,7 @@ import Foundation
 
 extension _OpalBase.Network {
     public protocol LogClient: Sendable {
-        func log(_ level: LogLevelModel,
+        func log(_ level: LogLevel,
                  _ message: @autoclosure () -> String,
                  metadata: [String: String]?,
                  file: String,

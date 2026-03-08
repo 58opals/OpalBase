@@ -8,7 +8,7 @@ extension _OpalBase.Account {
         feePolicy: OpalBase.Wallet.FeePolicy = .init()
     ) async throws -> TokenCommitmentMutationPlan {
         let spendableOutputs = await addressBook.sortSpendableUTXOs(by: { $0.value > $1.value })
-        let authorityInput: OpalBase.Transaction.OutputModel.Unspent
+        let authorityInput: OpalBase.Transaction.Output.Unspent
         switch mutation.target {
         case .preferredInput(let preferredInput):
             guard spendableOutputs.contains(preferredInput) else {
@@ -39,9 +39,9 @@ extension _OpalBase.Account {
             throw Error.tokenMutationInvalidAuthorityInput
         }
         
-        let newNonFungibleToken: OpalBase.CashTokens.NFTModel
+        let newNonFungibleToken: OpalBase.CashTokens.NFT
         do {
-            newNonFungibleToken = try OpalBase.CashTokens.NFTModel(capability: authorityNonFungibleToken.capability,
+            newNonFungibleToken = try OpalBase.CashTokens.NFT(capability: authorityNonFungibleToken.capability,
                                                      commitment: mutation.newCommitment)
         } catch {
             throw Error.tokenMutationInvalidAuthorityInput
@@ -53,7 +53,7 @@ extension _OpalBase.Account {
         let destinationIsExternal = await !addressBook.contains(address: mutation.destination)
         let attachedFungibleAmount = authorityTokenData.amount
         let mutatedTokenData: OpalBase.CashTokens.TokenData
-        var fungiblePreservationOutput: OpalBase.Transaction.OutputModel?
+        var fungiblePreservationOutput: OpalBase.Transaction.Output?
         
         if destinationIsExternal && mutation.shouldPreserveAttachedFungibleToWallet {
             mutatedTokenData = OpalBase.CashTokens.TokenData(category: authorityTokenData.category,

@@ -4,21 +4,21 @@ import Foundation
 
 // MARK: - MonitorActor
 extension _OpalBase.Account {
-    public func listTrackedEntries() async -> [OpalBase.Address.Book.EntryModel] {
+    public func listTrackedEntries() async -> [OpalBase.Address.Book.Entry] {
         await addressBook.listAllEntries()
     }
 }
 
 extension _OpalBase.Account {
-    public func observeNewEntries() async -> AsyncStream<OpalBase.Address.Book.EntryModel> {
+    public func observeNewEntries() async -> AsyncStream<OpalBase.Address.Book.Entry> {
         await addressBook.observeNewEntries()
     }
 }
 
 extension _OpalBase.Account {
     public func replaceUTXOs(for address: OpalBase.Address,
-                             with utxos: [OpalBase.Transaction.OutputModel.Unspent],
-                             timestamp: Date = .now) async throws -> OpalBase.Address.Book.UTXOChangeSetModel {
+                             with utxos: [OpalBase.Transaction.Output.Unspent],
+                             timestamp: Date = .now) async throws -> OpalBase.Address.Book.UTXOChangeSet {
         let changeSet = try await addressBook.replaceUTXOs(for: address,
                                                            with: utxos,
                                                            timestamp: timestamp)
@@ -38,7 +38,7 @@ extension _OpalBase.Account {
     public func refreshTransactionHistory(for address: OpalBase.Address,
                                           using service: OpalBase.Network.AddressReadable,
                                           includeUnconfirmed: Bool = true,
-                                          transactionReader: OpalBase.Network.TransactionReadableClient? = nil) async throws -> OpalBase.Transaction.HistoryModel.ChangeSet {
+                                          transactionReader: OpalBase.Network.TransactionReadableClient? = nil) async throws -> OpalBase.Transaction.History.ChangeSet {
         try await addressBook.refreshTransactionHistory(for: address,
                                                         using: service,
                                                         includeUnconfirmed: includeUnconfirmed,

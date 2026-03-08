@@ -5,7 +5,7 @@ import Foundation
 extension _OpalBase.Account {
     public func prepareTokenGenesis(
         _ genesis: TokenGenesis,
-        preferredGenesisInput: OpalBase.Transaction.OutputModel.Unspent? = nil,
+        preferredGenesisInput: OpalBase.Transaction.Output.Unspent? = nil,
         feePolicy: OpalBase.Wallet.FeePolicy = .init()
     ) async throws -> TokenGenesisPlan {
         guard !genesis.recipients.isEmpty || genesis.reservedSupplyToSelf != nil else {
@@ -18,7 +18,7 @@ extension _OpalBase.Account {
         }
         
         let spendableOutputs = await addressBook.sortSpendableUTXOs(by: { $0.value > $1.value })
-        let genesisInput: OpalBase.Transaction.OutputModel.Unspent
+        let genesisInput: OpalBase.Transaction.Output.Unspent
         if let preferredGenesisInput {
             guard preferredGenesisInput.tokenData == nil,
                   preferredGenesisInput.previousTransactionOutputIndex == 0 else {
@@ -39,15 +39,15 @@ extension _OpalBase.Account {
             genesisInput = selectedGenesisInput
         }
         
-        let category: OpalBase.CashTokens.CategoryIDModel
+        let category: OpalBase.CashTokens.CategoryID
         do {
-            category = try OpalBase.CashTokens.CategoryIDModel(transactionOrderData: genesisInput.previousTransactionHash.naturalOrder)
+            category = try OpalBase.CashTokens.CategoryID(transactionOrderData: genesisInput.previousTransactionHash.naturalOrder)
         } catch {
             throw Error.tokenGenesisInvalidGenesisInput
         }
         
         let changeEntry = try await addressBook.selectNextEntry(for: .change)
-        var rawOutputs: [OpalBase.Transaction.OutputModel] = .init()
+        var rawOutputs: [OpalBase.Transaction.Output] = .init()
         for recipient in genesis.recipients {
             let tokenData = OpalBase.CashTokens.TokenData(category: category,
                                                  amount: recipient.fungibleAmount,
@@ -75,10 +75,10 @@ extension _OpalBase.Account {
         if let reservedSupply = genesis.reservedSupplyToSelf {
             let tokenChangeAddress = try OpalBase.Address(script: changeEntry.address.lockingScript,
                                                  format: .tokenAware)
-            let mintingToken: OpalBase.CashTokens.NFTModel?
+            let mintingToken: OpalBase.CashTokens.NFT?
             if reservedSupply.shouldIncludeMintingNonFungibleToken {
                 do {
-                    mintingToken = try OpalBase.CashTokens.NFTModel(capability: .minting,
+                    mintingToken = try OpalBase.CashTokens.NFT(capability: .minting,
                                                       commitment: reservedSupply.commitment)
                 } catch {
                     throw Error.tokenGenesisInvalidGenesisInput

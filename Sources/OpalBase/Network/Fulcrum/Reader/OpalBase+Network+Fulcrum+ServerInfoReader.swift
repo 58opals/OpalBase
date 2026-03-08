@@ -6,9 +6,9 @@ import SwiftFulcrum
 extension _OpalBase.Network.Fulcrum {
     public struct ServerInfoReader {
         private let client: Client
-        private let timeouts: OpalBase.Network.FulcrumRequestTimeoutModel
+        private let timeouts: OpalBase.Network.FulcrumRequestTimeout
         
-        public init(client: Client, timeouts: OpalBase.Network.FulcrumRequestTimeoutModel = .init()) {
+        public init(client: Client, timeouts: OpalBase.Network.FulcrumRequestTimeout = .init()) {
             self.client = client
             self.timeouts = timeouts
         }

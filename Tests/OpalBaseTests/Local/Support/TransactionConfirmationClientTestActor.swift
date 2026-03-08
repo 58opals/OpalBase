@@ -5,14 +5,14 @@ import Foundation
 
 actor TransactionConfirmationClientTestActor: OpalBase.Network.TransactionConfirmationClient {
     private let confirmationsByIdentifier: [String: UInt?]
-    private let statusesByHash: [OpalBase.Transaction.HashModel: OpalBase.Network.TransactionConfirmationStatus]
+    private let statusesByHash: [OpalBase.Transaction.Hash: OpalBase.Network.TransactionConfirmationStatus]
 
     private var confirmationIdentifierRequests: [String] = .init()
-    private var confirmationStatusRequests: [OpalBase.Transaction.HashModel] = .init()
+    private var confirmationStatusRequests: [OpalBase.Transaction.Hash] = .init()
 
     init(
         confirmationsByIdentifier: [String: UInt?] = .init(),
-        statusesByHash: [OpalBase.Transaction.HashModel: OpalBase.Network.TransactionConfirmationStatus] = .init()
+        statusesByHash: [OpalBase.Transaction.Hash: OpalBase.Network.TransactionConfirmationStatus] = .init()
     ) {
         self.confirmationsByIdentifier = confirmationsByIdentifier
         self.statusesByHash = statusesByHash
@@ -23,13 +23,13 @@ actor TransactionConfirmationClientTestActor: OpalBase.Network.TransactionConfir
         return confirmationsByIdentifier[transactionIdentifier] ?? nil
     }
 
-    func fetchConfirmationStatus(for transactionHash: OpalBase.Transaction.HashModel) async throws -> OpalBase.Network.TransactionConfirmationStatus {
+    func fetchConfirmationStatus(for transactionHash: OpalBase.Transaction.Hash) async throws -> OpalBase.Network.TransactionConfirmationStatus {
         confirmationStatusRequests.append(transactionHash)
         return statusesByHash[transactionHash] ??
             .init(transactionHash: transactionHash, transactionHeight: nil, tipHeight: 0, confirmations: nil)
     }
 
-    func readConfirmationStatusRequests() -> [OpalBase.Transaction.HashModel] {
+    func readConfirmationStatusRequests() -> [OpalBase.Transaction.Hash] {
         confirmationStatusRequests
     }
 }

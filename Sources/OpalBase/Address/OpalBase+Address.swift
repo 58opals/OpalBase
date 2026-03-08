@@ -8,7 +8,7 @@ extension OpalBase {
         public static let separator: String = ":"
         public let string: String
         public let lockingScript: OpalBase.Script
-        public let format: FormatModel
+        public let format: Format
         
         public init(_ string: String) throws {
             try self.init(string: string)
@@ -33,12 +33,12 @@ extension OpalBase {
             throw Error.invalidCashAddressFormat
         }
         
-        public init(script: OpalBase.Script, format: FormatModel = .standard) throws {
+        public init(script: OpalBase.Script, format: Format = .standard) throws {
             let string = try OpalBase.Address.makeCashAddressString(for: script, format: format)
             self.init(cashAddressPayload: string, lockingScript: script, format: format)
         }
         
-        init(cashAddressPayload: String, lockingScript: OpalBase.Script, format: FormatModel) {
+        init(cashAddressPayload: String, lockingScript: OpalBase.Script, format: Format) {
             self.string = cashAddressPayload
             self.lockingScript = lockingScript
             self.format = format
@@ -90,7 +90,7 @@ extension _OpalBase.Address {
         return checksum
     }
     
-    private static func makeCashAddressString(for script: OpalBase.Script, format: FormatModel) throws -> String {
+    private static func makeCashAddressString(for script: OpalBase.Script, format: Format) throws -> String {
         let versionByte = try makeVersionByte(for: script, format: format)
         let payload: Data
         switch script {
@@ -112,7 +112,7 @@ extension _OpalBase.Address {
         return Base32Model.encode(Data(combined), interpretedAs5Bit: true)
     }
     
-    private static func makeVersionByte(for script: OpalBase.Script, format: FormatModel) throws -> UInt8 {
+    private static func makeVersionByte(for script: OpalBase.Script, format: Format) throws -> UInt8 {
         switch script {
         case .p2pkh_OPCHECKSIG, .p2pkh_OPCHECKDATASIG:
             return format == .tokenAware ? 0x10 : 0x00

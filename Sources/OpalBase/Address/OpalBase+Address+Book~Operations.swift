@@ -3,11 +3,11 @@
 import Foundation
 
 extension _OpalBase.Address.Book {
-    public func listEntries(for usage: OpalBase.DerivationPath.UsageModel) -> [EntryModel] {
+    public func listEntries(for usage: OpalBase.DerivationPath.Usage) -> [Entry] {
         inventory.listEntries(for: usage)
     }
     
-    func checkCacheValidity(_ cache: EntryModel.Cache, currentDate: Date) -> Bool {
+    func checkCacheValidity(_ cache: Entry.Cache, currentDate: Date) -> Bool {
         inventory.checkCacheValidity(cache, currentDate: currentDate)
     }
     
@@ -31,11 +31,11 @@ extension _OpalBase.Address.Book {
         }
     }
     
-    func countEntries(for usage: OpalBase.DerivationPath.UsageModel) -> Int {
+    func countEntries(for usage: OpalBase.DerivationPath.Usage) -> Int {
         inventory.countEntries(for: usage)
     }
     
-    func countUnusedEntries(for usage: OpalBase.DerivationPath.UsageModel) -> Int {
+    func countUnusedEntries(for usage: OpalBase.DerivationPath.Usage) -> Int {
         inventory.countUnusedEntries(for: usage)
     }
     
@@ -43,11 +43,11 @@ extension _OpalBase.Address.Book {
         inventory.cacheValidityDuration
     }
     
-    func appendEntry(_ entry: EntryModel, usage: OpalBase.DerivationPath.UsageModel) {
+    func appendEntry(_ entry: Entry, usage: OpalBase.DerivationPath.Usage) {
         inventory.append(entry, usage: usage)
     }
     
-    func findEntry(for address: OpalBase.Address) -> EntryModel? {
+    func findEntry(for address: OpalBase.Address) -> Entry? {
         inventory.findEntry(for: address)
     }
     
@@ -55,25 +55,25 @@ extension _OpalBase.Address.Book {
         inventory.contains(address: address)
     }
     
-    func listAllEntries() -> [EntryModel] {
+    func listAllEntries() -> [Entry] {
         inventory.allEntries
     }
     
     func updateEntry(at index: Int,
-                     usage: OpalBase.DerivationPath.UsageModel,
-                     _ update: (inout EntryModel) -> Void) {
+                     usage: OpalBase.DerivationPath.Usage,
+                     _ update: (inout Entry) -> Void) {
         inventory.updateEntry(at: index, usage: usage, update)
     }
     
-    func markEntry(address: OpalBase.Address, isUsed: Bool) throws -> EntryModel {
+    func markEntry(address: OpalBase.Address, isUsed: Bool) throws -> Entry {
         try inventory.mark(address: address, isUsed: isUsed)
     }
     
-    func reserveEntry(address: OpalBase.Address) throws -> EntryModel {
+    func reserveEntry(address: OpalBase.Address) throws -> Entry {
         try inventory.reserve(address: address)
     }
     
-    func releaseReservation(address: OpalBase.Address, shouldKeepUsed: Bool) throws -> EntryModel {
+    func releaseReservation(address: OpalBase.Address, shouldKeepUsed: Bool) throws -> Entry {
         try inventory.releaseReservation(address: address, shouldKeepUsed: shouldKeepUsed)
     }
 }

@@ -8,7 +8,7 @@ extension OpalBase {
         public let seed: Data
         public let passphrase: String
         
-        public init(length: LengthModel = .long, passphrase: String = "") throws {
+        public init(length: Length = .long, passphrase: String = "") throws {
             let entropy = try OpalBase.Mnemonic.generateEntropy(numberOfBits: length.numberOfBits)
             let mnemonicWords = try OpalBase.Mnemonic.generateMnemonicWords(from: entropy)
             let seed = try OpalBase.Mnemonic.generateSeed(from: mnemonicWords, passphrase: passphrase)
@@ -19,7 +19,7 @@ extension OpalBase {
         }
         
         public init(words: [String], passphrase: String = "") throws {
-            guard try WordModel.validateMnemonicWords(words) else { throw Error.invalidMnemonicWords }
+            guard try Word.validateMnemonicWords(words) else { throw Error.invalidMnemonicWords }
             
             self.words = words
             self.seed = try OpalBase.Mnemonic.generateSeed(from: words, passphrase: passphrase)
@@ -29,9 +29,9 @@ extension OpalBase {
         public init(
             words: [String],
             passphrase: String = "",
-            wordList: OpalBase.Mnemonic.WordListModel
+            wordList: OpalBase.Mnemonic.WordList
         ) throws {
-            guard try WordModel.validateMnemonicWords(words, wordList: wordList) else { throw Error.invalidMnemonicWords }
+            guard try Word.validateMnemonicWords(words, wordList: wordList) else { throw Error.invalidMnemonicWords }
             
             self.words = words
             self.seed = try OpalBase.Mnemonic.generateSeed(from: words, passphrase: passphrase)
@@ -41,9 +41,9 @@ extension OpalBase {
         public init(
             words: [String],
             passphrase: String = "",
-            wordLists: [OpalBase.Mnemonic.WordModel.Language: OpalBase.Mnemonic.WordListModel]
+            wordLists: [OpalBase.Mnemonic.Word.Language: OpalBase.Mnemonic.WordList]
         ) throws {
-            guard try WordModel.validateMnemonicWords(words, wordLists: wordLists) else { throw Error.invalidMnemonicWords }
+            guard try Word.validateMnemonicWords(words, wordLists: wordLists) else { throw Error.invalidMnemonicWords }
             
             self.words = words
             self.seed = try OpalBase.Mnemonic.generateSeed(from: words, passphrase: passphrase)
@@ -71,7 +71,7 @@ extension OpalBase {
             let bitValues = entropyBits + checksumBits
             guard bitValues.count % 11 == 0 else { throw Error.cannotConvertStringToData }
             
-            let wordList = try WordModel.loadWordList()
+            let wordList = try Word.loadWordList()
             
             var mnemonicWords: [String] = .init()
             mnemonicWords.reserveCapacity(bitValues.count / 11)

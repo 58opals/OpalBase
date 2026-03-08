@@ -66,7 +66,7 @@ extension RIPEMD160Model {
             _ = messageBuffer.copyBytes(to: wordBytes)
 
             if (processedBytesCount & 63) > 55 {
-                // LengthModel goes to the next block
+                // Length goes to the next block
                 compress(baseAddress)
                 words.update(repeating: 0)
             }

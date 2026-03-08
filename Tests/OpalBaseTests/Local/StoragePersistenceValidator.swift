@@ -11,15 +11,15 @@ struct StoragePersistenceValidator {
         let accountIdentifier = Data("account-0".utf8)
         let encodedIdentifier = accountIdentifier.base64EncodedString()
 
-        #expect(OpalBase.Storage.KeyModel.walletSnapshot.rawValue == "wallet.snapshot")
-        #expect(OpalBase.Storage.KeyModel.accountSnapshot(accountIdentifier).rawValue == "account.snapshot.\(encodedIdentifier)")
-        #expect(OpalBase.Storage.KeyModel.addressBookSnapshot(accountIdentifier).rawValue == "address-book.snapshot.\(encodedIdentifier)")
-        #expect(OpalBase.Storage.KeyModel.mnemonicCiphertext.rawValue == "mnemonic.enc")
+        #expect(OpalBase.Storage.Key.walletSnapshot.rawValue == "wallet.snapshot")
+        #expect(OpalBase.Storage.Key.accountSnapshot(accountIdentifier).rawValue == "account.snapshot.\(encodedIdentifier)")
+        #expect(OpalBase.Storage.Key.addressBookSnapshot(accountIdentifier).rawValue == "address-book.snapshot.\(encodedIdentifier)")
+        #expect(OpalBase.Storage.Key.mnemonicCiphertext.rawValue == "mnemonic.enc")
     }
 
     @Test("mnemonic persistence does not require retaining a wallet instance")
     func persistMnemonicWithoutWalletRetention() async throws {
-        let valueStore = OpalBase.Storage.ValueRepository.makeInMemory()
+        let valueStore = OpalBase.Storage.ValueStore.makeInMemory()
         let storage = try OpalBase.Storage(valueStore: valueStore)
 
         let mnemonic = OpalBase.Storage.Mnemonic(
@@ -31,7 +31,7 @@ struct StoragePersistenceValidator {
         )
 
         let protectionMode = try await storage.saveMnemonic(mnemonic, fallbackToPlaintext: true)
-        #expect([OpalBase.Storage.SecurityModel.ProtectionMode.plaintext, .software, .secureEnclave].contains(protectionMode))
+        #expect([OpalBase.Storage.Security.ProtectionMode.plaintext, .software, .secureEnclave].contains(protectionMode))
 
         let restoredStorage = try OpalBase.Storage(valueStore: valueStore)
         let restored = try await restoredStorage.loadMnemonicState()

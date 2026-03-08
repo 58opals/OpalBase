@@ -9,7 +9,7 @@ struct AccountTokenGenesisValidator {
     @Test("rejects genesis input with non-zero output index")
     func rejectsGenesisInputWithNonZeroOutputIndex() async throws {
         let account = try await makeAccount()
-        let previousTransactionHash = OpalBase.Transaction.HashModel(naturalOrder: Data(repeating: 0x11, count: 32))
+        let previousTransactionHash = OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0x11, count: 32))
         let unspentOutput = try await addSpendableOutput(
             to: account,
             previousTransactionHash: previousTransactionHash,
@@ -29,7 +29,7 @@ struct AccountTokenGenesisValidator {
     @Test("derives token category from genesis input hash")
     func derivesTokenCategoryFromGenesisInputHash() async throws {
         let account = try await makeAccount()
-        let previousTransactionHash = OpalBase.Transaction.HashModel(naturalOrder: Data(repeating: 0x22, count: 32))
+        let previousTransactionHash = OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0x22, count: 32))
         let unspentOutput = try await addSpendableOutput(
             to: account,
             previousTransactionHash: previousTransactionHash,
@@ -56,7 +56,7 @@ struct AccountTokenGenesisValidator {
     @Test("uses dust threshold when genesis recipient lacks BCH amount")
     func usesDustThresholdWhenRecipientAmountIsNil() async throws {
         let account = try await makeAccount()
-        let previousTransactionHash = OpalBase.Transaction.HashModel(naturalOrder: Data(repeating: 0x33, count: 32))
+        let previousTransactionHash = OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0x33, count: 32))
         _ = try await addSpendableOutput(
             to: account,
             previousTransactionHash: previousTransactionHash,
@@ -70,7 +70,7 @@ struct AccountTokenGenesisValidator {
         
         let plan = try await account.prepareTokenGenesis(genesis)
         let tokenOutput = try #require(plan.outputs.first { $0.tokenData != nil })
-        let expectedDustOutput = OpalBase.Transaction.OutputModel(
+        let expectedDustOutput = OpalBase.Transaction.Output(
             value: 0,
             address: recipientAddress,
             tokenData: tokenOutput.tokenData
@@ -84,7 +84,7 @@ struct AccountTokenGenesisValidator {
     @Test("rejects non-token-aware genesis recipients")
     func rejectsNonTokenAwareRecipients() async throws {
         let account = try await makeAccount()
-        let previousTransactionHash = OpalBase.Transaction.HashModel(naturalOrder: Data(repeating: 0x44, count: 32))
+        let previousTransactionHash = OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0x44, count: 32))
         let unspentOutput = try await addSpendableOutput(
             to: account,
             previousTransactionHash: previousTransactionHash,
@@ -113,13 +113,13 @@ private func makeAccount() async throws -> OpalBase.Account {
 
 private func addSpendableOutput(
     to account: OpalBase.Account,
-    previousTransactionHash: OpalBase.Transaction.HashModel,
+    previousTransactionHash: OpalBase.Transaction.Hash,
     previousTransactionOutputIndex: UInt32,
     value: UInt64 = 50_000
-) async throws -> OpalBase.Transaction.OutputModel.Unspent {
+) async throws -> OpalBase.Transaction.Output.Unspent {
     let addressBook = await account.addressBook
     let receivingEntry = try await addressBook.selectNextEntry(for: .receiving)
-    let unspentOutput = OpalBase.Transaction.OutputModel.Unspent(
+    let unspentOutput = OpalBase.Transaction.Output.Unspent(
         value: value,
         lockingScript: receivingEntry.address.lockingScript.data,
         previousTransactionHash: previousTransactionHash,

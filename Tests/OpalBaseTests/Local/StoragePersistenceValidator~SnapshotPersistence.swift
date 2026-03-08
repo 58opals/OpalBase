@@ -7,7 +7,7 @@ import Testing
 extension StoragePersistenceValidator {
     @Test("persistState(for:) + restore(accountIdentifiers:) round-trips wallet snapshots and mnemonic state")
     func persistAndRestoreWalletArtifacts() async throws {
-        let valueStore = OpalBase.Storage.ValueRepository.makeInMemory()
+        let valueStore = OpalBase.Storage.ValueStore.makeInMemory()
         let storage = try OpalBase.Storage(valueStore: valueStore)
 
         let mnemonic = try OpalBase.Mnemonic(
@@ -27,10 +27,10 @@ extension StoragePersistenceValidator {
         let expectedSnapshot = await wallet.makeSnapshot()
 
         let protectionMode = try await storage.persistState(for: wallet)
-        #expect([OpalBase.Storage.SecurityModel.ProtectionMode.plaintext, .software, .secureEnclave].contains(protectionMode))
+        #expect([OpalBase.Storage.Security.ProtectionMode.plaintext, .software, .secureEnclave].contains(protectionMode))
 
         let restoredStorage = try OpalBase.Storage(valueStore: valueStore)
-        let session = OpalBase.Storage.PersistenceSessionModel(storage: restoredStorage)
+        let session = OpalBase.Storage.PersistenceSession(storage: restoredStorage)
         let restored = try await session.restore(accountIdentifiers: [accountIdentifier])
 
         guard let restoredWalletSnapshot = restored.walletSnapshot else {
@@ -76,9 +76,9 @@ extension StoragePersistenceValidator {
 
     @Test("restore returns an empty state for a fresh install")
     func restoreEmptyStateWhenNothingPersisted() async throws {
-        let valueStore = OpalBase.Storage.ValueRepository.makeInMemory()
+        let valueStore = OpalBase.Storage.ValueStore.makeInMemory()
         let storage = try OpalBase.Storage(valueStore: valueStore)
-        let session = OpalBase.Storage.PersistenceSessionModel(storage: storage)
+        let session = OpalBase.Storage.PersistenceSession(storage: storage)
 
         let restored = try await session.restore(accountIdentifiers: .init())
 
@@ -91,9 +91,9 @@ extension StoragePersistenceValidator {
 
     @Test("save(snapshot:accountIdentifiers:) rejects missing account identifiers")
     func rejectMissingAccountIdentifiersWhenSavingSnapshot() async throws {
-        let valueStore = OpalBase.Storage.ValueRepository.makeInMemory()
+        let valueStore = OpalBase.Storage.ValueStore.makeInMemory()
         let storage = try OpalBase.Storage(valueStore: valueStore)
-        let session = OpalBase.Storage.PersistenceSessionModel(storage: storage)
+        let session = OpalBase.Storage.PersistenceSession(storage: storage)
 
         let mnemonic = try OpalBase.Mnemonic(
             words: [
@@ -107,7 +107,7 @@ extension StoragePersistenceValidator {
 
         let snapshot = await wallet.makeSnapshot()
         guard let missingIndex = snapshot.accounts.first?.accountUnhardenedIndex else {
-            Issue.record("SnapshotModel unexpectedly contained no accounts.")
+            Issue.record("Snapshot unexpectedly contained no accounts.")
             return
         }
 

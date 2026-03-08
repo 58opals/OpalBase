@@ -16,32 +16,32 @@ extension _OpalBase.Storage {
     }
     
     @MainActor
-    public func saveAccountSnapshot(_ snapshot: OpalBase.Account.SnapshotModel,
+    public func saveAccountSnapshot(_ snapshot: OpalBase.Account.Snapshot,
                                     accountIdentifier: Data) async throws {
         let encodedSnapshot = try encodeSnapshot(snapshot)
         try await storeValue(encodedSnapshot, for: .accountSnapshot(accountIdentifier))
     }
     
     @MainActor
-    public func loadAccountSnapshot(accountIdentifier: Data) async throws -> OpalBase.Account.SnapshotModel? {
+    public func loadAccountSnapshot(accountIdentifier: Data) async throws -> OpalBase.Account.Snapshot? {
         guard let data = try await loadValue(for: .accountSnapshot(accountIdentifier)) else { return nil }
-        return try decodeSnapshot(OpalBase.Account.SnapshotModel.self, from: data)
+        return try decodeSnapshot(OpalBase.Account.Snapshot.self, from: data)
     }
     
     @MainActor
-    public func saveAddressBookSnapshot(_ snapshot: OpalBase.Address.Book.SnapshotModel,
+    public func saveAddressBookSnapshot(_ snapshot: OpalBase.Address.Book.Snapshot,
                                         accountIdentifier: Data) async throws {
         let encodedSnapshot = try encodeSnapshot(snapshot)
         try await storeValue(encodedSnapshot, for: .addressBookSnapshot(accountIdentifier))
     }
     
     @MainActor
-    public func loadAddressBookSnapshot(accountIdentifier: Data) async throws -> OpalBase.Address.Book.SnapshotModel? {
+    public func loadAddressBookSnapshot(accountIdentifier: Data) async throws -> OpalBase.Address.Book.Snapshot? {
         guard let data = try await loadValue(for: .addressBookSnapshot(accountIdentifier)) else { return nil }
-        return try decodeSnapshot(OpalBase.Address.Book.SnapshotModel.self, from: data)
+        return try decodeSnapshot(OpalBase.Address.Book.Snapshot.self, from: data)
     }
     
-    public func saveMnemonic(_ mnemonic: OpalBase.Storage.Mnemonic, fallbackToPlaintext: Bool = false) async throws -> SecurityModel.ProtectionMode {
+    public func saveMnemonic(_ mnemonic: OpalBase.Storage.Mnemonic, fallbackToPlaintext: Bool = false) async throws -> Security.ProtectionMode {
         let payload = OpalBase.Storage.Mnemonic.PayloadModel(words: mnemonic.words, passphrase: mnemonic.passphrase)
         let plaintext: Data
         do {
@@ -50,7 +50,7 @@ extension _OpalBase.Storage {
             throw Error.encodingFailure(error)
         }
         
-        let storedCiphertext: OpalBase.Storage.SecurityModel.Ciphertext
+        let storedCiphertext: OpalBase.Storage.Security.Ciphertext
         do {
             let ciphertext = try security.encrypt(plaintext)
             if fallbackToPlaintext && ciphertext.mode != .secureEnclave {
@@ -77,12 +77,12 @@ extension _OpalBase.Storage {
         return storedCiphertext.mode
     }
     
-    public func loadMnemonicState() async throws -> (mnemonic: OpalBase.Storage.Mnemonic, protectionMode: SecurityModel.ProtectionMode)? {
+    public func loadMnemonicState() async throws -> (mnemonic: OpalBase.Storage.Mnemonic, protectionMode: Security.ProtectionMode)? {
         guard let storedCiphertext = try await loadValue(for: .mnemonicCiphertext) else { return nil }
         
-        let ciphertext: OpalBase.Storage.SecurityModel.Ciphertext
+        let ciphertext: OpalBase.Storage.Security.Ciphertext
         do {
-            ciphertext = try decoder.decode(OpalBase.Storage.SecurityModel.Ciphertext.self, from: storedCiphertext)
+            ciphertext = try decoder.decode(OpalBase.Storage.Security.Ciphertext.self, from: storedCiphertext)
         } catch {
             ciphertext = .init(mode: .secureEnclave, payload: storedCiphertext)
         }
@@ -114,8 +114,8 @@ extension _OpalBase.Storage {
         return state.mnemonic
     }
     
-    public func persistState(for wallet: OpalBase.Wallet) async throws -> SecurityModel.ProtectionMode {
-        let session = PersistenceSessionModel(storage: self)
+    public func persistState(for wallet: OpalBase.Wallet) async throws -> Security.ProtectionMode {
+        let session = PersistenceSession(storage: self)
         return try await session.save(wallet: wallet, fallbackToPlaintext: true)
     }
     
@@ -133,7 +133,7 @@ private extension _OpalBase.Storage {
         if security.checkSecureEnclaveErrorRecoverability(error) {
             return true
         }
-        guard let securityError = error as? OpalBase.Storage.SecurityModel.Error else { return false }
+        guard let securityError = error as? OpalBase.Storage.Security.Error else { return false }
         switch securityError {
         case .protectionUnavailable:
             return true

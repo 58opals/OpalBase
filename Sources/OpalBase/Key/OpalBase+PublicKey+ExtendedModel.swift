@@ -87,7 +87,7 @@ extension _OpalBase.PublicKey.ExtendedModel {
         
         let childPublicKey: Data
         do {
-            childPublicKey = try Secp256k1Model.Operation.tweakAddPublicKey(publicKey,
+            childPublicKey = try OpalBase.Cryptography.Secp256k1.Operation.tweakAddPublicKey(publicKey,
                                                                        tweak32: leftHMACPart,
                                                                        format: .compressed)
         } catch {

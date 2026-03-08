@@ -10,17 +10,17 @@ extension _OpalBase.Address.Book {
         }
         
         struct State: Sendable {
-            let utxos: Set<OpalBase.Transaction.OutputModel.Unspent>
-            let entry: EntryModel
+            let utxos: Set<OpalBase.Transaction.Output.Unspent>
+            let entry: Entry
             let hasBeenUsedPreviously: Bool
             let reservedAt: Date
         }
         
         let id: UUID
-        let changeEntry: EntryModel
+        let changeEntry: Entry
         let reservationDate: Date
         
-        init(id: UUID, changeEntry: EntryModel, reservedAt: Date) {
+        init(id: UUID, changeEntry: Entry, reservedAt: Date) {
             self.id = id
             self.changeEntry = changeEntry
             self.reservationDate = reservedAt
@@ -29,9 +29,9 @@ extension _OpalBase.Address.Book {
 }
 
 extension _OpalBase.Address.Book {
-    func reserveSpend(utxos: [OpalBase.Transaction.OutputModel.Unspent],
-                      changeEntry: EntryModel,
-                      tokenSelectionPolicy: OpalBase.Address.Book.CoinSelectionModel.TokenSelectionPolicy) async throws -> SpendReservationModel {
+    func reserveSpend(utxos: [OpalBase.Transaction.Output.Unspent],
+                      changeEntry: Entry,
+                      tokenSelectionPolicy: OpalBase.Address.Book.CoinSelection.TokenSelectionPolicy) async throws -> SpendReservationModel {
         let utxoSet = Set(utxos)
         
         if let existingReservation = findMatchingReservation(for: utxoSet) {

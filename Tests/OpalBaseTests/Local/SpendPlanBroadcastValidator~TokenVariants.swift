@@ -71,8 +71,8 @@ private extension SpendPlanBroadcastValidator {
 
     func makeTokenMintPlan() async throws -> OpalBase.Account.TokenMintPlan {
         let account = try await AccountTestFixturesModel.makeAccount()
-        let category = try OpalBase.CashTokens.CategoryIDModel(transactionOrderData: Data(repeating: 0x82, count: 32))
-        let mintingNonFungibleToken = try OpalBase.CashTokens.NFTModel(capability: .minting, commitment: Data([0x01]))
+        let category = try OpalBase.CashTokens.CategoryID(transactionOrderData: Data(repeating: 0x82, count: 32))
+        let mintingNonFungibleToken = try OpalBase.CashTokens.NFT(capability: .minting, commitment: Data([0x01]))
         let authorityToken = OpalBase.CashTokens.TokenData(category: category, amount: 10, nft: mintingNonFungibleToken)
         _ = try await AccountTestFixturesModel.addUnspentOutput(
             to: account,
@@ -99,8 +99,8 @@ private extension SpendPlanBroadcastValidator {
 
     func makeTokenMutationPlan() async throws -> OpalBase.Account.TokenCommitmentMutationPlan {
         let account = try await AccountTestFixturesModel.makeAccount()
-        let category = try OpalBase.CashTokens.CategoryIDModel(transactionOrderData: Data(repeating: 0x85, count: 32))
-        let mutableToken = try OpalBase.CashTokens.NFTModel(capability: .mutable, commitment: Data([0x03]))
+        let category = try OpalBase.CashTokens.CategoryID(transactionOrderData: Data(repeating: 0x85, count: 32))
+        let mutableToken = try OpalBase.CashTokens.NFT(capability: .mutable, commitment: Data([0x03]))
         let authorityToken = OpalBase.CashTokens.TokenData(category: category, amount: 5, nft: mutableToken)
         let authorityInput = try await AccountTestFixturesModel.addUnspentOutput(
             to: account,

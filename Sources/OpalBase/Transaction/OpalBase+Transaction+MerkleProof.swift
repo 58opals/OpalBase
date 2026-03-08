@@ -19,7 +19,7 @@ extension _OpalBase.Transaction {
             self.blockHash = blockHash
         }
         
-        public func computeRoot(for transactionHash: OpalBase.Transaction.HashModel) -> Data {
+        public func computeRoot(for transactionHash: OpalBase.Transaction.Hash) -> Data {
             var current = transactionHash.naturalOrder
             var index = position
             

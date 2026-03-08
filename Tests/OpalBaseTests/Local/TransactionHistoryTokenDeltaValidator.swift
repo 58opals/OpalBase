@@ -13,19 +13,19 @@ struct TransactionHistoryTokenDeltaValidator {
         let walletAddress = try #require(receivingEntry?.address)
         let externalAddress = try makeExternalAddress()
         
-        let category = try OpalBase.CashTokens.CategoryIDModel(transactionOrderData: Data(repeating: 0x11, count: 32))
-        let removedToken = try OpalBase.CashTokens.NFTModel(capability: .mutable, commitment: Data([0x0a]))
-        let addedToken = try OpalBase.CashTokens.NFTModel(capability: .minting, commitment: Data([0x0b]))
+        let category = try OpalBase.CashTokens.CategoryID(transactionOrderData: Data(repeating: 0x11, count: 32))
+        let removedToken = try OpalBase.CashTokens.NFT(capability: .mutable, commitment: Data([0x0a]))
+        let addedToken = try OpalBase.CashTokens.NFT(capability: .minting, commitment: Data([0x0b]))
         let inputTokenData = OpalBase.CashTokens.TokenData(category: category, amount: 100, nft: removedToken)
         let changeTokenData = OpalBase.CashTokens.TokenData(category: category, amount: 30, nft: nil)
         let externalTokenData = OpalBase.CashTokens.TokenData(category: category, amount: 70, nft: removedToken)
         let additionTokenData = OpalBase.CashTokens.TokenData(category: category, amount: nil, nft: addedToken)
         
-        let previousHash = OpalBase.Transaction.HashModel(naturalOrder: Data(repeating: 0x01, count: 32))
-        let previousInput = OpalBase.Transaction.InputModel(previousTransactionHash: OpalBase.Transaction.HashModel(naturalOrder: Data(repeating: 0x00, count: 32)),
+        let previousHash = OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0x01, count: 32))
+        let previousInput = OpalBase.Transaction.Input(previousTransactionHash: OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0x00, count: 32)),
                                               previousTransactionOutputIndex: 0,
                                               unlockingScript: Data())
-        let previousOutput = OpalBase.Transaction.OutputModel(value: 1_000,
+        let previousOutput = OpalBase.Transaction.Output(value: 1_000,
                                                 lockingScript: walletAddress.lockingScript.data,
                                                 tokenData: inputTokenData)
         let previousTransaction = OpalBase.Transaction(version: 2,
@@ -34,17 +34,17 @@ struct TransactionHistoryTokenDeltaValidator {
                                               lockTime: 0)
         let previousRawTransaction = try previousTransaction.encode()
         
-        let currentHash = OpalBase.Transaction.HashModel(naturalOrder: Data(repeating: 0x02, count: 32))
-        let currentInput = OpalBase.Transaction.InputModel(previousTransactionHash: previousHash,
+        let currentHash = OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0x02, count: 32))
+        let currentInput = OpalBase.Transaction.Input(previousTransactionHash: previousHash,
                                              previousTransactionOutputIndex: 0,
                                              unlockingScript: Data())
-        let changeOutput = OpalBase.Transaction.OutputModel(value: 600,
+        let changeOutput = OpalBase.Transaction.Output(value: 600,
                                               lockingScript: walletAddress.lockingScript.data,
                                               tokenData: changeTokenData)
-        let externalOutput = OpalBase.Transaction.OutputModel(value: 500,
+        let externalOutput = OpalBase.Transaction.Output(value: 500,
                                                 lockingScript: externalAddress.lockingScript.data,
                                                 tokenData: externalTokenData)
-        let additionOutput = OpalBase.Transaction.OutputModel(value: 550,
+        let additionOutput = OpalBase.Transaction.Output(value: 550,
                                                 lockingScript: walletAddress.lockingScript.data,
                                                 tokenData: additionTokenData)
         let currentTransaction = OpalBase.Transaction(version: 2,
@@ -90,7 +90,7 @@ private extension TransactionHistoryTokenDeltaValidator {
             throw TestError.unexpectedRequest
         }
         
-        func fetchUnspentOutputs(for address: String, tokenFilter: OpalBase.Network.TokenFilter) async throws -> [OpalBase.Transaction.OutputModel.Unspent] {
+        func fetchUnspentOutputs(for address: String, tokenFilter: OpalBase.Network.TokenFilter) async throws -> [OpalBase.Transaction.Output.Unspent] {
             .init()
         }
         
@@ -118,9 +118,9 @@ private extension TransactionHistoryTokenDeltaValidator {
     }
     
     struct TransactionReaderClient: OpalBase.Network.TransactionReadableClient {
-        let rawTransactionsByHash: [OpalBase.Transaction.HashModel: Data]
+        let rawTransactionsByHash: [OpalBase.Transaction.Hash: Data]
         
-        func fetchRawTransaction(for transactionHash: OpalBase.Transaction.HashModel) async throws -> Data {
+        func fetchRawTransaction(for transactionHash: OpalBase.Transaction.Hash) async throws -> Data {
             guard let data = rawTransactionsByHash[transactionHash] else {
                 throw TestError.missingTransaction
             }

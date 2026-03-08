@@ -4,9 +4,9 @@ import Foundation
 import Testing
 @testable import OpalBase
 
-@Suite("SchnorrModel signature verification", .tags(.unit, .cryptography))
+@Suite("OpalBase.Cryptography.Schnorr signature verification", .tags(.unit, .cryptography))
 struct SchnorrSignatureVerificationValidator {
-    @Test("Verify SchnorrModel signatures with Bitcoin improvement proposal vectors")
+    @Test("Verify OpalBase.Cryptography.Schnorr signatures with Bitcoin improvement proposal vectors")
     func verifiesSchnorrSignatureVectors() throws {
         for vector in BitcoinImprovementProposalSchnorrTestData.all {
             let publicKeyData = try Data(hexadecimalString: vector.publicKeyHexadecimal)
@@ -14,7 +14,7 @@ struct SchnorrSignatureVerificationValidator {
             let message = try Data(hexadecimalString: vector.messageHexadecimal)
             let signature = try Data(hexadecimalString: vector.signatureHexadecimal)
             
-            let isValid = try ECDSAModel.verify(signature: signature,
+            let isValid = try OpalBase.Cryptography.ECDSA.verify(signature: signature,
                                            message: message,
                                            publicKey: publicKey,
                                            format: .schnorr)

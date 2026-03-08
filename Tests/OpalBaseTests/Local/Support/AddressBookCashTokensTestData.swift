@@ -28,7 +28,7 @@ enum AddressBookCashTokensTestData {
     }
 
     static func makeTokenData(from fixture: TokenPrefixTokenData) throws -> OpalBase.CashTokens.TokenData {
-        let category = try OpalBase.CashTokens.CategoryIDModel(hexFromRPC: fixture.category)
+        let category = try OpalBase.CashTokens.CategoryID(hexFromRPC: fixture.category)
         let amount = try parseAmount(from: fixture.amount)
         let nonFungibleToken = try fixture.nonFungibleToken.map { try makeNonFungibleToken(from: $0) }
 
@@ -43,13 +43,13 @@ enum AddressBookCashTokensTestData {
         return amountValue == 0 ? nil : amountValue
     }
 
-    static func makeNonFungibleToken(from fixture: TokenPrefixNonFungibleTokenData) throws -> OpalBase.CashTokens.NFTModel {
+    static func makeNonFungibleToken(from fixture: TokenPrefixNonFungibleTokenData) throws -> OpalBase.CashTokens.NFT {
         let capability = try makeNonFungibleCapability(from: fixture.capability)
         let commitment = try Data(hexadecimalString: fixture.commitment)
-        return try OpalBase.CashTokens.NFTModel(capability: capability, commitment: commitment)
+        return try OpalBase.CashTokens.NFT(capability: capability, commitment: commitment)
     }
 
-    static func makeNonFungibleCapability(from capabilityString: String) throws -> OpalBase.CashTokens.NFTModel.Capability {
+    static func makeNonFungibleCapability(from capabilityString: String) throws -> OpalBase.CashTokens.NFT.Capability {
         switch capabilityString {
         case "none":
             return .none

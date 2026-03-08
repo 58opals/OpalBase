@@ -7,7 +7,7 @@ extension OpalBase {
         let compressedData: Data
         
         public init(privateKey: OpalBase.PrivateKey) throws {
-            self.compressedData = try Secp256k1Model.Operation.derivePublicKey(
+            self.compressedData = try OpalBase.Cryptography.Secp256k1.Operation.derivePublicKey(
                 fromPrivateKey32: privateKey.rawData,
                 format: .compressed
             )

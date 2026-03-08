@@ -8,8 +8,8 @@ extension _OpalBase.Account {
         case balanceFetchTimeout(OpalBase.Address)
         case balanceRefreshFailed(OpalBase.Address, Swift.Error)
         case transactionHistoryRefreshFailed(OpalBase.Address, Swift.Error)
-        case transactionDetailsRefreshFailed(OpalBase.Transaction.HashModel, Swift.Error)
-        case transactionConfirmationRefreshFailed(OpalBase.Transaction.HashModel, Swift.Error)
+        case transactionDetailsRefreshFailed(OpalBase.Transaction.Hash, Swift.Error)
+        case transactionConfirmationRefreshFailed(OpalBase.Transaction.Hash, Swift.Error)
         case paymentHasNoRecipients
         case paymentExceedsMaximumAmount
         case paymentDoesNotSupportTokensUseTokenTransfer

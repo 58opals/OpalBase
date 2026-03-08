@@ -69,19 +69,19 @@ extension _OpalBase.Account.PrivacyShaperActor {
         }
     }
     
-    func applyCoinSelectionHeuristics(to utxos: [OpalBase.Transaction.OutputModel.Unspent]) -> [OpalBase.Transaction.OutputModel.Unspent] {
+    func applyCoinSelectionHeuristics(to utxos: [OpalBase.Transaction.Output.Unspent]) -> [OpalBase.Transaction.Output.Unspent] {
         guard configuration.shouldRandomizeUTXOOrdering, utxos.count > 1 else { return utxos }
         return utxos.shuffled(using: &generator)
     }
     
-    func organizeOutputs(_ outputs: [OpalBase.Transaction.OutputModel]) -> [OpalBase.Transaction.OutputModel] {
+    func organizeOutputs(_ outputs: [OpalBase.Transaction.Output]) -> [OpalBase.Transaction.Output] {
         guard outputs.count > 1 else { return outputs }
         
         if configuration.shouldRandomizeRecipientOrdering {
             return outputs.shuffled(using: &generator)
         }
         
-        return OpalBase.Transaction.OutputModel.applyBIP69Ordering(outputs)
+        return OpalBase.Transaction.Output.applyBIP69Ordering(outputs)
     }
     
     private func enqueueDecoys(_ decoys: [@Sendable () async -> Void]) {

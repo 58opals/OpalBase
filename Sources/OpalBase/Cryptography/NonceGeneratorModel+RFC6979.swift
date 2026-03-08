@@ -12,7 +12,7 @@ extension NonceGeneratorModel {
         
         init(privateKey: ScalarModel, digest32: Data) throws {
             guard digest32.count == 32 else {
-                throw Secp256k1Model.Error.invalidDigestLength(actual: digest32.count)
+                throw OpalBase.Cryptography.Secp256k1.Error.invalidDigestLength(actual: digest32.count)
             }
             privateKeyData = privateKey.data32
             digestData = try ScalarConversionModel.makeReducedDataFromDigest(digest32)

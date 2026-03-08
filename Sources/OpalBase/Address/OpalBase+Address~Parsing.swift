@@ -58,15 +58,15 @@ extension _OpalBase.Address {
         switch versionByte {
         case standardPublicKeyHashVersionByte, tokenAwarePublicKeyHashVersionByte:
             guard hashData.count == 20 else { throw Error.invalidPayloadLength }
-            let hash = OpalBase.PublicKey.HashModel(hashData)
+            let hash = OpalBase.PublicKey.Hash(hashData)
             let script = OpalBase.Script.p2pkh_OPCHECKSIG(hash: hash)
-            let format: FormatModel = versionByte == tokenAwarePublicKeyHashVersionByte ? .tokenAware : .standard
+            let format: Format = versionByte == tokenAwarePublicKeyHashVersionByte ? .tokenAware : .standard
             return OpalBase.Address(cashAddressPayload: encodedPayload, lockingScript: script, format: format)
         case standardScriptHashVersionByte, tokenAwareScriptHashVersionByte:
             guard hashData.count == 20 else { throw Error.invalidPayloadLength }
             let scriptHash = Data(hashData)
             let script = OpalBase.Script.p2sh(scriptHash: scriptHash)
-            let format: FormatModel = versionByte == tokenAwareScriptHashVersionByte ? .tokenAware : .standard
+            let format: Format = versionByte == tokenAwareScriptHashVersionByte ? .tokenAware : .standard
             return OpalBase.Address(cashAddressPayload: encodedPayload, lockingScript: script, format: format)
         default:
             throw Error.unsupportedVersionByte(versionByte)
@@ -86,7 +86,7 @@ extension _OpalBase.Address {
         let script: OpalBase.Script
         switch versionByte {
         case 0x00:
-            let hash = OpalBase.PublicKey.HashModel(hashData)
+            let hash = OpalBase.PublicKey.Hash(hashData)
             script = OpalBase.Script.p2pkh_OPCHECKSIG(hash: hash)
         case 0x05:
             script = OpalBase.Script.p2sh(scriptHash: Data(hashData))

@@ -3,12 +3,12 @@
 import Foundation
 
 extension _OpalBase.Address.Book.CoinSelectorModel {
-    func selectBranchAndBound() throws -> [OpalBase.Transaction.OutputModel.Unspent] {
-        var bestSelection: [OpalBase.Transaction.OutputModel.Unspent] = .init()
-        var bestEvaluation: OpalBase.Address.Book.CoinSelectionModel.Evaluation?
+    func selectBranchAndBound() throws -> [OpalBase.Transaction.Output.Unspent] {
+        var bestSelection: [OpalBase.Transaction.Output.Unspent] = .init()
+        var bestEvaluation: OpalBase.Address.Book.CoinSelection.Evaluation?
         let suffixTotals = try makeSuffixTotals()
         
-        func updateBest(selection: [OpalBase.Transaction.OutputModel.Unspent], sum: UInt64) throws {
+        func updateBest(selection: [OpalBase.Transaction.Output.Unspent], sum: UInt64) throws {
             guard let evaluation = try evaluate(selection: selection, sum: sum) else { return }
             
             if let currentBest = bestEvaluation {
@@ -26,7 +26,7 @@ extension _OpalBase.Address.Book.CoinSelectorModel {
             }
         }
         
-        func explore(index: Int, selection: [OpalBase.Transaction.OutputModel.Unspent], sum: UInt64) throws {
+        func explore(index: Int, selection: [OpalBase.Transaction.Output.Unspent], sum: UInt64) throws {
             try updateBest(selection: selection, sum: sum)
             
             guard index < utxos.count else { return }

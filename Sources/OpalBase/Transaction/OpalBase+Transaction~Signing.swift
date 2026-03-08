@@ -11,9 +11,9 @@ extension _OpalBase.Transaction {
     /// - Returns: The preimage data.
     func generatePreimage(
         for index: Int,
-        hashType: HashTypeModel,
-        outputBeingSpent: OutputModel,
-        spentOutputs: [OutputModel]? = nil
+        hashType: HashType,
+        outputBeingSpent: Output,
+        spentOutputs: [Output]? = nil
     ) throws -> Data {
         guard inputs.indices.contains(index) else {
             throw OpalBase.Transaction.Error.sighashSingleIndexOutOfRange
@@ -119,7 +119,7 @@ extension _OpalBase.Transaction {
 }
 
 private extension _OpalBase.Transaction {
-    func makeUnspentTransactionOutputsHash(from outputs: [OutputModel]) throws -> Data {
+    func makeUnspentTransactionOutputsHash(from outputs: [Output]) throws -> Data {
         var data = Data()
         for output in outputs {
             data.append(try output.encode())
@@ -143,7 +143,7 @@ extension _OpalBase.Transaction {
         var newInputs = inputs
         
         let originalInput = newInputs[inputIndex]
-        let newInput = InputModel(
+        let newInput = Input(
             previousTransactionHash: originalInput.previousTransactionHash,
             previousTransactionOutputIndex: originalInput
                 .previousTransactionOutputIndex,

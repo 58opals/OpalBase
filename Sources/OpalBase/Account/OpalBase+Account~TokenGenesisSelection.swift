@@ -3,21 +3,21 @@
 import Foundation
 
 extension _OpalBase.Account {
-    func selectGenesisInput(from spendable: [OpalBase.Transaction.OutputModel.Unspent]) -> OpalBase.Transaction.OutputModel.Unspent? {
+    func selectGenesisInput(from spendable: [OpalBase.Transaction.Output.Unspent]) -> OpalBase.Transaction.Output.Unspent? {
         selectMaximumSpendableOutput(from: spendable) { output in
             output.tokenData == nil && output.previousTransactionOutputIndex == 0
         }
     }
     
-    func selectGenesisInput() async -> OpalBase.Transaction.OutputModel.Unspent? {
+    func selectGenesisInput() async -> OpalBase.Transaction.Output.Unspent? {
         let spendableOutputs = await addressBook.listSpendableUTXOs()
         return selectGenesisInput(from: spendableOutputs)
     }
     
-    func selectMaximumSpendableOutput(from spendableOutputs: [OpalBase.Transaction.OutputModel.Unspent],
-                                      matching isEligible: (OpalBase.Transaction.OutputModel.Unspent) -> Bool)
-    -> OpalBase.Transaction.OutputModel.Unspent? {
-        var selected: OpalBase.Transaction.OutputModel.Unspent?
+    func selectMaximumSpendableOutput(from spendableOutputs: [OpalBase.Transaction.Output.Unspent],
+                                      matching isEligible: (OpalBase.Transaction.Output.Unspent) -> Bool)
+    -> OpalBase.Transaction.Output.Unspent? {
+        var selected: OpalBase.Transaction.Output.Unspent?
         for output in spendableOutputs where isEligible(output) {
             guard let current = selected else {
                 selected = output

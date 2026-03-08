@@ -4,14 +4,14 @@ import Foundation
 @testable import OpalBase
 
 enum BitcoinCashMetadataRegistryTestClient {
-    static func makeRegistries() -> BitcoinCashMetadataRegistryClient {
-        let authchainResolver = BitcoinCashMetadataRegistryClient.AuthchainResolverModel(
+    static func makeRegistries() -> OpalBase.CashTokens.BCMR.Client {
+        let authchainResolver = OpalBase.CashTokens.BCMR.Client.AuthchainResolver(
             transactionReader: PlaceholderTransactionReaderModel(),
             addressReader: PlaceholderAddressReaderModel(),
             maxDepth: 0
         )
-        let registryFetcher = BitcoinCashMetadataRegistryClient.FetcherModel(maxBytes: 1_024)
-        return BitcoinCashMetadataRegistryClient(
+        let registryFetcher = OpalBase.CashTokens.BCMR.Client.Fetcher(maxBytes: 1_024)
+        return OpalBase.CashTokens.BCMR.Client(
             authchainResolver: authchainResolver,
             registryFetcher: registryFetcher
         )
@@ -23,7 +23,7 @@ private enum PlaceholderNetworkError: Swift.Error {
 }
 
 private struct PlaceholderTransactionReaderModel: OpalBase.Network.TransactionReadableClient {
-    func fetchRawTransaction(for transactionHash: OpalBase.Transaction.HashModel) async throws -> Data {
+    func fetchRawTransaction(for transactionHash: OpalBase.Transaction.Hash) async throws -> Data {
         throw PlaceholderNetworkError.notImplemented
     }
 }
@@ -39,7 +39,7 @@ private struct PlaceholderAddressReaderModel: OpalBase.Network.AddressReadable {
     func fetchUnspentOutputs(
         for address: String,
         tokenFilter: OpalBase.Network.TokenFilter
-    ) async throws -> [OpalBase.Transaction.OutputModel.Unspent] {
+    ) async throws -> [OpalBase.Transaction.Output.Unspent] {
         throw PlaceholderNetworkError.notImplemented
     }
     

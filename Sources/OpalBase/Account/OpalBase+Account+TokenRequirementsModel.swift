@@ -3,12 +3,12 @@
 import Foundation
 
 extension _OpalBase.Account {
-    typealias TokenRequirementsByCategory = [OpalBase.CashTokens.CategoryIDModel: TokenRequirementsModel]
+    typealias TokenRequirementsByCategory = [OpalBase.CashTokens.CategoryID: TokenRequirementsModel]
     
     struct TokenRequirementsModel {
-        let category: OpalBase.CashTokens.CategoryIDModel
+        let category: OpalBase.CashTokens.CategoryID
         let fungibleAmount: UInt64
-        let nonFungibleTokens: [OpalBase.Address.Book.TokenInventoryModel.NonFungibleTokenGroup: Int]
+        let nonFungibleTokens: [OpalBase.Address.Book.TokenInventory.NonFungibleTokenGroup: Int]
     }
 }
 
@@ -31,7 +31,7 @@ extension _OpalBase.Account {
             }
             if let nonFungibleToken = tokenData.nft {
                 var nonFungibleTokens = requirements.nonFungibleTokens
-                let group = OpalBase.Address.Book.TokenInventoryModel.NonFungibleTokenGroup(category: category,
+                let group = OpalBase.Address.Book.TokenInventory.NonFungibleTokenGroup(category: category,
                                                                               commitment: nonFungibleToken.commitment,
                                                                               capability: nonFungibleToken.capability)
                 nonFungibleTokens[group, default: 0] += 1
@@ -52,10 +52,10 @@ extension _OpalBase.Account {
         return requirementsByCategory
     }
     
-    func makeTokenInventory(from unspentOutputs: [OpalBase.Transaction.OutputModel.Unspent],
-                            category: OpalBase.CashTokens.CategoryIDModel) throws -> TokenInventoryModel {
+    func makeTokenInventory(from unspentOutputs: [OpalBase.Transaction.Output.Unspent],
+                            category: OpalBase.CashTokens.CategoryID) throws -> TokenInventory {
         var fungibleAmount: UInt64 = 0
-        var nonFungibleTokens: [OpalBase.Address.Book.TokenInventoryModel.NonFungibleTokenGroup: Int] = .init()
+        var nonFungibleTokens: [OpalBase.Address.Book.TokenInventory.NonFungibleTokenGroup: Int] = .init()
         for unspentOutput in unspentOutputs {
             guard let tokenData = unspentOutput.tokenData else { continue }
             if let amount = tokenData.amount {
@@ -63,24 +63,24 @@ extension _OpalBase.Account {
                                                                overflowError: Error.paymentExceedsMaximumAmount)
             }
             if let nonFungibleToken = tokenData.nft {
-                let group = OpalBase.Address.Book.TokenInventoryModel.NonFungibleTokenGroup(category: tokenData.category,
+                let group = OpalBase.Address.Book.TokenInventory.NonFungibleTokenGroup(category: tokenData.category,
                                                                               commitment: nonFungibleToken.commitment,
                                                                               capability: nonFungibleToken.capability)
                 nonFungibleTokens[group, default: 0] += 1
             }
         }
-        return TokenInventoryModel(category: category,
+        return TokenInventory(category: category,
                               fungibleAmount: fungibleAmount,
                               nonFungibleTokens: nonFungibleTokens)
     }
     
-    func subtractTokenInventory(input: TokenInventoryModel,
-                                requirements: TokenRequirementsModel) throws -> TokenInventoryModel {
+    func subtractTokenInventory(input: TokenInventory,
+                                requirements: TokenRequirementsModel) throws -> TokenInventory {
         guard input.fungibleAmount >= requirements.fungibleAmount else {
             throw Error.tokenTransferInsufficientTokens
         }
         let remainingFungible = input.fungibleAmount - requirements.fungibleAmount
-        var remainingNonFungible: [OpalBase.Address.Book.TokenInventoryModel.NonFungibleTokenGroup: Int] = .init()
+        var remainingNonFungible: [OpalBase.Address.Book.TokenInventory.NonFungibleTokenGroup: Int] = .init()
         for (group, count) in input.nonFungibleTokens {
             let requiredCount = requirements.nonFungibleTokens[group] ?? 0
             guard count >= requiredCount else {
@@ -96,19 +96,19 @@ extension _OpalBase.Account {
                 throw Error.tokenTransferInsufficientTokens
             }
         }
-        return TokenInventoryModel(category: input.category,
+        return TokenInventory(category: input.category,
                               fungibleAmount: remainingFungible,
                               nonFungibleTokens: remainingNonFungible)
     }
     
-    func makeTokenChangeOutputs(from inventory: TokenInventoryModel,
-                                changeAddress: OpalBase.Address) throws -> [OpalBase.Transaction.OutputModel] {
-        var outputs: [OpalBase.Transaction.OutputModel] = .init()
+    func makeTokenChangeOutputs(from inventory: TokenInventory,
+                                changeAddress: OpalBase.Address) throws -> [OpalBase.Transaction.Output] {
+        var outputs: [OpalBase.Transaction.Output] = .init()
         var remainingFungible = inventory.fungibleAmount
         let minimumRelayFeeRate = OpalBase.Transaction.minimumRelayFeeRate
         for (group, count) in inventory.nonFungibleTokens where count > 0 {
             for _ in 0..<count {
-                let nonFungibleToken = try OpalBase.CashTokens.NFTModel(capability: group.capability,
+                let nonFungibleToken = try OpalBase.CashTokens.NFT(capability: group.capability,
                                                           commitment: group.commitment)
                 let amount: UInt64? = (outputs.isEmpty && remainingFungible > 0) ? remainingFungible : nil
                 if outputs.isEmpty && remainingFungible > 0 {
@@ -117,11 +117,11 @@ extension _OpalBase.Account {
                 let tokenData = OpalBase.CashTokens.TokenData(category: group.category,
                                                      amount: amount,
                                                      nft: nonFungibleToken)
-                let outputTemplate = OpalBase.Transaction.OutputModel(value: 0,
+                let outputTemplate = OpalBase.Transaction.Output(value: 0,
                                                         address: changeAddress,
                                                         tokenData: tokenData)
                 let dustThreshold = try outputTemplate.calculateDustThreshold(feeRate: minimumRelayFeeRate)
-                outputs.append(OpalBase.Transaction.OutputModel(value: dustThreshold,
+                outputs.append(OpalBase.Transaction.Output(value: dustThreshold,
                                                   address: changeAddress,
                                                   tokenData: tokenData))
             }
@@ -130,11 +130,11 @@ extension _OpalBase.Account {
             let tokenData = OpalBase.CashTokens.TokenData(category: inventory.category,
                                                  amount: remainingFungible,
                                                  nft: nil)
-            let outputTemplate = OpalBase.Transaction.OutputModel(value: 0,
+            let outputTemplate = OpalBase.Transaction.Output(value: 0,
                                                     address: changeAddress,
                                                     tokenData: tokenData)
             let dustThreshold = try outputTemplate.calculateDustThreshold(feeRate: minimumRelayFeeRate)
-            outputs.append(OpalBase.Transaction.OutputModel(value: dustThreshold,
+            outputs.append(OpalBase.Transaction.Output(value: dustThreshold,
                                               address: changeAddress,
                                               tokenData: tokenData))
         }

@@ -3,15 +3,15 @@
 import Foundation
 
 extension _OpalBase.Account {
-    func selectTokenInputs(from unspentOutputs: [OpalBase.Transaction.OutputModel.Unspent],
-                           requirements: TokenRequirementsModel) throws -> [OpalBase.Transaction.OutputModel.Unspent] {
+    func selectTokenInputs(from unspentOutputs: [OpalBase.Transaction.Output.Unspent],
+                           requirements: TokenRequirementsModel) throws -> [OpalBase.Transaction.Output.Unspent] {
         guard requirements.fungibleAmount > 0 || !requirements.nonFungibleTokens.isEmpty else {
             throw Error.tokenTransferHasNoRecipients
         }
         
         var remainingFungible = requirements.fungibleAmount
         var remainingNonFungible = requirements.nonFungibleTokens
-        var selected: [OpalBase.Transaction.OutputModel.Unspent] = .init()
+        var selected: [OpalBase.Transaction.Output.Unspent] = .init()
         
         for unspentOutput in unspentOutputs {
             guard let tokenData = unspentOutput.tokenData else { continue }
@@ -20,7 +20,7 @@ extension _OpalBase.Account {
                 shouldSelect = true
             }
             if let nonFungibleToken = tokenData.nft {
-                let group = OpalBase.Address.Book.TokenInventoryModel.NonFungibleTokenGroup(category: tokenData.category,
+                let group = OpalBase.Address.Book.TokenInventory.NonFungibleTokenGroup(category: tokenData.category,
                                                                               commitment: nonFungibleToken.commitment,
                                                                               capability: nonFungibleToken.capability)
                 if let remainingCount = remainingNonFungible[group], remainingCount > 0 {
@@ -38,7 +38,7 @@ extension _OpalBase.Account {
                 }
             }
             if let nonFungibleToken = tokenData.nft {
-                let group = OpalBase.Address.Book.TokenInventoryModel.NonFungibleTokenGroup(category: tokenData.category,
+                let group = OpalBase.Address.Book.TokenInventory.NonFungibleTokenGroup(category: tokenData.category,
                                                                               commitment: nonFungibleToken.commitment,
                                                                               capability: nonFungibleToken.capability)
                 if let remainingCount = remainingNonFungible[group], remainingCount > 0 {
@@ -55,12 +55,12 @@ extension _OpalBase.Account {
         throw Error.tokenTransferInsufficientTokens
     }
     
-    func selectBitcoinCashInputs(from unspentOutputs: [OpalBase.Transaction.OutputModel.Unspent],
-                                 existingInputs: [OpalBase.Transaction.OutputModel.Unspent],
-                                 outputs: [OpalBase.Transaction.OutputModel],
+    func selectBitcoinCashInputs(from unspentOutputs: [OpalBase.Transaction.Output.Unspent],
+                                 existingInputs: [OpalBase.Transaction.Output.Unspent],
+                                 outputs: [OpalBase.Transaction.Output],
                                  feeRate: UInt64,
                                  shouldAllowDustDonation: Bool,
-                                 changeLockingScript: Data) throws -> [OpalBase.Transaction.OutputModel.Unspent] {
+                                 changeLockingScript: Data) throws -> [OpalBase.Transaction.Output.Unspent] {
         let bitcoinCashOnlyOutputs = unspentOutputs
             .filter { $0.tokenData == nil }
             .sorted {
@@ -70,15 +70,15 @@ extension _OpalBase.Account {
                 return $0.value > $1.value
             }
         let targetAmount = try outputs.sumSatoshi(or: Error.paymentExceedsMaximumAmount) { try OpalBase.Satoshi($0.value) }.uint64
-        let configuration = OpalBase.Address.Book.CoinSelectionModel.Configuration(recipientOutputs: outputs,
+        let configuration = OpalBase.Address.Book.CoinSelection.Configuration(recipientOutputs: outputs,
                                                                      changeLockingScript: changeLockingScript,
                                                                      strategy: .greedyLargestFirst,
                                                                      shouldAllowDustDonation: shouldAllowDustDonation,
                                                                      tokenSelectionPolicy: .excludeTokenUTXOs)
         let minimumRelayFeeRate = OpalBase.Transaction.minimumRelayFeeRate
         
-        func evaluate(total: UInt64, inputCount: Int) throws -> OpalBase.Address.Book.CoinSelectionModel.Evaluation? {
-            try OpalBase.Address.Book.CoinSelectionModel.evaluate(configuration: configuration,
+        func evaluate(total: UInt64, inputCount: Int) throws -> OpalBase.Address.Book.CoinSelection.Evaluation? {
+            try OpalBase.Address.Book.CoinSelection.evaluate(configuration: configuration,
                                                     total: total,
                                                     inputCount: inputCount,
                                                     targetAmount: targetAmount,
@@ -88,7 +88,7 @@ extension _OpalBase.Account {
                                                     feePerByte: feeRate)
         }
         
-        var selected: [OpalBase.Transaction.OutputModel.Unspent] = .init()
+        var selected: [OpalBase.Transaction.Output.Unspent] = .init()
         var total: UInt64 = try existingInputs.reduce(0) { partial, output in
             try partial.addOrThrow(output.value,
                                    overflowError: Error.paymentExceedsMaximumAmount)

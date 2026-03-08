@@ -6,14 +6,14 @@ import SwiftFulcrum
 extension _OpalBase.Network.Fulcrum {
     public struct MempoolReader {
         private let client: Client
-        private let timeouts: OpalBase.Network.FulcrumRequestTimeoutModel
+        private let timeouts: OpalBase.Network.FulcrumRequestTimeout
         
-        public init(client: Client, timeouts: OpalBase.Network.FulcrumRequestTimeoutModel = .init()) {
+        public init(client: Client, timeouts: OpalBase.Network.FulcrumRequestTimeout = .init()) {
             self.client = client
             self.timeouts = timeouts
         }
         
-        public func fetchMempoolInfo() async throws -> OpalBase.Network.MempoolInfoModel {
+        public func fetchMempoolInfo() async throws -> OpalBase.Network.MempoolInfo {
             try await OpalBase.Network.performWithFailureTranslation {
                 let response = try await client.request(
                     method: .mempool(.getInfo),
@@ -21,7 +21,7 @@ extension _OpalBase.Network.Fulcrum {
                     options: .init(timeout: timeouts.mempoolInfo)
                 )
                 
-                return OpalBase.Network.MempoolInfoModel(
+                return OpalBase.Network.MempoolInfo(
                     mempoolMinimumFee: response.mempoolMinimumFee,
                     minimumRelayTransactionFee: response.minimumRelayTransactionFee,
                     incrementalRelayFee: response.incrementalRelayFee,
@@ -31,7 +31,7 @@ extension _OpalBase.Network.Fulcrum {
             }
         }
         
-        public func fetchFeeHistogram() async throws -> [OpalBase.Network.MempoolFeeHistogramBinModel] {
+        public func fetchFeeHistogram() async throws -> [OpalBase.Network.MempoolFeeHistogramBin] {
             try await OpalBase.Network.performWithFailureTranslation {
                 let response = try await client.request(
                     method: .mempool(.getFeeHistogram),
@@ -40,7 +40,7 @@ extension _OpalBase.Network.Fulcrum {
                 )
                 
                 return response.histogram.map { result in
-                    OpalBase.Network.MempoolFeeHistogramBinModel(fee: result.fee, virtualSize: result.virtualSize)
+                    OpalBase.Network.MempoolFeeHistogramBin(fee: result.fee, virtualSize: result.virtualSize)
                 }
             }
         }

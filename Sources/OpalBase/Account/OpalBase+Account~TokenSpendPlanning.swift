@@ -18,15 +18,15 @@ extension _OpalBase.Account {
         let spendableOutputs = await addressBook.sortSpendableUTXOs(by: { $0.value > $1.value })
         let changeEntry = try await addressBook.selectNextEntry(for: .change)
         let tokenChangeAddress = try OpalBase.Address(script: changeEntry.address.lockingScript, format: .tokenAware)
-        var spendableTokenByCategory: [OpalBase.CashTokens.CategoryIDModel: [OpalBase.Transaction.OutputModel.Unspent]] = .init()
+        var spendableTokenByCategory: [OpalBase.CashTokens.CategoryID: [OpalBase.Transaction.Output.Unspent]] = .init()
         for unspentOutput in spendableOutputs {
             guard let category = unspentOutput.tokenData?.category else { continue }
             spendableTokenByCategory[category, default: .init()].append(unspentOutput)
         }
         
-        var selectedTokenInputs: [OpalBase.Transaction.OutputModel.Unspent] = .init()
+        var selectedTokenInputs: [OpalBase.Transaction.Output.Unspent] = .init()
         selectedTokenInputs.reserveCapacity(spendableOutputs.count)
-        var tokenChangeOutputs: [OpalBase.Transaction.OutputModel] = .init()
+        var tokenChangeOutputs: [OpalBase.Transaction.Output] = .init()
         tokenChangeOutputs.reserveCapacity(requirementsByCategory.count)
         let orderedCategories = requirementsByCategory.keys.sorted { left, right in
             left.transactionOrderData.lexicographicallyPrecedes(right.transactionOrderData)
@@ -50,7 +50,7 @@ extension _OpalBase.Account {
         }
         
         let rawRecipientOutputs = transfer.recipients.map { recipient in
-            OpalBase.Transaction.OutputModel(value: recipient.amount.uint64,
+            OpalBase.Transaction.Output(value: recipient.amount.uint64,
                                address: recipient.address,
                                tokenData: recipient.tokenData)
         }

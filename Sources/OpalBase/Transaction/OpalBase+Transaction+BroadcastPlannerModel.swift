@@ -10,10 +10,10 @@ extension _OpalBase.Transaction {
             via handler: OpalBase.Network.TransactionHandling,
             mapBroadcastError: @Sendable (Swift.Error) -> Failure,
             onSuccess: @Sendable () async throws -> Void
-        ) async throws -> (hash: OpalBase.Transaction.HashModel, result: Result) {
+        ) async throws -> (hash: OpalBase.Transaction.Hash, result: Result) {
             let result = try build()
             
-            let hash: OpalBase.Transaction.HashModel
+            let hash: OpalBase.Transaction.Hash
             do {
                 hash = try await handler.broadcast(transaction: transaction(result))
             } catch {

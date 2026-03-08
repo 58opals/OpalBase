@@ -3,15 +3,15 @@
 import Foundation
 
 extension _OpalBase.Address.Book.UTXORepository {
-    func listUTXOs() -> Set<OpalBase.Transaction.OutputModel.Unspent> {
+    func listUTXOs() -> Set<OpalBase.Transaction.Output.Unspent> {
         allUTXOs
     }
     
-    func listSpendableUTXOs() -> [OpalBase.Transaction.OutputModel.Unspent] {
+    func listSpendableUTXOs() -> [OpalBase.Transaction.Output.Unspent] {
         spendableUTXOs.sorted { $0.compareOrder(before: $1) }
     }
     
-    func listUTXOs(for address: OpalBase.Address) -> [OpalBase.Transaction.OutputModel.Unspent] {
+    func listUTXOs(for address: OpalBase.Address) -> [OpalBase.Transaction.Output.Unspent] {
         let lockingScript = address.lockingScript.data
         guard let utxos = utxosByLockingScript[lockingScript] else {
             return .init()
@@ -19,32 +19,32 @@ extension _OpalBase.Address.Book.UTXORepository {
         return utxos.sorted { $0.compareOrder(before: $1) }
     }
     
-    func sortUTXOs(by areInIncreasingOrder: (OpalBase.Transaction.OutputModel.Unspent, OpalBase.Transaction.OutputModel.Unspent) -> Bool) -> [OpalBase.Transaction.OutputModel.Unspent] {
+    func sortUTXOs(by areInIncreasingOrder: (OpalBase.Transaction.Output.Unspent, OpalBase.Transaction.Output.Unspent) -> Bool) -> [OpalBase.Transaction.Output.Unspent] {
         allUTXOs.sorted(by: areInIncreasingOrder)
     }
     
-    func sortSpendableUTXOs(by areInIncreasingOrder: (OpalBase.Transaction.OutputModel.Unspent, OpalBase.Transaction.OutputModel.Unspent) -> Bool) -> [OpalBase.Transaction.OutputModel.Unspent] {
+    func sortSpendableUTXOs(by areInIncreasingOrder: (OpalBase.Transaction.Output.Unspent, OpalBase.Transaction.Output.Unspent) -> Bool) -> [OpalBase.Transaction.Output.Unspent] {
         spendableUTXOs.sorted(by: areInIncreasingOrder)
     }
     
-    func sortSpendableUTXOs(by areInIncreasingOrder: (OpalBase.Transaction.OutputModel.Unspent, OpalBase.Transaction.OutputModel.Unspent) -> Bool,
-                            tokenSelectionPolicy: OpalBase.Address.Book.CoinSelectionModel.TokenSelectionPolicy) -> [OpalBase.Transaction.OutputModel.Unspent] {
+    func sortSpendableUTXOs(by areInIncreasingOrder: (OpalBase.Transaction.Output.Unspent, OpalBase.Transaction.Output.Unspent) -> Bool,
+                            tokenSelectionPolicy: OpalBase.Address.Book.CoinSelection.TokenSelectionPolicy) -> [OpalBase.Transaction.Output.Unspent] {
         let filteredSpendable = filterUTXOs(spendableUTXOs, tokenSelectionPolicy: tokenSelectionPolicy)
         return filteredSpendable.sorted(by: areInIncreasingOrder)
     }
     
-    var allUTXOs: Set<OpalBase.Transaction.OutputModel.Unspent> {
+    var allUTXOs: Set<OpalBase.Transaction.Output.Unspent> {
         Set(utxosByOutpoint.values)
     }
     
-    var spendableUTXOs: Set<OpalBase.Transaction.OutputModel.Unspent> {
+    var spendableUTXOs: Set<OpalBase.Transaction.Output.Unspent> {
         var spendable = allUTXOs
         spendable.subtract(reservedUTXOs)
         return spendable
     }
     
-    func filterUTXOs(_ utxos: Set<OpalBase.Transaction.OutputModel.Unspent>,
-                     tokenSelectionPolicy: OpalBase.Address.Book.CoinSelectionModel.TokenSelectionPolicy) -> Set<OpalBase.Transaction.OutputModel.Unspent> {
+    func filterUTXOs(_ utxos: Set<OpalBase.Transaction.Output.Unspent>,
+                     tokenSelectionPolicy: OpalBase.Address.Book.CoinSelection.TokenSelectionPolicy) -> Set<OpalBase.Transaction.Output.Unspent> {
         switch tokenSelectionPolicy {
         case .excludeTokenUTXOs:
             return Set(utxos.filter { $0.tokenData == nil })

@@ -5,11 +5,11 @@ import Foundation
 extension _OpalBase.Account {
     public func prepareTokenMint(
         _ mint: TokenMint,
-        preferredMintingInput: OpalBase.Transaction.OutputModel.Unspent? = nil,
+        preferredMintingInput: OpalBase.Transaction.Output.Unspent? = nil,
         feePolicy: OpalBase.Wallet.FeePolicy = .init()
     ) async throws -> TokenMintPlan {
         let spendableOutputs = await addressBook.sortSpendableUTXOs(by: { $0.value > $1.value })
-        let authorityInput: OpalBase.Transaction.OutputModel.Unspent
+        let authorityInput: OpalBase.Transaction.Output.Unspent
         if let preferredMintingInput {
             guard spendableOutputs.contains(preferredMintingInput),
                   let tokenData = preferredMintingInput.tokenData,
@@ -35,7 +35,7 @@ extension _OpalBase.Account {
         }
         let authorityFungibleIn: UInt64 = authorityInput.tokenData?.amount ?? 0
         
-        var extraFungibleInputs: [OpalBase.Transaction.OutputModel.Unspent] = .init()
+        var extraFungibleInputs: [OpalBase.Transaction.Output.Unspent] = .init()
         var totalSelectedFungible: UInt64 = authorityFungibleIn
         if requiredFungibleOut > authorityFungibleIn {
             let fungibleCandidates = spendableOutputs
@@ -97,8 +97,8 @@ extension _OpalBase.Account {
             throw Error.tokenMintNoEligibleMintingInput
         }
         
-        var authorityReturnOutput: OpalBase.Transaction.OutputModel?
-        var fungiblePreservationOutput: OpalBase.Transaction.OutputModel?
+        var authorityReturnOutput: OpalBase.Transaction.Output?
+        var fungiblePreservationOutput: OpalBase.Transaction.Output?
         switch mint.authorityReturn {
         case .toWalletChange:
             

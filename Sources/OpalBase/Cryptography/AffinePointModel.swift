@@ -29,7 +29,7 @@ struct AffinePointModel: Sendable, Equatable {
     }
     
     func applyEndomorphism() -> AffinePointModel {
-        let beta = FieldElementModel(unchecked: Secp256k1Model.Constant.endomorphismBeta)
+        let beta = FieldElementModel(unchecked: OpalBase.Cryptography.Secp256k1.Constant.endomorphismBeta)
         return AffinePointModel(x: beta.mul(x), y: y)
     }
 }

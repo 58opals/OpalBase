@@ -5,7 +5,7 @@ import Foundation
 
 actor WalletAddressReaderTestActor: OpalBase.Network.AddressReadable {
     private let balancesByAddress: [String: OpalBase.Network.AddressBalance]
-    private let unspentByAddress: [String: [OpalBase.Transaction.OutputModel.Unspent]]
+    private let unspentByAddress: [String: [OpalBase.Transaction.Output.Unspent]]
     private let historyByAddress: [String: [OpalBase.Network.TransactionHistoryEntry]]
     private let updatesByAddress: [String: [OpalBase.Network.AddressSubscriptionUpdate]]
     private let subscriptionErrorsByAddress: [String: Swift.Error]
@@ -20,7 +20,7 @@ actor WalletAddressReaderTestActor: OpalBase.Network.AddressReadable {
 
     init(
         balancesByAddress: [String: OpalBase.Network.AddressBalance] = .init(),
-        unspentByAddress: [String: [OpalBase.Transaction.OutputModel.Unspent]] = .init(),
+        unspentByAddress: [String: [OpalBase.Transaction.Output.Unspent]] = .init(),
         historyByAddress: [String: [OpalBase.Network.TransactionHistoryEntry]] = .init(),
         updatesByAddress: [String: [OpalBase.Network.AddressSubscriptionUpdate]] = .init(),
         subscriptionErrorsByAddress: [String: Swift.Error] = .init(),
@@ -41,7 +41,7 @@ actor WalletAddressReaderTestActor: OpalBase.Network.AddressReadable {
         return balancesByAddress[address, default: .init(confirmed: 0, unconfirmed: 0)]
     }
 
-    func fetchUnspentOutputs(for address: String, tokenFilter: OpalBase.Network.TokenFilter) async throws -> [OpalBase.Transaction.OutputModel.Unspent] {
+    func fetchUnspentOutputs(for address: String, tokenFilter: OpalBase.Network.TokenFilter) async throws -> [OpalBase.Transaction.Output.Unspent] {
         unspentRequests.append(address)
         if let remaining = remainingUnspentFailuresByAddress[address], remaining > 0 {
             remainingUnspentFailuresByAddress[address] = remaining - 1

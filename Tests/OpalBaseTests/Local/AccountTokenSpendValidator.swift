@@ -9,9 +9,9 @@ struct AccountTokenSpendValidator {
     @Test("prepareTokenSpend builds a multi-category plan with token change")
     func prepareTokenSpendBuildsMultiCategoryPlanWithTokenChange() async throws {
         let account = try await makeAccount()
-        let categoryAlpha = try OpalBase.CashTokens.CategoryIDModel(transactionOrderData: Data(repeating: 0xA1, count: 32))
-        let categoryBeta = try OpalBase.CashTokens.CategoryIDModel(transactionOrderData: Data(repeating: 0xB2, count: 32))
-        let nonFungibleToken = try OpalBase.CashTokens.NFTModel(capability: .none, commitment: Data([0x01]))
+        let categoryAlpha = try OpalBase.CashTokens.CategoryID(transactionOrderData: Data(repeating: 0xA1, count: 32))
+        let categoryBeta = try OpalBase.CashTokens.CategoryID(transactionOrderData: Data(repeating: 0xB2, count: 32))
+        let nonFungibleToken = try OpalBase.CashTokens.NFT(capability: .none, commitment: Data([0x01]))
         let fungibleTokenDataAlpha = OpalBase.CashTokens.TokenData(category: categoryAlpha, amount: 100, nft: nil)
         let nonFungibleTokenDataAlpha = OpalBase.CashTokens.TokenData(category: categoryAlpha, amount: nil, nft: nonFungibleToken)
         let fungibleTokenDataBeta = OpalBase.CashTokens.TokenData(category: categoryBeta, amount: 50, nft: nil)
@@ -20,28 +20,28 @@ struct AccountTokenSpendValidator {
             to: account,
             value: 15_000,
             tokenData: fungibleTokenDataAlpha,
-            previousTransactionHash: OpalBase.Transaction.HashModel(naturalOrder: Data(repeating: 0x10, count: 32)),
+            previousTransactionHash: OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0x10, count: 32)),
             previousTransactionOutputIndex: 0
         )
         let nonFungibleOutputAlpha = try await addUnspentOutput(
             to: account,
             value: 15_000,
             tokenData: nonFungibleTokenDataAlpha,
-            previousTransactionHash: OpalBase.Transaction.HashModel(naturalOrder: Data(repeating: 0x11, count: 32)),
+            previousTransactionHash: OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0x11, count: 32)),
             previousTransactionOutputIndex: 0
         )
         let fungibleOutputBeta = try await addUnspentOutput(
             to: account,
             value: 15_000,
             tokenData: fungibleTokenDataBeta,
-            previousTransactionHash: OpalBase.Transaction.HashModel(naturalOrder: Data(repeating: 0x12, count: 32)),
+            previousTransactionHash: OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0x12, count: 32)),
             previousTransactionOutputIndex: 0
         )
         _ = try await addUnspentOutput(
             to: account,
             value: 120_000,
             tokenData: nil,
-            previousTransactionHash: OpalBase.Transaction.HashModel(naturalOrder: Data(repeating: 0x13, count: 32)),
+            previousTransactionHash: OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0x13, count: 32)),
             previousTransactionOutputIndex: 0
         )
         
@@ -74,7 +74,7 @@ struct AccountTokenSpendValidator {
         #expect(plan.tokenInputs.contains { $0 == nonFungibleOutputAlpha })
         #expect(plan.tokenInputs.contains { $0 == fungibleOutputBeta })
         
-        var changeByCategory: [OpalBase.CashTokens.CategoryIDModel: OpalBase.CashTokens.TokenData] = .init()
+        var changeByCategory: [OpalBase.CashTokens.CategoryID: OpalBase.CashTokens.TokenData] = .init()
         for output in plan.tokenChangeOutputs {
             let tokenData = try #require(output.tokenData)
             changeByCategory[tokenData.category] = tokenData
@@ -99,12 +99,12 @@ private func addUnspentOutput(
     to account: OpalBase.Account,
     value: UInt64,
     tokenData: OpalBase.CashTokens.TokenData?,
-    previousTransactionHash: OpalBase.Transaction.HashModel,
+    previousTransactionHash: OpalBase.Transaction.Hash,
     previousTransactionOutputIndex: UInt32
-) async throws -> OpalBase.Transaction.OutputModel.Unspent {
+) async throws -> OpalBase.Transaction.Output.Unspent {
     let addressBook = await account.addressBook
     let receivingEntry = try await addressBook.selectNextEntry(for: .receiving)
-    let unspentOutput = OpalBase.Transaction.OutputModel.Unspent(
+    let unspentOutput = OpalBase.Transaction.Output.Unspent(
         value: value,
         lockingScript: receivingEntry.address.lockingScript.data,
         tokenData: tokenData,

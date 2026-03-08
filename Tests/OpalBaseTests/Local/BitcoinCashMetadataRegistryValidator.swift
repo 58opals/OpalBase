@@ -4,7 +4,7 @@ import Foundation
 import Testing
 @testable import OpalBase
 
-@Suite("Bitcoin Cash Metadata RegistryModel", .tags(.unit, .cashTokens))
+@Suite("Bitcoin Cash Metadata Registry", .tags(.unit, .cashTokens))
 struct BitcoinCashMetadataRegistryValidator {
     @Test("parses publication output script")
     func parsePublicationOutputScript() throws {
@@ -12,7 +12,7 @@ struct BitcoinCashMetadataRegistryValidator {
         #expect(script.hexadecimalString.hasPrefix("6a0442434d52"))
         
         let publication = try #require(
-            BitcoinCashMetadataRegistryClient.parsePublicationOutput(lockingScript: script)
+            OpalBase.CashTokens.BCMR.Client.parsePublicationOutput(lockingScript: script)
         )
         
         #expect(publication.sha256 == BitcoinCashMetadataRegistryTestData.publicationHash)

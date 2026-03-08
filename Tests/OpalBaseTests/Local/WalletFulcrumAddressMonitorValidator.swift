@@ -11,7 +11,7 @@ struct WalletFulcrumAddressMonitorValidator {
         let account = try await AccountTestFixturesModel.makeAccount()
         let targetEntry = try await account.selectNextEntry(for: .receiving)
         let hash = AccountTestFixturesModel.makeHash(byte: 0x51)
-        let unspentOutput = OpalBase.Transaction.OutputModel.Unspent(
+        let unspentOutput = OpalBase.Transaction.Output.Unspent(
             value: 14_000,
             lockingScript: targetEntry.address.lockingScript.data,
             previousTransactionHash: AccountTestFixturesModel.makeHash(byte: 0x52),
@@ -139,7 +139,7 @@ struct WalletFulcrumAddressMonitorValidator {
         let account = try await AccountTestFixturesModel.makeAccount()
         let targetEntry = try await account.selectNextEntry(for: .receiving)
         let hash = AccountTestFixturesModel.makeHash(byte: 0x61)
-        let unspentOutput = OpalBase.Transaction.OutputModel.Unspent(
+        let unspentOutput = OpalBase.Transaction.Output.Unspent(
             value: 7_000,
             lockingScript: targetEntry.address.lockingScript.data,
             previousTransactionHash: AccountTestFixturesModel.makeHash(byte: 0x62),

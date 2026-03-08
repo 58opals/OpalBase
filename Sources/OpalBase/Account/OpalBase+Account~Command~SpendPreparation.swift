@@ -18,7 +18,7 @@ extension _OpalBase.Account {
         let feeRate = feePolicy.recommendFeeRate(for: payment.feeContext,
                                                  override: payment.feeOverride)
         let rawRecipientOutputs = payment.recipients.map { recipient in
-            OpalBase.Transaction.OutputModel(value: recipient.amount.uint64,
+            OpalBase.Transaction.Output(value: recipient.amount.uint64,
                                address: recipient.address,
                                tokenData: nil)
         }
@@ -26,13 +26,13 @@ extension _OpalBase.Account {
         
         let changeEntry = try await addressBook.selectNextEntry(for: .change)
         
-        let coinSelectionConfiguration = OpalBase.Address.Book.CoinSelectionModel.Configuration(recipientOutputs: organizedRecipientOutputs,
+        let coinSelectionConfiguration = OpalBase.Address.Book.CoinSelection.Configuration(recipientOutputs: organizedRecipientOutputs,
                                                                                   changeLockingScript: changeEntry.address.lockingScript.data,
                                                                                   strategy: payment.coinSelection,
                                                                                   shouldAllowDustDonation: payment.shouldAllowDustDonation,
                                                                                   tokenSelectionPolicy: .excludeTokenUTXOs)
         
-        let selectedUTXOs: [OpalBase.Transaction.OutputModel.Unspent]
+        let selectedUTXOs: [OpalBase.Transaction.Output.Unspent]
         do {
             selectedUTXOs = try await addressBook.selectUTXOs(targetAmount: targetAmount,
                                                               feePolicy: feePolicy,
@@ -76,7 +76,7 @@ extension _OpalBase.Account {
             mapReservationError: { Error.coinSelectionFailed($0) }
         )
         let reservationHandle = OpalBase.Account.SpendReservationModel(addressBook: addressBook, reservation: reservation)
-        let changeOutput = OpalBase.Transaction.OutputModel(value: initialChangeValue, address: reservedChangeEntry.address)
+        let changeOutput = OpalBase.Transaction.Output(value: initialChangeValue, address: reservedChangeEntry.address)
         
         return SpendPlan(payment: payment,
                          feeRate: feeRate,

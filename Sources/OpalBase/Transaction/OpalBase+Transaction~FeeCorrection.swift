@@ -12,12 +12,12 @@ extension _OpalBase.Transaction {
         return try Self.makeFee(size: size, feePerByte: feePerByte)
     }
     
-    static func computeOutputsForTargetFee(recipientOutputs: [OutputModel],
-                                           changeOutputTemplate: OutputModel,
-                                           outputOrderingStrategy: OutputOrderingStrategyModel,
+    static func computeOutputsForTargetFee(recipientOutputs: [Output],
+                                           changeOutputTemplate: Output,
+                                           outputOrderingStrategy: OutputOrderingStrategy,
                                            targetFee: UInt64,
                                            shouldAllowDustDonation: Bool,
-                                           privacyOutputShuffle: ([OutputModel]) -> [OutputModel] = defaultPrivacyOutputShuffle) throws -> [OutputModel] {
+                                           privacyOutputShuffle: ([Output]) -> [Output] = defaultPrivacyOutputShuffle) throws -> [Output] {
         let changePool = changeOutputTemplate.value
         guard changePool >= targetFee else {
             throw Error.insufficientFunds(required: targetFee - changePool)
@@ -38,12 +38,12 @@ extension _OpalBase.Transaction {
                                  tokenData: changeOutputTemplate.tokenData))
         }
         
-        let orderedOutputs: [OutputModel]
+        let orderedOutputs: [Output]
         switch outputOrderingStrategy {
         case .privacyRandomized:
             orderedOutputs = privacyOutputShuffle(outputs)
         case .canonicalBIP69:
-            orderedOutputs = OutputModel.applyBIP69Ordering(outputs)
+            orderedOutputs = Output.applyBIP69Ordering(outputs)
         }
         
         let positiveValueOutputs = orderedOutputs.filter { $0.value > 0 }
@@ -58,15 +58,15 @@ extension _OpalBase.Transaction {
     }
     
     static func correctFeeAfterSigning(signedTransaction: OpalBase.Transaction,
-                                       inputs: [InputModel],
+                                       inputs: [Input],
                                        builder: BuilderModel,
-                                       recipientOutputs: [OutputModel],
-                                       changeOutput: OutputModel,
-                                       outputOrderingStrategy: OutputOrderingStrategyModel,
+                                       recipientOutputs: [Output],
+                                       changeOutput: Output,
+                                       outputOrderingStrategy: OutputOrderingStrategy,
                                        feePerByte: UInt64,
                                        lockTime: UInt32,
                                        shouldAllowDustDonation: Bool,
-                                       privacyOutputShuffle: ([OutputModel]) -> [OutputModel] = defaultPrivacyOutputShuffle) throws -> OpalBase.Transaction {
+                                       privacyOutputShuffle: ([Output]) -> [Output] = defaultPrivacyOutputShuffle) throws -> OpalBase.Transaction {
         let inputTotal = builder.orderedUnspentOutputs.map(\.value).reduce(0, +)
         let firstSignedTransaction = signedTransaction
         var correctedTransaction = signedTransaction
@@ -104,12 +104,12 @@ extension _OpalBase.Transaction {
         return correctedTransaction
     }
     
-    private static func calculateTotalValue(for outputs: [OutputModel]) -> UInt64 {
+    private static func calculateTotalValue(for outputs: [Output]) -> UInt64 {
         outputs.map(\.value).reduce(0, +)
     }
 }
 
-extension _OpalBase.Transaction.OutputModel {
+extension _OpalBase.Transaction.Output {
     var isOpReturnScript: Bool {
         let returnOpcode = ScriptOperationCodeModel._RETURN.rawValue
         if lockingScript.starts(with: [returnOpcode]) {

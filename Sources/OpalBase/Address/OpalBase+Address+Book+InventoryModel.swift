@@ -5,7 +5,7 @@ import Foundation
 extension _OpalBase.Address.Book {
     struct InventoryModel {
         private var bucket: UsageBucket
-        private var addressIndex: [OpalBase.Address: (usage: OpalBase.DerivationPath.UsageModel, index: Int)]
+        private var addressIndex: [OpalBase.Address: (usage: OpalBase.DerivationPath.Usage, index: Int)]
         private var cacheValidityDurationValue: TimeInterval
         
         init(cacheValidityDuration: TimeInterval) {
@@ -14,7 +14,7 @@ extension _OpalBase.Address.Book {
             self.cacheValidityDurationValue = cacheValidityDuration
         }
         
-        var allEntries: [EntryModel] {
+        var allEntries: [Entry] {
             bucket.allEntries
         }
         
@@ -22,27 +22,27 @@ extension _OpalBase.Address.Book {
             cacheValidityDurationValue
         }
         
-        func checkCacheValidity(_ cache: EntryModel.Cache, currentDate: Date) -> Bool {
+        func checkCacheValidity(_ cache: Entry.Cache, currentDate: Date) -> Bool {
             cache.checkValidity(currentDate: currentDate, validityDuration: cacheValidityDurationValue)
         }
         
-        func listEntries(for usage: OpalBase.DerivationPath.UsageModel) -> [EntryModel] {
+        func listEntries(for usage: OpalBase.DerivationPath.Usage) -> [Entry] {
             bucket.fetchEntries(for: usage)
         }
         
-        func countEntries(for usage: OpalBase.DerivationPath.UsageModel) -> Int {
+        func countEntries(for usage: OpalBase.DerivationPath.Usage) -> Int {
             bucket.countEntries(for: usage)
         }
         
-        func listUsedEntries(for usage: OpalBase.DerivationPath.UsageModel) -> Set<EntryModel> {
+        func listUsedEntries(for usage: OpalBase.DerivationPath.Usage) -> Set<Entry> {
             Set(listEntries(for: usage).filter { $0.isUsed })
         }
         
-        func countUnusedEntries(for usage: OpalBase.DerivationPath.UsageModel) -> Int {
+        func countUnusedEntries(for usage: OpalBase.DerivationPath.Usage) -> Int {
             bucket.countUnusedEntries(for: usage)
         }
         
-        func calculateNextIndex(for usage: OpalBase.DerivationPath.UsageModel) -> UInt32 {
+        func calculateNextIndex(for usage: OpalBase.DerivationPath.Usage) -> UInt32 {
             UInt32(bucket.countEntries(for: usage))
         }
         
@@ -50,20 +50,20 @@ extension _OpalBase.Address.Book {
             locateEntry(for: address) != nil
         }
         
-        func findEntry(for address: OpalBase.Address) -> EntryModel? {
+        func findEntry(for address: OpalBase.Address) -> Entry? {
             guard let location = locateEntry(for: address) else { return nil }
             return bucket.fetchEntry(at: location.index, usage: location.usage)
         }
         
-        mutating func append(_ entry: EntryModel, usage: OpalBase.DerivationPath.UsageModel) {
+        mutating func append(_ entry: Entry, usage: OpalBase.DerivationPath.Usage) {
             bucket.appendEntry(entry, usage: usage)
             let newIndex = bucket.countEntries(for: usage) - 1
             recordAddressIndex(for: entry, usage: usage, index: newIndex)
         }
         
         mutating func updateEntry(at index: Int,
-                                  usage: OpalBase.DerivationPath.UsageModel,
-                                  _ update: (inout EntryModel) -> Void) {
+                                  usage: OpalBase.DerivationPath.Usage,
+                                  _ update: (inout Entry) -> Void) {
             _ = updateEntryAndIndex(at: index, usage: usage, update)
         }
         
@@ -75,19 +75,19 @@ extension _OpalBase.Address.Book {
                                   balance: OpalBase.Satoshi,
                                   timestamp: Date) throws {
             _ = try updateEntry(for: address) { entry in
-                entry.cache = EntryModel.Cache(balance: balance,
+                entry.cache = Entry.Cache(balance: balance,
                                           lastUpdated: timestamp)
             }
         }
         
-        mutating func mark(address: OpalBase.Address, isUsed: Bool) throws -> EntryModel {
+        mutating func mark(address: OpalBase.Address, isUsed: Bool) throws -> Entry {
             try updateEntry(for: address) { entry in
                 entry.isUsed = isUsed
                 entry.isReserved = false
             }
         }
         
-        mutating func reserve(address: OpalBase.Address) throws -> EntryModel {
+        mutating func reserve(address: OpalBase.Address) throws -> Entry {
             guard let currentEntry = findEntry(for: address) else { throw OpalBase.Address.Book.Error.addressNotFound }
             guard !currentEntry.isReserved else { throw OpalBase.Address.Book.Error.entryAlreadyReserved(currentEntry) }
             
@@ -97,7 +97,7 @@ extension _OpalBase.Address.Book {
             }
         }
         
-        mutating func releaseReservation(address: OpalBase.Address, shouldKeepUsed: Bool) throws -> EntryModel {
+        mutating func releaseReservation(address: OpalBase.Address, shouldKeepUsed: Bool) throws -> Entry {
             try updateEntry(for: address) { entry in
                 entry.isUsed = shouldKeepUsed
                 entry.isReserved = false
@@ -105,7 +105,7 @@ extension _OpalBase.Address.Book {
         }
         
         private mutating func updateEntry(for address: OpalBase.Address,
-                                          _ update: (inout EntryModel) -> Void) throws -> EntryModel {
+                                          _ update: (inout Entry) -> Void) throws -> Entry {
             guard let location = locateEntry(for: address),
                   let updatedEntry = updateEntryAndIndex(at: location.index,
                                                          usage: location.usage,
@@ -116,13 +116,13 @@ extension _OpalBase.Address.Book {
             return updatedEntry
         }
         
-        private func locateEntry(for address: OpalBase.Address) -> (usage: OpalBase.DerivationPath.UsageModel, index: Int)? {
+        private func locateEntry(for address: OpalBase.Address) -> (usage: OpalBase.DerivationPath.Usage, index: Int)? {
             addressIndex[address]
         }
         
         private mutating func updateEntryAndIndex(at index: Int,
-                                                  usage: OpalBase.DerivationPath.UsageModel,
-                                                  _ update: (inout EntryModel) -> Void) -> EntryModel? {
+                                                  usage: OpalBase.DerivationPath.Usage,
+                                                  _ update: (inout Entry) -> Void) -> Entry? {
             guard let existingEntry = bucket.fetchEntry(at: index, usage: usage),
                   let updatedEntry = bucket.updateEntry(at: index, usage: usage, update) else {
                 return nil
@@ -135,8 +135,8 @@ extension _OpalBase.Address.Book {
             return updatedEntry
         }
         
-        private mutating func recordAddressIndex(for entry: EntryModel,
-                                                 usage: OpalBase.DerivationPath.UsageModel,
+        private mutating func recordAddressIndex(for entry: Entry,
+                                                 usage: OpalBase.DerivationPath.Usage,
                                                  index: Int) {
             if let location = addressIndex[entry.address] {
                 switch (location.usage, usage) {
@@ -152,9 +152,9 @@ extension _OpalBase.Address.Book {
             }
         }
         
-        private mutating func refreshAddressIndex(oldEntry: EntryModel,
-                                                  updatedEntry: EntryModel,
-                                                  usage: OpalBase.DerivationPath.UsageModel,
+        private mutating func refreshAddressIndex(oldEntry: Entry,
+                                                  updatedEntry: Entry,
+                                                  usage: OpalBase.DerivationPath.Usage,
                                                   index: Int) {
             if oldEntry.address == updatedEntry.address {
                 recordAddressIndex(for: updatedEntry, usage: usage, index: index)
@@ -165,8 +165,8 @@ extension _OpalBase.Address.Book {
             recordAddressIndex(for: updatedEntry, usage: usage, index: index)
         }
         
-        private mutating func removeAddressIndex(for entry: EntryModel,
-                                                 usage: OpalBase.DerivationPath.UsageModel,
+        private mutating func removeAddressIndex(for entry: Entry,
+                                                 usage: OpalBase.DerivationPath.Usage,
                                                  index: Int) {
             guard let location = addressIndex[entry.address],
                   location.usage == usage,

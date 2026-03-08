@@ -21,19 +21,19 @@ extension _OpalBase.Storage {
         }
     }
     
-    func storeValue(_ data: Data, for key: OpalBase.Storage.KeyModel) async throws {
+    func storeValue(_ data: Data, for key: OpalBase.Storage.Key) async throws {
         try await mapPersistenceError {
             try await valueStore.valueWriter(data, key)
         }
     }
     
-    func loadValue(for key: OpalBase.Storage.KeyModel) async throws -> Data? {
+    func loadValue(for key: OpalBase.Storage.Key) async throws -> Data? {
         try await mapPersistenceError {
             try await valueStore.valueReader(key)
         }
     }
     
-    func removeValue(for key: OpalBase.Storage.KeyModel) async throws {
+    func removeValue(for key: OpalBase.Storage.Key) async throws {
         try await mapPersistenceError {
             try await valueStore.valueDeleter(key)
         }

@@ -11,13 +11,13 @@ struct AddressBookUnspentTransactionOutputSelectionValidator {
         let book = try await makeAddressBook()
         let tokenData = try makeTokenData()
         let lockingScript = Data([0x51])
-        let transactionHash = OpalBase.Transaction.HashModel(naturalOrder: Data(repeating: 0x11, count: 32))
-        let bchOnlyUTXO = OpalBase.Transaction.OutputModel.Unspent(value: 5_000,
+        let transactionHash = OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0x11, count: 32))
+        let bchOnlyUTXO = OpalBase.Transaction.Output.Unspent(value: 5_000,
                                                      lockingScript: lockingScript,
                                                      tokenData: nil,
                                                      previousTransactionHash: transactionHash,
                                                      previousTransactionOutputIndex: 0)
-        let tokenUTXO = OpalBase.Transaction.OutputModel.Unspent(value: 9_000,
+        let tokenUTXO = OpalBase.Transaction.Output.Unspent(value: 9_000,
                                                    lockingScript: lockingScript,
                                                    tokenData: tokenData,
                                                    previousTransactionHash: transactionHash,
@@ -38,8 +38,8 @@ struct AddressBookUnspentTransactionOutputSelectionValidator {
         let book = try await makeAddressBook()
         let tokenData = try makeTokenData()
         let lockingScript = Data([0x51])
-        let transactionHash = OpalBase.Transaction.HashModel(naturalOrder: Data(repeating: 0x22, count: 32))
-        let tokenUTXO = OpalBase.Transaction.OutputModel.Unspent(value: 2_000,
+        let transactionHash = OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0x22, count: 32))
+        let tokenUTXO = OpalBase.Transaction.Output.Unspent(value: 2_000,
                                                    lockingScript: lockingScript,
                                                    tokenData: tokenData,
                                                    previousTransactionHash: transactionHash,
@@ -75,7 +75,7 @@ private extension AddressBookUnspentTransactionOutputSelectionValidator {
     }
     
     func makeTokenData(from fixture: TokenPrefixTokenData) throws -> OpalBase.CashTokens.TokenData {
-        let category = try OpalBase.CashTokens.CategoryIDModel(hexFromRPC: fixture.category)
+        let category = try OpalBase.CashTokens.CategoryID(hexFromRPC: fixture.category)
         let amount = try parseAmount(from: fixture.amount)
         let nonFungibleToken = try fixture.nonFungibleToken.map { try makeNonFungibleToken(from: $0) }
         return OpalBase.CashTokens.TokenData(category: category, amount: amount, nft: nonFungibleToken)
@@ -91,13 +91,13 @@ private extension AddressBookUnspentTransactionOutputSelectionValidator {
         return amountValue == 0 ? nil : amountValue
     }
     
-    func makeNonFungibleToken(from fixture: TokenPrefixNonFungibleTokenData) throws -> OpalBase.CashTokens.NFTModel {
+    func makeNonFungibleToken(from fixture: TokenPrefixNonFungibleTokenData) throws -> OpalBase.CashTokens.NFT {
         let capability = try makeNonFungibleCapability(from: fixture.capability)
         let commitment = try Data(hexadecimalString: fixture.commitment)
-        return try OpalBase.CashTokens.NFTModel(capability: capability, commitment: commitment)
+        return try OpalBase.CashTokens.NFT(capability: capability, commitment: commitment)
     }
     
-    func makeNonFungibleCapability(from capabilityString: String) throws -> OpalBase.CashTokens.NFTModel.Capability {
+    func makeNonFungibleCapability(from capabilityString: String) throws -> OpalBase.CashTokens.NFT.Capability {
         switch capabilityString {
         case "none":
             return .none

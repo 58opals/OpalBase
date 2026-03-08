@@ -7,12 +7,12 @@ extension _OpalBase.Wallet {
         using transactionReader: OpalBase.Network.TransactionReadableClient,
         addressReader: OpalBase.Network.AddressReadable,
         scriptHashReader: OpalBase.Network.ScriptHashReadableClient? = nil,
-        categories: Set<OpalBase.CashTokens.CategoryIDModel>? = nil
+        categories: Set<OpalBase.CashTokens.CategoryID>? = nil
     ) async throws {
         let targetCategories = try await resolveTokenCategories(from: categories)
         guard !targetCategories.isEmpty else { return }
         let metadataByCategory = await withTaskGroup(
-            of: [OpalBase.CashTokens.CategoryIDModel: TokenMetadataModel].self
+            of: [OpalBase.CashTokens.CategoryID: OpalBase.CashTokens.Metadata].self
         ) { group in
             for category in targetCategories {
                 group.addTask {
@@ -21,7 +21,7 @@ extension _OpalBase.Wallet {
                         addressReader: addressReader,
                         scriptHashReader: scriptHashReader
                     )
-                    let authbase = OpalBase.Transaction.HashModel(naturalOrder: category.transactionOrderData)
+                    let authbase = OpalBase.Transaction.Hash(naturalOrder: category.transactionOrderData)
                     do {
                         let registry = try await registries.resolveChainRegistry(authbase: authbase)
                         return registries.extractTokenMetadata(
@@ -34,7 +34,7 @@ extension _OpalBase.Wallet {
                 }
             }
             
-            var aggregatedMetadata: [OpalBase.CashTokens.CategoryIDModel: TokenMetadataModel] = .init()
+            var aggregatedMetadata: [OpalBase.CashTokens.CategoryID: OpalBase.CashTokens.Metadata] = .init()
             for await registryMetadata in group {
                 aggregatedMetadata.merge(registryMetadata) { current, _ in current }
             }
@@ -48,13 +48,13 @@ extension _OpalBase.Wallet {
 
 private extension _OpalBase.Wallet {
     func resolveTokenCategories(
-        from categories: Set<OpalBase.CashTokens.CategoryIDModel>?
-    ) async throws -> Set<OpalBase.CashTokens.CategoryIDModel> {
+        from categories: Set<OpalBase.CashTokens.CategoryID>?
+    ) async throws -> Set<OpalBase.CashTokens.CategoryID> {
         if let categories {
             return categories
         }
         
-        var aggregatedCategories = Set<OpalBase.CashTokens.CategoryIDModel>()
+        var aggregatedCategories = Set<OpalBase.CashTokens.CategoryID>()
         for account in accounts.values {
             let tokenInventory = try await account.loadTokenInventory()
             aggregatedCategories.formUnion(tokenInventory.fungibleAmountsByCategory.keys)
@@ -67,19 +67,19 @@ private extension _OpalBase.Wallet {
         transactionReader: OpalBase.Network.TransactionReadableClient,
         addressReader: OpalBase.Network.AddressReadable,
         scriptHashReader: OpalBase.Network.ScriptHashReadableClient?
-    ) -> BitcoinCashMetadataRegistryClient {
-        let authchainResolver = BitcoinCashMetadataRegistryClient.AuthchainResolverModel(
+    ) -> OpalBase.CashTokens.BCMR.Client {
+        let authchainResolver = OpalBase.CashTokens.BCMR.Client.AuthchainResolver(
             transactionReader: transactionReader,
             addressReader: addressReader,
             scriptHashReader: scriptHashReader,
             maxDepth: 10
         )
-        let registryFetcher = BitcoinCashMetadataRegistryClient.FetcherModel(
+        let registryFetcher = OpalBase.CashTokens.BCMR.Client.Fetcher(
             urlSession: .shared,
             ipfsGateway: nil,
             maxBytes: 1_000_000
         )
-        return BitcoinCashMetadataRegistryClient(
+        return OpalBase.CashTokens.BCMR.Client(
             authchainResolver: authchainResolver,
             registryFetcher: registryFetcher
         )

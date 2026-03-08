@@ -4,17 +4,17 @@ import Foundation
 
 extension OpalBase {
     public struct DerivationPath: Hashable, Sendable {
-        public let purpose: PurposeModel
-        public let coinType: CoinTypeModel
+        public let purpose: Purpose
+        public let coinType: CoinType
         public var account: Account
-        public let usage: UsageModel
+        public let usage: Usage
         public let index: UInt32
 
         public init(
-            purpose: PurposeModel = .bip44,
-            coinType: CoinTypeModel = .bitcoinCash,
+            purpose: Purpose = .bip44,
+            coinType: CoinType = .bitcoinCash,
             account: Account,
-            usage: UsageModel,
+            usage: Usage,
             index: UInt32
         ) throws {
             self.purpose = purpose

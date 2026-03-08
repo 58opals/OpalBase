@@ -12,11 +12,11 @@ struct AddressBookUnspentTransactionOutputRefreshValidator {
         let entry = try await book.selectNextEntry(for: .receiving)
 
         let tokenData = try AddressBookCashTokensTestData.makeTokenData()
-        let utxo = OpalBase.Transaction.OutputModel.Unspent(
+        let utxo = OpalBase.Transaction.Output.Unspent(
             value: 12_345,
             lockingScript: entry.address.lockingScript.data,
             tokenData: tokenData,
-            previousTransactionHash: OpalBase.Transaction.HashModel(
+            previousTransactionHash: OpalBase.Transaction.Hash(
                 naturalOrder: Data(repeating: 0x11, count: 32)
             ),
             previousTransactionOutputIndex: 1
@@ -41,11 +41,11 @@ struct AddressBookUnspentTransactionOutputRefreshValidator {
         let entry = try await book.selectNextEntry(for: .receiving)
 
         let tokenData = try AddressBookCashTokensTestData.makeTokenData()
-        let utxo = OpalBase.Transaction.OutputModel.Unspent(
+        let utxo = OpalBase.Transaction.Output.Unspent(
             value: 7_000,
             lockingScript: entry.address.lockingScript.data,
             tokenData: tokenData,
-            previousTransactionHash: OpalBase.Transaction.HashModel(
+            previousTransactionHash: OpalBase.Transaction.Hash(
                 naturalOrder: Data(repeating: 0x33, count: 32)
             ),
             previousTransactionOutputIndex: 0

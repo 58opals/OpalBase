@@ -18,6 +18,8 @@ The library is designed with Swift concurrency from the ground up, making it str
 - **First-class Fulcrum integration**: `OpalBase.Network.Fulcrum.Client` plus readers/handlers for addresses, transactions, block headers, and server/mempool info.
 - **Streaming monitors & snapshots**: Monitor address/UTXO/history/confirmation changes via `AsyncThrowingStream`, and persist/restore actor state with `OpalBase.Wallet.Snapshot`.
 
+Source-breaking facade changes are documented in [MIGRATION.md](MIGRATION.md).
+
 ## Installation
 
 ### Swift Package Manager
@@ -198,6 +200,33 @@ let restoredWallet = try await OpalBase.Wallet(from: snapshot)
 ```
 
 `OpalBase.Wallet.applySnapshot(_:)` can merge a snapshot back into an existing actor instance when the mnemonic and derivation path match.
+
+## Token metadata
+
+Use the namespaced `CashTokens` facade for metadata storage and wallet-level forwarding:
+
+```swift
+let category = try OpalBase.CashTokens.CategoryID(
+    hexFromRPC: "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f"
+)
+let metadata = OpalBase.CashTokens.Metadata(
+    category: category,
+    name: "Example Token",
+    symbol: "EXAMPLE",
+    decimals: 2,
+    iconURL: URL(string: "https://example.com/icon.png"),
+    lastUpdated: .now,
+    source: .embedded
+)
+
+let repository = OpalBase.CashTokens.MetadataRepository()
+await repository.upsert([category: metadata])
+
+await wallet.upsertTokenMetadata([category: metadata])
+let cachedMetadata = await wallet.fetchTokenMetadata(for: category)
+```
+
+`OpalBase.CashTokens.BCMR.Client` can import embedded, DNS-hosted, or authchain-backed registry data and feed the same repository and wallet APIs.
 
 ## Contributing
 

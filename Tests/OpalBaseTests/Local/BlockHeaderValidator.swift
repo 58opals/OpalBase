@@ -4,7 +4,7 @@ import Foundation
 import Testing
 @testable import OpalBase
 
-@Suite("OpalBase.Block.HeaderModel", .tags(.unit, .block))
+@Suite("OpalBase.Block.Header", .tags(.unit, .block))
 struct BlockHeaderValidator {
     @Test("decode rejects insufficient data")
     func decodeRejectsInsufficientData() {
@@ -12,7 +12,7 @@ struct BlockHeaderValidator {
         let truncatedHeader = Data(validHeader.dropLast())
         
         #expect(throws: Data.Error.indexOutOfRange) {
-            _ = try OpalBase.Block.HeaderModel.decode(from: truncatedHeader)
+            _ = try OpalBase.Block.Header.decode(from: truncatedHeader)
         }
     }
     
@@ -20,7 +20,7 @@ struct BlockHeaderValidator {
     func decodeRoundTripsEncodedHeader() throws {
         let previousBlockHash = Data(repeating: 0x02, count: 32)
         let merkleRoot = Data(repeating: 0x03, count: 32)
-        let header = OpalBase.Block.HeaderModel(
+        let header = OpalBase.Block.Header(
             version: 2,
             previousBlockHash: previousBlockHash,
             merkleRoot: merkleRoot,
@@ -30,7 +30,7 @@ struct BlockHeaderValidator {
         )
         
         let encoded = header.encode()
-        let (decoded, bytesRead) = try OpalBase.Block.HeaderModel.decode(from: encoded)
+        let (decoded, bytesRead) = try OpalBase.Block.Header.decode(from: encoded)
         
         #expect(bytesRead == encoded.count)
         #expect(decoded.version == header.version)
@@ -43,7 +43,7 @@ struct BlockHeaderValidator {
     
     @Test("proof-of-work hash uses little-endian order")
     func proofOfWorkHashUsesLittleEndianOrder() {
-        let header = OpalBase.Block.HeaderModel(
+        let header = OpalBase.Block.Header(
             version: 1,
             previousBlockHash: Data(repeating: 0x11, count: 32),
             merkleRoot: Data(repeating: 0x22, count: 32),
@@ -62,9 +62,9 @@ struct BlockHeaderValidator {
     func calculateTargetMatchesKnownCompactValue() throws {
         let bits: UInt32 = 0x1d00ffff
         let expectedTargetData = try Data(hexadecimalString: "00000000ffff0000000000000000000000000000000000000000000000000000")
-        let expectedTarget = LargeUnsignedIntegerModel(expectedTargetData)
+        let expectedTarget = OpalBase.Block.Target(data: expectedTargetData)
         
-        let target = OpalBase.Block.HeaderModel.calculateTarget(for: bits)
+        let target = OpalBase.Block.Header.calculateTarget(for: bits)
         
         #expect(target == expectedTarget)
     }
@@ -75,12 +75,12 @@ struct BlockHeaderValidator {
         "000000003ba3edfd7a7b12b27ac72c3e67768f617fc81bc3888a51323a9fb8aa4b" +
         "1e5e4a29ab5f49ffff001d1dac2b7c"
         let headerData = try Data(hexadecimalString: genesisHeaderHex)
-        let (header, bytesRead) = try OpalBase.Block.HeaderModel.decode(from: headerData)
+        let (header, bytesRead) = try OpalBase.Block.Header.decode(from: headerData)
         
         #expect(bytesRead == headerData.count)
         #expect(header.isProofOfWorkSatisfied)
         
-        let invalidHeader = OpalBase.Block.HeaderModel(version: header.version,
+        let invalidHeader = OpalBase.Block.Header(version: header.version,
                                          previousBlockHash: header.previousBlockHash,
                                          merkleRoot: header.merkleRoot,
                                          time: header.time,
@@ -90,4 +90,3 @@ struct BlockHeaderValidator {
         #expect(!invalidHeader.isProofOfWorkSatisfied)
     }
 }
-

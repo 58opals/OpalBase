@@ -12,22 +12,22 @@ extension _OpalBase.Address.Book {
         
         case privateKeyDuplicated(OpalBase.PrivateKey)
         case addressDuplicated(OpalBase.Address)
-        case entryDuplicated(OpalBase.Address.Book.EntryModel)
-        case entryAlreadyReserved(OpalBase.Address.Book.EntryModel)
+        case entryDuplicated(OpalBase.Address.Book.Entry)
+        case entryAlreadyReserved(OpalBase.Address.Book.Entry)
         
         case insufficientFunds
         case paymentExceedsMaximumAmount
         
         case utxoNotFound
-        case utxoAlreadyReserved(OpalBase.Transaction.OutputModel.Unspent)
+        case utxoAlreadyReserved(OpalBase.Transaction.Output.Unspent)
         
         case cacheInvalid
         case cacheUpdateFailed(OpalBase.Address, Swift.Error)
         case invalidSnapshotBalance(value: UInt64, reason: Swift.Error)
         case invalidSnapshotTokenData(reason: Swift.Error)
         case transactionHistoryRefreshFailed(OpalBase.Address, Swift.Error)
-        case transactionDetailsRefreshFailed(OpalBase.Transaction.HashModel, Swift.Error)
-        case transactionConfirmationRefreshFailed(OpalBase.Transaction.HashModel, Swift.Error)
+        case transactionDetailsRefreshFailed(OpalBase.Transaction.Hash, Swift.Error)
+        case transactionConfirmationRefreshFailed(OpalBase.Transaction.Hash, Swift.Error)
     }
 }
 

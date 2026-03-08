@@ -3,7 +3,7 @@
 import Foundation
 
 extension _OpalBase.Wallet.Fulcrum.Monitor {
-    func registerEntry(_ entry: OpalBase.Address.Book.EntryModel) {
+    func registerEntry(_ entry: OpalBase.Address.Book.Entry) {
         let address = entry.address
         ensureSubscription(for: address)
         publish(.addressTracked(address))

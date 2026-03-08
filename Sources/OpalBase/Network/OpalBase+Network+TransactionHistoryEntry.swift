@@ -17,10 +17,10 @@ extension _OpalBase.Network {
 }
 
 extension _OpalBase.Network.TransactionHistoryEntry {
-    func makeHistoryEntry() throws -> OpalBase.Transaction.HistoryModel.Entry {
+    func makeHistoryEntry() throws -> OpalBase.Transaction.History.Entry {
         let hash = try OpalBase.Network.decodeTransactionHash(from: transactionIdentifier,
                                                      label: "transaction identifier")
-        return OpalBase.Transaction.HistoryModel.Entry(transactionHash: hash,
+        return OpalBase.Transaction.History.Entry(transactionHash: hash,
                                          height: blockHeight,
                                          fee: fee)
     }

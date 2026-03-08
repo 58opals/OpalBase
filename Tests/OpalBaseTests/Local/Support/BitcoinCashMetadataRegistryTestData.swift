@@ -32,9 +32,9 @@ enum BitcoinCashMetadataRegistryTestData {
         return script
     }
     
-    static var categoryIdentifier: OpalBase.CashTokens.CategoryIDModel {
+    static var categoryIdentifier: OpalBase.CashTokens.CategoryID {
         do {
-            return try OpalBase.CashTokens.CategoryIDModel(hexFromRPC: categoryHexadecimal)
+            return try OpalBase.CashTokens.CategoryID(hexFromRPC: categoryHexadecimal)
         } catch {
             fatalError("Expected valid category identifier: \(error)")
         }

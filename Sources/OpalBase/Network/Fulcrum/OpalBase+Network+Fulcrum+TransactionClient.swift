@@ -6,9 +6,9 @@ import SwiftFulcrum
 extension _OpalBase.Network.Fulcrum {
     public struct TransactionClient: OpalBase.Network.TransactionHandling {
         private let client: Client
-        private let timeouts: OpalBase.Network.FulcrumRequestTimeoutModel
+        private let timeouts: OpalBase.Network.FulcrumRequestTimeout
         
-        public init(client: Client, timeouts: OpalBase.Network.FulcrumRequestTimeoutModel = .init()) {
+        public init(client: Client, timeouts: OpalBase.Network.FulcrumRequestTimeout = .init()) {
             self.client = client
             self.timeouts = timeouts
         }
@@ -30,7 +30,7 @@ extension _OpalBase.Network.Fulcrum {
             return status.confirmations
         }
         
-        public func fetchConfirmationStatus(for transactionHash: OpalBase.Transaction.HashModel) async throws -> OpalBase.Network.TransactionConfirmationStatus {
+        public func fetchConfirmationStatus(for transactionHash: OpalBase.Transaction.Hash) async throws -> OpalBase.Network.TransactionConfirmationStatus {
             let identifier = transactionHash.reverseOrder.hexadecimalString
             
             return try await OpalBase.Network.performWithFailureTranslation {

@@ -4,14 +4,14 @@ import Foundation
 
 extension OpalBase {
     public actor Storage {
-        let security: SecurityModel
+        let security: Security
         let encoder: JSONEncoder
         let decoder: JSONDecoder
-        let valueStore: ValueRepository
+        let valueStore: ValueStore
         
         public init(
-            valueStore: ValueRepository = .makeInMemory(),
-            security: SecurityModel = .makePlaintextOnly()
+            valueStore: ValueStore = .makeInMemory(),
+            security: Security = .makePlaintextOnly()
         ) throws {
             self.valueStore = valueStore
             self.security = security

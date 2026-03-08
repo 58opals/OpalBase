@@ -33,7 +33,7 @@ struct StoragePersistenceNetworkSyncValidator {
             )
             do {
                 try await NetworkTestClient.withClient(configuration: configuration) { client in
-                    let timeouts = OpalBase.Network.FulcrumRequestTimeoutModel(
+                    let timeouts = OpalBase.Network.FulcrumRequestTimeout(
                         headersTip: .seconds(10),
                         addressBalance: .seconds(10),
                         addressUnspent: .seconds(15),
@@ -94,13 +94,13 @@ struct StoragePersistenceNetworkSyncValidator {
 
                     let snapshotBeforePersist = await wallet.makeSnapshot()
 
-                    let valueStore = OpalBase.Storage.ValueRepository.makeInMemory()
+                    let valueStore = OpalBase.Storage.ValueStore.makeInMemory()
                     let storage = try OpalBase.Storage(valueStore: valueStore)
                     let mode = try await storage.persistState(for: wallet)
-                    #expect([OpalBase.Storage.SecurityModel.ProtectionMode.plaintext, .software, .secureEnclave].contains(mode))
+                    #expect([OpalBase.Storage.Security.ProtectionMode.plaintext, .software, .secureEnclave].contains(mode))
 
                     let restoredStorage = try OpalBase.Storage(valueStore: valueStore)
-                    let session = OpalBase.Storage.PersistenceSessionModel(storage: restoredStorage)
+                    let session = OpalBase.Storage.PersistenceSession(storage: restoredStorage)
                     let restored = try await session.restore(accountIdentifiers: [accountIdentifier])
 
                     guard let restoredWalletSnapshot = restored.walletSnapshot else {

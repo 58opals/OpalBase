@@ -5,11 +5,11 @@ import SwiftFulcrum
 import Testing
 @testable import OpalBase
 
-@Suite("OpalBase.Network.ServerCatalogModel", .tags(.unit, .network))
+@Suite("OpalBase.Network.ServerCatalog", .tags(.unit, .network))
 struct NetworkServerCatalogValidator {
     @Test("opal defaults provide per-environment catalogs")
     func opalDefaultsProvidePerEnvironmentCatalogs() {
-        let catalog = OpalBase.Network.ServerCatalogModel.opalDefault
+        let catalog = OpalBase.Network.ServerCatalog.opalDefault
         
         let mainnetServers = catalog.listServers(for: .mainnet)
         let chipnetServers = catalog.listServers(for: .chipnet)
@@ -23,14 +23,14 @@ struct NetworkServerCatalogValidator {
     
     @Test("chipnet maps to FulcrumClient testnet framing")
     func chipnetMapsToFulcrumTestnet() {
-        #expect(OpalBase.Network.EnvironmentModel.chipnet.fulcrumNetwork == SwiftFulcrum.Client.Configuration.Network.testnet)
+        #expect(OpalBase.Network.Environment.chipnet.fulcrumNetwork == SwiftFulcrum.Client.Configuration.Network.testnet)
     }
     
     @Test("server catalog loader merges overrides before defaults")
     func configurationLoaderMergesOverridesBeforeDefaults() async throws {
         let overrideServer = URL(string: "wss://override.opalwallet.example:50004")!
         let defaultServer = URL(string: "wss://bch.imaginary.cash:50004")!
-        let catalog = OpalBase.Network.ServerCatalogModel(
+        let catalog = OpalBase.Network.ServerCatalog(
             mainnetServers: [defaultServer],
             chipnetServers: .init(),
             testnetServers: .init()
@@ -136,7 +136,7 @@ struct NetworkServerCatalogValidator {
             URL(string: "ftp://should-be-ignored.example.com")!
         ]
         
-        let normalized = OpalBase.Network.ServerCatalogModel.makeNormalizedServers(rawServers)
+        let normalized = OpalBase.Network.ServerCatalog.makeNormalizedServers(rawServers)
         #expect(normalized.count == 2)
         #expect(normalized.first?.scheme == "wss")
         #expect(normalized.contains(where: { $0.scheme == "ws" && $0.host == "chipnet.imaginary.cash" }))
@@ -157,7 +157,7 @@ struct NetworkServerCatalogValidator {
             URL(string: "wss://fallback.example.com")!
         ]
         
-        let merged = OpalBase.Network.ServerCatalogModel.makeMergedServers(primary: primary, secondary: secondary, fallback: fallback)
+        let merged = OpalBase.Network.ServerCatalog.makeMergedServers(primary: primary, secondary: secondary, fallback: fallback)
         
         #expect(merged.count == 4)
         #expect(merged[0].host == "primary.example.com")

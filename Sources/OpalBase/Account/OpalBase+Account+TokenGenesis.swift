@@ -8,12 +8,12 @@ extension _OpalBase.Account {
             public let address: OpalBase.Address
             public let bchAmount: OpalBase.Satoshi?
             public let fungibleAmount: UInt64?
-            public let nft: OpalBase.CashTokens.NFTModel?
+            public let nft: OpalBase.CashTokens.NFT?
             
             public init(address: OpalBase.Address,
                         bchAmount: OpalBase.Satoshi? = nil,
                         fungibleAmount: UInt64? = nil,
-                        nft: OpalBase.CashTokens.NFTModel? = nil) throws {
+                        nft: OpalBase.CashTokens.NFT? = nil) throws {
                 try TokenGenesisValidationModel.validateFungibleAmount(fungibleAmount)
                 try TokenGenesisValidationModel.validateCommitment(nft)
                 self.address = address
@@ -24,13 +24,13 @@ extension _OpalBase.Account {
         }
         
         public let recipients: [Recipient]
-        public let reservedSupplyToSelf: ReservedSupplyModel?
+        public let reservedSupplyToSelf: ReservedSupply?
         public let feeOverride: OpalBase.Wallet.FeePolicy.Override?
         public let feeContext: OpalBase.Wallet.FeePolicy.RecommendationContext
         public let shouldAllowDustDonation: Bool
         
         public init(recipients: [Recipient],
-                    reservedSupplyToSelf: ReservedSupplyModel? = nil,
+                    reservedSupplyToSelf: ReservedSupply? = nil,
                     feeOverride: OpalBase.Wallet.FeePolicy.Override? = nil,
                     feeContext: OpalBase.Wallet.FeePolicy.RecommendationContext = .init(),
                     shouldAllowDustDonation: Bool = false) throws {
@@ -55,7 +55,7 @@ private enum TokenGenesisValidationModel {
         }
     }
     
-    static func validateReservedSupply(_ reservedSupply: OpalBase.Account.ReservedSupplyModel) throws {
+    static func validateReservedSupply(_ reservedSupply: OpalBase.Account.ReservedSupply) throws {
         try validateFungibleAmount(reservedSupply.fungibleAmount)
         try validateCommitment(reservedSupply.commitment)
     }
@@ -72,7 +72,7 @@ private enum TokenGenesisValidationModel {
         }
     }
     
-    static func validateCommitment(_ nonFungibleToken: OpalBase.CashTokens.NFTModel?) throws {
+    static func validateCommitment(_ nonFungibleToken: OpalBase.CashTokens.NFT?) throws {
         if let nonFungibleToken {
             try validateCommitment(nonFungibleToken.commitment)
         }

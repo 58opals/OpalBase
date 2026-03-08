@@ -21,22 +21,22 @@ extension _OpalBase.Account {
 }
 
 extension _OpalBase.Account {
-    public func listTransactions() async -> [OpalBase.Transaction.HistoryModel.Record] {
+    public func listTransactions() async -> [OpalBase.Transaction.History.Record] {
         await addressBook.listTransactionRecords()
     }
 }
 
 extension _OpalBase.Account {
     public func refreshTransactionHistoryAndList(using service: OpalBase.Network.AddressReadable,
-                                                 usage: OpalBase.DerivationPath.UsageModel? = nil,
-                                                 includeUnconfirmed: Bool = true) async throws -> [OpalBase.Transaction.HistoryModel.Record] {
+                                                 usage: OpalBase.DerivationPath.Usage? = nil,
+                                                 includeUnconfirmed: Bool = true) async throws -> [OpalBase.Transaction.History.Record] {
         _ = try await refreshTransactionHistory(using: service,
                                                 usage: usage,
                                                 includeUnconfirmed: includeUnconfirmed)
         return await listTransactions()
     }
     
-    public func refreshTransactionConfirmationsAndList(using handler: OpalBase.Network.TransactionConfirmationClient) async throws -> [OpalBase.Transaction.HistoryModel.Record] {
+    public func refreshTransactionConfirmationsAndList(using handler: OpalBase.Network.TransactionConfirmationClient) async throws -> [OpalBase.Transaction.History.Record] {
         _ = try await refreshTransactionConfirmations(using: handler)
         return await listTransactions()
     }

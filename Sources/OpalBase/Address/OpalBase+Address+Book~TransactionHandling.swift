@@ -4,7 +4,7 @@ import Foundation
 
 // MARK: - OpalBase.Transaction
 extension _OpalBase.Address.Book {
-    func handleIncomingTransaction(_ detailedTransaction: OpalBase.Transaction.DetailedModel) async throws {
+    func handleIncomingTransaction(_ detailedTransaction: OpalBase.Transaction.Detail) async throws {
         for (index, output) in detailedTransaction.transaction.outputs.enumerated() {
             let lockingScript = output.lockingScript
             
@@ -13,7 +13,7 @@ extension _OpalBase.Address.Book {
             guard inventory.contains(address: address) else { continue }
             
             try await mark(address: address, isUsed: true)
-            let utxo = OpalBase.Transaction.OutputModel.Unspent(output: output,
+            let utxo = OpalBase.Transaction.Output.Unspent(output: output,
                                                   previousTransactionHash: detailedTransaction.hash,
                                                   previousTransactionOutputIndex: UInt32(index))
             addUTXO(utxo)

@@ -12,8 +12,8 @@ import Foundation
 extension OpalBase {
     public struct Transaction {
         public let version: UInt32
-        public let inputs: [InputModel]
-        public let outputs: [OutputModel]
+        public let inputs: [Input]
+        public let outputs: [Output]
         public let lockTime: UInt32
         
         /// Initializes a OpalBase.Transaction instance.
@@ -22,7 +22,7 @@ extension OpalBase {
         ///   - inputs: The list of inputs.
         ///   - outputs: The list of outputs.
         ///   - lockTime: The lock time.
-        public init(version: UInt32, inputs: [InputModel], outputs: [OutputModel], lockTime: UInt32) {
+        public init(version: UInt32, inputs: [Input], outputs: [Output], lockTime: UInt32) {
             self.version = version
             self.inputs = inputs
             self.outputs = outputs
@@ -48,13 +48,13 @@ extension OpalBase {
         static func decode(from reader: inout Data.ReaderModel) throws -> OpalBase.Transaction {
             let version: UInt32 = try reader.readLittleEndian()
             let inputsCount = try reader.readCompactSize()
-            let inputs = try (0..<inputsCount.value).map { _ -> InputModel in
-                try InputModel.decode(from: &reader)
+            let inputs = try (0..<inputsCount.value).map { _ -> Input in
+                try Input.decode(from: &reader)
             }
             
             let outputsCount = try reader.readCompactSize()
-            let outputs = try (0..<outputsCount.value).map { _ -> OutputModel in
-                try OutputModel.decode(from: &reader)
+            let outputs = try (0..<outputsCount.value).map { _ -> Output in
+                try Output.decode(from: &reader)
             }
             
             let lockTime: UInt32 = try reader.readLittleEndian()
@@ -64,7 +64,7 @@ extension OpalBase {
 }
 
 extension _OpalBase.Transaction {
-    func makeSerializedTransaction(with inputs: [InputModel]) throws -> Data {
+    func makeSerializedTransaction(with inputs: [Input]) throws -> Data {
         var writer = Data.WriterModel()
         writer.writeLittleEndian(version)
         writer.writeCompactSize(CompactSizeModel(value: UInt64(inputs.count)))

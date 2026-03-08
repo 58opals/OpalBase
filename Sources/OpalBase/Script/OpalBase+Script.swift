@@ -5,8 +5,8 @@ import Foundation
 extension OpalBase {
     public enum Script {
         case p2pk(publicKey: OpalBase.PublicKey)
-        case p2pkh_OPCHECKSIG(hash: OpalBase.PublicKey.HashModel)
-        case p2pkh_OPCHECKDATASIG(hash: OpalBase.PublicKey.HashModel)
+        case p2pkh_OPCHECKSIG(hash: OpalBase.PublicKey.Hash)
+        case p2pkh_OPCHECKDATASIG(hash: OpalBase.PublicKey.Hash)
         case p2ms(numberOfRequiredSignatures: Int, publicKeys: [OpalBase.PublicKey])
         case p2sh(scriptHash: Data)
         
@@ -90,7 +90,7 @@ extension _OpalBase.Script {
                       let finalOp = readByte()
                 else { throw Error.invalidP2PKHScript }
                 
-                let publicKeyHash = OpalBase.PublicKey.HashModel(hash)
+                let publicKeyHash = OpalBase.PublicKey.Hash(hash)
                 switch finalOp {
                 case ScriptOperationCodeModel._CHECKSIG.rawValue:
                     return .p2pkh_OPCHECKSIG(hash: publicKeyHash)

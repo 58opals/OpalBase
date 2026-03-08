@@ -11,13 +11,13 @@ struct TransactionSigningTokenSignatureHashValidator {
         let lockingScript = try makeLockingScript()
         let transaction = makeTransaction(lockingScript: lockingScript)
         let tokenData = try makeTokenData()
-        let outputBeingSpent = OpalBase.Transaction.OutputModel(value: 10_000,
+        let outputBeingSpent = OpalBase.Transaction.Output(value: 10_000,
                                                   lockingScript: lockingScript,
                                                   tokenData: tokenData)
         let preimage = try transaction.generatePreimage(for: 0,
                                                         hashType: .makeAll(),
                                                         outputBeingSpent: outputBeingSpent)
-        let message = ECDSAModel.Message.makeDoubleSHA256(preimage)
+        let message = OpalBase.Cryptography.ECDSA.Message.makeDoubleSHA256(preimage)
         let messageDigest = try message.makeConsensusDigest32()
         let expectedDigest = try Data(hexadecimalString: "c9c908b5f351dcc1d2e6b5966a48c5be1be5a8f5e3c426efa5e97aacb8f971e7")
         
@@ -28,13 +28,13 @@ struct TransactionSigningTokenSignatureHashValidator {
     func signatureHashForNonTokenOutputIsUnchanged() throws {
         let lockingScript = try makeLockingScript()
         let transaction = makeTransaction(lockingScript: lockingScript)
-        let outputBeingSpent = OpalBase.Transaction.OutputModel(value: 10_000,
+        let outputBeingSpent = OpalBase.Transaction.Output(value: 10_000,
                                                   lockingScript: lockingScript,
                                                   tokenData: nil)
         let preimage = try transaction.generatePreimage(for: 0,
                                                         hashType: .makeAll(),
                                                         outputBeingSpent: outputBeingSpent)
-        let message = ECDSAModel.Message.makeDoubleSHA256(preimage)
+        let message = OpalBase.Cryptography.ECDSA.Message.makeDoubleSHA256(preimage)
         let messageDigest = try message.makeConsensusDigest32()
         let expectedDigest = try Data(hexadecimalString: "e62ddb675df41732686246b8f0f9f7415da321b4a9e5a4e9d5057551a32594b7")
         
@@ -42,12 +42,12 @@ struct TransactionSigningTokenSignatureHashValidator {
     }
     
     private func makeTransaction(lockingScript: Data) -> OpalBase.Transaction {
-        let previousTransactionHash = OpalBase.Transaction.HashModel(naturalOrder: Data(repeating: 0x11, count: 32))
-        let input = OpalBase.Transaction.InputModel(previousTransactionHash: previousTransactionHash,
+        let previousTransactionHash = OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0x11, count: 32))
+        let input = OpalBase.Transaction.Input(previousTransactionHash: previousTransactionHash,
                                       previousTransactionOutputIndex: 0,
                                       unlockingScript: Data(),
                                       sequence: 0xffffffff)
-        let output = OpalBase.Transaction.OutputModel(value: 9_000, lockingScript: lockingScript)
+        let output = OpalBase.Transaction.Output(value: 9_000, lockingScript: lockingScript)
         return OpalBase.Transaction(version: 2, inputs: [input], outputs: [output], lockTime: 0)
     }
     
@@ -62,7 +62,7 @@ struct TransactionSigningTokenSignatureHashValidator {
     }
     
     private func makeTokenData(from fixture: TokenPrefixTokenData) throws -> OpalBase.CashTokens.TokenData {
-        let category = try OpalBase.CashTokens.CategoryIDModel(hexFromRPC: fixture.category)
+        let category = try OpalBase.CashTokens.CategoryID(hexFromRPC: fixture.category)
         let amount = try parseAmount(from: fixture.amount)
         let nonFungibleToken = try fixture.nonFungibleToken.map { try makeNonFungibleToken(from: $0) }
         return OpalBase.CashTokens.TokenData(category: category, amount: amount, nft: nonFungibleToken)
@@ -78,13 +78,13 @@ struct TransactionSigningTokenSignatureHashValidator {
         return amountValue == 0 ? nil : amountValue
     }
     
-    private func makeNonFungibleToken(from fixture: TokenPrefixNonFungibleTokenData) throws -> OpalBase.CashTokens.NFTModel {
+    private func makeNonFungibleToken(from fixture: TokenPrefixNonFungibleTokenData) throws -> OpalBase.CashTokens.NFT {
         let capability = try makeNonFungibleCapability(from: fixture.capability)
         let commitment = try Data(hexadecimalString: fixture.commitment)
-        return try OpalBase.CashTokens.NFTModel(capability: capability, commitment: commitment)
+        return try OpalBase.CashTokens.NFT(capability: capability, commitment: commitment)
     }
     
-    private func makeNonFungibleCapability(from capabilityString: String) throws -> OpalBase.CashTokens.NFTModel.Capability {
+    private func makeNonFungibleCapability(from capabilityString: String) throws -> OpalBase.CashTokens.NFT.Capability {
         switch capabilityString {
         case "none":
             return .none

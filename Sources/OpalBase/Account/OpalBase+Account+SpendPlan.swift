@@ -6,10 +6,10 @@ extension _OpalBase.Account {
     public struct SpendPlan: Sendable {
         public struct TransactionResult: Sendable {
             public struct Change: Sendable {
-                public let entry: OpalBase.Address.Book.EntryModel
+                public let entry: OpalBase.Address.Book.Entry
                 public let amount: OpalBase.Satoshi
                 
-                public init(entry: OpalBase.Address.Book.EntryModel, amount: OpalBase.Satoshi) {
+                public init(entry: OpalBase.Address.Book.Entry, amount: OpalBase.Satoshi) {
                     self.entry = entry
                     self.amount = amount
                 }
@@ -28,28 +28,28 @@ extension _OpalBase.Account {
         
         public let payment: Payment
         public let feeRate: UInt64
-        public let inputs: [OpalBase.Transaction.OutputModel.Unspent]
+        public let inputs: [OpalBase.Transaction.Output.Unspent]
         public let totalSelectedAmount: OpalBase.Satoshi
         public let targetAmount: OpalBase.Satoshi
         public let shouldAllowDustDonation: Bool
         public var reservationDate: Date { reservationHandle.reservationDate }
         
         fileprivate let reservationHandle: OpalBase.Account.SpendReservationModel
-        fileprivate let changeOutput: OpalBase.Transaction.OutputModel
-        fileprivate let recipientOutputs: [OpalBase.Transaction.OutputModel]
-        fileprivate let privateKeys: [OpalBase.Transaction.OutputModel.Unspent: OpalBase.PrivateKey]
+        fileprivate let changeOutput: OpalBase.Transaction.Output
+        fileprivate let recipientOutputs: [OpalBase.Transaction.Output]
+        fileprivate let privateKeys: [OpalBase.Transaction.Output.Unspent: OpalBase.PrivateKey]
         fileprivate let shouldRandomizeRecipientOrdering: Bool
         
         init(payment: Payment,
              feeRate: UInt64,
-             inputs: [OpalBase.Transaction.OutputModel.Unspent],
+             inputs: [OpalBase.Transaction.Output.Unspent],
              totalSelectedAmount: OpalBase.Satoshi,
              targetAmount: OpalBase.Satoshi,
              shouldAllowDustDonation: Bool,
              reservationHandle: OpalBase.Account.SpendReservationModel,
-             changeOutput: OpalBase.Transaction.OutputModel,
-             recipientOutputs: [OpalBase.Transaction.OutputModel],
-             privateKeys: [OpalBase.Transaction.OutputModel.Unspent: OpalBase.PrivateKey],
+             changeOutput: OpalBase.Transaction.Output,
+             recipientOutputs: [OpalBase.Transaction.Output],
+             privateKeys: [OpalBase.Transaction.Output.Unspent: OpalBase.PrivateKey],
              shouldRandomizeRecipientOrdering: Bool) {
             self.payment = payment
             self.feeRate = feeRate
@@ -64,8 +64,8 @@ extension _OpalBase.Account {
             self.shouldRandomizeRecipientOrdering = shouldRandomizeRecipientOrdering
         }
         
-        public func buildTransaction(signatureFormat: ECDSAModel.SignatureFormat = .schnorr,
-                                     unlockers: [OpalBase.Transaction.OutputModel.Unspent: OpalBase.Transaction.UnlockerModel] = .init()) throws -> TransactionResult {
+        public func buildTransaction(signatureFormat: OpalBase.Cryptography.SignatureFormat = .schnorr,
+                                     unlockers: [OpalBase.Transaction.Output.Unspent: OpalBase.Transaction.Unlocker] = .init()) throws -> TransactionResult {
             let core = try OpalBase.Account.buildTransactionCore(privateKeys: privateKeys,
                                                         recipientOutputs: recipientOutputs,
                                                         changeOutput: changeOutput,
@@ -88,8 +88,8 @@ extension _OpalBase.Account {
         }
         
         public func buildAndBroadcast(via handler: OpalBase.Network.TransactionHandling,
-                                      signatureFormat: ECDSAModel.SignatureFormat = .schnorr,
-                                      unlockers: [OpalBase.Transaction.OutputModel.Unspent: OpalBase.Transaction.UnlockerModel] = .init()) async throws -> (hash: OpalBase.Transaction.HashModel, result: TransactionResult) {
+                                      signatureFormat: OpalBase.Cryptography.SignatureFormat = .schnorr,
+                                      unlockers: [OpalBase.Transaction.Output.Unspent: OpalBase.Transaction.Unlocker] = .init()) async throws -> (hash: OpalBase.Transaction.Hash, result: TransactionResult) {
             try await reservationHandle.buildAndBroadcast(
                 build: { try buildTransaction(signatureFormat: signatureFormat, unlockers: unlockers) },
                 transaction: { $0.transaction },

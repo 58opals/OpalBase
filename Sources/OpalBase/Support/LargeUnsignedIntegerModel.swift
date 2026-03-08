@@ -2,7 +2,7 @@
 
 import Foundation
 
-public struct LargeUnsignedIntegerModel: Comparable, Sendable {
+struct LargeUnsignedIntegerModel: Comparable, Sendable {
     private var words: [UInt32]
     
     static let zero = LargeUnsignedIntegerModel(words: .init())

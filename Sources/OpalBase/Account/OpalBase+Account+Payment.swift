@@ -19,16 +19,16 @@ extension _OpalBase.Account {
         public let recipients: [Recipient]
         public let feeOverride: OpalBase.Wallet.FeePolicy.Override?
         public let feeContext: OpalBase.Wallet.FeePolicy.RecommendationContext
-        public let coinSelection: OpalBase.Address.Book.CoinSelectionModel
-        public let tokenSelectionPolicy: OpalBase.Address.Book.CoinSelectionModel.TokenSelectionPolicy
+        public let coinSelection: OpalBase.Address.Book.CoinSelection
+        public let tokenSelectionPolicy: OpalBase.Address.Book.CoinSelection.TokenSelectionPolicy
         public let shouldAllowDustDonation: Bool
         public let shouldAllowUnsafeTokenTransfers: Bool
         
         public init(recipients: [Recipient],
                     feeOverride: OpalBase.Wallet.FeePolicy.Override? = nil,
                     feeContext: OpalBase.Wallet.FeePolicy.RecommendationContext = .init(),
-                    coinSelection: OpalBase.Address.Book.CoinSelectionModel = .greedyLargestFirst,
-                    tokenSelectionPolicy: OpalBase.Address.Book.CoinSelectionModel.TokenSelectionPolicy = .excludeTokenUTXOs,
+                    coinSelection: OpalBase.Address.Book.CoinSelection = .greedyLargestFirst,
+                    tokenSelectionPolicy: OpalBase.Address.Book.CoinSelection.TokenSelectionPolicy = .excludeTokenUTXOs,
                     shouldAllowDustDonation: Bool = false,
                     shouldAllowUnsafeTokenTransfers: Bool = false) {
             self.recipients = recipients

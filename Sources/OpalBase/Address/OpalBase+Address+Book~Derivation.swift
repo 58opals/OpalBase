@@ -15,7 +15,7 @@ extension _OpalBase.Address.Book {
         let accountCompressedPublicKey = try OpalBase.PublicKey(privateKey: .init(data: accountExtendedPrivateKey.privateKey)).compressedData
         let accountFingerprint = Data(HASH160Model.hash(accountCompressedPublicKey).prefix(4))
         
-        for usage in [OpalBase.DerivationPath.UsageModel.receiving, .change] {
+        for usage in [OpalBase.DerivationPath.Usage.receiving, .change] {
             let usageExtendedPrivateKey = try accountExtendedPrivateKey.deriveNonHardenedChildUsingParentKey(
                 at: usage.unhardenedIndex,
                 parentCompressedPublicKey: accountCompressedPublicKey,
@@ -29,7 +29,7 @@ extension _OpalBase.Address.Book {
         }
     }
     
-    func createDerivationPath(usage: OpalBase.DerivationPath.UsageModel,
+    func createDerivationPath(usage: OpalBase.DerivationPath.Usage,
                               index: UInt32) throws -> OpalBase.DerivationPath {
         let derivationPath = try OpalBase.DerivationPath(purpose: self.purpose,
                                                 coinType: self.coinType,
@@ -39,7 +39,7 @@ extension _OpalBase.Address.Book {
         return derivationPath
     }
     
-    func generateAddress(at index: UInt32, for usage: OpalBase.DerivationPath.UsageModel) throws -> OpalBase.Address {
+    func generateAddress(at index: UInt32, for usage: OpalBase.DerivationPath.Usage) throws -> OpalBase.Address {
         if let usageCache = usageDerivationCache[usage] {
             let childExtendedPrivateKey = try usageCache.baseExtendedPrivateKey.deriveNonHardenedChildUsingParentKey(
                 at: index,
@@ -66,7 +66,7 @@ extension _OpalBase.Address.Book {
         return address
     }
     
-    func generatePrivateKey(at index: UInt32, for usage: OpalBase.DerivationPath.UsageModel) throws -> OpalBase.PrivateKey {
+    func generatePrivateKey(at index: UInt32, for usage: OpalBase.DerivationPath.Usage) throws -> OpalBase.PrivateKey {
         if let usageCache = usageDerivationCache[usage] {
             let childExtendedPrivateKey = try usageCache.baseExtendedPrivateKey.deriveNonHardenedChildUsingParentKey(
                 at: index,

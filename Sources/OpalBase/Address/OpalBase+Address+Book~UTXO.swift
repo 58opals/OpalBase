@@ -7,7 +7,7 @@ extension _OpalBase.Address.Book {
                      feePolicy: OpalBase.Wallet.FeePolicy,
                      recommendationContext: OpalBase.Wallet.FeePolicy.RecommendationContext = .init(),
                      override: OpalBase.Wallet.FeePolicy.Override? = nil,
-                     configuration: CoinSelectionModel.Configuration = .makeTemplateConfiguration()) throws -> [OpalBase.Transaction.OutputModel.Unspent] {
+                     configuration: CoinSelection.Configuration = .makeTemplateConfiguration()) throws -> [OpalBase.Transaction.Output.Unspent] {
         let feePerByte = feePolicy.recommendFeeRate(for: recommendationContext, override: override)
         return try selectUTXOs(targetAmount: targetAmount,
                                feePerByte: feePerByte,
@@ -16,7 +16,7 @@ extension _OpalBase.Address.Book {
     
     private func selectUTXOs(targetAmount: OpalBase.Satoshi,
                              feePerByte: UInt64,
-                             configuration: CoinSelectionModel.Configuration) throws -> [OpalBase.Transaction.OutputModel.Unspent] {
+                             configuration: CoinSelection.Configuration) throws -> [OpalBase.Transaction.Output.Unspent] {
         let sortedUTXOs = sortSpendableUTXOs(by: { $0.value > $1.value },
                                              tokenSelectionPolicy: configuration.tokenSelectionPolicy)
         let minimumRelayFeeRate = OpalBase.Transaction.minimumRelayFeeRate

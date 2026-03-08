@@ -4,14 +4,14 @@ import Foundation
 
 extension _OpalBase.Account {
     func reserveSpendAndDeriveKeys(
-        utxos: [OpalBase.Transaction.OutputModel.Unspent],
-        changeEntry: OpalBase.Address.Book.EntryModel,
-        tokenSelectionPolicy: OpalBase.Address.Book.CoinSelectionModel.TokenSelectionPolicy,
+        utxos: [OpalBase.Transaction.Output.Unspent],
+        changeEntry: OpalBase.Address.Book.Entry,
+        tokenSelectionPolicy: OpalBase.Address.Book.CoinSelection.TokenSelectionPolicy,
         mapReservationError: (Swift.Error) -> OpalBase.Account.Error
     ) async throws -> (
         reservation: OpalBase.Address.Book.SpendReservationModel,
-        reservedChangeEntry: OpalBase.Address.Book.EntryModel,
-        privateKeys: [OpalBase.Transaction.OutputModel.Unspent: OpalBase.PrivateKey]
+        reservedChangeEntry: OpalBase.Address.Book.Entry,
+        privateKeys: [OpalBase.Transaction.Output.Unspent: OpalBase.PrivateKey]
     ) {
         let reservation: OpalBase.Address.Book.SpendReservationModel
         do {
