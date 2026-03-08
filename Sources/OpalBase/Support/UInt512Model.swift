@@ -1,4 +1,4 @@
-// UInt512Model+.swift
+// UInt512Model.swift
 
 import Foundation
 
@@ -68,4 +68,3 @@ extension UInt512Model: Equatable {
         && lhs.limbs[7] == rhs.limbs[7]
     }
 }
-

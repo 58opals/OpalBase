@@ -1,4 +1,4 @@
-// AddressBookUnspentTransactionOutputSelectionValidator+.swift
+// AddressBookUnspentTransactionOutputSelectionValidator.swift
 
 import Foundation
 import Testing
@@ -110,4 +110,3 @@ private extension AddressBookUnspentTransactionOutputSelectionValidator {
         }
     }
 }
-

@@ -1,4 +1,4 @@
-// UInt256Model+.swift
+// UInt256Model.swift
 
 import Foundation
 
@@ -108,4 +108,3 @@ extension UInt256Model: Equatable {
         && lhs.limbs[3] == rhs.limbs[3]
     }
 }
-

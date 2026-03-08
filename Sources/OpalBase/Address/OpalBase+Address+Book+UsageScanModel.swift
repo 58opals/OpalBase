@@ -22,7 +22,7 @@ extension _OpalBase.Address.Book {
         let targetUsages = OpalBase.DerivationPath.UsageModel.resolveTargetUsages(for: usage)
         var discovered: [OpalBase.DerivationPath.UsageModel: [EntryModel]] = .init()
         var scannedCountByUsage: [OpalBase.DerivationPath.UsageModel: Int] = .init()
-        let batchSize = ConcurrencyModel.Tuning.maximumConcurrentNetworkRequests
+        let batchSize = 8
         
         for currentUsage in targetUsages {
             var usedEntries: [EntryModel] = .init()

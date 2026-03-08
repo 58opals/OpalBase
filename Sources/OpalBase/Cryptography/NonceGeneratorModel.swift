@@ -26,15 +26,15 @@ struct NonceGeneratorModel {
     
     mutating func makeNextScalar() throws -> ScalarModel {
         while true {
-            valueBytes = makeAuthenticationCode(key: keyBytes, message: valueBytes)
+            valueBytes = Self.makeAuthenticationCode(key: keyBytes, message: valueBytes)
             if let scalar = try? ScalarModel(data32: valueBytes, requireNonZero: true) {
                 return scalar
             }
             var material = Data()
             material.append(valueBytes)
             material.append(0x00)
-            keyBytes = makeAuthenticationCode(key: keyBytes, message: material)
-            valueBytes = makeAuthenticationCode(key: keyBytes, message: valueBytes)
+            keyBytes = Self.makeAuthenticationCode(key: keyBytes, message: material)
+            valueBytes = Self.makeAuthenticationCode(key: keyBytes, message: valueBytes)
         }
     }
     
@@ -45,31 +45,33 @@ struct NonceGeneratorModel {
         material.append(privateKeyData)
         material.append(digestData)
         material.append(additionalData)
-        keyBytes = makeAuthenticationCode(key: keyBytes, message: material)
-        valueBytes = makeAuthenticationCode(key: keyBytes, message: valueBytes)
+        keyBytes = Self.makeAuthenticationCode(key: keyBytes, message: material)
+        valueBytes = Self.makeAuthenticationCode(key: keyBytes, message: valueBytes)
     }
 }
 
-func makeSystemRandomScalar() throws -> ScalarModel {
-    while true {
-        var data = Data(count: 32)
-        let status = data.withUnsafeMutableBytes { buffer -> Int32 in
-            guard let baseAddress = buffer.baseAddress else {
-                return errSecAllocate
+extension NonceGeneratorModel {
+    static func makeSystemRandomScalar() throws -> ScalarModel {
+        while true {
+            var data = Data(count: 32)
+            let status = data.withUnsafeMutableBytes { buffer -> Int32 in
+                guard let baseAddress = buffer.baseAddress else {
+                    return errSecAllocate
+                }
+                return SecRandomCopyBytes(kSecRandomDefault, 32, baseAddress)
             }
-            return SecRandomCopyBytes(kSecRandomDefault, 32, baseAddress)
-        }
-        guard status == errSecSuccess else {
-            throw SchnorrModel.Error.randomGenerationFailed(status: status)
-        }
-        if let scalar = try? ScalarModel(data32: data, requireNonZero: true) {
-            return scalar
+            guard status == errSecSuccess else {
+                throw SchnorrModel.Error.randomGenerationFailed(status: status)
+            }
+            if let scalar = try? ScalarModel(data32: data, requireNonZero: true) {
+                return scalar
+            }
         }
     }
-}
-
-private func makeAuthenticationCode(key: Data, message: Data) -> Data {
-    let keyValue = SymmetricKey(data: key)
-    let authenticationCode = HMAC<CryptoKit.SHA256>.authenticationCode(for: message, using: keyValue)
-    return Data(authenticationCode)
+    
+    static func makeAuthenticationCode(key: Data, message: Data) -> Data {
+        let keyValue = SymmetricKey(data: key)
+        let authenticationCode = HMAC<CryptoKit.SHA256>.authenticationCode(for: message, using: keyValue)
+        return Data(authenticationCode)
+    }
 }

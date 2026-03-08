@@ -1,4 +1,4 @@
-// Base32Model+Error.swift
+// Base32Model.swift
 
 import Foundation
 
@@ -81,4 +81,3 @@ extension Base32Model {
         case invalidCharacterFound
     }
 }
-

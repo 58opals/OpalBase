@@ -1,4 +1,4 @@
-// BitcoinCashMetadataRegistryClient+RegistryModel.swift
+// BitcoinCashMetadataRegistryClient.swift
 
 import Foundation
 

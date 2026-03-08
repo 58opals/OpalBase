@@ -24,7 +24,7 @@ extension NonceGeneratorModel {
         
         mutating func makeNextScalar() throws -> ScalarModel {
             while true {
-                valueBytes = makeAuthenticationCode(key: keyBytes, message: valueBytes)
+                valueBytes = NonceGeneratorModel.makeAuthenticationCode(key: keyBytes, message: valueBytes)
                 let candidateBytes = valueBytes
                 let candidateScalar = try? ScalarModel(data32: candidateBytes, requireNonZero: true)
                 updateKeyAndValue(separator: 0x00, includeKeyMaterial: false)
@@ -42,14 +42,8 @@ extension NonceGeneratorModel {
                 material.append(privateKeyData)
                 material.append(digestData)
             }
-            keyBytes = makeAuthenticationCode(key: keyBytes, message: material)
-            valueBytes = makeAuthenticationCode(key: keyBytes, message: valueBytes)
+            keyBytes = NonceGeneratorModel.makeAuthenticationCode(key: keyBytes, message: material)
+            valueBytes = NonceGeneratorModel.makeAuthenticationCode(key: keyBytes, message: valueBytes)
         }
     }
-}
-
-private func makeAuthenticationCode(key: Data, message: Data) -> Data {
-    let keyValue = SymmetricKey(data: key)
-    let authenticationCode = HMAC<CryptoKit.SHA256>.authenticationCode(for: message, using: keyValue)
-    return Data(authenticationCode)
 }

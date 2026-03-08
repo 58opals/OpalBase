@@ -1,4 +1,4 @@
-// RIPEMD160Model+.swift
+// RIPEMD160Model.swift
 
 import Foundation
 
@@ -84,4 +84,3 @@ extension RIPEMD160Model {
         }
     }
 }
-

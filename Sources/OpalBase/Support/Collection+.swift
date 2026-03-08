@@ -2,21 +2,11 @@
 
 import Foundation
 
-enum ConcurrencyModel {
-    enum Tuning {
-        static let maximumConcurrentNetworkRequests = 8
-    }
-    
-    enum Error: Swift.Error {
-        case missingMappingResult
-    }
-}
-
 // MARK: - Collection_+
 
 extension Collection where Element: Sendable {
     func mapConcurrently<Transformed: Sendable>(
-        limit: Int = ConcurrencyModel.Tuning.maximumConcurrentNetworkRequests,
+        limit: Int = 8,
         transformError: @escaping @Sendable (Element, Swift.Error) -> Swift.Error = { _, error in error },
         _ transform: @escaping @Sendable (Element) async throws -> Transformed
     ) async throws -> [Transformed] {
@@ -57,12 +47,18 @@ extension Collection where Element: Sendable {
     }
     
     private func unwrapResults<Transformed>(_ results: [Transformed?]) throws -> [Transformed] {
+        let missingMappingResult = NSError(
+            domain: "Collection.mapConcurrently",
+            code: 1,
+            userInfo: [NSLocalizedDescriptionKey: "Concurrent map completed without filling all result slots."]
+        )
+        
         var unwrapped: [Transformed] = .init()
         unwrapped.reserveCapacity(results.count)
         
         for result in results {
             guard let value = result else {
-                throw ConcurrencyModel.Error.missingMappingResult
+                throw missingMappingResult
             }
             unwrapped.append(value)
         }
@@ -70,4 +66,3 @@ extension Collection where Element: Sendable {
         return unwrapped
     }
 }
-

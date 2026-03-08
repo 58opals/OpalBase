@@ -1,4 +1,4 @@
-// ScalarModel+~Part2.swift
+// ScalarModel.swift
 
 import Foundation
 
@@ -86,6 +86,26 @@ struct ScalarModel: Sendable, Equatable {
     }
 }
 
+enum ScalarPowModel {
+    static let inversionExponentBits = makeExponentBits(
+        from: UInt256Model(
+            limbs: [
+                0xbfd25e8cd036413f,
+                0xbaaedce6af48a03b,
+                0xfffffffffffffffe,
+                0xffffffffffffffff
+            ]
+        )
+    )
+    
+    private static func makeExponentBits(from exponent: UInt256Model) -> [Bool] {
+        guard let mostSignificantBit = exponent.mostSignificantBitIndex else {
+            return [false]
+        }
+        return stride(from: mostSignificantBit, through: 0, by: -1).map { exponent.testBit(at: $0) }
+    }
+}
+
 extension ScalarModel {
     func compare(to other: ScalarModel) -> ComparisonResult {
         value.compare(to: other.value)
@@ -114,4 +134,3 @@ extension ScalarModel {
         return pow(exponentBits: ScalarPowModel.inversionExponentBits)
     }
 }
-

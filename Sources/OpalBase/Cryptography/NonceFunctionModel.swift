@@ -1,4 +1,4 @@
-// NonceFunctionModel+ECDSA.swift
+// NonceFunctionModel.swift
 
 import Foundation
 
@@ -14,4 +14,3 @@ extension NonceFunctionModel {
         case systemRandom
     }
 }
-

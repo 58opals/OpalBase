@@ -1,4 +1,4 @@
-// ECDSAModel+Error.swift
+// ECDSAModel.swift
 
 import Foundation
 

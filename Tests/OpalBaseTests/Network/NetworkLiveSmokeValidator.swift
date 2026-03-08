@@ -1,4 +1,4 @@
-// NetworkLiveSmokeValidator+.swift
+// NetworkLiveSmokeValidator.swift
 
 import Foundation
 import Testing
@@ -57,4 +57,3 @@ private extension NetworkLiveSmokeValidator {
         )
     }
 }
-

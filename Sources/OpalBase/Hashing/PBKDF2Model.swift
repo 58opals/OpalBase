@@ -1,4 +1,4 @@
-// PBKDF2Model+.swift
+// PBKDF2Model.swift
 
 import Foundation
 import CryptoKit
@@ -99,4 +99,3 @@ private extension PBKDF2Model {
         return blockResult
     }
 }
-

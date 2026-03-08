@@ -41,7 +41,7 @@ public extension SchnorrModel {
             }
         case .systemRandom:
             makeNextNonce = {
-                try makeSystemRandomScalar()
+                try NonceGeneratorModel.makeSystemRandomScalar()
             }
         }
         while true {

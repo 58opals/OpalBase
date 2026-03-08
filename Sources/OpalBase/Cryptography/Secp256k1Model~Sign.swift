@@ -32,7 +32,7 @@ public extension Secp256k1Model {
             }
         case .systemRandom:
             makeNextNonce = {
-                try makeSystemRandomScalarForECDSA()
+                try Self.makeSystemRandomScalarForECDSA()
             }
         }
         while true {
@@ -62,20 +62,22 @@ public extension Secp256k1Model {
     }
 }
 
-private func makeSystemRandomScalarForECDSA() throws -> ScalarModel {
-    while true {
-        var data = Data(count: 32)
-        let status = data.withUnsafeMutableBytes { buffer -> Int32 in
-            guard let baseAddress = buffer.baseAddress else {
-                return errSecAllocate
+private extension Secp256k1Model {
+    static func makeSystemRandomScalarForECDSA() throws -> ScalarModel {
+        while true {
+            var data = Data(count: 32)
+            let status = data.withUnsafeMutableBytes { buffer -> Int32 in
+                guard let baseAddress = buffer.baseAddress else {
+                    return errSecAllocate
+                }
+                return SecRandomCopyBytes(kSecRandomDefault, 32, baseAddress)
             }
-            return SecRandomCopyBytes(kSecRandomDefault, 32, baseAddress)
-        }
-        guard status == errSecSuccess else {
-            throw Secp256k1Model.Error.randomGenerationFailed(status: status)
-        }
-        if let scalar = try? ScalarModel(data32: data, requireNonZero: true) {
-            return scalar
+            guard status == errSecSuccess else {
+                throw Secp256k1Model.Error.randomGenerationFailed(status: status)
+            }
+            if let scalar = try? ScalarModel(data32: data, requireNonZero: true) {
+                return scalar
+            }
         }
     }
 }
