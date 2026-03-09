@@ -60,6 +60,9 @@ extension _OpalBase.Transaction {
         static func decode(from reader: inout Data.ReaderModel) throws -> Output {
             let value: UInt64 = try reader.readLittleEndian()
             let tokenPrefixAndLockingBytecodeLength = try reader.readCompactSize()
+            guard tokenPrefixAndLockingBytecodeLength.value <= UInt64(Int.max) else {
+                throw Data.Error.indexOutOfRange
+            }
             let tokenPrefixAndLockingBytecode = try reader.readData(count: Int(tokenPrefixAndLockingBytecodeLength.value))
             if tokenPrefixAndLockingBytecode.first == OpalBase.CashTokens.TokenPrefix.prefixToken {
                 let decoded = try OpalBase.CashTokens.TokenPrefix.decode(prefixPlusBytecode: tokenPrefixAndLockingBytecode)

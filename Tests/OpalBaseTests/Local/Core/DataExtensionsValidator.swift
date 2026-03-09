@@ -39,5 +39,13 @@ struct DataExtensionsValidator {
             _ = try Data(hexadecimalString: "abc")
         }
     }
-}
 
+    @Test("reader rejects negative read lengths")
+    func readerRejectsNegativeReadLengths() {
+        var reader = Data.ReaderModel(Data([0x01, 0x02, 0x03]))
+
+        #expect(throws: Data.ReaderModel.Error.negativeReadCount(-1)) {
+            _ = try reader.readData(count: -1)
+        }
+    }
+}
