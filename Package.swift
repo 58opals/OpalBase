@@ -34,19 +34,17 @@ let package = Package(
         .target(
             name: "OpalBaseTestSupport",
             dependencies: ["OpalBase"],
-            path: "Tests/OpalBaseTests/Shared"
+            path: "Tests/OpalBaseTestSupport"
         ),
         .testTarget(
             name: "OpalBaseLocalTests",
             dependencies: ["OpalBase", "OpalBaseTestSupport"],
-            path: "Tests/OpalBaseTests",
-            exclude: ["Network", "Shared"]
+            path: "Tests/OpalBaseLocalTests"
         ),
         .testTarget(
             name: "OpalBaseNetworkTests",
             dependencies: ["OpalBase", "OpalBaseTestSupport"],
-            path: "Tests/OpalBaseTests",
-            exclude: ["Local", "Shared"]
+            path: "Tests/OpalBaseNetworkTests"
         )
     ]
 )
