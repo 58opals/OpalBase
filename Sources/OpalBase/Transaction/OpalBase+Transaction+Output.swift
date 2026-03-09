@@ -12,7 +12,7 @@ extension _OpalBase.Transaction {
             CompactSizeModel(value: UInt64(lockingScript.count))
         }
         
-        /// Initializes a OpalBase.Transaction.Output instance.
+        /// Initializes an OpalBase.Transaction.Output instance.
         /// - Parameters:
         ///   - value: The number of satoshi to be transferred.
         ///   - lockingScript: The contents of the locking script.
@@ -23,7 +23,7 @@ extension _OpalBase.Transaction {
             self.tokenData = tokenData
         }
         
-        /// Initializes a OpalBase.Transaction.Output instance.
+        /// Initializes an OpalBase.Transaction.Output instance.
         /// - Parameters:
         ///   - value: The number of satoshi to be transferred.
         ///   - address: The address of the output's recipient.
@@ -47,9 +47,9 @@ extension _OpalBase.Transaction {
             return writer.data
         }
         
-        /// Decodes a OpalBase.Transaction.Output instance from Data.
+        /// Decodes an OpalBase.Transaction.Output instance from Data.
         /// - Parameter data: The data to decode from.
-        /// - Throws: `CompactSizeModel.Error` if decoding fails.
+        /// - Throws: `CompactSizeModel.Error` if the locking bytecode length prefix is invalid, `Data.Error` if the payload is truncated or the declared lengths exceed the available data, or `OpalBase.CashTokens.Error` if token-prefix decoding fails.
         /// - Returns: A tuple containing the decoded OpalBase.Transaction.Output and the number of bytes read.
         static func decode(from data: Data) throws -> (output: Output, bytesRead: Int) {
             var reader = Data.ReaderModel(data)

@@ -110,5 +110,106 @@ struct WalletOrchestrationValidator {
             try await wallet.applySnapshot(mismatchedSnapshot)
         }
     }
+
+    @Test("applySnapshot clears existing token metadata when snapshot omits it")
+    func applySnapshotClearsExistingTokenMetadataForLegacySnapshots() async throws {
+        let sourceWallet = try await AccountTestFixturesModel.makeWallet(accountIndices: [0])
+        let targetWallet = try await AccountTestFixturesModel.makeWallet(accountIndices: [0])
+        let staleCategory = try makeCategoryIdentifier(
+            hexadecimalString: "1111111111111111111111111111111111111111111111111111111111111111"
+        )
+        let staleMetadata = makeMetadata(
+            category: staleCategory,
+            name: "Stale Token",
+            symbol: "STALE",
+            lastUpdated: Date(timeIntervalSince1970: 1)
+        )
+
+        await targetWallet.upsertTokenMetadata([staleCategory: staleMetadata])
+
+        let snapshot = await sourceWallet.makeSnapshot()
+        let legacySnapshot = OpalBase.Wallet.Snapshot(
+            words: snapshot.words,
+            passphrase: snapshot.passphrase,
+            purpose: snapshot.purpose,
+            coinType: snapshot.coinType,
+            accounts: snapshot.accounts,
+            tokenMetadata: nil
+        )
+
+        try await targetWallet.applySnapshot(legacySnapshot)
+
+        #expect(await targetWallet.fetchTokenMetadata(for: staleCategory) == nil)
+        #expect((await targetWallet.makeTokenMetadataSnapshot()).byCategory.isEmpty)
+    }
+
+    @Test("applySnapshot replaces existing token metadata with snapshot contents")
+    func applySnapshotReplacesExistingTokenMetadata() async throws {
+        let sourceWallet = try await AccountTestFixturesModel.makeWallet(accountIndices: [0])
+        let targetWallet = try await AccountTestFixturesModel.makeWallet(accountIndices: [0])
+        let snapshotCategory = try makeCategoryIdentifier(
+            hexadecimalString: "2222222222222222222222222222222222222222222222222222222222222222"
+        )
+        let staleCategory = try makeCategoryIdentifier(
+            hexadecimalString: "3333333333333333333333333333333333333333333333333333333333333333"
+        )
+        let staleMetadata = makeMetadata(
+            category: staleCategory,
+            name: "Stale Token",
+            symbol: "STALE",
+            lastUpdated: Date(timeIntervalSince1970: 2)
+        )
+        let preexistingSnapshotCategoryMetadata = makeMetadata(
+            category: snapshotCategory,
+            name: "Old Snapshot Token",
+            symbol: "OLD",
+            lastUpdated: Date(timeIntervalSince1970: 3)
+        )
+        let snapshotMetadata = makeMetadata(
+            category: snapshotCategory,
+            name: "Snapshot Token",
+            symbol: "NEW",
+            lastUpdated: Date(timeIntervalSince1970: 4)
+        )
+
+        await targetWallet.upsertTokenMetadata([
+            staleCategory: staleMetadata,
+            snapshotCategory: preexistingSnapshotCategoryMetadata
+        ])
+        await sourceWallet.upsertTokenMetadata([snapshotCategory: snapshotMetadata])
+
+        let snapshot = await sourceWallet.makeSnapshot()
+        try await targetWallet.applySnapshot(snapshot)
+
+        #expect(await targetWallet.fetchTokenMetadata(for: staleCategory) == nil)
+        let restoredMetadata = try #require(
+            await targetWallet.fetchTokenMetadata(for: snapshotCategory)
+        )
+        #expect(restoredMetadata.name == "Snapshot Token")
+        #expect(restoredMetadata.symbol == "NEW")
+
+        let metadataSnapshot = await targetWallet.makeTokenMetadataSnapshot()
+        #expect(Set(metadataSnapshot.byCategory.keys) == Set([snapshotCategory.hexForDisplay]))
+    }
 }
 
+private func makeCategoryIdentifier(hexadecimalString: String) throws -> OpalBase.CashTokens.CategoryID {
+    try OpalBase.CashTokens.CategoryID(hexFromRPC: hexadecimalString)
+}
+
+private func makeMetadata(
+    category: OpalBase.CashTokens.CategoryID,
+    name: String,
+    symbol: String,
+    lastUpdated: Date
+) -> OpalBase.CashTokens.Metadata {
+    OpalBase.CashTokens.Metadata(
+        category: category,
+        name: name,
+        symbol: symbol,
+        decimals: 0,
+        iconURL: nil,
+        lastUpdated: lastUpdated,
+        source: .embedded
+    )
+}

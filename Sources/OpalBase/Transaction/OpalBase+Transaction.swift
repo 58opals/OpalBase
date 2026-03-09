@@ -16,7 +16,7 @@ extension OpalBase {
         public let outputs: [Output]
         public let lockTime: UInt32
         
-        /// Initializes a OpalBase.Transaction instance.
+        /// Initializes an OpalBase.Transaction instance.
         /// - Parameters:
         ///   - version: The transaction version.
         ///   - inputs: The list of inputs.
@@ -35,10 +35,10 @@ extension OpalBase {
             try makeSerializedTransaction(with: inputs)
         }
         
-        /// Decodes a OpalBase.Transaction instance from Data.
+        /// Decodes an OpalBase.Transaction instance from Data.
         /// - Parameter data: The data to decode from.
         /// - Returns: A tuple containing the decoded OpalBase.Transaction and the number of bytes read.
-        /// - Throws: `CompactSizeModel.Error` if decoding fails.
+        /// - Throws: `CompactSizeModel.Error` if an input or output count prefix is invalid, `Data.Error` if the payload is truncated or declared lengths exceed the available data, or `OpalBase.CashTokens.Error` if any output contains an invalid token prefix.
         public static func decode(from data: Data) throws -> (transaction: OpalBase.Transaction, bytesRead: Int) {
             var reader = Data.ReaderModel(data)
             let transaction = try decode(from: &reader)

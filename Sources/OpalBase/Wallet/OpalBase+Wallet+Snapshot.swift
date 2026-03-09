@@ -69,8 +69,7 @@ extension _OpalBase.Wallet {
         }
         self.accounts = updatedAccounts
         
-        if let tokenMetadata = snapshot.tokenMetadata {
-            await tokenMetadataStore.applySnapshot(tokenMetadata)
-        }
+        let tokenMetadata = snapshot.tokenMetadata ?? .init(byCategory: .init())
+        await tokenMetadataStore.applySnapshot(tokenMetadata)
     }
 }

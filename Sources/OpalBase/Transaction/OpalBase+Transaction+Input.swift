@@ -13,7 +13,7 @@ extension _OpalBase.Transaction {
             CompactSizeModel(value: UInt64(unlockingScript.count))
         }
         
-        /// Initializes a OpalBase.Transaction.Input instance.
+        /// Initializes an OpalBase.Transaction.Input instance.
         /// - Parameters:
         ///   - previousTransactionHash: The hash of the previous transaction.
         ///   - previousTransactionOutputIndex: The index of the previous output.
@@ -38,9 +38,9 @@ extension _OpalBase.Transaction {
             return writer.data
         }
         
-        /// Decodes a OpalBase.Transaction.Input instance from Data.
+        /// Decodes an OpalBase.Transaction.Input instance from Data.
         /// - Parameter data: The data to decode from.
-        /// - Throws: `CompactSizeModel.Error` if decoding fails.
+        /// - Throws: `CompactSizeModel.Error` if the unlocking script length prefix is invalid, or `Data.Error` if the payload is truncated or the declared lengths exceed the available data.
         /// - Returns: A tuple containing the decoded OpalBase.Transaction.Input and the number of bytes read.
         static func decode(from data: Data) throws -> (input: Input, bytesRead: Int) {
             var reader = Data.ReaderModel(data)
