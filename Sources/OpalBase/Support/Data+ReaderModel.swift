@@ -29,6 +29,7 @@ extension Data {
         }
         
         mutating func readData(count: Int) throws -> Data {
+            guard count >= 0 else { throw Error.negativeReadCount(count) }
             guard let nextIndex = data.index(index, offsetBy: count, limitedBy: data.endIndex) else {
                 throw Data.Error.indexOutOfRange
             }
@@ -51,9 +52,10 @@ extension Data {
             index = nextIndex
         }
         
-        enum Error: Swift.Error {
+        enum Error: Swift.Error, Equatable {
             case endOfData
             case negativeAdvance(Int)
+            case negativeReadCount(Int)
         }
     }
 }
