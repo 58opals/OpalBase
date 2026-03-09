@@ -25,6 +25,12 @@ struct NetworkFulcrumTransactionConfirmationCountValidator {
         )
         #expect(negativeHeight == nil)
 
+        let zeroHeight = OpalBase.Network.Fulcrum.TransactionClient.calculateConfirmationCount(
+            transactionHeight: 0,
+            tipHeight: 10
+        )
+        #expect(zeroHeight == nil)
+
         let futureTransaction = OpalBase.Network.Fulcrum.TransactionClient.calculateConfirmationCount(
             transactionHeight: 150,
             tipHeight: 140
@@ -53,4 +59,3 @@ struct NetworkFulcrumTransactionConfirmationCountValidator {
         #expect(negativeHeight == nil)
     }
 }
-

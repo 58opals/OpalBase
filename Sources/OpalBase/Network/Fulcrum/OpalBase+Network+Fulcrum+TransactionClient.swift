@@ -70,7 +70,7 @@ extension _OpalBase.Network.Fulcrum {
             transactionHeight: Height,
             tipHeight: Height
         ) -> UInt? {
-            guard transactionHeight >= 0 else { return nil }
+            guard transactionHeight > 0 else { return nil }
             guard tipHeight >= transactionHeight else { return nil }
             
             let confirmationCount = tipHeight - transactionHeight + 1
@@ -78,7 +78,7 @@ extension _OpalBase.Network.Fulcrum {
         }
         
         private static func resolveTransactionHeight<Height: BinaryInteger>(_ height: Height) -> Int? {
-            guard height >= 0 else { return nil }
+            guard height > 0 else { return nil }
             if let resolved = Int(exactly: height) {
                 return resolved
             }

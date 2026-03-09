@@ -145,7 +145,7 @@ print("Broadcast \(hash.reverseOrder.hexadecimalString) with fee \(result.fee.ui
 `OpalBase.Wallet.Fulcrum.Monitor` keeps an `OpalBase.Account` synchronized by combining address subscriptions and block header updates, and exposes events as an `AsyncThrowingStream`.
 
 ```swift
-let monitor = fulcrum.makeMonitor(for: account, blockHeaderReader: blockHeaderReader)
+let monitor = await fulcrum.makeMonitor(for: account, blockHeaderReader: blockHeaderReader)
 let events = await monitor.makeEventStream() // auto-starts by default
 
 Task.detached {

@@ -107,11 +107,9 @@ struct NetworkFulcrumTransactionClientReaderValidator {
             }
 
             let failure = try #require(thrownError as? OpalBase.Network.Error)
-            switch failure.reason {
-            case .server:
-                #expect(true)
-            default:
+            guard case .server = failure.reason else {
                 Issue.record("Expected a server failure but received \(failure.reason)")
+                return
             }
             #expect(failure.message != nil)
         }
@@ -131,11 +129,13 @@ struct NetworkFulcrumTransactionClientReaderValidator {
             }
 
             let failure = try #require(thrownError as? OpalBase.Network.Error)
-            switch failure.reason {
-            case .server, .protocolViolation:
-                #expect(true)
-            default:
-                Issue.record("Expected a server or protocol failure but received \(failure.reason)")
+            guard case .server = failure.reason else {
+                guard case .protocolViolation = failure.reason else {
+                    Issue.record("Expected a server or protocol failure but received \(failure.reason)")
+                    return
+                }
+                #expect(failure.message != nil)
+                return
             }
             #expect(failure.message != nil)
         }
@@ -158,4 +158,3 @@ struct NetworkFulcrumTransactionClientReaderValidator {
         }
     }
 }
-

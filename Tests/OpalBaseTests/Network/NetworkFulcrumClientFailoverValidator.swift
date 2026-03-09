@@ -54,7 +54,7 @@ struct NetworkFulcrumClientFailoverValidator {
         }
     }
     
-    @Test("skips an unhealthy bootstrap server and fulfils requests", .timeLimit(.minutes(1)))
+    @Test("skips an unhealthy bootstrap server and fulfills requests", .timeLimit(.minutes(1)))
     func requestSucceedsAfterFailover() async throws {
         guard NetworkTestClient.isExtendedLiveNetworkEnabled else { return }
         let configuration = OpalBase.Network.Configuration(
@@ -151,4 +151,3 @@ struct NetworkFulcrumClientFailoverValidator {
         }
     }
 }
-

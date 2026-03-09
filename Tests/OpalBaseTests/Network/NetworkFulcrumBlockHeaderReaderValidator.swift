@@ -137,8 +137,6 @@ struct NetworkFulcrumBlockHeaderReaderValidator {
                 if let nextSnapshot = try await followUp {
                     #expect(nextSnapshot.height >= initialSnapshot.height)
                     #expect(!nextSnapshot.headerHexadecimal.isEmpty)
-                } else {
-                    #expect(true, "Stream ended cleanly after client stop")
                 }
             } catch let failure as OpalBase.Network.Error {
                 #expect(!(failure.message == nil) || failure.reason == .cancelled)
@@ -146,4 +144,3 @@ struct NetworkFulcrumBlockHeaderReaderValidator {
         }
     }
 }
-
