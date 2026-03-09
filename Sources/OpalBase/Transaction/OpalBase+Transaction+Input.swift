@@ -52,6 +52,9 @@ extension _OpalBase.Transaction {
             let previousTransactionHash = try reader.readData(count: 32)
             let previousTransactionIndex: UInt32 = try reader.readLittleEndian()
             let unlockingScriptLength = try reader.readCompactSize()
+            guard unlockingScriptLength.value <= UInt64(Int.max) else {
+                throw Data.Error.indexOutOfRange
+            }
             let unlockingScript = try reader.readData(count: Int(unlockingScriptLength.value))
             let sequence: UInt32 = try reader.readLittleEndian()
             return Input(previousTransactionHash: .init(naturalOrder: previousTransactionHash),

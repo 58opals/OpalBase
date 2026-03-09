@@ -73,6 +73,36 @@ struct TransactionDecodeValidator {
         }
     }
     
+    @Test("decode rejects oversized unlocking script lengths")
+    func transactionDecodeRejectsOversizedUnlockingScriptLength() throws {
+        var malformed = Data()
+        malformed.append(contentsOf: [0x01, 0x00, 0x00, 0x00]) // version
+        malformed.append(0x01) // input count
+        malformed.append(Data(repeating: 0x00, count: 32)) // previous tx hash
+        malformed.append(contentsOf: [0x00, 0x00, 0x00, 0x00]) // output index
+        malformed.append(0xff) // CompactSize uint64 prefix
+        malformed.append(Data(repeating: 0xff, count: 8)) // UInt64.max length
+        
+        #expect(throws: Data.Error.indexOutOfRange) {
+            _ = try OpalBase.Transaction.decode(from: malformed)
+        }
+    }
+    
+    @Test("decode rejects oversized output locking bytecode lengths")
+    func transactionDecodeRejectsOversizedOutputLength() throws {
+        var malformed = Data()
+        malformed.append(contentsOf: [0x01, 0x00, 0x00, 0x00]) // version
+        malformed.append(0x00) // input count
+        malformed.append(0x01) // output count
+        malformed.append(Data(repeating: 0x00, count: 8)) // output value
+        malformed.append(0xff) // CompactSize uint64 prefix
+        malformed.append(Data(repeating: 0xff, count: 8)) // UInt64.max length
+        
+        #expect(throws: Data.Error.indexOutOfRange) {
+            _ = try OpalBase.Transaction.decode(from: malformed)
+        }
+    }
+    
     @Test("block decoding returns relative byte count")
     func blockDecodeBytesReadMatchesSliceLength() throws {
         let header = OpalBase.Block.Header(version: 2,
@@ -104,4 +134,3 @@ struct TransactionDecodeValidator {
         #expect(bytesRead == encoded.count)
     }
 }
-

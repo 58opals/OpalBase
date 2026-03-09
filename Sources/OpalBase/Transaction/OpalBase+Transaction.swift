@@ -48,12 +48,18 @@ extension OpalBase {
         static func decode(from reader: inout Data.ReaderModel) throws -> OpalBase.Transaction {
             let version: UInt32 = try reader.readLittleEndian()
             let inputsCount = try reader.readCompactSize()
-            let inputs = try (0..<inputsCount.value).map { _ -> Input in
+            guard inputsCount.value <= UInt64(Int.max) else {
+                throw Data.Error.indexOutOfRange
+            }
+            let inputs = try (0..<Int(inputsCount.value)).map { _ -> Input in
                 try Input.decode(from: &reader)
             }
             
             let outputsCount = try reader.readCompactSize()
-            let outputs = try (0..<outputsCount.value).map { _ -> Output in
+            guard outputsCount.value <= UInt64(Int.max) else {
+                throw Data.Error.indexOutOfRange
+            }
+            let outputs = try (0..<Int(outputsCount.value)).map { _ -> Output in
                 try Output.decode(from: &reader)
             }
             
