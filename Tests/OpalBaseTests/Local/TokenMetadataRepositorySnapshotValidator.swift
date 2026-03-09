@@ -2,6 +2,7 @@
 
 import Foundation
 import Testing
+import OpalBaseTestSupport
 @testable import OpalBase
 
 @Suite("Token metadata store snapshots", .tags(.unit, .cashTokens))

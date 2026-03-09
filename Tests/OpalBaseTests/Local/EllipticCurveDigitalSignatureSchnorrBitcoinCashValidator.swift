@@ -2,6 +2,7 @@
 
 import Foundation
 import Testing
+import OpalBaseTestSupport
 @testable import OpalBase
 
 @Suite("OpalBase.Cryptography.ECDSA OpalBase.Cryptography.Schnorr BCH", .tags(.unit))

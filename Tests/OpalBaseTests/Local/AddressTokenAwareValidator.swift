@@ -2,6 +2,7 @@
 
 import Foundation
 import Testing
+import OpalBaseTestSupport
 @testable import OpalBase
 
 @Suite("Token-aware CashAddr", .tags(.unit, .address, .cashTokens))

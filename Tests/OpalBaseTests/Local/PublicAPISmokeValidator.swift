@@ -2,6 +2,7 @@
 
 import Foundation
 import Testing
+import OpalBaseTestSupport
 import OpalBase
 
 @Suite("Public API smoke", .tags(.unit))

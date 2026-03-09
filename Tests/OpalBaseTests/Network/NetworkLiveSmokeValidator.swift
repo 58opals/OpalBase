@@ -2,6 +2,7 @@
 
 import Foundation
 import Testing
+import OpalBaseTestSupport
 @testable import OpalBase
 
 @Suite("OpalBase.Network live smoke", .tags(.integration, .network))

@@ -2,6 +2,7 @@
 
 import Foundation
 import Testing
+import OpalBaseTestSupport
 @testable import OpalBase
 
 @Suite("OpalBase.Cryptography.Secp256k1 endomorphism", .tags(.unit, .cryptography))

@@ -1,10 +1,10 @@
-// AddressBookCashTokensTestData.swift
+// AddressBookCashTokensSupportModel.swift
 
 import Foundation
 @testable import OpalBase
 
-enum AddressBookCashTokensTestData {
-    static func makeAddressBook() async throws -> OpalBase.Address.Book {
+public enum AddressBookCashTokensSupportModel {
+    public static func makeAddressBook() async throws -> OpalBase.Address.Book {
         let mnemonic = try OpalBase.Mnemonic(words: [
             "abandon", "abandon", "abandon", "abandon", "abandon", "abandon",
             "abandon", "abandon", "abandon", "abandon", "abandon", "about",

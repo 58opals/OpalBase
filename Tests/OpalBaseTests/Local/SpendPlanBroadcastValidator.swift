@@ -2,6 +2,7 @@
 
 import Foundation
 import Testing
+import OpalBaseTestSupport
 @testable import OpalBase
 
 @Suite("Spend plan broadcast", .tags(.unit, .wallet, .transaction, .cashTokens))

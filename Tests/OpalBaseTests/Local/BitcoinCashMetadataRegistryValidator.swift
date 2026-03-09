@@ -2,6 +2,7 @@
 
 import Foundation
 import Testing
+import OpalBaseTestSupport
 @testable import OpalBase
 
 @Suite("Bitcoin Cash Metadata Registry", .tags(.unit, .cashTokens))

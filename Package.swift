@@ -31,17 +31,22 @@ let package = Package(
                     .process("Resources/BIP-0039/Korean.txt")
                 ]
                ),
+        .target(
+            name: "OpalBaseTestSupport",
+            dependencies: ["OpalBase"],
+            path: "Tests/OpalBaseTests/Shared"
+        ),
         .testTarget(
             name: "OpalBaseLocalTests",
-            dependencies: ["OpalBase"],
+            dependencies: ["OpalBase", "OpalBaseTestSupport"],
             path: "Tests/OpalBaseTests",
-            exclude: ["Network"]
+            exclude: ["Network", "Shared"]
         ),
         .testTarget(
             name: "OpalBaseNetworkTests",
-            dependencies: ["OpalBase"],
+            dependencies: ["OpalBase", "OpalBaseTestSupport"],
             path: "Tests/OpalBaseTests",
-            exclude: ["Local"]
+            exclude: ["Local", "Shared"]
         )
     ]
 )

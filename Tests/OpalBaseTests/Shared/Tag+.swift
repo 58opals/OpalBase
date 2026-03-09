@@ -2,7 +2,7 @@
 
 import Testing
 
-extension Tag {
+public extension Tag {
     @Tag static var unit: Self
     @Tag static var integration: Self
     @Tag static var network: Self

@@ -3,6 +3,7 @@
 import Foundation
 import SwiftFulcrum
 import Testing
+import OpalBaseTestSupport
 @testable import OpalBase
 
 @Suite("OpalBase.Network.ServerCatalog", .tags(.unit, .network))

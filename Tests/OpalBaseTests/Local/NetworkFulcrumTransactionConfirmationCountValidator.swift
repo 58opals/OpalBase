@@ -1,6 +1,7 @@
 // NetworkFulcrumTransactionConfirmationCountValidator.swift
 
 import Testing
+import OpalBaseTestSupport
 @testable import OpalBase
 
 @Suite("OpalBase.Network.Fulcrum.TransactionClient confirmation count", .tags(.unit))

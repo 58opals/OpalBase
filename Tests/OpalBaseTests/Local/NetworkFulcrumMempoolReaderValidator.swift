@@ -3,6 +3,7 @@
 import Foundation
 import Testing
 import SwiftFulcrum
+import OpalBaseTestSupport
 @testable import OpalBase
 
 @Suite("OpalBase.Network.Fulcrum.MempoolReader", .tags(.unit, .network))

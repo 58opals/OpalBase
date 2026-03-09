@@ -1,6 +1,7 @@
 // AddressBookUnspentTransactionOutputRefreshNetworkValidator.swift
 
 import Foundation
+import OpalBaseTestSupport
 import Testing
 @testable import OpalBase
 
@@ -13,7 +14,7 @@ struct AddressBookUnspentTransactionOutputRefreshNetworkValidator {
     @Test("listunspent token data reaches the UTXO store", .timeLimit(.minutes(1)))
     func ingestNetworkTokenUnspentTransactionOutputs() async throws {
         guard NetworkTestClient.isExtendedLiveNetworkEnabled else { return }
-        let book = try await AddressBookCashTokensTestData.makeAddressBook()
+        let book = try await AddressBookCashTokensSupportModel.makeAddressBook()
         let address = try OpalBase.Address(Self.tokenCashAddress)
 
         let configuration = OpalBase.Network.Configuration(serverURLs: [Self.primaryServerAddress, Self.backupServerAddress])

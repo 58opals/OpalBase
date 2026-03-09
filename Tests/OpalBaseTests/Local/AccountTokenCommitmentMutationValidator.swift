@@ -2,6 +2,7 @@
 
 import Foundation
 import Testing
+import OpalBaseTestSupport
 @testable import OpalBase
 
 @Suite("OpalBase.Account Token Commitment Mutation", .tags(.unit, .wallet, .cashTokens))
