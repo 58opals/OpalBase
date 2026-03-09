@@ -4,8 +4,8 @@ import Foundation
 
 extension _OpalBase.Address.Book {
     init(from snapshot: Snapshot,
-         rootExtendedPrivateKey: OpalBase.PrivateKey.ExtendedModel? = nil,
-         rootExtendedPublicKey: OpalBase.PublicKey.ExtendedModel? = nil,
+         rootExtendedPrivateKey: OpalBase.PrivateKey.Extended? = nil,
+         rootExtendedPublicKey: OpalBase.PublicKey.Extended? = nil,
          purpose: OpalBase.DerivationPath.Purpose,
          coinType: OpalBase.DerivationPath.CoinType,
          account: OpalBase.DerivationPath.Account,

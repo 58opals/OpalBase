@@ -41,18 +41,18 @@ extension _OpalBase.CashTokens {
                 tokenBitfield |= fungibleAmountBit
             }
             
-            var writer = Data.WriterModel()
+            var writer = Data.Writer()
             writer.writeByte(prefixToken)
             writer.writeData(tokenData.category.transactionOrderData)
             writer.writeByte(tokenBitfield)
             
             if !nonFungibleTokenCommitment.isEmpty {
-                writer.writeCompactSize(CompactSizeModel(value: UInt64(nonFungibleTokenCommitment.count)))
+                writer.writeCompactSize(CompactSize(value: UInt64(nonFungibleTokenCommitment.count)))
                 writer.writeData(nonFungibleTokenCommitment)
             }
             
             if let amount = tokenData.amount {
-                writer.writeCompactSize(CompactSizeModel(value: amount))
+                writer.writeCompactSize(CompactSize(value: amount))
             }
             
             return writer.data
@@ -68,7 +68,7 @@ extension _OpalBase.CashTokens {
                                                      actual: prefixPlusBytecode.count)
             }
             
-            var reader = Data.ReaderModel(prefixPlusBytecode)
+            var reader = Data.Reader(prefixPlusBytecode)
             try reader.advance(by: 1)
             let categoryData = try reader.readData(count: categoryIdentifierByteCount)
             let tokenBitfield = try readTokenBitfield(from: &reader)
@@ -128,7 +128,7 @@ extension _OpalBase.CashTokens {
             return (tokenData, reader.remainingData)
         }
         
-        private static func readTokenBitfield(from reader: inout Data.ReaderModel) throws -> UInt8 {
+        private static func readTokenBitfield(from reader: inout Data.Reader) throws -> UInt8 {
             guard let tokenBitfield = reader.remainingData.first else {
                 throw Error.invalidTokenPrefixLength(expectedMinimum: minimumPrefixLength,
                                                      actual: reader.bytesRead)
@@ -137,16 +137,16 @@ extension _OpalBase.CashTokens {
             return tokenBitfield
         }
         
-        private static func readCanonicalCompactSize(from reader: inout Data.ReaderModel) throws -> UInt64 {
-            let compactSize: CompactSizeModel
+        private static func readCanonicalCompactSize(from reader: inout Data.Reader) throws -> UInt64 {
+            let compactSize: CompactSize
             let bytesRead: Int
             do {
-                (compactSize, bytesRead) = try CompactSizeModel.decode(from: reader.remainingData)
+                (compactSize, bytesRead) = try CompactSize.decode(from: reader.remainingData)
             } catch {
                 throw Error.invalidTokenPrefixCompactSize
             }
             
-            let canonicalLength = CompactSizeModel(value: compactSize.value).encode().count
+            let canonicalLength = CompactSize(value: compactSize.value).encode().count
             guard bytesRead == canonicalLength else {
                 throw Error.invalidTokenPrefixCompactSize
             }

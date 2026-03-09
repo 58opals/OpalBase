@@ -4,7 +4,7 @@ import Foundation
 
 extension OpalBase.Cryptography.Secp256k1 {
     enum Constant {
-        @usableFromInline static let p = UInt256Model(
+        @usableFromInline static let p = UInt256(
             limbs: [
                 0xfffffffefffffc2f,
                 0xffffffffffffffff,
@@ -13,7 +13,7 @@ extension OpalBase.Cryptography.Secp256k1 {
             ]
         )
         
-        @usableFromInline static let n = UInt256Model(
+        @usableFromInline static let n = UInt256(
             limbs: [
                 0xbfd25e8cd0364141,
                 0xbaaedce6af48a03b,
@@ -22,7 +22,7 @@ extension OpalBase.Cryptography.Secp256k1 {
             ]
         )
         
-        @usableFromInline static let Gx = UInt256Model(
+        @usableFromInline static let Gx = UInt256(
             limbs: [
                 0x59f2815b16f81798,
                 0x029bfcdb2dce28d9,
@@ -31,7 +31,7 @@ extension OpalBase.Cryptography.Secp256k1 {
             ]
         )
         
-        @usableFromInline static let Gy = UInt256Model(
+        @usableFromInline static let Gy = UInt256(
             limbs: [
                 0x9c47d08ffb10d4b8,
                 0xfd17b448a6855419,
@@ -40,7 +40,7 @@ extension OpalBase.Cryptography.Secp256k1 {
             ]
         )
         
-        @usableFromInline static let endomorphismBeta = UInt256Model(
+        @usableFromInline static let endomorphismBeta = UInt256(
             limbs: [
                 0xc1396c28719501ee,
                 0x9cf0497512f58995,
@@ -49,7 +49,7 @@ extension OpalBase.Cryptography.Secp256k1 {
             ]
         )
         
-        @usableFromInline static let endomorphismLambda = UInt256Model(
+        @usableFromInline static let endomorphismLambda = UInt256(
             limbs: [
                 0xdf02967c1b23bd72,
                 0x122e22ea20816678,
@@ -58,7 +58,7 @@ extension OpalBase.Cryptography.Secp256k1 {
             ]
         )
         
-        @usableFromInline static let endomorphismCoefficientOne = UInt256Model(
+        @usableFromInline static let endomorphismCoefficientOne = UInt256(
             limbs: [
                 0xe893209a45dbb031,
                 0x3daa8a1471e8ca7f,
@@ -67,7 +67,7 @@ extension OpalBase.Cryptography.Secp256k1 {
             ]
         )
         
-        @usableFromInline static let endomorphismCoefficientTwo = UInt256Model(
+        @usableFromInline static let endomorphismCoefficientTwo = UInt256(
             limbs: [
                 0x1571b4ae8ac47f71,
                 0x221208ac9df506c6,
@@ -76,7 +76,7 @@ extension OpalBase.Cryptography.Secp256k1 {
             ]
         )
         
-        @usableFromInline static let endomorphismMinusBasisOne = UInt256Model(
+        @usableFromInline static let endomorphismMinusBasisOne = UInt256(
             limbs: [
                 0x6f547fa90abfe4c3,
                 0xe4437ed6010e8828,
@@ -85,7 +85,7 @@ extension OpalBase.Cryptography.Secp256k1 {
             ]
         )
         
-        @usableFromInline static let endomorphismMinusBasisTwo = UInt256Model(
+        @usableFromInline static let endomorphismMinusBasisTwo = UInt256(
             limbs: [
                 0xd765cda83db1562c,
                 0x8a280ac50774346d,

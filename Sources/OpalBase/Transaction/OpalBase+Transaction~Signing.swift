@@ -45,7 +45,7 @@ extension _OpalBase.Transaction {
                     input.previousTransactionOutputIndex.littleEndianData
                 )
             }
-            previousOutputsHash = HASH256Model.hash(data)
+            previousOutputsHash = HASH256.hash(data)
         }
         preimage.append(previousOutputsHash)
         
@@ -67,7 +67,7 @@ extension _OpalBase.Transaction {
             for input in inputs {
                 data.append(input.sequence.littleEndianData)
             }
-            sequenceNumbersHash = HASH256Model.hash(data)
+            sequenceNumbersHash = HASH256.hash(data)
         } else {
             sequenceNumbersHash = Data(repeating: 0x00, count: 32)
         }
@@ -82,7 +82,7 @@ extension _OpalBase.Transaction {
         
         let tokenPrefixData = try outputBeingSpent.makeTokenPrefixData()
         let coveredLockingScript = tokenPrefixData + outputBeingSpent.lockingScript
-        let coveredLockingScriptLength = CompactSizeModel(value: UInt64(coveredLockingScript.count)).encode()
+        let coveredLockingScriptLength = CompactSize(value: UInt64(coveredLockingScript.count)).encode()
         preimage.append(coveredLockingScriptLength)
         preimage.append(coveredLockingScript)
         
@@ -99,12 +99,12 @@ extension _OpalBase.Transaction {
             for output in outputs {
                 data.append(try output.encode())
             }
-            transactionOutputsHash = HASH256Model.hash(data)
+            transactionOutputsHash = HASH256.hash(data)
         case .none:
             transactionOutputsHash = Data(repeating: 0x00, count: 32)
         case .single:
             let outputWithTheSameIndexAsTheInputBeingSigned = try outputs[index].encode()
-            transactionOutputsHash = HASH256Model.hash(outputWithTheSameIndexAsTheInputBeingSigned)
+            transactionOutputsHash = HASH256.hash(outputWithTheSameIndexAsTheInputBeingSigned)
         }
         preimage.append(transactionOutputsHash)
         
@@ -124,7 +124,7 @@ private extension _OpalBase.Transaction {
         for output in outputs {
             data.append(try output.encode())
         }
-        return HASH256Model.hash(data)
+        return HASH256.hash(data)
     }
 }
 

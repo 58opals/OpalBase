@@ -104,7 +104,7 @@ private extension OpalBase.CashTokens.BCMR.Client.AuthchainResolver {
             throw Error.scriptHashReaderUnavailable(transactionHash)
         }
         
-        let scriptHash = SHA256Model.hash(lockingScript).reversedData.hexadecimalString
+        let scriptHash = SHA256.hash(lockingScript).reversedData.hexadecimalString
         return try await scriptHashReader.fetchHistory(
             forScriptHash: scriptHash,
             includeUnconfirmed: true

@@ -20,7 +20,7 @@ extension _OpalBase.Address.Book {
         let sortedUTXOs = sortSpendableUTXOs(by: { $0.value > $1.value },
                                              tokenSelectionPolicy: configuration.tokenSelectionPolicy)
         let minimumRelayFeeRate = OpalBase.Transaction.minimumRelayFeeRate
-        let selector = CoinSelectorModel(utxos: sortedUTXOs,
+        let selector = CoinSelector(utxos: sortedUTXOs,
                                     configuration: configuration,
                                     targetAmount: targetAmount.uint64,
                                     feePerByte: feePerByte,

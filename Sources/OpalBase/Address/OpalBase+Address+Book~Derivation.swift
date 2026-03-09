@@ -13,7 +13,7 @@ extension _OpalBase.Address.Book {
             accountIndex
         ])
         let accountCompressedPublicKey = try OpalBase.PublicKey(privateKey: .init(data: accountExtendedPrivateKey.privateKey)).compressedData
-        let accountFingerprint = Data(HASH160Model.hash(accountCompressedPublicKey).prefix(4))
+        let accountFingerprint = Data(HASH160.hash(accountCompressedPublicKey).prefix(4))
         
         for usage in [OpalBase.DerivationPath.Usage.receiving, .change] {
             let usageExtendedPrivateKey = try accountExtendedPrivateKey.deriveNonHardenedChildUsingParentKey(
@@ -22,7 +22,7 @@ extension _OpalBase.Address.Book {
                 parentFingerprint: accountFingerprint
             )
             let usageCompressedPublicKey = try OpalBase.PublicKey(privateKey: .init(data: usageExtendedPrivateKey.privateKey)).compressedData
-            let usageFingerprint = Data(HASH160Model.hash(usageCompressedPublicKey).prefix(4))
+            let usageFingerprint = Data(HASH160.hash(usageCompressedPublicKey).prefix(4))
             usageDerivationCache[usage] = .init(baseExtendedPrivateKey: usageExtendedPrivateKey,
                                                 baseCompressedPublicKey: usageCompressedPublicKey,
                                                 baseFingerprint: usageFingerprint)
@@ -53,7 +53,7 @@ extension _OpalBase.Address.Book {
         
         let derivationPath = try createDerivationPath(usage: usage, index: index)
         
-        let derivedPublicKey: OpalBase.PublicKey.ExtendedModel
+        let derivedPublicKey: OpalBase.PublicKey.Extended
         if let extendedPrivateKey = rootExtendedPrivateKey {
             derivedPublicKey = try extendedPrivateKey.deriveChildPublicKey(at: derivationPath)
         } else {

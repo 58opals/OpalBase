@@ -25,9 +25,9 @@ extension _OpalBase.Transaction {
             
             for node in branch {
                 if index & 1 == 1 {
-                    current = HASH256Model.hash(node + current)
+                    current = HASH256.hash(node + current)
                 } else {
-                    current = HASH256Model.hash(current + node)
+                    current = HASH256.hash(current + node)
                 }
                 index >>= 1
             }

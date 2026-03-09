@@ -4,13 +4,13 @@ import Foundation
 
 extension _OpalBase.Block {
     public struct Target: Comparable, Sendable {
-        let value: LargeUnsignedIntegerModel
+        let value: LargeUnsignedInteger
 
         public init(data: Data) {
-            self.value = LargeUnsignedIntegerModel(data)
+            self.value = LargeUnsignedInteger(data)
         }
 
-        init(_ value: LargeUnsignedIntegerModel) {
+        init(_ value: LargeUnsignedInteger) {
             self.value = value
         }
 

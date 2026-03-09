@@ -9,8 +9,8 @@ import OpalBaseTestSupport
 struct SpendPlanBroadcastValidator {
     @Test("buildAndBroadcast completes spend reservations on success")
     func spendPlanBuildAndBroadcastCompletesReservation() async throws {
-        let account = try await AccountTestFixturesModel.makeAccount()
-        _ = try await AccountTestFixturesModel.addUnspentOutput(
+        let account = try await AccountTestFixtures.makeAccount()
+        _ = try await AccountTestFixtures.addUnspentOutput(
             to: account,
             value: 45_000,
             hashByte: 0x71
@@ -18,14 +18,14 @@ struct SpendPlanBroadcastValidator {
         let payment = OpalBase.Account.Payment(
             recipients: [
                 .init(
-                    address: try OpalBase.Address(AccountTestFixturesModel.standardAddressString),
+                    address: try OpalBase.Address(AccountTestFixtures.standardAddressString),
                     amount: try OpalBase.Satoshi(15_000)
                 )
             ]
         )
         let plan = try await account.prepareSpend(payment)
 
-        let expectedHash = AccountTestFixturesModel.makeHash(byte: 0x72)
+        let expectedHash = AccountTestFixtures.makeHash(byte: 0x72)
         let handler = TransactionHandlingTestActor(
             broadcastResult: .success(expectedHash.reverseOrder.hexadecimalString)
         )
@@ -43,8 +43,8 @@ struct SpendPlanBroadcastValidator {
 
     @Test("buildAndBroadcast maps spend broadcast failures and keeps reservation active")
     func spendPlanBuildAndBroadcastMapsFailures() async throws {
-        let account = try await AccountTestFixturesModel.makeAccount()
-        _ = try await AccountTestFixturesModel.addUnspentOutput(
+        let account = try await AccountTestFixtures.makeAccount()
+        _ = try await AccountTestFixtures.addUnspentOutput(
             to: account,
             value: 35_000,
             hashByte: 0x73
@@ -52,7 +52,7 @@ struct SpendPlanBroadcastValidator {
         let payment = OpalBase.Account.Payment(
             recipients: [
                 .init(
-                    address: try OpalBase.Address(AccountTestFixturesModel.standardAddressString),
+                    address: try OpalBase.Address(AccountTestFixtures.standardAddressString),
                     amount: try OpalBase.Satoshi(12_000)
                 )
             ]
@@ -84,16 +84,16 @@ struct SpendPlanBroadcastValidator {
 
     @Test("token spend buildAndBroadcast supports success and failure mapping")
     func tokenSpendPlanBuildAndBroadcastSupportsSuccessAndFailure() async throws {
-        let account = try await AccountTestFixturesModel.makeAccount()
+        let account = try await AccountTestFixtures.makeAccount()
         let category = try OpalBase.CashTokens.CategoryID(transactionOrderData: Data(repeating: 0x74, count: 32))
         let tokenData = OpalBase.CashTokens.TokenData(category: category, amount: 100, nft: nil)
-        _ = try await AccountTestFixturesModel.addUnspentOutput(
+        _ = try await AccountTestFixtures.addUnspentOutput(
             to: account,
             value: 20_000,
             tokenData: tokenData,
             hashByte: 0x75
         )
-        _ = try await AccountTestFixturesModel.addUnspentOutput(
+        _ = try await AccountTestFixtures.addUnspentOutput(
             to: account,
             value: 90_000,
             hashByte: 0x76
@@ -101,7 +101,7 @@ struct SpendPlanBroadcastValidator {
         let transfer = OpalBase.Account.TokenTransfer(
             recipients: [
                 .init(
-                    address: try OpalBase.Address(AccountTestFixturesModel.tokenAwareAddressString),
+                    address: try OpalBase.Address(AccountTestFixtures.tokenAwareAddressString),
                     amount: try OpalBase.Satoshi(1_000),
                     tokenData: .init(category: category, amount: 40, nft: nil)
                 )
@@ -109,7 +109,7 @@ struct SpendPlanBroadcastValidator {
         )
 
         let successPlan = try await account.prepareTokenSpend(transfer)
-        let expectedHash = AccountTestFixturesModel.makeHash(byte: 0x77)
+        let expectedHash = AccountTestFixtures.makeHash(byte: 0x77)
         let successHandler = TransactionHandlingTestActor(
             broadcastResult: .success(expectedHash.reverseOrder.hexadecimalString)
         )

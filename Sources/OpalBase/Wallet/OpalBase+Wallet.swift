@@ -31,7 +31,7 @@ extension OpalBase {
             self.coinType = snapshot.coinType
             self.id = [self.mnemonic.seed, self.purpose.hardenedIndex.data, self.coinType.hardenedIndex.data].generateID()
             
-            let rootExtendedPrivateKey = OpalBase.PrivateKey.ExtendedModel(rootKey: try .init(seed: self.mnemonic.seed))
+            let rootExtendedPrivateKey = OpalBase.PrivateKey.Extended(rootKey: try .init(seed: self.mnemonic.seed))
             for accountSnap in snapshot.accounts {
                 let account = try await OpalBase.Account(from: accountSnap,
                                                          rootExtendedPrivateKey: rootExtendedPrivateKey,
@@ -58,7 +58,7 @@ extension _OpalBase.Wallet {
     public func addAccount(unhardenedIndex: UInt32) async throws {
         let derivationPathAccount = try OpalBase.DerivationPath.Account(rawIndexInteger: unhardenedIndex)
         
-        let rootExtendedPrivateKey = OpalBase.PrivateKey.ExtendedModel(rootKey: try .init(seed: mnemonic.seed))
+        let rootExtendedPrivateKey = OpalBase.PrivateKey.Extended(rootKey: try .init(seed: mnemonic.seed))
         let account = try await OpalBase.Account(rootExtendedPrivateKey: rootExtendedPrivateKey,
                                                  purpose: purpose,
                                                  coinType: coinType,

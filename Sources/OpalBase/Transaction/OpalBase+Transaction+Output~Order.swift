@@ -3,14 +3,16 @@
 import Foundation
 
 extension _OpalBase.Transaction.Output {
-    /// Returns the provided outputs ordered according to BIP-69.
+    /// Returns the provided outputs using BIP-69 value and bytecode ordering.
     ///
     /// The specification requires sorting by the output value (ascending) and
-    /// using the locking script bytes as a lexicographic tie breaker. Applying
-    /// this ordering yields deterministic transactions that are compatible with
-    /// downstream tooling expecting canonical output layouts.
+    /// using the locking script bytes as a lexicographic tie breaker. When two
+    /// token-bearing outputs still tie on those fields, this implementation
+    /// applies token metadata tie breakers so token-aware builders keep a
+    /// deterministic ordering instead of treating the outputs as equal.
     /// - Parameter outputs: The outputs to be ordered.
-    /// - Returns: The outputs sorted according to the canonical BIP-69 rules.
+    /// - Returns: The outputs sorted by BIP-69 rules plus token-aware tie
+    ///   breakers for equal locking bytecode.
     static func applyBIP69Ordering(_ outputs: [OpalBase.Transaction.Output]) -> [OpalBase.Transaction.Output] {
         let shouldCompareTokenData = outputs.contains { $0.tokenData != nil }
         return outputs.sorted { lhs, rhs in

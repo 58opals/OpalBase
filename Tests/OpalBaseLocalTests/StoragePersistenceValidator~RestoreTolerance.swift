@@ -7,8 +7,8 @@ import Testing
 extension StoragePersistenceValidator {
     @Test("restore tolerates missing account/address book snapshots while still restoring wallet snapshot")
     func tolerateMissingAccountSnapshotsDuringRestore() async throws {
-        let valueStore = OpalBase.Storage.ValueStore.makeInMemory()
-        let storage = try OpalBase.Storage(valueStore: valueStore)
+        let valueClient = OpalBase.Storage.ValueClient.makeInMemory()
+        let storage = try OpalBase.Storage(valueClient: valueClient)
 
         let mnemonic = try OpalBase.Mnemonic(
             words: [
@@ -39,8 +39,8 @@ extension StoragePersistenceValidator {
 
     @Test("restore tolerates missing mnemonic ciphertext (e.g., keychain cleared) while still restoring snapshots")
     func tolerateMissingMnemonicCiphertextDuringRestore() async throws {
-        let valueStore = OpalBase.Storage.ValueStore.makeInMemory()
-        let storage = try OpalBase.Storage(valueStore: valueStore)
+        let valueClient = OpalBase.Storage.ValueClient.makeInMemory()
+        let storage = try OpalBase.Storage(valueClient: valueClient)
 
         let mnemonic = try OpalBase.Mnemonic(
             words: [
@@ -71,8 +71,8 @@ extension StoragePersistenceValidator {
 
     @Test("wipeAll removes persisted wallet artifacts")
     func removePersistedArtifactsWithWipeAll() async throws {
-        let valueStore = OpalBase.Storage.ValueStore.makeInMemory()
-        let storage = try OpalBase.Storage(valueStore: valueStore)
+        let valueClient = OpalBase.Storage.ValueClient.makeInMemory()
+        let storage = try OpalBase.Storage(valueClient: valueClient)
 
         let mnemonic = try OpalBase.Mnemonic(
             words: [

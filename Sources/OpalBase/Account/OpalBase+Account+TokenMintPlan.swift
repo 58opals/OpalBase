@@ -35,7 +35,7 @@ extension _OpalBase.Account {
         public let shouldAllowDustDonation: Bool
         public var reservationDate: Date { reservationHandle.reservationDate }
         
-        private let reservationHandle: OpalBase.Account.SpendReservationModel
+        private let reservationHandle: OpalBase.Account.SpendReservation
         private let privateKeys: [OpalBase.Transaction.Output.Unspent: OpalBase.PrivateKey]
         private let plannedTokenOutputs: [OpalBase.Transaction.Output]
         private let organizedTokenOutputs: [OpalBase.Transaction.Output]
@@ -51,7 +51,7 @@ extension _OpalBase.Account {
              fungiblePreservationOutput: OpalBase.Transaction.Output?,
              bitcoinCashChangeOutput: OpalBase.Transaction.Output,
              shouldAllowDustDonation: Bool,
-             reservationHandle: OpalBase.Account.SpendReservationModel,
+             reservationHandle: OpalBase.Account.SpendReservation,
              privateKeys: [OpalBase.Transaction.Output.Unspent: OpalBase.PrivateKey],
              organizedTokenOutputs: [OpalBase.Transaction.Output],
              shouldRandomizeRecipientOrdering: Bool) {

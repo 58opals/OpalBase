@@ -54,7 +54,7 @@ struct BlockHeaderValidator {
         )
         
         let headerEncoding = header.encode()
-        let expectedHash = HASH256Model.hash(headerEncoding).reversedData
+        let expectedHash = HASH256.hash(headerEncoding).reversedData
         
         #expect(header.proofOfWorkHash == expectedHash)
     }

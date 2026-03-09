@@ -35,7 +35,7 @@ extension AddressBookCoinSelectorValidator {
             previousTransactionOutputIndex: 0
         )
 
-        let coinSelector = OpalBase.Address.Book.CoinSelectorModel(
+        let coinSelector = OpalBase.Address.Book.CoinSelector(
             utxos: [largeUnspent],
             configuration: configuration,
             targetAmount: targetAmount,
@@ -73,7 +73,7 @@ extension AddressBookCoinSelectorValidator {
             strategy: .branchAndBound
         )
 
-        let coinSelector = OpalBase.Address.Book.CoinSelectorModel(
+        let coinSelector = OpalBase.Address.Book.CoinSelector(
             utxos: [nearMaximumUnspent, smallUnspent],
             configuration: configuration,
             targetAmount: 0,
@@ -107,7 +107,7 @@ extension AddressBookCoinSelectorValidator {
 
         let configuration = OpalBase.Address.Book.CoinSelection.Configuration.makeTemplateConfiguration(strategy: .branchAndBound)
 
-        let selector = OpalBase.Address.Book.CoinSelectorModel(
+        let selector = OpalBase.Address.Book.CoinSelector(
             utxos: [minimalUnspent, maximumUnspent],
             configuration: configuration,
             targetAmount: UInt64.max,

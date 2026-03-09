@@ -100,7 +100,7 @@ extension _OpalBase.Address.Book {
     }
     
     func makeScriptHashHex(from lockingScript: Data) -> String {
-        SHA256Model.hash(lockingScript).reversedData.hexadecimalString
+        SHA256.hash(lockingScript).reversedData.hexadecimalString
     }
     
     func makeNonFungibleTokenData(from tokenData: OpalBase.CashTokens.TokenData) -> OpalBase.CashTokens.TokenData? {

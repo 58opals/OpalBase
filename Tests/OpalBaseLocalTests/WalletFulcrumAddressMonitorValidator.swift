@@ -9,13 +9,13 @@ import OpalBaseTestSupport
 struct WalletFulcrumAddressMonitorValidator {
     @Test("monitor emits tracked, UTXO/history, and stopped termination events")
     func monitorEmitsCoreLifecycleEvents() async throws {
-        let account = try await AccountTestFixturesModel.makeAccount()
+        let account = try await AccountTestFixtures.makeAccount()
         let targetEntry = try await account.selectNextEntry(for: .receiving)
-        let hash = AccountTestFixturesModel.makeHash(byte: 0x51)
+        let hash = AccountTestFixtures.makeHash(byte: 0x51)
         let unspentOutput = OpalBase.Transaction.Output.Unspent(
             value: 14_000,
             lockingScript: targetEntry.address.lockingScript.data,
-            previousTransactionHash: AccountTestFixturesModel.makeHash(byte: 0x52),
+            previousTransactionHash: AccountTestFixtures.makeHash(byte: 0x52),
             previousTransactionOutputIndex: 0
         )
 
@@ -53,20 +53,20 @@ struct WalletFulcrumAddressMonitorValidator {
             } catch { }
         }
         do {
-            let initialEvents = try await WalletFulcrumAddressMonitorSupportModel.waitForEvents(recorder, description: "core monitor events") { events in
-                WalletFulcrumAddressMonitorSupportModel.hasAddressTracked(events) &&
-                    WalletFulcrumAddressMonitorSupportModel.hasUTXOChange(events) &&
-                    WalletFulcrumAddressMonitorSupportModel.hasHistoryChange(events)
+            let initialEvents = try await WalletFulcrumAddressMonitorSupport.waitForEvents(recorder, description: "core monitor events") { events in
+                WalletFulcrumAddressMonitorSupport.hasAddressTracked(events) &&
+                    WalletFulcrumAddressMonitorSupport.hasUTXOChange(events) &&
+                    WalletFulcrumAddressMonitorSupport.hasHistoryChange(events)
             }
-            #expect(WalletFulcrumAddressMonitorSupportModel.hasAddressTracked(initialEvents))
-            #expect(WalletFulcrumAddressMonitorSupportModel.hasUTXOChange(initialEvents))
-            #expect(WalletFulcrumAddressMonitorSupportModel.hasHistoryChange(initialEvents))
+            #expect(WalletFulcrumAddressMonitorSupport.hasAddressTracked(initialEvents))
+            #expect(WalletFulcrumAddressMonitorSupport.hasUTXOChange(initialEvents))
+            #expect(WalletFulcrumAddressMonitorSupport.hasHistoryChange(initialEvents))
 
             await monitor.stop()
-            let finalEvents = try await WalletFulcrumAddressMonitorSupportModel.waitForEvents(recorder, description: "stopped termination") { events in
-                WalletFulcrumAddressMonitorSupportModel.hasTermination(events, reason: .stopped)
+            let finalEvents = try await WalletFulcrumAddressMonitorSupport.waitForEvents(recorder, description: "stopped termination") { events in
+                WalletFulcrumAddressMonitorSupport.hasTermination(events, reason: .stopped)
             }
-            #expect(WalletFulcrumAddressMonitorSupportModel.hasTermination(finalEvents, reason: .stopped))
+            #expect(WalletFulcrumAddressMonitorSupport.hasTermination(finalEvents, reason: .stopped))
         } catch {
             await monitor.stop(reason: .cancelled)
             collector.cancel()
@@ -79,9 +79,9 @@ struct WalletFulcrumAddressMonitorValidator {
 
     @Test("monitor emits confirmation changes when block headers advance")
     func monitorEmitsConfirmationChanges() async throws {
-        let account = try await AccountTestFixturesModel.makeAccount()
+        let account = try await AccountTestFixtures.makeAccount()
         let targetEntry = try await account.selectNextEntry(for: .receiving)
-        let hash = AccountTestFixturesModel.makeHash(byte: 0x58)
+        let hash = AccountTestFixtures.makeHash(byte: 0x58)
 
         let addressReader = WalletAddressReaderTestActor(
             historyByAddress: [
@@ -119,10 +119,10 @@ struct WalletFulcrumAddressMonitorValidator {
             } catch { }
         }
         do {
-            let events = try await WalletFulcrumAddressMonitorSupportModel.waitForEvents(recorder, description: "confirmation changes") { events in
-                WalletFulcrumAddressMonitorSupportModel.hasConfirmationChange(events)
+            let events = try await WalletFulcrumAddressMonitorSupport.waitForEvents(recorder, description: "confirmation changes") { events in
+                WalletFulcrumAddressMonitorSupport.hasConfirmationChange(events)
             }
-            #expect(WalletFulcrumAddressMonitorSupportModel.hasConfirmationChange(events))
+            #expect(WalletFulcrumAddressMonitorSupport.hasConfirmationChange(events))
 
             await monitor.stop()
         } catch {
@@ -137,13 +137,13 @@ struct WalletFulcrumAddressMonitorValidator {
 
     @Test("monitor emits failure, performs full refresh recovery, and reports cancelled termination")
     func monitorEmitsFailureAndRecoveryEvents() async throws {
-        let account = try await AccountTestFixturesModel.makeAccount()
+        let account = try await AccountTestFixtures.makeAccount()
         let targetEntry = try await account.selectNextEntry(for: .receiving)
-        let hash = AccountTestFixturesModel.makeHash(byte: 0x61)
+        let hash = AccountTestFixtures.makeHash(byte: 0x61)
         let unspentOutput = OpalBase.Transaction.Output.Unspent(
             value: 7_000,
             lockingScript: targetEntry.address.lockingScript.data,
-            previousTransactionHash: AccountTestFixturesModel.makeHash(byte: 0x62),
+            previousTransactionHash: AccountTestFixtures.makeHash(byte: 0x62),
             previousTransactionOutputIndex: 0
         )
 
@@ -178,18 +178,18 @@ struct WalletFulcrumAddressMonitorValidator {
             } catch { }
         }
         do {
-            let recoveryEvents = try await WalletFulcrumAddressMonitorSupportModel.waitForEvents(recorder, description: "failure and full refresh") { events in
-                WalletFulcrumAddressMonitorSupportModel.hasFailure(events, address: targetEntry.address) &&
-                    WalletFulcrumAddressMonitorSupportModel.hasFullRefresh(events)
+            let recoveryEvents = try await WalletFulcrumAddressMonitorSupport.waitForEvents(recorder, description: "failure and full refresh") { events in
+                WalletFulcrumAddressMonitorSupport.hasFailure(events, address: targetEntry.address) &&
+                    WalletFulcrumAddressMonitorSupport.hasFullRefresh(events)
             }
-            #expect(WalletFulcrumAddressMonitorSupportModel.hasFailure(recoveryEvents, address: targetEntry.address))
-            #expect(WalletFulcrumAddressMonitorSupportModel.hasFullRefresh(recoveryEvents))
+            #expect(WalletFulcrumAddressMonitorSupport.hasFailure(recoveryEvents, address: targetEntry.address))
+            #expect(WalletFulcrumAddressMonitorSupport.hasFullRefresh(recoveryEvents))
 
             await monitor.stop(reason: .cancelled)
-            let finalEvents = try await WalletFulcrumAddressMonitorSupportModel.waitForEvents(recorder, description: "cancelled termination") { events in
-                WalletFulcrumAddressMonitorSupportModel.hasTermination(events, reason: .cancelled)
+            let finalEvents = try await WalletFulcrumAddressMonitorSupport.waitForEvents(recorder, description: "cancelled termination") { events in
+                WalletFulcrumAddressMonitorSupport.hasTermination(events, reason: .cancelled)
             }
-            #expect(WalletFulcrumAddressMonitorSupportModel.hasTermination(finalEvents, reason: .cancelled))
+            #expect(WalletFulcrumAddressMonitorSupport.hasTermination(finalEvents, reason: .cancelled))
         } catch {
             await monitor.stop(reason: .cancelled)
             collector.cancel()

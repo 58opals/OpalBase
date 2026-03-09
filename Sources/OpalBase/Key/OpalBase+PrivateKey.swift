@@ -12,7 +12,7 @@ extension OpalBase {
             
             repeat {
                 do {
-                    randomBytes = try SecureRandomModel.makeBytes(count: 32)
+                    randomBytes = try SecureRandom.makeBytes(count: 32)
                 } catch {
                     throw Error.randomBytesGenerationFailed
                 }

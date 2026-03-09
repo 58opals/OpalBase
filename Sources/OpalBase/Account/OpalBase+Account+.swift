@@ -4,7 +4,7 @@ import Foundation
 
 extension OpalBase {
     public actor Account: Identifiable {
-        private let rootExtendedPrivateKey: OpalBase.PrivateKey.ExtendedModel
+        private let rootExtendedPrivateKey: OpalBase.PrivateKey.Extended
 
         let purpose: OpalBase.DerivationPath.Purpose
         let coinType: OpalBase.DerivationPath.CoinType
@@ -17,7 +17,7 @@ extension OpalBase {
         public let privacyConfiguration: PrivacyShaperActor.Configuration
 
         init(
-            rootExtendedPrivateKey: OpalBase.PrivateKey.ExtendedModel,
+            rootExtendedPrivateKey: OpalBase.PrivateKey.Extended,
             purpose: OpalBase.DerivationPath.Purpose,
             coinType: OpalBase.DerivationPath.CoinType,
             account: OpalBase.DerivationPath.Account,
@@ -41,7 +41,7 @@ extension OpalBase {
         }
 
         init(
-            rootExtendedPrivateKey: OpalBase.PrivateKey.ExtendedModel,
+            rootExtendedPrivateKey: OpalBase.PrivateKey.Extended,
             purpose: OpalBase.DerivationPath.Purpose,
             coinType: OpalBase.DerivationPath.CoinType,
             account: OpalBase.DerivationPath.Account,
@@ -66,7 +66,7 @@ extension OpalBase {
 
         init(
             from snapshot: OpalBase.Account.Snapshot,
-            rootExtendedPrivateKey: OpalBase.PrivateKey.ExtendedModel,
+            rootExtendedPrivateKey: OpalBase.PrivateKey.Extended,
             purpose: OpalBase.DerivationPath.Purpose,
             coinType: OpalBase.DerivationPath.CoinType,
             privacyConfiguration: PrivacyShaperActor.Configuration = .standard

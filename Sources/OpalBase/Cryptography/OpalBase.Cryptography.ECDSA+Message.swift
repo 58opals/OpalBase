@@ -88,7 +88,7 @@ private extension OpalBase.Cryptography.ECDSA.Message {
     func applyHashRounds(_ data: Data, rounds: Int) -> Data {
         var hashedData = data
         for _ in 0..<rounds {
-            hashedData = SHA256Model.hash(hashedData)
+            hashedData = SHA256.hash(hashedData)
         }
         return hashedData
     }

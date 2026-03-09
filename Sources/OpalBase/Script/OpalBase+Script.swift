@@ -14,48 +14,48 @@ extension OpalBase {
             switch self {
             case .p2pk(let publicKey):
                 var data = Data()
-                data.append(ScriptOperationCodeModel._PUSHBYTES_33.data)
+                data.append(ScriptOperationCode._PUSHBYTES_33.data)
                 data.append(publicKey.compressedData)
-                data.append(ScriptOperationCodeModel._CHECKSIG.data)
+                data.append(ScriptOperationCode._CHECKSIG.data)
                 return data
                 
             case .p2pkh_OPCHECKSIG(let hash):
                 var data = Data()
-                data.append(ScriptOperationCodeModel._DUP.data)
-                data.append(ScriptOperationCodeModel._HASH160.data)
-                data.append(ScriptOperationCodeModel._PUSHBYTES_20.data)
+                data.append(ScriptOperationCode._DUP.data)
+                data.append(ScriptOperationCode._HASH160.data)
+                data.append(ScriptOperationCode._PUSHBYTES_20.data)
                 data.append(hash.data)
-                data.append(ScriptOperationCodeModel._EQUALVERIFY.data)
-                data.append(ScriptOperationCodeModel._CHECKSIG.data)
+                data.append(ScriptOperationCode._EQUALVERIFY.data)
+                data.append(ScriptOperationCode._CHECKSIG.data)
                 return data
                 
             case .p2pkh_OPCHECKDATASIG(let hash):
                 var data = Data()
-                data.append(ScriptOperationCodeModel._DUP.data)
-                data.append(ScriptOperationCodeModel._HASH160.data)
-                data.append(ScriptOperationCodeModel._PUSHBYTES_20.data)
+                data.append(ScriptOperationCode._DUP.data)
+                data.append(ScriptOperationCode._HASH160.data)
+                data.append(ScriptOperationCode._PUSHBYTES_20.data)
                 data.append(hash.data)
-                data.append(ScriptOperationCodeModel._EQUALVERIFY.data)
-                data.append(ScriptOperationCodeModel._CHECKDATASIG.data)
+                data.append(ScriptOperationCode._EQUALVERIFY.data)
+                data.append(ScriptOperationCode._CHECKDATASIG.data)
                 return data
                 
             case .p2ms(let numberOfRequiredSignatures, let publicKeys):
                 var data = Data()
-                data.append(ScriptOperationCodeModel(rawValue: UInt8(Int(ScriptOperationCodeModel._1.rawValue) + numberOfRequiredSignatures - 1))!.data)
+                data.append(ScriptOperationCode(rawValue: UInt8(Int(ScriptOperationCode._1.rawValue) + numberOfRequiredSignatures - 1))!.data)
                 for publicKey in publicKeys {
-                    data.append(ScriptOperationCodeModel._PUSHBYTES_33.data)
+                    data.append(ScriptOperationCode._PUSHBYTES_33.data)
                     data.append(publicKey.compressedData)
                 }
-                data.append(ScriptOperationCodeModel(rawValue: UInt8(Int(ScriptOperationCodeModel._1.rawValue) + publicKeys.count - 1))!.data)
-                data.append(ScriptOperationCodeModel._CHECKMULTISIG.data)
+                data.append(ScriptOperationCode(rawValue: UInt8(Int(ScriptOperationCode._1.rawValue) + publicKeys.count - 1))!.data)
+                data.append(ScriptOperationCode._CHECKMULTISIG.data)
                 return data
                 
             case .p2sh(let scriptHash):
                 var data = Data()
-                data.append(ScriptOperationCodeModel._HASH160.data)
-                data.append(ScriptOperationCodeModel._PUSHBYTES_20.data)
+                data.append(ScriptOperationCode._HASH160.data)
+                data.append(ScriptOperationCode._PUSHBYTES_20.data)
                 data.append(scriptHash)
-                data.append(ScriptOperationCodeModel._EQUAL.data)
+                data.append(ScriptOperationCode._EQUAL.data)
                 return data
             }
         }
@@ -82,50 +82,50 @@ extension _OpalBase.Script {
             guard let opcode = readByte() else { break }
             
             switch opcode {
-            case ScriptOperationCodeModel._DUP.rawValue:
-                guard readByte() == ScriptOperationCodeModel._HASH160.rawValue,
-                      readByte() == ScriptOperationCodeModel._PUSHBYTES_20.rawValue,
+            case ScriptOperationCode._DUP.rawValue:
+                guard readByte() == ScriptOperationCode._HASH160.rawValue,
+                      readByte() == ScriptOperationCode._PUSHBYTES_20.rawValue,
                       let hash = readData(length: 20),
-                      readByte() == ScriptOperationCodeModel._EQUALVERIFY.rawValue,
+                      readByte() == ScriptOperationCode._EQUALVERIFY.rawValue,
                       let finalOp = readByte()
                 else { throw Error.invalidP2PKHScript }
                 
                 let publicKeyHash = OpalBase.PublicKey.Hash(hash)
                 switch finalOp {
-                case ScriptOperationCodeModel._CHECKSIG.rawValue:
+                case ScriptOperationCode._CHECKSIG.rawValue:
                     return .p2pkh_OPCHECKSIG(hash: publicKeyHash)
-                case ScriptOperationCodeModel._CHECKDATASIG.rawValue:
+                case ScriptOperationCode._CHECKDATASIG.rawValue:
                     return .p2pkh_OPCHECKDATASIG(hash: publicKeyHash)
                 default:
                     throw Error.invalidP2PKHScript
                 }
-            case ScriptOperationCodeModel._PUSHBYTES_33.rawValue:
+            case ScriptOperationCode._PUSHBYTES_33.rawValue:
                 guard let publicKeyData = readData(length: 33),
-                      readByte() == ScriptOperationCodeModel._CHECKSIG.rawValue
+                      readByte() == ScriptOperationCode._CHECKSIG.rawValue
                 else { throw Error.invalidP2PKScript }
                 
                 let publicKey = try OpalBase.PublicKey(compressedData: publicKeyData)
                 return .p2pk(publicKey: publicKey)
-            case ScriptOperationCodeModel._HASH160.rawValue:
-                guard readByte() == ScriptOperationCodeModel._PUSHBYTES_20.rawValue,
+            case ScriptOperationCode._HASH160.rawValue:
+                guard readByte() == ScriptOperationCode._PUSHBYTES_20.rawValue,
                       let scriptHash = readData(length: 20),
-                      readByte() == ScriptOperationCodeModel._EQUAL.rawValue
+                      readByte() == ScriptOperationCode._EQUAL.rawValue
                 else { throw Error.invalidP2SHScript }
                 
                 return .p2sh(scriptHash: scriptHash)
                 
-            case ScriptOperationCodeModel._1.rawValue...ScriptOperationCodeModel._16.rawValue:
-                let numberOfRequiredSignatures = Int(opcode - ScriptOperationCodeModel._1.rawValue) + 1
+            case ScriptOperationCode._1.rawValue...ScriptOperationCode._16.rawValue:
+                let numberOfRequiredSignatures = Int(opcode - ScriptOperationCode._1.rawValue) + 1
                 var publicKeys: [OpalBase.PublicKey] = .init()
                 
                 while index < lockingScript.count {
                     let nextOpcode = lockingScript[index]
-                    if (ScriptOperationCodeModel._1.rawValue...ScriptOperationCodeModel._16.rawValue).contains(nextOpcode) {
+                    if (ScriptOperationCode._1.rawValue...ScriptOperationCode._16.rawValue).contains(nextOpcode) {
                         break
                     }
                     
-                    guard nextOpcode == ScriptOperationCodeModel._PUSHBYTES_33.rawValue,
-                          readByte() == ScriptOperationCodeModel._PUSHBYTES_33.rawValue,
+                    guard nextOpcode == ScriptOperationCode._PUSHBYTES_33.rawValue,
+                          readByte() == ScriptOperationCode._PUSHBYTES_33.rawValue,
                           let publicKeyData = readData(length: 33)
                     else { throw Error.invalidP2MSScript }
                     
@@ -135,16 +135,16 @@ extension _OpalBase.Script {
                 
                 guard !publicKeys.isEmpty,
                       let publicKeyCountOpcode = readByte(),
-                      publicKeyCountOpcode >= ScriptOperationCodeModel._1.rawValue,
-                      publicKeyCountOpcode <= ScriptOperationCodeModel._16.rawValue
+                      publicKeyCountOpcode >= ScriptOperationCode._1.rawValue,
+                      publicKeyCountOpcode <= ScriptOperationCode._16.rawValue
                 else { throw Error.invalidP2MSScript }
                 
-                let reportedPublicKeyCount = Int(publicKeyCountOpcode - ScriptOperationCodeModel._1.rawValue) + 1
+                let reportedPublicKeyCount = Int(publicKeyCountOpcode - ScriptOperationCode._1.rawValue) + 1
                 
                 guard reportedPublicKeyCount == publicKeys.count,
                       reportedPublicKeyCount >= numberOfRequiredSignatures,
                       let finalOpcode = readByte(),
-                      finalOpcode == ScriptOperationCodeModel._CHECKMULTISIG.rawValue
+                      finalOpcode == ScriptOperationCode._CHECKMULTISIG.rawValue
                 else { throw Error.invalidP2MSScript }
                 
                 return .p2ms(numberOfRequiredSignatures: numberOfRequiredSignatures, publicKeys: publicKeys)

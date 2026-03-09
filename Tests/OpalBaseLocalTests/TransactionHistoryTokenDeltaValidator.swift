@@ -136,7 +136,7 @@ private extension TransactionHistoryTokenDeltaValidator {
                 "abandon", "abandon", "abandon", "abandon", "abandon", "about"
             ]
         )
-        let rootExtendedPrivateKey = OpalBase.PrivateKey.ExtendedModel(rootKey: try .init(seed: mnemonic.seed))
+        let rootExtendedPrivateKey = OpalBase.PrivateKey.Extended(rootKey: try .init(seed: mnemonic.seed))
         return try await OpalBase.Address.Book(rootExtendedPrivateKey: rootExtendedPrivateKey,
                                       purpose: .bip44,
                                       coinType: .bitcoinCash,

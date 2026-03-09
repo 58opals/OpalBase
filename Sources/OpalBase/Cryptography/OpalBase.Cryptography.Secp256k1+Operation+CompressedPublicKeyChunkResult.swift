@@ -30,17 +30,17 @@ extension OpalBase.Cryptography.Secp256k1.Operation {
                 let privateKeySlice = privateKeys32[startIndex..<endIndex]
 
                 group.addTask {
-                    var jacobianPoints: [JacobianPointModel] = .init()
+                    var jacobianPoints: [JacobianPoint] = .init()
                     jacobianPoints.reserveCapacity(privateKeySlice.count)
 
                     for privateKey32 in privateKeySlice {
                         let privateKeyScalar = assumingValidPrivateKeys
                         ? try self.parsePrivateKeyScalarUnchecked(privateKey32, requireNonZero: true)
                         : try self.parsePrivateKeyScalar(privateKey32, requireNonZero: true)
-                        jacobianPoints.append(ScalarMultiplicationModel.mulG(privateKeyScalar))
+                        jacobianPoints.append(ScalarMultiplication.mulG(privateKeyScalar))
                     }
 
-                    let affinePoints = JacobianPointModel.convertBatchToAffine(jacobianPoints)
+                    let affinePoints = JacobianPoint.convertBatchToAffine(jacobianPoints)
                     var compressedPublicKeys: [Data] = .init()
                     compressedPublicKeys.reserveCapacity(affinePoints.count)
 
@@ -87,17 +87,17 @@ private extension OpalBase.Cryptography.Secp256k1.Operation {
         fromPrivateKeys32 privateKeys32: [Data],
         assumingValidPrivateKeys: Bool
     ) throws -> [Data] {
-        var jacobianPoints: [JacobianPointModel] = .init()
+        var jacobianPoints: [JacobianPoint] = .init()
         jacobianPoints.reserveCapacity(privateKeys32.count)
 
         for privateKey32 in privateKeys32 {
             let privateKeyScalar = assumingValidPrivateKeys
             ? try self.parsePrivateKeyScalarUnchecked(privateKey32, requireNonZero: true)
             : try self.parsePrivateKeyScalar(privateKey32, requireNonZero: true)
-            jacobianPoints.append(ScalarMultiplicationModel.mulG(privateKeyScalar))
+            jacobianPoints.append(ScalarMultiplication.mulG(privateKeyScalar))
         }
 
-        let affinePoints = JacobianPointModel.convertBatchToAffine(jacobianPoints)
+        let affinePoints = JacobianPoint.convertBatchToAffine(jacobianPoints)
         var compressedPublicKeys: [Data] = .init()
         compressedPublicKeys.reserveCapacity(affinePoints.count)
 

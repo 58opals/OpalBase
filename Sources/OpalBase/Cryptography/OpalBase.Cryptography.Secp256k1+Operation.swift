@@ -25,7 +25,7 @@ extension OpalBase.Cryptography.Secp256k1 {
         }
 
         public static func validatePrivateKey32(_ privateKey32: Data) -> Bool {
-            (try? ScalarModel(data32: privateKey32, requireNonZero: true)) != nil
+            (try? Scalar(data32: privateKey32, requireNonZero: true)) != nil
         }
 
         public static func derivePublicKey(
@@ -33,7 +33,7 @@ extension OpalBase.Cryptography.Secp256k1 {
             format: PublicKeyFormat = .compressed
         ) throws -> Data {
             let privateKeyScalar = try parsePrivateKeyScalar(privateKey32, requireNonZero: true)
-            let publicPoint = ScalarMultiplicationModel.mulG(privateKeyScalar)
+            let publicPoint = ScalarMultiplication.mulG(privateKeyScalar)
             guard let publicAffine = publicPoint.convertToAffine() else {
                 throw Error.invalidDerivedPublicKey
             }
@@ -60,8 +60,8 @@ extension OpalBase.Cryptography.Secp256k1 {
         ) throws -> Data {
             let publicAffine = try parsePublicKeyAffine(publicKey)
             let tweakScalar = try parseTweakScalar(tweak32, requireNonZero: true)
-            let tweakPoint = ScalarMultiplicationModel.mulG(tweakScalar)
-            let combined = JacobianPointModel(affine: publicAffine).add(tweakPoint)
+            let tweakPoint = ScalarMultiplication.mulG(tweakScalar)
+            let combined = JacobianPoint(affine: publicAffine).add(tweakPoint)
             guard let derivedAffine = combined.convertToAffine() else {
                 throw Error.invalidDerivedPublicKey
             }

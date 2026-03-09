@@ -56,7 +56,7 @@ extension OpalBase {
             let byteCount = numberOfBits / 8
             let randomBytes: [UInt8]
             do {
-                randomBytes = try SecureRandomModel.makeBytes(count: byteCount)
+                randomBytes = try SecureRandom.makeBytes(count: byteCount)
             } catch {
                 throw Error.entropyGenerationFailed
             }
@@ -66,7 +66,7 @@ extension OpalBase {
         
         static func generateMnemonicWords(from entropy: Data) throws -> [String] {
             let checksumLength = (entropy.count * 8) / 32
-            let checksumBits = OpalBase.Mnemonic.makeBitValues(from: SHA256Model.hash(entropy), limit: checksumLength)
+            let checksumBits = OpalBase.Mnemonic.makeBitValues(from: SHA256.hash(entropy), limit: checksumLength)
             let entropyBits = OpalBase.Mnemonic.makeBitValues(from: entropy)
             let bitValues = entropyBits + checksumBits
             guard bitValues.count % 11 == 0 else { throw Error.cannotConvertStringToData }
@@ -100,7 +100,7 @@ extension OpalBase {
             let iterations = 2048
             let keyLength = 64
             
-            return try PBKDF2Model(password: password, salt: salt, iterationCount: iterations, derivedKeyLength: keyLength).deriveKey()
+            return try PBKDF2(password: password, salt: salt, iterationCount: iterations, derivedKeyLength: keyLength).deriveKey()
         }
         
         static func makeBitValues(from data: Data, limit: Int? = nil) -> [UInt8] {

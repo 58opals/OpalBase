@@ -7,13 +7,13 @@ extension OpalBase {
         let security: Security
         let encoder: JSONEncoder
         let decoder: JSONDecoder
-        let valueStore: ValueStore
+        let valueClient: ValueClient
         
         public init(
-            valueStore: ValueStore = .makeInMemory(),
+            valueClient: ValueClient = .makeInMemory(),
             security: Security = .makePlaintextOnly()
         ) throws {
-            self.valueStore = valueStore
+            self.valueClient = valueClient
             self.security = security
             self.encoder = JSONEncoder()
             self.decoder = JSONDecoder()

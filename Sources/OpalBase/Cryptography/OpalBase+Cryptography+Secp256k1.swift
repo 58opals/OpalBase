@@ -58,10 +58,10 @@ extension _OpalBase.Cryptography {
                 return signatureSScalar.compare(to: OpalBase.Cryptography.Secp256k1.halfOrderScalar) != .orderedDescending
             }
 
-            private static func makeSignatureScalar(from data: Data) throws -> ScalarModel {
+            private static func makeSignatureScalar(from data: Data) throws -> Scalar {
                 do {
-                    return try ScalarModel(data32: data, requireNonZero: true)
-                } catch ScalarModel.Error.zeroNotAllowed {
+                    return try Scalar(data32: data, requireNonZero: true)
+                } catch Scalar.Error.zeroNotAllowed {
                     throw Error.signatureComponentZero
                 } catch {
                     throw Error.invalidSignatureScalar
@@ -69,8 +69,8 @@ extension _OpalBase.Cryptography {
             }
         }
 
-        static let halfOrderScalar = ScalarModel(
-            unchecked: UInt256Model(
+        static let halfOrderScalar = Scalar(
+            unchecked: UInt256(
                 limbs: [
                     0xdfe92f46681b20a0,
                     0x5d576e7357a4501d,

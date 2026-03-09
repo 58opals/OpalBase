@@ -7,7 +7,7 @@ import Testing
 
 enum AddressBookCashTokensTestData {
     static func makeAddressBook() async throws -> OpalBase.Address.Book {
-        try await AddressBookCashTokensSupportModel.makeAddressBook()
+        try await AddressBookCashTokensSupport.makeAddressBook()
     }
 
     static func makeTokenData() throws -> OpalBase.CashTokens.TokenData {

@@ -9,7 +9,7 @@ import OpalBaseTestSupport
 struct WalletFulcrumAddressValidator {
     @Test("refreshBalances forwards usage and includeUnconfirmed flags")
     func refreshBalancesForwardsUsageAndIncludeUnconfirmed() async throws {
-        let account = try await AccountTestFixturesModel.makeAccount()
+        let account = try await AccountTestFixtures.makeAccount()
         let targetEntry = try await account.selectNextEntry(for: .receiving)
 
         let addressReader = WalletAddressReaderTestActor(
@@ -17,7 +17,7 @@ struct WalletFulcrumAddressValidator {
                 targetEntry.address.string: .init(confirmed: 1_200, unconfirmed: 300)
             ],
             historyByAddress: [
-                targetEntry.address.string: [AccountTestFixturesModel.makeHistoryEntry(hashByte: 0x10)]
+                targetEntry.address.string: [AccountTestFixtures.makeHistoryEntry(hashByte: 0x10)]
             ]
         )
         let confirmationClient = TransactionConfirmationClientTestActor()
@@ -46,11 +46,73 @@ struct WalletFulcrumAddressValidator {
         #expect(Set(balanceRequests).isSubset(of: receivingAddresses))
     }
 
+    @Test("refreshBalances subtracts negative unconfirmed deltas")
+    func refreshBalancesSubtractsNegativeUnconfirmedDeltas() async throws {
+        let account = try await AccountTestFixtures.makeAccount()
+        let targetEntry = try await account.selectNextEntry(for: .receiving)
+
+        let addressReader = WalletAddressReaderTestActor(
+            balancesByAddress: [
+                targetEntry.address.string: .init(confirmed: 1_200, unconfirmed: -300)
+            ],
+            historyByAddress: [
+                targetEntry.address.string: [AccountTestFixtures.makeHistoryEntry(hashByte: 0x11)]
+            ]
+        )
+        let confirmationClient = TransactionConfirmationClientTestActor()
+        let fulcrum = OpalBase.Wallet.Fulcrum(
+            addressReader: addressReader,
+            transactionHandler: confirmationClient
+        )
+
+        let refresh = try await fulcrum.refreshBalances(
+            for: account,
+            usage: .receiving,
+            includeUnconfirmedHistory: false
+        )
+
+        let expectedTotal = try OpalBase.Satoshi(900)
+        #expect(refresh.total == expectedTotal)
+    }
+
+    @Test("refreshBalances rejects negative unconfirmed deltas below zero")
+    func refreshBalancesRejectsNegativeUnconfirmedUnderflow() async throws {
+        let account = try await AccountTestFixtures.makeAccount()
+        let targetEntry = try await account.selectNextEntry(for: .receiving)
+
+        let addressReader = WalletAddressReaderTestActor(
+            balancesByAddress: [
+                targetEntry.address.string: .init(confirmed: 1_200, unconfirmed: -1_500)
+            ],
+            historyByAddress: [
+                targetEntry.address.string: [AccountTestFixtures.makeHistoryEntry(hashByte: 0x12)]
+            ]
+        )
+        let confirmationClient = TransactionConfirmationClientTestActor()
+        let fulcrum = OpalBase.Wallet.Fulcrum(
+            addressReader: addressReader,
+            transactionHandler: confirmationClient
+        )
+
+        await #expect(
+            throws: OpalBase.Account.Error.balanceRefreshFailed(
+                targetEntry.address,
+                OpalBase.Satoshi.Error.negativeResult
+            )
+        ) {
+            _ = try await fulcrum.refreshBalances(
+                for: account,
+                usage: .receiving,
+                includeUnconfirmedHistory: false
+            )
+        }
+    }
+
     @Test("refreshTransactionHistory forwards includeUnconfirmed and usage")
     func refreshTransactionHistoryForwardsFlags() async throws {
-        let account = try await AccountTestFixturesModel.makeAccount()
+        let account = try await AccountTestFixtures.makeAccount()
         let targetEntry = try await account.selectNextEntry(for: .receiving)
-        let hash = AccountTestFixturesModel.makeHash(byte: 0x21)
+        let hash = AccountTestFixtures.makeHash(byte: 0x21)
         let historyEntry = OpalBase.Network.TransactionHistoryEntry(
             transactionIdentifier: hash.reverseOrder.hexadecimalString,
             blockHeight: 7,
@@ -83,9 +145,9 @@ struct WalletFulcrumAddressValidator {
 
     @Test("updateTransactionConfirmations forwards explicit hashes")
     func updateTransactionConfirmationsForwardsHashes() async throws {
-        let account = try await AccountTestFixturesModel.makeAccount()
+        let account = try await AccountTestFixtures.makeAccount()
         let targetEntry = try await account.selectNextEntry(for: .receiving)
-        let hash = AccountTestFixturesModel.makeHash(byte: 0x31)
+        let hash = AccountTestFixtures.makeHash(byte: 0x31)
         let historyEntry = OpalBase.Network.TransactionHistoryEntry(
             transactionIdentifier: hash.reverseOrder.hexadecimalString,
             blockHeight: 5,
@@ -115,11 +177,11 @@ struct WalletFulcrumAddressValidator {
 
     @Test("refreshTransactionConfirmations updates all tracked transactions")
     func refreshTransactionConfirmationsUsesKnownHistory() async throws {
-        let account = try await AccountTestFixturesModel.makeAccount()
+        let account = try await AccountTestFixtures.makeAccount()
         let firstEntry = try await account.reserveNextReceivingEntry()
         let secondEntry = try await account.reserveNextReceivingEntry()
-        let hashA = AccountTestFixturesModel.makeHash(byte: 0x41)
-        let hashB = AccountTestFixturesModel.makeHash(byte: 0x42)
+        let hashA = AccountTestFixtures.makeHash(byte: 0x41)
+        let hashB = AccountTestFixtures.makeHash(byte: 0x42)
 
         let addressReader = WalletAddressReaderTestActor(
             historyByAddress: [
@@ -146,4 +208,3 @@ struct WalletFulcrumAddressValidator {
         #expect(requestedHashes == Set([hashA, hashB]))
     }
 }
-

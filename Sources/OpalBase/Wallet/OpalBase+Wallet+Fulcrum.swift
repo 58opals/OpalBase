@@ -133,17 +133,18 @@ extension _OpalBase.Wallet {
 
 private extension _OpalBase.Wallet.Fulcrum {
     static func makeBalance(from balance: OpalBase.Network.AddressBalance) throws -> OpalBase.Satoshi {
-        let positiveUnconfirmed: UInt64
-        if balance.unconfirmed > 0 {
-            guard let value = UInt64(exactly: balance.unconfirmed) else {
-                throw OpalBase.Satoshi.Error.exceedsMaximumAmount
-            }
-            positiveUnconfirmed = value
-        } else {
-            positiveUnconfirmed = 0
+        guard let confirmed = Int64(exactly: balance.confirmed) else {
+            throw OpalBase.Satoshi.Error.exceedsMaximumAmount
         }
-        
-        let confirmed = try OpalBase.Satoshi(balance.confirmed)
-        return try confirmed + OpalBase.Satoshi(positiveUnconfirmed)
+
+        let (total, overflow) = confirmed.addingReportingOverflow(balance.unconfirmed)
+        guard !overflow else {
+            throw OpalBase.Satoshi.Error.exceedsMaximumAmount
+        }
+        guard total >= 0 else {
+            throw OpalBase.Satoshi.Error.negativeResult
+        }
+
+        return try OpalBase.Satoshi(UInt64(total))
     }
 }

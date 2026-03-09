@@ -7,8 +7,8 @@ import Testing
 extension StoragePersistenceValidator {
     @Test("persistState(for:) + restore(accountIdentifiers:) round-trips wallet snapshots and mnemonic state")
     func persistAndRestoreWalletArtifacts() async throws {
-        let valueStore = OpalBase.Storage.ValueStore.makeInMemory()
-        let storage = try OpalBase.Storage(valueStore: valueStore)
+        let valueClient = OpalBase.Storage.ValueClient.makeInMemory()
+        let storage = try OpalBase.Storage(valueClient: valueClient)
 
         let mnemonic = try OpalBase.Mnemonic(
             words: [
@@ -29,7 +29,7 @@ extension StoragePersistenceValidator {
         let protectionMode = try await storage.persistState(for: wallet)
         #expect([OpalBase.Storage.Security.ProtectionMode.plaintext, .software, .secureEnclave].contains(protectionMode))
 
-        let restoredStorage = try OpalBase.Storage(valueStore: valueStore)
+        let restoredStorage = try OpalBase.Storage(valueClient: valueClient)
         let session = OpalBase.Storage.PersistenceSession(storage: restoredStorage)
         let restored = try await session.restore(accountIdentifiers: [accountIdentifier])
 
@@ -76,8 +76,8 @@ extension StoragePersistenceValidator {
 
     @Test("restore returns an empty state for a fresh install")
     func restoreEmptyStateWhenNothingPersisted() async throws {
-        let valueStore = OpalBase.Storage.ValueStore.makeInMemory()
-        let storage = try OpalBase.Storage(valueStore: valueStore)
+        let valueClient = OpalBase.Storage.ValueClient.makeInMemory()
+        let storage = try OpalBase.Storage(valueClient: valueClient)
         let session = OpalBase.Storage.PersistenceSession(storage: storage)
 
         let restored = try await session.restore(accountIdentifiers: .init())
@@ -91,8 +91,8 @@ extension StoragePersistenceValidator {
 
     @Test("save(snapshot:accountIdentifiers:) rejects missing account identifiers")
     func rejectMissingAccountIdentifiersWhenSavingSnapshot() async throws {
-        let valueStore = OpalBase.Storage.ValueStore.makeInMemory()
-        let storage = try OpalBase.Storage(valueStore: valueStore)
+        let valueClient = OpalBase.Storage.ValueClient.makeInMemory()
+        let storage = try OpalBase.Storage(valueClient: valueClient)
         let session = OpalBase.Storage.PersistenceSession(storage: storage)
 
         let mnemonic = try OpalBase.Mnemonic(

@@ -9,7 +9,7 @@ extension _OpalBase.Storage.Ports {
     }
 }
 
-private struct SnapshotOperationsAdapter: OpalBase.Storage.SnapshotStore {
+private struct SnapshotOperationsAdapter: OpalBase.Storage.SnapshotClient {
     let operations: OpalBase.Storage.PersistenceSession.Operations
     
     func saveWalletSnapshot(_ snapshot: OpalBase.Wallet.Snapshot) async throws {
@@ -41,7 +41,7 @@ private struct SnapshotOperationsAdapter: OpalBase.Storage.SnapshotStore {
     }
 }
 
-private struct SecureSecretOperationsAdapter: OpalBase.Storage.MnemonicSecretStore {
+private struct SecureSecretOperationsAdapter: OpalBase.Storage.MnemonicSecretClient {
     let operations: OpalBase.Storage.PersistenceSession.Operations
     
     func saveMnemonic(_ mnemonic: OpalBase.Storage.Mnemonic,

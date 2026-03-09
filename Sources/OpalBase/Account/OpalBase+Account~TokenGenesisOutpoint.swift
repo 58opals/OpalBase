@@ -63,7 +63,7 @@ extension _OpalBase.Account {
             tokenSelectionPolicy: .excludeTokenUTXOs,
             mapReservationError: { Error.coinSelectionFailed($0) }
         )
-        let reservationHandle = OpalBase.Account.SpendReservationModel(addressBook: addressBook, reservation: reservation)
+        let reservationHandle = OpalBase.Account.SpendReservation(addressBook: addressBook, reservation: reservation)
         let payment = Payment(recipients: [
             Payment.Recipient(address: reservedEntry.address, amount: outputValue)
         ])

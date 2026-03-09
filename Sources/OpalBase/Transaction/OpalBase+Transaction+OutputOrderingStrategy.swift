@@ -27,7 +27,7 @@ extension _OpalBase.Transaction {
                       shouldAllowDustDonation: Bool = false,
                       privacyOutputShuffle: ([Output]) -> [Output] = defaultPrivacyOutputShuffle,
                       unlockers: [OpalBase.Transaction.Output.Unspent: Unlocker] = .init()) throws -> OpalBase.Transaction {
-        let builder = BuilderModel(utxoPrivateKeyPairs: utxoPrivateKeyPairs,
+        let builder = Builder(utxoPrivateKeyPairs: utxoPrivateKeyPairs,
                               signatureFormat: signatureFormat,
                               sequence: sequence,
                               unlockers: unlockers)
@@ -151,7 +151,7 @@ extension _OpalBase.Transaction {
     }
     
     static func signTransaction(_ unsignedTransaction: OpalBase.Transaction,
-                                using builder: BuilderModel) throws -> OpalBase.Transaction {
+                                using builder: Builder) throws -> OpalBase.Transaction {
         switch builder.signatureFormat {
         case .ecdsa(.raw), .ecdsa(.compact):
             throw Error.unsupportedSignatureFormat

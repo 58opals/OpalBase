@@ -23,25 +23,25 @@ extension _OpalBase.Storage {
     
     func storeValue(_ data: Data, for key: OpalBase.Storage.Key) async throws {
         try await mapPersistenceError {
-            try await valueStore.valueWriter(data, key)
+            try await valueClient.valueWriter(data, key)
         }
     }
     
     func loadValue(for key: OpalBase.Storage.Key) async throws -> Data? {
         try await mapPersistenceError {
-            try await valueStore.valueReader(key)
+            try await valueClient.valueReader(key)
         }
     }
     
     func removeValue(for key: OpalBase.Storage.Key) async throws {
         try await mapPersistenceError {
-            try await valueStore.valueDeleter(key)
+            try await valueClient.valueDeleter(key)
         }
     }
     
     func removeAllEntries() async throws {
         try await mapPersistenceError {
-            try await valueStore.allValuesDeleter()
+            try await valueClient.allValuesDeleter()
         }
     }
 }

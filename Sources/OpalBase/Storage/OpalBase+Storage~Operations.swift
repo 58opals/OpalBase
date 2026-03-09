@@ -42,7 +42,7 @@ extension _OpalBase.Storage {
     }
     
     public func saveMnemonic(_ mnemonic: OpalBase.Storage.Mnemonic, fallbackToPlaintext: Bool = false) async throws -> Security.ProtectionMode {
-        let payload = OpalBase.Storage.Mnemonic.PayloadModel(words: mnemonic.words, passphrase: mnemonic.passphrase)
+        let payload = OpalBase.Storage.Mnemonic.Payload(words: mnemonic.words, passphrase: mnemonic.passphrase)
         let plaintext: Data
         do {
             plaintext = try encoder.encode(payload)
@@ -99,9 +99,9 @@ extension _OpalBase.Storage {
             }
         }
         
-        let payload: OpalBase.Storage.Mnemonic.PayloadModel
+        let payload: OpalBase.Storage.Mnemonic.Payload
         do {
-            payload = try decoder.decode(OpalBase.Storage.Mnemonic.PayloadModel.self, from: decryptedData)
+            payload = try decoder.decode(OpalBase.Storage.Mnemonic.Payload.self, from: decryptedData)
         } catch {
             throw Error.decodingFailure(error)
         }

@@ -8,8 +8,8 @@ extension _OpalBase.Transaction {
         public let lockingScript: Data
         public let tokenData: OpalBase.CashTokens.TokenData?
         
-        var lockingScriptLength: CompactSizeModel {
-            CompactSizeModel(value: UInt64(lockingScript.count))
+        var lockingScriptLength: CompactSize {
+            CompactSize(value: UInt64(lockingScript.count))
         }
         
         /// Initializes an OpalBase.Transaction.Output instance.
@@ -37,10 +37,10 @@ extension _OpalBase.Transaction {
         /// Encodes the OpalBase.Transaction.Output into Data.
         /// - Returns: The encoded data.
         public func encode() throws -> Data {
-            var writer = Data.WriterModel()
+            var writer = Data.Writer()
             writer.writeLittleEndian(value)
             let tokenPrefixData = try makeTokenPrefixData()
-            let tokenPrefixAndLockingBytecodeLength = CompactSizeModel(value: UInt64(tokenPrefixData.count + lockingScript.count))
+            let tokenPrefixAndLockingBytecodeLength = CompactSize(value: UInt64(tokenPrefixData.count + lockingScript.count))
             writer.writeCompactSize(tokenPrefixAndLockingBytecodeLength)
             writer.writeData(tokenPrefixData)
             writer.writeData(lockingScript)
@@ -49,15 +49,15 @@ extension _OpalBase.Transaction {
         
         /// Decodes an OpalBase.Transaction.Output instance from Data.
         /// - Parameter data: The data to decode from.
-        /// - Throws: `CompactSizeModel.Error` if the locking bytecode length prefix is invalid, `Data.Error` if the payload is truncated or the declared lengths exceed the available data, or `OpalBase.CashTokens.Error` if token-prefix decoding fails.
+        /// - Throws: `CompactSize.Error` if the locking bytecode length prefix is invalid, `Data.Error` if the payload is truncated or the declared lengths exceed the available data, or `OpalBase.CashTokens.Error` if token-prefix decoding fails.
         /// - Returns: A tuple containing the decoded OpalBase.Transaction.Output and the number of bytes read.
         static func decode(from data: Data) throws -> (output: Output, bytesRead: Int) {
-            var reader = Data.ReaderModel(data)
+            var reader = Data.Reader(data)
             let output = try decode(from: &reader)
             return (output, reader.bytesRead)
         }
         
-        static func decode(from reader: inout Data.ReaderModel) throws -> Output {
+        static func decode(from reader: inout Data.Reader) throws -> Output {
             let value: UInt64 = try reader.readLittleEndian()
             let tokenPrefixAndLockingBytecodeLength = try reader.readCompactSize()
             guard tokenPrefixAndLockingBytecodeLength.value <= UInt64(Int.max) else {
@@ -93,7 +93,7 @@ extension _OpalBase.Transaction {
         private func calculateSerializedSize() throws -> Int {
             let tokenPrefixData = try makeTokenPrefixData()
             let lockingBytecodeLength = tokenPrefixData.count + lockingScript.count
-            let lengthPrefixSize = CompactSizeModel(value: UInt64(lockingBytecodeLength)).encodedSize
+            let lengthPrefixSize = CompactSize(value: UInt64(lockingBytecodeLength)).encodedSize
             return 8 + lengthPrefixSize + lockingBytecodeLength
         }
     }

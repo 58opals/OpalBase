@@ -5,7 +5,7 @@ import Testing
 import OpalBaseTestSupport
 @testable import OpalBase
 
-@Suite("Base58Model", .tags(.unit, .coding))
+@Suite("Base58", .tags(.unit, .coding))
 struct Base58Validator {
     struct LinearCongruentialGenerator {
         private var state: UInt64
@@ -39,8 +39,8 @@ struct Base58Validator {
             let payloadBytes = generator.makeBytes(count: length)
             let payload = Data(repeating: 0, count: leadingZeroCount) + Data(payloadBytes)
             
-            let encoded = Base58Model.encode(payload)
-            let decoded = Base58Model.decode(encoded)
+            let encoded = Base58.encode(payload)
+            let decoded = Base58.decode(encoded)
             
             #expect(decoded == payload)
         }

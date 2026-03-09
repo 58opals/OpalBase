@@ -6,10 +6,10 @@ extension OpalBase.Cryptography.Secp256k1.Operation {
     static func parsePrivateKeyScalar(
         _ data: Data,
         requireNonZero: Bool
-    ) throws -> ScalarModel {
+    ) throws -> Scalar {
         do {
-            return try ScalarModel(data32: data, requireNonZero: requireNonZero)
-        } catch ScalarModel.Error.invalidDataLength(let expected, let actual) {
+            return try Scalar(data32: data, requireNonZero: requireNonZero)
+        } catch Scalar.Error.invalidDataLength(let expected, let actual) {
             precondition(expected == 32)
             throw Error.invalidPrivateKeyLength(actual: actual)
         } catch {
@@ -20,15 +20,15 @@ extension OpalBase.Cryptography.Secp256k1.Operation {
     static func parsePrivateKeyScalarUnchecked(
         _ data: Data,
         requireNonZero: Bool
-    ) throws -> ScalarModel {
+    ) throws -> Scalar {
         do {
-            let parsed = try UInt256Model(data32: data)
-            let scalar = ScalarModel(unchecked: parsed)
+            let parsed = try UInt256(data32: data)
+            let scalar = Scalar(unchecked: parsed)
             guard !requireNonZero || !scalar.isZero else {
-                throw ScalarModel.Error.zeroNotAllowed
+                throw Scalar.Error.zeroNotAllowed
             }
             return scalar
-        } catch UInt256Model.Error.invalidDataLength(let expected, let actual) {
+        } catch UInt256.Error.invalidDataLength(let expected, let actual) {
             precondition(expected == 32)
             throw Error.invalidPrivateKeyLength(actual: actual)
         } catch {
@@ -39,10 +39,10 @@ extension OpalBase.Cryptography.Secp256k1.Operation {
     static func parseTweakScalar(
         _ data: Data,
         requireNonZero: Bool
-    ) throws -> ScalarModel {
+    ) throws -> Scalar {
         do {
-            return try ScalarModel(data32: data, requireNonZero: requireNonZero)
-        } catch ScalarModel.Error.invalidDataLength(let expected, let actual) {
+            return try Scalar(data32: data, requireNonZero: requireNonZero)
+        } catch Scalar.Error.invalidDataLength(let expected, let actual) {
             precondition(expected == 32)
             throw Error.invalidTweakLength(actual: actual)
         } catch {
@@ -50,10 +50,10 @@ extension OpalBase.Cryptography.Secp256k1.Operation {
         }
     }
 
-    static func parsePublicKeyAffine(_ data: Data) throws -> AffinePointModel {
+    static func parsePublicKeyAffine(_ data: Data) throws -> AffinePoint {
         do {
-            return try OpalBase.PublicKey.ParsingModel.parsePublicKey(data)
-        } catch OpalBase.PublicKey.ParsingModel.Error.invalidLength(let actual) {
+            return try OpalBase.PublicKey.Parsing.parsePublicKey(data)
+        } catch OpalBase.PublicKey.Parsing.Error.invalidLength(let actual) {
             throw Error.invalidPublicKeyLength(actual: actual)
         } catch {
             throw Error.invalidPublicKeyValue
@@ -61,7 +61,7 @@ extension OpalBase.Cryptography.Secp256k1.Operation {
     }
 
     static func encodePublicKey(
-        _ affine: AffinePointModel,
+        _ affine: AffinePoint,
         format: PublicKeyFormat
     ) -> Data {
         switch format {

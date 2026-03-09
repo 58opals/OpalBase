@@ -5,32 +5,32 @@ import Foundation
 extension _OpalBase.Address {
     public actor Book {
         struct UsageDerivationCache {
-            let baseExtendedPrivateKey: OpalBase.PrivateKey.ExtendedModel
+            let baseExtendedPrivateKey: OpalBase.PrivateKey.Extended
             let baseCompressedPublicKey: Data
             let baseFingerprint: Data
         }
         
-        let rootExtendedPrivateKey: OpalBase.PrivateKey.ExtendedModel?
-        let rootExtendedPublicKey: OpalBase.PublicKey.ExtendedModel
+        let rootExtendedPrivateKey: OpalBase.PrivateKey.Extended?
+        let rootExtendedPublicKey: OpalBase.PublicKey.Extended
         let purpose: OpalBase.DerivationPath.Purpose
         let coinType: OpalBase.DerivationPath.CoinType
         let account: OpalBase.DerivationPath.Account
         var usageDerivationCache: [OpalBase.DerivationPath.Usage: UsageDerivationCache]
         
-        var inventory: InventoryModel
+        var inventory: Inventory
         var utxoStore: UTXORepository
-        var transactionLog: TransactionLogModel
+        var transactionLog: TransactionLog
         
         let gapLimit: Int
         
         let spendReservationExpirationInterval: TimeInterval
         var spendReservationReleaseTasks: [UUID: Task<Void, Never>]
-        var spendReservationStates: [UUID: SpendReservationModel.State]
+        var spendReservationStates: [UUID: SpendReservation.State]
         
         let entryPublisher = Entry.PublisherActor()
         
-        init(rootExtendedPrivateKey: OpalBase.PrivateKey.ExtendedModel? = nil,
-             rootExtendedPublicKey: OpalBase.PublicKey.ExtendedModel? = nil,
+        init(rootExtendedPrivateKey: OpalBase.PrivateKey.Extended? = nil,
+             rootExtendedPublicKey: OpalBase.PublicKey.Extended? = nil,
              purpose: OpalBase.DerivationPath.Purpose,
              coinType: OpalBase.DerivationPath.CoinType,
              account: OpalBase.DerivationPath.Account,

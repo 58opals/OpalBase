@@ -14,8 +14,8 @@ extension _OpalBase.Account {
                         bchAmount: OpalBase.Satoshi? = nil,
                         fungibleAmount: UInt64? = nil,
                         nft: OpalBase.CashTokens.NFT? = nil) throws {
-                try TokenGenesisValidationModel.validateFungibleAmount(fungibleAmount)
-                try TokenGenesisValidationModel.validateCommitment(nft)
+                try TokenGenesisValidation.validateFungibleAmount(fungibleAmount)
+                try TokenGenesisValidation.validateCommitment(nft)
                 self.address = address
                 self.bchAmount = bchAmount
                 self.fungibleAmount = fungibleAmount
@@ -34,9 +34,9 @@ extension _OpalBase.Account {
                     feeOverride: OpalBase.Wallet.FeePolicy.Override? = nil,
                     feeContext: OpalBase.Wallet.FeePolicy.RecommendationContext = .init(),
                     shouldAllowDustDonation: Bool = false) throws {
-            try TokenGenesisValidationModel.validateRecipients(recipients)
+            try TokenGenesisValidation.validateRecipients(recipients)
             if let reservedSupplyToSelf {
-                try TokenGenesisValidationModel.validateReservedSupply(reservedSupplyToSelf)
+                try TokenGenesisValidation.validateReservedSupply(reservedSupplyToSelf)
             }
             self.recipients = recipients
             self.reservedSupplyToSelf = reservedSupplyToSelf
@@ -47,7 +47,7 @@ extension _OpalBase.Account {
     }
 }
 
-private enum TokenGenesisValidationModel {
+private enum TokenGenesisValidation {
     static func validateRecipients(_ recipients: [OpalBase.Account.TokenGenesis.Recipient]) throws {
         for recipient in recipients {
             try validateFungibleAmount(recipient.fungibleAmount)

@@ -40,7 +40,7 @@ extension _OpalBase.Network {
                     if error.isCancellationError {
                         continuation.finish()
                     } else {
-                        continuation.finish(throwing: FulcrumErrorTranslatorModel.translate(error))
+                        continuation.finish(throwing: FulcrumErrorTranslator.translate(error))
                     }
                 }
             }

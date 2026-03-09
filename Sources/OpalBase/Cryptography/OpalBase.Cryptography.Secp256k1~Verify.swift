@@ -14,22 +14,22 @@ public extension OpalBase.Cryptography.Secp256k1 {
         guard publicKey.count == 33 || publicKey.count == 65 else {
             throw Error.invalidPublicKeyLength(actual: publicKey.count)
         }
-        let publicKeyPoint: AffinePointModel
+        let publicKeyPoint: AffinePoint
         do {
-            publicKeyPoint = try OpalBase.PublicKey.ParsingModel.parsePublicKey(publicKey)
+            publicKeyPoint = try OpalBase.PublicKey.Parsing.parsePublicKey(publicKey)
         } catch {
             return false
         }
-        let signatureRScalar: ScalarModel
-        let signatureSScalar: ScalarModel
+        let signatureRScalar: Scalar
+        let signatureSScalar: Scalar
         do {
-            signatureRScalar = try ScalarModel(data32: signature.r, requireNonZero: true)
-            signatureSScalar = try ScalarModel(data32: signature.s, requireNonZero: true)
+            signatureRScalar = try Scalar(data32: signature.r, requireNonZero: true)
+            signatureSScalar = try Scalar(data32: signature.s, requireNonZero: true)
         } catch {
             return false
         }
-        let digestScalar = try ScalarConversionModel.makeReducedScalarFromDigest(digest32)
-        let signatureSInverse: ScalarModel
+        let digestScalar = try ScalarConversion.makeReducedScalarFromDigest(digest32)
+        let signatureSInverse: Scalar
         do {
             signatureSInverse = try signatureSScalar.invert()
         } catch {
@@ -37,13 +37,13 @@ public extension OpalBase.Cryptography.Secp256k1 {
         }
         let u1 = digestScalar.mulModN(signatureSInverse)
         let u2 = signatureRScalar.mulModN(signatureSInverse)
-        let u1Point = ScalarMultiplicationModel.mulG(u1)
-        let u2Point = ScalarMultiplicationModel.mul(u2, publicKeyPoint)
+        let u1Point = ScalarMultiplication.mulG(u1)
+        let u2Point = ScalarMultiplication.mul(u2, publicKeyPoint)
         let candidatePoint = u1Point.add(u2Point)
         guard let candidateAffine = candidatePoint.convertToAffine() else {
             return false
         }
-        guard let candidateScalar = try? ScalarConversionModel.makeScalarFromFieldElement(candidateAffine.x) else {
+        guard let candidateScalar = try? ScalarConversion.makeScalarFromFieldElement(candidateAffine.x) else {
             return false
         }
         return candidateScalar == signatureRScalar

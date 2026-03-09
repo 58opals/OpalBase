@@ -4,7 +4,7 @@ import Foundation
 
 // MARK: - State
 extension _OpalBase.Address.Book {
-    func findMatchingReservation(for utxos: Set<OpalBase.Transaction.Output.Unspent>) -> (identifier: UUID, state: SpendReservationModel.State)? {
+    func findMatchingReservation(for utxos: Set<OpalBase.Transaction.Output.Unspent>) -> (identifier: UUID, state: SpendReservation.State)? {
         spendReservationStates.first { _, state in
             state.utxos == utxos
         }
@@ -13,7 +13,7 @@ extension _OpalBase.Address.Book {
         }
     }
     
-    func removeReservationState(for identifier: UUID) -> SpendReservationModel.State? {
+    func removeReservationState(for identifier: UUID) -> SpendReservation.State? {
         cancelAutomaticSpendReservationRelease(for: identifier)
         return spendReservationStates.removeValue(forKey: identifier)
     }

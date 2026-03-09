@@ -21,17 +21,17 @@ extension FixedWidthInteger {
 
 extension UInt32 {
     func harden() throws -> UInt32 {
-        guard self <= HardenModel.maxUnhardenedValue else { throw OpalBase.DerivationPath.Error.indexTooLargeForHardening }
-        return HardenModel.harden(self)
+        guard self <= Harden.maxUnhardenedValue else { throw OpalBase.DerivationPath.Error.indexTooLargeForHardening }
+        return Harden.harden(self)
     }
     
     func unharden() throws -> UInt32 {
-        guard HardenModel.checkHardened(self) else { throw OpalBase.DerivationPath.Error.indexTooSmallForUnhardening }
-        return HardenModel.unharden(self)
+        guard Harden.checkHardened(self) else { throw OpalBase.DerivationPath.Error.indexTooSmallForUnhardening }
+        return Harden.unharden(self)
     }
 }
 
-enum HardenModel {
+enum Harden {
     static let bit: UInt32 = 0x8000_0000
     static let maxUnhardenedValue: UInt32 = bit &- 1
     static func checkHardened(_ value: UInt32) -> Bool { (value & bit) != 0 }

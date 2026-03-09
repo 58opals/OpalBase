@@ -38,14 +38,14 @@ extension OpalBase {
         /// Decodes an OpalBase.Transaction instance from Data.
         /// - Parameter data: The data to decode from.
         /// - Returns: A tuple containing the decoded OpalBase.Transaction and the number of bytes read.
-        /// - Throws: `CompactSizeModel.Error` if an input or output count prefix is invalid, `Data.Error` if the payload is truncated or declared lengths exceed the available data, or `OpalBase.CashTokens.Error` if any output contains an invalid token prefix.
+        /// - Throws: `CompactSize.Error` if an input or output count prefix is invalid, `Data.Error` if the payload is truncated or declared lengths exceed the available data, or `OpalBase.CashTokens.Error` if any output contains an invalid token prefix.
         public static func decode(from data: Data) throws -> (transaction: OpalBase.Transaction, bytesRead: Int) {
-            var reader = Data.ReaderModel(data)
+            var reader = Data.Reader(data)
             let transaction = try decode(from: &reader)
             return (transaction, reader.bytesRead)
         }
         
-        static func decode(from reader: inout Data.ReaderModel) throws -> OpalBase.Transaction {
+        static func decode(from reader: inout Data.Reader) throws -> OpalBase.Transaction {
             let version: UInt32 = try reader.readLittleEndian()
             let inputsCount = try reader.readCompactSize()
             guard inputsCount.value <= UInt64(Int.max) else {
@@ -71,11 +71,11 @@ extension OpalBase {
 
 extension _OpalBase.Transaction {
     func makeSerializedTransaction(with inputs: [Input]) throws -> Data {
-        var writer = Data.WriterModel()
+        var writer = Data.Writer()
         writer.writeLittleEndian(version)
-        writer.writeCompactSize(CompactSizeModel(value: UInt64(inputs.count)))
+        writer.writeCompactSize(CompactSize(value: UInt64(inputs.count)))
         inputs.forEach { writer.writeData($0.encode()) }
-        writer.writeCompactSize(CompactSizeModel(value: UInt64(outputs.count)))
+        writer.writeCompactSize(CompactSize(value: UInt64(outputs.count)))
         for output in outputs {
             writer.writeData(try output.encode())
         }
@@ -96,7 +96,7 @@ extension _OpalBase.Transaction: CustomStringConvertible {
     }
 }
 
-// MARK: - LegacyModel reference implementation
+// MARK: - Legacy reference implementation
 /// The following implementation is preserved for educational purposes. It mirrors an earlier iteration of `OpalBase.Transaction` that demonstrated how Bitcoin Cash transactions are serialized and sized without relying on helper methods. The snippet highlights each field that becomes part of the payload so readers can follow the binary layout step by step.
 private extension _OpalBase.Transaction {
     func encode_Legacy() throws -> Data {
@@ -104,10 +104,10 @@ private extension _OpalBase.Transaction {
         
         data.append(version.littleEndianData)
         
-        data.append(CompactSizeModel(value: UInt64(inputs.count)).encode())
+        data.append(CompactSize(value: UInt64(inputs.count)).encode())
         inputs.forEach { data.append($0.encode()) }
         
-        data.append(CompactSizeModel(value: UInt64(outputs.count)).encode())
+        data.append(CompactSize(value: UInt64(outputs.count)).encode())
         for output in outputs {
             data.append(try output.encode())
         }

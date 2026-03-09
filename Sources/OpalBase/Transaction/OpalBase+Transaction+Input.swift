@@ -9,8 +9,8 @@ extension _OpalBase.Transaction {
         public let unlockingScript: Data
         public let sequence: UInt32
         
-        private var unlockingScriptLength: CompactSizeModel {
-            CompactSizeModel(value: UInt64(unlockingScript.count))
+        private var unlockingScriptLength: CompactSize {
+            CompactSize(value: UInt64(unlockingScript.count))
         }
         
         /// Initializes an OpalBase.Transaction.Input instance.
@@ -29,7 +29,7 @@ extension _OpalBase.Transaction {
         /// Encodes the OpalBase.Transaction.Input into Data.
         /// - Returns: The encoded data.
         func encode() -> Data {
-            var writer = Data.WriterModel()
+            var writer = Data.Writer()
             writer.writeData(previousTransactionHash.naturalOrder)
             writer.writeLittleEndian(previousTransactionOutputIndex)
             writer.writeCompactSize(unlockingScriptLength)
@@ -40,15 +40,15 @@ extension _OpalBase.Transaction {
         
         /// Decodes an OpalBase.Transaction.Input instance from Data.
         /// - Parameter data: The data to decode from.
-        /// - Throws: `CompactSizeModel.Error` if the unlocking script length prefix is invalid, or `Data.Error` if the payload is truncated or the declared lengths exceed the available data.
+        /// - Throws: `CompactSize.Error` if the unlocking script length prefix is invalid, or `Data.Error` if the payload is truncated or the declared lengths exceed the available data.
         /// - Returns: A tuple containing the decoded OpalBase.Transaction.Input and the number of bytes read.
         static func decode(from data: Data) throws -> (input: Input, bytesRead: Int) {
-            var reader = Data.ReaderModel(data)
+            var reader = Data.Reader(data)
             let input = try decode(from: &reader)
             return (input, reader.bytesRead)
         }
         
-        static func decode(from reader: inout Data.ReaderModel) throws -> Input {
+        static func decode(from reader: inout Data.Reader) throws -> Input {
             let previousTransactionHash = try reader.readData(count: 32)
             let previousTransactionIndex: UInt32 = try reader.readLittleEndian()
             let unlockingScriptLength = try reader.readCompactSize()

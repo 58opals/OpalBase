@@ -14,25 +14,25 @@ public extension OpalBase.Cryptography.Schnorr {
         guard privateKey32.count == 32 else {
             throw Error.invalidPrivateKeyLength(actual: privateKey32.count)
         }
-        let privateKeyScalar: ScalarModel
+        let privateKeyScalar: Scalar
         do {
-            privateKeyScalar = try ScalarModel(data32: privateKey32, requireNonZero: true)
+            privateKeyScalar = try Scalar(data32: privateKey32, requireNonZero: true)
         } catch {
             throw Error.invalidPrivateKeyValue
         }
-        let publicKeyPoint = ScalarMultiplicationModel.mulG(privateKeyScalar)
+        let publicKeyPoint = ScalarMultiplication.mulG(privateKeyScalar)
         guard let publicKeyAffine = publicKeyPoint.convertToAffine() else {
             throw Error.invalidPrivateKeyValue
         }
-        var makeNextNonce: () throws -> ScalarModel
+        var makeNextNonce: () throws -> Scalar
         switch nonce {
         case .rfc6979BchDefault:
-            var generator = try NonceGeneratorModel(privateKey: privateKeyScalar, digest32: digest32)
+            var generator = try NonceGenerator(privateKey: privateKeyScalar, digest32: digest32)
             makeNextNonce = {
                 try generator.makeNextScalar()
             }
         case .bipSchnorrDeterministic:
-            var generator = try NonceGeneratorModel.BIPSchnorr(
+            var generator = try NonceGenerator.BIPSchnorr(
                 privateKey: privateKeyScalar,
                 digest32: digest32
             )
@@ -41,15 +41,15 @@ public extension OpalBase.Cryptography.Schnorr {
             }
         case .systemRandom:
             makeNextNonce = {
-                try NonceGeneratorModel.makeSystemRandomScalar()
+                try NonceGenerator.makeSystemRandomScalar()
             }
         }
         while true {
             let nonceScalar = try makeNextNonce()
-            let noncePoint = ScalarMultiplicationModel.mulG(nonceScalar)
+            let noncePoint = ScalarMultiplication.mulG(nonceScalar)
             let jacobiCandidate = noncePoint.Y.mul(noncePoint.Z)
-            let adjustedNonceScalar: ScalarModel
-            let adjustedNoncePoint: JacobianPointModel
+            let adjustedNonceScalar: Scalar
+            let adjustedNoncePoint: JacobianPoint
             if jacobiCandidate.isQuadraticResidue {
                 adjustedNonceScalar = nonceScalar
                 adjustedNoncePoint = noncePoint
@@ -61,7 +61,7 @@ public extension OpalBase.Cryptography.Schnorr {
                 continue
             }
             let signatureRFieldElement = adjustedNonceAffine.x
-            let challengeScalar = try ChallengeHashModel.makeChallengeScalar(
+            let challengeScalar = try ChallengeHash.makeChallengeScalar(
                 digest32: digest32,
                 r: signatureRFieldElement,
                 publicKey: publicKeyAffine

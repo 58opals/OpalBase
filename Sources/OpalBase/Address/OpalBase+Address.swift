@@ -66,11 +66,11 @@ extension _OpalBase.Address {
     }
     
     static func convertPayloadToFiveBitValues(payload: Data) throws -> [UInt8] {
-        try BitConversionModel.convertBits([UInt8](payload), from: 8, to: 5, pad: true)
+        try BitConversion.convertBits([UInt8](payload), from: 8, to: 5, pad: true)
     }
     
     static func convertFiveBitValuesToData(fiveBitValues: [UInt8]) throws -> Data {
-        let bytes = try BitConversionModel.convertBits(fiveBitValues, from: 5, to: 8, pad: false)
+        let bytes = try BitConversion.convertBits(fiveBitValues, from: 5, to: 8, pad: false)
         return Data(bytes)
     }
     
@@ -79,7 +79,7 @@ extension _OpalBase.Address {
         values += payload5BitValues
         let templateForChecksum: [UInt8] = [0, 0, 0, 0, 0, 0, 0, 0]
         values += templateForChecksum
-        let polymod = PolymodModel.compute(values)
+        let polymod = Polymod.compute(values)
         var checksum = [UInt8]()
         
         for index in 0..<8 {
@@ -97,10 +97,10 @@ extension _OpalBase.Address {
         case .p2pkh_OPCHECKSIG(let hash), .p2pkh_OPCHECKDATASIG(hash: let hash):
             payload = Data([versionByte]) + hash.data
         case .p2sh(let scriptHash):
-            guard scriptHash.count == 20 else { throw OpalBase.Address.LegacyModel.Error.invalidScriptType }
+            guard scriptHash.count == 20 else { throw OpalBase.Address.Legacy.Error.invalidScriptType }
             payload = Data([versionByte]) + scriptHash
         default:
-            throw OpalBase.Address.LegacyModel.Error.invalidScriptType
+            throw OpalBase.Address.Legacy.Error.invalidScriptType
         }
         
         let payload5BitValues = try OpalBase.Address.convertPayloadToFiveBitValues(payload: payload)
@@ -109,7 +109,7 @@ extension _OpalBase.Address {
             payload5BitValues: payload5BitValues
         )
         let combined = payload5BitValues + checksum
-        return Base32Model.encode(Data(combined), interpretedAs5Bit: true)
+        return Base32.encode(Data(combined), interpretedAs5Bit: true)
     }
     
     private static func makeVersionByte(for script: OpalBase.Script, format: Format) throws -> UInt8 {
@@ -119,7 +119,7 @@ extension _OpalBase.Address {
         case .p2sh:
             return format == .tokenAware ? 0x18 : 0x08
         default:
-            throw OpalBase.Address.LegacyModel.Error.invalidScriptType
+            throw OpalBase.Address.Legacy.Error.invalidScriptType
         }
     }
 }
@@ -152,7 +152,7 @@ extension _OpalBase.Address {
             let normalizedScalar = UnicodeScalar(normalizedAscii)
             let normalizedCharacter = Character(normalizedScalar)
             
-            guard Base32Model.characters.contains(normalizedCharacter)
+            guard Base32.characters.contains(normalizedCharacter)
             else { return }
             
             partialResult.append(normalizedCharacter)
@@ -165,7 +165,7 @@ extension _OpalBase.Address {
 extension _OpalBase.Address {
     public func makeScriptHash() -> Data {
         let scriptData = lockingScript.data
-        return SHA256Model.hash(scriptData).reversedData
+        return SHA256.hash(scriptData).reversedData
     }
 }
 

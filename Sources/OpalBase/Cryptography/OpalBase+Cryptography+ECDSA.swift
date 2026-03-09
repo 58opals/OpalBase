@@ -41,7 +41,7 @@ extension OpalBase.Cryptography.ECDSA {
     ) throws -> Data {
         switch format {
         case .ecdsa(let ecdsa):
-            let digest32 = SHA256Model.hash(message)
+            let digest32 = SHA256.hash(message)
             let ecdsaSignature = try OpalBase.Cryptography.Secp256k1.sign(
                 digest32: digest32,
                 privateKey32: privateKey.rawData,
@@ -99,7 +99,7 @@ extension OpalBase.Cryptography.ECDSA {
 
         switch format {
         case .ecdsa(let ecdsa):
-            let digest32 = SHA256Model.hash(message)
+            let digest32 = SHA256.hash(message)
             switch ecdsa {
             case .raw:
                 let ecdsaSignature = try OpalBase.Cryptography.Secp256k1.Signature(raw64: signature)

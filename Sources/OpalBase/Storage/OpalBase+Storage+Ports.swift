@@ -4,11 +4,11 @@ import Foundation
 
 extension _OpalBase.Storage {
     public struct Ports: Sendable {
-        public let snapshotPersistence: any OpalBase.Storage.SnapshotStore
-        public let secretAccess: any OpalBase.Storage.MnemonicSecretStore
+        public let snapshotPersistence: any OpalBase.Storage.SnapshotClient
+        public let secretAccess: any OpalBase.Storage.MnemonicSecretClient
 
-        public init(snapshotPersistence: any OpalBase.Storage.SnapshotStore,
-                    secretAccess: any OpalBase.Storage.MnemonicSecretStore) {
+        public init(snapshotPersistence: any OpalBase.Storage.SnapshotClient,
+                    secretAccess: any OpalBase.Storage.MnemonicSecretClient) {
             self.snapshotPersistence = snapshotPersistence
             self.secretAccess = secretAccess
         }
@@ -19,5 +19,5 @@ extension _OpalBase.Storage {
     }
 }
 
-extension _OpalBase.Storage: OpalBase.Storage.SnapshotStore {}
-extension _OpalBase.Storage: OpalBase.Storage.MnemonicSecretStore {}
+extension _OpalBase.Storage: OpalBase.Storage.SnapshotClient {}
+extension _OpalBase.Storage: OpalBase.Storage.MnemonicSecretClient {}

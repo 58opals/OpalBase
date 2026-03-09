@@ -53,7 +53,7 @@ extension _OpalBase.Wallet {
             throw Error.snapshotDoesNotMatchWallet
         }
         
-        let rootKey = OpalBase.PrivateKey.ExtendedModel(rootKey: try .init(seed: mnemonic.seed))
+        let rootKey = OpalBase.PrivateKey.Extended(rootKey: try .init(seed: mnemonic.seed))
         var updatedAccounts: [UInt32: OpalBase.Account] = .init(minimumCapacity: snapshot.accounts.count)
         for accountSnap in snapshot.accounts {
             guard accountSnap.purpose == purpose,

@@ -14,9 +14,9 @@ extension OpalBase {
         }
         
         func encode() throws -> Data {
-            var writer = Data.WriterModel()
+            var writer = Data.Writer()
             writer.writeData(header.encode())
-            writer.writeCompactSize(CompactSizeModel(value: UInt64(transactions.count)))
+            writer.writeCompactSize(CompactSize(value: UInt64(transactions.count)))
             for transaction in transactions {
                 writer.writeData(try transaction.encode())
             }
@@ -24,7 +24,7 @@ extension OpalBase {
         }
         
         static func decode(from data: Data) throws -> (block: OpalBase.Block, bytesRead: Int) {
-            var reader = Data.ReaderModel(data)
+            var reader = Data.Reader(data)
             let header = try Header.decode(from: &reader)
             let transactionCount = try reader.readCompactSize()
             guard transactionCount.value <= UInt64(Int.max) else { throw Error.transactionCountOverflow(transactionCount.value) }

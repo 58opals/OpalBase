@@ -14,27 +14,27 @@ public extension OpalBase.Cryptography.Schnorr {
         guard publicKey.count == 33 || publicKey.count == 65 else {
             throw Error.invalidPublicKeyLength(actual: publicKey.count)
         }
-        let publicKeyPoint: AffinePointModel
+        let publicKeyPoint: AffinePoint
         do {
-            publicKeyPoint = try OpalBase.PublicKey.ParsingModel.parsePublicKey(publicKey)
+            publicKeyPoint = try OpalBase.PublicKey.Parsing.parsePublicKey(publicKey)
         } catch {
             return false
         }
-        let signatureRFieldElement: FieldElementModel
+        let signatureRFieldElement: FieldElement
         do {
-            signatureRFieldElement = try FieldElementModel(data32: signature.r)
+            signatureRFieldElement = try FieldElement(data32: signature.r)
         } catch {
             return false
         }
-        let signatureSScalar: ScalarModel
+        let signatureSScalar: Scalar
         do {
-            signatureSScalar = try ScalarModel(data32: signature.s)
+            signatureSScalar = try Scalar(data32: signature.s)
         } catch {
             return false
         }
-        let challengeScalar: ScalarModel
+        let challengeScalar: Scalar
         do {
-            challengeScalar = try ChallengeHashModel.makeChallengeScalar(
+            challengeScalar = try ChallengeHash.makeChallengeScalar(
                 digest32: digest32,
                 r: signatureRFieldElement,
                 publicKey: publicKeyPoint
@@ -42,8 +42,8 @@ public extension OpalBase.Cryptography.Schnorr {
         } catch {
             return false
         }
-        let sTimesGenerator = ScalarMultiplicationModel.mulG(signatureSScalar)
-        let eTimesPublicKey = ScalarMultiplicationModel.mul(challengeScalar, publicKeyPoint)
+        let sTimesGenerator = ScalarMultiplication.mulG(signatureSScalar)
+        let eTimesPublicKey = ScalarMultiplication.mul(challengeScalar, publicKeyPoint)
         let candidatePoint = sTimesGenerator.add(eTimesPublicKey.negate())
         guard !candidatePoint.isInfinity else {
             return false

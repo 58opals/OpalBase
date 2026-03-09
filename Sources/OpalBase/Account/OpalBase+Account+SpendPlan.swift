@@ -34,7 +34,7 @@ extension _OpalBase.Account {
         public let shouldAllowDustDonation: Bool
         public var reservationDate: Date { reservationHandle.reservationDate }
         
-        fileprivate let reservationHandle: OpalBase.Account.SpendReservationModel
+        fileprivate let reservationHandle: OpalBase.Account.SpendReservation
         fileprivate let changeOutput: OpalBase.Transaction.Output
         fileprivate let recipientOutputs: [OpalBase.Transaction.Output]
         fileprivate let privateKeys: [OpalBase.Transaction.Output.Unspent: OpalBase.PrivateKey]
@@ -46,7 +46,7 @@ extension _OpalBase.Account {
              totalSelectedAmount: OpalBase.Satoshi,
              targetAmount: OpalBase.Satoshi,
              shouldAllowDustDonation: Bool,
-             reservationHandle: OpalBase.Account.SpendReservationModel,
+             reservationHandle: OpalBase.Account.SpendReservation,
              changeOutput: OpalBase.Transaction.Output,
              recipientOutputs: [OpalBase.Transaction.Output],
              privateKeys: [OpalBase.Transaction.Output.Unspent: OpalBase.PrivateKey],

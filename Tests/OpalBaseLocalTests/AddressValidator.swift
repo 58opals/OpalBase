@@ -16,7 +16,7 @@ struct AddressValidator {
         let publicKey = try OpalBase.PublicKey(privateKey: privateKey)
         let hash = OpalBase.PublicKey.Hash(publicKey: publicKey)
         let script = OpalBase.Script.p2pkh_OPCHECKSIG(hash: hash)
-        let legacyAddress = try OpalBase.Address.LegacyModel(script)
+        let legacyAddress = try OpalBase.Address.Legacy(script)
         let address = try OpalBase.Address(script: script)
 
         #expect(walletImportFormat == "KwDiBf89QgGbjEhKnhXJuH7LrciVrZi3qYjgd9M7rFU73sVHnoWn")
@@ -108,7 +108,7 @@ struct AddressValidator {
                 "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "about"
             ]
         )
-        let rootExtendedPrivateKey = OpalBase.PrivateKey.ExtendedModel(rootKey: try .init(seed: mnemonic.seed))
+        let rootExtendedPrivateKey = OpalBase.PrivateKey.Extended(rootKey: try .init(seed: mnemonic.seed))
         let account = try OpalBase.DerivationPath.Account(rawIndexInteger: 0)
         let gapLimit = 5
         let book = try await OpalBase.Address.Book(
@@ -140,7 +140,7 @@ struct AddressValidator {
                 "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "about"
             ]
         )
-        let rootExtendedPrivateKey = OpalBase.PrivateKey.ExtendedModel(rootKey: try .init(seed: mnemonic.seed))
+        let rootExtendedPrivateKey = OpalBase.PrivateKey.Extended(rootKey: try .init(seed: mnemonic.seed))
         let account = try OpalBase.DerivationPath.Account(rawIndexInteger: 0)
         let book = try await OpalBase.Address.Book(
             rootExtendedPrivateKey: rootExtendedPrivateKey,

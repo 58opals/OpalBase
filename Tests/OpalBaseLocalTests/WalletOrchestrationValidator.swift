@@ -9,16 +9,16 @@ import OpalBaseTestSupport
 struct WalletOrchestrationValidator {
     @Test("prepareSpend(forAccountAt:) delegates to the selected account")
     func prepareSpendDelegatesToSelectedAccount() async throws {
-        let wallet = try await AccountTestFixturesModel.makeWallet(accountIndices: [0])
+        let wallet = try await AccountTestFixtures.makeWallet(accountIndices: [0])
         let account = try await wallet.fetchAccount(at: 0)
-        _ = try await AccountTestFixturesModel.addUnspentOutput(
+        _ = try await AccountTestFixtures.addUnspentOutput(
             to: account,
             value: 25_000,
             hashByte: 0x01
         )
 
         let recipient = OpalBase.Account.Payment.Recipient(
-            address: try OpalBase.Address(AccountTestFixturesModel.standardAddressString),
+            address: try OpalBase.Address(AccountTestFixtures.standardAddressString),
             amount: try OpalBase.Satoshi(10_000)
         )
         let payment = OpalBase.Account.Payment(recipients: [recipient])
@@ -30,11 +30,11 @@ struct WalletOrchestrationValidator {
 
     @Test("prepareSpend(forAccountAt:) surfaces cannotFetchAccount for missing indices")
     func prepareSpendPropagatesMissingAccountErrors() async throws {
-        let wallet = OpalBase.Wallet(mnemonic: try AccountTestFixturesModel.makeMnemonic())
+        let wallet = OpalBase.Wallet(mnemonic: try AccountTestFixtures.makeMnemonic())
         let payment = OpalBase.Account.Payment(
             recipients: [
                 .init(
-                    address: try OpalBase.Address(AccountTestFixturesModel.standardAddressString),
+                    address: try OpalBase.Address(AccountTestFixtures.standardAddressString),
                     amount: try OpalBase.Satoshi(1_000)
                 )
             ]
@@ -47,7 +47,7 @@ struct WalletOrchestrationValidator {
 
     @Test("calculateBalance aggregates across accounts and updates cached totals")
     func calculateBalanceAggregatesAcrossAccounts() async throws {
-        let wallet = try await AccountTestFixturesModel.makeWallet(accountIndices: [0, 1])
+        let wallet = try await AccountTestFixtures.makeWallet(accountIndices: [0, 1])
         let account0 = try await wallet.fetchAccount(at: 0)
         let account1 = try await wallet.fetchAccount(at: 1)
 
@@ -71,12 +71,12 @@ struct WalletOrchestrationValidator {
 
     @Test("applySnapshot replaces account state when wallet identity matches")
     func applySnapshotReplacesAccountState() async throws {
-        let sourceWallet = try await AccountTestFixturesModel.makeWallet(accountIndices: [0, 3])
+        let sourceWallet = try await AccountTestFixtures.makeWallet(accountIndices: [0, 3])
         let sourceAccount = try await sourceWallet.fetchAccount(at: 0)
         _ = try await sourceAccount.reserveNextReceivingAddress()
         let snapshot = await sourceWallet.makeSnapshot()
 
-        let targetWallet = OpalBase.Wallet(mnemonic: try AccountTestFixturesModel.makeMnemonic())
+        let targetWallet = OpalBase.Wallet(mnemonic: try AccountTestFixtures.makeMnemonic())
         try await targetWallet.addAccount(unhardenedIndex: 7)
 
         try await targetWallet.applySnapshot(snapshot)
@@ -95,7 +95,7 @@ struct WalletOrchestrationValidator {
 
     @Test("applySnapshot rejects snapshots from a different wallet identity")
     func applySnapshotRejectsIdentityMismatch() async throws {
-        let wallet = try await AccountTestFixturesModel.makeWallet(accountIndices: [0])
+        let wallet = try await AccountTestFixtures.makeWallet(accountIndices: [0])
         let snapshot = await wallet.makeSnapshot()
 
         let mismatchedSnapshot = OpalBase.Wallet.Snapshot(
@@ -114,8 +114,8 @@ struct WalletOrchestrationValidator {
 
     @Test("applySnapshot clears existing token metadata when snapshot omits it")
     func applySnapshotClearsExistingTokenMetadataForLegacySnapshots() async throws {
-        let sourceWallet = try await AccountTestFixturesModel.makeWallet(accountIndices: [0])
-        let targetWallet = try await AccountTestFixturesModel.makeWallet(accountIndices: [0])
+        let sourceWallet = try await AccountTestFixtures.makeWallet(accountIndices: [0])
+        let targetWallet = try await AccountTestFixtures.makeWallet(accountIndices: [0])
         let staleCategory = try makeCategoryIdentifier(
             hexadecimalString: "1111111111111111111111111111111111111111111111111111111111111111"
         )
@@ -146,8 +146,8 @@ struct WalletOrchestrationValidator {
 
     @Test("applySnapshot replaces existing token metadata with snapshot contents")
     func applySnapshotReplacesExistingTokenMetadata() async throws {
-        let sourceWallet = try await AccountTestFixturesModel.makeWallet(accountIndices: [0])
-        let targetWallet = try await AccountTestFixturesModel.makeWallet(accountIndices: [0])
+        let sourceWallet = try await AccountTestFixtures.makeWallet(accountIndices: [0])
+        let targetWallet = try await AccountTestFixtures.makeWallet(accountIndices: [0])
         let snapshotCategory = try makeCategoryIdentifier(
             hexadecimalString: "2222222222222222222222222222222222222222222222222222222222222222"
         )

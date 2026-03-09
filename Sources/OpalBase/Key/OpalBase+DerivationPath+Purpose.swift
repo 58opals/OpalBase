@@ -30,7 +30,7 @@ extension _OpalBase.DerivationPath {
         public var hardenedIndex: UInt32 {
             switch self {
             case .bip44:
-                return HardenModel.harden(44)
+                return Harden.harden(44)
             }
         }
     }

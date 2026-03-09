@@ -91,27 +91,27 @@ extension Array<Data> {
         for input in self {
             hashInput.append(input)
         }
-        let sha256Hash = SHA256Model.hash(hashInput)
+        let sha256Hash = SHA256.hash(hashInput)
         return sha256Hash
     }
 }
 
 extension Data {
     static func push(_ buffer: Data) -> Data {
-        var writer = Data.WriterModel()
+        var writer = Data.Writer()
         writer.reserveCapacity(5 + buffer.count)
         
         switch buffer.count {
         case 0...75:
             writer.writeByte(UInt8(buffer.count))
         case 76...255:
-            writer.writeByte(ScriptOperationCodeModel._PUSHDATA1.rawValue)
+            writer.writeByte(ScriptOperationCode._PUSHDATA1.rawValue)
             writer.writeByte(UInt8(buffer.count))
         case 256...65535:
-            writer.writeByte(ScriptOperationCodeModel._PUSHDATA2.rawValue)
+            writer.writeByte(ScriptOperationCode._PUSHDATA2.rawValue)
             writer.writeLittleEndian(UInt16(buffer.count))
         default:
-            writer.writeByte(ScriptOperationCodeModel._PUSHDATA4.rawValue)
+            writer.writeByte(ScriptOperationCode._PUSHDATA4.rawValue)
             writer.writeLittleEndian(UInt32(buffer.count))
         }
         

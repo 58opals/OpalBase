@@ -59,7 +59,7 @@ extension _OpalBase.Transaction {
     
     static func correctFeeAfterSigning(signedTransaction: OpalBase.Transaction,
                                        inputs: [Input],
-                                       builder: BuilderModel,
+                                       builder: Builder,
                                        recipientOutputs: [Output],
                                        changeOutput: Output,
                                        outputOrderingStrategy: OutputOrderingStrategy,
@@ -119,13 +119,13 @@ extension _OpalBase.Transaction {
 
 extension _OpalBase.Transaction.Output {
     var isOpReturnScript: Bool {
-        let returnOpcode = ScriptOperationCodeModel._RETURN.rawValue
+        let returnOpcode = ScriptOperationCode._RETURN.rawValue
         if lockingScript.starts(with: [returnOpcode]) {
             return true
         }
         
         return lockingScript.starts(
-            with: [ScriptOperationCodeModel._0.rawValue, returnOpcode]
+            with: [ScriptOperationCode._0.rawValue, returnOpcode]
         )
     }
 }

@@ -9,11 +9,11 @@ extension _OpalBase.Account {
         tokenSelectionPolicy: OpalBase.Address.Book.CoinSelection.TokenSelectionPolicy,
         mapReservationError: (Swift.Error) -> OpalBase.Account.Error
     ) async throws -> (
-        reservation: OpalBase.Address.Book.SpendReservationModel,
+        reservation: OpalBase.Address.Book.SpendReservation,
         reservedChangeEntry: OpalBase.Address.Book.Entry,
         privateKeys: [OpalBase.Transaction.Output.Unspent: OpalBase.PrivateKey]
     ) {
-        let reservation: OpalBase.Address.Book.SpendReservationModel
+        let reservation: OpalBase.Address.Book.SpendReservation
         do {
             reservation = try await addressBook.reserveSpend(utxos: utxos,
                                                              changeEntry: changeEntry,

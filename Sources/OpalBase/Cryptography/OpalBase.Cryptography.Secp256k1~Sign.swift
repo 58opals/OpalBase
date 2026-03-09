@@ -16,17 +16,17 @@ public extension OpalBase.Cryptography.Secp256k1 {
         guard privateKey32.count == 32 else {
             throw Error.invalidPrivateKeyLength(actual: privateKey32.count)
         }
-        let privateKeyScalar: ScalarModel
+        let privateKeyScalar: Scalar
         do {
-            privateKeyScalar = try ScalarModel(data32: privateKey32, requireNonZero: true)
+            privateKeyScalar = try Scalar(data32: privateKey32, requireNonZero: true)
         } catch {
             throw Error.invalidPrivateKeyValue
         }
-        let digestScalar = try ScalarConversionModel.makeReducedScalarFromDigest(digest32)
-        let makeNextNonce: () throws -> ScalarModel
+        let digestScalar = try ScalarConversion.makeReducedScalarFromDigest(digest32)
+        let makeNextNonce: () throws -> Scalar
         switch nonce {
         case .rfc6979Sha256:
-            var generator = try NonceGeneratorModel.RFC6979(privateKey: privateKeyScalar, digest32: digest32)
+            var generator = try NonceGenerator.RFC6979(privateKey: privateKeyScalar, digest32: digest32)
             makeNextNonce = {
                 try generator.makeNextScalar()
             }
@@ -37,11 +37,11 @@ public extension OpalBase.Cryptography.Secp256k1 {
         }
         while true {
             let nonceScalar = try makeNextNonce()
-            let noncePoint = ScalarMultiplicationModel.mulG(nonceScalar)
+            let noncePoint = ScalarMultiplication.mulG(nonceScalar)
             guard let nonceAffine = noncePoint.convertToAffine() else {
                 continue
             }
-            guard let signatureRScalar = try? ScalarConversionModel.makeScalarFromFieldElement(nonceAffine.x) else {
+            guard let signatureRScalar = try? ScalarConversion.makeScalarFromFieldElement(nonceAffine.x) else {
                 continue
             }
             guard !signatureRScalar.isZero else {
@@ -63,7 +63,7 @@ public extension OpalBase.Cryptography.Secp256k1 {
 }
 
 private extension OpalBase.Cryptography.Secp256k1 {
-    static func makeSystemRandomScalarForECDSA() throws -> ScalarModel {
+    static func makeSystemRandomScalarForECDSA() throws -> Scalar {
         while true {
             var data = Data(count: 32)
             let status = data.withUnsafeMutableBytes { buffer -> Int32 in
@@ -75,7 +75,7 @@ private extension OpalBase.Cryptography.Secp256k1 {
             guard status == errSecSuccess else {
                 throw OpalBase.Cryptography.Secp256k1.Error.randomGenerationFailed(status: status)
             }
-            if let scalar = try? ScalarModel(data32: data, requireNonZero: true) {
+            if let scalar = try? Scalar(data32: data, requireNonZero: true) {
                 return scalar
             }
         }

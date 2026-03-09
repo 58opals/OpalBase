@@ -26,8 +26,8 @@ extension _OpalBase.Account {
                     feeOverride: OpalBase.Wallet.FeePolicy.Override? = nil,
                     feeContext: OpalBase.Wallet.FeePolicy.RecommendationContext = .init(),
                     shouldAllowDustDonation: Bool = false) throws {
-            try TokenCommitmentMutationValidationModel.validateCommitment(newCommitment)
-            try TokenCommitmentMutationValidationModel.validateDestination(destination)
+            try TokenCommitmentMutationValidation.validateCommitment(newCommitment)
+            try TokenCommitmentMutationValidation.validateDestination(destination)
             self.target = target
             self.newCommitment = newCommitment
             self.destination = destination
@@ -40,7 +40,7 @@ extension _OpalBase.Account {
     }
 }
 
-private enum TokenCommitmentMutationValidationModel {
+private enum TokenCommitmentMutationValidation {
     static func validateCommitment(_ commitment: Data) throws {
         try TokenOperationValidator.validateCommitmentLength(commitment) { maximum, actual in
             OpalBase.Account.Error.tokenMutationNonFungibleTokenCommitmentTooLong(

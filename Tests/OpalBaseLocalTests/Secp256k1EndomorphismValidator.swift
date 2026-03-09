@@ -9,7 +9,7 @@ import OpalBaseTestSupport
 struct Secp256k1EndomorphismValidator {
     @Test("Endomorphism preserves curve membership")
     func endomorphismPreservesCurveMembership() {
-        let generatorPoint = ScalarMultiplicationModel.generator
+        let generatorPoint = ScalarMultiplication.generator
         let endomorphismPoint = generatorPoint.applyEndomorphism()
         #expect(generatorPoint.isOnCurve)
         #expect(endomorphismPoint.isOnCurve)
@@ -17,8 +17,8 @@ struct Secp256k1EndomorphismValidator {
     
     @Test("Endomorphism generator x coordinate matches published value")
     func endomorphismGeneratorMatchesPublishedValue() {
-        let expectedX = FieldElementModel(
-            unchecked: UInt256Model(
+        let expectedX = FieldElement(
+            unchecked: UInt256(
                 limbs: [
                     0xa7bba04400b88fcb,
                     0x872844067f15e98d,
@@ -27,25 +27,25 @@ struct Secp256k1EndomorphismValidator {
                 ]
             )
         )
-        let expected = AffinePointModel(
+        let expected = AffinePoint(
             x: expectedX,
-            y: FieldElementModel(unchecked: OpalBase.Cryptography.Secp256k1.Constant.Gy)
+            y: FieldElement(unchecked: OpalBase.Cryptography.Secp256k1.Constant.Gy)
         )
-        #expect(ScalarMultiplicationModel.generator.applyEndomorphism() == expected)
+        #expect(ScalarMultiplication.generator.applyEndomorphism() == expected)
     }
     
     @Test("Endomorphism matches scalar lambda multiplication")
     func endomorphismMatchesLambdaMultiplication() {
-        let lambda = ScalarModel(unchecked: OpalBase.Cryptography.Secp256k1.Constant.endomorphismLambda)
-        let lambdaPoint = ScalarMultiplicationModel.mul(lambda, ScalarMultiplicationModel.generator).convertToAffine()
-        #expect(lambdaPoint == ScalarMultiplicationModel.generator.applyEndomorphism())
+        let lambda = Scalar(unchecked: OpalBase.Cryptography.Secp256k1.Constant.endomorphismLambda)
+        let lambdaPoint = ScalarMultiplication.mul(lambda, ScalarMultiplication.generator).convertToAffine()
+        #expect(lambdaPoint == ScalarMultiplication.generator.applyEndomorphism())
     }
     
-    @Test("ScalarModel split recomposes and stays within expected bounds")
+    @Test("Scalar split recomposes and stays within expected bounds")
     func scalarSplitRecomposesAndBounds() throws {
         for seed in 0..<32 {
-            let digest = SHA256Model.hash(Data([UInt8(seed)]))
-            let scalar = try ScalarConversionModel.makeReducedScalarFromDigest(digest)
+            let digest = SHA256.hash(Data([UInt8(seed)]))
+            let scalar = try ScalarConversion.makeReducedScalarFromDigest(digest)
             let split = scalar.splitForEndomorphism()
             let recomposed = recombine(split: split)
             #expect(recomposed == scalar)
@@ -57,29 +57,29 @@ struct Secp256k1EndomorphismValidator {
     @Test("Generator multiplication matches endomorphism path")
     func generatorMultiplicationMatchesEndomorphism() throws {
         for seed in 0..<64 {
-            let digest = SHA256Model.hash(Data([0x42, UInt8(seed)]))
-            let scalar = try ScalarConversionModel.makeReducedScalarFromDigest(digest)
-            let endomorphismPoint = ScalarMultiplicationModel.mulGWithEndomorphism(scalar)
-            let windowedPoint = ScalarMultiplicationModel.mulGWithEightBitTable(scalar)
+            let digest = SHA256.hash(Data([0x42, UInt8(seed)]))
+            let scalar = try ScalarConversion.makeReducedScalarFromDigest(digest)
+            let endomorphismPoint = ScalarMultiplication.mulGWithEndomorphism(scalar)
+            let windowedPoint = ScalarMultiplication.mulGWithEightBitTable(scalar)
             #expect(endomorphismPoint.convertToAffine() == windowedPoint.convertToAffine())
         }
     }
     
     private func recombine(
-        split: (firstScalar: SignedScalar128Model, secondScalar: SignedScalar128Model, isFirstNegative: Bool, isSecondNegative: Bool)
-    ) -> ScalarModel {
-        let lambda = ScalarModel(unchecked: OpalBase.Cryptography.Secp256k1.Constant.endomorphismLambda)
+        split: (firstScalar: SignedScalar128, secondScalar: SignedScalar128, isFirstNegative: Bool, isSecondNegative: Bool)
+    ) -> Scalar {
+        let lambda = Scalar(unchecked: OpalBase.Cryptography.Secp256k1.Constant.endomorphismLambda)
         let firstScalar = makeScalar(from: split.firstScalar)
         let secondScalar = makeScalar(from: split.secondScalar)
         return firstScalar.addModN(secondScalar.mulModN(lambda))
     }
     
-    private func makeScalar(from signedScalar: SignedScalar128Model) -> ScalarModel {
-        let scalar = ScalarModel(unchecked: signedScalar.magnitude)
+    private func makeScalar(from signedScalar: SignedScalar128) -> Scalar {
+        let scalar = Scalar(unchecked: signedScalar.magnitude)
         return signedScalar.isNegative ? scalar.negateModN() : scalar
     }
     
-    private func isWithin128Bits(_ value: UInt256Model) -> Bool {
+    private func isWithin128Bits(_ value: UInt256) -> Bool {
         guard let mostSignificantBitIndex = value.mostSignificantBitIndex else {
             return true
         }

@@ -32,7 +32,7 @@ struct AddressBookCoinSelectorValidator {
             strategy: .greedyLargestFirst
         )
 
-        let selector = OpalBase.Address.Book.CoinSelectorModel(
+        let selector = OpalBase.Address.Book.CoinSelector(
             utxos: [firstUnspent, secondUnspent],
             configuration: configuration,
             targetAmount: UInt64.max,
@@ -64,7 +64,7 @@ struct AddressBookCoinSelectorValidator {
             previousTransactionOutputIndex: 1
         )
 
-        let selector = OpalBase.Address.Book.CoinSelectorModel(
+        let selector = OpalBase.Address.Book.CoinSelector(
             utxos: [nearMaximumUnspent, smallUnspent],
             configuration: .makeTemplateConfiguration(strategy: .greedyLargestFirst),
             targetAmount: UInt64.max,
@@ -94,7 +94,7 @@ struct AddressBookCoinSelectorValidator {
         )
 
         let configuration = OpalBase.Address.Book.CoinSelection.Configuration.makeTemplateConfiguration(strategy: .greedyLargestFirst)
-        let coinSelector = OpalBase.Address.Book.CoinSelectorModel(
+        let coinSelector = OpalBase.Address.Book.CoinSelector(
             utxos: [utxoWithMaximumValue, utxoTriggeringOverflow],
             configuration: configuration,
             targetAmount: UInt64.max,

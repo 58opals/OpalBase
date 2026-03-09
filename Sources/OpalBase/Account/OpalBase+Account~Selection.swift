@@ -4,7 +4,7 @@ import Foundation
 
 extension _OpalBase.Account {
     func selectTokenInputs(from unspentOutputs: [OpalBase.Transaction.Output.Unspent],
-                           requirements: TokenRequirementsModel) throws -> [OpalBase.Transaction.Output.Unspent] {
+                           requirements: TokenRequirements) throws -> [OpalBase.Transaction.Output.Unspent] {
         guard requirements.fungibleAmount > 0 || !requirements.nonFungibleTokens.isEmpty else {
             throw Error.tokenTransferHasNoRecipients
         }

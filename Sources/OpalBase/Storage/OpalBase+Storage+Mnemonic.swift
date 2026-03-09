@@ -15,7 +15,7 @@ extension _OpalBase.Storage {
 }
 
 extension _OpalBase.Storage.Mnemonic {
-    struct PayloadModel: Codable {
+    struct Payload: Codable {
         public let words: [String]
         public let passphrase: String
     }

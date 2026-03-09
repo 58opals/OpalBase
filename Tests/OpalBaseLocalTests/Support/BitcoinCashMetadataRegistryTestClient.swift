@@ -6,8 +6,8 @@ import Foundation
 enum BitcoinCashMetadataRegistryTestClient {
     static func makeRegistries() -> OpalBase.CashTokens.BCMR.Client {
         let authchainResolver = OpalBase.CashTokens.BCMR.Client.AuthchainResolver(
-            transactionReader: PlaceholderTransactionReaderModel(),
-            addressReader: PlaceholderAddressReaderModel(),
+            transactionReader: PlaceholderTransactionReader(),
+            addressReader: PlaceholderAddressReader(),
             maxDepth: 0
         )
         let registryFetcher = OpalBase.CashTokens.BCMR.Client.Fetcher(maxBytes: 1_024)
@@ -22,13 +22,13 @@ private enum PlaceholderNetworkError: Swift.Error {
     case notImplemented
 }
 
-private struct PlaceholderTransactionReaderModel: OpalBase.Network.TransactionReadableClient {
+private struct PlaceholderTransactionReader: OpalBase.Network.TransactionReadableClient {
     func fetchRawTransaction(for transactionHash: OpalBase.Transaction.Hash) async throws -> Data {
         throw PlaceholderNetworkError.notImplemented
     }
 }
 
-private struct PlaceholderAddressReaderModel: OpalBase.Network.AddressReadable {
+private struct PlaceholderAddressReader: OpalBase.Network.AddressReadable {
     func fetchBalance(
         for address: String,
         tokenFilter: OpalBase.Network.TokenFilter

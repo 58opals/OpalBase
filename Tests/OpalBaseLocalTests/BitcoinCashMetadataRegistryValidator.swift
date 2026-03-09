@@ -26,7 +26,7 @@ struct BitcoinCashMetadataRegistryValidator {
     
     @Test("verifies registry hash")
     func verifyRegistryHash() {
-        let registryHash = SHA256Model.hash(BitcoinCashMetadataRegistryTestData.registryData)
+        let registryHash = SHA256.hash(BitcoinCashMetadataRegistryTestData.registryData)
         #expect(registryHash == BitcoinCashMetadataRegistryTestData.registryHash)
     }
     

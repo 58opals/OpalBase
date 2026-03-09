@@ -86,7 +86,7 @@ struct TransactionHashTypeUnspentTransactionOutputsValidator {
         for output in outputs {
             data.append(try output.encode())
         }
-        return HASH256Model.hash(data)
+        return HASH256.hash(data)
     }
 }
 

@@ -14,9 +14,9 @@ extension _OpalBase.Account {
                         bchAmount: OpalBase.Satoshi? = nil,
                         fungibleAmount: UInt64? = nil,
                         nft: OpalBase.CashTokens.NFT? = nil) throws {
-                try TokenMintValidationModel.validateTokenData(fungibleAmount: fungibleAmount, nft: nft)
-                try TokenMintValidationModel.validateFungibleAmount(fungibleAmount)
-                try TokenMintValidationModel.validateCommitment(nft)
+                try TokenMintValidation.validateTokenData(fungibleAmount: fungibleAmount, nft: nft)
+                try TokenMintValidation.validateFungibleAmount(fungibleAmount)
+                try TokenMintValidation.validateCommitment(nft)
                 self.address = address
                 self.bchAmount = bchAmount
                 self.fungibleAmount = fungibleAmount
@@ -43,9 +43,9 @@ extension _OpalBase.Account {
                     feeOverride: OpalBase.Wallet.FeePolicy.Override? = nil,
                     feeContext: OpalBase.Wallet.FeePolicy.RecommendationContext = .init(),
                     shouldAllowDustDonation: Bool = false) throws {
-            try TokenMintValidationModel.validateRequest(recipients: recipients, authorityReturn: authorityReturn)
-            try TokenMintValidationModel.validateRecipients(recipients)
-            try TokenMintValidationModel.validateAuthorityReturn(authorityReturn)
+            try TokenMintValidation.validateRequest(recipients: recipients, authorityReturn: authorityReturn)
+            try TokenMintValidation.validateRecipients(recipients)
+            try TokenMintValidation.validateAuthorityReturn(authorityReturn)
             self.category = category
             self.recipients = recipients
             self.authorityReturn = authorityReturn
@@ -56,7 +56,7 @@ extension _OpalBase.Account {
     }
 }
 
-private enum TokenMintValidationModel {
+private enum TokenMintValidation {
     static func validateRequest(recipients: [OpalBase.Account.TokenMint.Recipient],
                                 authorityReturn: OpalBase.Account.TokenMint.AuthorityReturn) throws {
         if recipients.isEmpty {

@@ -32,7 +32,7 @@ extension _OpalBase.Account {
         public let outputs: [OpalBase.Transaction.Output]
         public var reservationDate: Date { reservationHandle.reservationDate }
         
-        private let reservationHandle: OpalBase.Account.SpendReservationModel
+        private let reservationHandle: OpalBase.Account.SpendReservation
         private let privateKeys: [OpalBase.Transaction.Output.Unspent: OpalBase.PrivateKey]
         private let changeOutput: OpalBase.Transaction.Output
         private let shouldAllowDustDonation: Bool
@@ -45,7 +45,7 @@ extension _OpalBase.Account {
              genesisInput: OpalBase.Transaction.Output.Unspent,
              bitcoinCashInputs: [OpalBase.Transaction.Output.Unspent],
              outputs: [OpalBase.Transaction.Output],
-             reservationHandle: OpalBase.Account.SpendReservationModel,
+             reservationHandle: OpalBase.Account.SpendReservation,
              privateKeys: [OpalBase.Transaction.Output.Unspent: OpalBase.PrivateKey],
              changeOutput: OpalBase.Transaction.Output,
              plannedMintedOutputs: [OpalBase.Transaction.Output],

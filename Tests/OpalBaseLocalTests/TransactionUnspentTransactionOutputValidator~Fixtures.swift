@@ -10,12 +10,12 @@ extension TransactionUnspentTransactionOutputValidator {
                                                        inputTotal: UInt64) {
         let privateKey = try OpalBase.PrivateKey(data: Data(repeating: 0x02, count: 32))
         let lockingScript = Data([
-            ScriptOperationCodeModel._DUP.rawValue,
-            ScriptOperationCodeModel._HASH160.rawValue,
+            ScriptOperationCode._DUP.rawValue,
+            ScriptOperationCode._HASH160.rawValue,
             0x14
         ] + Array(repeating: 0x01, count: 20) + [
-            ScriptOperationCodeModel._EQUALVERIFY.rawValue,
-            ScriptOperationCodeModel._CHECKSIG.rawValue
+            ScriptOperationCode._EQUALVERIFY.rawValue,
+            ScriptOperationCode._CHECKSIG.rawValue
         ])
         
         let previousTransactionHash = OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0x00, count: 32))
@@ -34,12 +34,12 @@ extension TransactionUnspentTransactionOutputValidator {
         ]
         
         let changeScript = Data([
-            ScriptOperationCodeModel._DUP.rawValue,
-            ScriptOperationCodeModel._HASH160.rawValue,
+            ScriptOperationCode._DUP.rawValue,
+            ScriptOperationCode._HASH160.rawValue,
             0x14
         ] + Array(repeating: 0x02, count: 20) + [
-            ScriptOperationCodeModel._EQUALVERIFY.rawValue,
-            ScriptOperationCodeModel._CHECKSIG.rawValue
+            ScriptOperationCode._EQUALVERIFY.rawValue,
+            ScriptOperationCode._CHECKSIG.rawValue
         ])
         let changeOutput = OpalBase.Transaction.Output(value: 3_000, lockingScript: changeScript)
         

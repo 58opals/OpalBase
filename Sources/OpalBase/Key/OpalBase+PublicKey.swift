@@ -22,8 +22,8 @@ extension OpalBase {
 
 extension _OpalBase.PublicKey {
     public var hash: Data {
-        let sha256 = SHA256Model.hash(compressedData)
-        let ripemd160 = RIPEMD160Model.hash(sha256)
+        let sha256 = SHA256.hash(compressedData)
+        let ripemd160 = RIPEMD160.hash(sha256)
         return ripemd160
     }
 }

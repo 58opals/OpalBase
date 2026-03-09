@@ -18,8 +18,6 @@ The library is designed with Swift concurrency from the ground up, making it str
 - **First-class Fulcrum integration**: `OpalBase.Network.Fulcrum.Client` plus readers/handlers for addresses, transactions, block headers, and server/mempool info.
 - **Streaming monitors & snapshots**: Monitor address/UTXO/history/confirmation changes via `AsyncThrowingStream`, and persist/restore actor state with `OpalBase.Wallet.Snapshot`.
 
-Source-breaking facade changes are documented in [MIGRATION.md](MIGRATION.md).
-
 ## Installation
 
 ### Swift Package Manager

@@ -19,7 +19,7 @@ struct PublicAPISmokeValidator {
         )
         let fulcrum = OpalBase.Wallet.Fulcrum(
             addressReader: SmokeAddressClient(),
-            transactionHandler: SmokeTransactionHandler()
+            transactionHandler: SmokeTransactionClient()
         )
         let monitor = await fulcrum.makeMonitor(
             for: account,
@@ -163,8 +163,8 @@ struct PublicAPISmokeValidator {
         let wallet = OpalBase.Wallet(mnemonic: try makeSmokeMnemonic())
         try await wallet.addAccount(unhardenedIndex: 0)
 
-        let snapshotStore = SmokeSnapshotStore()
-        let secretStore = SmokeMnemonicSecretStore()
+        let snapshotStore = SmokeSnapshotClient()
+        let secretStore = SmokeMnemonicSecretClient()
         let ports = OpalBase.Storage.Ports(
             snapshotPersistence: snapshotStore,
             secretAccess: secretStore
@@ -283,7 +283,7 @@ private actor SmokeTransactionReader: OpalBase.Network.TransactionReadableClient
     }
 }
 
-private actor SmokeTransactionHandler: OpalBase.Network.TransactionConfirmationClient {
+private actor SmokeTransactionClient: OpalBase.Network.TransactionConfirmationClient {
     func fetchConfirmations(forTransactionIdentifier _: String) async throws -> UInt? {
         nil
     }
@@ -312,7 +312,7 @@ private actor SmokeBlockHeaderClient: OpalBase.Network.BlockHeaderReadable {
     }
 }
 
-private actor SmokeSnapshotStore: OpalBase.Storage.SnapshotStore {
+private actor SmokeSnapshotClient: OpalBase.Storage.SnapshotClient {
     private var walletSnapshot: OpalBase.Wallet.Snapshot?
     private var accountSnapshots: [Data: OpalBase.Account.Snapshot] = [:]
     private var addressBookSnapshots: [Data: OpalBase.Address.Book.Snapshot] = [:]
@@ -354,7 +354,7 @@ private actor SmokeSnapshotStore: OpalBase.Storage.SnapshotStore {
     }
 }
 
-private actor SmokeMnemonicSecretStore: OpalBase.Storage.MnemonicSecretStore {
+private actor SmokeMnemonicSecretClient: OpalBase.Storage.MnemonicSecretClient {
     private var state: (
         mnemonic: OpalBase.Storage.Mnemonic,
         protectionMode: OpalBase.Storage.Security.ProtectionMode
