@@ -75,7 +75,7 @@ extension _OpalBase.Transaction {
         for _ in 0..<maximumPasses {
             let requiredFee = try correctedTransaction.calculateRequiredFee(feePerByte: feePerByte)
             let outputTotal = calculateTotalValue(for: correctedTransaction.outputs)
-            let feePaid = inputTotal - outputTotal
+            let feePaid = try calculateFeePaid(inputTotal: inputTotal, outputTotal: outputTotal)
             
             guard feePaid != requiredFee else { return correctedTransaction }
             
@@ -97,7 +97,7 @@ extension _OpalBase.Transaction {
         
         let finalRequiredFee = try correctedTransaction.calculateRequiredFee(feePerByte: feePerByte)
         let finalOutputTotal = calculateTotalValue(for: correctedTransaction.outputs)
-        let finalFeePaid = inputTotal - finalOutputTotal
+        let finalFeePaid = try calculateFeePaid(inputTotal: inputTotal, outputTotal: finalOutputTotal)
         
         guard finalFeePaid >= finalRequiredFee else { return firstSignedTransaction }
         
@@ -106,6 +106,14 @@ extension _OpalBase.Transaction {
     
     private static func calculateTotalValue(for outputs: [Output]) -> UInt64 {
         outputs.map(\.value).reduce(0, +)
+    }
+    
+    private static func calculateFeePaid(inputTotal: UInt64, outputTotal: UInt64) throws -> UInt64 {
+        guard inputTotal >= outputTotal else {
+            throw Error.insufficientFunds(required: outputTotal - inputTotal)
+        }
+        
+        return inputTotal - outputTotal
     }
 }
 

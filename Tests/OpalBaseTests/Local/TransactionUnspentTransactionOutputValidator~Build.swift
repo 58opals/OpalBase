@@ -128,4 +128,34 @@ extension TransactionUnspentTransactionOutputValidator {
             #expect(feePaid == requiredFee)
         }
     }
+    
+    @Test("build rejects overstated change pool with insufficient funds")
+    func buildRejectsOverstatedChangePool() throws {
+        let components = try makeTransactionBuilderComponents()
+        let overstatedChangeOutput = OpalBase.Transaction.Output(
+            value: components.changeOutput.value + 5_000,
+            lockingScript: components.changeOutput.lockingScript
+        )
+        
+        do {
+            _ = try OpalBase.Transaction.build(
+                utxoPrivateKeyPairs: components.privateKeys,
+                recipientOutputs: components.recipientOutputs,
+                changeOutput: overstatedChangeOutput,
+                outputOrderingStrategy: .canonicalBIP69,
+                signatureFormat: .ecdsa(.der),
+                feePerByte: 1
+            )
+            Issue.record("Expected insufficientFunds for overstated change output.")
+        } catch let error as OpalBase.Transaction.Error {
+            switch error {
+            case .insufficientFunds(let required):
+                #expect(required > 0)
+            default:
+                Issue.record("Expected insufficientFunds, got \(error).")
+            }
+        } catch {
+            Issue.record("Unexpected error type: \(error)")
+        }
+    }
 }
