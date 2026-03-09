@@ -64,4 +64,3 @@ struct AddressBookUnspentTransactionOutputRefreshValidator {
         #expect(storedOutputs.first?.tokenData == tokenData)
     }
 }
-

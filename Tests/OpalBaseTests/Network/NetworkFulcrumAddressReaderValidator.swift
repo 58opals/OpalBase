@@ -5,7 +5,7 @@ import Testing
 import SwiftFulcrum
 @testable import OpalBase
 
-@Suite("OpalBase.Network.Fulcrum.AddressReader", .tags(.network))
+@Suite("OpalBase.Network.Fulcrum.AddressReader", .tags(.integration, .network))
 struct NetworkFulcrumAddressReaderValidator {
     static let primaryServerAddress = URL(string: "wss://bch.imaginary.cash:50004")!
     static let backupServerAddress = URL(string: "wss://bch.loping.net:50002")!
@@ -157,4 +157,3 @@ struct NetworkFulcrumAddressReaderValidator {
         }
     }
 }
-

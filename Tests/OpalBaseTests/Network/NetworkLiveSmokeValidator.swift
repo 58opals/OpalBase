@@ -4,7 +4,7 @@ import Foundation
 import Testing
 @testable import OpalBase
 
-@Suite("OpalBase.Network live smoke", .tags(.network))
+@Suite("OpalBase.Network live smoke", .tags(.integration, .network))
 struct NetworkLiveSmokeValidator {
     private static let fallbackServers: [URL] = [
         URL(string: "wss://bch.imaginary.cash:50004")!,

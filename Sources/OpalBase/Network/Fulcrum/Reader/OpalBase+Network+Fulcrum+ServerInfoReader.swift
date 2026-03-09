@@ -5,21 +5,21 @@ import SwiftFulcrum
 
 extension _OpalBase.Network.Fulcrum {
     public struct ServerInfoReader {
-        private let client: Client
+        private let client: any ServerInfoClient
         private let timeouts: OpalBase.Network.FulcrumRequestTimeout
         
         public init(client: Client, timeouts: OpalBase.Network.FulcrumRequestTimeout = .init()) {
+            self.init(client: client as any ServerInfoClient, timeouts: timeouts)
+        }
+
+        init(client: any ServerInfoClient, timeouts: OpalBase.Network.FulcrumRequestTimeout = .init()) {
             self.client = client
             self.timeouts = timeouts
         }
         
         public func ping() async throws {
             try await OpalBase.Network.performWithFailureTranslation {
-                _ = try await client.request(
-                    method: .server(.ping),
-                    responseType: SwiftFulcrum.RPC.Response.Result.Server.Ping.self,
-                    options: .init(timeout: timeouts.serverPing)
-                )
+                try await client.pingServer(options: .init(timeout: timeouts.serverPing))
             }
         }
         
@@ -34,9 +34,9 @@ extension _OpalBase.Network.Fulcrum {
                     maximumVersion: maximumProtocolVersion.swiftFulcrumProtocolVersion
                 )
                 
-                let result = try await client.request(
-                    method: .server(.version(clientName: clientName, protocolNegotiation: protocolNegotiation)),
-                    responseType: SwiftFulcrum.RPC.Response.Result.Server.Version.self,
+                let result = try await client.fetchServerVersion(
+                    clientName: clientName,
+                    protocolNegotiation: protocolNegotiation,
                     options: .init(timeout: timeouts.serverVersion)
                 )
                 
@@ -49,11 +49,7 @@ extension _OpalBase.Network.Fulcrum {
         
         public func fetchServerFeatures() async throws -> OpalBase.Network.FulcrumServerFeatures {
             try await OpalBase.Network.performWithFailureTranslation {
-                let result = try await client.request(
-                    method: .server(.features),
-                    responseType: SwiftFulcrum.RPC.Response.Result.Server.Features.self,
-                    options: .init(timeout: timeouts.serverFeatures)
-                )
+                let result = try await client.fetchServerFeatures(options: .init(timeout: timeouts.serverFeatures))
                 
                 return OpalBase.Network.FulcrumServerFeatures(
                     genesisHash: result.genesisHash,
@@ -88,20 +84,15 @@ extension _OpalBase.Network.Fulcrum {
         
         public func fetchRelayFee() async throws -> Double {
             try await OpalBase.Network.performWithFailureTranslation {
-                let result = try await client.request(
-                    method: .blockchain(.relayFee),
-                    responseType: SwiftFulcrum.RPC.Response.Result.Blockchain.RelayFee.self,
-                    options: .init(timeout: timeouts.relayFee)
-                )
+                let result = try await client.fetchRelayFee(options: .init(timeout: timeouts.relayFee))
                 return result.fee
             }
         }
         
         public func estimateFee(forConfirmationTarget confirmationTarget: Int) async throws -> Double {
             try await OpalBase.Network.performWithFailureTranslation {
-                let result = try await client.request(
-                    method: .blockchain(.estimateFee(numberOfBlocks: confirmationTarget)),
-                    responseType: SwiftFulcrum.RPC.Response.Result.Blockchain.EstimateFee.self,
+                let result = try await client.estimateFee(
+                    numberOfBlocks: confirmationTarget,
                     options: .init(timeout: timeouts.feeEstimation)
                 )
                 return result.fee

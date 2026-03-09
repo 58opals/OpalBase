@@ -4,7 +4,7 @@ import Foundation
 @testable import OpalBase
 
 enum WalletFulcrumAddressMonitorSupportModel {
-    private enum TimeoutError: Swift.Error {
+    private enum TimeoutError: Swift.Error, Sendable {
         case timedOut(String)
     }
 
@@ -12,17 +12,34 @@ enum WalletFulcrumAddressMonitorSupportModel {
         _ recorder: WalletFulcrumAddressMonitorEventRecorderActor,
         description: String,
         timeout: Duration = .seconds(8),
-        condition: ([OpalBase.Wallet.Fulcrum.Monitor.Event]) -> Bool
+        condition: @Sendable @escaping ([OpalBase.Wallet.Fulcrum.Monitor.Event]) -> Bool
     ) async throws -> [OpalBase.Wallet.Fulcrum.Monitor.Event] {
-        let deadline = ContinuousClock.now + timeout
-        while ContinuousClock.now < deadline {
-            let events = await recorder.snapshot()
-            if condition(events) {
-                return events
+        try await withThrowingTaskGroup(of: [OpalBase.Wallet.Fulcrum.Monitor.Event].self) { group in
+            group.addTask {
+                let snapshot = await recorder.snapshot()
+                if condition(snapshot) {
+                    return snapshot
+                }
+
+                let stream = await recorder.makeSnapshotStream()
+                for await events in stream {
+                    if condition(events) {
+                        return events
+                    }
+                }
+
+                throw TimeoutError.timedOut(description)
             }
-            try await Task.sleep(for: .milliseconds(20))
+
+            group.addTask {
+                try await Task.sleep(for: timeout)
+                throw TimeoutError.timedOut(description)
+            }
+
+            let events = try await group.next() ?? .init()
+            group.cancelAll()
+            return events
         }
-        throw TimeoutError.timedOut(description)
     }
 
     static func hasAddressTracked(_ events: [OpalBase.Wallet.Fulcrum.Monitor.Event]) -> Bool {

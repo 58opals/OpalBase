@@ -5,11 +5,18 @@ import SwiftFulcrum
 
 extension _OpalBase.Network {
     public struct FulcrumTransactionProofReader {
-        private let client: OpalBase.Network.Fulcrum.Client
+        private let client: any OpalBase.Network.Fulcrum.TransactionProofClient
         private let timeouts: OpalBase.Network.FulcrumRequestTimeout
         
         public init(
             client: OpalBase.Network.Fulcrum.Client,
+            timeouts: OpalBase.Network.FulcrumRequestTimeout = .init()
+        ) {
+            self.init(client: client as any OpalBase.Network.Fulcrum.TransactionProofClient, timeouts: timeouts)
+        }
+
+        init(
+            client: any OpalBase.Network.Fulcrum.TransactionProofClient,
             timeouts: OpalBase.Network.FulcrumRequestTimeout = .init()
         ) {
             self.client = client
@@ -20,9 +27,8 @@ extension _OpalBase.Network {
             let identifier = transactionHash.reverseOrder.hexadecimalString
             
             return try await OpalBase.Network.performWithFailureTranslation {
-                let result = try await client.request(
-                    method: .blockchain(.transaction(.getMerkle(transactionHash: identifier))),
-                    responseType: SwiftFulcrum.RPC.Response.Result.Blockchain.Transaction.GetMerkle.self,
+                let result = try await client.fetchTransactionMerkleProof(
+                    transactionHash: identifier,
                     options: .init(timeout: timeouts.transactionMerkleProof)
                 )
                 
@@ -40,11 +46,10 @@ extension _OpalBase.Network {
             shouldIncludeMerkleProof: Bool
         ) async throws -> OpalBase.Network.TransactionPositionResolution {
             try await OpalBase.Network.performWithFailureTranslation {
-                let result = try await client.request(
-                    method: .blockchain(.transaction(.idFromPos(blockHeight: blockHeight,
-                                                                transactionPosition: position,
-                                                                shouldIncludeMerkleProof: shouldIncludeMerkleProof))),
-                    responseType: SwiftFulcrum.RPC.Response.Result.Blockchain.Transaction.IDFromPos.self,
+                let result = try await client.fetchTransactionIdentifier(
+                    blockHeight: blockHeight,
+                    transactionPosition: position,
+                    shouldIncludeMerkleProof: shouldIncludeMerkleProof,
                     options: .init(timeout: timeouts.transactionPositionResolution)
                 )
                 

@@ -57,17 +57,15 @@ extension StoragePersistenceValidator {
             }
 
             if let txError = underlying as? OpalBase.Transaction.Error {
-                switch txError {
-                case .insufficientFunds:
-                    #expect(true)
-                default:
-                    Issue.record("Expected OpalBase.Transaction.Error.insufficientFunds, got: \(txError)")
+                guard case .insufficientFunds = txError else {
+                    Issue.record("Expected Transaction.Error.insufficientFunds, got: \(txError)")
+                    return
                 }
                 return
             }
 
-            if let bookError = underlying as? OpalBase.Address.Book.Error, bookError == .insufficientFunds {
-                #expect(true)
+            if let bookError = underlying as? OpalBase.Address.Book.Error {
+                #expect(bookError == OpalBase.Address.Book.Error.insufficientFunds)
                 return
             }
 
@@ -77,4 +75,3 @@ extension StoragePersistenceValidator {
         }
     }
 }
-

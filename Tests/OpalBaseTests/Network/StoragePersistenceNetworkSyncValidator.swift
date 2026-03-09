@@ -4,7 +4,7 @@ import Foundation
 import Testing
 @testable import OpalBase
 
-@Suite("OpalBase.Storage persistence (OpalBase.Network)", .tags(.network))
+@Suite("OpalBase.Storage persistence (OpalBase.Network)", .tags(.integration, .network))
 struct StoragePersistenceNetworkSyncValidator {
     @Test("fulcrum sync updates account state, then persistence restores it", .timeLimit(.minutes(1)))
     func syncFulcrumPersistAndRestore() async throws {
@@ -153,4 +153,3 @@ struct StoragePersistenceNetworkSyncValidator {
         Issue.record("Failed to connect to any Fulcrum server. Last error: \(String(describing: lastConnectionError))")
     }
 }
-

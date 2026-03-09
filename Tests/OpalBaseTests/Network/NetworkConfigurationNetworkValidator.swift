@@ -4,7 +4,7 @@ import Foundation
 import Testing
 @testable import OpalBase
 
-@Suite("OpalBase.Network.Configuration (OpalBase.Network)", .tags(.network))
+@Suite("OpalBase.Network.Configuration (OpalBase.Network)", .tags(.integration, .network))
 struct NetworkConfigurationNetworkValidator {
     private static let primaryServerAddress = URL(string: "wss://bch.imaginary.cash:50004")!
     private static let backupServerAddress = URL(string: "wss://bch.loping.net:50002")!
@@ -78,4 +78,3 @@ struct NetworkConfigurationNetworkValidator {
         }
     }
 }
-

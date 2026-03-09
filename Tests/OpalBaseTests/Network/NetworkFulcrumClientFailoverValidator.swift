@@ -5,7 +5,7 @@ import Testing
 import SwiftFulcrum
 @testable import OpalBase
 
-@Suite("OpalBase.Network.Fulcrum.Client.Failover", .tags(.network))
+@Suite("OpalBase.Network.Fulcrum.Client.Failover", .tags(.integration, .network))
 struct NetworkFulcrumClientFailoverValidator {
     private static let unhealthyServerAddresses: [URL] = [
         URL(string: "wss://fulcrum.jettscythe.xyz:50004")!

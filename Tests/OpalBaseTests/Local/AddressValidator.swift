@@ -1,38 +1,27 @@
 // AddressValidator.swift
 
+import Foundation
 import Testing
 @testable import OpalBase
 
 @Suite("CashAddr", .tags(.unit, .address))
 struct AddressValidator {
-    @Test("generates a cash address containing the requested substring")
-    func randomCreateCashAddress() throws {
-        let word: String = "q"
-        var count: Int = 0
-        var isDetected: Bool = false
-        repeat {
-            let privateKey = try OpalBase.PrivateKey()
-            let walletImportFormat = privateKey.makeWalletImportFormat(compression: .compressed)
-            let publicKey = try OpalBase.PublicKey(privateKey: privateKey)
-            let hash = OpalBase.PublicKey.Hash(publicKey: publicKey)
-            let script = OpalBase.Script.p2pkh_OPCHECKSIG(hash: hash)
-            let legacyAddress = try OpalBase.Address.LegacyModel(script)
-            let address = try OpalBase.Address(script: script)
-            let lockingScript = address.lockingScript.data.hexadecimalString
-            if address.string.contains(word) {
-                print("Private Key - Raw Data Hexadecimal: \(privateKey.rawData.hexadecimalString)")
-                print("Private Key - WIF: \(walletImportFormat)")
-                print("Public Key - Compressed Data Hexadecimal: \(publicKey.compressedData.hexadecimalString)")
-                print("Public Key - Hash Hexadecimal: \(hash.data.hexadecimalString)")
-                print("OpalBase.Script: \(script.data.hexadecimalString)")
-                print("LegacyModel OpalBase.Script: \(legacyAddress.string)")
-                print("OpalBase.Address: \(address.string)")
-                print("OpalBase.Address - Locking OpalBase.Script Hexadecimal: \(lockingScript)")
-                isDetected = true
-            }
-            count += 1
-            print(count)
-        } while !isDetected
+    @Test("known private key derives stable wallet and address artifacts")
+    func deriveStableWalletAndAddressArtifacts() throws {
+        let privateKey = try OpalBase.PrivateKey(data: Data(repeating: 0x00, count: 31) + Data([0x01]))
+        let walletImportFormat = privateKey.makeWalletImportFormat(
+            compression: OpalBase.PrivateKey.WalletImportFormatCompression.compressed
+        )
+        let publicKey = try OpalBase.PublicKey(privateKey: privateKey)
+        let hash = OpalBase.PublicKey.Hash(publicKey: publicKey)
+        let script = OpalBase.Script.p2pkh_OPCHECKSIG(hash: hash)
+        let legacyAddress = try OpalBase.Address.LegacyModel(script)
+        let address = try OpalBase.Address(script: script)
+
+        #expect(walletImportFormat == "KwDiBf89QgGbjEhKnhXJuH7LrciVrZi3qYjgd9M7rFU73sVHnoWn")
+        #expect(legacyAddress.string == "1BgGZ9tcN4rm9KBzDn7KprQz87SZ26SAMH")
+        #expect(address.lockingScript.data == script.data)
+        #expect(try OpalBase.Address(address.string).lockingScript.data == script.data)
     }
     
     @Test("cash address decodes to P2PKH script")
@@ -93,32 +82,14 @@ struct AddressValidator {
         #expect(filtered == "qpm2qsznhks23z7629mms6s4cwef74vcwvy22gdx6a")
     }
     
-    @Test("filter lowercases uppercase characters")
-    func filterLowercasesUppercaseCharacters1() {
-        let noisy = "BITCOINCASH:QPY0"
-        let filtered = OpalBase.Address.filterBase32(from: noisy)
-        #expect(filtered == "qpy0")
-    }
-    
-    @Test("filter normalizes uppercase Base32Model characters", .tags(.unit))
+    @Test("filter normalizes uppercase base32 payloads", .tags(.unit))
     func filterBase32LowercasesUppercaseCharacters() {
-        let uppercaseCandidate = "BITCOINCASH:QPZA"
-        let filtered = OpalBase.Address.filterBase32(from: uppercaseCandidate)
-        #expect(filtered == "qpza")
-    }
-    
-    @Test("filter normalizes uppercase characters to lowercase")
-    func filterNormalizesUppercaseCharactersToLowercase() {
-        let uppercasePayload = "BITCOINCASH:QPM2QSZNHKS23Z7629MMS6S4CWEF74VCWVY22GDX6A"
-        let filtered = OpalBase.Address.filterBase32(from: uppercasePayload)
-        #expect(filtered == "qpm2qsznhks23z7629mms6s4cwef74vcwvy22gdx6a")
-    }
-    
-    @Test("filter lowercases uppercase characters")
-    func filterLowercasesUppercaseCharacters2() {
-        let uppercase = "BITCOINCASH:QPM2QSZNHKS23Z7629MMS6S4CWEF74VCWVY22GDX6A"
-        let filtered = OpalBase.Address.filterBase32(from: uppercase)
-        #expect(filtered == "qpm2qsznhks23z7629mms6s4cwef74vcwvy22gdx6a")
+        #expect(OpalBase.Address.filterBase32(from: "BITCOINCASH:QPY0") == "qpy0")
+        #expect(OpalBase.Address.filterBase32(from: "BITCOINCASH:QPZA") == "qpza")
+        #expect(
+            OpalBase.Address.filterBase32(from: "BITCOINCASH:QPM2QSZNHKS23Z7629MMS6S4CWEF74VCWVY22GDX6A") ==
+                "qpm2qsznhks23z7629mms6s4cwef74vcwvy22gdx6a"
+        )
     }
     
     @Test("invalid checksum is rejected")
