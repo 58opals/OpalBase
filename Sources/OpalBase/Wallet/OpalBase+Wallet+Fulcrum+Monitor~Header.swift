@@ -1,0 +1,51 @@
+// OpalBase+Wallet+Fulcrum+Monitor~Header.swift
+
+import Foundation
+
+extension _OpalBase.Wallet.Fulcrum.Monitor {
+    func startHeaderSubscription() async {
+        guard headerTask == nil else { return }
+        let reader = blockHeaderReader
+        let retryDelay = self.retryDelay
+        headerTask = Task {
+            while !Task.isCancelled {
+                do {
+                    let stream = try await reader.subscribeToTip()
+                    try await consumeHeaderStream(stream)
+                } catch {
+                    if error.isCancellationError { return }
+                    await publishFailure(address: nil, error: error)
+                    guard !Task.isCancelled else { return }
+                    try? await Task.sleep(for: retryDelay)
+                }
+            }
+        }
+    }
+    
+    private func consumeHeaderStream(_ stream: AsyncThrowingStream<OpalBase.Network.BlockHeaderSnapshot, any Swift.Error>) async throws {
+        do {
+            for try await snapshot in stream {
+                try Task.checkCancellation()
+                await handleHeaderSnapshot(snapshot)
+            }
+        } catch {
+            if error.isCancellationError {
+                throw error
+            }
+            await publishFailure(address: nil, error: error)
+            throw error
+        }
+    }
+    
+    private func handleHeaderSnapshot(_ snapshot: OpalBase.Network.BlockHeaderSnapshot) async {
+        do {
+            let changeSet = try await account.refreshTransactionConfirmations(using: transactionHandler)
+            if !changeSet.isEmpty {
+                publish(.confirmationsChanged(changeSet))
+            }
+        } catch {
+            await publishFailure(address: nil, error: error)
+        }
+    }
+}
+

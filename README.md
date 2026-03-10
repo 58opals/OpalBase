@@ -12,11 +12,11 @@ The library is designed with Swift concurrency from the ground up, making it str
 
 ## Highlights
 
-- **Actor-isolated wallet core**: `Wallet` and `Account` actors wrap BIP-39/BIP-44 derivation, address management, and serialized mutation.
+- **Actor-isolated wallet core**: `OpalBase.Wallet` and `OpalBase.Account` wrap BIP-39/BIP-44 derivation, address management, and serialized mutation.
 - **Deterministic address book with caching**: Track receiving and change paths, scan for used addresses, refresh UTXO sets and history, and read cached values offline.
-- **Flexible spend planning**: Assemble transactions with `Account.Payment`, privacy-aware coin selection, configurable fee policies, and reservation-aware `Account.SpendPlan`.
-- **First-class Fulcrum integration**: `Network.FulcrumClient` plus readers/handlers for addresses, transactions, block headers, and server/mempool info.
-- **Streaming monitors & snapshots**: Monitor address/UTXO/history/confirmation changes via `AsyncThrowingStream`, and persist/restore actor state with `Wallet.Snapshot`.
+- **Flexible spend planning**: Assemble transactions with `OpalBase.Account.Payment`, privacy-aware coin selection, configurable fee policies, and reservation-aware `OpalBase.Account.SpendPlan`.
+- **First-class Fulcrum integration**: `OpalBase.Network.Fulcrum.Client` plus readers/handlers for addresses, transactions, block headers, and server/mempool info.
+- **Streaming monitors & snapshots**: Monitor address/UTXO/history/confirmation changes via `AsyncThrowingStream`, and persist/restore actor state with `OpalBase.Wallet.Snapshot`.
 
 ## Installation
 
@@ -54,8 +54,8 @@ The snippets below run inside an async context such as `Task {}` or an `@main` e
 ```swift
 import OpalBase
 
-let mnemonic = try Mnemonic(length: .long)
-let wallet = Wallet(mnemonic: mnemonic)
+let mnemonic = try OpalBase.Mnemonic(length: .long)
+let wallet = OpalBase.Wallet(mnemonic: mnemonic)
 
 try await wallet.addAccount(unhardenedIndex: 0)
 let account = try await wallet.fetchAccount(at: 0)
@@ -68,20 +68,20 @@ Create a Fulcrum client, then wire up the readers you need.
 ```swift
 import OpalBase
 
-let configuration = Network.Configuration(
+let configuration = OpalBase.Network.Configuration(
     serverURLs: [
         URL(string: "wss://fulcrum.example.org:50002")!
     ],
     network: .mainnet
 )
 
-let client = try await Network.FulcrumClient(configuration: configuration)
+let client = try await OpalBase.Network.Fulcrum.Client(configuration: configuration)
 
-let addressReader = Network.FulcrumAddressReader(client: client)
-let transactionHandler = Network.FulcrumTransactionHandler(client: client)
-let blockHeaderReader = Network.FulcrumBlockHeaderReader(client: client)
+let addressReader = OpalBase.Network.Fulcrum.AddressReader(client: client)
+let transactionHandler = OpalBase.Network.Fulcrum.TransactionClient(client: client)
+let blockHeaderReader = OpalBase.Network.Fulcrum.BlockHeaderReader(client: client)
 
-let fulcrum = Wallet.FulcrumAddress(
+let fulcrum = OpalBase.Wallet.Fulcrum(
     addressReader: addressReader,
     transactionHandler: transactionHandler
 )
@@ -109,21 +109,21 @@ print("Confirmation updates: \(confirmationChangeSet.updated.count)")
 
 ## Managing balances and history
 
-* `Account.loadBalanceFromCache()` reads the aggregated cached amount without making a network call.
-* `Account.refreshBalances(for:loader:)` lets you plug in any async loader, while `Wallet.FulcrumAddress.refreshBalances(for:usage:)` handles Fulcrum wiring and used-address scanning.
-* Use `Account.refreshTransactionHistory(using:usage:includeUnconfirmed:)` (or the Fulcrum helper) to keep cached history synchronized.
-* Use `Account.refreshTransactionConfirmations(using:)` (or the Fulcrum helper) to poll confirmation heights on demand.
-* `Account.loadTransactionHistory()` returns the current cached list of history records for quick display.
+* `OpalBase.Account.loadBalanceFromCache()` reads the aggregated cached amount without making a network call.
+* `OpalBase.Account.refreshBalances(for:loader:)` lets you plug in any async loader, while `OpalBase.Wallet.Fulcrum.refreshBalances(for:usage:)` handles Fulcrum wiring and used-address scanning.
+* Use `OpalBase.Account.refreshTransactionHistory(using:usage:includeUnconfirmed:)` (or the Fulcrum helper) to keep cached history synchronized.
+* Use `OpalBase.Account.refreshTransactionConfirmations(using:)` (or the Fulcrum helper) to poll confirmation heights on demand.
+* `OpalBase.Account.loadTransactionHistory()` returns the current cached list of history records for quick display.
 
 ## Planning and broadcasting payments
 
 ```swift
-let recipient = Account.Payment.Recipient(
-    address: try Address("bitcoincash:qr..."),
-    amount: try Satoshi(5_000)
+let recipient = OpalBase.Account.Payment.Recipient(
+    address: try OpalBase.Address("bitcoincash:qr..."),
+    amount: try OpalBase.Satoshi(5_000)
 )
 
-let payment = Account.Payment(
+let payment = OpalBase.Account.Payment(
     recipients: [recipient],
     feeContext: .init(networkConditions: .init(fallbackRate: 1_000))
 )
@@ -134,16 +134,16 @@ let (hash, result) = try await spendPlan.buildAndBroadcast(via: transactionHandl
 print("Broadcast \(hash.reverseOrder.hexadecimalString) with fee \(result.fee.uint64) satoshi")
 ```
 
-* Customize fee policy defaults with `Wallet.FeePolicy` or pass overrides in `Account.Payment`.
-* Inspect `Account.SpendPlan.TransactionResult` for the signed transaction, applied fee, and output metadata.
+* Customize fee policy defaults with `OpalBase.Wallet.FeePolicy` or pass overrides in `OpalBase.Account.Payment`.
+* Inspect `OpalBase.Account.SpendPlan.TransactionResult` for the signed transaction, applied fee, and output metadata.
 * Call `spendPlan.completeReservation()` or `spendPlan.cancelReservation()` when coordinating with external broadcast flows.
 
 ## Streaming updates
 
-`Wallet.FulcrumAddress.Monitor` keeps an `Account` synchronized by combining address subscriptions and block header updates, and exposes events as an `AsyncThrowingStream`.
+`OpalBase.Wallet.Fulcrum.Monitor` keeps an `OpalBase.Account` synchronized by combining address subscriptions and block header updates, and exposes events as an `AsyncThrowingStream`.
 
 ```swift
-let monitor = fulcrum.makeMonitor(for: account, blockHeaderReader: blockHeaderReader)
+let monitor = await fulcrum.makeMonitor(for: account, blockHeaderReader: blockHeaderReader)
 let events = await monitor.makeEventStream() // auto-starts by default
 
 Task.detached {
@@ -194,10 +194,37 @@ let snapshot = await wallet.makeSnapshot()
 // Store `snapshot` with your persistence layer (treat as sensitive).
 
 // Restoring later
-let restoredWallet = try await Wallet(from: snapshot)
+let restoredWallet = try await OpalBase.Wallet(from: snapshot)
 ```
 
-`Wallet.applySnapshot(_:)` can merge a snapshot back into an existing actor instance when the mnemonic and derivation path match.
+`OpalBase.Wallet.applySnapshot(_:)` can merge a snapshot back into an existing actor instance when the mnemonic and derivation path match.
+
+## Token metadata
+
+Use the namespaced `CashTokens` facade for metadata storage and wallet-level forwarding:
+
+```swift
+let category = try OpalBase.CashTokens.CategoryID(
+    hexFromRPC: "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f"
+)
+let metadata = OpalBase.CashTokens.Metadata(
+    category: category,
+    name: "Example Token",
+    symbol: "EXAMPLE",
+    decimals: 2,
+    iconURL: URL(string: "https://example.com/icon.png"),
+    lastUpdated: .now,
+    source: .embedded
+)
+
+let repository = OpalBase.CashTokens.MetadataRepository()
+await repository.upsert([category: metadata])
+
+await wallet.upsertTokenMetadata([category: metadata])
+let cachedMetadata = await wallet.fetchTokenMetadata(for: category)
+```
+
+`OpalBase.CashTokens.BCMR.Client` can import embedded, DNS-hosted, or authchain-backed registry data and feed the same repository and wallet APIs.
 
 ## Contributing
 

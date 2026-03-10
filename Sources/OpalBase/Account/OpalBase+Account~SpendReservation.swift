@@ -1,0 +1,37 @@
+// OpalBase+Account~SpendReservation.swift
+
+import Foundation
+
+extension _OpalBase.Account {
+    func reserveSpendAndDeriveKeys(
+        utxos: [OpalBase.Transaction.Output.Unspent],
+        changeEntry: OpalBase.Address.Book.Entry,
+        tokenSelectionPolicy: OpalBase.Address.Book.CoinSelection.TokenSelectionPolicy,
+        mapReservationError: (Swift.Error) -> OpalBase.Account.Error
+    ) async throws -> (
+        reservation: OpalBase.Address.Book.SpendReservation,
+        reservedChangeEntry: OpalBase.Address.Book.Entry,
+        privateKeys: [OpalBase.Transaction.Output.Unspent: Data]
+    ) {
+        let reservation: OpalBase.Address.Book.SpendReservation
+        do {
+            reservation = try await addressBook.reserveSpend(utxos: utxos,
+                                                             changeEntry: changeEntry,
+                                                             tokenSelectionPolicy: tokenSelectionPolicy)
+        } catch {
+            throw mapReservationError(error)
+        }
+        
+        do {
+            let keys = try await addressBook.derivePrivateKeys(for: utxos)
+            return (reservation, reservation.changeEntry, keys)
+        } catch {
+            do {
+                try await addressBook.releaseSpendReservation(reservation, outcome: .cancelled)
+            } catch let releaseError {
+                throw Error.transactionBuildFailed(releaseError)
+            }
+            throw Error.transactionBuildFailed(error)
+        }
+    }
+}

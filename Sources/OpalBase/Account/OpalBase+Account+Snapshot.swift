@@ -1,0 +1,43 @@
+// OpalBase+Account+Snapshot.swift
+
+import Foundation
+
+extension _OpalBase.Account {
+    public struct Snapshot: Codable {
+        public let purpose: OpalBase.DerivationPath.Purpose
+        public let coinType: OpalBase.DerivationPath.CoinType
+        public let accountUnhardenedIndex: UInt32
+        public let addressBook: OpalBase.Address.Book.Snapshot
+        
+        public init(purpose: OpalBase.DerivationPath.Purpose,
+                    coinType: OpalBase.DerivationPath.CoinType,
+                    accountUnhardenedIndex: UInt32,
+                    addressBook: OpalBase.Address.Book.Snapshot) {
+            self.purpose = purpose
+            self.coinType = coinType
+            self.accountUnhardenedIndex = accountUnhardenedIndex
+            self.addressBook = addressBook
+        }
+    }
+}
+
+extension _OpalBase.Account.Snapshot: Equatable, Hashable, Sendable {}
+
+extension _OpalBase.Account {
+    public func makeSnapshot() async -> Snapshot {
+        let bookSnap = await addressBook.makeSnapshot()
+        return Snapshot(purpose: purpose,
+                        coinType: coinType,
+                        accountUnhardenedIndex: self.account.unhardenedIndex,
+                        addressBook: bookSnap)
+    }
+    
+    public func refresh(with snapshot: Snapshot) async throws {
+        guard snapshot.purpose == purpose,
+              snapshot.coinType == coinType,
+              snapshot.accountUnhardenedIndex == self.account.unhardenedIndex else {
+            throw Error.snapshotDoesNotMatchAccount
+        }
+        try await addressBook.refresh(with: snapshot.addressBook)
+    }
+}

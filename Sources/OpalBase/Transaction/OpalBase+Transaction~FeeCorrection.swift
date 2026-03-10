@@ -1,0 +1,131 @@
+// OpalBase+Transaction~FeeCorrection.swift
+
+import Foundation
+
+extension _OpalBase.Transaction {
+    func calculateActualSize() throws -> Int {
+        try encode().count
+    }
+    
+    func calculateRequiredFee(feePerByte: UInt64) throws -> UInt64 {
+        let size = try calculateActualSize()
+        return try Self.makeFee(size: size, feePerByte: feePerByte)
+    }
+    
+    static func computeOutputsForTargetFee(recipientOutputs: [Output],
+                                           changeOutputTemplate: Output,
+                                           outputOrderingStrategy: OutputOrderingStrategy,
+                                           targetFee: UInt64,
+                                           shouldAllowDustDonation: Bool,
+                                           privacyOutputShuffle: ([Output]) -> [Output] = defaultPrivacyOutputShuffle) throws -> [Output] {
+        let changePool = changeOutputTemplate.value
+        guard changePool >= targetFee else {
+            throw Error.insufficientFunds(required: targetFee - changePool)
+        }
+        
+        let desiredChange = changePool - targetFee
+        var outputs = recipientOutputs
+        let minimumRelayFeeRate = OpalBase.Transaction.minimumRelayFeeRate
+        let changeDustThreshold = try changeOutputTemplate.calculateDustThreshold(feeRate: minimumRelayFeeRate)
+        
+        if desiredChange == 0 {
+            // No change output needed.
+        } else if desiredChange < changeDustThreshold {
+            guard shouldAllowDustDonation else { throw Error.outputValueIsLessThanTheDustLimit }
+        } else {
+            outputs.append(.init(value: desiredChange,
+                                 lockingScript: changeOutputTemplate.lockingScript,
+                                 tokenData: changeOutputTemplate.tokenData))
+        }
+        
+        let orderedOutputs: [Output]
+        switch outputOrderingStrategy {
+        case .privacyRandomized:
+            orderedOutputs = privacyOutputShuffle(outputs)
+        case .canonicalBIP69:
+            orderedOutputs = Output.applyBIP69Ordering(outputs)
+        }
+        
+        let positiveValueOutputs = orderedOutputs.filter { $0.value > 0 }
+        let totalPositiveOutput = positiveValueOutputs.map(\.value).reduce(0, +)
+        guard !positiveValueOutputs.isEmpty else { throw Error.insufficientFunds(required: totalPositiveOutput) }
+        for output in orderedOutputs where !output.isOpReturnScript {
+            let dustThreshold = try output.calculateDustThreshold(feeRate: minimumRelayFeeRate)
+            guard output.value >= dustThreshold else { throw Error.outputValueIsLessThanTheDustLimit }
+        }
+        
+        return orderedOutputs
+    }
+    
+    static func correctFeeAfterSigning(signedTransaction: OpalBase.Transaction,
+                                       inputs: [Input],
+                                       builder: Builder,
+                                       recipientOutputs: [Output],
+                                       changeOutput: Output,
+                                       outputOrderingStrategy: OutputOrderingStrategy,
+                                       feePerByte: UInt64,
+                                       lockTime: UInt32,
+                                       shouldAllowDustDonation: Bool,
+                                       privacyOutputShuffle: ([Output]) -> [Output] = defaultPrivacyOutputShuffle) throws -> OpalBase.Transaction {
+        let inputTotal = builder.orderedUnspentOutputs.map(\.value).reduce(0, +)
+        let firstSignedTransaction = signedTransaction
+        var correctedTransaction = signedTransaction
+        let maximumPasses = 8
+        
+        for _ in 0..<maximumPasses {
+            let requiredFee = try correctedTransaction.calculateRequiredFee(feePerByte: feePerByte)
+            let outputTotal = calculateTotalValue(for: correctedTransaction.outputs)
+            let feePaid = try calculateFeePaid(inputTotal: inputTotal, outputTotal: outputTotal)
+            
+            guard feePaid != requiredFee else { return correctedTransaction }
+            
+            let correctedOutputs = try computeOutputsForTargetFee(recipientOutputs: recipientOutputs,
+                                                                  changeOutputTemplate: changeOutput,
+                                                                  outputOrderingStrategy: outputOrderingStrategy,
+                                                                  targetFee: requiredFee,
+                                                                  shouldAllowDustDonation: shouldAllowDustDonation,
+                                                                  privacyOutputShuffle: privacyOutputShuffle)
+            
+            guard correctedOutputs != correctedTransaction.outputs else { return correctedTransaction }
+            
+            let unsignedTransaction = OpalBase.Transaction(version: correctedTransaction.version,
+                                                  inputs: inputs,
+                                                  outputs: correctedOutputs,
+                                                  lockTime: lockTime)
+            correctedTransaction = try signTransaction(unsignedTransaction, using: builder)
+        }
+        
+        let finalRequiredFee = try correctedTransaction.calculateRequiredFee(feePerByte: feePerByte)
+        let finalOutputTotal = calculateTotalValue(for: correctedTransaction.outputs)
+        let finalFeePaid = try calculateFeePaid(inputTotal: inputTotal, outputTotal: finalOutputTotal)
+        
+        guard finalFeePaid >= finalRequiredFee else { return firstSignedTransaction }
+        
+        return correctedTransaction
+    }
+    
+    private static func calculateTotalValue(for outputs: [Output]) -> UInt64 {
+        outputs.map(\.value).reduce(0, +)
+    }
+    
+    private static func calculateFeePaid(inputTotal: UInt64, outputTotal: UInt64) throws -> UInt64 {
+        guard inputTotal >= outputTotal else {
+            throw Error.insufficientFunds(required: outputTotal - inputTotal)
+        }
+        
+        return inputTotal - outputTotal
+    }
+}
+
+extension _OpalBase.Transaction.Output {
+    var isOpReturnScript: Bool {
+        let returnOpcode = ScriptOperationCode._RETURN.rawValue
+        if lockingScript.starts(with: [returnOpcode]) {
+            return true
+        }
+        
+        return lockingScript.starts(
+            with: [ScriptOperationCode._0.rawValue, returnOpcode]
+        )
+    }
+}

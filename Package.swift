@@ -17,29 +17,30 @@ let package = Package(
             targets: ["OpalBase"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/58opals/SwiftFulcrum.git", branch: "develop")
+        .package(url: "https://github.com/58opals/SwiftFulcrum.git", branch: "develop"),
+        .package(url: "https://github.com/58opals/OpalCrypto.git", branch: "develop")
     ],
     targets: [
         .target(name: "OpalBase",
                 dependencies: [
-                    .product(name: "SwiftFulcrum", package: "SwiftFulcrum")
-                ],
-                resources: [
-                    .process("Resources/BIP-0039/English.txt"),
-                    .process("Resources/BIP-0039/Korean.txt")
+                    .product(name: "SwiftFulcrum", package: "SwiftFulcrum"),
+                    .product(name: "OpalCrypto", package: "OpalCrypto")
                 ]
                ),
+        .target(
+            name: "OpalBaseTestSupport",
+            dependencies: ["OpalBase"],
+            path: "Tests/OpalBaseTestSupport"
+        ),
         .testTarget(
             name: "OpalBaseLocalTests",
-            dependencies: ["OpalBase"],
-            path: "Tests/OpalBaseTests",
-            exclude: ["Network"]
+            dependencies: ["OpalBase", "OpalBaseTestSupport"],
+            path: "Tests/OpalBaseLocalTests"
         ),
         .testTarget(
             name: "OpalBaseNetworkTests",
-            dependencies: ["OpalBase"],
-            path: "Tests/OpalBaseTests",
-            exclude: ["Local"]
+            dependencies: ["OpalBase", "OpalBaseTestSupport"],
+            path: "Tests/OpalBaseNetworkTests"
         )
     ]
 )

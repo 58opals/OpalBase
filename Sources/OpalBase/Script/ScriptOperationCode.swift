@@ -1,4 +1,11 @@
-// ScriptOperationCode.generated.swift
+// ScriptOperationCode.swift
+
+// Naming/file-size exception: generated opcode table constants block.
+// Rationale: splitting harms one-to-one opcode map readability and verification fidelity.
+// Category: generated tables/constants block.
+// Evidence: Bitcoin Script opcode map generation input used by this file.
+// Owner: OpalBase maintainers.
+// Revisit trigger/date: regenerate or reevaluate when opcode source changes; 2026-12-31.
 
 import Foundation
 
@@ -276,3 +283,4 @@ enum ScriptOperationCode: UInt8 {
     case _RETURN_254 = 0xfe
     case _INVALIDOPCODE = 0xff
 }
+

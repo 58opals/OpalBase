@@ -1,0 +1,140 @@
+// OpalBase+Account+PrivacyShaperActor.swift
+
+import Foundation
+
+extension _OpalBase.Account {
+    public actor PrivacyShaperActor {
+        private struct AnyOperation: Sendable {
+            let execution: @Sendable () async -> Void
+            let cancellation: @Sendable () -> Void
+        }
+        
+        private let configuration: Configuration
+        private var pendingOperations: [AnyOperation] = .init()
+        private var batchingTask: Task<Void, Never>?
+        private var generator = SystemRandomNumberGenerator()
+        
+        init(configuration: Configuration) {
+            self.configuration = configuration
+        }
+        
+        deinit {
+            batchingTask?.cancel()
+            let operations = pendingOperations
+            pendingOperations.removeAll()
+            for operation in operations {
+                operation.cancellation()
+            }
+        }
+    }
+}
+
+extension _OpalBase.Account.PrivacyShaperActor {
+    var nextDecoyCount: Int {
+        guard configuration.decoyProbability > 0 else { return 0 }
+        let draw = Double.random(in: 0.0 ... 1.0, using: &generator)
+        guard draw <= configuration.decoyProbability else { return 0 }
+        
+        if configuration.decoyQueryRange.lowerBound == configuration.decoyQueryRange.upperBound {
+            return configuration.decoyQueryRange.lowerBound
+        }
+        
+        return Int.random(in: configuration.decoyQueryRange, using: &generator)
+    }
+    
+    func scheduleSensitiveOperation<Result: Sendable>(
+        decoys: [@Sendable () async -> Void] = .init(),
+        operation: @escaping @Sendable () async throws -> Result
+    ) async throws -> Result {
+        
+        try await withCheckedThrowingContinuation { continuation in
+            pendingOperations.append(AnyOperation(
+                execution: {
+                    await self.performWithJitter {
+                        do {
+                            let value = try await operation()
+                            continuation.resume(returning: value)
+                        } catch {
+                            continuation.resume(throwing: error)
+                        }
+                    }
+                },
+                cancellation: {
+                    continuation.resume(throwing: CancellationError())
+                }
+            ))
+            
+            enqueueDecoys(decoys)
+            scheduleBatchIfNeeded()
+        }
+    }
+    
+    func applyCoinSelectionHeuristics(to utxos: [OpalBase.Transaction.Output.Unspent]) -> [OpalBase.Transaction.Output.Unspent] {
+        guard configuration.shouldRandomizeUTXOOrdering, utxos.count > 1 else { return utxos }
+        return utxos.shuffled(using: &generator)
+    }
+    
+    func organizeOutputs(_ outputs: [OpalBase.Transaction.Output]) -> [OpalBase.Transaction.Output] {
+        guard outputs.count > 1 else { return outputs }
+        
+        if configuration.shouldRandomizeRecipientOrdering {
+            return outputs.shuffled(using: &generator)
+        }
+        
+        return OpalBase.Transaction.Output.applyBIP69Ordering(outputs)
+    }
+    
+    private func enqueueDecoys(_ decoys: [@Sendable () async -> Void]) {
+        guard !decoys.isEmpty else { return }
+        for decoy in decoys {
+            pendingOperations.append(AnyOperation(
+                execution: {
+                    await self.performWithJitter {
+                        await decoy()
+                    }
+                },
+                cancellation: {}
+            ))
+        }
+    }
+    
+    private func scheduleBatchIfNeeded() {
+        guard !pendingOperations.isEmpty else { return }
+        guard batchingTask == nil else { return }
+        let configuration = self.configuration
+        let delay = makeRandomNanoseconds(in: configuration.batchingIntervalRange)
+        batchingTask = Task {
+            await self.sleep(nanoseconds: delay)
+            await self.flushPending()
+        }
+    }
+    
+    private func flushPending() async {
+        let operations = pendingOperations
+        pendingOperations.removeAll()
+        batchingTask = nil
+        
+        var shuffled = operations
+        shuffled.shuffle(using: &generator)
+        for operation in shuffled {
+            await operation.execution()
+        }
+    }
+    
+    private func performWithJitter(_ operation: @escaping @Sendable () async -> Void) async {
+        let delay = makeRandomNanoseconds(in: configuration.operationJitterRange)
+        await sleep(nanoseconds: delay)
+        await operation()
+    }
+    
+    private func sleep(nanoseconds: UInt64) async {
+        guard nanoseconds > 0 else { return }
+        do { try await Task.sleep(nanoseconds: nanoseconds) }
+        catch { }
+    }
+    
+    private func makeRandomNanoseconds(in range: ClosedRange<UInt64>) -> UInt64 {
+        guard range.lowerBound < range.upperBound else { return range.lowerBound }
+        return UInt64.random(in: range, using: &generator)
+    }
+}
