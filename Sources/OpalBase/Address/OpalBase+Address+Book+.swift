@@ -100,7 +100,7 @@ extension _OpalBase.Address.Book {
     }
     
     func makeScriptHashHex(from lockingScript: Data) -> String {
-        SHA256.hash(lockingScript).reversedData.hexadecimalString
+        OpalCryptoAdapter.sha256(lockingScript).reversedData.hexadecimalString
     }
     
     func makeNonFungibleTokenData(from tokenData: OpalBase.CashTokens.TokenData) -> OpalBase.CashTokens.TokenData? {
@@ -120,4 +120,3 @@ extension _OpalBase.Address.Book {
         deltas[tokenData.category, default: 0] += signedAmount
     }
 }
-

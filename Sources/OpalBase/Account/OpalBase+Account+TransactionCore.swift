@@ -1,6 +1,7 @@
 // OpalBase+Account+TransactionCore.swift
 
 import Foundation
+import OpalCrypto
 
 extension _OpalBase.Account {
     struct TransactionCore: Sendable {
@@ -10,14 +11,14 @@ extension _OpalBase.Account {
     }
     
     static func buildTransactionCore(
-        privateKeys: [OpalBase.Transaction.Output.Unspent: OpalBase.PrivateKey],
+        privateKeys: [OpalBase.Transaction.Output.Unspent: Data],
         recipientOutputs: [OpalBase.Transaction.Output],
         changeOutput: OpalBase.Transaction.Output,
         feeRate: UInt64,
         shouldAllowDustDonation: Bool,
         shouldRandomizeRecipientOrdering: Bool,
         changeEntry: OpalBase.Address.Book.Entry,
-        signatureFormat: OpalBase.Cryptography.SignatureFormat,
+        signatureFormat: OpalCrypto.Signature.Format,
         unlockers: [OpalBase.Transaction.Output.Unspent: OpalBase.Transaction.Unlocker],
         mapBuildError: (Swift.Error) -> OpalBase.Account.Error
     ) throws -> TransactionCore {

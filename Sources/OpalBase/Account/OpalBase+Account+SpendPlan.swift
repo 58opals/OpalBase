@@ -1,6 +1,7 @@
 // OpalBase+Account+SpendPlan.swift
 
 import Foundation
+import OpalCrypto
 
 extension _OpalBase.Account {
     public struct SpendPlan: Sendable {
@@ -37,7 +38,7 @@ extension _OpalBase.Account {
         fileprivate let reservationHandle: OpalBase.Account.SpendReservation
         fileprivate let changeOutput: OpalBase.Transaction.Output
         fileprivate let recipientOutputs: [OpalBase.Transaction.Output]
-        fileprivate let privateKeys: [OpalBase.Transaction.Output.Unspent: OpalBase.PrivateKey]
+        fileprivate let privateKeys: [OpalBase.Transaction.Output.Unspent: Data]
         fileprivate let shouldRandomizeRecipientOrdering: Bool
         
         init(payment: Payment,
@@ -49,7 +50,7 @@ extension _OpalBase.Account {
              reservationHandle: OpalBase.Account.SpendReservation,
              changeOutput: OpalBase.Transaction.Output,
              recipientOutputs: [OpalBase.Transaction.Output],
-             privateKeys: [OpalBase.Transaction.Output.Unspent: OpalBase.PrivateKey],
+             privateKeys: [OpalBase.Transaction.Output.Unspent: Data],
              shouldRandomizeRecipientOrdering: Bool) {
             self.payment = payment
             self.feeRate = feeRate
@@ -64,7 +65,7 @@ extension _OpalBase.Account {
             self.shouldRandomizeRecipientOrdering = shouldRandomizeRecipientOrdering
         }
         
-        public func buildTransaction(signatureFormat: OpalBase.Cryptography.SignatureFormat = .schnorr,
+        public func buildTransaction(signatureFormat: OpalCrypto.Signature.Format = .schnorr,
                                      unlockers: [OpalBase.Transaction.Output.Unspent: OpalBase.Transaction.Unlocker] = .init()) throws -> TransactionResult {
             let core = try OpalBase.Account.buildTransactionCore(privateKeys: privateKeys,
                                                         recipientOutputs: recipientOutputs,
@@ -88,7 +89,7 @@ extension _OpalBase.Account {
         }
         
         public func buildAndBroadcast(via handler: OpalBase.Network.TransactionHandling,
-                                      signatureFormat: OpalBase.Cryptography.SignatureFormat = .schnorr,
+                                      signatureFormat: OpalCrypto.Signature.Format = .schnorr,
                                       unlockers: [OpalBase.Transaction.Output.Unspent: OpalBase.Transaction.Unlocker] = .init()) async throws -> (hash: OpalBase.Transaction.Hash, result: TransactionResult) {
             try await reservationHandle.buildAndBroadcast(
                 build: { try buildTransaction(signatureFormat: signatureFormat, unlockers: unlockers) },

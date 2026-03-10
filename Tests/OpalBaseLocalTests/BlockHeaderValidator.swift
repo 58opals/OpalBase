@@ -1,6 +1,7 @@
 // BlockHeaderValidator.swift
 
 import Foundation
+import OpalCrypto
 import Testing
 import OpalBaseTestSupport
 @testable import OpalBase
@@ -54,7 +55,7 @@ struct BlockHeaderValidator {
         )
         
         let headerEncoding = header.encode()
-        let expectedHash = HASH256.hash(headerEncoding).reversedData
+        let expectedHash = OpalCrypto.Hashing.computeHash256(headerEncoding).reversedData
         
         #expect(header.proofOfWorkHash == expectedHash)
     }

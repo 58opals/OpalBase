@@ -1,10 +1,11 @@
 // OpalBase+Account+.swift
 
 import Foundation
+import OpalCrypto
 
 extension OpalBase {
     public actor Account: Identifiable {
-        private let rootExtendedPrivateKey: OpalBase.PrivateKey.Extended
+        private let rootExtendedPrivateKey: OpalCrypto.Key.ExtendedPrivateKey
 
         let purpose: OpalBase.DerivationPath.Purpose
         let coinType: OpalBase.DerivationPath.CoinType
@@ -17,7 +18,7 @@ extension OpalBase {
         public let privacyConfiguration: PrivacyShaperActor.Configuration
 
         init(
-            rootExtendedPrivateKey: OpalBase.PrivateKey.Extended,
+            rootExtendedPrivateKey: OpalCrypto.Key.ExtendedPrivateKey,
             purpose: OpalBase.DerivationPath.Purpose,
             coinType: OpalBase.DerivationPath.CoinType,
             account: OpalBase.DerivationPath.Account,
@@ -30,7 +31,7 @@ extension OpalBase {
             self.account = account
 
             self.id = try [
-                self.rootExtendedPrivateKey.serialize(),
+                OpalCryptoAdapter.serializedExtendedKeyData(self.rootExtendedPrivateKey.serialize()),
                 self.purpose.hardenedIndex.data,
                 self.coinType.hardenedIndex.data,
                 self.account.deriveHardenedIndex().data,
@@ -41,7 +42,7 @@ extension OpalBase {
         }
 
         init(
-            rootExtendedPrivateKey: OpalBase.PrivateKey.Extended,
+            rootExtendedPrivateKey: OpalCrypto.Key.ExtendedPrivateKey,
             purpose: OpalBase.DerivationPath.Purpose,
             coinType: OpalBase.DerivationPath.CoinType,
             account: OpalBase.DerivationPath.Account,
@@ -66,7 +67,7 @@ extension OpalBase {
 
         init(
             from snapshot: OpalBase.Account.Snapshot,
-            rootExtendedPrivateKey: OpalBase.PrivateKey.Extended,
+            rootExtendedPrivateKey: OpalCrypto.Key.ExtendedPrivateKey,
             purpose: OpalBase.DerivationPath.Purpose,
             coinType: OpalBase.DerivationPath.CoinType,
             privacyConfiguration: PrivacyShaperActor.Configuration = .standard

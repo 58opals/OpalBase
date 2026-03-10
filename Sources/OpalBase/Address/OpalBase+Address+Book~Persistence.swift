@@ -1,11 +1,12 @@
 // OpalBase+Address+Book~Persistence.swift
 
 import Foundation
+import OpalCrypto
 
 extension _OpalBase.Address.Book {
     init(from snapshot: Snapshot,
-         rootExtendedPrivateKey: OpalBase.PrivateKey.Extended? = nil,
-         rootExtendedPublicKey: OpalBase.PublicKey.Extended? = nil,
+         rootExtendedPrivateKey: OpalCrypto.Key.ExtendedPrivateKey? = nil,
+         rootExtendedPublicKey: OpalCrypto.Key.ExtendedPublicKey? = nil,
          purpose: OpalBase.DerivationPath.Purpose,
          coinType: OpalBase.DerivationPath.CoinType,
          account: OpalBase.DerivationPath.Account,

@@ -88,12 +88,7 @@ struct AccountTokenSpendValidator {
 }
 
 private func makeAccount() async throws -> OpalBase.Account {
-    let mnemonic = try OpalBase.Mnemonic(
-        words: ["abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "about"]
-    )
-    let wallet = OpalBase.Wallet(mnemonic: mnemonic)
-    try await wallet.addAccount(unhardenedIndex: 0)
-    return try await wallet.fetchAccount(at: 0)
+    try await AccountTestFixtures.makeAccount()
 }
 
 private func addUnspentOutput(
@@ -104,7 +99,7 @@ private func addUnspentOutput(
     previousTransactionOutputIndex: UInt32
 ) async throws -> OpalBase.Transaction.Output.Unspent {
     let addressBook = await account.addressBook
-    let receivingEntry = try await addressBook.selectNextEntry(for: .receiving)
+    let receivingEntry = try await addressBook.selectNextEntry(for: OpalBase.DerivationPath.Usage.receiving)
     let unspentOutput = OpalBase.Transaction.Output.Unspent(
         value: value,
         lockingScript: receivingEntry.address.lockingScript.data,
@@ -115,4 +110,3 @@ private func addUnspentOutput(
     await addressBook.addUTXOs([unspentOutput])
     return unspentOutput
 }
-

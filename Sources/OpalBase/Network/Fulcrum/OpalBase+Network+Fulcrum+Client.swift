@@ -7,7 +7,6 @@ extension _OpalBase.Network.Fulcrum {
     public actor Client {
         private let fulcrum: SwiftFulcrum.Client
         public let configuration: OpalBase.Network.Configuration
-        private var subscriptions: [UUID: any OpalBase.Network.FulcrumSubscriptionClient]
         
         public init(
             configuration: OpalBase.Network.Configuration,
@@ -17,7 +16,6 @@ extension _OpalBase.Network.Fulcrum {
             urlSession: URLSession? = nil
         ) async throws {
             self.configuration = configuration
-            self.subscriptions = .init()
             
             let fulcrumMetrics = metrics.map { FulcrumMetricsAdapter(environment: configuration.network, collector: $0) }
             let fulcrumLogger: (any SwiftFulcrum.Logging.Adapter)? = logger.map { FulcrumLogHandlerAdapter(handler: $0) }
@@ -60,78 +58,33 @@ extension _OpalBase.Network.Fulcrum {
         }
         
         public func reconnect() async throws {
-            let activeSubscriptions = Array(subscriptions.values)
-            for subscription in activeSubscriptions {
-                await subscription.prepareForReconnect()
-            }
-            
-            do {
-                try await fulcrum.reconnect()
-            } catch {
-                await failSubscriptions(activeSubscriptions, error: error)
-                throw error
-            }
-            
-            for subscription in activeSubscriptions {
-                await subscription.resubscribe(using: fulcrum)
-            }
+            try await fulcrum.reconnect()
         }
         
-        func request<Result: SwiftFulcrum.RPC.JSONRPCResponseAdapter>(
+        func request<Result: Decodable & Sendable>(
             method: SwiftFulcrum.RPC.Method,
             responseType: Result.Type = Result.self,
             options: SwiftFulcrum.Client.Call.Options = .init()
         ) async throws -> Result {
-            let response = try await fulcrum.submit(method: method, responseType: responseType, options: options)
-            guard let value = response.extractRegularResponse() else {
-                throw SwiftFulcrum.Client.Error.client(.protocolMismatch("Expected unary response for method: \(method)"))
-            }
-            return value
+            try await fulcrum.request(
+                method: method,
+                responseType: responseType,
+                options: options
+            )
         }
         
-        func subscribe<Initial: SwiftFulcrum.RPC.JSONRPCResponseAdapter, Notification: SwiftFulcrum.RPC.JSONRPCResponseAdapter>(
+        func subscribe<Initial: Decodable & Sendable, Notification: Decodable & Sendable>(
             method: SwiftFulcrum.RPC.Method,
             initialType: Initial.Type = Initial.self,
             notificationType: Notification.Type = Notification.self,
             options: SwiftFulcrum.Client.Call.Options = .init()
         ) async throws -> (Initial, AsyncThrowingStream<Notification, Swift.Error>, @Sendable () async -> Void) {
-            let subscription = OpalBase.Network.FulcrumSubscriptionBoxActor<Initial, Notification>(
+            try await fulcrum.subscribe(
                 method: method,
+                initialType: initialType,
+                notificationType: notificationType,
                 options: options
-            ) { [self] identifier in
-                await self.removeSubscription(withID: identifier)
-            }
-            
-            let initial: Initial
-            do {
-                initial = try await subscription.establish(using: fulcrum)
-            } catch {
-                await subscription.fail(with: error)
-                throw error
-            }
-            
-            subscriptions[subscription.id] = subscription
-            
-            let cancel: @Sendable () async -> Void = { [self] in
-                await self.cancelSubscription(withID: subscription.id)
-            }
-            
-            return (initial, subscription.stream, cancel)
-        }
-        
-        private func cancelSubscription(withID identifier: UUID) async {
-            guard let subscription = subscriptions.removeValue(forKey: identifier) else { return }
-            await subscription.cancel()
-        }
-        
-        private func removeSubscription(withID identifier: UUID) async {
-            subscriptions.removeValue(forKey: identifier)
-        }
-        
-        private func failSubscriptions(_ subscriptions: [any OpalBase.Network.FulcrumSubscriptionClient], error: Swift.Error) async {
-            for subscription in subscriptions {
-                await subscription.fail(with: error)
-            }
+            )
         }
     }
 }

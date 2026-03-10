@@ -37,14 +37,17 @@ extension _OpalBase.Address {
         }
         guard !(hasUppercase && hasLowercase) else { throw Error.invalidCashAddressFormat }
         
-        let decodedData = try Base32.decode(encodedPayload, interpretedAs5Bit: true)
+        let decodedData = try OpalCryptoAdapter.decodeBase32(
+            encodedPayload,
+            interpretedAsFiveBitValues: true
+        )
         guard decodedData.count >= 8 else { throw Error.invalidPayloadLength }
         
         let payload5BitValuesWithChecksum = decodedData
         let payload5BitValues = payload5BitValuesWithChecksum.dropLast(8)
         let checksumValues = payload5BitValuesWithChecksum.suffix(8)
         let checksumInput = try OpalBase.Address.convertPrefixToFiveBitValues(prefix: prefix) + [0x00] + Array(payload5BitValues) + Array(checksumValues)
-        guard Polymod.compute(checksumInput) == 0 else { throw Error.invalidChecksum }
+        guard OpalCryptoAdapter.computePolymod(checksumInput) == 0 else { throw Error.invalidChecksum }
         let payload: Data
         do {
             payload = try OpalBase.Address.convertFiveBitValuesToData(fiveBitValues: Array(payload5BitValues))
@@ -74,11 +77,11 @@ extension _OpalBase.Address {
     }
     
     static func parseLegacyAddress(from string: String) throws -> OpalBase.Address {
-        guard let decoded = Base58.decode(string) else { throw Error.invalidLegacyAddressFormat }
+        guard let decoded = OpalCryptoAdapter.decodeBase58(string) else { throw Error.invalidLegacyAddressFormat }
         guard decoded.count >= 5 else { throw Error.invalidLegacyAddressFormat }
         let payload = decoded.dropLast(4)
         let checksum = decoded.suffix(4)
-        let expectedChecksum = HASH256.computeChecksum(for: payload)
+        let expectedChecksum = Data(OpalCryptoAdapter.hash256(Data(payload)).prefix(4))
         guard checksum == expectedChecksum else { throw Error.invalidLegacyChecksum }
         guard let versionByte = payload.first else { throw Error.invalidLegacyAddressFormat }
         let hashData = payload.dropFirst()
@@ -96,4 +99,3 @@ extension _OpalBase.Address {
         return try OpalBase.Address(script: script, format: .standard)
     }
 }
-

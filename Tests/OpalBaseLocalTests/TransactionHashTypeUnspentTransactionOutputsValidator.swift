@@ -1,6 +1,7 @@
 // TransactionHashTypeUnspentTransactionOutputsValidator.swift
 
 import Foundation
+import OpalCrypto
 import Testing
 import OpalBaseTestSupport
 @testable import OpalBase
@@ -86,7 +87,6 @@ struct TransactionHashTypeUnspentTransactionOutputsValidator {
         for output in outputs {
             data.append(try output.encode())
         }
-        return HASH256.hash(data)
+        return OpalCrypto.Hashing.computeHash256(data)
     }
 }
-

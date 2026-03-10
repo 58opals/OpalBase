@@ -10,15 +10,7 @@ extension StoragePersistenceValidator {
         let valueClient = OpalBase.Storage.ValueClient.makeInMemory()
         let storage = try OpalBase.Storage(valueClient: valueClient)
 
-        let mnemonic = try OpalBase.Mnemonic(
-            words: [
-                "abandon", "abandon", "abandon", "abandon", "abandon", "abandon",
-                "abandon", "abandon", "abandon", "abandon", "abandon", "about"
-            ],
-            passphrase: "session-passphrase"
-        )
-        let wallet = OpalBase.Wallet(mnemonic: mnemonic)
-        try await wallet.addAccount(unhardenedIndex: 0)
+        let wallet = try await AccountTestFixtures.makeWallet(passphrase: "session-passphrase")
 
         let account = try await wallet.fetchAccount(at: 0)
         let accountIdentifier = await account.id
@@ -95,15 +87,7 @@ extension StoragePersistenceValidator {
         let storage = try OpalBase.Storage(valueClient: valueClient)
         let session = OpalBase.Storage.PersistenceSession(storage: storage)
 
-        let mnemonic = try OpalBase.Mnemonic(
-            words: [
-                "abandon", "abandon", "abandon", "abandon", "abandon", "abandon",
-                "abandon", "abandon", "abandon", "abandon", "abandon", "about"
-            ],
-            passphrase: ""
-        )
-        let wallet = OpalBase.Wallet(mnemonic: mnemonic)
-        try await wallet.addAccount(unhardenedIndex: 0)
+        let wallet = try await AccountTestFixtures.makeWallet()
 
         let snapshot = await wallet.makeSnapshot()
         guard let missingIndex = snapshot.accounts.first?.accountUnhardenedIndex else {
@@ -125,4 +109,3 @@ extension StoragePersistenceValidator {
         }
     }
 }
-

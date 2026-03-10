@@ -1,6 +1,7 @@
 // StoragePersistenceNetworkSyncValidator.swift
 
 import Foundation
+import OpalCrypto
 import Testing
 import OpalBaseTestSupport
 @testable import OpalBase
@@ -47,8 +48,11 @@ struct StoragePersistenceNetworkSyncValidator {
                     #expect(tip.height > 0)
                     #expect(!tip.headerHexadecimal.isEmpty)
 
-                    let mnemonic = try OpalBase.Mnemonic(length: .short, passphrase: "")
-                    let wallet = OpalBase.Wallet(mnemonic: mnemonic)
+                    let mnemonic = try OpalCrypto.Key.Mnemonic.generate(
+                        length: .words12,
+                        language: .english
+                    )
+                    let wallet = try OpalBase.Wallet(mnemonic: mnemonic)
                     try await wallet.addAccount(unhardenedIndex: 0)
                     let account = try await wallet.fetchAccount(at: 0)
                     let accountIdentifier = await account.id

@@ -5,7 +5,7 @@ import Foundation
 extension _OpalBase.Account {
     struct SpendContext {
         let reservationHandle: SpendReservation
-        let privateKeys: [OpalBase.Transaction.Output.Unspent: OpalBase.PrivateKey]
+        let privateKeys: [OpalBase.Transaction.Output.Unspent: Data]
         let changeOutput: OpalBase.Transaction.Output
         let totalSelectedAmount: OpalBase.Satoshi
         let targetAmount: OpalBase.Satoshi

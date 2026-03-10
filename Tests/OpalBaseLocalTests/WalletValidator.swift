@@ -9,12 +9,7 @@ import OpalBaseTestSupport
 struct WalletValidator {
     @Test("fetchAccount locates accounts regardless of insertion order")
     func fetchAccountLocatesOutOfOrderAccountIndices() async throws {
-        let mnemonic = try OpalBase.Mnemonic(
-            words: [
-                "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "about"
-            ]
-        )
-        let wallet = OpalBase.Wallet(mnemonic: mnemonic)
+        let wallet = try OpalBase.Wallet(mnemonic: AccountTestFixtures.makeMnemonic())
         
         try await wallet.addAccount(unhardenedIndex: 3)
         try await wallet.addAccount(unhardenedIndex: 0)
@@ -28,12 +23,7 @@ struct WalletValidator {
     
     @Test("fetchAccount throws when the index is missing")
     func fetchAccountRejectsMissingAccount() async throws {
-        let mnemonic = try OpalBase.Mnemonic(
-            words: [
-                "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "about"
-            ]
-        )
-        let wallet = OpalBase.Wallet(mnemonic: mnemonic)
+        let wallet = try OpalBase.Wallet(mnemonic: AccountTestFixtures.makeMnemonic())
         
         await #expect(throws: OpalBase.Wallet.Error.cannotFetchAccount(index: 0)) {
             _ = try await wallet.fetchAccount(at: 0)
@@ -42,12 +32,7 @@ struct WalletValidator {
     
     @Test("fetchAccount rejects unknown account indices")
     func fetchAccountRejectsUnknownAccountIndices() async throws {
-        let mnemonic = try OpalBase.Mnemonic(
-            words: [
-                "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "about"
-            ]
-        )
-        let wallet = OpalBase.Wallet(mnemonic: mnemonic)
+        let wallet = try OpalBase.Wallet(mnemonic: AccountTestFixtures.makeMnemonic())
         
         let missingIndex: UInt32 = 7
         
@@ -56,4 +41,3 @@ struct WalletValidator {
         }
     }
 }
-

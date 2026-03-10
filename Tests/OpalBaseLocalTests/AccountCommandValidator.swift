@@ -9,17 +9,10 @@ import OpalBaseTestSupport
 struct AccountCommandValidator {
     @Test("prepareSpend reports insufficient funds when sweep-all shortfall occurs")
     func prepareSpendReportsShortfallForSweepAllCoinSelection() async throws {
-        let mnemonic = try OpalBase.Mnemonic(
-            words: [
-                "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "about"
-            ]
-        )
-        let wallet = OpalBase.Wallet(mnemonic: mnemonic)
-        try await wallet.addAccount(unhardenedIndex: 0)
-        let account = try await wallet.fetchAccount(at: 0)
+        let account = try await AccountTestFixtures.makeAccount()
 
         let addressBook = await account.addressBook
-        let receivingEntry = try await addressBook.selectNextEntry(for: .receiving)
+        let receivingEntry = try await addressBook.selectNextEntry(for: OpalBase.DerivationPath.Usage.receiving)
         let previousTransactionHash = OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0, count: 32))
         let utxo = OpalBase.Transaction.Output.Unspent(
             value: 1_000,
@@ -63,17 +56,10 @@ struct AccountCommandValidator {
 
     @Test("prepareSpend reserves spend resources until explicitly released")
     func prepareSpendReservesUntilReleased() async throws {
-        let mnemonic = try OpalBase.Mnemonic(
-            words: [
-                "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "about"
-            ]
-        )
-        let wallet = OpalBase.Wallet(mnemonic: mnemonic)
-        try await wallet.addAccount(unhardenedIndex: 0)
-        let account = try await wallet.fetchAccount(at: 0)
+        let account = try await AccountTestFixtures.makeAccount()
 
         let addressBook = await account.addressBook
-        let receivingEntry = try await addressBook.selectNextEntry(for: .receiving)
+        let receivingEntry = try await addressBook.selectNextEntry(for: OpalBase.DerivationPath.Usage.receiving)
         let previousTransactionHash = OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 1, count: 32))
         let utxo = OpalBase.Transaction.Output.Unspent(
             value: 25_000,
@@ -88,7 +74,7 @@ struct AccountCommandValidator {
         let payment = OpalBase.Account.Payment(recipients: [.init(address: recipientAddress, amount: paymentAmount)])
 
         let initialPlan = try await account.prepareSpend(payment)
-        let initialChangeEntries = await addressBook.listEntries(for: .change)
+        let initialChangeEntries = await addressBook.listEntries(for: OpalBase.DerivationPath.Usage.change)
         let initialFirstChange = initialChangeEntries.first { $0.derivationPath.index == 0 }
         #expect(initialFirstChange?.isUsed == true)
         #expect(initialFirstChange?.isReserved == true)
@@ -103,7 +89,7 @@ struct AccountCommandValidator {
 
         try await initialPlan.cancelReservation()
 
-        let afterCancellationEntries = await addressBook.listEntries(for: .change)
+        let afterCancellationEntries = await addressBook.listEntries(for: OpalBase.DerivationPath.Usage.change)
         let restoredFirstChange = afterCancellationEntries.first { $0.derivationPath.index == 0 }
         #expect(restoredFirstChange?.isUsed == false)
         #expect(restoredFirstChange?.isReserved == false)
@@ -113,7 +99,7 @@ struct AccountCommandValidator {
         let completedPlan = try await account.prepareSpend(payment)
         try await completedPlan.completeReservation()
 
-        let afterCompletionEntries = await addressBook.listEntries(for: .change)
+        let afterCompletionEntries = await addressBook.listEntries(for: OpalBase.DerivationPath.Usage.change)
         let completedFirstChange = afterCompletionEntries.first { $0.derivationPath.index == 0 }
         #expect(completedFirstChange?.isUsed == true)
         #expect(completedFirstChange?.isReserved == false)
@@ -126,14 +112,7 @@ struct AccountCommandValidator {
 
     @Test("reserveNextReceivingEntry advances receiving entries")
     func reserveNextReceivingEntryAdvancesReceivingEntries() async throws {
-        let mnemonic = try OpalBase.Mnemonic(
-            words: [
-                "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "about"
-            ]
-        )
-        let wallet = OpalBase.Wallet(mnemonic: mnemonic)
-        try await wallet.addAccount(unhardenedIndex: 0)
-        let account = try await wallet.fetchAccount(at: 0)
+        let account = try await AccountTestFixtures.makeAccount()
 
         let firstReservedEntry = try await account.reserveNextReceivingEntry()
         #expect(firstReservedEntry.derivationPath.index == 0)
@@ -146,10 +125,9 @@ struct AccountCommandValidator {
         #expect(secondReservedEntry.isUsed == true)
         #expect(secondReservedEntry.address != firstReservedEntry.address)
 
-        let nextAvailableEntry = try await account.addressBook.selectNextEntry(for: .receiving)
+        let nextAvailableEntry = try await account.addressBook.selectNextEntry(for: OpalBase.DerivationPath.Usage.receiving)
         #expect(nextAvailableEntry.derivationPath.index == 2)
         #expect(nextAvailableEntry.isReserved == false)
         #expect(nextAvailableEntry.isUsed == false)
     }
 }
-

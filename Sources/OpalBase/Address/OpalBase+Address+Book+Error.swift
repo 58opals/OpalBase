@@ -10,7 +10,7 @@ extension _OpalBase.Address.Book {
         case addressNotFound
         case entryNotFound
         
-        case privateKeyDuplicated(OpalBase.PrivateKey)
+        case privateKeyDuplicated(Data)
         case addressDuplicated(OpalBase.Address)
         case entryDuplicated(OpalBase.Address.Book.Entry)
         case entryAlreadyReserved(OpalBase.Address.Book.Entry)

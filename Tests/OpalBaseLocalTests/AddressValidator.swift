@@ -1,6 +1,7 @@
 // AddressValidator.swift
 
 import Foundation
+import OpalCrypto
 import Testing
 import OpalBaseTestSupport
 @testable import OpalBase
@@ -9,11 +10,9 @@ import OpalBaseTestSupport
 struct AddressValidator {
     @Test("known private key derives stable wallet and address artifacts")
     func deriveStableWalletAndAddressArtifacts() throws {
-        let privateKey = try OpalBase.PrivateKey(data: Data(repeating: 0x00, count: 31) + Data([0x01]))
-        let walletImportFormat = privateKey.makeWalletImportFormat(
-            compression: OpalBase.PrivateKey.WalletImportFormatCompression.compressed
-        )
-        let publicKey = try OpalBase.PublicKey(privateKey: privateKey)
+        let privateKey = Data(repeating: 0x00, count: 31) + Data([0x01])
+        let walletImportFormat = try OpalCrypto.Key.WIF(privateKey: privateKey).serialize()
+        let publicKey = try OpalBase.PublicKey(privateKeyData: privateKey)
         let hash = OpalBase.PublicKey.Hash(publicKey: publicKey)
         let script = OpalBase.Script.p2pkh_OPCHECKSIG(hash: hash)
         let legacyAddress = try OpalBase.Address.Legacy(script)
@@ -103,12 +102,9 @@ struct AddressValidator {
     
     @Test("address book only replenishes the gap deficit")
     func addressBookMaintainsGapLimit() async throws {
-        let mnemonic = try OpalBase.Mnemonic(
-            words: [
-                "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "about"
-            ]
+        let rootExtendedPrivateKey = try OpalCrypto.Key.ExtendedPrivateKey.root(
+            seed: AccountTestFixtures.makeMnemonic().deriveSeed()
         )
-        let rootExtendedPrivateKey = OpalBase.PrivateKey.Extended(rootKey: try .init(seed: mnemonic.seed))
         let account = try OpalBase.DerivationPath.Account(rawIndexInteger: 0)
         let gapLimit = 5
         let book = try await OpalBase.Address.Book(
@@ -119,15 +115,15 @@ struct AddressValidator {
             gapLimit: gapLimit
         )
         
-        let initialTotal = await book.countEntries(for: .receiving)
+        let initialTotal = await book.countEntries(for: OpalBase.DerivationPath.Usage.receiving)
         #expect(initialTotal == gapLimit)
         
-        let entries = await book.listEntries(for: .receiving)
+        let entries = await book.listEntries(for: OpalBase.DerivationPath.Usage.receiving)
         let firstEntry = try #require(entries.first)
         try await book.mark(address: firstEntry.address, isUsed: true)
         
-        let updatedTotal = await book.countEntries(for: .receiving)
-        let updatedUnused = await book.countUnusedEntries(for: .receiving)
+        let updatedTotal = await book.countEntries(for: OpalBase.DerivationPath.Usage.receiving)
+        let updatedUnused = await book.countUnusedEntries(for: OpalBase.DerivationPath.Usage.receiving)
         
         #expect(updatedTotal == initialTotal + 1)
         #expect(updatedUnused == gapLimit)
@@ -135,12 +131,9 @@ struct AddressValidator {
     
     @Test("address book uses distinct receiving and change addresses")
     func addressBookUsesDistinctReceivingAndChangeAddresses() async throws {
-        let mnemonic = try OpalBase.Mnemonic(
-            words: [
-                "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "about"
-            ]
+        let rootExtendedPrivateKey = try OpalCrypto.Key.ExtendedPrivateKey.root(
+            seed: AccountTestFixtures.makeMnemonic().deriveSeed()
         )
-        let rootExtendedPrivateKey = OpalBase.PrivateKey.Extended(rootKey: try .init(seed: mnemonic.seed))
         let account = try OpalBase.DerivationPath.Account(rawIndexInteger: 0)
         let book = try await OpalBase.Address.Book(
             rootExtendedPrivateKey: rootExtendedPrivateKey,
@@ -150,8 +143,8 @@ struct AddressValidator {
             gapLimit: 1
         )
         
-        let receivingEntry = try #require(await book.listEntries(for: .receiving).first)
-        let changeEntry = try #require(await book.listEntries(for: .change).first)
+        let receivingEntry = try #require(await book.listEntries(for: OpalBase.DerivationPath.Usage.receiving).first)
+        let changeEntry = try #require(await book.listEntries(for: OpalBase.DerivationPath.Usage.change).first)
         
         #expect(receivingEntry.address != changeEntry.address)
     }

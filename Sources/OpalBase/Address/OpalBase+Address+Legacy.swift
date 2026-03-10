@@ -12,8 +12,8 @@ extension _OpalBase.Address {
                 let prefix = Data([0x00])
                 let hash160 = hash.data
                 let data = prefix + hash160
-                let checksum = HASH256.computeChecksum(for: data)
-                let base58 = Base58.encode(data + checksum)
+                let checksum = Data(OpalCryptoAdapter.hash256(data).prefix(4))
+                let base58 = OpalCryptoAdapter.encodeBase58(data + checksum)
                 self.string = base58
                 
             default:

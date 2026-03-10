@@ -1,6 +1,7 @@
 // AddressBookBalanceValidator.swift
 
 import Foundation
+import OpalCrypto
 import Testing
 import OpalBaseTestSupport
 @testable import OpalBase
@@ -9,12 +10,9 @@ import OpalBaseTestSupport
 struct AddressBookBalanceValidator {
     @Test("calculateCachedTotalBalance throws when the sum exceeds the maximum supply")
     func calculateCachedTotalBalanceDetectsOverflow() async throws {
-        let mnemonic = try OpalBase.Mnemonic(
-            words: [
-                "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "abandon", "about"
-            ]
+        let rootExtendedPrivateKey = try OpalCrypto.Key.ExtendedPrivateKey.root(
+            seed: AccountTestFixtures.makeMnemonic().deriveSeed()
         )
-        let rootExtendedPrivateKey = OpalBase.PrivateKey.Extended(rootKey: try .init(seed: mnemonic.seed))
         let book = try await OpalBase.Address.Book(
             rootExtendedPrivateKey: rootExtendedPrivateKey,
             purpose: .bip44,
@@ -23,7 +21,7 @@ struct AddressBookBalanceValidator {
             gapLimit: 2
         )
         
-        let receivingEntries = await book.listEntries(for: .receiving)
+        let receivingEntries = await book.listEntries(for: OpalBase.DerivationPath.Usage.receiving)
         #expect(receivingEntries.count >= 2)
         
         let firstAddress = receivingEntries[0].address
@@ -40,4 +38,3 @@ struct AddressBookBalanceValidator {
         }
     }
 }
-

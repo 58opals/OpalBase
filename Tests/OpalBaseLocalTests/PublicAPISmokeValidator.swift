@@ -1,6 +1,7 @@
 // PublicAPISmokeValidator.swift
 
 import Foundation
+import OpalCrypto
 import Testing
 import OpalBaseTestSupport
 import OpalBase
@@ -9,7 +10,7 @@ import OpalBase
 struct PublicAPISmokeValidator {
     @Test("wallet, account, and network facades compose in public API")
     func walletAccountAndNetworkFacadesCompose() async throws {
-        let wallet = OpalBase.Wallet(mnemonic: try makeSmokeMnemonic())
+        let wallet = try OpalBase.Wallet(mnemonic: makeSmokeMnemonic())
 
         try await wallet.addAccount(unhardenedIndex: 0)
         let account = try await wallet.fetchAccount(at: 0)
@@ -45,54 +46,52 @@ struct PublicAPISmokeValidator {
         await monitor.stop()
     }
 
-    @Test("cryptography facade types sign and verify")
-    func cryptographyFacadeRoundTripsSignatures() throws {
+    @Test("OpalCrypto facade types sign and verify")
+    func opalCryptoFacadeRoundTripsSignatures() throws {
         let privateKey32 = Data(repeating: 0x01, count: 32)
         let digest32 = Data(repeating: 0x02, count: 32)
-        let publicKey = try OpalBase.Cryptography.Secp256k1.Operation.derivePublicKey(
-            fromPrivateKey32: privateKey32,
-            format: .compressed
-        )
+        let publicKey = try OpalCrypto.Signature.derivePublicKey(fromPrivateKey: privateKey32)
 
-        let ecdsaSignature = try OpalBase.Cryptography.Secp256k1.sign(
-            digest32: digest32,
-            privateKey32: privateKey32,
-            nonce: .rfc6979Sha256
+        let derSignature = try OpalCrypto.Signature.sign(
+            message: digest32,
+            privateKey: privateKey32,
+            format: .ecdsa(.der)
         )
-        let derSignature = try ecdsaSignature.encodeDER()
-        let roundTrippedSignature = try OpalBase.Cryptography.Secp256k1.Signature(
-            derEncoded: derSignature
-        )
+        let rawSignature = try OpalCrypto.Secp256k1.decodeDER(derSignature)
+        let roundTrippedSignature = try OpalCrypto.Secp256k1.encodeDER(rawSignature)
 
-        #expect(roundTrippedSignature == ecdsaSignature)
+        #expect(roundTrippedSignature == derSignature)
         #expect(
-            try OpalBase.Cryptography.Secp256k1.verify(
-                signature: ecdsaSignature,
-                digest32: digest32,
+            try OpalCrypto.Signature.verify(
+                signature: derSignature,
+                message: digest32,
                 publicKey: publicKey
+                ,
+                format: .ecdsa(.der)
             )
         )
 
-        let schnorrSignature = try OpalBase.Cryptography.Schnorr.sign(
-            digest32: digest32,
-            privateKey32: privateKey32,
-            nonce: .bipSchnorrDeterministic
+        let schnorrSignature = try OpalCrypto.Signature.sign(
+            message: digest32,
+            privateKey: privateKey32,
+            format: .schnorr,
+            nonce: .bip340Deterministic
         )
 
         #expect(
-            try OpalBase.Cryptography.Schnorr.verify(
+            try OpalCrypto.Signature.verify(
                 signature: schnorrSignature,
-                digest32: digest32,
-                publicKey: publicKey
+                message: digest32,
+                publicKey: publicKey,
+                format: .schnorr
             )
         )
 
-        let signatureFormat: OpalBase.Cryptography.SignatureFormat = .ecdsa(.der)
-        let noncePolicy = OpalBase.Cryptography.NoncePolicy.rfc6979BchDefault
-        let _: OpalBase.Cryptography.ECDSA.Type = OpalBase.Cryptography.ECDSA.self
+        let signatureFormat: OpalCrypto.Signature.Format = .ecdsa(.der)
+        let noncePolicy = OpalCrypto.Signature.NoncePolicy.rfc6979
 
         if case .ecdsa(.der) = signatureFormat {
-            #expect(noncePolicy == .rfc6979BchDefault)
+            #expect(noncePolicy == .rfc6979)
         } else {
             Issue.record("Expected DER-backed ECDSA signature format.")
         }
@@ -150,7 +149,7 @@ struct PublicAPISmokeValidator {
         )
         #expect(restoredMetadata.symbol == "MANUAL")
 
-        let wallet = OpalBase.Wallet(mnemonic: try makeSmokeMnemonic())
+        let wallet = try OpalBase.Wallet(mnemonic: makeSmokeMnemonic())
         await wallet.upsertTokenMetadata([category: manualMetadata])
 
         let walletMetadata = try #require(await wallet.fetchTokenMetadata(for: category))
@@ -160,7 +159,7 @@ struct PublicAPISmokeValidator {
 
     @Test("storage ports accept public protocol test doubles")
     func storagePortsAcceptProtocolTestDoubles() async throws {
-        let wallet = OpalBase.Wallet(mnemonic: try makeSmokeMnemonic())
+        let wallet = try OpalBase.Wallet(mnemonic: makeSmokeMnemonic())
         try await wallet.addAccount(unhardenedIndex: 0)
 
         let snapshotStore = SmokeSnapshotClient()
@@ -230,8 +229,8 @@ private let smokeMnemonicWords = [
     "abandon", "abandon", "abandon", "abandon", "abandon", "about"
 ]
 
-private func makeSmokeMnemonic() throws -> OpalBase.Mnemonic {
-    try OpalBase.Mnemonic(words: smokeMnemonicWords)
+private func makeSmokeMnemonic() throws -> OpalCrypto.Key.Mnemonic {
+    try OpalCrypto.Key.Mnemonic(words: smokeMnemonicWords.map(OpalCrypto.Key.Mnemonic.Word.init))
 }
 
 private actor SmokeAddressClient: OpalBase.Network.AddressReadable {

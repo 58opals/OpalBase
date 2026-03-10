@@ -15,8 +15,8 @@ struct NetworkFulcrumServerInfoReaderValidator {
         let client = ServerInfoClientTestActor(
             versionResponse: try Self.makeVersionResponse(serverVersion: "Fulcrum 1.9.0", protocolVersion: "1.5"),
             featuresResponse: try Self.makeFeaturesResponse(),
-            relayFeeResponse: .init(fromRPC: 0.00001),
-            estimatedFeeResponse: .init(fromRPC: 0.00002)
+            relayFeeResponse: try Self.makeRelayFeeResponse(fee: 0.00001),
+            estimatedFeeResponse: try Self.makeEstimateFeeResponse(fee: 0.00002)
         )
         let reader = OpalBase.Network.Fulcrum.ServerInfoReader(client: client)
 
@@ -72,8 +72,8 @@ private actor ServerInfoClientTestActor: OpalBase.Network.Fulcrum.ServerInfoClie
         pingError: Swift.Error? = nil,
         versionResponse: SwiftFulcrum.RPC.Response.Result.Server.Version? = nil,
         featuresResponse: SwiftFulcrum.RPC.Response.Result.Server.Features? = nil,
-        relayFeeResponse: SwiftFulcrum.RPC.Response.Result.Blockchain.RelayFee = .init(fromRPC: 0),
-        estimatedFeeResponse: SwiftFulcrum.RPC.Response.Result.Blockchain.EstimateFee = .init(fromRPC: 0)
+        relayFeeResponse: SwiftFulcrum.RPC.Response.Result.Blockchain.RelayFee? = nil,
+        estimatedFeeResponse: SwiftFulcrum.RPC.Response.Result.Blockchain.EstimateFee? = nil
     ) {
         self.pingError = pingError
         self.versionResponse = versionResponse ?? (
@@ -83,8 +83,8 @@ private actor ServerInfoClientTestActor: OpalBase.Network.Fulcrum.ServerInfoClie
             )
         )
         self.featuresResponse = featuresResponse ?? (try! NetworkFulcrumServerInfoReaderValidator.makeFeaturesResponse())
-        self.relayFeeResponse = relayFeeResponse
-        self.estimatedFeeResponse = estimatedFeeResponse
+        self.relayFeeResponse = relayFeeResponse ?? (try! NetworkFulcrumServerInfoReaderValidator.makeRelayFeeResponse(fee: 0))
+        self.estimatedFeeResponse = estimatedFeeResponse ?? (try! NetworkFulcrumServerInfoReaderValidator.makeEstimateFeeResponse(fee: 0))
     }
 
     func pingServer(options _: SwiftFulcrum.Client.Call.Options) async throws {
@@ -123,8 +123,7 @@ private extension NetworkFulcrumServerInfoReaderValidator {
         protocolVersion: String
     ) throws -> SwiftFulcrum.RPC.Response.Result.Server.Version {
         let payload = try JSONSerialization.data(withJSONObject: [serverVersion, protocolVersion])
-        let response = try JSONDecoder().decode(SwiftFulcrum.RPC.Response.JSONRPC.Result.Server.Version.self, from: payload)
-        return try .init(fromRPC: response)
+        return try JSONDecoder().decode(SwiftFulcrum.RPC.Response.Result.Server.Version.self, from: payload)
     }
 
     static func makeFeaturesResponse() throws -> SwiftFulcrum.RPC.Response.Result.Server.Features {
@@ -141,8 +140,21 @@ private extension NetworkFulcrumServerInfoReaderValidator {
             "rpa": ["history_block_limit": 288, "max_history": 100, "prefix_bits": 16, "prefix_bits_min": 8, "starting_height": 800_000],
             "broadcast_package": true
         ])
-        let response = try JSONDecoder().decode(SwiftFulcrum.RPC.Response.JSONRPC.Result.Server.Features.self, from: payload)
-        return try .init(fromRPC: response)
+        return try JSONDecoder().decode(SwiftFulcrum.RPC.Response.Result.Server.Features.self, from: payload)
+    }
+
+    static func makeRelayFeeResponse(
+        fee: Double
+    ) throws -> SwiftFulcrum.RPC.Response.Result.Blockchain.RelayFee {
+        let payload = try JSONEncoder().encode(fee)
+        return try JSONDecoder().decode(SwiftFulcrum.RPC.Response.Result.Blockchain.RelayFee.self, from: payload)
+    }
+
+    static func makeEstimateFeeResponse(
+        fee: Double
+    ) throws -> SwiftFulcrum.RPC.Response.Result.Blockchain.EstimateFee {
+        let payload = try JSONEncoder().encode(fee)
+        return try JSONDecoder().decode(SwiftFulcrum.RPC.Response.Result.Blockchain.EstimateFee.self, from: payload)
     }
 
     static func captureNetworkError(

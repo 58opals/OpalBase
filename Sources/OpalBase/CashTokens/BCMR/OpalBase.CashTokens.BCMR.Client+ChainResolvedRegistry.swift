@@ -30,7 +30,7 @@ extension OpalBase.CashTokens.BCMR.Client {
         }
         
         let registryBytes = try await fetchRegistryBytes(for: publication, authhead: authhead)
-        let registryHash = SHA256.hash(registryBytes)
+        let registryHash = OpalCryptoAdapter.sha256(registryBytes)
         guard registryHash == publication.sha256 else {
             throw ChainRegistryResolverError.invalidRegistryHash(
                 expected: publication.sha256,

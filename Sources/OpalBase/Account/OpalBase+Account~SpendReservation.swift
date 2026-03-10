@@ -11,7 +11,7 @@ extension _OpalBase.Account {
     ) async throws -> (
         reservation: OpalBase.Address.Book.SpendReservation,
         reservedChangeEntry: OpalBase.Address.Book.Entry,
-        privateKeys: [OpalBase.Transaction.Output.Unspent: OpalBase.PrivateKey]
+        privateKeys: [OpalBase.Transaction.Output.Unspent: Data]
     ) {
         let reservation: OpalBase.Address.Book.SpendReservation
         do {
@@ -35,4 +35,3 @@ extension _OpalBase.Account {
         }
     }
 }
-

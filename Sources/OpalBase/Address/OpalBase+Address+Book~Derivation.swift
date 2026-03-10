@@ -1,28 +1,25 @@
 // OpalBase+Address+Book~Derivation.swift
 
 import Foundation
+import OpalCrypto
 
 extension _OpalBase.Address.Book {
     func buildUsageDerivationCacheIfNeeded() throws {
         guard let rootExtendedPrivateKey else { return }
         
         let accountIndex = try account.deriveHardenedIndex()
-        let accountExtendedPrivateKey = try rootExtendedPrivateKey.deriveChildFast(at: [
+        let accountExtendedPrivateKey = try rootExtendedPrivateKey.derived(indices: [
             purpose.hardenedIndex,
             coinType.hardenedIndex,
             accountIndex
         ])
-        let accountCompressedPublicKey = try OpalBase.PublicKey(privateKey: .init(data: accountExtendedPrivateKey.privateKey)).compressedData
-        let accountFingerprint = Data(HASH160.hash(accountCompressedPublicKey).prefix(4))
         
         for usage in [OpalBase.DerivationPath.Usage.receiving, .change] {
-            let usageExtendedPrivateKey = try accountExtendedPrivateKey.deriveNonHardenedChildUsingParentKey(
-                at: usage.unhardenedIndex,
-                parentCompressedPublicKey: accountCompressedPublicKey,
-                parentFingerprint: accountFingerprint
-            )
-            let usageCompressedPublicKey = try OpalBase.PublicKey(privateKey: .init(data: usageExtendedPrivateKey.privateKey)).compressedData
-            let usageFingerprint = Data(HASH160.hash(usageCompressedPublicKey).prefix(4))
+            let usageExtendedPrivateKey = try accountExtendedPrivateKey.derived(indices: [
+                usage.unhardenedIndex
+            ])
+            let usageCompressedPublicKey = usageExtendedPrivateKey.publicKey.publicKey
+            let usageFingerprint = OpalCryptoAdapter.fingerprint(of: usageCompressedPublicKey)
             usageDerivationCache[usage] = .init(baseExtendedPrivateKey: usageExtendedPrivateKey,
                                                 baseCompressedPublicKey: usageCompressedPublicKey,
                                                 baseFingerprint: usageFingerprint)
@@ -41,23 +38,19 @@ extension _OpalBase.Address.Book {
     
     func generateAddress(at index: UInt32, for usage: OpalBase.DerivationPath.Usage) throws -> OpalBase.Address {
         if let usageCache = usageDerivationCache[usage] {
-            let childExtendedPrivateKey = try usageCache.baseExtendedPrivateKey.deriveNonHardenedChildUsingParentKey(
-                at: index,
-                parentCompressedPublicKey: usageCache.baseCompressedPublicKey,
-                parentFingerprint: usageCache.baseFingerprint
-            )
-            let childCompressedPublicKey = try OpalBase.PublicKey(privateKey: .init(data: childExtendedPrivateKey.privateKey)).compressedData
+            let childExtendedPrivateKey = try usageCache.baseExtendedPrivateKey.derived(indices: [index])
+            let childCompressedPublicKey = childExtendedPrivateKey.publicKey.publicKey
             let publicKey = try OpalBase.PublicKey(compressedData: childCompressedPublicKey)
             return try OpalBase.Address(script: .p2pkh_OPCHECKSIG(hash: .init(publicKey: publicKey)))
         }
         
         let derivationPath = try createDerivationPath(usage: usage, index: index)
         
-        let derivedPublicKey: OpalBase.PublicKey.Extended
+        let derivedPublicKey: OpalCrypto.Key.ExtendedPublicKey
         if let extendedPrivateKey = rootExtendedPrivateKey {
-            derivedPublicKey = try extendedPrivateKey.deriveChildPublicKey(at: derivationPath)
+            derivedPublicKey = try extendedPrivateKey.derived(indices: derivationPath.makeIndices()).publicKey
         } else {
-            derivedPublicKey = try rootExtendedPublicKey.deriveChild(at: derivationPath)
+            derivedPublicKey = try rootExtendedPublicKey.derived(indices: derivationPath.makeIndices())
         }
         
         let publicKey = try OpalBase.PublicKey(compressedData: derivedPublicKey.publicKey)
@@ -66,20 +59,15 @@ extension _OpalBase.Address.Book {
         return address
     }
     
-    func generatePrivateKey(at index: UInt32, for usage: OpalBase.DerivationPath.Usage) throws -> OpalBase.PrivateKey {
+    func generatePrivateKey(at index: UInt32, for usage: OpalBase.DerivationPath.Usage) throws -> Data {
         if let usageCache = usageDerivationCache[usage] {
-            let childExtendedPrivateKey = try usageCache.baseExtendedPrivateKey.deriveNonHardenedChildUsingParentKey(
-                at: index,
-                parentCompressedPublicKey: usageCache.baseCompressedPublicKey,
-                parentFingerprint: usageCache.baseFingerprint
-            )
-            return try OpalBase.PrivateKey(data: childExtendedPrivateKey.privateKey)
+            return try usageCache.baseExtendedPrivateKey.derived(indices: [index]).privateKey
         }
         
         guard let extendedPrivateKey = rootExtendedPrivateKey else { throw Error.privateKeyNotFound }
         
         let derivationPath = try createDerivationPath(usage: usage, index: index)
-        let privateKey = try OpalBase.PrivateKey(data: extendedPrivateKey.deriveChild(at: derivationPath).privateKey)
+        let privateKey = try extendedPrivateKey.derived(indices: derivationPath.makeIndices()).privateKey
         
         return privateKey
     }

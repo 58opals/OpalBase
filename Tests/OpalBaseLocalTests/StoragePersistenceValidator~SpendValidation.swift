@@ -7,15 +7,7 @@ import Testing
 extension StoragePersistenceValidator {
     @Test("prepareSpend throws when payment has no recipients")
     func rejectPaymentWithoutRecipients() async throws {
-        let mnemonic = try OpalBase.Mnemonic(
-            words: [
-                "abandon", "abandon", "abandon", "abandon", "abandon", "abandon",
-                "abandon", "abandon", "abandon", "abandon", "abandon", "about"
-            ],
-            passphrase: ""
-        )
-        let wallet = OpalBase.Wallet(mnemonic: mnemonic)
-        try await wallet.addAccount(unhardenedIndex: 0)
+        let wallet = try await AccountTestFixtures.makeWallet()
 
         let account = try await wallet.fetchAccount(at: 0)
         let payment = OpalBase.Account.Payment(recipients: .init())
@@ -27,15 +19,7 @@ extension StoragePersistenceValidator {
 
     @Test("prepareSpend fails for empty wallets (insufficient funds)")
     func rejectPrepareSpendForEmptyWallet() async throws {
-        let mnemonic = try OpalBase.Mnemonic(
-            words: [
-                "abandon", "abandon", "abandon", "abandon", "abandon", "abandon",
-                "abandon", "abandon", "abandon", "abandon", "abandon", "about"
-            ],
-            passphrase: ""
-        )
-        let wallet = OpalBase.Wallet(mnemonic: mnemonic)
-        try await wallet.addAccount(unhardenedIndex: 0)
+        let wallet = try await AccountTestFixtures.makeWallet()
 
         let account = try await wallet.fetchAccount(at: 0)
         let recipientAddress = try await account.reserveNextReceivingAddress()

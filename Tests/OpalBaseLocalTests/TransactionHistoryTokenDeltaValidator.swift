@@ -1,6 +1,7 @@
 // TransactionHistoryTokenDeltaValidator.swift
 
 import Foundation
+import OpalCrypto
 import Testing
 import OpalBaseTestSupport
 @testable import OpalBase
@@ -130,13 +131,9 @@ private extension TransactionHistoryTokenDeltaValidator {
     }
     
     func makeAddressBook() async throws -> OpalBase.Address.Book {
-        let mnemonic = try OpalBase.Mnemonic(
-            words: [
-                "abandon", "abandon", "abandon", "abandon", "abandon", "abandon",
-                "abandon", "abandon", "abandon", "abandon", "abandon", "about"
-            ]
+        let rootExtendedPrivateKey = try OpalCrypto.Key.ExtendedPrivateKey.root(
+            seed: AccountTestFixtures.makeMnemonic().deriveSeed()
         )
-        let rootExtendedPrivateKey = OpalBase.PrivateKey.Extended(rootKey: try .init(seed: mnemonic.seed))
         return try await OpalBase.Address.Book(rootExtendedPrivateKey: rootExtendedPrivateKey,
                                       purpose: .bip44,
                                       coinType: .bitcoinCash,
@@ -145,8 +142,7 @@ private extension TransactionHistoryTokenDeltaValidator {
     }
     
     func makeExternalAddress() throws -> OpalBase.Address {
-        let privateKey = try OpalBase.PrivateKey(data: Data(repeating: 0x03, count: 32))
-        let publicKey = try OpalBase.PublicKey(privateKey: privateKey)
+        let publicKey = try OpalBase.PublicKey(privateKeyData: Data(repeating: 0x03, count: 32))
         return try OpalBase.Address(script: .p2pkh_OPCHECKSIG(hash: .init(publicKey: publicKey)))
     }
 }

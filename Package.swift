@@ -25,10 +25,6 @@ let package = Package(
                 dependencies: [
                     .product(name: "SwiftFulcrum", package: "SwiftFulcrum"),
                     .product(name: "OpalCrypto", package: "OpalCrypto")
-                ],
-                resources: [
-                    .process("Resources/BIP-0039/English.txt"),
-                    .process("Resources/BIP-0039/Korean.txt")
                 ]
                ),
         .target(

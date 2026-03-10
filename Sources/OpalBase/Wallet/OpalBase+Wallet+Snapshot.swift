@@ -1,6 +1,7 @@
 // OpalBase+Wallet+Snapshot.swift
 
 import Foundation
+import OpalCrypto
 
 extension _OpalBase.Wallet {
     public struct Snapshot: Codable {
@@ -37,8 +38,8 @@ extension _OpalBase.Wallet {
             accountSnaps.append(snap)
         }
         let tokenMetadata = await tokenMetadataStore.snapshot()
-        return Snapshot(words: mnemonic.words,
-                        passphrase: mnemonic.passphrase,
+        return Snapshot(words: mnemonic.words.map(\.text),
+                        passphrase: passphrase,
                         purpose: purpose,
                         coinType: coinType,
                         accounts: accountSnaps,
@@ -46,14 +47,13 @@ extension _OpalBase.Wallet {
     }
     
     public func applySnapshot(_ snapshot: Snapshot) async throws {
-        guard snapshot.words == mnemonic.words,
-              snapshot.passphrase == mnemonic.passphrase,
+        guard snapshot.words == mnemonic.words.map(\.text),
+              snapshot.passphrase == passphrase,
               snapshot.purpose == purpose,
               snapshot.coinType == coinType else {
             throw Error.snapshotDoesNotMatchWallet
         }
         
-        let rootKey = OpalBase.PrivateKey.Extended(rootKey: try .init(seed: mnemonic.seed))
         var updatedAccounts: [UInt32: OpalBase.Account] = .init(minimumCapacity: snapshot.accounts.count)
         for accountSnap in snapshot.accounts {
             guard accountSnap.purpose == purpose,
@@ -61,7 +61,7 @@ extension _OpalBase.Wallet {
                 throw Error.snapshotDoesNotMatchWallet
             }
             let account = try await OpalBase.Account(from: accountSnap,
-                                            rootExtendedPrivateKey: rootKey,
+                                            rootExtendedPrivateKey: rootExtendedPrivateKey,
                                             purpose: purpose,
                                             coinType: coinType)
             let index = await account.unhardenedIndex

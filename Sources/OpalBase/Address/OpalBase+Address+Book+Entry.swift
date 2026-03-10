@@ -113,18 +113,13 @@ extension _OpalBase.Address.Book {
         derivationPaths.reserveCapacity(indices.count)
         
         for index in indices {
-            let childExtendedPrivateKey = try usageCache.baseExtendedPrivateKey.deriveNonHardenedChildUsingParentKey(
-                at: index,
-                parentCompressedPublicKey: usageCache.baseCompressedPublicKey,
-                parentFingerprint: usageCache.baseFingerprint
-            )
+            let childExtendedPrivateKey = try usageCache.baseExtendedPrivateKey.derived(indices: [index])
             childPrivateKeys.append(childExtendedPrivateKey.privateKey)
             derivationPaths.append(try createDerivationPath(usage: usage, index: index))
         }
         
-        let compressedPublicKeys = try await OpalBase.Cryptography.Secp256k1.Operation.deriveCompressedPublicKeys(
-            fromPrivateKeys32: childPrivateKeys,
-            assumingValidPrivateKeys: true
+        let compressedPublicKeys = try await OpalCryptoAdapter.deriveCompressedPublicKeys(
+            from: childPrivateKeys
         )
         var entries: [Entry] = .init()
         entries.reserveCapacity(indices.count)

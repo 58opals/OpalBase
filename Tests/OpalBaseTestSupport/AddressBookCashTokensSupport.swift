@@ -1,16 +1,18 @@
 // AddressBookCashTokensSupport.swift
 
 import Foundation
+import OpalCrypto
 @testable import OpalBase
 
 public enum AddressBookCashTokensSupport {
     public static func makeAddressBook() async throws -> OpalBase.Address.Book {
-        let mnemonic = try OpalBase.Mnemonic(words: [
-            "abandon", "abandon", "abandon", "abandon", "abandon", "abandon",
-            "abandon", "abandon", "abandon", "abandon", "abandon", "about",
-        ])
-
-        let rootExtendedPrivateKey = OpalBase.PrivateKey.Extended(rootKey: try .init(seed: mnemonic.seed))
+        let mnemonic = try OpalCrypto.Key.Mnemonic(
+            words: [
+                "abandon", "abandon", "abandon", "abandon", "abandon", "abandon",
+                "abandon", "abandon", "abandon", "abandon", "abandon", "about",
+            ].map(OpalCrypto.Key.Mnemonic.Word.init)
+        )
+        let rootExtendedPrivateKey = try OpalCrypto.Key.ExtendedPrivateKey.root(seed: mnemonic.deriveSeed())
 
         return try await OpalBase.Address.Book(
             rootExtendedPrivateKey: rootExtendedPrivateKey,

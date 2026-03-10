@@ -30,7 +30,7 @@ struct WalletOrchestrationValidator {
 
     @Test("prepareSpend(forAccountAt:) surfaces cannotFetchAccount for missing indices")
     func prepareSpendPropagatesMissingAccountErrors() async throws {
-        let wallet = OpalBase.Wallet(mnemonic: try AccountTestFixtures.makeMnemonic())
+        let wallet = try OpalBase.Wallet(mnemonic: AccountTestFixtures.makeMnemonic())
         let payment = OpalBase.Account.Payment(
             recipients: [
                 .init(
@@ -76,7 +76,7 @@ struct WalletOrchestrationValidator {
         _ = try await sourceAccount.reserveNextReceivingAddress()
         let snapshot = await sourceWallet.makeSnapshot()
 
-        let targetWallet = OpalBase.Wallet(mnemonic: try AccountTestFixtures.makeMnemonic())
+        let targetWallet = try OpalBase.Wallet(mnemonic: AccountTestFixtures.makeMnemonic())
         try await targetWallet.addAccount(unhardenedIndex: 7)
 
         try await targetWallet.applySnapshot(snapshot)

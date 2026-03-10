@@ -97,26 +97,22 @@ private actor TransactionProofClientTestActor: OpalBase.Network.Fulcrum.Transact
 private extension NetworkFulcrumTransactionProofReaderValidator {
     static func makeMerkleResponse() throws -> SwiftFulcrum.RPC.Response.Result.Blockchain.Transaction.GetMerkle {
         let payload = try JSONSerialization.data(withJSONObject: ["merkle": ["aa", "bb"], "block_height": 12, "pos": 3])
-        let response = try JSONDecoder().decode(SwiftFulcrum.RPC.Response.JSONRPC.Result.Blockchain.Transaction.GetMerkle.self, from: payload)
-        return .init(fromRPC: response)
+        return try JSONDecoder().decode(SwiftFulcrum.RPC.Response.Result.Blockchain.Transaction.GetMerkle.self, from: payload)
     }
 
     static func makeIdentifierResponse() throws -> SwiftFulcrum.RPC.Response.Result.Blockchain.Transaction.IDFromPos {
         let payload = try JSONSerialization.data(withJSONObject: ["merkle": ["dd"], "tx_hash": String(repeating: "c", count: 64)])
-        let response = try JSONDecoder().decode(SwiftFulcrum.RPC.Response.JSONRPC.Result.Blockchain.Transaction.IDFromPos.self, from: payload)
-        return .init(fromRPC: response)
+        return try JSONDecoder().decode(SwiftFulcrum.RPC.Response.Result.Blockchain.Transaction.IDFromPos.self, from: payload)
     }
 
     static func makeEmptyMerkleResponse() throws -> SwiftFulcrum.RPC.Response.Result.Blockchain.Transaction.GetMerkle {
         let payload = try JSONSerialization.data(withJSONObject: ["merkle": [], "block_height": 0, "pos": 0])
-        let response = try JSONDecoder().decode(SwiftFulcrum.RPC.Response.JSONRPC.Result.Blockchain.Transaction.GetMerkle.self, from: payload)
-        return .init(fromRPC: response)
+        return try JSONDecoder().decode(SwiftFulcrum.RPC.Response.Result.Blockchain.Transaction.GetMerkle.self, from: payload)
     }
 
     static func makeEmptyIdentifierResponse() throws -> SwiftFulcrum.RPC.Response.Result.Blockchain.Transaction.IDFromPos {
         let payload = try JSONSerialization.data(withJSONObject: ["merkle": [], "tx_hash": String(repeating: "0", count: 64)])
-        let response = try JSONDecoder().decode(SwiftFulcrum.RPC.Response.JSONRPC.Result.Blockchain.Transaction.IDFromPos.self, from: payload)
-        return .init(fromRPC: response)
+        return try JSONDecoder().decode(SwiftFulcrum.RPC.Response.Result.Blockchain.Transaction.IDFromPos.self, from: payload)
     }
 
     static func captureNetworkError(

@@ -91,7 +91,7 @@ extension Array<Data> {
         for input in self {
             hashInput.append(input)
         }
-        let sha256Hash = SHA256.hash(hashInput)
+        let sha256Hash = OpalCryptoAdapter.sha256(hashInput)
         return sha256Hash
     }
 }
@@ -119,4 +119,3 @@ extension Data {
         return writer.data
     }
 }
-

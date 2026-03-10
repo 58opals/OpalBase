@@ -80,14 +80,12 @@ private extension NetworkFulcrumMempoolReaderValidator {
             "unbroadcastcount": 7,
             "fullrbf": true
         ])
-        let response = try JSONDecoder().decode(SwiftFulcrum.RPC.Response.JSONRPC.Result.Mempool.GetInfo.self, from: payload)
-        return .init(fromRPC: response)
+        return try JSONDecoder().decode(SwiftFulcrum.RPC.Response.Result.Mempool.GetInfo.self, from: payload)
     }
 
     static func makeHistogramResponse() throws -> SwiftFulcrum.RPC.Response.Result.Mempool.GetFeeHistogram {
         let payload = try JSONSerialization.data(withJSONObject: [[3.0, 250], [1.5, 125]])
-        let response = try JSONDecoder().decode(SwiftFulcrum.RPC.Response.JSONRPC.Result.Mempool.GetFeeHistogram.self, from: payload)
-        return try .init(fromRPC: response)
+        return try JSONDecoder().decode(SwiftFulcrum.RPC.Response.Result.Mempool.GetFeeHistogram.self, from: payload)
     }
 
     static func captureNetworkError(

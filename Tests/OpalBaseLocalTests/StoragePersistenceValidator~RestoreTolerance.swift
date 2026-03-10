@@ -10,15 +10,7 @@ extension StoragePersistenceValidator {
         let valueClient = OpalBase.Storage.ValueClient.makeInMemory()
         let storage = try OpalBase.Storage(valueClient: valueClient)
 
-        let mnemonic = try OpalBase.Mnemonic(
-            words: [
-                "abandon", "abandon", "abandon", "abandon", "abandon", "abandon",
-                "abandon", "abandon", "abandon", "abandon", "abandon", "about"
-            ],
-            passphrase: "passphrase"
-        )
-        let wallet = OpalBase.Wallet(mnemonic: mnemonic)
-        try await wallet.addAccount(unhardenedIndex: 0)
+        let wallet = try await AccountTestFixtures.makeWallet(passphrase: "passphrase")
 
         let account = try await wallet.fetchAccount(at: 0)
         let accountIdentifier = await account.id
@@ -42,15 +34,7 @@ extension StoragePersistenceValidator {
         let valueClient = OpalBase.Storage.ValueClient.makeInMemory()
         let storage = try OpalBase.Storage(valueClient: valueClient)
 
-        let mnemonic = try OpalBase.Mnemonic(
-            words: [
-                "abandon", "abandon", "abandon", "abandon", "abandon", "abandon",
-                "abandon", "abandon", "abandon", "abandon", "abandon", "about"
-            ],
-            passphrase: "passphrase"
-        )
-        let wallet = OpalBase.Wallet(mnemonic: mnemonic)
-        try await wallet.addAccount(unhardenedIndex: 0)
+        let wallet = try await AccountTestFixtures.makeWallet(passphrase: "passphrase")
 
         let account = try await wallet.fetchAccount(at: 0)
         let accountIdentifier = await account.id
@@ -74,15 +58,7 @@ extension StoragePersistenceValidator {
         let valueClient = OpalBase.Storage.ValueClient.makeInMemory()
         let storage = try OpalBase.Storage(valueClient: valueClient)
 
-        let mnemonic = try OpalBase.Mnemonic(
-            words: [
-                "abandon", "abandon", "abandon", "abandon", "abandon", "abandon",
-                "abandon", "abandon", "abandon", "abandon", "abandon", "about"
-            ],
-            passphrase: "wipe-passphrase"
-        )
-        let wallet = OpalBase.Wallet(mnemonic: mnemonic)
-        try await wallet.addAccount(unhardenedIndex: 0)
+        let wallet = try await AccountTestFixtures.makeWallet(passphrase: "wipe-passphrase")
 
         let account = try await wallet.fetchAccount(at: 0)
         let accountIdentifier = await account.id
@@ -100,4 +76,3 @@ extension StoragePersistenceValidator {
         #expect(restored.mnemonicProtectionMode == nil)
     }
 }
-

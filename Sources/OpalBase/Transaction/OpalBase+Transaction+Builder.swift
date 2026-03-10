@@ -1,18 +1,19 @@
 // OpalBase+Transaction+Builder.swift
 
 import Foundation
+import OpalCrypto
 
 extension _OpalBase.Transaction {
     struct Builder {
         let orderedUnspentOutputs: [OpalBase.Transaction.Output.Unspent]
-        let signatureFormat: OpalBase.Cryptography.SignatureFormat
+        let signatureFormat: OpalCrypto.Signature.Format
         let sequence: UInt32
         
-        private let privateKeysByUnspent: [OpalBase.Transaction.Output.Unspent: OpalBase.PrivateKey]
+        private let privateKeysByUnspent: [OpalBase.Transaction.Output.Unspent: Data]
         private let unlockersByUnspent: [OpalBase.Transaction.Output.Unspent: OpalBase.Transaction.Unlocker]
         
-        init(utxoPrivateKeyPairs: [OpalBase.Transaction.Output.Unspent: OpalBase.PrivateKey],
-             signatureFormat: OpalBase.Cryptography.SignatureFormat,
+        init(utxoPrivateKeyPairs: [OpalBase.Transaction.Output.Unspent: Data],
+             signatureFormat: OpalCrypto.Signature.Format,
              sequence: UInt32,
              unlockers: [OpalBase.Transaction.Output.Unspent: OpalBase.Transaction.Unlocker]) {
             self.privateKeysByUnspent = utxoPrivateKeyPairs
@@ -56,7 +57,7 @@ extension _OpalBase.Transaction {
             unlockersByUnspent[unspentOutput] ?? .p2pkh_CheckSig()
         }
         
-        func findPrivateKey(for unspentOutput: OpalBase.Transaction.Output.Unspent) -> OpalBase.PrivateKey? {
+        func findPrivateKey(for unspentOutput: OpalBase.Transaction.Output.Unspent) -> Data? {
             privateKeysByUnspent[unspentOutput]
         }
     }

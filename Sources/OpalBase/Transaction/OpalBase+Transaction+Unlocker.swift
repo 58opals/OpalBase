@@ -1,6 +1,7 @@
 // OpalBase+Transaction+Unlocker.swift
 
 import Foundation
+import OpalCrypto
 
 extension _OpalBase.Transaction {
     public enum Unlocker: Sendable {
@@ -10,12 +11,9 @@ extension _OpalBase.Transaction {
 }
 
 extension _OpalBase.Transaction.Unlocker {
-    func makePlaceholderUnlockingScript(signatureFormat: OpalBase.Cryptography.SignatureFormat) -> Data {
-        switch signatureFormat {
-        case .ecdsa(.raw), .ecdsa(.compact):
-            assertionFailure("OP_CHECKSIG or OP_CHECKDATASIG requires DER-encoded OpalBase.Cryptography.ECDSA. Use .ecdsa(.der) or .schnorr (BCH).")
-        default:
-            break
+    func makePlaceholderUnlockingScript(signatureFormat: OpalCrypto.Signature.Format) -> Data {
+        if case .ecdsa(.raw) = signatureFormat {
+            assertionFailure("OP_CHECKSIG or OP_CHECKDATASIG requires DER-encoded ECDSA. Use .ecdsa(.der) or .schnorr.")
         }
         
         let publicKeyLength: Int = 33
@@ -25,8 +23,8 @@ extension _OpalBase.Transaction.Unlocker {
                 return 72
             case .schnorr:
                 return 64
-            case .ecdsa(.raw), .ecdsa(.compact):
-                assertionFailure("Unsupported OpalBase.Cryptography.ECDSA format. Use .ecdsa(.der) or .schnorr (BCH).")
+            case .ecdsa(.raw):
+                assertionFailure("Unsupported raw ECDSA format. Use .ecdsa(.der) or .schnorr.")
                 return 72
             }
         }()

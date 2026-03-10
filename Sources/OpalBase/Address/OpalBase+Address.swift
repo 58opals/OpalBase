@@ -79,7 +79,7 @@ extension _OpalBase.Address {
         values += payload5BitValues
         let templateForChecksum: [UInt8] = [0, 0, 0, 0, 0, 0, 0, 0]
         values += templateForChecksum
-        let polymod = Polymod.compute(values)
+        let polymod = OpalCryptoAdapter.computePolymod(values)
         var checksum = [UInt8]()
         
         for index in 0..<8 {
@@ -109,7 +109,7 @@ extension _OpalBase.Address {
             payload5BitValues: payload5BitValues
         )
         let combined = payload5BitValues + checksum
-        return Base32.encode(Data(combined), interpretedAs5Bit: true)
+        return OpalCryptoAdapter.encodeBase32(Data(combined), interpretedAsFiveBitValues: true)
     }
     
     private static func makeVersionByte(for script: OpalBase.Script, format: Format) throws -> UInt8 {
@@ -152,7 +152,7 @@ extension _OpalBase.Address {
             let normalizedScalar = UnicodeScalar(normalizedAscii)
             let normalizedCharacter = Character(normalizedScalar)
             
-            guard Base32.characters.contains(normalizedCharacter)
+            guard OpalCryptoAdapter.cashAddressCharacters.contains(normalizedCharacter)
             else { return }
             
             partialResult.append(normalizedCharacter)
@@ -165,7 +165,7 @@ extension _OpalBase.Address {
 extension _OpalBase.Address {
     public func makeScriptHash() -> Data {
         let scriptData = lockingScript.data
-        return SHA256.hash(scriptData).reversedData
+        return OpalCryptoAdapter.sha256(scriptData).reversedData
     }
 }
 

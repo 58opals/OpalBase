@@ -1,6 +1,7 @@
 // AccountTestFixtures.swift
 
 import Foundation
+import OpalCrypto
 @testable import OpalBase
 
 enum AccountTestFixtures {
@@ -12,15 +13,22 @@ enum AccountTestFixtures {
     static let standardAddressString = "bitcoincash:qpm2qsznhks23z7629mms6s4cwef74vcwvy22gdx6a"
     static let tokenAwareAddressString = "bitcoincash:zpm2qsznhks23z7629mms6s4cwef74vcwvrqekrq9w"
 
-    static func makeMnemonic(passphrase: String = "") throws -> OpalBase.Mnemonic {
-        try OpalBase.Mnemonic(words: mnemonicWords, passphrase: passphrase)
+    static func makeMnemonic(
+        words: [String] = mnemonicWords,
+        passphrase _: String = ""
+    ) throws -> OpalCrypto.Key.Mnemonic {
+        try OpalCrypto.Key.Mnemonic(words: words.map(OpalCrypto.Key.Mnemonic.Word.init))
     }
 
     static func makeWallet(
         accountIndices: [UInt32] = [0],
+        mnemonicWords: [String] = mnemonicWords,
         passphrase: String = ""
     ) async throws -> OpalBase.Wallet {
-        let wallet = OpalBase.Wallet(mnemonic: try makeMnemonic(passphrase: passphrase))
+        let wallet = try OpalBase.Wallet(
+            mnemonic: makeMnemonic(words: mnemonicWords, passphrase: passphrase),
+            passphrase: passphrase
+        )
         for index in accountIndices {
             try await wallet.addAccount(unhardenedIndex: index)
         }
@@ -73,4 +81,3 @@ enum AccountTestFixtures {
         )
     }
 }
-

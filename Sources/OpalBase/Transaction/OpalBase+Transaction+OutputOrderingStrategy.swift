@@ -1,6 +1,7 @@
 // OpalBase+Transaction+OutputOrderingStrategy.swift
 
 import Foundation
+import OpalCrypto
 
 extension _OpalBase.Transaction {
     public static let minimumRelayFeeRate: UInt64 = 1
@@ -16,11 +17,11 @@ extension _OpalBase.Transaction {
     }
     
     static func build(version: UInt32 = 2,
-                      utxoPrivateKeyPairs: [OpalBase.Transaction.Output.Unspent: OpalBase.PrivateKey],
+                      utxoPrivateKeyPairs: [OpalBase.Transaction.Output.Unspent: Data],
                       recipientOutputs: [Output],
                       changeOutput: Output,
                       outputOrderingStrategy: OutputOrderingStrategy = .privacyRandomized,
-                      signatureFormat: OpalBase.Cryptography.SignatureFormat = .schnorr,
+                      signatureFormat: OpalCrypto.Signature.Format = .schnorr,
                       feePerByte: UInt64 = 1,
                       sequence: UInt32 = 0xFFFFFFFF,
                       lockTime: UInt32 = 0,
@@ -152,11 +153,8 @@ extension _OpalBase.Transaction {
     
     static func signTransaction(_ unsignedTransaction: OpalBase.Transaction,
                                 using builder: Builder) throws -> OpalBase.Transaction {
-        switch builder.signatureFormat {
-        case .ecdsa(.raw), .ecdsa(.compact):
+        if case .ecdsa(.raw) = builder.signatureFormat {
             throw Error.unsupportedSignatureFormat
-        default:
-            break
         }
         
         var transaction = unsignedTransaction
@@ -168,7 +166,7 @@ extension _OpalBase.Transaction {
         
         for (index, unspentOutput) in builder.orderedUnspentOutputs.enumerated() {
             guard let privateKey = builder.findPrivateKey(for: unspentOutput) else { throw Error.cannotCreateTransaction }
-            let publicKey = try OpalBase.PublicKey(privateKey: privateKey)
+            let publicKey = try OpalBase.PublicKey(privateKeyData: privateKey)
             let unlocker = builder.makeUnlocker(for: unspentOutput)
             
             switch unlocker {
@@ -181,20 +179,34 @@ extension _OpalBase.Transaction {
                                                                         outputBeingSpent: outputBeingSpent,
                                                                         spentOutputs: spentOutputs)
                 
-                let message = OpalBase.Cryptography.ECDSA.Message.makeDoubleSHA256(preimage)
-                let signature = try OpalBase.Cryptography.ECDSA.sign(message: message,
-                                               with: privateKey,
-                                               in: builder.signatureFormat)
+                let signatureMessage: Data = switch builder.signatureFormat {
+                case .ecdsa:
+                    OpalCryptoAdapter.sha256(preimage)
+                case .schnorr:
+                    OpalCryptoAdapter.hash256(preimage)
+                }
+                let signature = try OpalCrypto.Signature.sign(
+                    message: signatureMessage,
+                    privateKey: privateKey,
+                    format: builder.signatureFormat
+                )
                 let signatureWithType = signature + Data([UInt8(hashType.value)])
                 let unlockingScript = Data.push(signatureWithType) + Data.push(publicKey.compressedData)
                 
                 transaction = try transaction.injectUnlockingScript(unlockingScript, inputIndex: index)
             case .p2pkh_CheckDataSig(let message):
                 let messageBytes = message
-                let message = OpalBase.Cryptography.ECDSA.Message.makeSingleSHA256(messageBytes)
-                let signature = try OpalBase.Cryptography.ECDSA.sign(message: message,
-                                               with: privateKey,
-                                               in: builder.signatureFormat)
+                let signatureMessage: Data = switch builder.signatureFormat {
+                case .ecdsa:
+                    messageBytes
+                case .schnorr:
+                    OpalCryptoAdapter.sha256(messageBytes)
+                }
+                let signature = try OpalCrypto.Signature.sign(
+                    message: signatureMessage,
+                    privateKey: privateKey,
+                    format: builder.signatureFormat
+                )
                 let unlockingSignature = Data.push(signature) + Data.push(messageBytes) + Data.push(publicKey.compressedData)
                 
                 transaction = try transaction.injectUnlockingScript(unlockingSignature, inputIndex: index)

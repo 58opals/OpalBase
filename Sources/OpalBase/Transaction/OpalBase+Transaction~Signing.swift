@@ -45,7 +45,7 @@ extension _OpalBase.Transaction {
                     input.previousTransactionOutputIndex.littleEndianData
                 )
             }
-            previousOutputsHash = HASH256.hash(data)
+            previousOutputsHash = OpalCryptoAdapter.hash256(data)
         }
         preimage.append(previousOutputsHash)
         
@@ -67,7 +67,7 @@ extension _OpalBase.Transaction {
             for input in inputs {
                 data.append(input.sequence.littleEndianData)
             }
-            sequenceNumbersHash = HASH256.hash(data)
+            sequenceNumbersHash = OpalCryptoAdapter.hash256(data)
         } else {
             sequenceNumbersHash = Data(repeating: 0x00, count: 32)
         }
@@ -99,12 +99,12 @@ extension _OpalBase.Transaction {
             for output in outputs {
                 data.append(try output.encode())
             }
-            transactionOutputsHash = HASH256.hash(data)
+            transactionOutputsHash = OpalCryptoAdapter.hash256(data)
         case .none:
             transactionOutputsHash = Data(repeating: 0x00, count: 32)
         case .single:
             let outputWithTheSameIndexAsTheInputBeingSigned = try outputs[index].encode()
-            transactionOutputsHash = HASH256.hash(outputWithTheSameIndexAsTheInputBeingSigned)
+            transactionOutputsHash = OpalCryptoAdapter.hash256(outputWithTheSameIndexAsTheInputBeingSigned)
         }
         preimage.append(transactionOutputsHash)
         
@@ -124,7 +124,7 @@ private extension _OpalBase.Transaction {
         for output in outputs {
             data.append(try output.encode())
         }
-        return HASH256.hash(data)
+        return OpalCryptoAdapter.hash256(data)
     }
 }
 

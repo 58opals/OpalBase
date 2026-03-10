@@ -1,11 +1,14 @@
 // OpalBase+Wallet.swift
 
 import Foundation
+import OpalCrypto
 
 extension OpalBase {
     public actor Wallet: Identifiable {
-        public let mnemonic: OpalBase.Mnemonic
+        public let mnemonic: OpalCrypto.Key.Mnemonic
+        public let passphrase: String
         let tokenMetadataStore: OpalBase.CashTokens.MetadataRepository
+        let rootExtendedPrivateKey: OpalCrypto.Key.ExtendedPrivateKey
         
         let purpose: OpalBase.DerivationPath.Purpose
         let coinType: OpalBase.DerivationPath.CoinType
@@ -14,24 +17,42 @@ extension OpalBase {
         
         var accounts: [UInt32: OpalBase.Account] = .init()
         
-        public init(mnemonic: OpalBase.Mnemonic,
+        public init(mnemonic: OpalCrypto.Key.Mnemonic,
+                    passphrase: String = "",
                     purpose: OpalBase.DerivationPath.Purpose = .bip44,
-                    coinType: OpalBase.DerivationPath.CoinType = .bitcoinCash) {
+                    coinType: OpalBase.DerivationPath.CoinType = .bitcoinCash) throws {
             self.mnemonic = mnemonic
+            self.passphrase = passphrase
             self.tokenMetadataStore = OpalBase.CashTokens.MetadataRepository()
+            self.rootExtendedPrivateKey = try OpalCrypto.Key.ExtendedPrivateKey.root(
+                seed: mnemonic.deriveSeed(passphrase: passphrase)
+            )
             self.purpose = purpose
             self.coinType = coinType
-            self.id = [self.mnemonic.seed, self.purpose.hardenedIndex.data, self.coinType.hardenedIndex.data].generateID()
+            self.id = [
+                OpalCryptoAdapter.serializedExtendedKeyData(self.rootExtendedPrivateKey.serialize()),
+                self.purpose.hardenedIndex.data,
+                self.coinType.hardenedIndex.data,
+            ].generateID()
         }
         
         public init(from snapshot: OpalBase.Wallet.Snapshot) async throws {
-            self.mnemonic = try OpalBase.Mnemonic(words: snapshot.words, passphrase: snapshot.passphrase)
+            self.mnemonic = try OpalCrypto.Key.Mnemonic(
+                words: snapshot.words.map(OpalCrypto.Key.Mnemonic.Word.init)
+            )
+            self.passphrase = snapshot.passphrase
             self.tokenMetadataStore = OpalBase.CashTokens.MetadataRepository()
+            self.rootExtendedPrivateKey = try OpalCrypto.Key.ExtendedPrivateKey.root(
+                seed: mnemonic.deriveSeed(passphrase: snapshot.passphrase)
+            )
             self.purpose = snapshot.purpose
             self.coinType = snapshot.coinType
-            self.id = [self.mnemonic.seed, self.purpose.hardenedIndex.data, self.coinType.hardenedIndex.data].generateID()
+            self.id = [
+                OpalCryptoAdapter.serializedExtendedKeyData(self.rootExtendedPrivateKey.serialize()),
+                self.purpose.hardenedIndex.data,
+                self.coinType.hardenedIndex.data,
+            ].generateID()
             
-            let rootExtendedPrivateKey = OpalBase.PrivateKey.Extended(rootKey: try .init(seed: self.mnemonic.seed))
             for accountSnap in snapshot.accounts {
                 let account = try await OpalBase.Account(from: accountSnap,
                                                          rootExtendedPrivateKey: rootExtendedPrivateKey,
@@ -58,7 +79,6 @@ extension _OpalBase.Wallet {
     public func addAccount(unhardenedIndex: UInt32) async throws {
         let derivationPathAccount = try OpalBase.DerivationPath.Account(rawIndexInteger: unhardenedIndex)
         
-        let rootExtendedPrivateKey = OpalBase.PrivateKey.Extended(rootKey: try .init(seed: mnemonic.seed))
         let account = try await OpalBase.Account(rootExtendedPrivateKey: rootExtendedPrivateKey,
                                                  purpose: purpose,
                                                  coinType: coinType,

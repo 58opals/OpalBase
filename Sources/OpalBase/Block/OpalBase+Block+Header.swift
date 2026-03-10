@@ -64,7 +64,7 @@ extension _OpalBase.Block.Header: Sendable {}
 extension _OpalBase.Block.Header: Equatable {}
 
 extension _OpalBase.Block.Header {
-    var proofOfWorkHash: Data { return HASH256.hash(encode()).reversedData }
+    var proofOfWorkHash: Data { return OpalCryptoAdapter.hash256(encode()).reversedData }
     
     public static func calculateTarget(for bits: UInt32) -> OpalBase.Block.Target {
         let exponent = Int(bits >> 24)

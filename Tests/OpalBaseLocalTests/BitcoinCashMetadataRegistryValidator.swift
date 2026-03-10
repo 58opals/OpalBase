@@ -1,6 +1,7 @@
 // BitcoinCashMetadataRegistryValidator.swift
 
 import Foundation
+import OpalCrypto
 import Testing
 import OpalBaseTestSupport
 @testable import OpalBase
@@ -26,7 +27,7 @@ struct BitcoinCashMetadataRegistryValidator {
     
     @Test("verifies registry hash")
     func verifyRegistryHash() {
-        let registryHash = SHA256.hash(BitcoinCashMetadataRegistryTestData.registryData)
+        let registryHash = OpalCrypto.Hashing.computeSHA256(BitcoinCashMetadataRegistryTestData.registryData)
         #expect(registryHash == BitcoinCashMetadataRegistryTestData.registryHash)
     }
     
@@ -51,4 +52,3 @@ struct BitcoinCashMetadataRegistryValidator {
         #expect(metadata.lastUpdated == expectedDate)
     }
 }
-

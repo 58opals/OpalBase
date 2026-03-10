@@ -1,17 +1,18 @@
 // OpalBase+Address+Book.swift
 
 import Foundation
+import OpalCrypto
 
 extension _OpalBase.Address {
     public actor Book {
         struct UsageDerivationCache {
-            let baseExtendedPrivateKey: OpalBase.PrivateKey.Extended
+            let baseExtendedPrivateKey: OpalCrypto.Key.ExtendedPrivateKey
             let baseCompressedPublicKey: Data
             let baseFingerprint: Data
         }
         
-        let rootExtendedPrivateKey: OpalBase.PrivateKey.Extended?
-        let rootExtendedPublicKey: OpalBase.PublicKey.Extended
+        let rootExtendedPrivateKey: OpalCrypto.Key.ExtendedPrivateKey?
+        let rootExtendedPublicKey: OpalCrypto.Key.ExtendedPublicKey
         let purpose: OpalBase.DerivationPath.Purpose
         let coinType: OpalBase.DerivationPath.CoinType
         let account: OpalBase.DerivationPath.Account
@@ -29,8 +30,8 @@ extension _OpalBase.Address {
         
         let entryPublisher = Entry.PublisherActor()
         
-        init(rootExtendedPrivateKey: OpalBase.PrivateKey.Extended? = nil,
-             rootExtendedPublicKey: OpalBase.PublicKey.Extended? = nil,
+        init(rootExtendedPrivateKey: OpalCrypto.Key.ExtendedPrivateKey? = nil,
+             rootExtendedPublicKey: OpalCrypto.Key.ExtendedPublicKey? = nil,
              purpose: OpalBase.DerivationPath.Purpose,
              coinType: OpalBase.DerivationPath.CoinType,
              account: OpalBase.DerivationPath.Account,
@@ -40,7 +41,7 @@ extension _OpalBase.Address {
             self.rootExtendedPrivateKey = rootExtendedPrivateKey
             
             if let extendedPrivateKey = rootExtendedPrivateKey {
-                self.rootExtendedPublicKey = try .init(extendedPrivateKey: extendedPrivateKey)
+                self.rootExtendedPublicKey = extendedPrivateKey.publicKey
             } else if let extendedPublicKey = rootExtendedPublicKey {
                 self.rootExtendedPublicKey = extendedPublicKey
             } else {
