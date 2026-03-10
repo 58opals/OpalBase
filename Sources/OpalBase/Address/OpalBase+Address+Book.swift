@@ -13,10 +13,10 @@ extension _OpalBase.Address {
         
         let rootExtendedPrivateKey: OpalCrypto.Key.ExtendedPrivateKey?
         let rootExtendedPublicKey: OpalCrypto.Key.ExtendedPublicKey
-        let purpose: OpalBase.DerivationPath.Purpose
-        let coinType: OpalBase.DerivationPath.CoinType
-        let account: OpalBase.DerivationPath.Account
-        var usageDerivationCache: [OpalBase.DerivationPath.Usage: UsageDerivationCache]
+        let purpose: OpalBase.Key.DerivationPath.Purpose
+        let coinType: OpalBase.Key.DerivationPath.CoinType
+        let account: OpalBase.Key.DerivationPath.Account
+        var usageDerivationCache: [OpalBase.Key.DerivationPath.Usage: UsageDerivationCache]
         
         var inventory: Inventory
         var utxoStore: UTXORepository
@@ -32,9 +32,9 @@ extension _OpalBase.Address {
         
         init(rootExtendedPrivateKey: OpalCrypto.Key.ExtendedPrivateKey? = nil,
              rootExtendedPublicKey: OpalCrypto.Key.ExtendedPublicKey? = nil,
-             purpose: OpalBase.DerivationPath.Purpose,
-             coinType: OpalBase.DerivationPath.CoinType,
-             account: OpalBase.DerivationPath.Account,
+             purpose: OpalBase.Key.DerivationPath.Purpose,
+             coinType: OpalBase.Key.DerivationPath.CoinType,
+             account: OpalBase.Key.DerivationPath.Account,
              gapLimit: Int = 20,
              cacheValidityDuration: TimeInterval = 10 * 60,
              spendReservationExpirationInterval: TimeInterval = 10 * 60) async throws {

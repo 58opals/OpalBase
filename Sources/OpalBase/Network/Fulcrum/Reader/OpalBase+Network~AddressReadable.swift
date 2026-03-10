@@ -4,7 +4,7 @@ import Foundation
 import SwiftFulcrum
 
 extension _OpalBase.Network {
-    public typealias AddressReadable = AddressQueryClient & AddressSubscriptionClient
+    typealias AddressReadable = AddressQueryClient & AddressSubscriptionClient
     
     public enum TokenFilter: String, Sendable, Equatable {
         case include = "include_tokens"

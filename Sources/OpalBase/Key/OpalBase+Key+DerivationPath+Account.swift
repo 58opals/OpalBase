@@ -1,8 +1,8 @@
-// OpalBase+DerivationPath+Account.swift
+// OpalBase+Key+DerivationPath+Account.swift
 
 import Foundation
 
-extension _OpalBase.DerivationPath {
+extension _OpalBase.Key.DerivationPath {
     public struct Account {
         public init(rawIndexInteger: UInt32) throws {
             guard rawIndexInteger <= Harden.maxUnhardenedValue else { throw Error.indexOverflow }
@@ -24,17 +24,17 @@ extension _OpalBase.DerivationPath {
     }
 }
 
-extension _OpalBase.DerivationPath.Account: Hashable {
-    public static func == (lhs: OpalBase.DerivationPath.Account, rhs: OpalBase.DerivationPath.Account) -> Bool {
+extension _OpalBase.Key.DerivationPath.Account: Hashable {
+    public static func == (lhs: OpalBase.Key.DerivationPath.Account, rhs: OpalBase.Key.DerivationPath.Account) -> Bool {
         lhs.unhardenedIndex == rhs.unhardenedIndex
     }
 }
 
-extension _OpalBase.DerivationPath.Account: Codable {
+extension _OpalBase.Key.DerivationPath.Account: Codable {
     public init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
         let index = try container.decode(UInt32.self)
-        self = try OpalBase.DerivationPath.Account(rawIndexInteger: index)
+        self = try OpalBase.Key.DerivationPath.Account(rawIndexInteger: index)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -43,8 +43,8 @@ extension _OpalBase.DerivationPath.Account: Codable {
     }
 }
 
-extension _OpalBase.DerivationPath.Account: Sendable {}
+extension _OpalBase.Key.DerivationPath.Account: Sendable {}
 
-extension _OpalBase.DerivationPath.Account: CustomStringConvertible {
+extension _OpalBase.Key.DerivationPath.Account: CustomStringConvertible {
     public var description: String { "\(unhardenedIndex)'" }
 }

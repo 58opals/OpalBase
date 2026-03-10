@@ -1,8 +1,8 @@
-// OpalBase+DerivationPath.swift
+// OpalBase+Key+DerivationPath.swift
 
 import Foundation
 
-extension OpalBase {
+extension _OpalBase.Key {
     public struct DerivationPath: Hashable, Sendable {
         public let purpose: Purpose
         public let coinType: CoinType

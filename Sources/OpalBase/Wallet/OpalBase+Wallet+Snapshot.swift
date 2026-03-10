@@ -7,15 +7,15 @@ extension _OpalBase.Wallet {
     public struct Snapshot: Codable {
         public let words: [String]
         public let passphrase: String
-        public let purpose: OpalBase.DerivationPath.Purpose
-        public let coinType: OpalBase.DerivationPath.CoinType
+        public let purpose: OpalBase.Key.DerivationPath.Purpose
+        public let coinType: OpalBase.Key.DerivationPath.CoinType
         public let accounts: [OpalBase.Account.Snapshot]
         public let tokenMetadata: OpalBase.CashTokens.MetadataRepository.Snapshot?
         
         public init(words: [String],
                     passphrase: String,
-                    purpose: OpalBase.DerivationPath.Purpose,
-                    coinType: OpalBase.DerivationPath.CoinType,
+                    purpose: OpalBase.Key.DerivationPath.Purpose,
+                    coinType: OpalBase.Key.DerivationPath.CoinType,
                     accounts: [OpalBase.Account.Snapshot],
                     tokenMetadata: OpalBase.CashTokens.MetadataRepository.Snapshot? = nil) {
             self.words = words

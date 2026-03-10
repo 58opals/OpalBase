@@ -24,7 +24,7 @@ extension _OpalBase.Account.SpendReservation {
     func buildAndBroadcast<Result>(
         build: @Sendable () throws -> Result,
         transaction: @Sendable (Result) -> OpalBase.Transaction,
-        via handler: OpalBase.Network.TransactionHandling,
+        via handler: OpalBase.Network.TransactionClient,
         mapBroadcastError: @Sendable (Swift.Error) -> OpalBase.Account.Error
     ) async throws -> (hash: OpalBase.Transaction.Hash, result: Result) {
         try await OpalBase.Transaction.BroadcastPlanner.buildAndBroadcast(

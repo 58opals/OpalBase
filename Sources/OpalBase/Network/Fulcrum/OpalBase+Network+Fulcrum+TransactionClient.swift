@@ -4,7 +4,7 @@ import Foundation
 import SwiftFulcrum
 
 extension _OpalBase.Network.Fulcrum {
-    public struct TransactionClient: OpalBase.Network.TransactionHandling {
+    public struct TransactionClient: OpalBase.Network.TransactionBroadcastClient, OpalBase.Network.TransactionConfirmationClient {
         private let client: Client
         private let timeouts: OpalBase.Network.FulcrumRequestTimeout
         

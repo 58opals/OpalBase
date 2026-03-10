@@ -3,7 +3,7 @@
 import Foundation
 
 extension _OpalBase.Network {
-    public protocol BlockHeaderQueryClient: Sendable {
+    protocol BlockHeaderQueryClient: Sendable {
         func fetchTip() async throws -> OpalBase.Network.BlockHeaderSnapshot
     }
 }

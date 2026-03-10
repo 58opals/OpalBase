@@ -1,8 +1,8 @@
-// OpalBase+DerivationPath+Usage.swift
+// OpalBase+Key+DerivationPath+Usage.swift
 
 import Foundation
 
-extension _OpalBase.DerivationPath {
+extension _OpalBase.Key.DerivationPath {
     public enum Usage {
         case receiving
         case change
@@ -18,15 +18,15 @@ extension _OpalBase.DerivationPath {
     }
 }
 
-extension _OpalBase.DerivationPath.Usage: Hashable {
-    public static func == (lhs: OpalBase.DerivationPath.Usage, rhs: OpalBase.DerivationPath.Usage) -> Bool {
+extension _OpalBase.Key.DerivationPath.Usage: Hashable {
+    public static func == (lhs: OpalBase.Key.DerivationPath.Usage, rhs: OpalBase.Key.DerivationPath.Usage) -> Bool {
         lhs.unhardenedIndex == rhs.unhardenedIndex
     }
 }
 
-extension _OpalBase.DerivationPath.Usage: Sendable {}
+extension _OpalBase.Key.DerivationPath.Usage: Sendable {}
 
-extension _OpalBase.DerivationPath.Usage: Codable {
+extension _OpalBase.Key.DerivationPath.Usage: Codable {
     public init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
         let value = try container.decode(String.self)
@@ -46,14 +46,14 @@ extension _OpalBase.DerivationPath.Usage: Codable {
     }
 }
 
-extension _OpalBase.DerivationPath.Usage {
-    static func resolveTargetUsages(for usage: OpalBase.DerivationPath.Usage?) -> [OpalBase.DerivationPath.Usage] {
+extension _OpalBase.Key.DerivationPath.Usage {
+    static func resolveTargetUsages(for usage: OpalBase.Key.DerivationPath.Usage?) -> [OpalBase.Key.DerivationPath.Usage] {
         usage.map { [$0] } ?? Self.allCases
     }
 }
 
-extension _OpalBase.DerivationPath.Usage: CustomStringConvertible {
+extension _OpalBase.Key.DerivationPath.Usage: CustomStringConvertible {
     public var description: String { return "\(unhardenedIndex)" }
 }
 
-extension _OpalBase.DerivationPath.Usage: CaseIterable {}
+extension _OpalBase.Key.DerivationPath.Usage: CaseIterable {}

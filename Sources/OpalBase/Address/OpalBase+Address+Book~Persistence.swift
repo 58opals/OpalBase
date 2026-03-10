@@ -7,9 +7,9 @@ extension _OpalBase.Address.Book {
     init(from snapshot: Snapshot,
          rootExtendedPrivateKey: OpalCrypto.Key.ExtendedPrivateKey? = nil,
          rootExtendedPublicKey: OpalCrypto.Key.ExtendedPublicKey? = nil,
-         purpose: OpalBase.DerivationPath.Purpose,
-         coinType: OpalBase.DerivationPath.CoinType,
-         account: OpalBase.DerivationPath.Account,
+         purpose: OpalBase.Key.DerivationPath.Purpose,
+         coinType: OpalBase.Key.DerivationPath.CoinType,
+         account: OpalBase.Key.DerivationPath.Account,
          gapLimit: Int = 20,
          cacheValidityDuration: TimeInterval = 10 * 60,
          spendReservationExpirationInterval: TimeInterval = 10 * 60) async throws {
@@ -76,7 +76,7 @@ extension _OpalBase.Address.Book {
                         transactions: transactionSnaps)
     }
 
-    private func makeEntrySnapshots(for usage: OpalBase.DerivationPath.Usage) -> [Snapshot.Entry] {
+    private func makeEntrySnapshots(for usage: OpalBase.Key.DerivationPath.Usage) -> [Snapshot.Entry] {
         inventory.listEntries(for: usage).map { entry in
             Snapshot.Entry(usage: entry.derivationPath.usage,
                            index: entry.derivationPath.index,
@@ -143,7 +143,7 @@ extension _OpalBase.Address.Book {
         }
     }
 
-    private func apply(entrySnapshots: [Snapshot.Entry], usage: OpalBase.DerivationPath.Usage) async throws {
+    private func apply(entrySnapshots: [Snapshot.Entry], usage: OpalBase.Key.DerivationPath.Usage) async throws {
         guard !entrySnapshots.isEmpty else { return }
 
         guard let highestIndex = entrySnapshots.map(\.index).max() else { return }

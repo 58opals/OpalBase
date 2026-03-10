@@ -39,7 +39,7 @@ extension _OpalBase.Wallet.Fulcrum.Monitor {
     
     private func handleHeaderSnapshot(_ snapshot: OpalBase.Network.BlockHeaderSnapshot) async {
         do {
-            let changeSet = try await account.refreshTransactionConfirmations(using: transactionHandler)
+            let changeSet = try await account.refreshTransactionConfirmations(using: transactionClient)
             if !changeSet.isEmpty {
                 publish(.confirmationsChanged(changeSet))
             }
@@ -48,4 +48,3 @@ extension _OpalBase.Wallet.Fulcrum.Monitor {
         }
     }
 }
-

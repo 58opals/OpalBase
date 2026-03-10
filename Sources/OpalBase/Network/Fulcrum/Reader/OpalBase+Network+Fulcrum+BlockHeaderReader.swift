@@ -4,7 +4,7 @@ import Foundation
 import SwiftFulcrum
 
 extension _OpalBase.Network.Fulcrum {
-    public struct BlockHeaderReader: OpalBase.Network.BlockHeaderReadable {
+    public struct BlockHeaderReader: OpalBase.Network.BlockHeaderQueryClient, OpalBase.Network.BlockHeaderSubscriptionClient {
         private let client: Client
         private let timeouts: OpalBase.Network.FulcrumRequestTimeout
         

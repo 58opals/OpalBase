@@ -3,7 +3,7 @@
 import Foundation
 
 extension _OpalBase.Network {
-    public typealias TransactionHandling = TransactionBroadcastClient & TransactionConfirmationClient
+    typealias TransactionHandling = TransactionBroadcastClient & TransactionConfirmationClient
 }
 
 extension _OpalBase.Network {

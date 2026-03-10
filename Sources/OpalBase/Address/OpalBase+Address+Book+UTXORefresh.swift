@@ -22,8 +22,8 @@ extension _OpalBase.Address.Book.UTXORefresh: Sendable {}
 extension _OpalBase.Address.Book.UTXORefresh: Equatable {}
 
 extension _OpalBase.Address.Book {
-    public func refreshUTXOSet(using service: OpalBase.Network.AddressReadable,
-                               usage: OpalBase.DerivationPath.Usage? = nil) async throws -> UTXORefresh {
+    public func refreshUTXOSet(using service: OpalBase.Network.AddressReader,
+                               usage: OpalBase.Key.DerivationPath.Usage? = nil) async throws -> UTXORefresh {
         var refreshedUTXOs: [OpalBase.Address: [OpalBase.Transaction.Output.Unspent]] = .init()
         var changeSets: [UTXOChangeSet] = .init()
         
@@ -54,5 +54,10 @@ extension _OpalBase.Address.Book {
         return UTXORefresh(utxosByAddress: refreshedUTXOs,
                            changeSets: changeSets,
                            totalBalance: totalBalance)
+    }
+
+    func refreshUTXOSet(using service: any OpalBase.Network.AddressReadable,
+                        usage: OpalBase.Key.DerivationPath.Usage? = nil) async throws -> UTXORefresh {
+        try await refreshUTXOSet(using: .init(service), usage: usage)
     }
 }

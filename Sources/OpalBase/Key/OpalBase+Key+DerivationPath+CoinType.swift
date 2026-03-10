@@ -1,8 +1,8 @@
-// OpalBase+DerivationPath+CoinType.swift
+// OpalBase+Key+DerivationPath+CoinType.swift
 
 import Foundation
 
-extension _OpalBase.DerivationPath {
+extension _OpalBase.Key.DerivationPath {
     public enum CoinType {
         case bitcoin
         case bitcoinCash
@@ -43,17 +43,19 @@ extension _OpalBase.DerivationPath {
     }
 }
 
-extension _OpalBase.DerivationPath.CoinType: Hashable {
-    public static func == (lhs: OpalBase.DerivationPath.CoinType, rhs: OpalBase.DerivationPath.CoinType) -> Bool {
+extension _OpalBase.Key.DerivationPath.CoinType: Hashable {
+    public static func == (lhs: OpalBase.Key.DerivationPath.CoinType, rhs: OpalBase.Key.DerivationPath.CoinType) -> Bool {
         lhs.hardenedIndex == rhs.hardenedIndex
     }
 }
 
-extension _OpalBase.DerivationPath.CoinType: Codable {
+extension _OpalBase.Key.DerivationPath.CoinType: Codable {
     public init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
         let index = try container.decode(UInt32.self)
-        guard let coin = OpalBase.DerivationPath.CoinType(hardenedIndex: index) else { throw DecodingError.dataCorruptedError(in: container, debugDescription: "Invalid coin type index") }
+        guard let coin = OpalBase.Key.DerivationPath.CoinType(hardenedIndex: index) else {
+            throw DecodingError.dataCorruptedError(in: container, debugDescription: "Invalid coin type index")
+        }
         self = coin
     }
 
@@ -63,8 +65,8 @@ extension _OpalBase.DerivationPath.CoinType: Codable {
     }
 }
 
-extension _OpalBase.DerivationPath.CoinType: Sendable {}
+extension _OpalBase.Key.DerivationPath.CoinType: Sendable {}
 
-extension _OpalBase.DerivationPath.CoinType: CustomStringConvertible {
+extension _OpalBase.Key.DerivationPath.CoinType: CustomStringConvertible {
     public var description: String { return "\(unhardenedIndex)'" }
 }

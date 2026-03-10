@@ -6,14 +6,14 @@ import OpalCrypto
 extension _OpalBase.Transaction {
     struct Builder {
         let orderedUnspentOutputs: [OpalBase.Transaction.Output.Unspent]
-        let signatureFormat: OpalCrypto.Signature.Format
+        let signatureFormat: OpalBase.Transaction.SignatureFormat
         let sequence: UInt32
         
         private let privateKeysByUnspent: [OpalBase.Transaction.Output.Unspent: Data]
         private let unlockersByUnspent: [OpalBase.Transaction.Output.Unspent: OpalBase.Transaction.Unlocker]
         
         init(utxoPrivateKeyPairs: [OpalBase.Transaction.Output.Unspent: Data],
-             signatureFormat: OpalCrypto.Signature.Format,
+             signatureFormat: OpalBase.Transaction.SignatureFormat,
              sequence: UInt32,
              unlockers: [OpalBase.Transaction.Output.Unspent: OpalBase.Transaction.Unlocker]) {
             self.privateKeysByUnspent = utxoPrivateKeyPairs

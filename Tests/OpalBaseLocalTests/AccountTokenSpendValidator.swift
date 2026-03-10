@@ -99,7 +99,7 @@ private func addUnspentOutput(
     previousTransactionOutputIndex: UInt32
 ) async throws -> OpalBase.Transaction.Output.Unspent {
     let addressBook = await account.addressBook
-    let receivingEntry = try await addressBook.selectNextEntry(for: OpalBase.DerivationPath.Usage.receiving)
+    let receivingEntry = try await addressBook.selectNextEntry(for: OpalBase.Key.DerivationPath.Usage.receiving)
     let unspentOutput = OpalBase.Transaction.Output.Unspent(
         value: value,
         lockingScript: receivingEntry.address.lockingScript.data,

@@ -5,7 +5,7 @@ import Foundation
 extension _OpalBase.Account {
     public func prepareTokenGenesisOutpoint(
         feePolicy: OpalBase.Wallet.FeePolicy = .init(),
-        using entryUsage: OpalBase.DerivationPath.Usage = .change
+        using entryUsage: OpalBase.Key.DerivationPath.Usage = .change
     ) async throws -> SpendPlan {
         let spendableOutputs = await addressBook.listSpendableUTXOs()
         guard let selectedOutput = selectMaximumSpendableOutput(from: spendableOutputs,

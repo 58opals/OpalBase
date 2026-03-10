@@ -36,12 +36,22 @@ extension _OpalBase.Account {
 
 extension _OpalBase.Account {
     public func refreshTransactionHistory(for address: OpalBase.Address,
-                                          using service: OpalBase.Network.AddressReadable,
+                                          using service: OpalBase.Network.AddressReader,
                                           includeUnconfirmed: Bool = true,
-                                          transactionReader: OpalBase.Network.TransactionReadableClient? = nil) async throws -> OpalBase.Transaction.History.ChangeSet {
+                                          transactionReader: OpalBase.Network.TransactionReader? = nil) async throws -> OpalBase.Transaction.History.ChangeSet {
         try await addressBook.refreshTransactionHistory(for: address,
                                                         using: service,
                                                         includeUnconfirmed: includeUnconfirmed,
                                                         transactionReader: transactionReader)
+    }
+
+    func refreshTransactionHistory(for address: OpalBase.Address,
+                                   using service: any OpalBase.Network.AddressReadable,
+                                   includeUnconfirmed: Bool = true,
+                                   transactionReader: (any OpalBase.Network.TransactionReadableClient)? = nil) async throws -> OpalBase.Transaction.History.ChangeSet {
+        try await refreshTransactionHistory(for: address,
+                                            using: .init(service),
+                                            includeUnconfirmed: includeUnconfirmed,
+                                            transactionReader: transactionReader.map(OpalBase.Network.TransactionReader.init(_:)))
     }
 }

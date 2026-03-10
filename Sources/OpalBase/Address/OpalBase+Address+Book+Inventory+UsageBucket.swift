@@ -16,7 +16,7 @@ extension _OpalBase.Address.Book.Inventory {
             receivingEntries + changeEntries
         }
         
-        func fetchEntries(for usage: OpalBase.DerivationPath.Usage) -> [OpalBase.Address.Book.Entry] {
+        func fetchEntries(for usage: OpalBase.Key.DerivationPath.Usage) -> [OpalBase.Address.Book.Entry] {
             switch usage {
             case .receiving:
                 return receivingEntries
@@ -25,25 +25,25 @@ extension _OpalBase.Address.Book.Inventory {
             }
         }
         
-        func countEntries(for usage: OpalBase.DerivationPath.Usage) -> Int {
+        func countEntries(for usage: OpalBase.Key.DerivationPath.Usage) -> Int {
             fetchEntries(for: usage).count
         }
         
-        func countUnusedEntries(for usage: OpalBase.DerivationPath.Usage) -> Int {
+        func countUnusedEntries(for usage: OpalBase.Key.DerivationPath.Usage) -> Int {
             calculateUnusedEntryCount(in: fetchEntries(for: usage))
         }
         
-        func fetchEntry(at index: Int, usage: OpalBase.DerivationPath.Usage) -> OpalBase.Address.Book.Entry? {
+        func fetchEntry(at index: Int, usage: OpalBase.Key.DerivationPath.Usage) -> OpalBase.Address.Book.Entry? {
             let entries = fetchEntries(for: usage)
             return entries.indices.contains(index) ? entries[index] : nil
         }
         
-        mutating func appendEntry(_ entry: OpalBase.Address.Book.Entry, usage: OpalBase.DerivationPath.Usage) {
+        mutating func appendEntry(_ entry: OpalBase.Address.Book.Entry, usage: OpalBase.Key.DerivationPath.Usage) {
             updateEntries(for: usage) { $0.append(entry) }
         }
         
         mutating func updateEntry(at index: Int,
-                                  usage: OpalBase.DerivationPath.Usage,
+                                  usage: OpalBase.Key.DerivationPath.Usage,
                                   _ update: (inout OpalBase.Address.Book.Entry) -> Void) -> OpalBase.Address.Book.Entry? {
             var updatedEntry: OpalBase.Address.Book.Entry?
             updateEntries(for: usage) { entries in
@@ -64,7 +64,7 @@ extension _OpalBase.Address.Book.Inventory {
             }
         }
         
-        private mutating func updateEntries(for usage: OpalBase.DerivationPath.Usage,
+        private mutating func updateEntries(for usage: OpalBase.Key.DerivationPath.Usage,
                                             _ mutate: (inout [OpalBase.Address.Book.Entry]) -> Void) {
             switch usage {
             case .receiving:

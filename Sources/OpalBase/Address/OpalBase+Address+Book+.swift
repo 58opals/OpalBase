@@ -11,7 +11,7 @@ extension _OpalBase.Address.Book {
     
     func updateTokenDeltaCache(
         for entries: [OpalBase.Transaction.History.Entry],
-        transactionReader: OpalBase.Network.TransactionReadableClient,
+        transactionReader: OpalBase.Network.TransactionReader,
         walletScriptHashes: Set<String>,
         tokenDeltaCache: inout [OpalBase.Transaction.Hash: OpalBase.Transaction.History.Record.TokenDelta]
     ) async throws {
@@ -37,7 +37,7 @@ extension _OpalBase.Address.Book {
     
     func makeTokenDelta(
         for transactionHash: OpalBase.Transaction.Hash,
-        transactionReader: OpalBase.Network.TransactionReadableClient,
+        transactionReader: OpalBase.Network.TransactionReader,
         walletScriptHashes: Set<String>
     ) async throws -> OpalBase.Transaction.History.Record.TokenDelta {
         let rawTransactionData = try await transactionReader.fetchRawTransaction(for: transactionHash)
@@ -49,7 +49,7 @@ extension _OpalBase.Address.Book {
     
     func makeTokenDelta(
         from transaction: OpalBase.Transaction,
-        transactionReader: OpalBase.Network.TransactionReadableClient,
+        transactionReader: OpalBase.Network.TransactionReader,
         walletScriptHashes: Set<String>
     ) async throws -> OpalBase.Transaction.History.Record.TokenDelta {
         let previousHashes = transaction.inputs.map(\.previousTransactionHash).deduplicate()

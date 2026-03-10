@@ -4,13 +4,13 @@ import Foundation
 
 extension _OpalBase.Account {
     public struct Snapshot: Codable {
-        public let purpose: OpalBase.DerivationPath.Purpose
-        public let coinType: OpalBase.DerivationPath.CoinType
+        public let purpose: OpalBase.Key.DerivationPath.Purpose
+        public let coinType: OpalBase.Key.DerivationPath.CoinType
         public let accountUnhardenedIndex: UInt32
         public let addressBook: OpalBase.Address.Book.Snapshot
         
-        public init(purpose: OpalBase.DerivationPath.Purpose,
-                    coinType: OpalBase.DerivationPath.CoinType,
+        public init(purpose: OpalBase.Key.DerivationPath.Purpose,
+                    coinType: OpalBase.Key.DerivationPath.CoinType,
                     accountUnhardenedIndex: UInt32,
                     addressBook: OpalBase.Address.Book.Snapshot) {
             self.purpose = purpose

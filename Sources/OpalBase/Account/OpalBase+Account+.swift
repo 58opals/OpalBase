@@ -7,9 +7,9 @@ extension OpalBase {
     public actor Account: Identifiable {
         private let rootExtendedPrivateKey: OpalCrypto.Key.ExtendedPrivateKey
 
-        let purpose: OpalBase.DerivationPath.Purpose
-        let coinType: OpalBase.DerivationPath.CoinType
-        let account: OpalBase.DerivationPath.Account
+        let purpose: OpalBase.Key.DerivationPath.Purpose
+        let coinType: OpalBase.Key.DerivationPath.CoinType
+        let account: OpalBase.Key.DerivationPath.Account
 
         public let id: Data
         let addressBook: OpalBase.Address.Book
@@ -19,9 +19,9 @@ extension OpalBase {
 
         init(
             rootExtendedPrivateKey: OpalCrypto.Key.ExtendedPrivateKey,
-            purpose: OpalBase.DerivationPath.Purpose,
-            coinType: OpalBase.DerivationPath.CoinType,
-            account: OpalBase.DerivationPath.Account,
+            purpose: OpalBase.Key.DerivationPath.Purpose,
+            coinType: OpalBase.Key.DerivationPath.CoinType,
+            account: OpalBase.Key.DerivationPath.Account,
             addressBook: OpalBase.Address.Book,
             privacyConfiguration: PrivacyShaperActor.Configuration = .standard
         ) throws {
@@ -43,9 +43,9 @@ extension OpalBase {
 
         init(
             rootExtendedPrivateKey: OpalCrypto.Key.ExtendedPrivateKey,
-            purpose: OpalBase.DerivationPath.Purpose,
-            coinType: OpalBase.DerivationPath.CoinType,
-            account: OpalBase.DerivationPath.Account,
+            purpose: OpalBase.Key.DerivationPath.Purpose,
+            coinType: OpalBase.Key.DerivationPath.CoinType,
+            account: OpalBase.Key.DerivationPath.Account,
             privacyConfiguration: PrivacyShaperActor.Configuration = .standard
         ) async throws {
             let addressBook = try await OpalBase.Address.Book(
@@ -68,11 +68,11 @@ extension OpalBase {
         init(
             from snapshot: OpalBase.Account.Snapshot,
             rootExtendedPrivateKey: OpalCrypto.Key.ExtendedPrivateKey,
-            purpose: OpalBase.DerivationPath.Purpose,
-            coinType: OpalBase.DerivationPath.CoinType,
+            purpose: OpalBase.Key.DerivationPath.Purpose,
+            coinType: OpalBase.Key.DerivationPath.CoinType,
             privacyConfiguration: PrivacyShaperActor.Configuration = .standard
         ) async throws {
-            let accountPath = try OpalBase.DerivationPath.Account(rawIndexInteger: snapshot.accountUnhardenedIndex)
+            let accountPath = try OpalBase.Key.DerivationPath.Account(rawIndexInteger: snapshot.accountUnhardenedIndex)
             let addressBook = try await OpalBase.Address.Book(
                 from: snapshot.addressBook,
                 rootExtendedPrivateKey: rootExtendedPrivateKey,
@@ -114,9 +114,9 @@ extension _OpalBase.Account {
 }
 
 extension _OpalBase.Account {
-    public var derivationPath: (purpose: OpalBase.DerivationPath.Purpose,
-                                coinType: OpalBase.DerivationPath.CoinType,
-                                account: OpalBase.DerivationPath.Account) {
+    public var derivationPath: (purpose: OpalBase.Key.DerivationPath.Purpose,
+                                coinType: OpalBase.Key.DerivationPath.CoinType,
+                                account: OpalBase.Key.DerivationPath.Account) {
         (purpose, coinType, account)
     }
 }
@@ -135,11 +135,11 @@ extension _OpalBase.Account {
 
 // MARK: - OpalBase.Address BookActor Accessors
 extension _OpalBase.Account {
-    public func listEntries(for usage: OpalBase.DerivationPath.Usage) async -> [OpalBase.Address.Book.Entry] {
+    public func listEntries(for usage: OpalBase.Key.DerivationPath.Usage) async -> [OpalBase.Address.Book.Entry] {
         await addressBook.listEntries(for: usage)
     }
     
-    public func selectNextEntry(for usage: OpalBase.DerivationPath.Usage) async throws -> OpalBase.Address.Book.Entry {
+    public func selectNextEntry(for usage: OpalBase.Key.DerivationPath.Usage) async throws -> OpalBase.Address.Book.Entry {
         try await addressBook.selectNextEntry(for: usage)
     }
     

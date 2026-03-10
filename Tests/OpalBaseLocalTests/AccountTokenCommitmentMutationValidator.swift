@@ -47,7 +47,7 @@ struct AccountTokenCommitmentMutationValidator {
         #expect(preservationTokenData.nft == nil)
         
         let addressBook = await account.addressBook
-        let changeLockingScripts = await addressBook.listEntries(for: OpalBase.DerivationPath.Usage.change)
+        let changeLockingScripts = await addressBook.listEntries(for: OpalBase.Key.DerivationPath.Usage.change)
             .map { $0.address.lockingScript.data }
         #expect(changeLockingScripts.contains(preservationOutput.lockingScript))
     }
@@ -73,7 +73,7 @@ struct AccountTokenCommitmentMutationValidator {
             previousTransactionOutputIndex: 0
         )
         let addressBook = await account.addressBook
-        let receivingEntry = try await addressBook.selectNextEntry(for: OpalBase.DerivationPath.Usage.receiving)
+        let receivingEntry = try await addressBook.selectNextEntry(for: OpalBase.Key.DerivationPath.Usage.receiving)
         let tokenAwareAddress = try OpalBase.Address(script: receivingEntry.address.lockingScript, format: .tokenAware)
         let mutation = try OpalBase.Account.TokenCommitmentMutation(
             target: .preferredInput(authorityOutput),
@@ -148,7 +148,7 @@ private func addUnspentOutput(
     previousTransactionOutputIndex: UInt32
 ) async throws -> OpalBase.Transaction.Output.Unspent {
     let addressBook = await account.addressBook
-    let receivingEntry = try await addressBook.selectNextEntry(for: OpalBase.DerivationPath.Usage.receiving)
+    let receivingEntry = try await addressBook.selectNextEntry(for: OpalBase.Key.DerivationPath.Usage.receiving)
     let unspentOutput = OpalBase.Transaction.Output.Unspent(
         value: value,
         lockingScript: receivingEntry.address.lockingScript.data,

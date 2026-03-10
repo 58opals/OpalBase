@@ -3,7 +3,7 @@
 import Foundation
 
 extension _OpalBase.Network {
-    public protocol TransactionReadableClient: Sendable {
+    protocol TransactionReadableClient: Sendable {
         func fetchRawTransaction(for transactionHash: OpalBase.Transaction.Hash) async throws -> Data
     }
 }

@@ -38,10 +38,10 @@ extension _OpalBase.Wallet.Fulcrum {
         }
         
         let account: OpalBase.Account
-        let addressReader: OpalBase.Network.AddressReadable
-        let blockHeaderReader: OpalBase.Network.BlockHeaderReadable
-        let transactionHandler: OpalBase.Network.TransactionConfirmationClient
-        let transactionReader: OpalBase.Network.TransactionReadableClient?
+        let addressReader: OpalBase.Network.AddressReader
+        let blockHeaderReader: OpalBase.Network.BlockHeaderReader
+        let transactionClient: OpalBase.Network.TransactionClient
+        let transactionReader: OpalBase.Network.TransactionReader?
         let shouldIncludeUnconfirmed: Bool
         let retryDelay: Duration
         
@@ -52,16 +52,16 @@ extension _OpalBase.Wallet.Fulcrum {
         private var isRunning: Bool
         
         public init(account: OpalBase.Account,
-                    addressReader: OpalBase.Network.AddressReadable,
-                    blockHeaderReader: OpalBase.Network.BlockHeaderReadable,
-                    transactionHandler: OpalBase.Network.TransactionConfirmationClient,
-                    transactionReader: OpalBase.Network.TransactionReadableClient? = nil,
+                    addressReader: OpalBase.Network.AddressReader,
+                    blockHeaderReader: OpalBase.Network.BlockHeaderReader,
+                    transactionClient: OpalBase.Network.TransactionClient,
+                    transactionReader: OpalBase.Network.TransactionReader? = nil,
                     includeUnconfirmed: Bool = true,
                     retryDelay: Duration = .seconds(2)) {
             self.account = account
             self.addressReader = addressReader
             self.blockHeaderReader = blockHeaderReader
-            self.transactionHandler = transactionHandler
+            self.transactionClient = transactionClient
             self.transactionReader = transactionReader
             self.shouldIncludeUnconfirmed = includeUnconfirmed
             self.retryDelay = retryDelay

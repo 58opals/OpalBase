@@ -3,7 +3,7 @@
 import Foundation
 
 extension _OpalBase.Network {
-    public protocol MetricsClient: Sendable {
+    protocol MetricsClient: Sendable {
         func recordConnection(url: URL, network: Environment) async
         func recordDisconnection(url: URL, closeCode: URLSessionWebSocketTask.CloseCode?, reason: String?) async
         func recordSentMessage(url: URL, message: URLSessionWebSocketTask.Message) async

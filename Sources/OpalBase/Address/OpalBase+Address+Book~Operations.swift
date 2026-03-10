@@ -3,7 +3,7 @@
 import Foundation
 
 extension _OpalBase.Address.Book {
-    public func listEntries(for usage: OpalBase.DerivationPath.Usage) -> [Entry] {
+    public func listEntries(for usage: OpalBase.Key.DerivationPath.Usage) -> [Entry] {
         inventory.listEntries(for: usage)
     }
     
@@ -31,11 +31,11 @@ extension _OpalBase.Address.Book {
         }
     }
     
-    func countEntries(for usage: OpalBase.DerivationPath.Usage) -> Int {
+    func countEntries(for usage: OpalBase.Key.DerivationPath.Usage) -> Int {
         inventory.countEntries(for: usage)
     }
     
-    func countUnusedEntries(for usage: OpalBase.DerivationPath.Usage) -> Int {
+    func countUnusedEntries(for usage: OpalBase.Key.DerivationPath.Usage) -> Int {
         inventory.countUnusedEntries(for: usage)
     }
     
@@ -43,7 +43,7 @@ extension _OpalBase.Address.Book {
         inventory.cacheValidityDuration
     }
     
-    func appendEntry(_ entry: Entry, usage: OpalBase.DerivationPath.Usage) {
+    func appendEntry(_ entry: Entry, usage: OpalBase.Key.DerivationPath.Usage) {
         inventory.append(entry, usage: usage)
     }
     
@@ -60,7 +60,7 @@ extension _OpalBase.Address.Book {
     }
     
     func updateEntry(at index: Int,
-                     usage: OpalBase.DerivationPath.Usage,
+                     usage: OpalBase.Key.DerivationPath.Usage,
                      _ update: (inout Entry) -> Void) {
         inventory.updateEntry(at: index, usage: usage, update)
     }

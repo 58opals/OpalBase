@@ -10,7 +10,7 @@ extension Data {
 }
 
 extension Data {
-    public init(hexadecimalString: String) throws {
+    init(hexadecimalString: String) throws {
         var byteArray = [UInt8]()
         byteArray.reserveCapacity(hexadecimalString.unicodeScalars.lazy.underestimatedCount)
         

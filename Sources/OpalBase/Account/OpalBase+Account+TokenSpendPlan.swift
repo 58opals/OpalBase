@@ -65,7 +65,7 @@ extension _OpalBase.Account {
             self.shouldRandomizeRecipientOrdering = shouldRandomizeRecipientOrdering
         }
         
-        public func buildTransaction(signatureFormat: OpalCrypto.Signature.Format = .schnorr,
+        public func buildTransaction(signatureFormat: OpalBase.Transaction.SignatureFormat = .schnorr,
                                      unlockers: [OpalBase.Transaction.Output.Unspent: OpalBase.Transaction.Unlocker] = .init()) throws -> TransactionResult {
             let core = try OpalBase.Account.buildTransactionCore(privateKeys: privateKeys,
                                                         recipientOutputs: organizedTokenOutputs,
@@ -94,8 +94,8 @@ extension _OpalBase.Account {
             try await reservationHandle.cancel()
         }
         
-        public func buildAndBroadcast(via handler: OpalBase.Network.TransactionHandling,
-                                      signatureFormat: OpalCrypto.Signature.Format = .schnorr,
+        public func buildAndBroadcast(via handler: OpalBase.Network.TransactionClient,
+                                      signatureFormat: OpalBase.Transaction.SignatureFormat = .schnorr,
                                       unlockers: [OpalBase.Transaction.Output.Unspent: OpalBase.Transaction.Unlocker] = .init()) async throws -> (hash: OpalBase.Transaction.Hash, result: TransactionResult) {
             try await reservationHandle.buildAndBroadcast(
                 build: { try buildTransaction(signatureFormat: signatureFormat, unlockers: unlockers) },
@@ -103,6 +103,14 @@ extension _OpalBase.Account {
                 via: handler,
                 mapBroadcastError: OpalBase.Account.Error.broadcastFailed
             )
+        }
+
+        func buildAndBroadcast(via handler: any OpalBase.Network.TransactionHandling,
+                               signatureFormat: OpalBase.Transaction.SignatureFormat = .schnorr,
+                               unlockers: [OpalBase.Transaction.Output.Unspent: OpalBase.Transaction.Unlocker] = .init()) async throws -> (hash: OpalBase.Transaction.Hash, result: TransactionResult) {
+            try await buildAndBroadcast(via: .init(handler),
+                                        signatureFormat: signatureFormat,
+                                        unlockers: unlockers)
         }
     }
 }

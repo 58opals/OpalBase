@@ -3,7 +3,7 @@
 import Foundation
 
 extension _OpalBase.Network {
-    public protocol AddressQueryClient: Sendable {
+    protocol AddressQueryClient: Sendable {
         func fetchBalance(for address: String, tokenFilter: OpalBase.Network.TokenFilter) async throws -> OpalBase.Network.AddressBalance
         func fetchUnspentOutputs(for address: String, tokenFilter: OpalBase.Network.TokenFilter) async throws -> [OpalBase.Transaction.Output.Unspent]
         func fetchHistory(for address: String, includeUnconfirmed: Bool) async throws -> [OpalBase.Network.TransactionHistoryEntry]

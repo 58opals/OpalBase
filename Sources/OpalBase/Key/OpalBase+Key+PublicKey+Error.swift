@@ -1,9 +1,9 @@
-// OpalBase+PublicKey+Error.swift
+// OpalBase+Key+PublicKey+Error.swift
 
 import Foundation
 
-extension _OpalBase.PublicKey {
-    enum Error: Swift.Error {
+extension _OpalBase.Key.PublicKey {
+    public enum Error: Swift.Error, Equatable {
         case invalidFormat
         case invalidLength
         case invalidVersion

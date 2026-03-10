@@ -90,25 +90,64 @@ extension _OpalBase.Satoshi: Hashable {
 
 extension _OpalBase.Satoshi: Sendable {}
 
+extension _OpalBase.Satoshi {
+    public static func sum<S: Sequence>(_ values: S) throws -> OpalBase.Satoshi where S.Element == OpalBase.Satoshi {
+        try sum(of: values) { $0 }
+    }
+
+    public static func sum<S: Sequence>(
+        _ values: S,
+        or overflowError: @autoclosure () -> Swift.Error
+    ) throws -> OpalBase.Satoshi where S.Element == OpalBase.Satoshi {
+        try sum(of: values, or: overflowError()) { $0 }
+    }
+
+    public static func sum<S: Sequence>(
+        of values: S,
+        _ transform: (S.Element) throws -> OpalBase.Satoshi
+    ) throws -> OpalBase.Satoshi {
+        try values.reduce(OpalBase.Satoshi()) { try $0 + transform($1) }
+    }
+
+    public static func sum<S: Sequence>(
+        of values: S,
+        or overflowError: @autoclosure () -> Swift.Error,
+        _ transform: (S.Element) throws -> OpalBase.Satoshi
+    ) throws -> OpalBase.Satoshi {
+        do {
+            return try sum(of: values, transform)
+        } catch let error as OpalBase.Satoshi.Error {
+            switch error {
+            case .exceedsMaximumAmount:
+                throw overflowError()
+            default:
+                throw error
+            }
+        } catch {
+            throw error
+        }
+    }
+}
+
 // MARK: - Sequence_+
 
 extension Sequence where Element == OpalBase.Satoshi {
-    public func sumSatoshi() throws -> OpalBase.Satoshi {
+    func sumSatoshi() throws -> OpalBase.Satoshi {
         try sumSatoshi { $0 }
     }
     
-    public func sumSatoshi(or overflowError: @autoclosure () -> Swift.Error) throws -> OpalBase.Satoshi {
+    func sumSatoshi(or overflowError: @autoclosure () -> Swift.Error) throws -> OpalBase.Satoshi {
         try sumSatoshi(or: overflowError()) { $0 }
     }
 }
 
 extension Sequence {
-    public func sumSatoshi(_ transform: (Element) throws -> OpalBase.Satoshi) throws -> OpalBase.Satoshi {
+    func sumSatoshi(_ transform: (Element) throws -> OpalBase.Satoshi) throws -> OpalBase.Satoshi {
         try reduce(OpalBase.Satoshi()) { try $0 + transform($1) }
     }
     
-    public func sumSatoshi(or overflowError: @autoclosure () -> Swift.Error,
-                           _ transform: (Element) throws -> OpalBase.Satoshi) throws -> OpalBase.Satoshi {
+    func sumSatoshi(or overflowError: @autoclosure () -> Swift.Error,
+                    _ transform: (Element) throws -> OpalBase.Satoshi) throws -> OpalBase.Satoshi {
         do {
             return try sumSatoshi(transform)
         } catch let error as OpalBase.Satoshi.Error {

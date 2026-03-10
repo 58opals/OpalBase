@@ -4,10 +4,10 @@ import Foundation
 
 extension OpalBase {
     public enum Script {
-        case p2pk(publicKey: OpalBase.PublicKey)
-        case p2pkh_OPCHECKSIG(hash: OpalBase.PublicKey.Hash)
-        case p2pkh_OPCHECKDATASIG(hash: OpalBase.PublicKey.Hash)
-        case p2ms(numberOfRequiredSignatures: Int, publicKeys: [OpalBase.PublicKey])
+        case p2pk(publicKey: OpalBase.Key.PublicKey)
+        case p2pkh_OPCHECKSIG(hash: OpalBase.Key.PublicKey.Hash)
+        case p2pkh_OPCHECKDATASIG(hash: OpalBase.Key.PublicKey.Hash)
+        case p2ms(numberOfRequiredSignatures: Int, publicKeys: [OpalBase.Key.PublicKey])
         case p2sh(scriptHash: Data)
         
         var data: Data {
@@ -90,7 +90,7 @@ extension _OpalBase.Script {
                       let finalOp = readByte()
                 else { throw Error.invalidP2PKHScript }
                 
-                let publicKeyHash = OpalBase.PublicKey.Hash(hash)
+                let publicKeyHash = OpalBase.Key.PublicKey.Hash(hash)
                 switch finalOp {
                 case ScriptOperationCode._CHECKSIG.rawValue:
                     return .p2pkh_OPCHECKSIG(hash: publicKeyHash)
@@ -104,7 +104,7 @@ extension _OpalBase.Script {
                       readByte() == ScriptOperationCode._CHECKSIG.rawValue
                 else { throw Error.invalidP2PKScript }
                 
-                let publicKey = try OpalBase.PublicKey(compressedData: publicKeyData)
+                let publicKey = try OpalBase.Key.PublicKey(compressedData: publicKeyData)
                 return .p2pk(publicKey: publicKey)
             case ScriptOperationCode._HASH160.rawValue:
                 guard readByte() == ScriptOperationCode._PUSHBYTES_20.rawValue,
@@ -116,7 +116,7 @@ extension _OpalBase.Script {
                 
             case ScriptOperationCode._1.rawValue...ScriptOperationCode._16.rawValue:
                 let numberOfRequiredSignatures = Int(opcode - ScriptOperationCode._1.rawValue) + 1
-                var publicKeys: [OpalBase.PublicKey] = .init()
+                var publicKeys: [OpalBase.Key.PublicKey] = .init()
                 
                 while index < lockingScript.count {
                     let nextOpcode = lockingScript[index]
@@ -129,7 +129,7 @@ extension _OpalBase.Script {
                           let publicKeyData = readData(length: 33)
                     else { throw Error.invalidP2MSScript }
                     
-                    let publicKey = try OpalBase.PublicKey(compressedData: publicKeyData)
+                    let publicKey = try OpalBase.Key.PublicKey(compressedData: publicKeyData)
                     publicKeys.append(publicKey)
                 }
                 

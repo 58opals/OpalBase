@@ -12,8 +12,8 @@ struct AddressValidator {
     func deriveStableWalletAndAddressArtifacts() throws {
         let privateKey = Data(repeating: 0x00, count: 31) + Data([0x01])
         let walletImportFormat = try OpalCrypto.Key.WIF(privateKey: privateKey).serialize()
-        let publicKey = try OpalBase.PublicKey(privateKeyData: privateKey)
-        let hash = OpalBase.PublicKey.Hash(publicKey: publicKey)
+        let publicKey = try OpalBase.Key.PublicKey(privateKeyData: privateKey)
+        let hash = OpalBase.Key.PublicKey.Hash(publicKey: publicKey)
         let script = OpalBase.Script.p2pkh_OPCHECKSIG(hash: hash)
         let legacyAddress = try OpalBase.Address.Legacy(script)
         let address = try OpalBase.Address(script: script)
@@ -105,7 +105,7 @@ struct AddressValidator {
         let rootExtendedPrivateKey = try OpalCrypto.Key.ExtendedPrivateKey.root(
             seed: AccountTestFixtures.makeMnemonic().deriveSeed()
         )
-        let account = try OpalBase.DerivationPath.Account(rawIndexInteger: 0)
+        let account = try OpalBase.Key.DerivationPath.Account(rawIndexInteger: 0)
         let gapLimit = 5
         let book = try await OpalBase.Address.Book(
             rootExtendedPrivateKey: rootExtendedPrivateKey,
@@ -115,15 +115,15 @@ struct AddressValidator {
             gapLimit: gapLimit
         )
         
-        let initialTotal = await book.countEntries(for: OpalBase.DerivationPath.Usage.receiving)
+        let initialTotal = await book.countEntries(for: OpalBase.Key.DerivationPath.Usage.receiving)
         #expect(initialTotal == gapLimit)
         
-        let entries = await book.listEntries(for: OpalBase.DerivationPath.Usage.receiving)
+        let entries = await book.listEntries(for: OpalBase.Key.DerivationPath.Usage.receiving)
         let firstEntry = try #require(entries.first)
         try await book.mark(address: firstEntry.address, isUsed: true)
         
-        let updatedTotal = await book.countEntries(for: OpalBase.DerivationPath.Usage.receiving)
-        let updatedUnused = await book.countUnusedEntries(for: OpalBase.DerivationPath.Usage.receiving)
+        let updatedTotal = await book.countEntries(for: OpalBase.Key.DerivationPath.Usage.receiving)
+        let updatedUnused = await book.countUnusedEntries(for: OpalBase.Key.DerivationPath.Usage.receiving)
         
         #expect(updatedTotal == initialTotal + 1)
         #expect(updatedUnused == gapLimit)
@@ -134,7 +134,7 @@ struct AddressValidator {
         let rootExtendedPrivateKey = try OpalCrypto.Key.ExtendedPrivateKey.root(
             seed: AccountTestFixtures.makeMnemonic().deriveSeed()
         )
-        let account = try OpalBase.DerivationPath.Account(rawIndexInteger: 0)
+        let account = try OpalBase.Key.DerivationPath.Account(rawIndexInteger: 0)
         let book = try await OpalBase.Address.Book(
             rootExtendedPrivateKey: rootExtendedPrivateKey,
             purpose: .bip44,
@@ -143,8 +143,8 @@ struct AddressValidator {
             gapLimit: 1
         )
         
-        let receivingEntry = try #require(await book.listEntries(for: OpalBase.DerivationPath.Usage.receiving).first)
-        let changeEntry = try #require(await book.listEntries(for: OpalBase.DerivationPath.Usage.change).first)
+        let receivingEntry = try #require(await book.listEntries(for: OpalBase.Key.DerivationPath.Usage.receiving).first)
+        let changeEntry = try #require(await book.listEntries(for: OpalBase.Key.DerivationPath.Usage.change).first)
         
         #expect(receivingEntry.address != changeEntry.address)
     }

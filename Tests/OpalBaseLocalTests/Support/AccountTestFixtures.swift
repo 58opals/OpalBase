@@ -47,7 +47,7 @@ enum AccountTestFixtures {
         to account: OpalBase.Account,
         value: UInt64,
         tokenData: OpalBase.CashTokens.TokenData? = nil,
-        usage: OpalBase.DerivationPath.Usage = .receiving,
+        usage: OpalBase.Key.DerivationPath.Usage = .receiving,
         hashByte: UInt8,
         outputIndex: UInt32 = 0
     ) async throws -> OpalBase.Transaction.Output.Unspent {

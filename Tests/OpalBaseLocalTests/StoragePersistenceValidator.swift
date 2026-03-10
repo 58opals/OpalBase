@@ -23,7 +23,7 @@ struct StoragePersistenceValidator {
         let valueClient = OpalBase.Storage.ValueClient.makeInMemory()
         let storage = try OpalBase.Storage(valueClient: valueClient)
 
-        let mnemonic = OpalBase.Storage.Mnemonic(
+        let mnemonic = OpalBase.Storage.StoredMnemonic(
             words: [
                 "abandon", "abandon", "abandon", "abandon", "abandon", "abandon",
                 "abandon", "abandon", "abandon", "abandon", "abandon", "about"

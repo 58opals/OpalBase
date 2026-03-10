@@ -4,21 +4,35 @@ import Foundation
 
 extension OpalBase.CashTokens.BCMR.Client {
     public struct AuthchainResolver: Sendable {
-        public let transactionReader: OpalBase.Network.TransactionReadableClient
-        public let addressReader: OpalBase.Network.AddressReadable
-        public let scriptHashReader: OpalBase.Network.ScriptHashReadableClient?
+        public let transactionReader: OpalBase.Network.TransactionReader
+        public let addressReader: OpalBase.Network.AddressReader
+        public let scriptHashReader: OpalBase.Network.ScriptHashReader?
         public let maxDepth: Int
         
         public init(
-            transactionReader: OpalBase.Network.TransactionReadableClient,
-            addressReader: OpalBase.Network.AddressReadable,
-            scriptHashReader: OpalBase.Network.ScriptHashReadableClient? = nil,
+            transactionReader: OpalBase.Network.TransactionReader,
+            addressReader: OpalBase.Network.AddressReader,
+            scriptHashReader: OpalBase.Network.ScriptHashReader? = nil,
             maxDepth: Int
         ) {
             self.transactionReader = transactionReader
             self.addressReader = addressReader
             self.scriptHashReader = scriptHashReader
             self.maxDepth = maxDepth
+        }
+
+        init(
+            transactionReader: any OpalBase.Network.TransactionReadableClient,
+            addressReader: any OpalBase.Network.AddressReadable,
+            scriptHashReader: (any OpalBase.Network.ScriptHashReadableClient)? = nil,
+            maxDepth: Int
+        ) {
+            self.init(
+                transactionReader: .init(transactionReader),
+                addressReader: .init(addressReader),
+                scriptHashReader: scriptHashReader.map(OpalBase.Network.ScriptHashReader.init(_:)),
+                maxDepth: maxDepth
+            )
         }
     }
 }

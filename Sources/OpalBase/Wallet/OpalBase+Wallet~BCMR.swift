@@ -4,9 +4,9 @@ import Foundation
 
 extension _OpalBase.Wallet {
     public func syncTokenMetadata(
-        using transactionReader: OpalBase.Network.TransactionReadableClient,
-        addressReader: OpalBase.Network.AddressReadable,
-        scriptHashReader: OpalBase.Network.ScriptHashReadableClient? = nil,
+        using transactionReader: OpalBase.Network.TransactionReader,
+        addressReader: OpalBase.Network.AddressReader,
+        scriptHashReader: OpalBase.Network.ScriptHashReader? = nil,
         categories: Set<OpalBase.CashTokens.CategoryID>? = nil
     ) async throws {
         let targetCategories = try await resolveTokenCategories(from: categories)
@@ -64,9 +64,9 @@ private extension _OpalBase.Wallet {
     }
     
     static func makeMetadataRegistries(
-        transactionReader: OpalBase.Network.TransactionReadableClient,
-        addressReader: OpalBase.Network.AddressReadable,
-        scriptHashReader: OpalBase.Network.ScriptHashReadableClient?
+        transactionReader: OpalBase.Network.TransactionReader,
+        addressReader: OpalBase.Network.AddressReader,
+        scriptHashReader: OpalBase.Network.ScriptHashReader?
     ) -> OpalBase.CashTokens.BCMR.Client {
         let authchainResolver = OpalBase.CashTokens.BCMR.Client.AuthchainResolver(
             transactionReader: transactionReader,

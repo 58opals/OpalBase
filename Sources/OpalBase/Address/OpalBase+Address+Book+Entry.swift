@@ -5,14 +5,14 @@ import Foundation
 extension _OpalBase.Address.Book {
     public struct Entry {
         public let address: OpalBase.Address
-        public let derivationPath: OpalBase.DerivationPath
+        public let derivationPath: OpalBase.Key.DerivationPath
         public let createdAt: Date
         var isUsed: Bool
         var isReserved: Bool
         var cache: Cache
         
         init(address: OpalBase.Address,
-             derivationPath: OpalBase.DerivationPath,
+             derivationPath: OpalBase.Key.DerivationPath,
              createdAt: Date = .init(),
              isUsed: Bool,
              isReserved: Bool,
@@ -30,7 +30,7 @@ extension _OpalBase.Address.Book {
 // MARK: - Initialize
 extension _OpalBase.Address.Book {
     func initializeEntries() async throws {
-        for usage in OpalBase.DerivationPath.Usage.allCases {
+        for usage in OpalBase.Key.DerivationPath.Usage.allCases {
             try await generateEntries(for: usage,
                                       numberOfNewEntries: gapLimit,
                                       isUsed: false)
@@ -40,7 +40,7 @@ extension _OpalBase.Address.Book {
 
 // MARK: - Generate
 extension _OpalBase.Address.Book {
-    func generateEntriesIfNeeded(for usage: OpalBase.DerivationPath.Usage) async throws {
+    func generateEntriesIfNeeded(for usage: OpalBase.Key.DerivationPath.Usage) async throws {
         let numberOfRemainingUnusedEntries = inventory.countUnusedEntries(for: usage)
         guard numberOfRemainingUnusedEntries < gapLimit else { return }
         
@@ -52,7 +52,7 @@ extension _OpalBase.Address.Book {
                                   isUsed: false)
     }
     
-    func generateEntries(for usage: OpalBase.DerivationPath.Usage,
+    func generateEntries(for usage: OpalBase.Key.DerivationPath.Usage,
                          numberOfNewEntries: Int,
                          isUsed: Bool) async throws {
         guard numberOfNewEntries > 0 else { return }
@@ -87,7 +87,7 @@ extension _OpalBase.Address.Book {
         }
     }
     
-    private func makeEntry(for usage: OpalBase.DerivationPath.Usage,
+    private func makeEntry(for usage: OpalBase.Key.DerivationPath.Usage,
                            index: UInt32,
                            isUsed: Bool) throws -> Entry {
         let address = try generateAddress(at: index, for: usage)
@@ -102,14 +102,14 @@ extension _OpalBase.Address.Book {
     }
     
     private func makeEntriesUsingUsageDerivationCache(
-        usage: OpalBase.DerivationPath.Usage,
+        usage: OpalBase.Key.DerivationPath.Usage,
         indices: [UInt32],
         usageCache: UsageDerivationCache,
         isUsed: Bool
     ) async throws -> [Entry] {
         var childPrivateKeys: [Data] = .init()
         childPrivateKeys.reserveCapacity(indices.count)
-        var derivationPaths: [OpalBase.DerivationPath] = .init()
+        var derivationPaths: [OpalBase.Key.DerivationPath] = .init()
         derivationPaths.reserveCapacity(indices.count)
         
         for index in indices {
@@ -125,7 +125,7 @@ extension _OpalBase.Address.Book {
         entries.reserveCapacity(indices.count)
         
         for (position, compressedPublicKey) in compressedPublicKeys.enumerated() {
-            let publicKey = try OpalBase.PublicKey(compressedData: compressedPublicKey)
+            let publicKey = try OpalBase.Key.PublicKey(compressedData: compressedPublicKey)
             let address = try OpalBase.Address(script: .p2pkh_OPCHECKSIG(hash: .init(publicKey: publicKey)))
             if let existingEntry = inventory.findEntry(for: address) { throw Error.entryDuplicated(existingEntry) }
             
@@ -141,7 +141,7 @@ extension _OpalBase.Address.Book {
 
 // MARK: - Get
 extension _OpalBase.Address.Book {
-    public func selectNextEntry(for usage: OpalBase.DerivationPath.Usage) async throws -> Entry {
+    public func selectNextEntry(for usage: OpalBase.Key.DerivationPath.Usage) async throws -> Entry {
         try await generateEntriesIfNeeded(for: usage)
         
         let entries = inventory.listEntries(for: usage)
@@ -150,7 +150,7 @@ extension _OpalBase.Address.Book {
         return nextEntry
     }
     
-    public func reserveNextEntry(for usage: OpalBase.DerivationPath.Usage) async throws -> Entry {
+    public func reserveNextEntry(for usage: OpalBase.Key.DerivationPath.Usage) async throws -> Entry {
         let nextEntry = try await selectNextEntry(for: usage)
         let reservedEntry = try reserveEntry(address: nextEntry.address)
         try await generateEntriesIfNeeded(for: reservedEntry.derivationPath.usage)

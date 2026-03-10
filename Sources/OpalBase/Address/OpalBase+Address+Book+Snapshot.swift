@@ -7,14 +7,14 @@ extension _OpalBase.Address.Book {
 
     public struct Snapshot: Codable, Equatable, Hashable, Sendable {
         public struct Entry: Codable, Equatable, Hashable, Sendable {
-            public let usage: OpalBase.DerivationPath.Usage
+            public let usage: OpalBase.Key.DerivationPath.Usage
             public let index: UInt32
             public let isUsed: Bool
             public let isReserved: Bool
             public let balance: UInt64?
             public let lastUpdated: Date?
 
-            public init(usage: OpalBase.DerivationPath.Usage,
+            public init(usage: OpalBase.Key.DerivationPath.Usage,
                         index: UInt32,
                         isUsed: Bool,
                         isReserved: Bool,

@@ -54,8 +54,11 @@ The snippets below run inside an async context such as `Task {}` or an `@main` e
 ```swift
 import OpalBase
 
-let mnemonic = try OpalBase.Mnemonic(length: .long)
-let wallet = OpalBase.Wallet(mnemonic: mnemonic)
+let mnemonic = try OpalBase.Key.Mnemonic.generate(
+    length: .words24,
+    language: .english
+)
+let wallet = try OpalBase.Wallet(mnemonic: mnemonic)
 
 try await wallet.addAccount(unhardenedIndex: 0)
 let account = try await wallet.fetchAccount(at: 0)
@@ -76,14 +79,9 @@ let configuration = OpalBase.Network.Configuration(
 )
 
 let client = try await OpalBase.Network.Fulcrum.Client(configuration: configuration)
-
-let addressReader = OpalBase.Network.Fulcrum.AddressReader(client: client)
-let transactionHandler = OpalBase.Network.Fulcrum.TransactionClient(client: client)
-let blockHeaderReader = OpalBase.Network.Fulcrum.BlockHeaderReader(client: client)
-
-let fulcrum = OpalBase.Wallet.Fulcrum(
-    addressReader: addressReader,
-    transactionHandler: transactionHandler
+let fulcrum = OpalBase.Wallet.Fulcrum(client: client)
+let transactionClient = OpalBase.Network.TransactionClient(
+    OpalBase.Network.Fulcrum.TransactionClient(client: client)
 )
 ```
 
@@ -130,8 +128,11 @@ let payment = OpalBase.Account.Payment(
 
 let spendPlan = try await account.prepareSpend(payment)
 
-let (hash, result) = try await spendPlan.buildAndBroadcast(via: transactionHandler)
-print("Broadcast \(hash.reverseOrder.hexadecimalString) with fee \(result.fee.uint64) satoshi")
+let (hash, result) = try await spendPlan.buildAndBroadcast(via: transactionClient)
+print(
+    "Broadcast \(OpalBase.Encoding.hexadecimalString(from: hash.reverseOrder)) " +
+    "with fee \(result.fee.uint64) satoshi"
+)
 ```
 
 * Customize fee policy defaults with `OpalBase.Wallet.FeePolicy` or pass overrides in `OpalBase.Account.Payment`.
@@ -143,7 +144,7 @@ print("Broadcast \(hash.reverseOrder.hexadecimalString) with fee \(result.fee.ui
 `OpalBase.Wallet.Fulcrum.Monitor` keeps an `OpalBase.Account` synchronized by combining address subscriptions and block header updates, and exposes events as an `AsyncThrowingStream`.
 
 ```swift
-let monitor = await fulcrum.makeMonitor(for: account, blockHeaderReader: blockHeaderReader)
+let monitor = await fulcrum.makeMonitor(for: account)
 let events = await monitor.makeEventStream() // auto-starts by default
 
 Task.detached {

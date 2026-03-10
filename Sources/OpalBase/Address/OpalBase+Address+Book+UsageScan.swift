@@ -4,11 +4,11 @@ import Foundation
 
 extension _OpalBase.Address.Book {
     public struct UsageScan: Sendable, Equatable {
-        public let discoveredUsedEntries: [OpalBase.DerivationPath.Usage: [Entry]]
-        public let totalScannedPerUsage: [OpalBase.DerivationPath.Usage: Int]
+        public let discoveredUsedEntries: [OpalBase.Key.DerivationPath.Usage: [Entry]]
+        public let totalScannedPerUsage: [OpalBase.Key.DerivationPath.Usage: Int]
         
-        public init(discoveredUsedEntries: [OpalBase.DerivationPath.Usage: [Entry]],
-                    totalScannedPerUsage: [OpalBase.DerivationPath.Usage: Int]) {
+        public init(discoveredUsedEntries: [OpalBase.Key.DerivationPath.Usage: [Entry]],
+                    totalScannedPerUsage: [OpalBase.Key.DerivationPath.Usage: Int]) {
             self.discoveredUsedEntries = discoveredUsedEntries
             self.totalScannedPerUsage = totalScannedPerUsage
         }
@@ -16,12 +16,12 @@ extension _OpalBase.Address.Book {
 }
 
 extension _OpalBase.Address.Book {
-    public func scanForUsedAddresses(using service: OpalBase.Network.AddressReadable,
-                                     usage: OpalBase.DerivationPath.Usage? = nil,
+    public func scanForUsedAddresses(using service: OpalBase.Network.AddressReader,
+                                     usage: OpalBase.Key.DerivationPath.Usage? = nil,
                                      includeUnconfirmed: Bool = true) async throws -> UsageScan {
-        let targetUsages = OpalBase.DerivationPath.Usage.resolveTargetUsages(for: usage)
-        var discovered: [OpalBase.DerivationPath.Usage: [Entry]] = .init()
-        var scannedCountByUsage: [OpalBase.DerivationPath.Usage: Int] = .init()
+        let targetUsages = OpalBase.Key.DerivationPath.Usage.resolveTargetUsages(for: usage)
+        var discovered: [OpalBase.Key.DerivationPath.Usage: [Entry]] = .init()
+        var scannedCountByUsage: [OpalBase.Key.DerivationPath.Usage: Int] = .init()
         let batchSize = 8
         
         for currentUsage in targetUsages {
@@ -66,16 +66,24 @@ extension _OpalBase.Address.Book {
         return UsageScan(discoveredUsedEntries: discovered,
                          totalScannedPerUsage: scannedCountByUsage)
     }
+
+    func scanForUsedAddresses(using service: any OpalBase.Network.AddressReadable,
+                              usage: OpalBase.Key.DerivationPath.Usage? = nil,
+                              includeUnconfirmed: Bool = true) async throws -> UsageScan {
+        try await scanForUsedAddresses(using: .init(service),
+                                       usage: usage,
+                                       includeUnconfirmed: includeUnconfirmed)
+    }
     
     private func checkIfAddressIsUsed(address: String,
-                                      using service: OpalBase.Network.AddressReadable,
+                                      using service: OpalBase.Network.AddressReader,
                                       includeUnconfirmed: Bool) async throws -> Bool {
         let history = try await service.fetchHistory(for: address,
                                                      includeUnconfirmed: includeUnconfirmed)
         return !history.isEmpty
     }
     
-    private func loadEntries(for usage: OpalBase.DerivationPath.Usage,
+    private func loadEntries(for usage: OpalBase.Key.DerivationPath.Usage,
                              startIndex: Int,
                              count: Int) async throws -> [Entry] {
         let endIndex = startIndex + count
@@ -99,9 +107,9 @@ extension _OpalBase.Address.Book {
 }
 
 extension _OpalBase.Address.Book {
-    func performForEachTargetUsage(_ usage: OpalBase.DerivationPath.Usage?,
-                                   perform action: (OpalBase.DerivationPath.Usage, [OpalBase.Address.Book.Entry]) async throws -> Void) async rethrows {
-        for currentUsage in OpalBase.DerivationPath.Usage.resolveTargetUsages(for: usage) {
+    func performForEachTargetUsage(_ usage: OpalBase.Key.DerivationPath.Usage?,
+                                   perform action: (OpalBase.Key.DerivationPath.Usage, [OpalBase.Address.Book.Entry]) async throws -> Void) async rethrows {
+        for currentUsage in OpalBase.Key.DerivationPath.Usage.resolveTargetUsages(for: usage) {
             let entries = listEntries(for: currentUsage)
             guard !entries.isEmpty else { continue }
             try await action(currentUsage, entries)

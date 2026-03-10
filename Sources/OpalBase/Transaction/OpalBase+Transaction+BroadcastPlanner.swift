@@ -7,7 +7,7 @@ extension _OpalBase.Transaction {
         static func buildAndBroadcast<Result, Failure: Swift.Error>(
             build: @Sendable () throws -> Result,
             transaction: @Sendable (Result) -> OpalBase.Transaction,
-            via handler: OpalBase.Network.TransactionHandling,
+            via handler: OpalBase.Network.TransactionClient,
             mapBroadcastError: @Sendable (Swift.Error) -> Failure,
             onSuccess: @Sendable () async throws -> Void
         ) async throws -> (hash: OpalBase.Transaction.Hash, result: Result) {

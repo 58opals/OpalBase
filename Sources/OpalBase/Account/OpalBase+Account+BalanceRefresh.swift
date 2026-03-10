@@ -4,10 +4,10 @@ import Foundation
 
 extension _OpalBase.Account {
     public struct BalanceRefresh: Sendable {
-        public let balancesByUsage: [OpalBase.DerivationPath.Usage: [OpalBase.Address: OpalBase.Satoshi]]
+        public let balancesByUsage: [OpalBase.Key.DerivationPath.Usage: [OpalBase.Address: OpalBase.Satoshi]]
         public let total: OpalBase.Satoshi
         
-        public init(balancesByUsage: [OpalBase.DerivationPath.Usage: [OpalBase.Address: OpalBase.Satoshi]], total: OpalBase.Satoshi) {
+        public init(balancesByUsage: [OpalBase.Key.DerivationPath.Usage: [OpalBase.Address: OpalBase.Satoshi]], total: OpalBase.Satoshi) {
             self.balancesByUsage = balancesByUsage
             self.total = total
         }
@@ -15,10 +15,10 @@ extension _OpalBase.Account {
 }
 
 extension _OpalBase.Account {
-    public func refreshBalances(for usage: OpalBase.DerivationPath.Usage? = nil,
+    public func refreshBalances(for usage: OpalBase.Key.DerivationPath.Usage? = nil,
                                 loader: @escaping @Sendable (OpalBase.Address) async throws -> OpalBase.Satoshi) async throws -> BalanceRefresh {
-        let targetUsages = OpalBase.DerivationPath.Usage.resolveTargetUsages(for: usage)
-        var balancesByUsage: [OpalBase.DerivationPath.Usage: [OpalBase.Address: OpalBase.Satoshi]] = .init()
+        let targetUsages = OpalBase.Key.DerivationPath.Usage.resolveTargetUsages(for: usage)
+        var balancesByUsage: [OpalBase.Key.DerivationPath.Usage: [OpalBase.Address: OpalBase.Satoshi]] = .init()
         let refreshTimestamp = Date.now
         
         for currentUsage in targetUsages {

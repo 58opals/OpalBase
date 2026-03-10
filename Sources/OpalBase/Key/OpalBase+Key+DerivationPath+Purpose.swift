@@ -1,8 +1,8 @@
-// OpalBase+DerivationPath+Purpose.swift
+// OpalBase+Key+DerivationPath+Purpose.swift
 
 import Foundation
 
-extension _OpalBase.DerivationPath {
+extension _OpalBase.Key.DerivationPath {
     public enum Purpose {
         case bip44
 
@@ -36,17 +36,19 @@ extension _OpalBase.DerivationPath {
     }
 }
 
-extension _OpalBase.DerivationPath.Purpose: Hashable {
-    public static func == (lhs: OpalBase.DerivationPath.Purpose, rhs: OpalBase.DerivationPath.Purpose) -> Bool {
+extension _OpalBase.Key.DerivationPath.Purpose: Hashable {
+    public static func == (lhs: OpalBase.Key.DerivationPath.Purpose, rhs: OpalBase.Key.DerivationPath.Purpose) -> Bool {
         lhs.hardenedIndex == rhs.hardenedIndex
     }
 }
 
-extension _OpalBase.DerivationPath.Purpose: Codable {
+extension _OpalBase.Key.DerivationPath.Purpose: Codable {
     public init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
         let index = try container.decode(UInt32.self)
-        guard let purpose = OpalBase.DerivationPath.Purpose(hardenedIndex: index) else { throw DecodingError.dataCorruptedError(in: container, debugDescription: "Invalid purpose index") }
+        guard let purpose = OpalBase.Key.DerivationPath.Purpose(hardenedIndex: index) else {
+            throw DecodingError.dataCorruptedError(in: container, debugDescription: "Invalid purpose index")
+        }
         self = purpose
     }
 
@@ -56,8 +58,8 @@ extension _OpalBase.DerivationPath.Purpose: Codable {
     }
 }
 
-extension _OpalBase.DerivationPath.Purpose: Sendable {}
+extension _OpalBase.Key.DerivationPath.Purpose: Sendable {}
 
-extension _OpalBase.DerivationPath.Purpose: CustomStringConvertible {
+extension _OpalBase.Key.DerivationPath.Purpose: CustomStringConvertible {
     public var description: String { return "\(unhardenedIndex)'" }
 }

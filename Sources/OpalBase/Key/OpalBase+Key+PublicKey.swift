@@ -1,8 +1,8 @@
-// OpalBase+PublicKey.swift
+// OpalBase+Key+PublicKey.swift
 
 import Foundation
 
-extension OpalBase {
+extension _OpalBase.Key {
     public struct PublicKey {
         let compressedData: Data
         
@@ -17,12 +17,12 @@ extension OpalBase {
     }
 }
 
-extension _OpalBase.PublicKey {
+extension _OpalBase.Key.PublicKey {
     public var hash: Data {
         OpalCryptoAdapter.hash160(compressedData)
     }
 }
 
-extension _OpalBase.PublicKey: Sendable {}
-extension _OpalBase.PublicKey: Hashable {}
-extension _OpalBase.PublicKey: Equatable {}
+extension _OpalBase.Key.PublicKey: Sendable {}
+extension _OpalBase.Key.PublicKey: Hashable {}
+extension _OpalBase.Key.PublicKey: Equatable {}

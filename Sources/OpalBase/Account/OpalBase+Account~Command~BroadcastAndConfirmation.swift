@@ -5,7 +5,7 @@ import Foundation
 // MARK: - Broadcast
 extension _OpalBase.Account {
     public func broadcast(_ transaction: OpalBase.Transaction,
-                          via handler: OpalBase.Network.TransactionHandling) async throws -> OpalBase.Transaction.Hash {
+                          via handler: OpalBase.Network.TransactionClient) async throws -> OpalBase.Transaction.Hash {
         do {
             return try await handler.broadcast(transaction: transaction)
         } catch {
@@ -14,7 +14,7 @@ extension _OpalBase.Account {
     }
     
     public func monitorConfirmations(for transactionHash: OpalBase.Transaction.Hash,
-                                     via handler: OpalBase.Network.TransactionHandling,
+                                     via handler: OpalBase.Network.TransactionClient,
                                      pollInterval: Duration = .seconds(5)) -> AsyncThrowingStream<UInt?, Swift.Error> {
         let identifier = transactionHash.reverseOrder.hexadecimalString
         let fallbackInterval: Duration = .milliseconds(100)

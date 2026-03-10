@@ -21,7 +21,7 @@ extension _OpalBase.Transaction {
                       recipientOutputs: [Output],
                       changeOutput: Output,
                       outputOrderingStrategy: OutputOrderingStrategy = .privacyRandomized,
-                      signatureFormat: OpalCrypto.Signature.Format = .schnorr,
+                      signatureFormat: OpalBase.Transaction.SignatureFormat = .schnorr,
                       feePerByte: UInt64 = 1,
                       sequence: UInt32 = 0xFFFFFFFF,
                       lockTime: UInt32 = 0,
@@ -166,7 +166,7 @@ extension _OpalBase.Transaction {
         
         for (index, unspentOutput) in builder.orderedUnspentOutputs.enumerated() {
             guard let privateKey = builder.findPrivateKey(for: unspentOutput) else { throw Error.cannotCreateTransaction }
-            let publicKey = try OpalBase.PublicKey(privateKeyData: privateKey)
+            let publicKey = try OpalBase.Key.PublicKey(privateKeyData: privateKey)
             let unlocker = builder.makeUnlocker(for: unspentOutput)
             
             switch unlocker {
@@ -188,7 +188,7 @@ extension _OpalBase.Transaction {
                 let signature = try OpalCrypto.Signature.sign(
                     message: signatureMessage,
                     privateKey: privateKey,
-                    format: builder.signatureFormat
+                    format: builder.signatureFormat.opalCryptoFormat
                 )
                 let signatureWithType = signature + Data([UInt8(hashType.value)])
                 let unlockingScript = Data.push(signatureWithType) + Data.push(publicKey.compressedData)
@@ -205,7 +205,7 @@ extension _OpalBase.Transaction {
                 let signature = try OpalCrypto.Signature.sign(
                     message: signatureMessage,
                     privateKey: privateKey,
-                    format: builder.signatureFormat
+                    format: builder.signatureFormat.opalCryptoFormat
                 )
                 let unlockingSignature = Data.push(signature) + Data.push(messageBytes) + Data.push(publicKey.compressedData)
                 

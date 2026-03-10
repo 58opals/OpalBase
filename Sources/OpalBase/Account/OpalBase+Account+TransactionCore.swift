@@ -18,7 +18,7 @@ extension _OpalBase.Account {
         shouldAllowDustDonation: Bool,
         shouldRandomizeRecipientOrdering: Bool,
         changeEntry: OpalBase.Address.Book.Entry,
-        signatureFormat: OpalCrypto.Signature.Format,
+        signatureFormat: OpalBase.Transaction.SignatureFormat,
         unlockers: [OpalBase.Transaction.Output.Unspent: OpalBase.Transaction.Unlocker],
         mapBuildError: (Swift.Error) -> OpalBase.Account.Error
     ) throws -> TransactionCore {

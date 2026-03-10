@@ -11,7 +11,7 @@ extension _OpalBase.Transaction {
 }
 
 extension _OpalBase.Transaction.Unlocker {
-    func makePlaceholderUnlockingScript(signatureFormat: OpalCrypto.Signature.Format) -> Data {
+    func makePlaceholderUnlockingScript(signatureFormat: OpalBase.Transaction.SignatureFormat) -> Data {
         if case .ecdsa(.raw) = signatureFormat {
             assertionFailure("OP_CHECKSIG or OP_CHECKDATASIG requires DER-encoded ECDSA. Use .ecdsa(.der) or .schnorr.")
         }

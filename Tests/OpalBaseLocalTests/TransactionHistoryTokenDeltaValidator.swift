@@ -142,7 +142,7 @@ private extension TransactionHistoryTokenDeltaValidator {
     }
     
     func makeExternalAddress() throws -> OpalBase.Address {
-        let publicKey = try OpalBase.PublicKey(privateKeyData: Data(repeating: 0x03, count: 32))
+        let publicKey = try OpalBase.Key.PublicKey(privateKeyData: Data(repeating: 0x03, count: 32))
         return try OpalBase.Address(script: .p2pkh_OPCHECKSIG(hash: .init(publicKey: publicKey)))
     }
 }

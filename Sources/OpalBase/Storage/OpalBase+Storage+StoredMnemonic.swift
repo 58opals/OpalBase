@@ -1,9 +1,9 @@
-// OpalBase+Storage+Mnemonic.swift
+// OpalBase+Storage+StoredMnemonic.swift
 
 import Foundation
 
 extension _OpalBase.Storage {
-    public struct Mnemonic: Sendable {
+    public struct StoredMnemonic: Sendable {
         public let words: [String]
         public let passphrase: String
         
@@ -14,7 +14,7 @@ extension _OpalBase.Storage {
     }
 }
 
-extension _OpalBase.Storage.Mnemonic {
+extension _OpalBase.Storage.StoredMnemonic {
     struct Payload: Codable {
         public let words: [String]
         public let passphrase: String

@@ -41,8 +41,8 @@ extension _OpalBase.Storage {
         return try decodeSnapshot(OpalBase.Address.Book.Snapshot.self, from: data)
     }
     
-    public func saveMnemonic(_ mnemonic: OpalBase.Storage.Mnemonic, fallbackToPlaintext: Bool = false) async throws -> Security.ProtectionMode {
-        let payload = OpalBase.Storage.Mnemonic.Payload(words: mnemonic.words, passphrase: mnemonic.passphrase)
+    public func saveMnemonic(_ mnemonic: OpalBase.Storage.StoredMnemonic, fallbackToPlaintext: Bool = false) async throws -> Security.ProtectionMode {
+        let payload = OpalBase.Storage.StoredMnemonic.Payload(words: mnemonic.words, passphrase: mnemonic.passphrase)
         let plaintext: Data
         do {
             plaintext = try encoder.encode(payload)
@@ -77,7 +77,7 @@ extension _OpalBase.Storage {
         return storedCiphertext.mode
     }
     
-    public func loadMnemonicState() async throws -> (mnemonic: OpalBase.Storage.Mnemonic, protectionMode: Security.ProtectionMode)? {
+    public func loadMnemonicState() async throws -> (mnemonic: OpalBase.Storage.StoredMnemonic, protectionMode: Security.ProtectionMode)? {
         guard let storedCiphertext = try await loadValue(for: .mnemonicCiphertext) else { return nil }
         
         let ciphertext: OpalBase.Storage.Security.Ciphertext
@@ -99,17 +99,17 @@ extension _OpalBase.Storage {
             }
         }
         
-        let payload: OpalBase.Storage.Mnemonic.Payload
+        let payload: OpalBase.Storage.StoredMnemonic.Payload
         do {
-            payload = try decoder.decode(OpalBase.Storage.Mnemonic.Payload.self, from: decryptedData)
+            payload = try decoder.decode(OpalBase.Storage.StoredMnemonic.Payload.self, from: decryptedData)
         } catch {
             throw Error.decodingFailure(error)
         }
-        let mnemonic = OpalBase.Storage.Mnemonic(words: payload.words, passphrase: payload.passphrase)
+        let mnemonic = OpalBase.Storage.StoredMnemonic(words: payload.words, passphrase: payload.passphrase)
         return (mnemonic: mnemonic, protectionMode: ciphertext.mode)
     }
     
-    public func loadMnemonic() async throws -> OpalBase.Storage.Mnemonic? {
+    public func loadMnemonic() async throws -> OpalBase.Storage.StoredMnemonic? {
         guard let state = try await loadMnemonicState() else { return nil }
         return state.mnemonic
     }

@@ -4,7 +4,7 @@ import Foundation
 import SwiftFulcrum
 
 extension _OpalBase.Network.Fulcrum {
-    public struct AddressReader: OpalBase.Network.AddressReadable {
+    public struct AddressReader: OpalBase.Network.AddressQueryClient, OpalBase.Network.AddressSubscriptionClient {
         private let client: Client
         private let timeouts: OpalBase.Network.FulcrumRequestTimeout
         

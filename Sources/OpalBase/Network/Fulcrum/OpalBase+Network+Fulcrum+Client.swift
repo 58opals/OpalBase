@@ -10,8 +10,8 @@ extension _OpalBase.Network.Fulcrum {
         
         public init(
             configuration: OpalBase.Network.Configuration,
-            metrics: OpalBase.Network.MetricsClient? = nil,
-            logger: OpalBase.Network.LogClient? = nil,
+            metrics: OpalBase.Network.Metrics? = nil,
+            logger: OpalBase.Network.Logger? = nil,
             isLoggingEnabled: Bool = true,
             urlSession: URLSession? = nil
         ) async throws {
@@ -91,9 +91,9 @@ extension _OpalBase.Network.Fulcrum {
 
 private struct FulcrumMetricsAdapter: SwiftFulcrum.Metrics.MetricsClient {
     private let environment: OpalBase.Network.Environment
-    private let collector: any OpalBase.Network.MetricsClient
+    private let collector: OpalBase.Network.Metrics
     
-    init(environment: OpalBase.Network.Environment, collector: any OpalBase.Network.MetricsClient) {
+    init(environment: OpalBase.Network.Environment, collector: OpalBase.Network.Metrics) {
         self.environment = environment
         self.collector = collector
     }
@@ -128,9 +128,9 @@ private struct FulcrumMetricsAdapter: SwiftFulcrum.Metrics.MetricsClient {
 }
 
 private struct FulcrumLogHandlerAdapter: SwiftFulcrum.Logging.Adapter {
-    private let handler: any OpalBase.Network.LogClient
+    private let handler: OpalBase.Network.Logger
     
-    init(handler: any OpalBase.Network.LogClient) {
+    init(handler: OpalBase.Network.Logger) {
         self.handler = handler
     }
     

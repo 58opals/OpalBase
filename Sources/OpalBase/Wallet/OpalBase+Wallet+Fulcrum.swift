@@ -4,20 +4,46 @@ import Foundation
 
 extension _OpalBase.Wallet {
     public actor Fulcrum {
-        private let addressReader: OpalBase.Network.AddressReadable
-        private let transactionHandler: OpalBase.Network.TransactionConfirmationClient
-        private let transactionReader: OpalBase.Network.TransactionReadableClient?
+        private let addressReader: OpalBase.Network.AddressReader
+        private let blockHeaderReader: OpalBase.Network.BlockHeaderReader
+        private let transactionClient: OpalBase.Network.TransactionClient
+        private let transactionReader: OpalBase.Network.TransactionReader?
+
         
-        public init(addressReader: OpalBase.Network.AddressReadable,
-                    transactionHandler: OpalBase.Network.TransactionConfirmationClient,
-                    transactionReader: OpalBase.Network.TransactionReadableClient? = nil) {
+        public init(
+            client: OpalBase.Network.Fulcrum.Client,
+            timeouts: OpalBase.Network.FulcrumRequestTimeout = .init(),
+            transactionCache: OpalBase.Transaction.Cache = .init()
+        ) {
+            self.addressReader = .init(.init(client: client, timeouts: timeouts))
+            self.blockHeaderReader = .init(.init(client: client, timeouts: timeouts))
+            self.transactionClient = .init(.init(client: client, timeouts: timeouts))
+            self.transactionReader = .init(
+                .init(client: client, timeouts: timeouts, cache: transactionCache)
+            )
+        }
+
+        public init(addressReader: OpalBase.Network.AddressReader,
+                    blockHeaderReader: OpalBase.Network.BlockHeaderReader,
+                    transactionClient: OpalBase.Network.TransactionClient,
+                    transactionReader: OpalBase.Network.TransactionReader? = nil) {
             self.addressReader = addressReader
-            self.transactionHandler = transactionHandler
+            self.blockHeaderReader = blockHeaderReader
+            self.transactionClient = transactionClient
             self.transactionReader = transactionReader
+        }
+
+        init(addressReader: any OpalBase.Network.AddressReadable,
+             transactionHandler: any OpalBase.Network.TransactionConfirmationClient,
+             transactionReader: (any OpalBase.Network.TransactionReadableClient)? = nil) {
+            self.addressReader = .init(addressReader)
+            self.blockHeaderReader = Self.makePlaceholderBlockHeaderReader()
+            self.transactionClient = .init(confirmations: transactionHandler)
+            self.transactionReader = transactionReader.map(OpalBase.Network.TransactionReader.init(_:))
         }
         
         public func refreshBalances(for account: OpalBase.Account,
-                                    usage: OpalBase.DerivationPath.Usage? = nil,
+                                    usage: OpalBase.Key.DerivationPath.Usage? = nil,
                                     includeUnconfirmedHistory: Bool = true) async throws -> OpalBase.Account.BalanceRefresh {
             _ = try await account.scanForUsedAddresses(using: addressReader,
                                                        usage: usage,
@@ -30,7 +56,7 @@ extension _OpalBase.Wallet {
         
         public func refreshBalances(forAccountAt unhardenedIndex: UInt32,
                                     in wallet: OpalBase.Wallet,
-                                    usage: OpalBase.DerivationPath.Usage? = nil,
+                                    usage: OpalBase.Key.DerivationPath.Usage? = nil,
                                     includeUnconfirmedHistory: Bool = true) async throws -> OpalBase.Account.BalanceRefresh {
             let account = try await wallet.fetchAccount(at: unhardenedIndex)
             return try await refreshBalances(for: account,
@@ -39,7 +65,7 @@ extension _OpalBase.Wallet {
         }
         
         public func refreshTransactionHistory(for account: OpalBase.Account,
-                                              usage: OpalBase.DerivationPath.Usage? = nil,
+                                              usage: OpalBase.Key.DerivationPath.Usage? = nil,
                                               includeUnconfirmed: Bool = true) async throws -> OpalBase.Transaction.History.ChangeSet {
             try await account.refreshTransactionHistory(using: addressReader,
                                                         usage: usage,
@@ -49,7 +75,7 @@ extension _OpalBase.Wallet {
         
         public func refreshTransactionHistory(forAccountAt unhardenedIndex: UInt32,
                                               in wallet: OpalBase.Wallet,
-                                              usage: OpalBase.DerivationPath.Usage? = nil,
+                                              usage: OpalBase.Key.DerivationPath.Usage? = nil,
                                               includeUnconfirmed: Bool = true) async throws -> OpalBase.Transaction.History.ChangeSet {
             let account = try await wallet.fetchAccount(at: unhardenedIndex)
             return try await refreshTransactionHistory(for: account,
@@ -59,7 +85,7 @@ extension _OpalBase.Wallet {
         
         public func updateTransactionConfirmations(for account: OpalBase.Account,
                                                    transactionHashes: [OpalBase.Transaction.Hash]) async throws -> OpalBase.Transaction.History.ChangeSet {
-            try await account.updateTransactionConfirmations(using: transactionHandler,
+            try await account.updateTransactionConfirmations(using: transactionClient,
                                                              for: transactionHashes)
         }
         
@@ -72,7 +98,7 @@ extension _OpalBase.Wallet {
         }
         
         public func refreshTransactionConfirmations(for account: OpalBase.Account) async throws -> OpalBase.Transaction.History.ChangeSet {
-            try await account.refreshTransactionConfirmations(using: transactionHandler)
+            try await account.refreshTransactionConfirmations(using: transactionClient)
         }
         
         public func refreshTransactionConfirmations(forAccountAt unhardenedIndex: UInt32,
@@ -82,13 +108,12 @@ extension _OpalBase.Wallet {
         }
         
         public func makeMonitor(for account: OpalBase.Account,
-                                blockHeaderReader: OpalBase.Network.BlockHeaderReadable,
                                 includeUnconfirmed: Bool = true,
                                 retryDelay: Duration = .seconds(2)) -> Monitor {
             Monitor(account: account,
                     addressReader: addressReader,
                     blockHeaderReader: blockHeaderReader,
-                    transactionHandler: transactionHandler,
+                    transactionClient: transactionClient,
                     transactionReader: transactionReader,
                     includeUnconfirmed: includeUnconfirmed,
                     retryDelay: retryDelay)
@@ -96,22 +121,18 @@ extension _OpalBase.Wallet {
         
         public func makeMonitor(forAccountAt unhardenedIndex: UInt32,
                                 in wallet: OpalBase.Wallet,
-                                blockHeaderReader: OpalBase.Network.BlockHeaderReadable,
                                 includeUnconfirmed: Bool = true,
                                 retryDelay: Duration = .seconds(2)) async throws -> Monitor {
             let account = try await wallet.fetchAccount(at: unhardenedIndex)
             return makeMonitor(for: account,
-                               blockHeaderReader: blockHeaderReader,
                                includeUnconfirmed: includeUnconfirmed,
                                retryDelay: retryDelay)
         }
         
         public func makeEventStream(for account: OpalBase.Account,
-                                    blockHeaderReader: OpalBase.Network.BlockHeaderReadable,
                                     includeUnconfirmed: Bool = true,
                                     retryDelay: Duration = .seconds(2)) async -> AsyncThrowingStream<Monitor.Event, Swift.Error> {
             let monitor = makeMonitor(for: account,
-                                      blockHeaderReader: blockHeaderReader,
                                       includeUnconfirmed: includeUnconfirmed,
                                       retryDelay: retryDelay)
             return await monitor.makeEventStream()
@@ -119,9 +140,55 @@ extension _OpalBase.Wallet {
         
         public func makeEventStream(forAccountAt unhardenedIndex: UInt32,
                                     in wallet: OpalBase.Wallet,
-                                    blockHeaderReader: OpalBase.Network.BlockHeaderReadable,
                                     includeUnconfirmed: Bool = true,
                                     retryDelay: Duration = .seconds(2)) async throws -> AsyncThrowingStream<Monitor.Event, Swift.Error> {
+            let account = try await wallet.fetchAccount(at: unhardenedIndex)
+            return await makeEventStream(for: account,
+                                         includeUnconfirmed: includeUnconfirmed,
+                                         retryDelay: retryDelay)
+        }
+
+        func makeMonitor(for account: OpalBase.Account,
+                         blockHeaderReader: any OpalBase.Network.BlockHeaderReadable,
+                         includeUnconfirmed: Bool = true,
+                         retryDelay: Duration = .seconds(2)) -> Monitor {
+            Monitor(account: account,
+                    addressReader: addressReader,
+                    blockHeaderReader: .init(blockHeaderReader),
+                    transactionClient: transactionClient,
+                    transactionReader: transactionReader,
+                    includeUnconfirmed: includeUnconfirmed,
+                    retryDelay: retryDelay)
+        }
+
+        func makeMonitor(forAccountAt unhardenedIndex: UInt32,
+                         in wallet: OpalBase.Wallet,
+                         blockHeaderReader: any OpalBase.Network.BlockHeaderReadable,
+                         includeUnconfirmed: Bool = true,
+                         retryDelay: Duration = .seconds(2)) async throws -> Monitor {
+            let account = try await wallet.fetchAccount(at: unhardenedIndex)
+            return makeMonitor(for: account,
+                               blockHeaderReader: blockHeaderReader,
+                               includeUnconfirmed: includeUnconfirmed,
+                               retryDelay: retryDelay)
+        }
+
+        func makeEventStream(for account: OpalBase.Account,
+                             blockHeaderReader: any OpalBase.Network.BlockHeaderReadable,
+                             includeUnconfirmed: Bool = true,
+                             retryDelay: Duration = .seconds(2)) async -> AsyncThrowingStream<Monitor.Event, Swift.Error> {
+            let monitor = makeMonitor(for: account,
+                                      blockHeaderReader: blockHeaderReader,
+                                      includeUnconfirmed: includeUnconfirmed,
+                                      retryDelay: retryDelay)
+            return await monitor.makeEventStream()
+        }
+
+        func makeEventStream(forAccountAt unhardenedIndex: UInt32,
+                             in wallet: OpalBase.Wallet,
+                             blockHeaderReader: any OpalBase.Network.BlockHeaderReadable,
+                             includeUnconfirmed: Bool = true,
+                             retryDelay: Duration = .seconds(2)) async throws -> AsyncThrowingStream<Monitor.Event, Swift.Error> {
             let account = try await wallet.fetchAccount(at: unhardenedIndex)
             return await makeEventStream(for: account,
                                          blockHeaderReader: blockHeaderReader,
@@ -132,6 +199,17 @@ extension _OpalBase.Wallet {
 }
 
 private extension _OpalBase.Wallet.Fulcrum {
+    static func makePlaceholderBlockHeaderReader() -> OpalBase.Network.BlockHeaderReader {
+        OpalBase.Network.BlockHeaderReader(
+            fetchTip: { .init(height: 0, headerHexadecimal: "") },
+            subscribeToTip: {
+                AsyncThrowingStream { continuation in
+                    continuation.finish()
+                }
+            }
+        )
+    }
+
     static func makeBalance(from balance: OpalBase.Network.AddressBalance) throws -> OpalBase.Satoshi {
         guard let confirmed = Int64(exactly: balance.confirmed) else {
             throw OpalBase.Satoshi.Error.exceedsMaximumAmount
