@@ -5,21 +5,15 @@ import OpalCrypto
 
 extension _OpalBase.Wallet {
     public struct Snapshot: Codable {
-        public let words: [String]
-        public let passphrase: String
         public let purpose: OpalBase.Key.DerivationPath.Purpose
         public let coinType: OpalBase.Key.DerivationPath.CoinType
         public let accounts: [OpalBase.Account.Snapshot]
         public let tokenMetadata: OpalBase.CashTokens.MetadataRepository.Snapshot?
         
-        public init(words: [String],
-                    passphrase: String,
-                    purpose: OpalBase.Key.DerivationPath.Purpose,
+        public init(purpose: OpalBase.Key.DerivationPath.Purpose,
                     coinType: OpalBase.Key.DerivationPath.CoinType,
                     accounts: [OpalBase.Account.Snapshot],
                     tokenMetadata: OpalBase.CashTokens.MetadataRepository.Snapshot? = nil) {
-            self.words = words
-            self.passphrase = passphrase
             self.purpose = purpose
             self.coinType = coinType
             self.accounts = accounts
@@ -38,18 +32,14 @@ extension _OpalBase.Wallet {
             accountSnaps.append(snap)
         }
         let tokenMetadata = await tokenMetadataStore.snapshot()
-        return Snapshot(words: mnemonic.words.map(\.text),
-                        passphrase: passphrase,
-                        purpose: purpose,
+        return Snapshot(purpose: purpose,
                         coinType: coinType,
                         accounts: accountSnaps,
                         tokenMetadata: tokenMetadata)
     }
     
     public func applySnapshot(_ snapshot: Snapshot) async throws {
-        guard snapshot.words == mnemonic.words.map(\.text),
-              snapshot.passphrase == passphrase,
-              snapshot.purpose == purpose,
+        guard snapshot.purpose == purpose,
               snapshot.coinType == coinType else {
             throw Error.snapshotDoesNotMatchWallet
         }
@@ -60,12 +50,20 @@ extension _OpalBase.Wallet {
                   accountSnap.coinType == coinType else {
                 throw Error.snapshotDoesNotMatchWallet
             }
-            let account = try await OpalBase.Account(from: accountSnap,
-                                            rootExtendedPrivateKey: rootExtendedPrivateKey,
-                                            purpose: purpose,
-                                            coinType: coinType)
-            let index = await account.unhardenedIndex
-            updatedAccounts[index] = account
+            let index = accountSnap.accountUnhardenedIndex
+
+            if let account = accounts[index] {
+                try await account.refresh(with: accountSnap)
+                updatedAccounts[index] = account
+            } else {
+                let account = try await OpalBase.Account(
+                    from: accountSnap,
+                    rootExtendedPrivateKey: rootExtendedPrivateKey,
+                    purpose: purpose,
+                    coinType: coinType
+                )
+                updatedAccounts[index] = account
+            }
         }
         self.accounts = updatedAccounts
         

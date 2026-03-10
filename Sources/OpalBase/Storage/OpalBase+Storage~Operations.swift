@@ -5,43 +5,157 @@ import Foundation
 extension _OpalBase.Storage {
     @MainActor
     public func saveWalletSnapshot(_ snapshot: OpalBase.Wallet.Snapshot) async throws {
-        let encodedSnapshot = try encodeSnapshot(snapshot)
-        try await storeValue(encodedSnapshot, for: .walletSnapshot)
+        try await saveWalletSnapshot(snapshot, key: .walletSnapshot)
     }
-    
+
     @MainActor
     public func loadWalletSnapshot() async throws -> OpalBase.Wallet.Snapshot? {
-        guard let data = try await loadValue(for: .walletSnapshot) else { return nil }
-        return try decodeSnapshot(OpalBase.Wallet.Snapshot.self, from: data)
+        try await loadWalletSnapshot(key: .walletSnapshot)
     }
-    
+
     @MainActor
     public func saveAccountSnapshot(_ snapshot: OpalBase.Account.Snapshot,
                                     accountIdentifier: Data) async throws {
         let encodedSnapshot = try encodeSnapshot(snapshot)
         try await storeValue(encodedSnapshot, for: .accountSnapshot(accountIdentifier))
     }
-    
+
     @MainActor
     public func loadAccountSnapshot(accountIdentifier: Data) async throws -> OpalBase.Account.Snapshot? {
         guard let data = try await loadValue(for: .accountSnapshot(accountIdentifier)) else { return nil }
         return try decodeSnapshot(OpalBase.Account.Snapshot.self, from: data)
     }
-    
+
     @MainActor
     public func saveAddressBookSnapshot(_ snapshot: OpalBase.Address.Book.Snapshot,
                                         accountIdentifier: Data) async throws {
         let encodedSnapshot = try encodeSnapshot(snapshot)
         try await storeValue(encodedSnapshot, for: .addressBookSnapshot(accountIdentifier))
     }
-    
+
     @MainActor
     public func loadAddressBookSnapshot(accountIdentifier: Data) async throws -> OpalBase.Address.Book.Snapshot? {
         guard let data = try await loadValue(for: .addressBookSnapshot(accountIdentifier)) else { return nil }
         return try decodeSnapshot(OpalBase.Address.Book.Snapshot.self, from: data)
     }
-    
+
     public func saveMnemonic(_ mnemonic: OpalBase.Storage.StoredMnemonic, fallbackToPlaintext: Bool = false) async throws -> Security.ProtectionMode {
+        try await saveMnemonic(
+            mnemonic,
+            key: .mnemonicCiphertext,
+            fallbackToPlaintext: fallbackToPlaintext
+        )
+    }
+
+    public func loadMnemonicState() async throws -> (mnemonic: OpalBase.Storage.StoredMnemonic, protectionMode: Security.ProtectionMode)? {
+        try await loadMnemonicState(key: .mnemonicCiphertext)
+    }
+
+    public func deleteMnemonic() async throws {
+        try await removeValue(for: .mnemonicCiphertext)
+    }
+
+    public func loadMnemonic() async throws -> OpalBase.Storage.StoredMnemonic? {
+        guard let state = try await loadMnemonicState() else { return nil }
+        return state.mnemonic
+    }
+
+    public func persistState(for wallet: OpalBase.Wallet) async throws -> Security.ProtectionMode {
+        let session = PersistenceSession(storage: self)
+        return try await session.save(wallet: wallet, fallbackToPlaintext: true)
+    }
+
+    public func delete(key: String) async throws {
+        try await removeValue(for: .custom(key))
+    }
+
+    public func wipeAll() async throws {
+        try await removeAllEntries()
+    }
+}
+
+extension _OpalBase.Storage {
+    @MainActor
+    func saveWalletSnapshot(_ snapshot: OpalBase.Wallet.Snapshot, generation: String) async throws {
+        try await saveWalletSnapshot(snapshot, key: .walletSnapshotGeneration(generation))
+    }
+
+    @MainActor
+    func loadWalletSnapshot(generation: String) async throws -> OpalBase.Wallet.Snapshot? {
+        try await loadWalletSnapshot(key: .walletSnapshotGeneration(generation))
+    }
+
+    func deleteWalletSnapshot(generation: String) async throws {
+        try await removeValue(for: .walletSnapshotGeneration(generation))
+    }
+
+    func saveCommittedWalletSnapshotGeneration(_ generation: String) async throws {
+        try await storeValue(Data(generation.utf8), for: .walletSnapshotCommittedGeneration)
+    }
+
+    func loadCommittedWalletSnapshotGeneration() async throws -> String? {
+        guard let data = try await loadValue(for: .walletSnapshotCommittedGeneration) else {
+            return nil
+        }
+
+        guard let generation = String(data: data, encoding: .utf8) else {
+            throw Error.decodingFailure(
+                NSError(
+                    domain: NSCocoaErrorDomain,
+                    code: CocoaError.Code.coderInvalidValue.rawValue,
+                    userInfo: [NSDebugDescriptionErrorKey: "Committed wallet snapshot generation is not valid UTF-8."]
+                )
+            )
+        }
+
+        return generation
+    }
+
+    func deleteCommittedWalletSnapshotGeneration() async throws {
+        try await removeValue(for: .walletSnapshotCommittedGeneration)
+    }
+
+    func saveMnemonic(
+        _ mnemonic: OpalBase.Storage.StoredMnemonic,
+        generation: String,
+        fallbackToPlaintext: Bool = false
+    ) async throws -> Security.ProtectionMode {
+        try await saveMnemonic(
+            mnemonic,
+            key: .mnemonicCiphertextGeneration(generation),
+            fallbackToPlaintext: fallbackToPlaintext
+        )
+    }
+
+    func loadMnemonicState(
+        generation: String
+    ) async throws -> (mnemonic: OpalBase.Storage.StoredMnemonic, protectionMode: Security.ProtectionMode)? {
+        try await loadMnemonicState(key: .mnemonicCiphertextGeneration(generation))
+    }
+
+    func deleteMnemonic(generation: String) async throws {
+        try await removeValue(for: .mnemonicCiphertextGeneration(generation))
+    }
+}
+
+private extension _OpalBase.Storage {
+    @MainActor
+    func saveWalletSnapshot(_ snapshot: OpalBase.Wallet.Snapshot, key: OpalBase.Storage.Key) async throws {
+        let encodedSnapshot = try encodeSnapshot(snapshot)
+        try await storeValue(encodedSnapshot, for: key)
+    }
+
+    @MainActor
+    func loadWalletSnapshot(key: OpalBase.Storage.Key) async throws -> OpalBase.Wallet.Snapshot? {
+        guard let data = try await loadValue(for: key) else { return nil }
+        return try decodeSnapshot(OpalBase.Wallet.Snapshot.self, from: data)
+    }
+
+    func saveMnemonic(
+        _ mnemonic: OpalBase.Storage.StoredMnemonic,
+        key: OpalBase.Storage.Key,
+        fallbackToPlaintext: Bool = false
+    ) async throws -> Security.ProtectionMode {
         let payload = OpalBase.Storage.StoredMnemonic.Payload(words: mnemonic.words, passphrase: mnemonic.passphrase)
         let plaintext: Data
         do {
@@ -73,12 +187,14 @@ extension _OpalBase.Storage {
             throw Error.encodingFailure(error)
         }
         
-        try await storeValue(encodedCiphertext, for: .mnemonicCiphertext)
+        try await storeValue(encodedCiphertext, for: key)
         return storedCiphertext.mode
     }
     
-    public func loadMnemonicState() async throws -> (mnemonic: OpalBase.Storage.StoredMnemonic, protectionMode: Security.ProtectionMode)? {
-        guard let storedCiphertext = try await loadValue(for: .mnemonicCiphertext) else { return nil }
+    func loadMnemonicState(
+        key: OpalBase.Storage.Key
+    ) async throws -> (mnemonic: OpalBase.Storage.StoredMnemonic, protectionMode: Security.ProtectionMode)? {
+        guard let storedCiphertext = try await loadValue(for: key) else { return nil }
         
         let ciphertext: OpalBase.Storage.Security.Ciphertext
         do {
@@ -107,24 +223,6 @@ extension _OpalBase.Storage {
         }
         let mnemonic = OpalBase.Storage.StoredMnemonic(words: payload.words, passphrase: payload.passphrase)
         return (mnemonic: mnemonic, protectionMode: ciphertext.mode)
-    }
-    
-    public func loadMnemonic() async throws -> OpalBase.Storage.StoredMnemonic? {
-        guard let state = try await loadMnemonicState() else { return nil }
-        return state.mnemonic
-    }
-    
-    public func persistState(for wallet: OpalBase.Wallet) async throws -> Security.ProtectionMode {
-        let session = PersistenceSession(storage: self)
-        return try await session.save(wallet: wallet, fallbackToPlaintext: true)
-    }
-    
-    public func delete(key: String) async throws {
-        try await removeValue(for: .custom(key))
-    }
-    
-    public func wipeAll() async throws {
-        try await removeAllEntries()
     }
 }
 

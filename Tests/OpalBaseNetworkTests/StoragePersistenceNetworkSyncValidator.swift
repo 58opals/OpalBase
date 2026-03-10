@@ -55,7 +55,6 @@ struct StoragePersistenceNetworkSyncValidator {
                     let wallet = try OpalBase.Wallet(mnemonic: mnemonic)
                     try await wallet.addAccount(unhardenedIndex: 0)
                     let account = try await wallet.fetchAccount(at: 0)
-                    let accountIdentifier = await account.id
 
                     let receivingAddress = try await account.reserveNextReceivingAddress()
 
@@ -106,27 +105,17 @@ struct StoragePersistenceNetworkSyncValidator {
 
                     let restoredStorage = try OpalBase.Storage(valueClient: valueClient)
                     let session = OpalBase.Storage.PersistenceSession(storage: restoredStorage)
-                    let restored = try await session.restore(accountIdentifiers: [accountIdentifier])
+                    let restored = try await session.restore()
 
                     guard let restoredWalletSnapshot = restored.walletSnapshot else {
                         Issue.record("Expected wallet snapshot after restore, but it was nil.")
                         return
                     }
-                    #expect(restoredWalletSnapshot.words == snapshotBeforePersist.words)
-                    #expect(restoredWalletSnapshot.passphrase == snapshotBeforePersist.passphrase)
+                    #expect(restoredWalletSnapshot.purpose == snapshotBeforePersist.purpose)
+                    #expect(restoredWalletSnapshot.coinType == snapshotBeforePersist.coinType)
                     #expect(restoredWalletSnapshot.accounts.count == snapshotBeforePersist.accounts.count)
 
-                    guard let restoredAccountSnapshot = restored.accountSnapshots[accountIdentifier] else {
-                        Issue.record("Expected restored account snapshot, but it was missing for the provided identifier.")
-                        return
-                    }
-                    #expect(restoredAccountSnapshot.accountUnhardenedIndex == snapshotBeforePersist.accounts[0].accountUnhardenedIndex)
-
-                    guard let restoredAddressBookSnapshot = restored.addressBookSnapshots[accountIdentifier] else {
-                        Issue.record("Expected restored address book snapshot, but it was missing for the provided identifier.")
-                        return
-                    }
-
+                    let restoredAddressBookSnapshot = restoredWalletSnapshot.accounts[0].addressBook
                     let restoredReceivingEntry = restoredAddressBookSnapshot.receivingEntries.first { $0.index == 0 }
                     #expect(restoredReceivingEntry != nil)
                     #expect(restoredReceivingEntry?.isReserved == true)
@@ -141,9 +130,20 @@ struct StoragePersistenceNetworkSyncValidator {
                     #expect(serverTransactionHashes.isSubset(of: restoredTransactionHashes) || restoredTransactionHashes.isSubset(of: serverTransactionHashes))
 
                     if let restoredMnemonic = restored.mnemonic {
-                        #expect(restoredMnemonic.words == snapshotBeforePersist.words)
-                        #expect(restoredMnemonic.passphrase == snapshotBeforePersist.passphrase)
+                        #expect(restoredMnemonic.words == mnemonic.words.map(\.description))
+                        #expect(restoredMnemonic.passphrase == "")
                         #expect(restored.mnemonicProtectionMode == mode)
+
+                        let rebuiltWallet = try await OpalBase.Wallet(
+                            mnemonic: try OpalBase.Key.Mnemonic(
+                                words: restoredMnemonic.words.map(OpalBase.Key.Mnemonic.Word.init)
+                            ),
+                            passphrase: restoredMnemonic.passphrase,
+                            from: restoredWalletSnapshot
+                        )
+                        let rebuiltAccount = try await rebuiltWallet.fetchAccount(at: 0)
+                        let rebuiltEntry = try await rebuiltAccount.selectNextEntry(for: .receiving)
+                        #expect(rebuiltEntry.derivationPath.index == 1)
                     } else {
                         #expect(restored.mnemonicProtectionMode == nil)
                     }

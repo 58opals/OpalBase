@@ -46,35 +46,18 @@ extension OpalBase {
                           coinType: coinType)
         }
         
-        public init(from snapshot: OpalBase.Wallet.Snapshot) async throws {
-            self.mnemonic = try OpalBase.Key.Mnemonic(
-                words: snapshot.words.map(OpalBase.Key.Mnemonic.Word.init)
+        public init(
+            mnemonic: OpalBase.Key.Mnemonic,
+            passphrase: String = "",
+            from snapshot: OpalBase.Wallet.Snapshot
+        ) async throws {
+            try self.init(
+                mnemonic: mnemonic,
+                passphrase: passphrase,
+                purpose: snapshot.purpose,
+                coinType: snapshot.coinType
             )
-            self.passphrase = snapshot.passphrase
-            self.tokenMetadataStore = OpalBase.CashTokens.MetadataRepository()
-            self.rootExtendedPrivateKey = try OpalCrypto.Key.ExtendedPrivateKey.root(
-                seed: mnemonic.deriveSeed(passphrase: snapshot.passphrase)
-            )
-            self.purpose = snapshot.purpose
-            self.coinType = snapshot.coinType
-            self.id = [
-                OpalCryptoAdapter.serializedExtendedKeyData(self.rootExtendedPrivateKey.serialize()),
-                self.purpose.hardenedIndex.data,
-                self.coinType.hardenedIndex.data,
-            ].generateID()
-            
-            for accountSnap in snapshot.accounts {
-                let account = try await OpalBase.Account(from: accountSnap,
-                                                         rootExtendedPrivateKey: rootExtendedPrivateKey,
-                                                         purpose: snapshot.purpose,
-                                                         coinType: snapshot.coinType)
-                let index = await account.unhardenedIndex
-                self.accounts[index] = account
-            }
-            
-            if let tokenMetadata = snapshot.tokenMetadata {
-                await self.tokenMetadataStore.applySnapshot(tokenMetadata)
-            }
+            try await applySnapshot(snapshot)
         }
     }
 }
@@ -87,6 +70,10 @@ extension _OpalBase.Wallet: Equatable {
 
 extension _OpalBase.Wallet {
     public func addAccount(unhardenedIndex: UInt32) async throws {
+        guard accounts[unhardenedIndex] == nil else {
+            throw Error.accountAlreadyExists(index: unhardenedIndex)
+        }
+
         let derivationPathAccount = try OpalBase.Key.DerivationPath.Account(rawIndexInteger: unhardenedIndex)
         
         let account = try await OpalBase.Account(rootExtendedPrivateKey: rootExtendedPrivateKey,

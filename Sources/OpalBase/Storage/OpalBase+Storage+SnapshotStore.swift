@@ -4,70 +4,62 @@ import Foundation
 
 extension _OpalBase.Storage {
     public struct SnapshotStore: Sendable {
-        private let saveWalletSnapshotHandler: @Sendable (OpalBase.Wallet.Snapshot) async throws -> Void
-        private let loadWalletSnapshotHandler: @Sendable () async throws -> OpalBase.Wallet.Snapshot?
-        private let saveAccountSnapshotHandler: @Sendable (OpalBase.Account.Snapshot, Data) async throws -> Void
-        private let loadAccountSnapshotHandler: @Sendable (Data) async throws -> OpalBase.Account.Snapshot?
-        private let saveAddressBookSnapshotHandler: @Sendable (OpalBase.Address.Book.Snapshot, Data) async throws -> Void
-        private let loadAddressBookSnapshotHandler: @Sendable (Data) async throws -> OpalBase.Address.Book.Snapshot?
-        private let wipeAllHandler: @Sendable () async throws -> Void
+        private let saveWalletSnapshotHandler: @Sendable (OpalBase.Wallet.Snapshot, String) async throws -> Void
+        private let loadWalletSnapshotHandler: @Sendable (String) async throws -> OpalBase.Wallet.Snapshot?
+        private let deleteWalletSnapshotHandler: @Sendable (String) async throws -> Void
+        private let saveCommittedGenerationHandler: @Sendable (String) async throws -> Void
+        private let loadCommittedGenerationHandler: @Sendable () async throws -> String?
+        private let deleteCommittedGenerationHandler: @Sendable () async throws -> Void
 
         public init(
-            saveWalletSnapshot: @escaping @Sendable (OpalBase.Wallet.Snapshot) async throws -> Void,
-            loadWalletSnapshot: @escaping @Sendable () async throws -> OpalBase.Wallet.Snapshot?,
-            saveAccountSnapshot: @escaping @Sendable (OpalBase.Account.Snapshot, Data) async throws -> Void,
-            loadAccountSnapshot: @escaping @Sendable (Data) async throws -> OpalBase.Account.Snapshot?,
-            saveAddressBookSnapshot: @escaping @Sendable (OpalBase.Address.Book.Snapshot, Data) async throws -> Void,
-            loadAddressBookSnapshot: @escaping @Sendable (Data) async throws -> OpalBase.Address.Book.Snapshot?,
-            wipeAll: @escaping @Sendable () async throws -> Void
+            saveWalletSnapshot: @escaping @Sendable (OpalBase.Wallet.Snapshot, String) async throws -> Void,
+            loadWalletSnapshot: @escaping @Sendable (String) async throws -> OpalBase.Wallet.Snapshot?,
+            deleteWalletSnapshot: @escaping @Sendable (String) async throws -> Void,
+            saveCommittedGeneration: @escaping @Sendable (String) async throws -> Void,
+            loadCommittedGeneration: @escaping @Sendable () async throws -> String?,
+            deleteCommittedGeneration: @escaping @Sendable () async throws -> Void
         ) {
             self.saveWalletSnapshotHandler = saveWalletSnapshot
             self.loadWalletSnapshotHandler = loadWalletSnapshot
-            self.saveAccountSnapshotHandler = saveAccountSnapshot
-            self.loadAccountSnapshotHandler = loadAccountSnapshot
-            self.saveAddressBookSnapshotHandler = saveAddressBookSnapshot
-            self.loadAddressBookSnapshotHandler = loadAddressBookSnapshot
-            self.wipeAllHandler = wipeAll
+            self.deleteWalletSnapshotHandler = deleteWalletSnapshot
+            self.saveCommittedGenerationHandler = saveCommittedGeneration
+            self.loadCommittedGenerationHandler = loadCommittedGeneration
+            self.deleteCommittedGenerationHandler = deleteCommittedGeneration
         }
 
-        public func saveWalletSnapshot(_ snapshot: OpalBase.Wallet.Snapshot) async throws {
-            try await saveWalletSnapshotHandler(snapshot)
+        public func saveWalletSnapshot(_ snapshot: OpalBase.Wallet.Snapshot, generation: String) async throws {
+            try await saveWalletSnapshotHandler(snapshot, generation)
         }
 
-        public func loadWalletSnapshot() async throws -> OpalBase.Wallet.Snapshot? {
-            try await loadWalletSnapshotHandler()
+        public func loadWalletSnapshot(generation: String) async throws -> OpalBase.Wallet.Snapshot? {
+            try await loadWalletSnapshotHandler(generation)
         }
 
-        public func saveAccountSnapshot(_ snapshot: OpalBase.Account.Snapshot, accountIdentifier: Data) async throws {
-            try await saveAccountSnapshotHandler(snapshot, accountIdentifier)
+        public func deleteWalletSnapshot(generation: String) async throws {
+            try await deleteWalletSnapshotHandler(generation)
         }
 
-        public func loadAccountSnapshot(accountIdentifier: Data) async throws -> OpalBase.Account.Snapshot? {
-            try await loadAccountSnapshotHandler(accountIdentifier)
+        public func saveCommittedGeneration(_ generation: String) async throws {
+            try await saveCommittedGenerationHandler(generation)
         }
 
-        public func saveAddressBookSnapshot(_ snapshot: OpalBase.Address.Book.Snapshot, accountIdentifier: Data) async throws {
-            try await saveAddressBookSnapshotHandler(snapshot, accountIdentifier)
+        public func loadCommittedGeneration() async throws -> String? {
+            try await loadCommittedGenerationHandler()
         }
 
-        public func loadAddressBookSnapshot(accountIdentifier: Data) async throws -> OpalBase.Address.Book.Snapshot? {
-            try await loadAddressBookSnapshotHandler(accountIdentifier)
-        }
-
-        public func wipeAll() async throws {
-            try await wipeAllHandler()
+        public func deleteCommittedGeneration() async throws {
+            try await deleteCommittedGenerationHandler()
         }
     }
 
     public nonisolated func makeSnapshotStore() -> SnapshotStore {
         SnapshotStore(
-            saveWalletSnapshot: saveWalletSnapshot(_:),
-            loadWalletSnapshot: loadWalletSnapshot,
-            saveAccountSnapshot: saveAccountSnapshot(_:accountIdentifier:),
-            loadAccountSnapshot: loadAccountSnapshot(accountIdentifier:),
-            saveAddressBookSnapshot: saveAddressBookSnapshot(_:accountIdentifier:),
-            loadAddressBookSnapshot: loadAddressBookSnapshot(accountIdentifier:),
-            wipeAll: wipeAll
+            saveWalletSnapshot: saveWalletSnapshot(_:generation:),
+            loadWalletSnapshot: loadWalletSnapshot(generation:),
+            deleteWalletSnapshot: deleteWalletSnapshot(generation:),
+            saveCommittedGeneration: saveCommittedWalletSnapshotGeneration(_:),
+            loadCommittedGeneration: loadCommittedWalletSnapshotGeneration,
+            deleteCommittedGeneration: deleteCommittedWalletSnapshotGeneration
         )
     }
 }

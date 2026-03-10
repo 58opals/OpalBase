@@ -69,15 +69,17 @@ struct WalletOrchestrationValidator {
         #expect(cachedTotal == expectedTotal)
     }
 
-    @Test("applySnapshot replaces account state when wallet identity matches")
-    func applySnapshotReplacesAccountState() async throws {
+    @Test("applySnapshot refreshes overlapping account actors in place")
+    func applySnapshotRefreshesExistingAccountState() async throws {
         let sourceWallet = try await AccountTestFixtures.makeWallet(accountIndices: [0, 3])
         let sourceAccount = try await sourceWallet.fetchAccount(at: 0)
         _ = try await sourceAccount.reserveNextReceivingAddress()
         let snapshot = await sourceWallet.makeSnapshot()
 
         let targetWallet = try OpalBase.Wallet(mnemonic: AccountTestFixtures.makeMnemonic())
+        try await targetWallet.addAccount(unhardenedIndex: 0)
         try await targetWallet.addAccount(unhardenedIndex: 7)
+        let existingAccount = try await targetWallet.fetchAccount(at: 0)
 
         try await targetWallet.applySnapshot(snapshot)
 
@@ -86,6 +88,7 @@ struct WalletOrchestrationValidator {
 
         let restoredAccount = try await targetWallet.fetchAccount(at: 0)
         let nextReceiving = try await restoredAccount.selectNextEntry(for: .receiving)
+        #expect(existingAccount === restoredAccount)
         #expect(nextReceiving.derivationPath.index == 1)
 
         await #expect(throws: OpalBase.Wallet.Error.cannotFetchAccount(index: 7)) {
@@ -93,16 +96,14 @@ struct WalletOrchestrationValidator {
         }
     }
 
-    @Test("applySnapshot rejects snapshots from a different wallet identity")
-    func applySnapshotRejectsIdentityMismatch() async throws {
+    @Test("applySnapshot rejects snapshots with a mismatched derivation path")
+    func applySnapshotRejectsDerivationMismatch() async throws {
         let wallet = try await AccountTestFixtures.makeWallet(accountIndices: [0])
         let snapshot = await wallet.makeSnapshot()
 
         let mismatchedSnapshot = OpalBase.Wallet.Snapshot(
-            words: snapshot.words,
-            passphrase: "different-passphrase",
             purpose: snapshot.purpose,
-            coinType: snapshot.coinType,
+            coinType: .bitcoin,
             accounts: snapshot.accounts,
             tokenMetadata: snapshot.tokenMetadata
         )
@@ -130,8 +131,6 @@ struct WalletOrchestrationValidator {
 
         let snapshot = await sourceWallet.makeSnapshot()
         let legacySnapshot = OpalBase.Wallet.Snapshot(
-            words: snapshot.words,
-            passphrase: snapshot.passphrase,
             purpose: snapshot.purpose,
             coinType: snapshot.coinType,
             accounts: snapshot.accounts,
@@ -191,6 +190,37 @@ struct WalletOrchestrationValidator {
 
         let metadataSnapshot = await targetWallet.makeTokenMetadataSnapshot()
         #expect(Set(metadataSnapshot.byCategory.keys) == Set([snapshotCategory.hexForDisplay]))
+    }
+
+    @Test("wallet snapshots exclude mnemonic words and passphrase")
+    func walletSnapshotExcludesSecrets() async throws {
+        let wallet = try await AccountTestFixtures.makeWallet(passphrase: "super-secret")
+        let snapshot = await wallet.makeSnapshot()
+        let encodedSnapshot = try JSONEncoder().encode(snapshot)
+        let encodedSnapshotString = try #require(String(data: encodedSnapshot, encoding: .utf8))
+
+        #expect(encodedSnapshotString.contains("super-secret") == false)
+        for word in AccountTestFixtures.mnemonicWords {
+            #expect(encodedSnapshotString.contains(word) == false)
+        }
+    }
+
+    @Test("wallet restores from mnemonic plus snapshot")
+    func walletRestoresFromMnemonicAndSnapshot() async throws {
+        let sourceWallet = try await AccountTestFixtures.makeWallet(accountIndices: [0], passphrase: "restore-me")
+        let sourceAccount = try await sourceWallet.fetchAccount(at: 0)
+        _ = try await sourceAccount.reserveNextReceivingAddress()
+        let snapshot = await sourceWallet.makeSnapshot()
+
+        let restoredWallet = try await OpalBase.Wallet(
+            mnemonic: try OpalBase.Key.Mnemonic(words: AccountTestFixtures.mnemonicWords.map(OpalBase.Key.Mnemonic.Word.init)),
+            passphrase: "restore-me",
+            from: snapshot
+        )
+        let restoredAccount = try await restoredWallet.fetchAccount(at: 0)
+        let nextReceiving = try await restoredAccount.selectNextEntry(for: .receiving)
+
+        #expect(nextReceiving.derivationPath.index == 1)
     }
 }
 

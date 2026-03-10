@@ -11,11 +11,15 @@ struct StoragePersistenceValidator {
     func verifyStorageUsesCanonicalKeys() {
         let accountIdentifier = Data("account-0".utf8)
         let encodedIdentifier = accountIdentifier.base64EncodedString()
+        let generation = "test-generation"
 
         #expect(OpalBase.Storage.Key.walletSnapshot.rawValue == "wallet.snapshot")
+        #expect(OpalBase.Storage.Key.walletSnapshotGeneration(generation).rawValue == "wallet.snapshot.\(generation)")
+        #expect(OpalBase.Storage.Key.walletSnapshotCommittedGeneration.rawValue == "wallet.snapshot.committed")
         #expect(OpalBase.Storage.Key.accountSnapshot(accountIdentifier).rawValue == "account.snapshot.\(encodedIdentifier)")
         #expect(OpalBase.Storage.Key.addressBookSnapshot(accountIdentifier).rawValue == "address-book.snapshot.\(encodedIdentifier)")
         #expect(OpalBase.Storage.Key.mnemonicCiphertext.rawValue == "mnemonic.enc")
+        #expect(OpalBase.Storage.Key.mnemonicCiphertextGeneration(generation).rawValue == "mnemonic.enc.\(generation)")
     }
 
     @Test("mnemonic persistence does not require retaining a wallet instance")

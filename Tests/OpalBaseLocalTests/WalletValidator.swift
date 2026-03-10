@@ -40,4 +40,15 @@ struct WalletValidator {
             _ = try await wallet.fetchAccount(at: missingIndex)
         }
     }
+
+    @Test("addAccount rejects duplicate unhardened indices")
+    func addAccountRejectsDuplicateIndices() async throws {
+        let wallet = try OpalBase.Wallet(mnemonic: AccountTestFixtures.makeMnemonic())
+
+        try await wallet.addAccount(unhardenedIndex: 0)
+
+        await #expect(throws: OpalBase.Wallet.Error.accountAlreadyExists(index: 0)) {
+            try await wallet.addAccount(unhardenedIndex: 0)
+        }
+    }
 }

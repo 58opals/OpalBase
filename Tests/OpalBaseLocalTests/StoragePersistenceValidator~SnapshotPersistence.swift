@@ -5,15 +5,13 @@ import Testing
 @testable import OpalBase
 
 extension StoragePersistenceValidator {
-    @Test("persistState(for:) + restore(accountIdentifiers:) round-trips wallet snapshots and mnemonic state")
+    @Test("persistState(for:) + restore() round-trips wallet snapshots and mnemonic state")
     func persistAndRestoreWalletArtifacts() async throws {
         let valueClient = OpalBase.Storage.ValueClient.makeInMemory()
         let storage = try OpalBase.Storage(valueClient: valueClient)
 
         let wallet = try await AccountTestFixtures.makeWallet(passphrase: "session-passphrase")
-
         let account = try await wallet.fetchAccount(at: 0)
-        let accountIdentifier = await account.id
 
         _ = try await account.reserveNextReceivingAddress()
         let expectedSnapshot = await wallet.makeSnapshot()
@@ -23,47 +21,32 @@ extension StoragePersistenceValidator {
 
         let restoredStorage = try OpalBase.Storage(valueClient: valueClient)
         let session = OpalBase.Storage.PersistenceSession(storage: restoredStorage)
-        let restored = try await session.restore(accountIdentifiers: [accountIdentifier])
+        let restored = try await session.restore()
 
-        guard let restoredWalletSnapshot = restored.walletSnapshot else {
-            Issue.record("Expected wallet snapshot to be restored, but it was nil.")
-            return
-        }
-        #expect(restoredWalletSnapshot.words == expectedSnapshot.words)
-        #expect(restoredWalletSnapshot.passphrase == expectedSnapshot.passphrase)
+        let restoredWalletSnapshot = try #require(restored.walletSnapshot)
         #expect(restoredWalletSnapshot.purpose == expectedSnapshot.purpose)
         #expect(restoredWalletSnapshot.coinType == expectedSnapshot.coinType)
-        #expect(restoredWalletSnapshot.accounts.count == expectedSnapshot.accounts.count)
-        #expect(restoredWalletSnapshot.accounts.first?.accountUnhardenedIndex == expectedSnapshot.accounts.first?.accountUnhardenedIndex)
+        #expect(restoredWalletSnapshot.accounts == expectedSnapshot.accounts)
+        #expect(
+            restoredWalletSnapshot.tokenMetadata?.byCategory
+                == expectedSnapshot.tokenMetadata?.byCategory
+        )
 
-        guard let restoredAccountSnapshot = restored.accountSnapshots[accountIdentifier] else {
-            Issue.record("Expected account snapshot to be restored, but it was missing for the provided identifier.")
-            return
-        }
-        #expect(restoredAccountSnapshot.purpose == expectedSnapshot.accounts[0].purpose)
-        #expect(restoredAccountSnapshot.coinType == expectedSnapshot.accounts[0].coinType)
-        #expect(restoredAccountSnapshot.accountUnhardenedIndex == expectedSnapshot.accounts[0].accountUnhardenedIndex)
-
-        guard let restoredAddressBookSnapshot = restored.addressBookSnapshots[accountIdentifier] else {
-            Issue.record("Expected address book snapshot to be restored, but it was missing for the provided identifier.")
-            return
-        }
-
-        let expectedAddressBookSnapshot = expectedSnapshot.accounts[0].addressBook
-        #expect(restoredAddressBookSnapshot.receivingEntries.count == expectedAddressBookSnapshot.receivingEntries.count)
-        #expect(restoredAddressBookSnapshot.changeEntries.count == expectedAddressBookSnapshot.changeEntries.count)
-
-        let expectedReservedReceivingCount = expectedAddressBookSnapshot.receivingEntries.filter { $0.isReserved }.count
-        #expect(expectedReservedReceivingCount == 1)
-        #expect(restoredAddressBookSnapshot.receivingEntries.filter { $0.isReserved }.count == expectedReservedReceivingCount)
-
-        guard let restoredMnemonic = restored.mnemonic else {
-            Issue.record("Expected mnemonic to be restored, but it was nil.")
-            return
-        }
-        #expect(restoredMnemonic.words == expectedSnapshot.words)
-        #expect(restoredMnemonic.passphrase == expectedSnapshot.passphrase)
+        let restoredMnemonic = try #require(restored.mnemonic)
+        #expect(restoredMnemonic.words == AccountTestFixtures.mnemonicWords)
+        #expect(restoredMnemonic.passphrase == "session-passphrase")
         #expect(restored.mnemonicProtectionMode == protectionMode)
+
+        let reconstructedWallet = try await OpalBase.Wallet(
+            mnemonic: try OpalBase.Key.Mnemonic(
+                words: restoredMnemonic.words.map(OpalBase.Key.Mnemonic.Word.init)
+            ),
+            passphrase: restoredMnemonic.passphrase,
+            from: restoredWalletSnapshot
+        )
+        let reconstructedAccount = try await reconstructedWallet.fetchAccount(at: 0)
+        let nextReceiving = try await reconstructedAccount.selectNextEntry(for: .receiving)
+        #expect(nextReceiving.derivationPath.index == 1)
     }
 
     @Test("restore returns an empty state for a fresh install")
@@ -72,40 +55,166 @@ extension StoragePersistenceValidator {
         let storage = try OpalBase.Storage(valueClient: valueClient)
         let session = OpalBase.Storage.PersistenceSession(storage: storage)
 
-        let restored = try await session.restore(accountIdentifiers: .init())
+        let restored = try await session.restore()
 
         #expect(restored.walletSnapshot == nil)
-        #expect(restored.accountSnapshots.isEmpty)
-        #expect(restored.addressBookSnapshots.isEmpty)
         #expect(restored.mnemonic == nil)
         #expect(restored.mnemonicProtectionMode == nil)
     }
 
-    @Test("save(snapshot:accountIdentifiers:) rejects missing account identifiers")
-    func rejectMissingAccountIdentifiersWhenSavingSnapshot() async throws {
-        let valueClient = OpalBase.Storage.ValueClient.makeInMemory()
-        let storage = try OpalBase.Storage(valueClient: valueClient)
-        let session = OpalBase.Storage.PersistenceSession(storage: storage)
+    @Test("failed staged saves leave the previous committed generation active")
+    func failedStagedSaveKeepsPreviouslyCommittedState() async throws {
+        let snapshotState = GenerationSnapshotStoreState()
+        let mnemonicState = GenerationMnemonicStoreState()
+        let session = OpalBase.Storage.PersistenceSession(
+            snapshotStore: makeGenerationSnapshotStore(state: snapshotState),
+            storedMnemonicStore: makeGenerationMnemonicStore(state: mnemonicState)
+        )
 
-        let wallet = try await AccountTestFixtures.makeWallet()
+        let initialWallet = try await AccountTestFixtures.makeWallet(passphrase: "first-passphrase")
+        let initialAccount = try await initialWallet.fetchAccount(at: 0)
+        _ = try await initialAccount.reserveNextReceivingAddress()
 
-        let snapshot = await wallet.makeSnapshot()
-        guard let missingIndex = snapshot.accounts.first?.accountUnhardenedIndex else {
-            Issue.record("Snapshot unexpectedly contained no accounts.")
-            return
-        }
+        let initialProtectionMode = try await session.save(wallet: initialWallet)
+        #expect(initialProtectionMode == .plaintext)
+
+        let replacementWallet = try await AccountTestFixtures.makeWallet(
+            accountIndices: [0, 1],
+            passphrase: "second-passphrase"
+        )
+        await mnemonicState.failNextSave()
 
         do {
-            _ = try await session.save(
-                snapshot: snapshot,
-                accountIdentifiers: .init(),
-                fallbackToPlaintext: true
-            )
-            Issue.record("Expected OpalBase.Storage.Error.missingAccountIdentifier(\(missingIndex)) but save completed.")
-        } catch OpalBase.Storage.Error.missingAccountIdentifier(let index) {
-            #expect(index == missingIndex)
+            _ = try await session.save(wallet: replacementWallet)
+            Issue.record("Expected save(wallet:) to fail after staging the replacement snapshot.")
+        } catch GenerationStoreError.simulatedFailure {
         } catch {
             Issue.record("Unexpected error: \(error)")
         }
+
+        let restored = try await session.restore()
+        let restoredWalletSnapshot = try #require(restored.walletSnapshot)
+        let restoredMnemonic = try #require(restored.mnemonic)
+
+        #expect(restoredWalletSnapshot.accounts.count == 1)
+        #expect(restoredWalletSnapshot.accounts.first?.accountUnhardenedIndex == 0)
+        #expect(restoredMnemonic.passphrase == "first-passphrase")
+        #expect(restored.mnemonicProtectionMode == .plaintext)
     }
+}
+
+private enum GenerationStoreError: Error {
+    case simulatedFailure
+}
+
+private actor GenerationSnapshotStoreState {
+    private var walletSnapshots: [String: OpalBase.Wallet.Snapshot] = .init()
+    private var committedGeneration: String?
+
+    func saveWalletSnapshot(_ snapshot: OpalBase.Wallet.Snapshot, generation: String) {
+        walletSnapshots[generation] = snapshot
+    }
+
+    func loadWalletSnapshot(generation: String) -> OpalBase.Wallet.Snapshot? {
+        walletSnapshots[generation]
+    }
+
+    func deleteWalletSnapshot(generation: String) {
+        walletSnapshots.removeValue(forKey: generation)
+    }
+
+    func saveCommittedGeneration(_ generation: String) {
+        committedGeneration = generation
+    }
+
+    func loadCommittedGeneration() -> String? {
+        committedGeneration
+    }
+
+    func deleteCommittedGeneration() {
+        committedGeneration = nil
+    }
+}
+
+private actor GenerationMnemonicStoreState {
+    private var mnemonicStates: [String: (
+        mnemonic: OpalBase.Storage.StoredMnemonic,
+        protectionMode: OpalBase.Storage.Security.ProtectionMode
+    )] = .init()
+    private var shouldFailNextSave = false
+
+    func saveMnemonic(
+        _ mnemonic: OpalBase.Storage.StoredMnemonic,
+        generation: String,
+        fallbackToPlaintext: Bool
+    ) throws -> OpalBase.Storage.Security.ProtectionMode {
+        if shouldFailNextSave {
+            shouldFailNextSave = false
+            throw GenerationStoreError.simulatedFailure
+        }
+
+        let mode: OpalBase.Storage.Security.ProtectionMode = fallbackToPlaintext ? .plaintext : .software
+        mnemonicStates[generation] = (mnemonic, mode)
+        return mode
+    }
+
+    func loadMnemonicState(generation: String) -> (
+        mnemonic: OpalBase.Storage.StoredMnemonic,
+        protectionMode: OpalBase.Storage.Security.ProtectionMode
+    )? {
+        mnemonicStates[generation]
+    }
+
+    func deleteMnemonic(generation: String) {
+        mnemonicStates.removeValue(forKey: generation)
+    }
+
+    func failNextSave() {
+        shouldFailNextSave = true
+    }
+}
+
+private func makeGenerationSnapshotStore(
+    state: GenerationSnapshotStoreState
+) -> OpalBase.Storage.SnapshotStore {
+    OpalBase.Storage.SnapshotStore(
+        saveWalletSnapshot: { snapshot, generation in
+            await state.saveWalletSnapshot(snapshot, generation: generation)
+        },
+        loadWalletSnapshot: { generation in
+            await state.loadWalletSnapshot(generation: generation)
+        },
+        deleteWalletSnapshot: { generation in
+            await state.deleteWalletSnapshot(generation: generation)
+        },
+        saveCommittedGeneration: { generation in
+            await state.saveCommittedGeneration(generation)
+        },
+        loadCommittedGeneration: {
+            await state.loadCommittedGeneration()
+        },
+        deleteCommittedGeneration: {
+            await state.deleteCommittedGeneration()
+        }
+    )
+}
+
+private func makeGenerationMnemonicStore(
+    state: GenerationMnemonicStoreState
+) -> OpalBase.Storage.StoredMnemonicStore {
+    OpalBase.Storage.StoredMnemonicStore(
+        saveMnemonic: { mnemonic, generation, fallbackToPlaintext in
+            try await state.saveMnemonic(
+                mnemonic,
+                generation: generation,
+                fallbackToPlaintext: fallbackToPlaintext
+            )
+        },
+        loadMnemonicState: { generation in
+            await state.loadMnemonicState(generation: generation)
+        },
+        deleteMnemonic: { generation in
+            await state.deleteMnemonic(generation: generation)
+        }
+    )
 }

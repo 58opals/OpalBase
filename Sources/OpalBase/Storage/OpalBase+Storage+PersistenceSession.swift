@@ -27,83 +27,91 @@ extension _OpalBase.Storage {
         @discardableResult
         public func save(wallet: OpalBase.Wallet, fallbackToPlaintext: Bool = true) async throws -> OpalBase.Storage.Security.ProtectionMode {
             let snapshot = await wallet.makeSnapshot()
-            var accountIdentifiers: [UInt32: Data] = .init(minimumCapacity: snapshot.accounts.count)
-            for accountSnapshot in snapshot.accounts {
-                let account = try await wallet.fetchAccount(at: accountSnapshot.accountUnhardenedIndex)
-                let identifier = account.id
-                accountIdentifiers[accountSnapshot.accountUnhardenedIndex] = identifier
-            }
-            return try await save(snapshot: snapshot,
-                                  accountIdentifiers: accountIdentifiers,
-                                  fallbackToPlaintext: fallbackToPlaintext)
+            let walletMnemonic = wallet.mnemonic
+            let passphrase = wallet.passphrase
+            let mnemonic = OpalBase.Storage.StoredMnemonic(
+                words: walletMnemonic.words.map(\.text),
+                passphrase: passphrase
+            )
+            return try await save(
+                snapshot: snapshot,
+                mnemonic: mnemonic,
+                fallbackToPlaintext: fallbackToPlaintext
+            )
         }
         
         @discardableResult
-        func save(snapshot: OpalBase.Wallet.Snapshot,
-                  accountIdentifiers: [UInt32: Data],
-                  fallbackToPlaintext: Bool = true) async throws -> OpalBase.Storage.Security.ProtectionMode {
+        func save(
+            snapshot: OpalBase.Wallet.Snapshot,
+            mnemonic: OpalBase.Storage.StoredMnemonic,
+            fallbackToPlaintext: Bool = true
+        ) async throws -> OpalBase.Storage.Security.ProtectionMode {
             await progressHandler(.beganSave)
-            try await snapshotStore.saveWalletSnapshot(snapshot)
-            await progressHandler(.savedWalletSnapshot)
-            
-            for accountSnapshot in snapshot.accounts {
-                guard let identifier = accountIdentifiers[accountSnapshot.accountUnhardenedIndex] else {
-                    throw OpalBase.Storage.Error.missingAccountIdentifier(accountSnapshot.accountUnhardenedIndex)
+            let previousCommittedGeneration = try await snapshotStore.loadCommittedGeneration()
+            let stagedGeneration = UUID().uuidString.lowercased()
+
+            do {
+                try await snapshotStore.saveWalletSnapshot(snapshot, generation: stagedGeneration)
+                await progressHandler(.savedWalletSnapshot(generation: stagedGeneration))
+
+                let protectionMode = try await storedMnemonicStore.saveMnemonic(
+                    mnemonic,
+                    generation: stagedGeneration,
+                    fallbackToPlaintext: fallbackToPlaintext
+                )
+                await progressHandler(.savedMnemonic(mode: protectionMode))
+
+                try await snapshotStore.saveCommittedGeneration(stagedGeneration)
+                await progressHandler(.committedGeneration(generation: stagedGeneration))
+
+                if let previousCommittedGeneration, previousCommittedGeneration != stagedGeneration {
+                    try? await snapshotStore.deleteWalletSnapshot(generation: previousCommittedGeneration)
+                    try? await storedMnemonicStore.deleteMnemonic(generation: previousCommittedGeneration)
                 }
-                try await snapshotStore.saveAccountSnapshot(accountSnapshot, accountIdentifier: identifier)
-                await progressHandler(.savedAccount(identifier: identifier,
-                                                    unhardenedIndex: accountSnapshot.accountUnhardenedIndex))
-                try await snapshotStore.saveAddressBookSnapshot(accountSnapshot.addressBook,
-                                                                accountIdentifier: identifier)
-                await progressHandler(.savedAddressBook(identifier: identifier,
-                                                        unhardenedIndex: accountSnapshot.accountUnhardenedIndex))
+
+                await progressHandler(.finishedSave(mode: protectionMode))
+                return protectionMode
+            } catch {
+                try? await snapshotStore.deleteWalletSnapshot(generation: stagedGeneration)
+                try? await storedMnemonicStore.deleteMnemonic(generation: stagedGeneration)
+                throw error
             }
-            
-            let mnemonic = OpalBase.Storage.StoredMnemonic(words: snapshot.words, passphrase: snapshot.passphrase)
-            let protectionMode = try await storedMnemonicStore.saveMnemonic(mnemonic, fallbackToPlaintext: fallbackToPlaintext)
-            await progressHandler(.savedMnemonic(mode: protectionMode))
-            await progressHandler(.finishedSave(mode: protectionMode))
-            return protectionMode
         }
         
-        public func restore(accountIdentifiers: [Data]) async throws -> RestoredState {
+        public func restore() async throws -> RestoredState {
             await progressHandler(.beganRestore)
-            let walletSnapshot = try await snapshotStore.loadWalletSnapshot()
-            await progressHandler(.loadedWalletSnapshot(found: walletSnapshot != nil))
-            
-            var accountSnapshots: [Data: OpalBase.Account.Snapshot] = .init(minimumCapacity: accountIdentifiers.count)
-            var addressBookSnapshots: [Data: OpalBase.Address.Book.Snapshot] = .init(minimumCapacity: accountIdentifiers.count)
-            
-            for identifier in accountIdentifiers {
-                if let snapshot = try await snapshotStore.loadAccountSnapshot(accountIdentifier: identifier) {
-                    accountSnapshots[identifier] = snapshot
-                    await progressHandler(.loadedAccount(identifier: identifier, found: true))
-                } else {
-                    await progressHandler(.loadedAccount(identifier: identifier, found: false))
-                }
-                
-                if let snapshot = try await snapshotStore.loadAddressBookSnapshot(accountIdentifier: identifier) {
-                    addressBookSnapshots[identifier] = snapshot
-                    await progressHandler(.loadedAddressBook(identifier: identifier, found: true))
-                } else {
-                    await progressHandler(.loadedAddressBook(identifier: identifier, found: false))
-                }
+            let committedGeneration = try await snapshotStore.loadCommittedGeneration()
+            let walletSnapshot: OpalBase.Wallet.Snapshot?
+            let mnemonicState: (
+                mnemonic: OpalBase.Storage.StoredMnemonic,
+                protectionMode: OpalBase.Storage.Security.ProtectionMode
+            )?
+
+            if let committedGeneration {
+                walletSnapshot = try await snapshotStore.loadWalletSnapshot(generation: committedGeneration)
+                mnemonicState = try await storedMnemonicStore.loadMnemonicState(generation: committedGeneration)
+            } else {
+                walletSnapshot = nil
+                mnemonicState = nil
             }
-            
-            let mnemonicState = try await storedMnemonicStore.loadMnemonicState()
+            await progressHandler(.loadedWalletSnapshot(found: walletSnapshot != nil))
             await progressHandler(.loadedMnemonic(mode: mnemonicState?.protectionMode))
             await progressHandler(.finishedRestore)
             
-            return RestoredState(walletSnapshot: walletSnapshot,
-                                 accountSnapshots: accountSnapshots,
-                                 addressBookSnapshots: addressBookSnapshots,
-                                 mnemonic: mnemonicState?.mnemonic,
-                                 mnemonicProtectionMode: mnemonicState?.protectionMode)
+            return RestoredState(
+                walletSnapshot: walletSnapshot,
+                mnemonic: mnemonicState?.mnemonic,
+                mnemonicProtectionMode: mnemonicState?.protectionMode
+            )
         }
         
         public func wipe() async throws {
             await progressHandler(.beganWipe)
-            try await snapshotStore.wipeAll()
+            if let committedGeneration = try await snapshotStore.loadCommittedGeneration() {
+                try await snapshotStore.deleteWalletSnapshot(generation: committedGeneration)
+                try await storedMnemonicStore.deleteMnemonic(generation: committedGeneration)
+            }
+            try await snapshotStore.deleteCommittedGeneration()
             await progressHandler(.finishedWipe)
         }
     }
@@ -112,15 +120,12 @@ extension _OpalBase.Storage {
 extension _OpalBase.Storage.PersistenceSession {
     public enum Progress: Sendable, Equatable {
         case beganSave
-        case savedWalletSnapshot
-        case savedAccount(identifier: Data, unhardenedIndex: UInt32)
-        case savedAddressBook(identifier: Data, unhardenedIndex: UInt32)
+        case savedWalletSnapshot(generation: String)
         case savedMnemonic(mode: OpalBase.Storage.Security.ProtectionMode)
+        case committedGeneration(generation: String)
         case finishedSave(mode: OpalBase.Storage.Security.ProtectionMode)
         case beganRestore
         case loadedWalletSnapshot(found: Bool)
-        case loadedAccount(identifier: Data, found: Bool)
-        case loadedAddressBook(identifier: Data, found: Bool)
         case loadedMnemonic(mode: OpalBase.Storage.Security.ProtectionMode?)
         case finishedRestore
         case beganWipe
@@ -129,19 +134,15 @@ extension _OpalBase.Storage.PersistenceSession {
     
     public struct RestoredState: Sendable {
         public let walletSnapshot: OpalBase.Wallet.Snapshot?
-        public let accountSnapshots: [Data: OpalBase.Account.Snapshot]
-        public let addressBookSnapshots: [Data: OpalBase.Address.Book.Snapshot]
         public let mnemonic: OpalBase.Storage.StoredMnemonic?
         public let mnemonicProtectionMode: OpalBase.Storage.Security.ProtectionMode?
         
-        public init(walletSnapshot: OpalBase.Wallet.Snapshot?,
-                    accountSnapshots: [Data: OpalBase.Account.Snapshot],
-                    addressBookSnapshots: [Data: OpalBase.Address.Book.Snapshot],
-                    mnemonic: OpalBase.Storage.StoredMnemonic?,
-                    mnemonicProtectionMode: OpalBase.Storage.Security.ProtectionMode?) {
+        public init(
+            walletSnapshot: OpalBase.Wallet.Snapshot?,
+            mnemonic: OpalBase.Storage.StoredMnemonic?,
+            mnemonicProtectionMode: OpalBase.Storage.Security.ProtectionMode?
+        ) {
             self.walletSnapshot = walletSnapshot
-            self.accountSnapshots = accountSnapshots
-            self.addressBookSnapshots = addressBookSnapshots
             self.mnemonic = mnemonic
             self.mnemonicProtectionMode = mnemonicProtectionMode
         }

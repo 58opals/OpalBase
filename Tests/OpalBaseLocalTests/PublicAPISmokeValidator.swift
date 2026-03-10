@@ -128,20 +128,15 @@ struct PublicAPISmokeValidator {
         let protectionMode = try await session.save(wallet: wallet)
         #expect(protectionMode == .plaintext)
 
-        let account = try await wallet.fetchAccount(at: 0)
-        let accountIdentifier = await account.id
-        let restored = try await session.restore(accountIdentifiers: [accountIdentifier])
+        let restored = try await session.restore()
         #expect(restored.walletSnapshot?.accounts.count == 1)
-        #expect(restored.accountSnapshots[accountIdentifier]?.accountUnhardenedIndex == 0)
         #expect(restored.mnemonic?.words == smokeMnemonicWords)
         #expect(restored.mnemonicProtectionMode == .plaintext)
 
         try await session.wipe()
 
-        let wipedState = try await session.restore(accountIdentifiers: [accountIdentifier])
+        let wipedState = try await session.restore()
         #expect(wipedState.walletSnapshot == nil)
-        #expect(wipedState.accountSnapshots.isEmpty)
-        #expect(wipedState.addressBookSnapshots.isEmpty)
     }
 
     @Test("encoding and block target facades expose proof-of-work target")
@@ -229,38 +224,36 @@ private func makeSmokeBlockHeaderReader() -> OpalBase.Network.BlockHeaderReader 
 }
 
 private actor SmokeSnapshotStoreState {
-    private var walletSnapshot: OpalBase.Wallet.Snapshot?
-    private var accountSnapshots: [Data: OpalBase.Account.Snapshot] = [:]
-    private var addressBookSnapshots: [Data: OpalBase.Address.Book.Snapshot] = [:]
+    private var walletSnapshots: [String: OpalBase.Wallet.Snapshot] = [:]
+    private var committedGeneration: String?
 
-    func saveWalletSnapshot(_ snapshot: OpalBase.Wallet.Snapshot) {
-        walletSnapshot = snapshot
+    func saveWalletSnapshot(_ snapshot: OpalBase.Wallet.Snapshot, generation: String) {
+        walletSnapshots[generation] = snapshot
     }
 
-    func loadWalletSnapshot() -> OpalBase.Wallet.Snapshot? {
-        walletSnapshot
+    func loadWalletSnapshot(generation: String) -> OpalBase.Wallet.Snapshot? {
+        walletSnapshots[generation]
     }
 
-    func saveAccountSnapshot(_ snapshot: OpalBase.Account.Snapshot, accountIdentifier: Data) {
-        accountSnapshots[accountIdentifier] = snapshot
+    func deleteWalletSnapshot(generation: String) {
+        walletSnapshots.removeValue(forKey: generation)
     }
 
-    func loadAccountSnapshot(accountIdentifier: Data) -> OpalBase.Account.Snapshot? {
-        accountSnapshots[accountIdentifier]
+    func saveCommittedGeneration(_ generation: String) {
+        committedGeneration = generation
     }
 
-    func saveAddressBookSnapshot(_ snapshot: OpalBase.Address.Book.Snapshot, accountIdentifier: Data) {
-        addressBookSnapshots[accountIdentifier] = snapshot
+    func loadCommittedGeneration() -> String? {
+        committedGeneration
     }
 
-    func loadAddressBookSnapshot(accountIdentifier: Data) -> OpalBase.Address.Book.Snapshot? {
-        addressBookSnapshots[accountIdentifier]
+    func deleteCommittedGeneration() {
+        committedGeneration = nil
     }
 
     func wipeAll() {
-        walletSnapshot = nil
-        accountSnapshots.removeAll()
-        addressBookSnapshots.removeAll()
+        walletSnapshots.removeAll()
+        committedGeneration = nil
     }
 }
 
@@ -285,41 +278,45 @@ private actor SmokeStoredMnemonicStoreState {
     )? {
         state
     }
+
+    func deleteMnemonic(generation _: String) {
+        state = nil
+    }
 }
 
 private func makeSmokeSnapshotStore(state: SmokeSnapshotStoreState) -> OpalBase.Storage.SnapshotStore {
     OpalBase.Storage.SnapshotStore(
-        saveWalletSnapshot: { snapshot in
-            await state.saveWalletSnapshot(snapshot)
+        saveWalletSnapshot: { snapshot, generation in
+            await state.saveWalletSnapshot(snapshot, generation: generation)
         },
-        loadWalletSnapshot: {
-            await state.loadWalletSnapshot()
+        loadWalletSnapshot: { generation in
+            await state.loadWalletSnapshot(generation: generation)
         },
-        saveAccountSnapshot: { snapshot, accountIdentifier in
-            await state.saveAccountSnapshot(snapshot, accountIdentifier: accountIdentifier)
+        deleteWalletSnapshot: { generation in
+            await state.deleteWalletSnapshot(generation: generation)
         },
-        loadAccountSnapshot: { accountIdentifier in
-            await state.loadAccountSnapshot(accountIdentifier: accountIdentifier)
+        saveCommittedGeneration: { generation in
+            await state.saveCommittedGeneration(generation)
         },
-        saveAddressBookSnapshot: { snapshot, accountIdentifier in
-            await state.saveAddressBookSnapshot(snapshot, accountIdentifier: accountIdentifier)
+        loadCommittedGeneration: {
+            await state.loadCommittedGeneration()
         },
-        loadAddressBookSnapshot: { accountIdentifier in
-            await state.loadAddressBookSnapshot(accountIdentifier: accountIdentifier)
-        },
-        wipeAll: {
-            await state.wipeAll()
+        deleteCommittedGeneration: {
+            await state.deleteCommittedGeneration()
         }
     )
 }
 
 private func makeSmokeStoredMnemonicStore(state: SmokeStoredMnemonicStoreState) -> OpalBase.Storage.StoredMnemonicStore {
     OpalBase.Storage.StoredMnemonicStore(
-        saveMnemonic: { mnemonic, fallbackToPlaintext in
+        saveMnemonic: { mnemonic, _, fallbackToPlaintext in
             await state.saveMnemonic(mnemonic, fallbackToPlaintext: fallbackToPlaintext)
         },
-        loadMnemonicState: {
+        loadMnemonicState: { _ in
             await state.loadMnemonicState()
+        },
+        deleteMnemonic: { generation in
+            await state.deleteMnemonic(generation: generation)
         }
     )
 }

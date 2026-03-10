@@ -192,13 +192,23 @@ Generate and later restore a wallet snapshot to persist address indexes, cached 
 
 ```swift
 let snapshot = await wallet.makeSnapshot()
-// Store `snapshot` with your persistence layer (treat as sensitive).
+// Store `snapshot` with your persistence layer.
+
+let walletMnemonic = await wallet.mnemonic
+let storedMnemonic = OpalBase.Storage.StoredMnemonic(
+    words: walletMnemonic.words.map(\.text),
+    passphrase: await wallet.passphrase
+)
 
 // Restoring later
-let restoredWallet = try await OpalBase.Wallet(from: snapshot)
+let restoredWallet = try await OpalBase.Wallet(
+    mnemonic: try OpalBase.Key.Mnemonic(words: storedMnemonic.words.map(OpalBase.Key.Mnemonic.Word.init)),
+    passphrase: storedMnemonic.passphrase,
+    from: snapshot
+)
 ```
 
-`OpalBase.Wallet.applySnapshot(_:)` can merge a snapshot back into an existing actor instance when the mnemonic and derivation path match.
+`OpalBase.Wallet.applySnapshot(_:)` can merge a snapshot back into an existing actor instance when the derivation path matches.
 
 ## Token metadata
 
