@@ -54,7 +54,8 @@ extension _OpalBase.Address.Book {
     
     func generateEntries(for usage: OpalBase.Key.DerivationPath.Usage,
                          numberOfNewEntries: Int,
-                         isUsed: Bool) async throws {
+                         isUsed: Bool,
+                         shouldNotifyNewEntries: Bool = true) async throws {
         guard numberOfNewEntries > 0 else { return }
         
         let currentCount = inventory.countEntries(for: usage)
@@ -83,7 +84,9 @@ extension _OpalBase.Address.Book {
         
         for newEntry in newEntries {
             inventory.append(newEntry, usage: usage)
-            await notifyNewEntry(newEntry)
+            if shouldNotifyNewEntries {
+                await notifyNewEntry(newEntry)
+            }
         }
     }
     

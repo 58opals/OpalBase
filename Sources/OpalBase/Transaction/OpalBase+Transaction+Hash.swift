@@ -50,7 +50,7 @@ extension _OpalBase.Transaction {
             return naturalOrder
         }
         
-        // Alias for external usage (e.g., block explorers, rpc servers)
+        // Alias for external usage (e.g., block explorers, RPC servers)
         public var externallyUsedFormat: Data {
             return reverseOrder
         }

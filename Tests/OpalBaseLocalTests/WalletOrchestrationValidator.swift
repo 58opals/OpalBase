@@ -96,6 +96,60 @@ struct WalletOrchestrationValidator {
         }
     }
 
+    @Test("applySnapshot replaces omitted address-book entries on reused accounts")
+    func applySnapshotReplacesOmittedAddressBookEntries() async throws {
+        let sourceWallet = try await AccountTestFixtures.makeWallet(accountIndices: [0])
+        let sourceAccount = try await sourceWallet.fetchAccount(at: 0)
+        _ = try await sourceAccount.reserveNextReceivingAddress()
+        let sourceSnapshot = await sourceWallet.makeSnapshot()
+        let sourceAccountSnapshot = try #require(sourceSnapshot.accounts.first)
+
+        let reducedAddressBookSnapshot = OpalBase.Address.Book.Snapshot(
+            receivingEntries: Array(sourceAccountSnapshot.addressBook.receivingEntries.prefix(2)),
+            changeEntries: Array(sourceAccountSnapshot.addressBook.changeEntries.prefix(1)),
+            utxos: sourceAccountSnapshot.addressBook.utxos,
+            transactions: sourceAccountSnapshot.addressBook.transactions
+        )
+        let reducedWalletSnapshot = OpalBase.Wallet.Snapshot(
+            purpose: sourceSnapshot.purpose,
+            coinType: sourceSnapshot.coinType,
+            accounts: [
+                .init(
+                    purpose: sourceAccountSnapshot.purpose,
+                    coinType: sourceAccountSnapshot.coinType,
+                    accountUnhardenedIndex: sourceAccountSnapshot.accountUnhardenedIndex,
+                    addressBook: reducedAddressBookSnapshot
+                )
+            ],
+            tokenMetadata: sourceSnapshot.tokenMetadata
+        )
+
+        let targetWallet = try await AccountTestFixtures.makeWallet(accountIndices: [0])
+        let existingAccount = try await targetWallet.fetchAccount(at: 0)
+        _ = try await existingAccount.reserveNextReceivingEntry()
+        _ = try await existingAccount.reserveNextReceivingEntry()
+        _ = try await existingAccount.reserveNextReceivingEntry()
+
+        let inflatedReceivingCount = await existingAccount.addressBook.countEntries(for: .receiving)
+        #expect(inflatedReceivingCount == 23)
+
+        try await targetWallet.applySnapshot(reducedWalletSnapshot)
+
+        let restoredAccount = try await targetWallet.fetchAccount(at: 0)
+        let restoredReceivingEntries = await restoredAccount.addressBook.listEntries(for: .receiving)
+        let restoredChangeEntries = await restoredAccount.addressBook.listEntries(for: .change)
+
+        #expect(existingAccount === restoredAccount)
+        #expect(restoredReceivingEntries.count == 21)
+        #expect(restoredReceivingEntries.last?.derivationPath.index == 20)
+        #expect(restoredReceivingEntries.first?.isUsed == true)
+        #expect(restoredReceivingEntries.first?.isReserved == true)
+        #expect(restoredReceivingEntries.dropFirst().allSatisfy { !$0.isReserved })
+        #expect(restoredReceivingEntries.filter { !$0.isUsed && !$0.isReserved }.count == 20)
+        #expect(restoredChangeEntries.count == 20)
+        #expect(restoredChangeEntries.allSatisfy { !$0.isUsed && !$0.isReserved })
+    }
+
     @Test("applySnapshot rejects snapshots with a mismatched derivation path")
     func applySnapshotRejectsDerivationMismatch() async throws {
         let wallet = try await AccountTestFixtures.makeWallet(accountIndices: [0])

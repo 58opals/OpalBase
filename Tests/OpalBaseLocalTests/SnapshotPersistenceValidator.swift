@@ -66,6 +66,43 @@ struct SnapshotPersistenceValidator {
         #expect(decodedUnspentOutput.nftCommitment == nil)
         #expect(try decodedUnspentOutput.makeTokenData() == nil)
     }
+
+    @Test("address book restore replaces omitted entries and normalizes empty usages")
+    func addressBookRestoreReplacesOmittedEntriesAndNormalizesEmptyUsages() async throws {
+        let account = try await AccountTestFixtures.makeAccount()
+        let book = await account.addressBook
+        let receivingEntry = try #require(await book.listEntries(for: .receiving).first)
+        let changeEntry = try #require(await book.listEntries(for: .change).first)
+
+        try await book.mark(address: receivingEntry.address, isUsed: true)
+        try await book.mark(address: changeEntry.address, isUsed: true)
+
+        #expect(await book.countEntries(for: .receiving) == 21)
+        #expect(await book.countEntries(for: .change) == 21)
+
+        let emptySnapshot = OpalBase.Address.Book.Snapshot(
+            receivingEntries: [],
+            changeEntries: [],
+            utxos: [],
+            transactions: []
+        )
+
+        try await book.refresh(with: emptySnapshot)
+
+        let restoredReceivingEntries = await book.listEntries(for: .receiving)
+        let restoredChangeEntries = await book.listEntries(for: .change)
+
+        #expect(restoredReceivingEntries.count == 20)
+        #expect(restoredChangeEntries.count == 20)
+        #expect(await book.countUnusedEntries(for: .receiving) == 20)
+        #expect(await book.countUnusedEntries(for: .change) == 20)
+        #expect(restoredReceivingEntries.first?.derivationPath.index == 0)
+        #expect(restoredReceivingEntries.last?.derivationPath.index == 19)
+        #expect(restoredChangeEntries.first?.derivationPath.index == 0)
+        #expect(restoredChangeEntries.last?.derivationPath.index == 19)
+        #expect(restoredReceivingEntries.allSatisfy { !$0.isUsed && !$0.isReserved })
+        #expect(restoredChangeEntries.allSatisfy { !$0.isUsed && !$0.isReserved })
+    }
     
     private func makeTokenDataWithNonFungibleToken() throws -> OpalBase.CashTokens.TokenData {
         let fixture = try #require(TokenPrefixTestData.validVectors.first { vector in
@@ -110,4 +147,3 @@ struct SnapshotPersistenceValidator {
         }
     }
 }
-

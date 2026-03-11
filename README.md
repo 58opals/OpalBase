@@ -208,7 +208,7 @@ let restoredWallet = try await OpalBase.Wallet(
 )
 ```
 
-`OpalBase.Wallet.applySnapshot(_:)` can merge a snapshot back into an existing actor instance when the derivation path matches.
+`OpalBase.Wallet.applySnapshot(_:)` restores the tracked accounts and token metadata from the snapshot, while reusing overlapping account actors when the derivation path matches.
 
 ## Token metadata
 

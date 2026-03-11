@@ -88,8 +88,9 @@ extension _OpalBase.Address.Book {
     }
 
     public func refresh(with snapshot: Snapshot) async throws {
-        try await apply(entrySnapshots: snapshot.receivingEntries, usage: .receiving)
-        try await apply(entrySnapshots: snapshot.changeEntries, usage: .change)
+        inventory = .init(cacheValidityDuration: inventory.cacheValidityDuration)
+        try await restore(entrySnapshots: snapshot.receivingEntries, usage: .receiving)
+        try await restore(entrySnapshots: snapshot.changeEntries, usage: .change)
 
         let restoredUTXOs = try snapshot.utxos.map {
             let tokenData = try $0.makeTokenData()
@@ -143,54 +144,41 @@ extension _OpalBase.Address.Book {
         }
     }
 
-    private func apply(entrySnapshots: [Snapshot.Entry], usage: OpalBase.Key.DerivationPath.Usage) async throws {
-        guard !entrySnapshots.isEmpty else { return }
-
-        guard let highestIndex = entrySnapshots.map(\.index).max() else { return }
-
-        let highestIndexValue = Int(highestIndex)
-        let currentCount = inventory.countEntries(for: usage)
-        if currentCount <= highestIndexValue {
-            let desiredCount = highestIndexValue + 1
-            let numberOfMissingEntries = desiredCount - currentCount
-            if numberOfMissingEntries > 0 {
-                try await generateEntries(for: usage,
-                                          numberOfNewEntries: numberOfMissingEntries,
-                                          isUsed: false)
-            }
+    private func restore(entrySnapshots: [Snapshot.Entry], usage: OpalBase.Key.DerivationPath.Usage) async throws {
+        if let highestIndex = entrySnapshots.map(\.index).max() {
+            let entryCount = Int(highestIndex) + 1
+            try await generateEntries(for: usage,
+                                      numberOfNewEntries: entryCount,
+                                      isUsed: false,
+                                      shouldNotifyNewEntries: false)
         }
 
-        for snap in entrySnapshots {
+        for snapshotEntry in entrySnapshots {
             let restoredBalance: OpalBase.Satoshi?
-            if let balanceValue = snap.balance {
+            if let balanceValue = snapshotEntry.balance {
                 do {
                     restoredBalance = try OpalBase.Satoshi(balanceValue)
                 } catch {
-
                     throw OpalBase.Address.Book.Error.invalidSnapshotBalance(value: balanceValue, reason: error)
                 }
             } else {
                 restoredBalance = nil
             }
 
-            inventory.updateEntry(at: Int(snap.index), usage: usage) { entry in
-                entry.isUsed = snap.isUsed
-                entry.isReserved = snap.isReserved
+            inventory.updateEntry(at: Int(snapshotEntry.index), usage: usage) { entry in
+                entry.isUsed = snapshotEntry.isUsed
+                entry.isReserved = snapshotEntry.isReserved
                 entry.cache.balance = restoredBalance
-                entry.cache.lastUpdated = snap.lastUpdated
+                entry.cache.lastUpdated = snapshotEntry.lastUpdated
             }
         }
 
-        let entries = inventory.listEntries(for: usage)
-        let unusedEntriesBeyondHighestIndex = entries.filter { entry in
-            Int(entry.derivationPath.index) > highestIndexValue && !entry.isUsed
-        }.count
-
-        let numberOfMissingUnusedEntries = gapLimit - unusedEntriesBeyondHighestIndex
+        let numberOfMissingUnusedEntries = gapLimit - inventory.countUnusedEntries(for: usage)
         if numberOfMissingUnusedEntries > 0 {
             try await generateEntries(for: usage,
                                       numberOfNewEntries: numberOfMissingUnusedEntries,
-                                      isUsed: false)
+                                      isUsed: false,
+                                      shouldNotifyNewEntries: false)
         }
     }
 }
