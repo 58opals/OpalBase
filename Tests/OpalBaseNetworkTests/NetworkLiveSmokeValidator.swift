@@ -9,7 +9,7 @@ import OpalBaseTestSupport
 struct NetworkLiveSmokeValidator {
     private static let fallbackServers: [URL] = [
         URL(string: "wss://bch.imaginary.cash:50004")!,
-        URL(string: "wss://bch.loping.net:50002")!
+        URL(string: "wss://bch.loping.net:50004")!
     ]
 
     private static let sampleCashAddress = "bitcoincash:qpm2qsznhks23z7629mms6s4cwef74vcwvy22gdx6a"

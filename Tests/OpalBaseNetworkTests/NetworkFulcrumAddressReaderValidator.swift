@@ -9,7 +9,7 @@ import OpalBaseTestSupport
 @Suite("OpalBase.Network.Fulcrum.AddressReader", .tags(.integration, .network))
 struct NetworkFulcrumAddressReaderValidator {
     static let primaryServerAddress = URL(string: "wss://bch.imaginary.cash:50004")!
-    static let backupServerAddress = URL(string: "wss://bch.loping.net:50002")!
+    static let backupServerAddress = URL(string: "wss://bch.loping.net:50004")!
     static let faultyServerAddress = URL(string: "wss://fulcrum.jettscythe.xyz:50004")!
     static let invalidServerAddress = URL(string: "not a url")!
     static let sampleCashAddress = "bitcoincash:qpm2qsznhks23z7629mms6s4cwef74vcwvy22gdx6a"

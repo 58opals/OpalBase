@@ -14,7 +14,7 @@ struct PublicAPISmokeValidator {
         try await wallet.addAccount(unhardenedIndex: 0)
         let account = try await wallet.fetchAccount(at: 0)
         let configuration = OpalBase.Network.Configuration(
-            serverURLs: [URL(string: "wss://fulcrum.example.com:50002")!],
+            serverURLs: [URL(string: "wss://fulcrum.example.com:50004")!],
             network: .mainnet
         )
         let fulcrum = OpalBase.Wallet.Fulcrum(

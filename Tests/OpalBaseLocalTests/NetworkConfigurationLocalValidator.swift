@@ -8,7 +8,7 @@ import OpalBaseTestSupport
 @Suite("OpalBase.Network.Configuration (Local)", .tags(.unit))
 struct NetworkConfigurationLocalValidator {
     private static let primaryServerAddress = URL(string: "wss://bch.imaginary.cash:50004")!
-    private static let backupServerAddress = URL(string: "wss://bch.loping.net:50002")!
+    private static let backupServerAddress = URL(string: "wss://bch.loping.net:50004")!
     
     @Test("initializes with default connection values")
     func initializeConfigurationWithDefaults() {
@@ -51,7 +51,7 @@ struct NetworkConfigurationLocalValidator {
     @Test("Detects configuration changes for reconnect strategies")
     func equalityRecognizesMeaningfulChanges() throws {
         let primaryServer = URL(string: "wss://bch.imaginary.cash:50004")!
-        let fallbackServer = URL(string: "wss://bch.loping.net:50002")!
+        let fallbackServer = URL(string: "wss://bch.loping.net:50004")!
         
         let baseConfiguration = OpalBase.Network.Configuration(
             serverURLs: [primaryServer, fallbackServer],
@@ -86,4 +86,3 @@ struct NetworkConfigurationLocalValidator {
         #expect(adjustedConfiguration.reconnectConfiguration.jitterMultiplierRange == 1.0 ... 1.0)
     }
 }
-

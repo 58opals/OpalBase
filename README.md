@@ -73,7 +73,7 @@ import OpalBase
 
 let configuration = OpalBase.Network.Configuration(
     serverURLs: [
-        URL(string: "wss://fulcrum.example.org:50002")!
+        URL(string: "wss://fulcrum.example.org:50004")!
     ],
     network: .mainnet
 )

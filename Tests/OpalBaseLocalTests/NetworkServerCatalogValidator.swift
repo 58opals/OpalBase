@@ -8,7 +8,7 @@ import OpalBaseTestSupport
 
 @Suite("OpalBase.Network.ServerCatalog", .tags(.unit, .network))
 struct NetworkServerCatalogValidator {
-    @Test("opal defaults provide per-environment catalogs")
+    @Test("opal defaults provide healthy per-environment catalogs")
     func opalDefaultsProvidePerEnvironmentCatalogs() {
         let catalog = OpalBase.Network.ServerCatalog.opalDefault
         
@@ -17,6 +17,9 @@ struct NetworkServerCatalogValidator {
         let testnetServers = catalog.listServers(for: .testnet)
         
         #expect(mainnetServers.contains(URL(string: "wss://bch.imaginary.cash:50004")!))
+        #expect(mainnetServers.contains(URL(string: "wss://bch.loping.net:50004")!))
+        #expect(!mainnetServers.contains(where: { $0.host == "fulcrum.fountainhead.cash" }))
+        #expect(!mainnetServers.contains(where: { $0.host == "fulcrum.jettscythe.xyz" }))
         #expect(chipnetServers == [URL(string: "wss://chipnet.imaginary.cash:50004")!])
         #expect(testnetServers.contains(URL(string: "wss://testnet.imaginary.cash:50004")!))
         #expect(!testnetServers.contains(where: { $0.host == "chipnet.imaginary.cash" }))
@@ -27,10 +30,11 @@ struct NetworkServerCatalogValidator {
         #expect(OpalBase.Network.Environment.chipnet.fulcrumNetwork == SwiftFulcrum.Client.Configuration.Network.testnet)
     }
     
-    @Test("server catalog loader merges overrides before defaults")
-    func configurationLoaderMergesOverridesBeforeDefaults() async throws {
+    @Test("server catalog loader keeps overrides authoritative and appends fallback")
+    func configurationLoaderKeepsOverridesAuthoritative() async throws {
         let overrideServer = URL(string: "wss://override.opalwallet.example:50004")!
         let defaultServer = URL(string: "wss://bch.imaginary.cash:50004")!
+        let fallbackServer = URL(string: "wss://fallback.opalwallet.example:50004")!
         let catalog = OpalBase.Network.ServerCatalog(
             mainnetServers: [defaultServer],
             chipnetServers: .init(),
@@ -51,9 +55,12 @@ struct NetworkServerCatalogValidator {
         )
         
         let loader = configuration.makeFulcrumServerCatalogRepository()
-        let servers = try await loader.loadServers(for: configuration.network.fulcrumNetwork, fallback: .init())
-        #expect(servers.first == overrideServer)
-        #expect(servers.contains(defaultServer))
+        let servers = try await loader.loadServers(
+            for: configuration.network.fulcrumNetwork,
+            fallback: [fallbackServer]
+        )
+        #expect(servers == [overrideServer, fallbackServer])
+        #expect(!servers.contains(defaultServer))
     }
     
     @Test("loader rejects mismatched Fulcrum network")
@@ -127,6 +134,25 @@ struct NetworkServerCatalogValidator {
         #expect(testnetBootstrap.contains(where: { $0.host == "testnet.imaginary.cash" }))
         #expect(!testnetBootstrap.contains(where: { $0.host == "chipnet.imaginary.cash" }))
     }
+
+    @Test("bootstrap server selection keeps overrides authoritative")
+    func bootstrapServersKeepOverridesAuthoritative() {
+        let overrideServer = URL(string: "wss://override.opalwallet.example:50004")!
+        let defaultServer = URL(string: "wss://bch.imaginary.cash:50004")!
+        let catalog = OpalBase.Network.ServerCatalog(
+            mainnetServers: [defaultServer],
+            chipnetServers: .init(),
+            testnetServers: .init()
+        )
+        let configuration = OpalBase.Network.Configuration(
+            serverURLs: [overrideServer],
+            serverCatalog: catalog,
+            network: .mainnet
+        )
+
+        #expect(configuration.fulcrumBootstrapServers == [overrideServer])
+        #expect(!configuration.fulcrumBootstrapServers.contains(defaultServer))
+    }
     
     @Test("normalizes schemes, removes invalid entries, and deduplicates")
     func normalizationFiltersAndDeduplicatesServers() {
@@ -168,4 +194,3 @@ struct NetworkServerCatalogValidator {
         #expect(merged[3].host == "fallback.example.com")
     }
 }
-

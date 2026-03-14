@@ -8,7 +8,7 @@ import OpalBaseTestSupport
 @Suite("OpalBase.Network.Configuration (OpalBase.Network)", .tags(.integration, .network))
 struct NetworkConfigurationNetworkValidator {
     private static let primaryServerAddress = URL(string: "wss://bch.imaginary.cash:50004")!
-    private static let backupServerAddress = URL(string: "wss://bch.loping.net:50002")!
+    private static let backupServerAddress = URL(string: "wss://bch.loping.net:50004")!
     private static let sampleCashAddress = "bitcoincash:qpm2qsznhks23z7629mms6s4cwef74vcwvy22gdx6a"
 
     @Test("connects to a live Fulcrum server", .timeLimit(.minutes(1)))
@@ -17,7 +17,7 @@ struct NetworkConfigurationNetworkValidator {
         let configuration = OpalBase.Network.Configuration(
             serverURLs: [
                 URL(string: "wss://bch.imaginary.cash:50004")!,
-                URL(string: "wss://bch.loping.net:50002")!
+                URL(string: "wss://bch.loping.net:50004")!
             ],
             connectionTimeout: .seconds(15),
             maximumMessageSize: 32 * 1_024 * 1_024,

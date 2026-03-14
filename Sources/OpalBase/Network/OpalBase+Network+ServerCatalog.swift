@@ -58,13 +58,11 @@ extension _OpalBase.Network.ServerCatalog {
 extension _OpalBase.Network.ServerCatalog {
     public static let defaultMainnetServers: [URL] = [
         URL(string: "wss://bch.imaginary.cash:50004")!,
+        URL(string: "wss://bch.loping.net:50004")!,
         URL(string: "wss://fulcrum.greyh.at:50004")!,
         URL(string: "wss://cashnode.bch.ninja:50004")!,
-        URL(string: "wss://fulcrum.fountainhead.cash:50002")!,
         URL(string: "wss://electrum.imaginary.cash:50004")!,
-        URL(string: "wss://electroncash.dk:50004")!,
-        URL(string: "wss://bch.loping.net:50004")!,
-        URL(string: "wss://fulcrum.jettscythe.xyz:50004")!
+        URL(string: "wss://electroncash.dk:50004")!
     ]
     
     public static let defaultChipnetServers: [URL] = [
