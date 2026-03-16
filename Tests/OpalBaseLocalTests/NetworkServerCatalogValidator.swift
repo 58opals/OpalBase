@@ -43,7 +43,7 @@ struct NetworkServerCatalogValidator {
         let configuration = OpalBase.Network.Configuration(
             serverURLs: [overrideServer],
             serverCatalog: catalog,
-            connectionTimeout: .seconds(1),
+            connectTimeout: .seconds(1),
             maximumMessageSize: 1_024,
             reconnect: .init(
                 maximumAttempts: 1,

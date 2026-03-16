@@ -59,7 +59,7 @@ struct NetworkFulcrumBlockHeaderReaderValidator {
         guard NetworkTestClient.isExtendedLiveNetworkEnabled else { return }
         let configuration = OpalBase.Network.Configuration(
             serverURLs: [Self.primaryServerAddress, Self.backupServerAddress],
-            connectionTimeout: .seconds(12),
+            connectTimeout: .seconds(12),
             maximumMessageSize: 16 * 1_024 * 1_024,
             reconnect: .init(
                 maximumAttempts: 3,
@@ -91,7 +91,7 @@ struct NetworkFulcrumBlockHeaderReaderValidator {
         guard NetworkTestClient.isExtendedLiveNetworkEnabled else { return }
         let configuration = OpalBase.Network.Configuration(
             serverURLs: [Self.faultyServerAddress, Self.primaryServerAddress, Self.backupServerAddress],
-            connectionTimeout: .seconds(8),
+            connectTimeout: .seconds(8),
             reconnect: .init(maximumAttempts: 3, initialDelay: .seconds(1), maximumDelay: .seconds(5),  jitterMultiplierRange: 0.9 ... 1.2)
         )
         try await NetworkTestClient.withClient(configuration: configuration) { client in
@@ -107,7 +107,7 @@ struct NetworkFulcrumBlockHeaderReaderValidator {
         guard NetworkTestClient.isExtendedLiveNetworkEnabled else { return }
         let configuration = OpalBase.Network.Configuration(
             serverURLs: [Self.primaryServerAddress, Self.backupServerAddress],
-            connectionTimeout: .seconds(12),
+            connectTimeout: .seconds(12),
             maximumMessageSize: 16 * 1_024 * 1_024,
             reconnect: .init(
                 maximumAttempts: 3,

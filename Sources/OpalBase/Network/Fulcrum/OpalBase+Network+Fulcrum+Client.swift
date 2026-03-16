@@ -34,7 +34,7 @@ extension _OpalBase.Network.Fulcrum {
                 logger: fulcrumLogger,
                 isLoggingEnabled: isLoggingEnabled,
                 urlSession: urlSession,
-                connectionTimeout: configuration.connectionTimeout.totalSeconds,
+                connectionTimeout: configuration.connectTimeout.totalSeconds,
                 maximumMessageSize: configuration.maximumMessageSize,
                 bootstrapServers: bootstrapServers.isEmpty ? nil : bootstrapServers,
                 serverCatalogLoader: configuration.makeFulcrumServerCatalogRepository(),

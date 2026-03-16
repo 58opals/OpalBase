@@ -3,6 +3,8 @@
 import Foundation
 
 extension _OpalBase.Network {
+    /// Per-request and subscription-setup RPC timeouts.
+    /// These durations do not cap the lifetime of an established socket or subscription stream.
     public struct FulcrumRequestTimeout: Sendable, Equatable {
         public var serverPing: Duration
         public var serverVersion: Duration

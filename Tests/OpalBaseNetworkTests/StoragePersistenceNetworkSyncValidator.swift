@@ -28,7 +28,7 @@ struct StoragePersistenceNetworkSyncValidator {
         for url in candidateServers {
             let configuration = OpalBase.Network.Configuration(
                 serverURLs: [url],
-                connectionTimeout: .seconds(10),
+                connectTimeout: .seconds(10),
                 maximumMessageSize: 1024 * 1024,
                 reconnect: .defaultValue,
                 network: .mainnet

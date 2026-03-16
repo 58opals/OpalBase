@@ -2,6 +2,7 @@
 
 import Foundation
 import Testing
+import SwiftFulcrum
 import OpalBaseTestSupport
 @testable import OpalBase
 
@@ -19,7 +20,7 @@ struct NetworkConfigurationNetworkValidator {
                 URL(string: "wss://bch.imaginary.cash:50004")!,
                 URL(string: "wss://bch.loping.net:50004")!
             ],
-            connectionTimeout: .seconds(15),
+            connectTimeout: .seconds(15),
             maximumMessageSize: 32 * 1_024 * 1_024,
             reconnect: .init(
                 maximumAttempts: 3,
@@ -43,7 +44,7 @@ struct NetworkConfigurationNetworkValidator {
         guard NetworkTestClient.isExtendedLiveNetworkEnabled else { return }
         let configuration = OpalBase.Network.Configuration(
             serverURLs: [Self.primaryServerAddress, Self.backupServerAddress],
-            connectionTimeout: .seconds(8),
+            connectTimeout: .seconds(8),
             maximumMessageSize: 8 * 1_024 * 1_024,
             reconnect: .init(
                 maximumAttempts: 2,
@@ -76,6 +77,35 @@ struct NetworkConfigurationNetworkValidator {
 
             #expect(tip.height > 0)
             #expect(!tip.headerHexadecimal.isEmpty)
+        }
+    }
+
+    @Test("remains usable after idling past connect timeout", .timeLimit(.minutes(1)))
+    func remainUsableAfterIdlingPastConnectTimeout() async throws {
+        guard NetworkTestClient.isExtendedLiveNetworkEnabled else { return }
+        let configuration = OpalBase.Network.Configuration(
+            serverURLs: [Self.primaryServerAddress, Self.backupServerAddress],
+            connectTimeout: .seconds(2),
+            maximumMessageSize: 16 * 1_024 * 1_024,
+            reconnect: .init(
+                maximumAttempts: 2,
+                initialDelay: .seconds(1),
+                maximumDelay: .seconds(6),
+                jitterMultiplierRange: 0.9 ... 1.1
+            )
+        )
+
+        try await NetworkTestClient.withClient(configuration: configuration) { client in
+            try await Task.sleep(for: .seconds(4))
+
+            let tip: SwiftFulcrum.RPC.Response.Result.Blockchain.Headers.GetTip = try await client.request(
+                method: .blockchain(.headers(.getTip)),
+                responseType: SwiftFulcrum.RPC.Response.Result.Blockchain.Headers.GetTip.self,
+                options: .init(timeout: .seconds(15))
+            )
+
+            #expect(tip.height > 0)
+            #expect(!tip.hex.isEmpty)
         }
     }
 }

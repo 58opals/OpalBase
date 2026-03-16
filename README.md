@@ -75,6 +75,7 @@ let configuration = OpalBase.Network.Configuration(
     serverURLs: [
         URL(string: "wss://fulcrum.example.org:50004")!
     ],
+    connectTimeout: .seconds(10),
     network: .mainnet
 )
 
@@ -84,6 +85,10 @@ let transactionClient = OpalBase.Network.TransactionClient(
     OpalBase.Network.Fulcrum.TransactionClient(client: client)
 )
 ```
+
+`connectTimeout` only bounds connection/open establishment. It does not cap the lifetime of an
+established WebSocket, which is managed by SwiftFulcrum's transport and heartbeat behavior. Use
+`OpalBase.Network.FulcrumRequestTimeout` to control request and subscription-setup RPC timeouts.
 
 ### 3. Refresh balances, UTXOs, and transaction history
 

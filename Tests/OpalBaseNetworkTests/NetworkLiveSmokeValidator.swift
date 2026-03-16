@@ -47,7 +47,7 @@ private extension NetworkLiveSmokeValidator {
         let servers = [envServer].compactMap { $0 } + Self.fallbackServers
         return OpalBase.Network.Configuration(
             serverURLs: servers,
-            connectionTimeout: .seconds(10),
+            connectTimeout: .seconds(10),
             maximumMessageSize: 16 * 1_024 * 1_024,
             reconnect: .init(
                 maximumAttempts: 2,

@@ -46,7 +46,7 @@ extension NetworkFulcrumAddressReaderValidator {
         guard NetworkTestClient.isExtendedLiveNetworkEnabled else { return }
         let configuration = OpalBase.Network.Configuration(
             serverURLs: [Self.primaryServerAddress, Self.backupServerAddress],
-            connectionTimeout: .seconds(12),
+            connectTimeout: .seconds(12),
             maximumMessageSize: 8 * 1_024 * 1_024,
             reconnect: .init(
                 maximumAttempts: 2,
@@ -77,4 +77,3 @@ extension NetworkFulcrumAddressReaderValidator {
         }
     }
 }
-

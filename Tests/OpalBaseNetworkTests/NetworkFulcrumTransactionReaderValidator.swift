@@ -71,7 +71,7 @@ private extension NetworkFulcrumTransactionReaderValidator {
         let environmentServer = ProcessInfo.processInfo.environment["OPAL_FULCRUM_URL"].flatMap(URL.init(string:))
         return OpalBase.Network.Configuration(
             serverURLs: [environmentServer].compactMap { $0 } + Self.fallbackServers,
-            connectionTimeout: .seconds(12),
+            connectTimeout: .seconds(12),
             maximumMessageSize: 16 * 1_024 * 1_024,
             reconnect: .init(
                 maximumAttempts: 2,

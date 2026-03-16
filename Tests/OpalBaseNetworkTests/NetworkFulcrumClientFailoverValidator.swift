@@ -23,7 +23,7 @@ struct NetworkFulcrumClientFailoverValidator {
         guard NetworkTestClient.isExtendedLiveNetworkEnabled else { return }
         let configuration = OpalBase.Network.Configuration(
             serverURLs: Self.unhealthyServerAddresses + Self.healthyServerAddresses,
-            connectionTimeout: .seconds(12),
+            connectTimeout: .seconds(12),
             maximumMessageSize: 16 * 1_024 * 1_024,
             reconnect: .init(
                 maximumAttempts: 6,
@@ -60,7 +60,7 @@ struct NetworkFulcrumClientFailoverValidator {
         guard NetworkTestClient.isExtendedLiveNetworkEnabled else { return }
         let configuration = OpalBase.Network.Configuration(
             serverURLs: Self.unhealthyServerAddresses + Self.healthyServerAddresses,
-            connectionTimeout: .seconds(10),
+            connectTimeout: .seconds(10),
             maximumMessageSize: 16 * 1_024 * 1_024,
             reconnect: .init(
                 maximumAttempts: 6,
@@ -113,7 +113,7 @@ struct NetworkFulcrumClientFailoverValidator {
         guard NetworkTestClient.isExtendedLiveNetworkEnabled else { return }
         let configuration = OpalBase.Network.Configuration(
             serverURLs: Self.unhealthyServerAddresses + Self.healthyServerAddresses,
-            connectionTimeout: .seconds(8),
+            connectTimeout: .seconds(8),
             maximumMessageSize: 32 * 1_024 * 1_024,
             reconnect: .init(
                 maximumAttempts: 4,

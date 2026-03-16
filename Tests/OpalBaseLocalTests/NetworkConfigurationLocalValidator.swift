@@ -15,7 +15,7 @@ struct NetworkConfigurationLocalValidator {
         let configuration = OpalBase.Network.Configuration(serverURLs: [Self.primaryServerAddress])
         
         #expect(configuration.serverURLs == [Self.primaryServerAddress])
-        #expect(configuration.connectionTimeout == .seconds(10))
+        #expect(configuration.connectTimeout == .seconds(10))
         #expect(configuration.maximumMessageSize == 64 * 1_024 * 1_024)
         #expect(configuration.reconnectConfiguration == .defaultValue)
         #expect(configuration.network == .mainnet)
@@ -27,7 +27,7 @@ struct NetworkConfigurationLocalValidator {
         let configuration = OpalBase.Network.Configuration(serverURLs: [primaryServer])
         
         #expect(configuration.serverURLs == [primaryServer])
-        #expect(configuration.connectionTimeout == .seconds(10))
+        #expect(configuration.connectTimeout == .seconds(10))
         #expect(configuration.maximumMessageSize == 64 * 1_024 * 1_024)
         #expect(configuration.reconnectConfiguration == .defaultValue)
         #expect(configuration.reconnectConfiguration.maximumAttempts == 8)
@@ -55,7 +55,7 @@ struct NetworkConfigurationLocalValidator {
         
         let baseConfiguration = OpalBase.Network.Configuration(
             serverURLs: [primaryServer, fallbackServer],
-            connectionTimeout: .seconds(20),
+            connectTimeout: .seconds(20),
             maximumMessageSize: 16 * 1_024 * 1_024,
             reconnect: .init(
                 maximumAttempts: 5,
@@ -67,7 +67,7 @@ struct NetworkConfigurationLocalValidator {
         
         let identicalConfiguration = OpalBase.Network.Configuration(
             serverURLs: [primaryServer, fallbackServer],
-            connectionTimeout: .seconds(20),
+            connectTimeout: .seconds(20),
             maximumMessageSize: 16 * 1_024 * 1_024,
             reconnect: .init(
                 maximumAttempts: 5,
@@ -84,5 +84,31 @@ struct NetworkConfigurationLocalValidator {
         #expect(baseConfiguration != adjustedConfiguration)
         #expect(adjustedConfiguration.serverURLs == [fallbackServer])
         #expect(adjustedConfiguration.reconnectConfiguration.jitterMultiplierRange == 1.0 ... 1.0)
+    }
+
+    @Test("deprecated connectionTimeout alias round-trips to connectTimeout")
+    @available(*, deprecated, message: "Compatibility validator for deprecated API")
+    func deprecatedConnectionTimeoutAliasRoundTrips() {
+        var configuration = OpalBase.Network.Configuration(
+            serverURLs: [Self.primaryServerAddress],
+            connectTimeout: .seconds(6)
+        )
+
+        #expect(configuration.connectionTimeout == .seconds(6))
+
+        configuration.connectionTimeout = .seconds(9)
+
+        #expect(configuration.connectTimeout == .seconds(9))
+    }
+
+    @Test("deprecated initializer forwards connectionTimeout into connectTimeout")
+    @available(*, deprecated, message: "Compatibility validator for deprecated API")
+    func deprecatedInitializerForwardsConnectionTimeout() {
+        let configuration = OpalBase.Network.Configuration(
+            serverURLs: [Self.primaryServerAddress],
+            connectionTimeout: .seconds(7)
+        )
+
+        #expect(configuration.connectTimeout == .seconds(7))
     }
 }
