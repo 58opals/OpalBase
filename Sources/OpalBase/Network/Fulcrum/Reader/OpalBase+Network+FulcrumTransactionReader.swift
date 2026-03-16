@@ -1,16 +1,27 @@
 // OpalBase+Network+FulcrumTransactionReader.swift
 
 import Foundation
-import SwiftFulcrum
 
 extension _OpalBase.Network {
     public struct FulcrumTransactionReader {
-        private let client: OpalBase.Network.Fulcrum.Client
+        private let client: any OpalBase.Network.Fulcrum.TransactionReaderClient
         private let timeouts: OpalBase.Network.FulcrumRequestTimeout
         private let cache: OpalBase.Transaction.Cache
         
         public init(
             client: OpalBase.Network.Fulcrum.Client,
+            timeouts: OpalBase.Network.FulcrumRequestTimeout = .init(),
+            cache: OpalBase.Transaction.Cache = .init()
+        ) {
+            self.init(
+                client: client as any OpalBase.Network.Fulcrum.TransactionReaderClient,
+                timeouts: timeouts,
+                cache: cache
+            )
+        }
+
+        init(
+            client: any OpalBase.Network.Fulcrum.TransactionReaderClient,
             timeouts: OpalBase.Network.FulcrumRequestTimeout = .init(),
             cache: OpalBase.Transaction.Cache = .init()
         ) {
@@ -50,30 +61,15 @@ extension _OpalBase.Network {
             }
             
             do {
-                let verbose = try await fetchVerboseTransaction(for: transactionHash)
-                let rawTransactionData = try Data(hexadecimalString: verbose.hex)
-                let detailed = try makeDetailed(
-                    transactionHash: transactionHash,
-                    rawTransactionData: rawTransactionData,
-                    isVerbose: verbose
-                )
-                
+                let detailed = try await fetchDetailedTransactionUsingVerboseResponse(for: transactionHash)
+                await cache.put(detailed, at: transactionHash)
+                return detailed
+            } catch let failure as OpalBase.Network.Error where failure.reason == .decoding {
+                let detailed = try await fetchDetailedTransactionUsingRawResponse(for: transactionHash)
                 await cache.put(detailed, at: transactionHash)
                 return detailed
             } catch let failure as OpalBase.Network.Error {
                 throw failure
-            } catch {
-                return try await OpalBase.Network.performWithFailureTranslation {
-                    let rawTransactionData = try await fetchRawTransaction(for: transactionHash)
-                    let detailed = try makeDetailed(
-                        transactionHash: transactionHash,
-                        rawTransactionData: rawTransactionData,
-                        isVerbose: nil
-                    )
-                    
-                    await cache.put(detailed, at: transactionHash)
-                    return detailed
-                }
             }
         }
         
@@ -85,13 +81,12 @@ extension _OpalBase.Network {
             let identifier = transactionHash.reverseOrder.hexadecimalString
             
             return try await OpalBase.Network.performWithFailureTranslation {
-                let result = try await client.request(
-                    method: .blockchain(.transaction(.get(transactionHash: identifier, isVerbose: false))),
-                    responseType: SwiftFulcrum.RPC.Response.Result.Blockchain.Transaction.Get.self,
+                let rawTransactionHex = try await client.fetchRawTransaction(
+                    transactionHash: identifier,
                     options: .init(timeout: timeouts.transactionConfirmations)
                 )
                 
-                return try Data(hexadecimalString: result.hex)
+                return try Data(hexadecimalString: rawTransactionHex)
             }
         }
         
@@ -99,9 +94,8 @@ extension _OpalBase.Network {
             let identifier = transactionHash.reverseOrder.hexadecimalString
             
             return try await OpalBase.Network.performWithFailureTranslation {
-                let result = try await client.request(
-                    method: .blockchain(.transaction(.get(transactionHash: identifier, isVerbose: true))),
-                    responseType: SwiftFulcrum.RPC.Response.Result.Blockchain.Transaction.Get.self,
+                let result = try await client.fetchVerboseTransaction(
+                    transactionHash: identifier,
                     options: .init(timeout: timeouts.transactionConfirmations)
                 )
                 return .init(hex: result.hex,
@@ -110,6 +104,33 @@ extension _OpalBase.Network {
                              confirmations: UInt32(result.confirmations),
                              size: UInt32(result.size),
                              time: UInt32(result.time))
+            }
+        }
+
+        private func fetchDetailedTransactionUsingVerboseResponse(
+            for transactionHash: OpalBase.Transaction.Hash
+        ) async throws -> OpalBase.Transaction.Detail {
+            try await OpalBase.Network.performWithFailureTranslation {
+                let verbose = try await fetchVerboseTransaction(for: transactionHash)
+                let rawTransactionData = try Data(hexadecimalString: verbose.hex)
+                return try makeDetailed(
+                    transactionHash: transactionHash,
+                    rawTransactionData: rawTransactionData,
+                    isVerbose: verbose
+                )
+            }
+        }
+
+        private func fetchDetailedTransactionUsingRawResponse(
+            for transactionHash: OpalBase.Transaction.Hash
+        ) async throws -> OpalBase.Transaction.Detail {
+            try await OpalBase.Network.performWithFailureTranslation {
+                let rawTransactionData = try await fetchRawTransaction(for: transactionHash)
+                return try makeDetailed(
+                    transactionHash: transactionHash,
+                    rawTransactionData: rawTransactionData,
+                    isVerbose: nil
+                )
             }
         }
         

@@ -1,0 +1,322 @@
+import Foundation
+import Testing
+import SwiftFulcrum
+import OpalBaseTestSupport
+@testable import OpalBase
+
+@Suite("OpalBase.Network.Fulcrum.TransactionReader", .tags(.unit, .network))
+struct NetworkFulcrumTransactionReaderValidator {
+    @Test("fetches raw transactions from raw hex responses without caching raw-only reads")
+    func fetchRawTransactionReturnsDecodedBytes() async throws {
+        let fixture = try TransactionFixture.make()
+        let client = TransactionReaderClientTestActor(
+            rawTransactionHex: fixture.rawTransactionHexadecimal,
+            verboseTransaction: fixture.verboseResponse
+        )
+        let reader = OpalBase.Network.FulcrumTransactionReader(client: client)
+
+        let first = try await reader.fetchRawTransaction(for: fixture.transactionHash)
+        let second = try await reader.fetchRawTransaction(for: fixture.transactionHash)
+
+        #expect(first == fixture.rawTransactionData)
+        #expect(second == fixture.rawTransactionData)
+        #expect(await client.readRawFetchCount() == 2)
+        #expect(await client.readVerboseFetchCount() == 0)
+        #expect(await client.readLastRawTransactionHash() == fixture.transactionHash.reverseOrder.hexadecimalString)
+    }
+
+    @Test("fetches detailed transactions from verbose responses")
+    func fetchDetailedTransactionMapsVerboseResponses() async throws {
+        let fixture = try TransactionFixture.make()
+        let client = TransactionReaderClientTestActor(
+            rawTransactionHex: fixture.rawTransactionHexadecimal,
+            verboseTransaction: fixture.verboseResponse
+        )
+        let reader = OpalBase.Network.FulcrumTransactionReader(client: client)
+
+        let detail = try await reader.fetchDetailedTransaction(for: fixture.transactionHash)
+
+        #expect(detail.hash == fixture.transactionHash)
+        #expect(detail.rawTransactionData == fixture.rawTransactionData)
+        #expect(detail.blockHash == fixture.blockHashData)
+        #expect(detail.blockTime == fixture.blockTime)
+        #expect(detail.confirmations == fixture.confirmations)
+        #expect(detail.size == UInt32(fixture.rawTransactionData.count))
+        #expect(detail.time == fixture.transactionTime)
+        #expect(try detail.transaction.encode() == fixture.rawTransactionData)
+        #expect(await client.readVerboseFetchCount() == 1)
+        #expect(await client.readRawFetchCount() == 0)
+        #expect(await client.readLastVerboseTransactionHash() == fixture.transactionHash.reverseOrder.hexadecimalString)
+    }
+
+    @Test("falls back to raw transaction fetch when verbose decoding fails")
+    func fetchDetailedTransactionFallsBackToRawAfterVerboseDecodingFailure() async throws {
+        let fixture = try TransactionFixture.make()
+        let client = TransactionReaderClientTestActor(
+            rawTransactionHex: fixture.rawTransactionHexadecimal,
+            verboseTransaction: fixture.verboseResponse,
+            verboseError: SwiftFulcrum.Client.Error.coding(.decode(nil))
+        )
+        let reader = OpalBase.Network.FulcrumTransactionReader(client: client)
+
+        let detail = try await reader.fetchDetailedTransaction(for: fixture.transactionHash)
+
+        #expect(detail.hash == fixture.transactionHash)
+        #expect(detail.rawTransactionData == fixture.rawTransactionData)
+        #expect(detail.blockHash == nil)
+        #expect(detail.blockTime == nil)
+        #expect(detail.confirmations == nil)
+        #expect(detail.time == nil)
+        #expect(try detail.transaction.encode() == fixture.rawTransactionData)
+        #expect(await client.readVerboseFetchCount() == 1)
+        #expect(await client.readRawFetchCount() == 1)
+    }
+
+    @Test("does not retry raw transaction fetch for non-decoding failures")
+    func fetchDetailedTransactionDoesNotRetryRawForNonDecodingFailures() async throws {
+        let fixture = try TransactionFixture.make()
+        let cases: [(String, Swift.Error, OpalBase.Network.Error)] = [
+            (
+                "timeout",
+                SwiftFulcrum.Client.Error.client(.timeout(.seconds(3))),
+                OpalBase.Network.Error(
+                    reason: .timeout,
+                    message: "Operation timed out",
+                    metadata: ["timeoutSeconds": "3.0"]
+                )
+            ),
+            (
+                "transport",
+                SwiftFulcrum.Client.Error.transport(.heartbeatTimeout),
+                OpalBase.Network.Error(reason: .timeout, message: "Heartbeat timed out")
+            ),
+            (
+                "server",
+                OpalBase.Network.Error(reason: .server(code: -5), message: "missing transaction"),
+                OpalBase.Network.Error(reason: .server(code: -5), message: "missing transaction")
+            )
+        ]
+
+        for (_, verboseError, expected) in cases {
+            let client = TransactionReaderClientTestActor(
+                rawTransactionHex: fixture.rawTransactionHexadecimal,
+                verboseTransaction: fixture.verboseResponse,
+                verboseError: verboseError
+            )
+            let reader = OpalBase.Network.FulcrumTransactionReader(client: client)
+
+            let failure = await Self.captureNetworkError {
+                _ = try await reader.fetchDetailedTransaction(for: fixture.transactionHash)
+            }
+
+            #expect(failure == expected)
+            #expect(await client.readVerboseFetchCount() == 1)
+            #expect(await client.readRawFetchCount() == 0)
+        }
+    }
+
+    @Test("reuses cached detailed transactions for repeated detailed and raw reads")
+    func detailedTransactionCacheServesRepeatedRequests() async throws {
+        let fixture = try TransactionFixture.make()
+        let client = TransactionReaderClientTestActor(
+            rawTransactionHex: fixture.rawTransactionHexadecimal,
+            verboseTransaction: fixture.verboseResponse
+        )
+        let cache = OpalBase.Transaction.Cache()
+        let reader = OpalBase.Network.FulcrumTransactionReader(client: client, cache: cache)
+
+        let first = try await reader.fetchDetailedTransaction(for: fixture.transactionHash)
+        let second = try await reader.fetchDetailedTransaction(for: fixture.transactionHash)
+        let cachedRaw = try await reader.fetchRawTransaction(for: fixture.transactionHash)
+
+        #expect(first.hash == second.hash)
+        #expect(first.rawTransactionData == second.rawTransactionData)
+        #expect(first.blockHash == second.blockHash)
+        #expect(cachedRaw == fixture.rawTransactionData)
+        #expect(await client.readVerboseFetchCount() == 1)
+        #expect(await client.readRawFetchCount() == 0)
+    }
+}
+
+private actor TransactionReaderClientTestActor: OpalBase.Network.Fulcrum.TransactionReaderClient {
+    private let rawTransactionHex: String
+    private let verboseTransaction: SwiftFulcrum.RPC.Response.Result.Blockchain.Transaction.Get
+    private let rawError: Swift.Error?
+    private let verboseError: Swift.Error?
+    private var rawRequests: [String] = []
+    private var verboseRequests: [String] = []
+
+    init(
+        rawTransactionHex: String,
+        verboseTransaction: SwiftFulcrum.RPC.Response.Result.Blockchain.Transaction.Get,
+        rawError: Swift.Error? = nil,
+        verboseError: Swift.Error? = nil
+    ) {
+        self.rawTransactionHex = rawTransactionHex
+        self.verboseTransaction = verboseTransaction
+        self.rawError = rawError
+        self.verboseError = verboseError
+    }
+
+    func fetchRawTransaction(
+        transactionHash: String,
+        options _: SwiftFulcrum.Client.Call.Options
+    ) async throws -> String {
+        rawRequests.append(transactionHash)
+        if let rawError {
+            throw rawError
+        }
+        return rawTransactionHex
+    }
+
+    func fetchVerboseTransaction(
+        transactionHash: String,
+        options _: SwiftFulcrum.Client.Call.Options
+    ) async throws -> SwiftFulcrum.RPC.Response.Result.Blockchain.Transaction.Get {
+        verboseRequests.append(transactionHash)
+        if let verboseError {
+            throw verboseError
+        }
+        return verboseTransaction
+    }
+
+    func readRawFetchCount() -> Int {
+        rawRequests.count
+    }
+
+    func readVerboseFetchCount() -> Int {
+        verboseRequests.count
+    }
+
+    func readLastRawTransactionHash() -> String? {
+        rawRequests.last
+    }
+
+    func readLastVerboseTransactionHash() -> String? {
+        verboseRequests.last
+    }
+}
+
+private struct TransactionFixture {
+    let transactionHash: OpalBase.Transaction.Hash
+    let rawTransactionData: Data
+    let rawTransactionHexadecimal: String
+    let verboseResponse: SwiftFulcrum.RPC.Response.Result.Blockchain.Transaction.Get
+    let blockHashData: Data
+    let blockTime: UInt32
+    let confirmations: UInt32
+    let transactionTime: UInt32
+
+    static func make() throws -> TransactionFixture {
+        let transactionHash = OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0x02, count: 32))
+        let transaction = OpalBase.Transaction(
+            version: 2,
+            inputs: [
+                .init(
+                    previousTransactionHash: .init(naturalOrder: Data(repeating: 0x01, count: 32)),
+                    previousTransactionOutputIndex: 0,
+                    unlockingScript: Data()
+                )
+            ],
+            outputs: [
+                .init(value: 546, lockingScript: Data([0x51]))
+            ],
+            lockTime: 0
+        )
+        let rawTransactionData = try transaction.encode()
+        let rawTransactionHexadecimal = rawTransactionData.hexadecimalString
+        let blockHashData = Data(repeating: 0xaa, count: 32)
+        let blockHashHexadecimal = blockHashData.hexadecimalString
+        let blockTime: UInt32 = 1_710_000_000
+        let confirmations: UInt32 = 12
+        let transactionTime: UInt32 = 1_710_000_100
+        let verboseResponse = try makeVerboseResponse(
+            transactionHash: transactionHash.reverseOrder.hexadecimalString,
+            rawTransactionHexadecimal: rawTransactionHexadecimal,
+            blockHashHexadecimal: blockHashHexadecimal,
+            blockTime: blockTime,
+            confirmations: confirmations,
+            transactionTime: transactionTime,
+            size: rawTransactionData.count
+        )
+
+        return TransactionFixture(
+            transactionHash: transactionHash,
+            rawTransactionData: rawTransactionData,
+            rawTransactionHexadecimal: rawTransactionHexadecimal,
+            verboseResponse: verboseResponse,
+            blockHashData: blockHashData,
+            blockTime: blockTime,
+            confirmations: confirmations,
+            transactionTime: transactionTime
+        )
+    }
+
+    private static func makeVerboseResponse(
+        transactionHash: String,
+        rawTransactionHexadecimal: String,
+        blockHashHexadecimal: String,
+        blockTime: UInt32,
+        confirmations: UInt32,
+        transactionTime: UInt32,
+        size: Int
+    ) throws -> SwiftFulcrum.RPC.Response.Result.Blockchain.Transaction.Get {
+        let payload = try JSONSerialization.data(withJSONObject: [
+            "blockhash": blockHashHexadecimal,
+            "blocktime": blockTime,
+            "confirmations": confirmations,
+            "hash": transactionHash,
+            "hex": rawTransactionHexadecimal,
+            "locktime": 0,
+            "size": size,
+            "time": transactionTime,
+            "txid": transactionHash,
+            "version": 2,
+            "vin": [
+                [
+                    "scriptSig": [
+                        "asm": "",
+                        "hex": ""
+                    ],
+                    "sequence": UInt32.max,
+                    "txid": String(repeating: "1", count: 64),
+                    "vout": 0
+                ]
+            ],
+            "vout": [
+                [
+                    "n": 0,
+                    "scriptPubKey": [
+                        "addresses": ["bitcoincash:qpm2qsznhks23z7629mms6s4cwef74vcwvy22gdx6a"],
+                        "asm": "1",
+                        "hex": "51",
+                        "reqSigs": 1,
+                        "type": "pubkeyhash"
+                    ],
+                    "value": 0.00000546
+                ]
+            ]
+        ])
+        return try JSONDecoder().decode(
+            SwiftFulcrum.RPC.Response.Result.Blockchain.Transaction.Get.self,
+            from: payload
+        )
+    }
+}
+
+private extension NetworkFulcrumTransactionReaderValidator {
+    static func captureNetworkError(
+        _ work: () async throws -> Void
+    ) async -> OpalBase.Network.Error {
+        do {
+            try await work()
+            Issue.record("Expected OpalBase.Network.Error")
+            return .init(reason: .unknown)
+        } catch let failure as OpalBase.Network.Error {
+            return failure
+        } catch {
+            Issue.record("Unexpected error: \(error)")
+            return .init(reason: .unknown, message: String(describing: error))
+        }
+    }
+}
