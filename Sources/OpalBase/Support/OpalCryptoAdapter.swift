@@ -26,8 +26,8 @@ enum OpalCryptoAdapter {
         OpalCrypto.Encoding.decodeBase58(text)
     }
 
-    static func encodeBase32(_ data: Data, interpretedAsFiveBitValues: Bool) -> String {
-        OpalCrypto.Encoding.encodeBase32(data, interpretedAsFiveBitValues: interpretedAsFiveBitValues)
+    static func encodeBase32(_ data: Data, interpretedAsFiveBitValues: Bool) throws -> String {
+        try OpalCrypto.Encoding.encodeBase32(data, interpretedAsFiveBitValues: interpretedAsFiveBitValues)
     }
 
     static func decodeBase32(_ text: String, interpretedAsFiveBitValues: Bool) throws -> Data {

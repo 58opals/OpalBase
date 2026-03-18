@@ -109,7 +109,7 @@ extension _OpalBase.Address {
             payload5BitValues: payload5BitValues
         )
         let combined = payload5BitValues + checksum
-        return OpalCryptoAdapter.encodeBase32(Data(combined), interpretedAsFiveBitValues: true)
+        return try OpalCryptoAdapter.encodeBase32(Data(combined), interpretedAsFiveBitValues: true)
     }
     
     private static func makeVersionByte(for script: OpalBase.Script, format: Format) throws -> UInt8 {
