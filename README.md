@@ -1,251 +1,78 @@
-![Swift 6.2](https://img.shields.io/badge/swift-6.2-orange)
-![SPM](https://img.shields.io/badge/Package%20Manager-SPM-informational)
-![Platforms](https://img.shields.io/badge/platforms-iOS%20|%20macOS%20|%20watchOS%20|%20tvOS%20|%20visionOS-blue)
+# OpalBase
 
-# Opal Base
+OpalBase is a Swift package for building Bitcoin Cash wallet and transaction flows on Apple platforms. It combines actor-isolated wallet and account models, deterministic address management, transaction building and signing, Fulcrum-backed network access, snapshot persistence, and CashTokens metadata support behind a concurrency-first API.
 
-## Overview
+## Who It's For
 
-Opal Base is a Swift package that assembles everything you need to build modern Bitcoin Cash (BCH) experiences on Apple platforms.
-It ships with actor-based wallet and account models; a deterministic address book that automates derivation, caching, and coin selection; a transaction toolchain for building and signing modern BCH transactions; and battle-tested Fulcrum networking built on top of [SwiftFulcrum](https://github.com/58opals/SwiftFulcrum).
-The library is designed with Swift concurrency from the ground up, making it straightforward to integrate in SwiftUI, SwiftData, or server-side Swift applications.
+Use OpalBase if you're building an Apple-platform app or service that needs BCH wallet derivation, address tracking, transaction creation, or Fulcrum-backed sync without stitching those surfaces together yourself.
 
-## Highlights
+## Requirements
 
-- **Actor-isolated wallet core**: `OpalBase.Wallet` and `OpalBase.Account` wrap BIP-39/BIP-44 derivation, address management, and serialized mutation.
-- **Deterministic address book with caching**: Track receiving and change paths, scan for used addresses, refresh UTXO sets and history, and read cached values offline.
-- **Flexible spend planning**: Assemble transactions with `OpalBase.Account.Payment`, privacy-aware coin selection, configurable fee policies, and reservation-aware `OpalBase.Account.SpendPlan`.
-- **First-class Fulcrum integration**: `OpalBase.Network.Fulcrum.Client` plus readers/handlers for addresses, transactions, block headers, and server/mempool info.
-- **Streaming monitors & snapshots**: Monitor address/UTXO/history/confirmation changes via `AsyncThrowingStream`, and persist/restore actor state with `OpalBase.Wallet.Snapshot`.
+- Swift tools version: `6.2`
+- Platforms:
+  - `macOS 26`
+  - `iOS 26`
+  - `watchOS 26`
+  - `tvOS 26`
+  - `visionOS 26`
 
 ## Installation
 
-### Swift Package Manager
-
-Add Opal Base as a dependency in Xcode or by editing your `Package.swift`:
+Add `OpalBase` to your `Package.swift`:
 
 ```swift
-// swift-tools-version: 6.2
-import PackageDescription
-
-let package = Package(
-    name: "YourApp",
-    dependencies: [
-        .package(url: "https://github.com/58opals/OpalBase.git", from: "0.3.0")
-    ],
-    targets: [
-        .target(
-            name: "YourApp",
-            dependencies: [
-                .product(name: "OpalBase", package: "OpalBase")
-            ])
-    ]
-)
+dependencies: [
+    .package(url: "https://github.com/58opals/OpalBase.git", from: "0.3.0")
+],
+targets: [
+    .target(
+        name: "YourApp",
+        dependencies: [
+            .product(name: "OpalBase", package: "OpalBase")
+        ]
+    )
+]
 ```
 
-> If you're tracking unreleased API changes on `main`, depend on a branch or revision instead of a release tag.
+If you need unreleased APIs, depend on the `main` branch or a specific revision instead of a release tag.
 
-## Getting started
+## Quick Start
 
-The snippets below run inside an async context such as `Task {}` or an `@main` entry point with `await` support.
-
-### 1. Create a mnemonic, wallet, and account
+Run this inside an async context such as `Task {}` or an async entry point:
 
 ```swift
 import OpalBase
 
 let mnemonic = try OpalBase.Key.Mnemonic.generate(
-    length: .words24,
+    length: .words12,
     language: .english
 )
 let wallet = try OpalBase.Wallet(mnemonic: mnemonic)
 
 try await wallet.addAccount(unhardenedIndex: 0)
 let account = try await wallet.fetchAccount(at: 0)
+let firstReceivingEntry = try await account.selectNextEntry(for: .receiving)
+
+print(firstReceivingEntry.address.string)
 ```
 
-### 2. Connect to Fulcrum services
+This gives you a wallet, the first account, and the first derived receiving address. From there you can attach `OpalBase.Network.Fulcrum.Client` and `OpalBase.Wallet.Fulcrum` to refresh balances, history, and confirmations against live BCH infrastructure.
 
-Create a Fulcrum client, then wire up the readers you need.
+## Key Capabilities
 
-```swift
-import OpalBase
+- Actor-isolated wallet and account models for BIP-39 and BIP-44 style derivation and serialized mutation.
+- Deterministic address book support for receiving and change address tracking, balance refresh, and transaction history caching.
+- Spend planning, transaction building, and broadcast helpers for BCH payments and token-aware flows.
+- Fulcrum integration for address, transaction, header, and monitoring workflows.
+- Snapshot persistence, storage helpers, and CashTokens metadata / BCMR support.
 
-let configuration = OpalBase.Network.Configuration(
-    serverURLs: [
-        URL(string: "wss://fulcrum.example.org:50004")!
-    ],
-    connectTimeout: .seconds(10),
-    network: .mainnet
-)
+## Validation
 
-let client = try await OpalBase.Network.Fulcrum.Client(configuration: configuration)
-let fulcrum = OpalBase.Wallet.Fulcrum(client: client)
-let transactionClient = OpalBase.Network.TransactionClient(
-    OpalBase.Network.Fulcrum.TransactionClient(client: client)
-)
+```bash
+swift test
 ```
 
-`connectTimeout` only bounds connection/open establishment. It does not cap the lifetime of an
-established WebSocket, which is managed by SwiftFulcrum's transport and heartbeat behavior. Use
-`OpalBase.Network.FulcrumRequestTimeout` to control request and subscription-setup RPC timeouts.
+## More Examples
 
-### 3. Refresh balances, UTXOs, and transaction history
-
-```swift
-let cached = try await account.loadBalanceFromCache()
-print("Cached BCH balance: \(cached.bch)")
-
-let refresh = try await fulcrum.refreshBalances(for: account, usage: .receiving)
-print("Latest BCH balance: \(refresh.total.bch)")
-
-let historyChangeSet = try await fulcrum.refreshTransactionHistory(for: account)
-print("""
-History: +\(historyChangeSet.inserted.count) \
-~\(historyChangeSet.updated.count) \
--\(historyChangeSet.removed.count)
-""")
-
-let confirmationChangeSet = try await fulcrum.refreshTransactionConfirmations(for: account)
-print("Confirmation updates: \(confirmationChangeSet.updated.count)")
-```
-
-## Managing balances and history
-
-* `OpalBase.Account.loadBalanceFromCache()` reads the aggregated cached amount without making a network call.
-* `OpalBase.Account.refreshBalances(for:loader:)` lets you plug in any async loader, while `OpalBase.Wallet.Fulcrum.refreshBalances(for:usage:)` handles Fulcrum wiring and used-address scanning.
-* Use `OpalBase.Account.refreshTransactionHistory(using:usage:includeUnconfirmed:)` (or the Fulcrum helper) to keep cached history synchronized.
-* Use `OpalBase.Account.refreshTransactionConfirmations(using:)` (or the Fulcrum helper) to poll confirmation heights on demand.
-* `OpalBase.Account.loadTransactionHistory()` returns the current cached list of history records for quick display.
-
-## Planning and broadcasting payments
-
-```swift
-let recipient = OpalBase.Account.Payment.Recipient(
-    address: try OpalBase.Address("bitcoincash:qr..."),
-    amount: try OpalBase.Satoshi(5_000)
-)
-
-let payment = OpalBase.Account.Payment(
-    recipients: [recipient],
-    feeContext: .init(networkConditions: .init(fallbackRate: 1_000))
-)
-
-let spendPlan = try await account.prepareSpend(payment)
-
-let (hash, result) = try await spendPlan.buildAndBroadcast(via: transactionClient)
-print(
-    "Broadcast \(OpalBase.Encoding.hexadecimalString(from: hash.reverseOrder)) " +
-    "with fee \(result.fee.uint64) satoshi"
-)
-```
-
-* Customize fee policy defaults with `OpalBase.Wallet.FeePolicy` or pass overrides in `OpalBase.Account.Payment`.
-* Inspect `OpalBase.Account.SpendPlan.TransactionResult` for the signed transaction, applied fee, and output metadata.
-* Call `spendPlan.completeReservation()` or `spendPlan.cancelReservation()` when coordinating with external broadcast flows.
-
-## Streaming updates
-
-`OpalBase.Wallet.Fulcrum.Monitor` keeps an `OpalBase.Account` synchronized by combining address subscriptions and block header updates, and exposes events as an `AsyncThrowingStream`.
-
-```swift
-let monitor = await fulcrum.makeMonitor(for: account)
-let events = await monitor.makeEventStream() // auto-starts by default
-
-Task.detached {
-    do {
-        for try await event in events {
-            switch event {
-            case .addressTracked(let address):
-                print("Tracking \(address.string)")
-
-            case .utxosChanged(let changeSet):
-                print("UTXO change for \(changeSet.address.string): \(changeSet.balance.uint64) sat")
-
-            case .historyChanged(let changeSet):
-                print("History change: +\(changeSet.inserted.count) ~\(changeSet.updated.count) -\(changeSet.removed.count)")
-
-            case .confirmationsChanged(let changeSet):
-                print("Confirmation change: \(changeSet.updated.count) updates")
-
-            case .performedFullRefresh(let utxoRefresh, let historyChangeSet):
-                print("Full refresh balance: \(utxoRefresh.totalBalance.uint64) sat")
-                print("Full refresh history: +\(historyChangeSet.inserted.count) ~\(historyChangeSet.updated.count) -\(historyChangeSet.removed.count)")
-
-            case .encounteredFailure(let failure):
-                print("Monitor failure: \(failure.message)")
-
-            case .terminated(let termination):
-                print("Monitor terminated: \(termination.reason)")
-            }
-        }
-    } catch {
-        print("Monitor stream ended with error: \(error)")
-    }
-}
-```
-
-Stop the monitor explicitly when you’re done:
-
-```swift
-await monitor.stop()
-```
-
-## Persisting state
-
-Generate and later restore a wallet snapshot to persist address indexes, cached balances, and transaction history:
-
-```swift
-let snapshot = await wallet.makeSnapshot()
-// Store `snapshot` with your persistence layer.
-
-let walletMnemonic = await wallet.mnemonic
-let storedMnemonic = OpalBase.Storage.StoredMnemonic(
-    words: walletMnemonic.words.map(\.text),
-    passphrase: await wallet.passphrase
-)
-
-// Restoring later
-let restoredWallet = try await OpalBase.Wallet(
-    mnemonic: try OpalBase.Key.Mnemonic(words: storedMnemonic.words.map(OpalBase.Key.Mnemonic.Word.init)),
-    passphrase: storedMnemonic.passphrase,
-    from: snapshot
-)
-```
-
-`OpalBase.Wallet.applySnapshot(_:)` restores the tracked accounts and token metadata from the snapshot, while reusing overlapping account actors when the derivation path matches.
-
-## Token metadata
-
-Use the namespaced `CashTokens` facade for metadata storage and wallet-level forwarding:
-
-```swift
-let category = try OpalBase.CashTokens.CategoryID(
-    hexFromRPC: "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f"
-)
-let metadata = OpalBase.CashTokens.Metadata(
-    category: category,
-    name: "Example Token",
-    symbol: "EXAMPLE",
-    decimals: 2,
-    iconURL: URL(string: "https://example.com/icon.png"),
-    lastUpdated: .now,
-    source: .embedded
-)
-
-let repository = OpalBase.CashTokens.MetadataRepository()
-await repository.upsert([category: metadata])
-
-await wallet.upsertTokenMetadata([category: metadata])
-let cachedMetadata = await wallet.fetchTokenMetadata(for: category)
-```
-
-`OpalBase.CashTokens.BCMR.Client` can import embedded, DNS-hosted, or authchain-backed registry data and feed the same repository and wallet APIs.
-
-## Contributing
-
-Issues and pull requests are welcome. Please open a discussion for large-scale proposals so we can align on direction before coding.
-
-## License
-
-Opal Base is available under the MIT license.
+- [Public API smoke test](Tests/OpalBaseLocalTests/PublicAPISmokeValidator.swift)
+- [Network live smoke test](Tests/OpalBaseNetworkTests/NetworkLiveSmokeValidator.swift)
