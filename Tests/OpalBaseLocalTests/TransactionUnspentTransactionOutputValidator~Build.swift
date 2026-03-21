@@ -6,6 +6,61 @@ import Testing
 @testable import OpalBase
 
 extension TransactionUnspentTransactionOutputValidator {
+    @Test("build produces signatures verifiable through cached verification keys")
+    func buildProducesSignaturesVerifiableThroughCachedVerificationKeys() throws {
+        let components = try makeTransactionBuilderComponents()
+        let unspent = try #require(components.privateKeys.keys.first)
+        let hashType = OpalBase.Transaction.HashType.makeAll(anyoneCanPay: false)
+        let transaction = try OpalBase.Transaction.build(
+            utxoPrivateKeyPairs: components.privateKeys,
+            recipientOutputs: components.recipientOutputs,
+            changeOutput: components.changeOutput,
+            outputOrderingStrategy: .privacyRandomized,
+            signatureFormat: .schnorr,
+            feePerByte: 0,
+            privacyOutputShuffle: { $0 }
+        )
+
+        let firstInput = try #require(transaction.inputs.first)
+        let decodedUnlockingScript = try decodeP2PKHUnlockingScript(firstInput.unlockingScript)
+        let signatureWithHashType = decodedUnlockingScript.signatureWithHashType
+        let publicKey = decodedUnlockingScript.publicKey
+        let signature = try #require(signatureWithHashType.dropLast().isEmpty ? nil : Data(signatureWithHashType.dropLast()))
+        let encodedHashType = try #require(signatureWithHashType.last)
+
+        #expect(encodedHashType == UInt8(truncatingIfNeeded: hashType.value))
+        #expect(signature.count == 64)
+
+        let outputBeingSpent = OpalBase.Transaction.Output(
+            value: unspent.value,
+            lockingScript: unspent.lockingScript,
+            tokenData: unspent.tokenData
+        )
+        let preimage = try transaction.generatePreimage(
+            for: 0,
+            hashType: hashType,
+            outputBeingSpent: outputBeingSpent
+        )
+        let messageDigest = OpalCrypto.Hashing.computeHash256(preimage)
+        let verificationKey = try OpalCrypto.Signature.VerificationKey(publicKey: publicKey)
+
+        let isValidThroughCachedKey = try OpalCrypto.Signature.verify(
+            signature: signature,
+            message: messageDigest,
+            verificationKey: verificationKey,
+            format: .schnorr
+        )
+        let isValidThroughLegacyPath = try OpalCrypto.Signature.verify(
+            signature: signature,
+            message: messageDigest,
+            publicKey: publicKey,
+            format: .schnorr
+        )
+
+        #expect(isValidThroughCachedKey)
+        #expect(isValidThroughLegacyPath)
+    }
+
     @Test("build applies canonical BIP-69 output ordering when requested")
     func buildAppliesCanonicalOutputOrdering() throws {
         let privateKey = Data(repeating: 0x02, count: 32)
@@ -159,4 +214,76 @@ extension TransactionUnspentTransactionOutputValidator {
             Issue.record("Unexpected error type: \(error)")
         }
     }
+}
+
+private enum P2PKHUnlockingScriptDecodingError: Error {
+    case truncated
+    case unsupportedPushOpcode(UInt8)
+    case trailingBytes
+}
+
+private func decodeP2PKHUnlockingScript(
+    _ unlockingScript: Data
+) throws -> (signatureWithHashType: Data, publicKey: Data) {
+    let bytes = Array(unlockingScript)
+    var offset = 0
+    let signatureWithHashType = try Data(readPushedElement(from: bytes, offset: &offset))
+    let publicKey = try Data(readPushedElement(from: bytes, offset: &offset))
+
+    guard offset == bytes.count else {
+        throw P2PKHUnlockingScriptDecodingError.trailingBytes
+    }
+
+    return (signatureWithHashType, publicKey)
+}
+
+private func readPushedElement(
+    from bytes: [UInt8],
+    offset: inout Int
+) throws -> [UInt8] {
+    guard offset < bytes.count else {
+        throw P2PKHUnlockingScriptDecodingError.truncated
+    }
+
+    let opcode = bytes[offset]
+    offset += 1
+
+    let count: Int
+    switch opcode {
+    case 0 ... 75:
+        count = Int(opcode)
+    case ScriptOperationCode._PUSHDATA1.rawValue:
+        guard offset < bytes.count else {
+            throw P2PKHUnlockingScriptDecodingError.truncated
+        }
+        count = Int(bytes[offset])
+        offset += 1
+    case ScriptOperationCode._PUSHDATA2.rawValue:
+        guard offset + 1 < bytes.count else {
+            throw P2PKHUnlockingScriptDecodingError.truncated
+        }
+        count = Int(UInt16(bytes[offset]) | (UInt16(bytes[offset + 1]) << 8))
+        offset += 2
+    case ScriptOperationCode._PUSHDATA4.rawValue:
+        guard offset + 3 < bytes.count else {
+            throw P2PKHUnlockingScriptDecodingError.truncated
+        }
+        count = Int(
+            UInt32(bytes[offset]) |
+                (UInt32(bytes[offset + 1]) << 8) |
+                (UInt32(bytes[offset + 2]) << 16) |
+                (UInt32(bytes[offset + 3]) << 24)
+        )
+        offset += 4
+    default:
+        throw P2PKHUnlockingScriptDecodingError.unsupportedPushOpcode(opcode)
+    }
+
+    guard offset + count <= bytes.count else {
+        throw P2PKHUnlockingScriptDecodingError.truncated
+    }
+
+    let element = Array(bytes[offset ..< offset + count])
+    offset += count
+    return element
 }
