@@ -63,7 +63,7 @@ extension _OpalBase.Address.Book {
         var fungibleDeltas: [OpalBase.CashTokens.CategoryID: Int64] = .init()
         var nonFungibleAdditions: Set<OpalBase.CashTokens.TokenData> = .init()
         var nonFungibleRemovals: Set<OpalBase.CashTokens.TokenData> = .init()
-        var lockedBitcoinCashDelta: Int64 = 0
+        var lockedBCHDelta: Int64 = 0
         
         for output in transaction.outputs {
             let scriptHash = makeScriptHashHex(from: output.lockingScript)
@@ -73,7 +73,7 @@ extension _OpalBase.Address.Book {
             if let nonFungibleTokenData = makeNonFungibleTokenData(from: tokenData) {
                 nonFungibleAdditions.insert(nonFungibleTokenData)
             }
-            lockedBitcoinCashDelta += Int64(output.value)
+            lockedBCHDelta += Int64(output.value)
         }
         
         for input in transaction.inputs {
@@ -88,14 +88,14 @@ extension _OpalBase.Address.Book {
             if let nonFungibleTokenData = makeNonFungibleTokenData(from: tokenData) {
                 nonFungibleRemovals.insert(nonFungibleTokenData)
             }
-            lockedBitcoinCashDelta -= Int64(previousOutput.value)
+            lockedBCHDelta -= Int64(previousOutput.value)
         }
         
         return OpalBase.Transaction.History.Record.TokenDelta(
             fungibleDeltasByCategory: fungibleDeltas,
             nonFungibleTokenAdditions: nonFungibleAdditions,
             nonFungibleTokenRemovals: nonFungibleRemovals,
-            bitcoinCashLockedInTokenOutputDelta: lockedBitcoinCashDelta
+            bchLockedInTokenOutputDelta: lockedBCHDelta
         )
     }
     

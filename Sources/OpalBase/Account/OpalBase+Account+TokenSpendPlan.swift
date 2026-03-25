@@ -11,26 +11,26 @@ extension _OpalBase.Account {
             public let transaction: OpalBase.Transaction
             public let fee: OpalBase.Satoshi
             public let tokenChangeOutputs: [OpalBase.Transaction.Output]
-            public let bitcoinCashChange: Change?
+            public let bchChange: Change?
             
             public init(transaction: OpalBase.Transaction,
                         fee: OpalBase.Satoshi,
                         tokenChangeOutputs: [OpalBase.Transaction.Output],
-                        bitcoinCashChange: Change?) {
+                        bchChange: Change?) {
                 self.transaction = transaction
                 self.fee = fee
                 self.tokenChangeOutputs = tokenChangeOutputs
-                self.bitcoinCashChange = bitcoinCashChange
+                self.bchChange = bchChange
             }
         }
         
         public let transfer: TokenTransfer
         public let feeRate: UInt64
         public let tokenInputs: [OpalBase.Transaction.Output.Unspent]
-        public let bitcoinCashInputs: [OpalBase.Transaction.Output.Unspent]
+        public let bchInputs: [OpalBase.Transaction.Output.Unspent]
         public let tokenRecipientOutputs: [OpalBase.Transaction.Output]
         public let tokenChangeOutputs: [OpalBase.Transaction.Output]
-        public let bitcoinCashChangeOutput: OpalBase.Transaction.Output
+        public let bchChangeOutput: OpalBase.Transaction.Output
         public let shouldAllowDustDonation: Bool
         public var reservationDate: Date { reservationHandle.reservationDate }
         
@@ -42,10 +42,10 @@ extension _OpalBase.Account {
         init(transfer: TokenTransfer,
              feeRate: UInt64,
              tokenInputs: [OpalBase.Transaction.Output.Unspent],
-             bitcoinCashInputs: [OpalBase.Transaction.Output.Unspent],
+             bchInputs: [OpalBase.Transaction.Output.Unspent],
              tokenRecipientOutputs: [OpalBase.Transaction.Output],
              tokenChangeOutputs: [OpalBase.Transaction.Output],
-             bitcoinCashChangeOutput: OpalBase.Transaction.Output,
+             bchChangeOutput: OpalBase.Transaction.Output,
              shouldAllowDustDonation: Bool,
              reservationHandle: OpalBase.Account.SpendReservation,
              privateKeys: [OpalBase.Transaction.Output.Unspent: Data],
@@ -54,10 +54,10 @@ extension _OpalBase.Account {
             self.transfer = transfer
             self.feeRate = feeRate
             self.tokenInputs = tokenInputs
-            self.bitcoinCashInputs = bitcoinCashInputs
+            self.bchInputs = bchInputs
             self.tokenRecipientOutputs = tokenRecipientOutputs
             self.tokenChangeOutputs = tokenChangeOutputs
-            self.bitcoinCashChangeOutput = bitcoinCashChangeOutput
+            self.bchChangeOutput = bchChangeOutput
             self.shouldAllowDustDonation = shouldAllowDustDonation
             self.reservationHandle = reservationHandle
             self.privateKeys = privateKeys
@@ -69,7 +69,7 @@ extension _OpalBase.Account {
                                      unlockers: [OpalBase.Transaction.Output.Unspent: OpalBase.Transaction.Unlocker] = .init()) throws -> TransactionResult {
             let core = try OpalBase.Account.buildTransactionCore(privateKeys: privateKeys,
                                                         recipientOutputs: organizedTokenOutputs,
-                                                        changeOutput: bitcoinCashChangeOutput,
+                                                        changeOutput: bchChangeOutput,
                                                         feeRate: feeRate,
                                                         shouldAllowDustDonation: shouldAllowDustDonation,
                                                         shouldRandomizeRecipientOrdering: shouldRandomizeRecipientOrdering,
@@ -83,7 +83,7 @@ extension _OpalBase.Account {
             return TransactionResult(transaction: core.transaction,
                                      fee: core.fee,
                                      tokenChangeOutputs: resolvedTokenChangeOutputs,
-                                     bitcoinCashChange: core.bitcoinCashChange)
+                                     bchChange: core.bchChange)
         }
         
         public func completeReservation() async throws {

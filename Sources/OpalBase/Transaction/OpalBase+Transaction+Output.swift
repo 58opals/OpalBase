@@ -14,7 +14,7 @@ extension _OpalBase.Transaction {
         
         /// Initializes an OpalBase.Transaction.Output instance.
         /// - Parameters:
-        ///   - value: The number of satoshi to be transferred.
+        ///   - value: The number of satoshis to be transferred.
         ///   - lockingScript: The contents of the locking script.
         ///   - tokenData: Token metadata to prefix before the locking script.
         public init(value: UInt64, lockingScript: Data, tokenData: OpalBase.CashTokens.TokenData? = nil) {
@@ -25,7 +25,7 @@ extension _OpalBase.Transaction {
         
         /// Initializes an OpalBase.Transaction.Output instance.
         /// - Parameters:
-        ///   - value: The number of satoshi to be transferred.
+        ///   - value: The number of satoshis to be transferred.
         ///   - address: The address of the output's recipient.
         ///   - tokenData: Token metadata to prefix before the locking script.
         public init(value: UInt64, address: OpalBase.Address, tokenData: OpalBase.CashTokens.TokenData? = nil) {

@@ -24,11 +24,11 @@ struct AddressValidator {
         #expect(try OpalBase.Address(address.string).lockingScript.data == script.data)
     }
     
-    @Test("cash address decodes to P2PKH script")
-    func decodeCashAddressToP2PKHScript() throws {
-        let cashaddr = "qpm2qsznhks23z7629mms6s4cwef74vcwvy22gdx6a"
-        let address = try OpalBase.Address(cashaddr)
-        #expect(address.string == cashaddr)
+    @Test("CashAddr decodes to P2PKH script")
+    func decodeCashAddrToP2PKHScript() throws {
+        let cashAddr = "qpm2qsznhks23z7629mms6s4cwef74vcwvy22gdx6a"
+        let address = try OpalBase.Address(cashAddr)
+        #expect(address.string == cashAddr)
         
         switch address.lockingScript {
         case .p2pkh_OPCHECKSIG(let hash):
@@ -38,11 +38,11 @@ struct AddressValidator {
         }
     }
     
-    @Test("cash address accepts uppercase payload")
-    func decodeCashAddressWithUppercasePayload() throws {
-        let cashaddr = "QPM2QSZNHKS23Z7629MMS6S4CWEF74VCWVY22GDX6A"
-        let address = try OpalBase.Address(cashaddr)
-        #expect(address.string == cashaddr)
+    @Test("CashAddr accepts uppercase payload")
+    func decodeCashAddrWithUppercasePayload() throws {
+        let cashAddr = "QPM2QSZNHKS23Z7629MMS6S4CWEF74VCWVY22GDX6A"
+        let address = try OpalBase.Address(cashAddr)
+        #expect(address.string == cashAddr)
         
         switch address.lockingScript {
         case .p2pkh_OPCHECKSIG(let hash):
@@ -52,20 +52,20 @@ struct AddressValidator {
         }
     }
     
-    @Test("mixed-case cash address payload is rejected")
-    func rejectMixedCaseCashAddressPayload() {
+    @Test("mixed-case CashAddr payload is rejected")
+    func rejectMixedCaseCashAddrPayload() {
         let mixedCasePayload = "qpm2qsznHks23z7629mms6s4cwef74vcwvy22gdx6a"
         
-        #expect(throws: OpalBase.Address.Error.invalidCashAddressFormat) {
+        #expect(throws: OpalBase.Address.Error.invalidCashAddrFormat) {
             _ = try OpalBase.Address(mixedCasePayload)
         }
     }
     
-    @Test("cash address accepts uppercase prefix")
-    func decodeCashAddressWithUppercasePrefix() throws {
-        let cashaddr = "qpm2qsznhks23z7629mms6s4cwef74vcwvy22gdx6a"
-        let address = try OpalBase.Address(cashaddr)
-        #expect(address.string == cashaddr)
+    @Test("CashAddr accepts uppercase prefix")
+    func decodeCashAddrWithUppercasePrefix() throws {
+        let cashAddr = "qpm2qsznhks23z7629mms6s4cwef74vcwvy22gdx6a"
+        let address = try OpalBase.Address(cashAddr)
+        #expect(address.string == cashAddr)
         
         switch address.lockingScript {
         case .p2pkh_OPCHECKSIG(let hash):

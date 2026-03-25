@@ -42,6 +42,24 @@ enum WalletFulcrumAddressMonitorSupport {
         }
     }
 
+    static func waitUntil(
+        description: String,
+        timeout: Duration = .seconds(1),
+        pollInterval: Duration = .milliseconds(10),
+        condition: @Sendable @escaping () async -> Bool
+    ) async throws {
+        let deadline = ContinuousClock.now.advanced(by: timeout)
+
+        while ContinuousClock.now < deadline {
+            if await condition() {
+                return
+            }
+            try await Task.sleep(for: pollInterval)
+        }
+
+        throw TimeoutError.timedOut(description)
+    }
+
     static func hasAddressTracked(_ events: [OpalBase.Wallet.Fulcrum.Monitor.Event]) -> Bool {
         events.contains { if case .addressTracked = $0 { true } else { false } }
     }

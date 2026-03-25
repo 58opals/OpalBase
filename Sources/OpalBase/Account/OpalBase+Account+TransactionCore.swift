@@ -7,7 +7,7 @@ extension _OpalBase.Account {
     struct TransactionCore: Sendable {
         let transaction: OpalBase.Transaction
         let fee: OpalBase.Satoshi
-        let bitcoinCashChange: SpendPlan.TransactionResult.Change?
+        let bchChange: SpendPlan.TransactionResult.Change?
     }
     
     static func buildTransactionCore(
@@ -59,15 +59,15 @@ extension _OpalBase.Account {
         
         let change: SpendPlan.TransactionResult.Change?
         do {
-            change = try findBitcoinCashChange(in: transaction, changeEntry: changeEntry)
+            change = try findBCHChange(in: transaction, changeEntry: changeEntry)
         } catch {
             throw mapBuildError(error)
         }
         
-        return .init(transaction: transaction, fee: fee, bitcoinCashChange: change)
+        return .init(transaction: transaction, fee: fee, bchChange: change)
     }
     
-    private static func findBitcoinCashChange(
+    private static func findBCHChange(
         in transaction: OpalBase.Transaction,
         changeEntry: OpalBase.Address.Book.Entry
     ) throws -> SpendPlan.TransactionResult.Change? {

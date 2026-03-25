@@ -58,14 +58,14 @@ extension _OpalBase.Account {
         let organizedTokenOutputs = await privacyShaper.organizeOutputs(combinedTokenOutputs)
         
         let feeRate = feePolicy.recommendFeeRate(for: transfer.feeContext, override: transfer.feeOverride)
-        let bitcoinCashInputs = try selectBitcoinCashInputs(from: spendableOutputs,
+        let bchInputs = try selectBCHInputs(from: spendableOutputs,
                                                             existingInputs: selectedTokenInputs,
                                                             outputs: organizedTokenOutputs,
                                                             feeRate: feeRate,
                                                             shouldAllowDustDonation: transfer.shouldAllowDustDonation,
                                                             changeLockingScript: changeEntry.address.lockingScript.data)
         
-        let inputs = selectedTokenInputs + bitcoinCashInputs
+        let inputs = selectedTokenInputs + bchInputs
         let reservedSpendContext = try await reserveSpendContext(
             inputs: inputs,
             outputs: organizedTokenOutputs,
@@ -78,10 +78,10 @@ extension _OpalBase.Account {
         return TokenSpendPlan(transfer: transfer,
                               feeRate: feeRate,
                               tokenInputs: selectedTokenInputs,
-                              bitcoinCashInputs: bitcoinCashInputs,
+                              bchInputs: bchInputs,
                               tokenRecipientOutputs: rawRecipientOutputs,
                               tokenChangeOutputs: tokenChangeOutputs,
-                              bitcoinCashChangeOutput: reservedSpendContext.changeOutput,
+                              bchChangeOutput: reservedSpendContext.changeOutput,
                               shouldAllowDustDonation: transfer.shouldAllowDustDonation,
                               reservationHandle: reservedSpendContext.reservationHandle,
                               privateKeys: reservedSpendContext.privateKeys,

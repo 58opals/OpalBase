@@ -5,46 +5,54 @@ import Foundation
 extension _OpalBase.Wallet.Fulcrum.Monitor {
     func startHeaderSubscription() async {
         guard headerTask == nil else { return }
-        let reader = blockHeaderReader
-        let retryDelay = self.retryDelay
-        headerTask = Task {
+        headerTask = Self.makeHeaderTask(dependencies: dependencies)
+    }
+}
+
+extension _OpalBase.Wallet.Fulcrum.Monitor {
+    static func makeHeaderTask(dependencies: WorkerDependencies) -> Task<Void, Never> {
+        let reader = dependencies.blockHeaderReader
+        let retryDelay = dependencies.retryDelay
+
+        return Task.detached {
             while !Task.isCancelled {
                 do {
                     let stream = try await reader.subscribeToTip()
-                    try await consumeHeaderStream(stream)
+                    try await consumeHeaderStream(stream, dependencies: dependencies)
                 } catch {
                     if error.isCancellationError { return }
-                    await publishFailure(address: nil, error: error)
+                    publishFailure(address: nil, error: error, relay: dependencies.relay)
                     guard !Task.isCancelled else { return }
                     try? await Task.sleep(for: retryDelay)
                 }
             }
         }
     }
-    
-    private func consumeHeaderStream(_ stream: AsyncThrowingStream<OpalBase.Network.BlockHeaderSnapshot, any Swift.Error>) async throws {
+
+    static func consumeHeaderStream(_ stream: AsyncThrowingStream<OpalBase.Network.BlockHeaderSnapshot, any Swift.Error>,
+                                    dependencies: WorkerDependencies) async throws {
         do {
-            for try await snapshot in stream {
+            for try await _ in stream {
                 try Task.checkCancellation()
-                await handleHeaderSnapshot(snapshot)
+                await handleHeaderSnapshot(dependencies: dependencies)
             }
         } catch {
             if error.isCancellationError {
                 throw error
             }
-            await publishFailure(address: nil, error: error)
+            publishFailure(address: nil, error: error, relay: dependencies.relay)
             throw error
         }
     }
-    
-    private func handleHeaderSnapshot(_ snapshot: OpalBase.Network.BlockHeaderSnapshot) async {
+
+    static func handleHeaderSnapshot(dependencies: WorkerDependencies) async {
         do {
-            let changeSet = try await account.refreshTransactionConfirmations(using: transactionClient)
+            let changeSet = try await dependencies.account.refreshTransactionConfirmations(using: dependencies.transactionClient)
             if !changeSet.isEmpty {
-                publish(.confirmationsChanged(changeSet))
+                dependencies.relay.publish(.confirmationsChanged(changeSet))
             }
         } catch {
-            await publishFailure(address: nil, error: error)
+            publishFailure(address: nil, error: error, relay: dependencies.relay)
         }
     }
 }

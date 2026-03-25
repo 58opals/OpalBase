@@ -71,7 +71,7 @@ extension _OpalBase.Transaction {
 }
 
 // MARK: - Legacy reference implementation
-/// Retained for documentation, this version of the fee utilities omits helper placeholders so readers can see the raw sizing logic. It works alongside the legacy `OpalBase.Transaction` snippet above to paint a complete picture of how virtual sizes and fees were previously calculated.
+/// Retained for documentation, this version of the fee utilities omits helper placeholders so readers can see the raw serialized-byte sizing logic. Use it together with the legacy serialization reference in `OpalBase+Transaction.swift` to follow how BCH fee sizing worked before the current helpers were introduced.
 
 private extension _OpalBase.Transaction {
     func estimateSize_Legacy() -> Int {
@@ -126,4 +126,3 @@ private extension CompactSize {
         }
     }
 }
-

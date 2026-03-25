@@ -55,13 +55,13 @@ extension _OpalBase.Account {
         throw Error.tokenTransferInsufficientTokens
     }
     
-    func selectBitcoinCashInputs(from unspentOutputs: [OpalBase.Transaction.Output.Unspent],
+    func selectBCHInputs(from unspentOutputs: [OpalBase.Transaction.Output.Unspent],
                                  existingInputs: [OpalBase.Transaction.Output.Unspent],
                                  outputs: [OpalBase.Transaction.Output],
                                  feeRate: UInt64,
                                  shouldAllowDustDonation: Bool,
                                  changeLockingScript: Data) throws -> [OpalBase.Transaction.Output.Unspent] {
-        let bitcoinCashOnlyOutputs = unspentOutputs
+        let bchOnlyOutputs = unspentOutputs
             .filter { $0.tokenData == nil }
             .sorted {
                 if $0.value == $1.value {
@@ -97,7 +97,7 @@ extension _OpalBase.Account {
             return selected
         }
         
-        for output in bitcoinCashOnlyOutputs {
+        for output in bchOnlyOutputs {
             selected.append(output)
             total = try total.addOrThrow(output.value,
                                          overflowError: Error.paymentExceedsMaximumAmount)

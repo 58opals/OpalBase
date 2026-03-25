@@ -12,28 +12,28 @@ extension _OpalBase.Account {
             public let fee: OpalBase.Satoshi
             public let mutatedTokenOutput: OpalBase.Transaction.Output
             public let fungiblePreservationOutput: OpalBase.Transaction.Output?
-            public let bitcoinCashChange: Change?
+            public let bchChange: Change?
             
             public init(transaction: OpalBase.Transaction,
                         fee: OpalBase.Satoshi,
                         mutatedTokenOutput: OpalBase.Transaction.Output,
                         fungiblePreservationOutput: OpalBase.Transaction.Output?,
-                        bitcoinCashChange: Change?) {
+                        bchChange: Change?) {
                 self.transaction = transaction
                 self.fee = fee
                 self.mutatedTokenOutput = mutatedTokenOutput
                 self.fungiblePreservationOutput = fungiblePreservationOutput
-                self.bitcoinCashChange = bitcoinCashChange
+                self.bchChange = bchChange
             }
         }
         
         public let mutation: TokenCommitmentMutation
         public let feeRate: UInt64
         public let authorityInput: OpalBase.Transaction.Output.Unspent
-        public let bitcoinCashInputs: [OpalBase.Transaction.Output.Unspent]
+        public let bchInputs: [OpalBase.Transaction.Output.Unspent]
         public let mutatedTokenOutput: OpalBase.Transaction.Output
         public let fungiblePreservationOutput: OpalBase.Transaction.Output?
-        public let bitcoinCashChangeOutput: OpalBase.Transaction.Output
+        public let bchChangeOutput: OpalBase.Transaction.Output
         public let shouldAllowDustDonation: Bool
         public var reservationDate: Date { reservationHandle.reservationDate }
         
@@ -45,10 +45,10 @@ extension _OpalBase.Account {
         init(mutation: TokenCommitmentMutation,
              feeRate: UInt64,
              authorityInput: OpalBase.Transaction.Output.Unspent,
-             bitcoinCashInputs: [OpalBase.Transaction.Output.Unspent],
+             bchInputs: [OpalBase.Transaction.Output.Unspent],
              mutatedTokenOutput: OpalBase.Transaction.Output,
              fungiblePreservationOutput: OpalBase.Transaction.Output?,
-             bitcoinCashChangeOutput: OpalBase.Transaction.Output,
+             bchChangeOutput: OpalBase.Transaction.Output,
              shouldAllowDustDonation: Bool,
              reservationHandle: OpalBase.Account.SpendReservation,
              privateKeys: [OpalBase.Transaction.Output.Unspent: Data],
@@ -57,10 +57,10 @@ extension _OpalBase.Account {
             self.mutation = mutation
             self.feeRate = feeRate
             self.authorityInput = authorityInput
-            self.bitcoinCashInputs = bitcoinCashInputs
+            self.bchInputs = bchInputs
             self.mutatedTokenOutput = mutatedTokenOutput
             self.fungiblePreservationOutput = fungiblePreservationOutput
-            self.bitcoinCashChangeOutput = bitcoinCashChangeOutput
+            self.bchChangeOutput = bchChangeOutput
             self.shouldAllowDustDonation = shouldAllowDustDonation
             self.reservationHandle = reservationHandle
             self.privateKeys = privateKeys
@@ -72,7 +72,7 @@ extension _OpalBase.Account {
                                      unlockers: [OpalBase.Transaction.Output.Unspent: OpalBase.Transaction.Unlocker] = .init()) throws -> TransactionResult {
             let core = try OpalBase.Account.buildTransactionCore(privateKeys: privateKeys,
                                                         recipientOutputs: organizedTokenOutputs,
-                                                        changeOutput: bitcoinCashChangeOutput,
+                                                        changeOutput: bchChangeOutput,
                                                         feeRate: feeRate,
                                                         shouldAllowDustDonation: shouldAllowDustDonation,
                                                         shouldRandomizeRecipientOrdering: shouldRandomizeRecipientOrdering,
@@ -88,7 +88,7 @@ extension _OpalBase.Account {
                                      fee: core.fee,
                                      mutatedTokenOutput: resolvedMutatedOutput,
                                      fungiblePreservationOutput: resolvedPreservationOutput,
-                                     bitcoinCashChange: core.bitcoinCashChange)
+                                     bchChange: core.bchChange)
         }
         
         public func completeReservation() async throws {

@@ -199,5 +199,60 @@ struct WalletFulcrumAddressMonitorValidator {
         collector.cancel()
         _ = await collector.result
     }
-}
 
+    @Test("monitor deinit cancels address and header subscriptions without explicit stop")
+    func monitorDeinitCancelsSubscriptions() async throws {
+        let account = try await AccountTestFixtures.makeAccount()
+        let targetEntry = try await account.selectNextEntry(for: .receiving)
+        let addressReader = WalletAddressReaderTestActor(
+            updatesByAddress: [
+                targetEntry.address.string: [.init(kind: .initialSnapshot, address: targetEntry.address.string, status: "ready")]
+            ]
+        )
+        let confirmationClient = TransactionConfirmationClientTestActor()
+        let headerReader = BlockHeaderReaderTestActor(
+            snapshots: [.init(height: 15, headerHexadecimal: String(repeating: "c", count: 160))]
+        )
+        let fulcrum = OpalBase.Wallet.Fulcrum(
+            addressReader: addressReader,
+            transactionHandler: confirmationClient
+        )
+
+        weak var weakMonitor: OpalBase.Wallet.Fulcrum.Monitor?
+        var strongMonitor: OpalBase.Wallet.Fulcrum.Monitor? = await fulcrum.makeMonitor(
+            for: account,
+            blockHeaderReader: headerReader,
+            retryDelay: .milliseconds(10)
+        )
+        weakMonitor = strongMonitor
+
+        if let monitor = strongMonitor {
+            await monitor.start()
+
+            try await WalletFulcrumAddressMonitorSupport.waitUntil(description: "monitor tasks started") {
+                let addressSubscriptionCount = await monitor.addressSubscriptions.count
+                let hasHeaderTask = await monitor.headerTask != nil
+                return addressSubscriptionCount > 0 && hasHeaderTask
+            }
+        }
+        try await Task.sleep(for: .milliseconds(100))
+        #expect(!(await addressReader.readSubscribeRequests()).isEmpty)
+        #expect(await headerReader.readSubscriptionCount() > 0)
+
+        strongMonitor = nil
+
+        for _ in 0..<100 {
+            if weakMonitor == nil {
+                break
+            }
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        #expect(weakMonitor == nil)
+
+        try await WalletFulcrumAddressMonitorSupport.waitUntil(description: "subscription termination") {
+            let addressTerminations = await addressReader.readSubscriptionTerminationCount(for: targetEntry.address.string)
+            let tipTerminations = await headerReader.readTerminationCount()
+            return addressTerminations > 0 && tipTerminations > 0
+        }
+    }
+}

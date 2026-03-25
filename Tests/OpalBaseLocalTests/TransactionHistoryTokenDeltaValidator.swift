@@ -75,7 +75,7 @@ struct TransactionHistoryTokenDeltaValidator {
         #expect(record.tokenDelta.nonFungibleTokenAdditions.contains(additionTokenData))
         let removalTokenData = OpalBase.CashTokens.TokenData(category: category, amount: nil, nft: removedToken)
         #expect(record.tokenDelta.nonFungibleTokenRemovals.contains(removalTokenData))
-        #expect(record.tokenDelta.bitcoinCashLockedInTokenOutputDelta == 150)
+        #expect(record.tokenDelta.bchLockedInTokenOutputDelta == 150)
     }
 }
 

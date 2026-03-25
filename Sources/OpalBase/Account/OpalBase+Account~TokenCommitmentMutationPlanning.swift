@@ -85,14 +85,14 @@ extension _OpalBase.Account {
         let organizedTokenOutputs = await privacyShaper.organizeOutputs(plannedTokenOutputs)
         
         let feeRate = feePolicy.recommendFeeRate(for: mutation.feeContext, override: mutation.feeOverride)
-        let bitcoinCashInputs = try selectBitcoinCashInputs(from: spendableOutputs,
+        let bchInputs = try selectBCHInputs(from: spendableOutputs,
                                                             existingInputs: [authorityInput],
                                                             outputs: organizedTokenOutputs,
                                                             feeRate: feeRate,
                                                             shouldAllowDustDonation: mutation.shouldAllowDustDonation,
                                                             changeLockingScript: changeEntry.address.lockingScript.data)
         
-        let inputs = [authorityInput] + bitcoinCashInputs
+        let inputs = [authorityInput] + bchInputs
         let reservedSpendContext = try await reserveSpendContext(
             inputs: inputs,
             outputs: organizedTokenOutputs,
@@ -105,10 +105,10 @@ extension _OpalBase.Account {
         return TokenCommitmentMutationPlan(mutation: mutation,
                                            feeRate: feeRate,
                                            authorityInput: authorityInput,
-                                           bitcoinCashInputs: bitcoinCashInputs,
+                                           bchInputs: bchInputs,
                                            mutatedTokenOutput: mutatedTokenOutput,
                                            fungiblePreservationOutput: fungiblePreservationOutput,
-                                           bitcoinCashChangeOutput: reservedSpendContext.changeOutput,
+                                           bchChangeOutput: reservedSpendContext.changeOutput,
                                            shouldAllowDustDonation: mutation.shouldAllowDustDonation,
                                            reservationHandle: reservedSpendContext.reservationHandle,
                                            privateKeys: reservedSpendContext.privateKeys,

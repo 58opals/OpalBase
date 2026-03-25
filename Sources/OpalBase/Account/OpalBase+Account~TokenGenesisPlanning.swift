@@ -98,14 +98,14 @@ extension _OpalBase.Account {
         
         let organizedOutputs = await privacyShaper.organizeOutputs(rawOutputs)
         let feeRate = feePolicy.recommendFeeRate(for: genesis.feeContext, override: genesis.feeOverride)
-        let bitcoinCashInputs = try selectBitcoinCashInputs(from: spendableOutputs,
+        let bchInputs = try selectBCHInputs(from: spendableOutputs,
                                                             existingInputs: [genesisInput],
                                                             outputs: organizedOutputs,
                                                             feeRate: feeRate,
                                                             shouldAllowDustDonation: genesis.shouldAllowDustDonation,
                                                             changeLockingScript: changeEntry.address.lockingScript.data)
         
-        let inputs = [genesisInput] + bitcoinCashInputs
+        let inputs = [genesisInput] + bchInputs
         let reservedSpendContext = try await reserveSpendContext(
             inputs: inputs,
             outputs: organizedOutputs,
@@ -119,7 +119,7 @@ extension _OpalBase.Account {
                                 category: category,
                                 feeRate: feeRate,
                                 genesisInput: genesisInput,
-                                bitcoinCashInputs: bitcoinCashInputs,
+                                bchInputs: bchInputs,
                                 outputs: organizedOutputs,
                                 reservationHandle: reservedSpendContext.reservationHandle,
                                 privateKeys: reservedSpendContext.privateKeys,

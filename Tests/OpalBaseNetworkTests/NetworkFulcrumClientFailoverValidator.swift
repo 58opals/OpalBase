@@ -16,7 +16,7 @@ struct NetworkFulcrumClientFailoverValidator {
         URL(string: "wss://electrum.imaginary.cash:50004")!,
         URL(string: "wss://bch.loping.net:50004")!
     ]
-    private static let sampleCashAddress = "bitcoincash:qpm2qsznhks23z7629mms6s4cwef74vcwvy22gdx6a"
+    private static let sampleCashAddr = "bitcoincash:qpm2qsznhks23z7629mms6s4cwef74vcwvy22gdx6a"
     
     @Test("recovers unary request after unhealthy server failover", .timeLimit(.minutes(1)))
     func unaryRequestSucceedsAfterFailover() async throws {
@@ -46,12 +46,25 @@ struct NetworkFulcrumClientFailoverValidator {
             let balance: SwiftFulcrum.RPC.Response.Result.Blockchain.Address.GetBalance = try await client.request(
                 method: .blockchain(
                     .address(
-                        .getBalance(address: Self.sampleCashAddress, tokenFilter: .include)
+                        .getBalance(address: Self.sampleCashAddr, tokenFilter: .include)
                     )
                 )
             )
-            #expect(balance.confirmed >= 0)
-            #expect(balance.unconfirmed >= 0)
+            _ = balance
+
+            let history: SwiftFulcrum.RPC.Response.Result.Blockchain.Address.GetHistory = try await client.request(
+                method: .blockchain(
+                    .address(
+                        .getHistory(
+                            address: Self.sampleCashAddr,
+                            fromHeight: nil,
+                            toHeight: nil,
+                            shouldIncludeUnconfirmed: true
+                        )
+                    )
+                )
+            )
+            #expect(!history.transactions.isEmpty)
         }
     }
     
@@ -81,13 +94,12 @@ struct NetworkFulcrumClientFailoverValidator {
             let balance: SwiftFulcrum.RPC.Response.Result.Blockchain.Address.GetBalance = try await client.request(
                 method: .blockchain(
                     .address(
-                        .getBalance(address: Self.sampleCashAddress, tokenFilter: .include)
+                        .getBalance(address: Self.sampleCashAddr, tokenFilter: .include)
                     )
                 ),
                 responseType: SwiftFulcrum.RPC.Response.Result.Blockchain.Address.GetBalance.self
             )
-            #expect(balance.confirmed >= 0)
-            #expect(balance.unconfirmed >= 0)
+            _ = balance
             
             try await client.reconnect()
             
@@ -95,7 +107,7 @@ struct NetworkFulcrumClientFailoverValidator {
                 method: .blockchain(
                     .address(
                         .getHistory(
-                            address: Self.sampleCashAddress,
+                            address: Self.sampleCashAddr,
                             fromHeight: nil,
                             toHeight: nil,
                             shouldIncludeUnconfirmed: true
@@ -127,19 +139,17 @@ struct NetworkFulcrumClientFailoverValidator {
             let balance: SwiftFulcrum.RPC.Response.Result.Blockchain.Address.GetBalance = try await client.request(
                 method: .blockchain(
                     .address(
-                        .getBalance(address: Self.sampleCashAddress, tokenFilter: .include)
+                        .getBalance(address: Self.sampleCashAddr, tokenFilter: .include)
                     )
                 )
             )
-            
-            #expect(balance.confirmed >= 0)
-            #expect(balance.unconfirmed >= 0)
+            _ = balance
             
             let history: SwiftFulcrum.RPC.Response.Result.Blockchain.Address.GetHistory = try await client.request(
                 method: .blockchain(
                     .address(
                         .getHistory(
-                            address: Self.sampleCashAddress,
+                            address: Self.sampleCashAddr,
                             fromHeight: nil,
                             toHeight: nil,
                             shouldIncludeUnconfirmed: true

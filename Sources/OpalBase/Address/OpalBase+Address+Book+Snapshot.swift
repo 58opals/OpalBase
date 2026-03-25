@@ -63,7 +63,7 @@ extension _OpalBase.Address.Book {
             public let fungibleTokenDeltasByCategory: [OpalBase.CashTokens.CategoryID: Int64]?
             public let nonFungibleTokenAdditions: [OpalBase.CashTokens.TokenData]?
             public let nonFungibleTokenRemovals: [OpalBase.CashTokens.TokenData]?
-            public let bitcoinCashLockedInTokenOutputDelta: Int64?
+            public let bchLockedInTokenOutputDelta: Int64?
 
             public init(transactionHash: String,
                         height: Int,
@@ -81,7 +81,7 @@ extension _OpalBase.Address.Book {
                         fungibleTokenDeltasByCategory: [OpalBase.CashTokens.CategoryID: Int64]? = nil,
                         nonFungibleTokenAdditions: [OpalBase.CashTokens.TokenData]? = nil,
                         nonFungibleTokenRemovals: [OpalBase.CashTokens.TokenData]? = nil,
-                        bitcoinCashLockedInTokenOutputDelta: Int64? = nil) {
+                        bchLockedInTokenOutputDelta: Int64? = nil) {
                 self.transactionHash = transactionHash
                 self.height = height
                 self.fee = fee
@@ -98,7 +98,7 @@ extension _OpalBase.Address.Book {
                 self.fungibleTokenDeltasByCategory = fungibleTokenDeltasByCategory
                 self.nonFungibleTokenAdditions = nonFungibleTokenAdditions
                 self.nonFungibleTokenRemovals = nonFungibleTokenRemovals
-                self.bitcoinCashLockedInTokenOutputDelta = bitcoinCashLockedInTokenOutputDelta
+                self.bchLockedInTokenOutputDelta = bchLockedInTokenOutputDelta
             }
         }
 

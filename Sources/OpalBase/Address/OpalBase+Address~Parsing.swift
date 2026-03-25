@@ -8,16 +8,16 @@ extension _OpalBase.Address {
     private static let tokenAwarePublicKeyHashVersionByte: UInt8 = 0x10
     private static let tokenAwareScriptHashVersionByte: UInt8 = 0x18
     
-    static func parseCashAddress(from string: String) throws -> OpalBase.Address {
+    static func parseCashAddr(from string: String) throws -> OpalBase.Address {
         let encodedPayload: String
         let prefix: String
         
         if string.contains(OpalBase.Address.separator) {
             let splitComponents = string.split(separator: OpalBase.Address.separator)
-            guard splitComponents.count == 2 else { throw Error.invalidCashAddressFormat }
+            guard splitComponents.count == 2 else { throw Error.invalidCashAddrFormat }
             let providedPrefix = String(splitComponents[0])
             guard providedPrefix.caseInsensitiveCompare(OpalBase.Address.prefix) == .orderedSame else {
-                throw Error.invalidCashAddressFormat
+                throw Error.invalidCashAddrFormat
             }
             
             prefix = OpalBase.Address.prefix
@@ -35,7 +35,7 @@ extension _OpalBase.Address {
             guard let asciiValue = character.asciiValue else { return false }
             return (0x61...0x7A).contains(asciiValue)
         }
-        guard !(hasUppercase && hasLowercase) else { throw Error.invalidCashAddressFormat }
+        guard !(hasUppercase && hasLowercase) else { throw Error.invalidCashAddrFormat }
         
         let decodedData = try OpalCryptoAdapter.decodeBase32(
             encodedPayload,
@@ -64,13 +64,13 @@ extension _OpalBase.Address {
             let hash = OpalBase.Key.PublicKey.Hash(hashData)
             let script = OpalBase.Script.p2pkh_OPCHECKSIG(hash: hash)
             let format: Format = versionByte == tokenAwarePublicKeyHashVersionByte ? .tokenAware : .standard
-            return OpalBase.Address(cashAddressPayload: encodedPayload, lockingScript: script, format: format)
+            return OpalBase.Address(cashAddrPayload: encodedPayload, lockingScript: script, format: format)
         case standardScriptHashVersionByte, tokenAwareScriptHashVersionByte:
             guard hashData.count == 20 else { throw Error.invalidPayloadLength }
             let scriptHash = Data(hashData)
             let script = OpalBase.Script.p2sh(scriptHash: scriptHash)
             let format: Format = versionByte == tokenAwareScriptHashVersionByte ? .tokenAware : .standard
-            return OpalBase.Address(cashAddressPayload: encodedPayload, lockingScript: script, format: format)
+            return OpalBase.Address(cashAddrPayload: encodedPayload, lockingScript: script, format: format)
         default:
             throw Error.unsupportedVersionByte(versionByte)
         }

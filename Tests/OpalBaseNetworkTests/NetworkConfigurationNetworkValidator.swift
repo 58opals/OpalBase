@@ -10,7 +10,7 @@ import OpalBaseTestSupport
 struct NetworkConfigurationNetworkValidator {
     private static let primaryServerAddress = URL(string: "wss://bch.imaginary.cash:50004")!
     private static let backupServerAddress = URL(string: "wss://bch.loping.net:50004")!
-    private static let sampleCashAddress = "bitcoincash:qpm2qsznhks23z7629mms6s4cwef74vcwvy22gdx6a"
+    private static let sampleCashAddr = "bitcoincash:qpm2qsznhks23z7629mms6s4cwef74vcwvy22gdx6a"
 
     @Test("connects to a live Fulcrum server", .timeLimit(.minutes(1)))
     func connectionToFulcrumServer() async throws {
@@ -56,12 +56,11 @@ struct NetworkConfigurationNetworkValidator {
 
         try await NetworkTestClient.withClient(configuration: configuration) { client in
             let addressReader = OpalBase.Network.Fulcrum.AddressReader(client: client)
-            let balance = try await addressReader.fetchBalance(for: Self.sampleCashAddress, tokenFilter: .include)
-            #expect(balance.confirmed >= 0)
+            _ = try await addressReader.fetchBalance(for: Self.sampleCashAddr, tokenFilter: .include)
 
             try await client.reconnect()
 
-            let history = try await addressReader.fetchHistory(for: Self.sampleCashAddress, includeUnconfirmed: true)
+            let history = try await addressReader.fetchHistory(for: Self.sampleCashAddr, includeUnconfirmed: true)
             #expect(!history.isEmpty)
         }
     }

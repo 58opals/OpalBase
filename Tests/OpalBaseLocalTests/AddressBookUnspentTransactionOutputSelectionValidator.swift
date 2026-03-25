@@ -9,7 +9,7 @@ import OpalBaseTestSupport
 @Suite("OpalBase.Address.Book UTXO Selection", .tags(.unit, .address))
 struct AddressBookUnspentTransactionOutputSelectionValidator {
     @Test("BCH selection excludes token UTXOs by default")
-    func selectUnspentTransactionOutputsExcludesTokenOutputsForBitcoinCashPayments() async throws {
+    func selectUnspentTransactionOutputsExcludesTokenOutputsForBCHPayments() async throws {
         let book = try await makeAddressBook()
         let tokenData = try makeTokenData()
         let lockingScript = Data([0x51])

@@ -4,7 +4,7 @@ import Foundation
 import OpalCrypto
 
 enum OpalCryptoAdapter {
-    static let cashAddressCharacters: Set<Character> = Set("qpzry9x8gf2tvdw0s3jn54khce6mua7l")
+    static let cashAddrCharacters: Set<Character> = Set("qpzry9x8gf2tvdw0s3jn54khce6mua7l")
 
     static func sha256(_ data: Data) -> Data {
         OpalCrypto.Hashing.computeSHA256(data)

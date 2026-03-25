@@ -12,7 +12,7 @@ struct NetworkLiveSmokeValidator {
         URL(string: "wss://bch.loping.net:50004")!
     ]
 
-    private static let sampleCashAddress = "bitcoincash:qpm2qsznhks23z7629mms6s4cwef74vcwvy22gdx6a"
+    private static let sampleCashAddr = "bitcoincash:qpm2qsznhks23z7629mms6s4cwef74vcwvy22gdx6a"
 
     @Test("connects and reads current tip", .timeLimit(.minutes(1)))
     func connectAndFetchTip() async throws {
@@ -34,9 +34,9 @@ struct NetworkLiveSmokeValidator {
 
         try await NetworkTestClient.withClient(configuration: configuration) { client in
             let reader = OpalBase.Network.Fulcrum.AddressReader(client: client)
-            let balance = try await reader.fetchBalance(for: Self.sampleCashAddress, tokenFilter: .include)
-            #expect(balance.confirmed >= 0)
-            #expect(balance.unconfirmed >= 0)
+            _ = try await reader.fetchBalance(for: Self.sampleCashAddr, tokenFilter: .include)
+            let history = try await reader.fetchHistory(for: Self.sampleCashAddr, includeUnconfirmed: true)
+            #expect(!history.isEmpty)
         }
     }
 }

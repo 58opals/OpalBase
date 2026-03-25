@@ -88,7 +88,7 @@ extension _OpalBase.Network {
             
             let hash = try OpalBase.Network.decodeTransactionHash(
                 from: item.transactionHash,
-                label: "script-hash unspent transaction hash"
+                label: "script hash unspent transaction hash"
             )
             let rawTransactionData = try await transactionReader.fetchRawTransaction(for: hash)
             let (transaction, _) = try OpalBase.Transaction.decode(from: rawTransactionData)

@@ -17,6 +17,7 @@ actor WalletAddressReaderTestActor: OpalBase.Network.AddressReadable {
     private var unspentRequests: [String] = .init()
     private var historyRequests: [(address: String, includeUnconfirmed: Bool)] = .init()
     private var subscribeRequests: [String] = .init()
+    private var subscriptionTerminationsByAddress: [String: Int] = .init()
 
     init(
         balancesByAddress: [String: OpalBase.Network.AddressBalance] = .init(),
@@ -72,6 +73,9 @@ actor WalletAddressReaderTestActor: OpalBase.Network.AddressReadable {
         let updates = updatesByAddress[address, default: .init()]
         let failure = subscriptionErrorsByAddress[address]
         return AsyncThrowingStream { continuation in
+            continuation.onTermination = { [weak self] _ in
+                Task { await self?.recordSubscriptionTermination(for: address) }
+            }
             for update in updates {
                 continuation.yield(update)
             }
@@ -95,5 +99,13 @@ actor WalletAddressReaderTestActor: OpalBase.Network.AddressReadable {
 
     func readSubscribeRequests() -> [String] {
         subscribeRequests
+    }
+
+    func readSubscriptionTerminationCount(for address: String) -> Int {
+        subscriptionTerminationsByAddress[address, default: 0]
+    }
+
+    private func recordSubscriptionTermination(for address: String) {
+        subscriptionTerminationsByAddress[address, default: 0] += 1
     }
 }

@@ -66,7 +66,7 @@ extension _OpalBase.Address.Book {
                 fungibleTokenDeltasByCategory: tokenDelta.fungibleDeltasByCategory,
                 nonFungibleTokenAdditions: Array(tokenDelta.nonFungibleTokenAdditions),
                 nonFungibleTokenRemovals: Array(tokenDelta.nonFungibleTokenRemovals),
-                bitcoinCashLockedInTokenOutputDelta: tokenDelta.bitcoinCashLockedInTokenOutputDelta
+                bchLockedInTokenOutputDelta: tokenDelta.bchLockedInTokenOutputDelta
             )
         }
 
@@ -132,7 +132,7 @@ extension _OpalBase.Address.Book {
                 fungibleDeltasByCategory: transaction.fungibleTokenDeltasByCategory ?? .init(),
                 nonFungibleTokenAdditions: Set(transaction.nonFungibleTokenAdditions ?? .init()),
                 nonFungibleTokenRemovals: Set(transaction.nonFungibleTokenRemovals ?? .init()),
-                bitcoinCashLockedInTokenOutputDelta: transaction.bitcoinCashLockedInTokenOutputDelta ?? 0
+                bchLockedInTokenOutputDelta: transaction.bchLockedInTokenOutputDelta ?? 0
             )
             let record = OpalBase.Transaction.History.Record(transactionHash: hash,
                                                     status: transaction.status,

@@ -12,8 +12,8 @@ struct NetworkFulcrumTransactionClientReaderValidator {
     private static let backupServerAddress = URL(string: "wss://bch.loping.net:50004")!
     private static let faultyServerAddress = URL(string: "wss://fulcrum.jettscythe.xyz:50004")!
     private static let invalidServerAddress = URL(string: "not a url")!
-    private static let sampleCashAddress = "bitcoincash:qpm2qsznhks23z7629mms6s4cwef74vcwvy22gdx6a"
-    private static let invalidCashAddress = "bitcoincash:qpm2qsznhks23z7629mms6s4cwef74vcwvy22gdx6z"
+    private static let sampleCashAddr = "bitcoincash:qpm2qsznhks23z7629mms6s4cwef74vcwvy22gdx6a"
+    private static let invalidCashAddr = "bitcoincash:qpm2qsznhks23z7629mms6s4cwef74vcwvy22gdx6z"
     private static let unknownTransactionIdentifier = String(repeating: "0", count: 64)
     private static let invalidRawTransaction = "00"
 
@@ -27,7 +27,7 @@ struct NetworkFulcrumTransactionClientReaderValidator {
                 method: .blockchain(
                     .address(
                         .getHistory(
-                            address: Self.sampleCashAddress,
+                            address: Self.sampleCashAddr,
                             fromHeight: nil,
                             toHeight: nil,
                             shouldIncludeUnconfirmed: true
@@ -68,7 +68,7 @@ struct NetworkFulcrumTransactionClientReaderValidator {
         try await NetworkTestClient.withClient(configuration: configuration) { client in
             let handler = OpalBase.Network.Fulcrum.TransactionClient(client: client)
             let addressReader = OpalBase.Network.Fulcrum.AddressReader(client: client)
-            let confirmedHistory = try await addressReader.fetchHistory(for: Self.sampleCashAddress, includeUnconfirmed: false)
+            let confirmedHistory = try await addressReader.fetchHistory(for: Self.sampleCashAddr, includeUnconfirmed: false)
             let confirmedEntry = try #require(confirmedHistory.first(where: { $0.blockHeight > 0 }))
 
             let transactionHeight: SwiftFulcrum.RPC.Response.Result.Blockchain.Transaction.GetHeight = try await client.request(

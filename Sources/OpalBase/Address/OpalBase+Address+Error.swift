@@ -5,7 +5,7 @@ import Foundation
 extension _OpalBase.Address {
     enum Error: Swift.Error, Equatable {
         case invalidCharacter(Character)
-        case invalidCashAddressFormat
+        case invalidCashAddrFormat
         case invalidChecksum
         case invalidLegacyChecksum
         case invalidPayloadLength

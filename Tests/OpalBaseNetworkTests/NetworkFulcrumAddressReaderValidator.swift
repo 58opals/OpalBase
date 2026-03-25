@@ -12,9 +12,9 @@ struct NetworkFulcrumAddressReaderValidator {
     static let backupServerAddress = URL(string: "wss://bch.loping.net:50004")!
     static let faultyServerAddress = URL(string: "wss://fulcrum.jettscythe.xyz:50004")!
     static let invalidServerAddress = URL(string: "not a url")!
-    static let sampleCashAddress = "bitcoincash:qpm2qsznhks23z7629mms6s4cwef74vcwvy22gdx6a"
-    static let tokenCashAddress = "bitcoincash:qqe68ymghsw9derq3v2rgu2jc8a23ddv25t83hevfk"
-    static let invalidCashAddress = "bitcoincash:qpm2qsznhks23z7629mms6s4cwef74vcwvy22gdx6z"
+    static let sampleCashAddr = "bitcoincash:qpm2qsznhks23z7629mms6s4cwef74vcwvy22gdx6a"
+    static let tokenCashAddr = "bitcoincash:qqe68ymghsw9derq3v2rgu2jc8a23ddv25t83hevfk"
+    static let invalidCashAddr = "bitcoincash:qpm2qsznhks23z7629mms6s4cwef74vcwvy22gdx6z"
 
     @Test("fetches balance consistent with RPC response", .timeLimit(.minutes(1)))
     func fetchBalanceReflectsServerState() async throws {
@@ -22,11 +22,10 @@ struct NetworkFulcrumAddressReaderValidator {
         let configuration = OpalBase.Network.Configuration(serverURLs: [Self.primaryServerAddress, Self.backupServerAddress])
         try await NetworkTestClient.withClient(configuration: configuration) { client in
             let reader = OpalBase.Network.Fulcrum.AddressReader(client: client)
-            let balance = try await reader.fetchBalance(for: Self.sampleCashAddress, tokenFilter: .include)
-            #expect(balance.confirmed >= 0)
+            let balance = try await reader.fetchBalance(for: Self.sampleCashAddr, tokenFilter: .include)
 
             let rpcBalance: SwiftFulcrum.RPC.Response.Result.Blockchain.Address.GetBalance = try await client.request(
-                method: .blockchain(.address(.getBalance(address: Self.sampleCashAddress, tokenFilter: .include))),
+                method: .blockchain(.address(.getBalance(address: Self.sampleCashAddr, tokenFilter: .include))),
                 responseType: SwiftFulcrum.RPC.Response.Result.Blockchain.Address.GetBalance.self
             )
             #expect(rpcBalance.confirmed == balance.confirmed)
@@ -51,18 +50,22 @@ struct NetworkFulcrumAddressReaderValidator {
 
         try await NetworkTestClient.withClient(configuration: configuration) { client in
             let reader = OpalBase.Network.Fulcrum.AddressReader(client: client)
-            let balance = try await reader.fetchBalance(for: Self.sampleCashAddress, tokenFilter: .include)
-            #expect(balance.confirmed >= 0)
-            #expect(balance.unconfirmed >= 0)
+            let balance = try await reader.fetchBalance(for: Self.sampleCashAddr, tokenFilter: .include)
+            let rpcBalance: SwiftFulcrum.RPC.Response.Result.Blockchain.Address.GetBalance = try await client.request(
+                method: .blockchain(.address(.getBalance(address: Self.sampleCashAddr, tokenFilter: .include))),
+                responseType: SwiftFulcrum.RPC.Response.Result.Blockchain.Address.GetBalance.self
+            )
+            #expect(rpcBalance.confirmed == balance.confirmed)
+            #expect(rpcBalance.unconfirmed == balance.unconfirmed)
 
             let historyWithUnconfirmed = try await reader.fetchHistory(
-                for: Self.sampleCashAddress,
+                for: Self.sampleCashAddr,
                 includeUnconfirmed: true
             )
             #expect(!historyWithUnconfirmed.isEmpty)
 
             let confirmedHistory = try await reader.fetchHistory(
-                for: Self.sampleCashAddress,
+                for: Self.sampleCashAddr,
                 includeUnconfirmed: false
             )
             #expect(historyWithUnconfirmed.count >= confirmedHistory.count)
@@ -79,9 +82,9 @@ struct NetworkFulcrumAddressReaderValidator {
         let configuration = OpalBase.Network.Configuration(serverURLs: [Self.primaryServerAddress, Self.backupServerAddress])
         try await NetworkTestClient.withClient(configuration: configuration) { client in
             let reader = OpalBase.Network.Fulcrum.AddressReader(client: client)
-            let expectedLockingScript = try OpalBase.Address(Self.sampleCashAddress).lockingScript.data
+            let expectedLockingScript = try OpalBase.Address(Self.sampleCashAddr).lockingScript.data
 
-            let unspentOutputs = try await reader.fetchUnspentOutputs(for: Self.sampleCashAddress, tokenFilter: .include)
+            let unspentOutputs = try await reader.fetchUnspentOutputs(for: Self.sampleCashAddr, tokenFilter: .include)
             #expect(!unspentOutputs.isEmpty)
 
             for output in unspentOutputs {
@@ -98,8 +101,8 @@ struct NetworkFulcrumAddressReaderValidator {
         let configuration = OpalBase.Network.Configuration(serverURLs: [Self.primaryServerAddress, Self.backupServerAddress])
         try await NetworkTestClient.withClient(configuration: configuration) { client in
             let reader = OpalBase.Network.Fulcrum.AddressReader(client: client)
-            let confirmedHistory = try await reader.fetchHistory(for: Self.sampleCashAddress, includeUnconfirmed: false)
-            let inclusiveHistory = try await reader.fetchHistory(for: Self.sampleCashAddress, includeUnconfirmed: true)
+            let confirmedHistory = try await reader.fetchHistory(for: Self.sampleCashAddr, includeUnconfirmed: false)
+            let inclusiveHistory = try await reader.fetchHistory(for: Self.sampleCashAddr, includeUnconfirmed: true)
 
             #expect(!inclusiveHistory.isEmpty)
             #expect(Set(confirmedHistory.map(\.transactionIdentifier)).isSubset(of: Set(inclusiveHistory.map(\.transactionIdentifier))))
@@ -131,16 +134,16 @@ struct NetworkFulcrumAddressReaderValidator {
             let rawUnspent: SwiftFulcrum.RPC.Response.Result.Blockchain.Address.ListUnspent = try await client.request(
                 method: .blockchain(
                     .address(
-                        .listUnspent(address: Self.sampleCashAddress, tokenFilter: .include)
+                        .listUnspent(address: Self.sampleCashAddr, tokenFilter: .include)
                     )
                 ),
                 responseType: SwiftFulcrum.RPC.Response.Result.Blockchain.Address.ListUnspent.self
             )
 
-            let walletUnspent = try await reader.fetchUnspentOutputs(for: Self.sampleCashAddress, tokenFilter: .include)
+            let walletUnspent = try await reader.fetchUnspentOutputs(for: Self.sampleCashAddr, tokenFilter: .include)
             #expect(walletUnspent.count == rawUnspent.items.count)
 
-            let expectedLockingScript = try OpalBase.Address(Self.sampleCashAddress).lockingScript.data
+            let expectedLockingScript = try OpalBase.Address(Self.sampleCashAddr).lockingScript.data
             let itemsByIdentifier = rawUnspent.items.reduce(into: [String: SwiftFulcrum.RPC.Response.Result.Blockchain.Address.ListUnspent.Item]()) { result, item in
                 let key = "\(item.transactionHash):\(item.transactionPosition)"
                 result[key] = item

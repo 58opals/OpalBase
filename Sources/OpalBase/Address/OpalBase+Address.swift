@@ -16,12 +16,12 @@ extension OpalBase {
         
         public init(string: String) throws {
             if string.contains(OpalBase.Address.separator) {
-                self = try OpalBase.Address.parseCashAddress(from: string)
+                self = try OpalBase.Address.parseCashAddr(from: string)
                 return
             }
             
-            if let cashAddress = try? OpalBase.Address.parseCashAddress(from: string) {
-                self = cashAddress
+            if let cashAddr = try? OpalBase.Address.parseCashAddr(from: string) {
+                self = cashAddr
                 return
             }
             
@@ -30,16 +30,16 @@ extension OpalBase {
                 return
             }
             
-            throw Error.invalidCashAddressFormat
+            throw Error.invalidCashAddrFormat
         }
         
         public init(script: OpalBase.Script, format: Format = .standard) throws {
-            let string = try OpalBase.Address.makeCashAddressString(for: script, format: format)
-            self.init(cashAddressPayload: string, lockingScript: script, format: format)
+            let string = try OpalBase.Address.makeCashAddrString(for: script, format: format)
+            self.init(cashAddrPayload: string, lockingScript: script, format: format)
         }
         
-        init(cashAddressPayload: String, lockingScript: OpalBase.Script, format: Format) {
-            self.string = cashAddressPayload
+        init(cashAddrPayload: String, lockingScript: OpalBase.Script, format: Format) {
+            self.string = cashAddrPayload
             self.lockingScript = lockingScript
             self.format = format
         }
@@ -52,7 +52,7 @@ extension _OpalBase.Address {
     }
     
     public var tokenAwareString: String {
-        (try? OpalBase.Address.makeCashAddressString(for: lockingScript, format: .tokenAware)) ?? string
+        (try? OpalBase.Address.makeCashAddrString(for: lockingScript, format: .tokenAware)) ?? string
     }
     
     static func convertPrefixToFiveBitValues(prefix: String) throws -> [UInt8] {
@@ -90,7 +90,7 @@ extension _OpalBase.Address {
         return checksum
     }
     
-    private static func makeCashAddressString(for script: OpalBase.Script, format: Format) throws -> String {
+    private static func makeCashAddrString(for script: OpalBase.Script, format: Format) throws -> String {
         let versionByte = try makeVersionByte(for: script, format: format)
         let payload: Data
         switch script {
@@ -152,7 +152,7 @@ extension _OpalBase.Address {
             let normalizedScalar = UnicodeScalar(normalizedAscii)
             let normalizedCharacter = Character(normalizedScalar)
             
-            guard OpalCryptoAdapter.cashAddressCharacters.contains(normalizedCharacter)
+            guard OpalCryptoAdapter.cashAddrCharacters.contains(normalizedCharacter)
             else { return }
             
             partialResult.append(normalizedCharacter)

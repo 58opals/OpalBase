@@ -60,7 +60,7 @@ extension NetworkFulcrumAddressReaderValidator {
             var capturedError: (any Error)?
             do {
                 let reader = OpalBase.Network.Fulcrum.AddressReader(client: client)
-                _ = try await reader.fetchUnspentOutputs(for: Self.invalidCashAddress, tokenFilter: .include)
+                _ = try await reader.fetchUnspentOutputs(for: Self.invalidCashAddr, tokenFilter: .include)
                 Issue.record("Expected fetch to throw for invalid address")
             } catch let failure as OpalBase.Network.Error {
                 #expect(failure.reason == .protocolViolation)

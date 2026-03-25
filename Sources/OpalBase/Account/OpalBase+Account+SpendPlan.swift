@@ -77,7 +77,7 @@ extension _OpalBase.Account {
                                                         signatureFormat: signatureFormat,
                                                         unlockers: unlockers,
                                                         mapBuildError: OpalBase.Account.Error.transactionBuildFailed)
-            return TransactionResult(transaction: core.transaction, fee: core.fee, change: core.bitcoinCashChange)
+            return TransactionResult(transaction: core.transaction, fee: core.fee, change: core.bchChange)
         }
         
         public func completeReservation() async throws {

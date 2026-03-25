@@ -10,18 +10,18 @@ extension _OpalBase.Account {
             public let fee: OpalBase.Satoshi
             public let category: OpalBase.CashTokens.CategoryID
             public let mintedOutputs: [OpalBase.Transaction.Output]
-            public let bitcoinCashChange: SpendPlan.TransactionResult.Change?
+            public let bchChange: SpendPlan.TransactionResult.Change?
             
             public init(transaction: OpalBase.Transaction,
                         fee: OpalBase.Satoshi,
                         category: OpalBase.CashTokens.CategoryID,
                         mintedOutputs: [OpalBase.Transaction.Output],
-                        bitcoinCashChange: SpendPlan.TransactionResult.Change?) {
+                        bchChange: SpendPlan.TransactionResult.Change?) {
                 self.transaction = transaction
                 self.fee = fee
                 self.category = category
                 self.mintedOutputs = mintedOutputs
-                self.bitcoinCashChange = bitcoinCashChange
+                self.bchChange = bchChange
             }
         }
         
@@ -29,7 +29,7 @@ extension _OpalBase.Account {
         public let category: OpalBase.CashTokens.CategoryID
         public let feeRate: UInt64
         public let genesisInput: OpalBase.Transaction.Output.Unspent
-        public let bitcoinCashInputs: [OpalBase.Transaction.Output.Unspent]
+        public let bchInputs: [OpalBase.Transaction.Output.Unspent]
         public let outputs: [OpalBase.Transaction.Output]
         public var reservationDate: Date { reservationHandle.reservationDate }
         
@@ -44,7 +44,7 @@ extension _OpalBase.Account {
              category: OpalBase.CashTokens.CategoryID,
              feeRate: UInt64,
              genesisInput: OpalBase.Transaction.Output.Unspent,
-             bitcoinCashInputs: [OpalBase.Transaction.Output.Unspent],
+             bchInputs: [OpalBase.Transaction.Output.Unspent],
              outputs: [OpalBase.Transaction.Output],
              reservationHandle: OpalBase.Account.SpendReservation,
              privateKeys: [OpalBase.Transaction.Output.Unspent: Data],
@@ -56,7 +56,7 @@ extension _OpalBase.Account {
             self.category = category
             self.feeRate = feeRate
             self.genesisInput = genesisInput
-            self.bitcoinCashInputs = bitcoinCashInputs
+            self.bchInputs = bchInputs
             self.outputs = outputs
             self.reservationHandle = reservationHandle
             self.privateKeys = privateKeys
@@ -85,7 +85,7 @@ extension _OpalBase.Account {
                                      fee: core.fee,
                                      category: category,
                                      mintedOutputs: resolvedMintedOutputs,
-                                     bitcoinCashChange: core.bitcoinCashChange)
+                                     bchChange: core.bchChange)
         }
         
         public func completeReservation() async throws {

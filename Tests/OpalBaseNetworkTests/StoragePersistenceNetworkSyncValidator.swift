@@ -83,9 +83,7 @@ struct StoragePersistenceNetworkSyncValidator {
                     }
                     #expect(sawTipSnapshot == true)
 
-                    let balance = try await addressReader.fetchBalance(for: receivingAddress.string, tokenFilter: .include)
-                    #expect(balance.confirmed >= 0)
-                    #expect(balance.unconfirmed >= 0)
+                    _ = try await addressReader.fetchBalance(for: receivingAddress.string, tokenFilter: .include)
 
                     let utxos = try await addressReader.fetchUnspentOutputs(for: receivingAddress.string, tokenFilter: .include)
                     let history = try await addressReader.fetchHistory(for: receivingAddress.string, includeUnconfirmed: true)
