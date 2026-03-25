@@ -5,7 +5,7 @@ import Testing
 import OpalBaseTestSupport
 @testable import OpalBase
 
-@Suite("OpalBase.Address BookActor Coin Selector", .tags(.unit, .address))
+@Suite("OpalBase.Address.Book Coin Selector", .tags(.unit, .address))
 struct AddressBookCoinSelectorValidator {
     @Test("select greedy throws when summing unspent outputs overflows UInt64")
     func selectGreedyDetectsOverflow1() {
@@ -107,4 +107,3 @@ struct AddressBookCoinSelectorValidator {
         }
     }
 }
-

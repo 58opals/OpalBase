@@ -133,7 +133,7 @@ extension _OpalBase.Account {
     }
 }
 
-// MARK: - OpalBase.Address BookActor Accessors
+// MARK: - OpalBase.Address.Book Accessors
 extension _OpalBase.Account {
     public func listEntries(for usage: OpalBase.Key.DerivationPath.Usage) async -> [OpalBase.Address.Book.Entry] {
         await addressBook.listEntries(for: usage)

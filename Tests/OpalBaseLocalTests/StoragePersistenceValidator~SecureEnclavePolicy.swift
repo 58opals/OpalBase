@@ -154,6 +154,10 @@ private extension StoragePersistenceValidator {
 
         let nsError = error as NSError
         return nsError.domain == NSOSStatusErrorDomain
-            && [Int(errSecNotAvailable), Int(errSecMissingEntitlement)].contains(nsError.code)
+            && [
+                Int(errSecNotAvailable),
+                Int(errSecMissingEntitlement),
+                Int(errSecInteractionNotAllowed)
+            ].contains(nsError.code)
     }
 }

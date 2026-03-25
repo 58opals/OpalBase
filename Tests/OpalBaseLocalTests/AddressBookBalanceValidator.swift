@@ -6,7 +6,7 @@ import Testing
 import OpalBaseTestSupport
 @testable import OpalBase
 
-@Suite("OpalBase.Address BookActor Balance", .tags(.unit, .address))
+@Suite("OpalBase.Address.Book Balance", .tags(.unit, .address))
 struct AddressBookBalanceValidator {
     @Test("calculateCachedTotalBalance throws when the sum exceeds the maximum supply")
     func calculateCachedTotalBalanceDetectsOverflow() async throws {
