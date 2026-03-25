@@ -47,8 +47,8 @@ extension _OpalBase.Transaction {
         }
         
         let positiveValueOutputs = orderedOutputs.filter { $0.value > 0 }
-        let totalPositiveOutput = positiveValueOutputs.map(\.value).reduce(0, +)
-        guard !positiveValueOutputs.isEmpty else { throw Error.insufficientFunds(required: totalPositiveOutput) }
+        guard !positiveValueOutputs.isEmpty else { throw Error.insufficientFunds(required: 0) }
+        _ = try sumValues(of: positiveValueOutputs) { $0.value }
         for output in orderedOutputs where !output.isOpReturnScript {
             let dustThreshold = try output.calculateDustThreshold(feeRate: minimumRelayFeeRate)
             guard output.value >= dustThreshold else { throw Error.outputValueIsLessThanTheDustLimit }
@@ -67,14 +67,14 @@ extension _OpalBase.Transaction {
                                        lockTime: UInt32,
                                        shouldAllowDustDonation: Bool,
                                        privacyOutputShuffle: ([Output]) -> [Output] = defaultPrivacyOutputShuffle) throws -> OpalBase.Transaction {
-        let inputTotal = builder.orderedUnspentOutputs.map(\.value).reduce(0, +)
+        let inputTotal = try sumValues(of: builder.orderedUnspentOutputs) { $0.value }
         let firstSignedTransaction = signedTransaction
         var correctedTransaction = signedTransaction
         let maximumPasses = 8
         
         for _ in 0..<maximumPasses {
             let requiredFee = try correctedTransaction.calculateRequiredFee(feePerByte: feePerByte)
-            let outputTotal = calculateTotalValue(for: correctedTransaction.outputs)
+            let outputTotal = try calculateTotalValue(for: correctedTransaction.outputs)
             let feePaid = try calculateFeePaid(inputTotal: inputTotal, outputTotal: outputTotal)
             
             guard feePaid != requiredFee else { return correctedTransaction }
@@ -96,7 +96,7 @@ extension _OpalBase.Transaction {
         }
         
         let finalRequiredFee = try correctedTransaction.calculateRequiredFee(feePerByte: feePerByte)
-        let finalOutputTotal = calculateTotalValue(for: correctedTransaction.outputs)
+        let finalOutputTotal = try calculateTotalValue(for: correctedTransaction.outputs)
         let finalFeePaid = try calculateFeePaid(inputTotal: inputTotal, outputTotal: finalOutputTotal)
         
         guard finalFeePaid >= finalRequiredFee else { return firstSignedTransaction }
@@ -104,8 +104,15 @@ extension _OpalBase.Transaction {
         return correctedTransaction
     }
     
-    private static func calculateTotalValue(for outputs: [Output]) -> UInt64 {
-        outputs.map(\.value).reduce(0, +)
+    static func sumValues<S: Sequence>(of values: S,
+                                       _ transform: (S.Element) -> UInt64) throws -> UInt64 {
+        try values.reduce(0) { partial, value in
+            try partial.addOrThrow(transform(value), overflowError: Error.cannotCreateTransaction)
+        }
+    }
+    
+    private static func calculateTotalValue(for outputs: [Output]) throws -> UInt64 {
+        try sumValues(of: outputs) { $0.value }
     }
     
     private static func calculateFeePaid(inputTotal: UInt64, outputTotal: UInt64) throws -> UInt64 {

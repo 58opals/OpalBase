@@ -214,6 +214,50 @@ extension TransactionUnspentTransactionOutputValidator {
             Issue.record("Unexpected error type: \(error)")
         }
     }
+    
+    @Test("build throws when input totals overflow UInt64 during fee correction")
+    func buildThrowsWhenInputTotalsOverflowUInt64DuringFeeCorrection() throws {
+        let lockingScript = Data([
+            ScriptOperationCode._DUP.rawValue,
+            ScriptOperationCode._HASH160.rawValue,
+            0x14
+        ] + Array(repeating: 0x01, count: 20) + [
+            ScriptOperationCode._EQUALVERIFY.rawValue,
+            ScriptOperationCode._CHECKSIG.rawValue
+        ])
+        
+        let firstUnspent = OpalBase.Transaction.Output.Unspent(
+            value: UInt64.max - 1,
+            lockingScript: lockingScript,
+            previousTransactionHash: OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0x01, count: 32)),
+            previousTransactionOutputIndex: 0
+        )
+        let secondUnspent = OpalBase.Transaction.Output.Unspent(
+            value: 10,
+            lockingScript: lockingScript,
+            previousTransactionHash: OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0x02, count: 32)),
+            previousTransactionOutputIndex: 1
+        )
+        
+        let privateKeys: [OpalBase.Transaction.Output.Unspent: Data] = [
+            firstUnspent: Data(repeating: 0x02, count: 32),
+            secondUnspent: Data(repeating: 0x03, count: 32)
+        ]
+        let recipientOutputs = [OpalBase.Transaction.Output(value: 1_000, lockingScript: Data([0x51]))]
+        let changeOutput = OpalBase.Transaction.Output(value: 500, lockingScript: Data([0x52]))
+        
+        #expect(throws: OpalBase.Transaction.Error.cannotCreateTransaction) {
+            _ = try OpalBase.Transaction.build(
+                utxoPrivateKeyPairs: privateKeys,
+                recipientOutputs: recipientOutputs,
+                changeOutput: changeOutput,
+                outputOrderingStrategy: .privacyRandomized,
+                signatureFormat: .schnorr,
+                feePerByte: 0,
+                privacyOutputShuffle: { $0 }
+            )
+        }
+    }
 }
 
 private enum P2PKHUnlockingScriptDecodingError: Error {

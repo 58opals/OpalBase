@@ -75,4 +75,24 @@ extension TransactionUnspentTransactionOutputValidator {
         })
         #expect(resolvedChangeOutput.tokenData == tokenData)
     }
+    
+    @Test("computeOutputsForTargetFee throws when positive output totals overflow UInt64")
+    func computeOutputsForTargetFeeThrowsWhenPositiveOutputTotalsOverflowUInt64() {
+        let recipientOutputs = [
+            OpalBase.Transaction.Output(value: UInt64.max - 1, lockingScript: Data([0x51])),
+            OpalBase.Transaction.Output(value: 10, lockingScript: Data([0x52]))
+        ]
+        let changeOutput = OpalBase.Transaction.Output(value: 0, lockingScript: Data([0x53]))
+        
+        #expect(throws: OpalBase.Transaction.Error.cannotCreateTransaction) {
+            _ = try OpalBase.Transaction.computeOutputsForTargetFee(
+                recipientOutputs: recipientOutputs,
+                changeOutputTemplate: changeOutput,
+                outputOrderingStrategy: .privacyRandomized,
+                targetFee: 0,
+                shouldAllowDustDonation: false,
+                privacyOutputShuffle: { $0 }
+            )
+        }
+    }
 }
