@@ -6,6 +6,7 @@ extension _OpalBase.Storage {
     public struct Security: Sendable {
         public enum Error: Swift.Error {
             case protectionUnavailable
+            case insufficientProtection(required: ProtectionMode, actual: ProtectionMode)
             case encryptionFailure(Swift.Error)
             case decryptionFailure(Swift.Error)
         }
@@ -14,6 +15,20 @@ extension _OpalBase.Storage {
             case secureEnclave
             case software
             case plaintext
+        }
+
+        public enum PersistencePolicy: Sendable, Equatable {
+            case acceptProviderOutput
+            case legacyFallbackToPlaintext
+            case requireSecureEnclave
+        }
+
+        public struct SecureEnclaveConfiguration: Sendable {
+            public let applicationTag: String
+
+            public init(applicationTag: String = "OpalBase.Storage.Security.SecureEnclave") {
+                self.applicationTag = applicationTag
+            }
         }
         
         public struct Ciphertext: Codable, Sendable {
@@ -29,17 +44,32 @@ extension _OpalBase.Storage {
         public typealias Encrypt = @Sendable (Data) throws -> Ciphertext
         public typealias Decrypt = @Sendable (Ciphertext) throws -> Data
         public typealias RecoverableSecureFailure = @Sendable (Swift.Error) -> Bool
+        typealias ProtectedMaterialReset = @Sendable () throws -> Void
         
         private let encryptor: Encrypt?
         private let decryptor: Decrypt?
         private let recoverableSecureFailure: RecoverableSecureFailure
+        private let protectedMaterialReset: ProtectedMaterialReset?
         
         public init(encrypt: Encrypt? = nil,
                     decrypt: Decrypt? = nil,
                     checkSecureEnclaveErrorRecoverability: @escaping RecoverableSecureFailure = { _ in false }) {
+            self.init(
+                encrypt: encrypt,
+                decrypt: decrypt,
+                checkSecureEnclaveErrorRecoverability: checkSecureEnclaveErrorRecoverability,
+                protectedMaterialReset: nil
+            )
+        }
+
+        init(encrypt: Encrypt? = nil,
+             decrypt: Decrypt? = nil,
+             checkSecureEnclaveErrorRecoverability: @escaping RecoverableSecureFailure = { _ in false },
+             protectedMaterialReset: ProtectedMaterialReset? = nil) {
             self.encryptor = encrypt
             self.decryptor = decrypt
             self.recoverableSecureFailure = checkSecureEnclaveErrorRecoverability
+            self.protectedMaterialReset = protectedMaterialReset
         }
         
         public static func makePlaintextOnly() -> Self {
@@ -73,6 +103,10 @@ extension _OpalBase.Storage {
         
         public func checkSecureEnclaveErrorRecoverability(_ error: Swift.Error) -> Bool {
             recoverableSecureFailure(error)
+        }
+
+        func resetProtectedMaterial() throws {
+            try protectedMaterialReset?()
         }
     }
 }

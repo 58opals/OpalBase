@@ -66,6 +66,27 @@ This gives you a wallet, the first account, and the first derived receiving addr
 - Fulcrum integration for address, transaction, header, and monitoring workflows.
 - Snapshot persistence, storage helpers, and CashTokens metadata / BCMR support.
 
+## Secure Enclave Storage
+
+If you need fail-closed mnemonic persistence on Apple hardware, opt into the Secure Enclave-backed storage security factory and require Secure Enclave during save:
+
+```swift
+let security = try OpalBase.Storage.Security.makeSecureEnclaveBacked()
+let storage = try OpalBase.Storage(
+    valueClient: yourValueClient,
+    security: security
+)
+
+let protectionMode = try await storage.persistState(
+    for: wallet,
+    policy: .requireSecureEnclave
+)
+
+assert(protectionMode == .secureEnclave)
+```
+
+This protects the persisted mnemonic + passphrase at rest with a device-bound Secure Enclave key and user-presence gating. It does not move BCH signing into the Secure Enclave; once a wallet is restored, secp256k1 signing still happens through OpalCrypto in process memory.
+
 ## Validation
 
 ```bash

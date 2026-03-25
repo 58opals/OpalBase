@@ -42,8 +42,18 @@ extension _OpalBase.Storage {
     public func saveMnemonic(_ mnemonic: OpalBase.Storage.StoredMnemonic, fallbackToPlaintext: Bool = false) async throws -> Security.ProtectionMode {
         try await saveMnemonic(
             mnemonic,
+            policy: fallbackToPlaintext ? .legacyFallbackToPlaintext : .acceptProviderOutput
+        )
+    }
+
+    public func saveMnemonic(
+        _ mnemonic: OpalBase.Storage.StoredMnemonic,
+        policy: Security.PersistencePolicy
+    ) async throws -> Security.ProtectionMode {
+        try await saveMnemonic(
+            mnemonic,
             key: .mnemonicCiphertext,
-            fallbackToPlaintext: fallbackToPlaintext
+            policy: policy
         )
     }
 
@@ -61,8 +71,15 @@ extension _OpalBase.Storage {
     }
 
     public func persistState(for wallet: OpalBase.Wallet) async throws -> Security.ProtectionMode {
+        try await persistState(for: wallet, policy: .legacyFallbackToPlaintext)
+    }
+
+    public func persistState(
+        for wallet: OpalBase.Wallet,
+        policy: Security.PersistencePolicy
+    ) async throws -> Security.ProtectionMode {
         let session = PersistenceSession(storage: self)
-        return try await session.save(wallet: wallet, fallbackToPlaintext: true)
+        return try await session.save(wallet: wallet, policy: policy)
     }
 
     public func delete(key: String) async throws {
@@ -71,6 +88,7 @@ extension _OpalBase.Storage {
 
     public func wipeAll() async throws {
         try await removeAllEntries()
+        try security.resetProtectedMaterial()
     }
 }
 
@@ -122,8 +140,20 @@ extension _OpalBase.Storage {
     ) async throws -> Security.ProtectionMode {
         try await saveMnemonic(
             mnemonic,
+            generation: generation,
+            policy: fallbackToPlaintext ? .legacyFallbackToPlaintext : .acceptProviderOutput
+        )
+    }
+
+    func saveMnemonic(
+        _ mnemonic: OpalBase.Storage.StoredMnemonic,
+        generation: String,
+        policy: Security.PersistencePolicy
+    ) async throws -> Security.ProtectionMode {
+        try await saveMnemonic(
+            mnemonic,
             key: .mnemonicCiphertextGeneration(generation),
-            fallbackToPlaintext: fallbackToPlaintext
+            policy: policy
         )
     }
 
@@ -156,6 +186,18 @@ private extension _OpalBase.Storage {
         key: OpalBase.Storage.Key,
         fallbackToPlaintext: Bool = false
     ) async throws -> Security.ProtectionMode {
+        try await saveMnemonic(
+            mnemonic,
+            key: key,
+            policy: fallbackToPlaintext ? .legacyFallbackToPlaintext : .acceptProviderOutput
+        )
+    }
+
+    func saveMnemonic(
+        _ mnemonic: OpalBase.Storage.StoredMnemonic,
+        key: OpalBase.Storage.Key,
+        policy: Security.PersistencePolicy
+    ) async throws -> Security.ProtectionMode {
         let payload = OpalBase.Storage.StoredMnemonic.Payload(words: mnemonic.words, passphrase: mnemonic.passphrase)
         let plaintext: Data
         do {
@@ -167,13 +209,21 @@ private extension _OpalBase.Storage {
         let storedCiphertext: OpalBase.Storage.Security.Ciphertext
         do {
             let ciphertext = try security.encrypt(plaintext)
-            if fallbackToPlaintext && ciphertext.mode != .secureEnclave {
-                storedCiphertext = .init(mode: .plaintext, payload: plaintext)
-            } else {
+            switch policy {
+            case .acceptProviderOutput:
+                storedCiphertext = ciphertext
+            case .legacyFallbackToPlaintext:
+                storedCiphertext = ciphertext.mode == .secureEnclave
+                    ? ciphertext
+                    : .init(mode: .plaintext, payload: plaintext)
+            case .requireSecureEnclave:
+                guard ciphertext.mode == .secureEnclave else {
+                    throw Security.Error.insufficientProtection(required: .secureEnclave, actual: ciphertext.mode)
+                }
                 storedCiphertext = ciphertext
             }
         } catch {
-            if fallbackToPlaintext && checkCiphertextErrorRecoverability(error) {
+            if policy == .legacyFallbackToPlaintext && checkCiphertextErrorRecoverability(error) {
                 storedCiphertext = .init(mode: .plaintext, payload: plaintext)
             } else {
                 throw Error.secureStoreFailure(error)
@@ -234,6 +284,8 @@ private extension _OpalBase.Storage {
         guard let securityError = error as? OpalBase.Storage.Security.Error else { return false }
         switch securityError {
         case .protectionUnavailable:
+            return true
+        case .insufficientProtection:
             return true
         case .encryptionFailure(let underlying):
             return security.checkSecureEnclaveErrorRecoverability(underlying)

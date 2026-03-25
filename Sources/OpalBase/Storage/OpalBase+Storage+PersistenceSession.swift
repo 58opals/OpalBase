@@ -26,6 +26,17 @@ extension _OpalBase.Storage {
         
         @discardableResult
         public func save(wallet: OpalBase.Wallet, fallbackToPlaintext: Bool = true) async throws -> OpalBase.Storage.Security.ProtectionMode {
+            try await save(
+                wallet: wallet,
+                policy: fallbackToPlaintext ? .legacyFallbackToPlaintext : .acceptProviderOutput
+            )
+        }
+
+        @discardableResult
+        public func save(
+            wallet: OpalBase.Wallet,
+            policy: OpalBase.Storage.Security.PersistencePolicy
+        ) async throws -> OpalBase.Storage.Security.ProtectionMode {
             let snapshot = await wallet.makeSnapshot()
             let walletMnemonic = wallet.mnemonic
             let passphrase = wallet.passphrase
@@ -36,7 +47,7 @@ extension _OpalBase.Storage {
             return try await save(
                 snapshot: snapshot,
                 mnemonic: mnemonic,
-                fallbackToPlaintext: fallbackToPlaintext
+                policy: policy
             )
         }
         
@@ -45,6 +56,19 @@ extension _OpalBase.Storage {
             snapshot: OpalBase.Wallet.Snapshot,
             mnemonic: OpalBase.Storage.StoredMnemonic,
             fallbackToPlaintext: Bool = true
+        ) async throws -> OpalBase.Storage.Security.ProtectionMode {
+            try await save(
+                snapshot: snapshot,
+                mnemonic: mnemonic,
+                policy: fallbackToPlaintext ? .legacyFallbackToPlaintext : .acceptProviderOutput
+            )
+        }
+
+        @discardableResult
+        func save(
+            snapshot: OpalBase.Wallet.Snapshot,
+            mnemonic: OpalBase.Storage.StoredMnemonic,
+            policy: OpalBase.Storage.Security.PersistencePolicy
         ) async throws -> OpalBase.Storage.Security.ProtectionMode {
             await progressHandler(.beganSave)
             let previousCommittedGeneration = try await snapshotStore.loadCommittedGeneration()
@@ -57,7 +81,7 @@ extension _OpalBase.Storage {
                 let protectionMode = try await storedMnemonicStore.saveMnemonic(
                     mnemonic,
                     generation: stagedGeneration,
-                    fallbackToPlaintext: fallbackToPlaintext
+                    policy: policy
                 )
                 await progressHandler(.savedMnemonic(mode: protectionMode))
 

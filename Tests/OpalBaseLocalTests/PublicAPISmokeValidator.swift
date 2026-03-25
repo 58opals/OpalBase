@@ -139,6 +139,18 @@ struct PublicAPISmokeValidator {
         #expect(wipedState.walletSnapshot == nil)
     }
 
+    @Test("storage security facade exposes strict persistence policy types")
+    func storageSecurityFacadeExposesStrictPersistencePolicyTypes() {
+        let strictPolicy: OpalBase.Storage.Security.PersistencePolicy = .requireSecureEnclave
+        let compatibilityPolicy: OpalBase.Storage.Security.PersistencePolicy = .legacyFallbackToPlaintext
+        let configuration = OpalBase.Storage.Security.SecureEnclaveConfiguration(
+            applicationTag: "example.secure-enclave"
+        )
+
+        #expect(strictPolicy != compatibilityPolicy)
+        #expect(configuration.applicationTag == "example.secure-enclave")
+    }
+
     @Test("encoding and block target facades expose proof-of-work target")
     func encodingAndBlockTargetFacadesExposeComparableProofOfWorkTarget() throws {
         let header = OpalBase.Block.Header(
