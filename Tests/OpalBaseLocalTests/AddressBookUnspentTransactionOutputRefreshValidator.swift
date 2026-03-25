@@ -5,7 +5,7 @@ import Testing
 import OpalBaseTestSupport
 @testable import OpalBase
 
-@Suite("OpalBase.Address BookActor UTXO Refresh", .tags(.unit, .address, .cashTokens))
+@Suite("OpalBase.Address.Book UTXO Refresh", .tags(.unit, .address, .cashTokens))
 struct AddressBookUnspentTransactionOutputRefreshValidator {
     @Test("refresh stores token data from unspent outputs (explicit usage)")
     func refreshStoresTokenDataFromUnspentOutputs() async throws {

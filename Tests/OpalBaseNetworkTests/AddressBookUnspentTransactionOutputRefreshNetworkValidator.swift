@@ -5,7 +5,7 @@ import OpalBaseTestSupport
 import Testing
 @testable import OpalBase
 
-@Suite("OpalBase.Address BookActor UTXO Refresh (OpalBase.Network)", .tags(.integration, .network, .cashTokens))
+@Suite("OpalBase.Address.Book UTXO Refresh (OpalBase.Network)", .tags(.integration, .network, .cashTokens))
 struct AddressBookUnspentTransactionOutputRefreshNetworkValidator {
     private static let primaryServerAddress = URL(string: "wss://bch.imaginary.cash:50004")!
     private static let backupServerAddress = URL(string: "wss://bch.loping.net:50004")!

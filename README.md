@@ -34,7 +34,7 @@ targets: [
 ]
 ```
 
-If you need unreleased APIs, depend on the `main` branch or a specific revision instead of a release tag.
+If you need unreleased APIs, depend on the `develop` branch or a specific revision instead of a release tag.
 
 ## Quick Start
 

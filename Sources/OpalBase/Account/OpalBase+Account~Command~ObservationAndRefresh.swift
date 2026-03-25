@@ -2,7 +2,7 @@
 
 import Foundation
 
-// MARK: - MonitorActor
+// MARK: - Address Book Observation And Refresh
 extension _OpalBase.Account {
     public func listTrackedEntries() async -> [OpalBase.Address.Book.Entry] {
         await addressBook.listAllEntries()

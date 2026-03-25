@@ -6,7 +6,7 @@ import Testing
 import OpalBaseTestSupport
 @testable import OpalBase
 
-@Suite("OpalBase.Address BookActor UTXO Selection", .tags(.unit, .address))
+@Suite("OpalBase.Address.Book UTXO Selection", .tags(.unit, .address))
 struct AddressBookUnspentTransactionOutputSelectionValidator {
     @Test("BCH selection excludes token UTXOs by default")
     func selectUnspentTransactionOutputsExcludesTokenOutputsForBitcoinCashPayments() async throws {

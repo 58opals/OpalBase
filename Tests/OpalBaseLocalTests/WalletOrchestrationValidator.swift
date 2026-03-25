@@ -167,6 +167,93 @@ struct WalletOrchestrationValidator {
         }
     }
 
+    @Test("applySnapshot rejects duplicate account indices without mutating existing state")
+    func applySnapshotRejectsDuplicateAccountIndices() async throws {
+        let sourceWallet = try await AccountTestFixtures.makeWallet(accountIndices: [0])
+        let sourceSnapshot = await sourceWallet.makeSnapshot()
+        let duplicatedAccountSnapshot = try #require(sourceSnapshot.accounts.first)
+        let duplicateSnapshot = OpalBase.Wallet.Snapshot(
+            purpose: sourceSnapshot.purpose,
+            coinType: sourceSnapshot.coinType,
+            accounts: [duplicatedAccountSnapshot, duplicatedAccountSnapshot],
+            tokenMetadata: sourceSnapshot.tokenMetadata
+        )
+
+        let targetWallet = try await AccountTestFixtures.makeWallet(accountIndices: [0])
+        let existingAccount = try await targetWallet.fetchAccount(at: 0)
+        _ = try await existingAccount.reserveNextReceivingEntry()
+
+        #expect(await existingAccount.addressBook.countEntries(for: .receiving) == 21)
+
+        await #expect(throws: OpalBase.Wallet.Error.snapshotDoesNotMatchWallet) {
+            try await targetWallet.applySnapshot(duplicateSnapshot)
+        }
+
+        let restoredAccount = try await targetWallet.fetchAccount(at: 0)
+        #expect(existingAccount === restoredAccount)
+        #expect(await restoredAccount.addressBook.countEntries(for: .receiving) == 21)
+    }
+
+    @Test("applySnapshot leaves existing account state unchanged when a later snapshot account is malformed")
+    func applySnapshotPreservesExistingStateWhenLaterAccountIsMalformed() async throws {
+        let sourceWallet = try await AccountTestFixtures.makeWallet(accountIndices: [0, 3])
+        let sourceAccount = try await sourceWallet.fetchAccount(at: 0)
+        _ = try await sourceAccount.reserveNextReceivingEntry()
+        let sourceSnapshot = await sourceWallet.makeSnapshot()
+        let validSnapshot = try #require(sourceSnapshot.accounts.first { $0.accountUnhardenedIndex == 0 })
+        let invalidBaseSnapshot = try #require(sourceSnapshot.accounts.first { $0.accountUnhardenedIndex == 3 })
+
+        let malformedAddressBook = OpalBase.Address.Book.Snapshot(
+            receivingEntries: invalidBaseSnapshot.addressBook.receivingEntries,
+            changeEntries: invalidBaseSnapshot.addressBook.changeEntries,
+            utxos: [
+                .init(
+                    value: 1,
+                    lockingScript: "zz",
+                    tokenCategory: nil,
+                    tokenAmount: nil,
+                    nftCapability: nil,
+                    nftCommitment: nil,
+                    transactionHash: "abcd",
+                    outputIndex: 0
+                )
+            ],
+            transactions: invalidBaseSnapshot.addressBook.transactions
+        )
+        let malformedAccountSnapshot = OpalBase.Account.Snapshot(
+            purpose: invalidBaseSnapshot.purpose,
+            coinType: invalidBaseSnapshot.coinType,
+            accountUnhardenedIndex: invalidBaseSnapshot.accountUnhardenedIndex,
+            addressBook: malformedAddressBook
+        )
+        let malformedSnapshot = OpalBase.Wallet.Snapshot(
+            purpose: sourceSnapshot.purpose,
+            coinType: sourceSnapshot.coinType,
+            accounts: [validSnapshot, malformedAccountSnapshot],
+            tokenMetadata: sourceSnapshot.tokenMetadata
+        )
+
+        let targetWallet = try await AccountTestFixtures.makeWallet(accountIndices: [0])
+        let existingAccount = try await targetWallet.fetchAccount(at: 0)
+        _ = try await existingAccount.reserveNextReceivingEntry()
+        _ = try await existingAccount.reserveNextReceivingEntry()
+        _ = try await existingAccount.reserveNextReceivingEntry()
+
+        #expect(await existingAccount.addressBook.countEntries(for: .receiving) == 23)
+
+        await #expect(throws: OpalBase.Wallet.Error.snapshotDoesNotMatchWallet) {
+            try await targetWallet.applySnapshot(malformedSnapshot)
+        }
+
+        let restoredAccount = try await targetWallet.fetchAccount(at: 0)
+        #expect(existingAccount === restoredAccount)
+        #expect(await restoredAccount.addressBook.countEntries(for: .receiving) == 23)
+
+        await #expect(throws: OpalBase.Wallet.Error.cannotFetchAccount(index: 3)) {
+            _ = try await targetWallet.fetchAccount(at: 3)
+        }
+    }
+
     @Test("applySnapshot clears existing token metadata when snapshot omits it")
     func applySnapshotClearsExistingTokenMetadataForLegacySnapshots() async throws {
         let sourceWallet = try await AccountTestFixtures.makeWallet(accountIndices: [0])
