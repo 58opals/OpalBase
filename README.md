@@ -1,10 +1,10 @@
-# OpalBase
+# Opal Base
 
-OpalBase is a Swift package for building Bitcoin Cash wallet and transaction flows on Apple platforms. It combines actor-isolated wallet and account models, deterministic address management, transaction building and signing, Fulcrum-backed network access, snapshot persistence, and CashTokens metadata support behind a concurrency-first API.
+Opal Base is a Swift package for building Bitcoin Cash wallet and transaction flows on Apple platforms. It combines actor-isolated wallet and account models, deterministic address management, transaction building and signing, Fulcrum-backed network access, snapshot persistence, and CashTokens metadata support behind a concurrency-first API.
 
 ## Who It's For
 
-Use OpalBase if you're building an Apple-platform app or service that needs BCH wallet derivation, address tracking, transaction creation, or Fulcrum-backed sync without stitching those surfaces together yourself.
+Use Opal Base if you're building an Apple-platform app or service that needs BCH wallet derivation, address tracking, transaction creation, or Fulcrum-backed sync without stitching those surfaces together yourself.
 
 ## Requirements
 
