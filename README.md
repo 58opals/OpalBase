@@ -6,6 +6,13 @@ Opal Base is a Swift package for building Bitcoin Cash wallet and transaction fl
 
 Use Opal Base if you're building an Apple-platform app or service that needs BCH wallet derivation, address tracking, transaction creation, or Fulcrum-backed sync without stitching those surfaces together yourself.
 
+## Role in the BCH Stack
+
+- Opal Base owns the app-facing Bitcoin Cash wallet and account domain layer for Apple-platform consumers.
+- It sits above `OpalCrypto` and `SwiftFulcrum`, so downstream apps can work with wallet flows instead of raw cryptography or raw Fulcrum transport.
+- Downstream consumers include Opal Wallet and other Swift/BCH apps that need reusable wallet, storage, and network orchestration.
+- For package boundaries and integration notes, see [Architecture](docs/architecture.md).
+
 ## Requirements
 
 - Swift tools version: `6.2`
@@ -61,10 +68,17 @@ This gives you a wallet, the first account, and the first derived receiving addr
 ## Key Capabilities
 
 - Actor-isolated wallet and account models for BIP-39 and BIP-44 style derivation and serialized mutation.
-- Deterministic address book support for receiving and change address tracking, balance refresh, and transaction history caching.
+- Deterministic address book support for CashAddr receiving and change address tracking, balance refresh, and transaction history caching.
 - Spend planning, transaction building, and broadcast helpers for BCH payments and token-aware flows.
-- Fulcrum integration for address, transaction, header, and monitoring workflows.
+- Fulcrum-facing orchestration for address, transaction, header, and monitoring workflows.
 - Snapshot persistence, storage helpers, and CashTokens metadata / BCMR support.
+
+## Boundaries
+
+- Opal Base is not a UI or app-shell package.
+- Raw cryptography, key primitives, and signing infrastructure remain the responsibility of `OpalCrypto`.
+- Raw Fulcrum transport and low-level network protocol concerns remain the responsibility of `SwiftFulcrum`.
+- Portfolio governance, weekly reporting, and repository operations policy stay outside this package repository.
 
 ## Secure Enclave Storage
 
@@ -97,3 +111,4 @@ swift test
 
 - [Public API smoke test](Tests/OpalBaseLocalTests/PublicAPISmokeValidator.swift)
 - [Network live smoke test](Tests/OpalBaseNetworkTests/NetworkLiveSmokeValidator.swift)
+- [Architecture and integration notes](docs/architecture.md)
