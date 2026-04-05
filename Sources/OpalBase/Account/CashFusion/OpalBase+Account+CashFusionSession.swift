@@ -1,0 +1,103 @@
+// OpalBase+Account+CashFusionSession.swift
+
+import Foundation
+import OpalFusion
+
+extension _OpalBase.Account {
+    public actor CashFusionSession {
+        enum TerminalOutcome: Sendable, Equatable {
+            case success
+            case stopped
+            case failed
+        }
+
+        let reservation: CashFusionReservation
+        let wrappedSession: any CashFusionWrappedSession
+        let eventObserver: (any OpalFusion.Host.EventObserver)?
+        let stateObserver: (any OpalFusion.Client.StateObserver)?
+        let observerSink: CashFusionObserverSink
+
+        var hasStarted = false
+        var hasStoppedWrappedSession = false
+        var terminalOutcome: TerminalOutcome?
+
+        init(
+            reservation: CashFusionReservation,
+            wrappedSession: any CashFusionWrappedSession,
+            eventObserver: (any OpalFusion.Host.EventObserver)?,
+            stateObserver: (any OpalFusion.Client.StateObserver)?,
+            observerSink: CashFusionObserverSink
+        ) {
+            self.reservation = reservation
+            self.wrappedSession = wrappedSession
+            self.eventObserver = eventObserver
+            self.stateObserver = stateObserver
+            self.observerSink = observerSink
+        }
+
+        public func start() async {
+            guard terminalOutcome == nil, hasStarted == false else {
+                return
+            }
+
+            hasStarted = true
+            await wrappedSession.start()
+        }
+
+        public func stop() async {
+            await finalize(with: .stopped)
+        }
+
+        public func snapshot() async -> OpalFusion.Client.Session.Snapshot {
+            await wrappedSession.snapshot()
+        }
+
+        func receiveCashFusionSnapshot(
+            _ snapshot: OpalFusion.Client.Session.Snapshot
+        ) async {
+            guard terminalOutcome == nil,
+                  let round = snapshot.state.round,
+                  round.isTerminal || round.completionStatus != nil else {
+                return
+            }
+
+            switch round.completionStatus {
+            case .success?:
+                await finalize(with: .success)
+            case .none:
+                await finalize(with: .failed)
+            default:
+                await finalize(with: .failed)
+            }
+        }
+
+        private func finalize(with outcome: TerminalOutcome) async {
+            guard terminalOutcome == nil else {
+                return
+            }
+
+            terminalOutcome = outcome
+            await stopWrappedSessionIfNeeded()
+
+            do {
+                switch outcome {
+                case .success:
+                    try await reservation.complete()
+                case .stopped, .failed:
+                    try await reservation.cancel()
+                }
+            } catch {
+                assertionFailure("CashFusion reservation cleanup failed: \(error)")
+            }
+        }
+
+        private func stopWrappedSessionIfNeeded() async {
+            guard hasStoppedWrappedSession == false else {
+                return
+            }
+
+            hasStoppedWrappedSession = true
+            await wrappedSession.stop()
+        }
+    }
+}

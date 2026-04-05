@@ -70,6 +70,7 @@ This gives you a wallet, the first account, and the first derived receiving addr
 - Actor-isolated wallet and account models for BIP-39 and BIP-44 style derivation and serialized mutation.
 - Deterministic address book support for CashAddr receiving and change address tracking, balance refresh, and transaction history caching.
 - Spend planning, transaction building, and broadcast helpers for BCH payments and token-aware flows.
+- Wallet-backed CashFusion pilot orchestration over `OpalFusion.Client.Session` for explicitly selected wallet UTXOs and fresh wallet-owned receiving outputs from caller-provided amounts, currently limited to the P2PKH-only live path.
 - Fulcrum-facing orchestration for address, transaction, header, and monitoring workflows.
 - Snapshot persistence, storage helpers, and CashTokens metadata / BCMR support.
 

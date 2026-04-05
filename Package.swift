@@ -18,13 +18,15 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/58opals/SwiftFulcrum.git", branch: "develop"),
-        .package(url: "https://github.com/58opals/OpalCrypto.git", branch: "develop")
+        .package(url: "https://github.com/58opals/OpalCrypto.git", branch: "develop"),
+        .package(url: "https://github.com/58opals/OpalFusion.git", branch: "develop")
     ],
     targets: [
         .target(name: "OpalBase",
                 dependencies: [
                     .product(name: "SwiftFulcrum", package: "SwiftFulcrum"),
-                    .product(name: "OpalCrypto", package: "OpalCrypto")
+                    .product(name: "OpalCrypto", package: "OpalCrypto"),
+                    .product(name: "OpalFusion", package: "OpalFusion")
                 ]
                ),
         .target(
@@ -34,7 +36,11 @@ let package = Package(
         ),
         .testTarget(
             name: "OpalBaseLocalTests",
-            dependencies: ["OpalBase", "OpalBaseTestSupport"],
+            dependencies: [
+                "OpalBase",
+                "OpalBaseTestSupport",
+                .product(name: "OpalFusion", package: "OpalFusion")
+            ],
             path: "Tests/OpalBaseLocalTests"
         ),
         .testTarget(

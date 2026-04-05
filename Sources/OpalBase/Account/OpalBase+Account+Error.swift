@@ -12,6 +12,12 @@ extension _OpalBase.Account {
         case transactionConfirmationRefreshFailed(OpalBase.Transaction.Hash, Swift.Error)
         case paymentHasNoRecipients
         case paymentExceedsMaximumAmount
+        case cashFusionHasNoSelectedInputs
+        case cashFusionHasNoOutputAmounts
+        case cashFusionCannotSpendTokenUTXOs
+        case cashFusionUnsupportedSelectedInputs
+        case cashFusionReservationFailed(Swift.Error)
+        case cashFusionOutputReservationFailed(Swift.Error)
         case paymentDoesNotSupportTokensUseTokenTransfer
         case paymentCannotSpendTokenUTXOs
         case tokenSendRequiresTokenAwareAddress([OpalBase.Address])
@@ -57,6 +63,10 @@ extension _OpalBase.Account.Error: Equatable {
         case (.snapshotDoesNotMatchAccount, .snapshotDoesNotMatchAccount),
             (.paymentHasNoRecipients, .paymentHasNoRecipients),
             (.paymentExceedsMaximumAmount, .paymentExceedsMaximumAmount),
+            (.cashFusionHasNoSelectedInputs, .cashFusionHasNoSelectedInputs),
+            (.cashFusionHasNoOutputAmounts, .cashFusionHasNoOutputAmounts),
+            (.cashFusionCannotSpendTokenUTXOs, .cashFusionCannotSpendTokenUTXOs),
+            (.cashFusionUnsupportedSelectedInputs, .cashFusionUnsupportedSelectedInputs),
             (.paymentDoesNotSupportTokensUseTokenTransfer, .paymentDoesNotSupportTokensUseTokenTransfer),
             (.paymentCannotSpendTokenUTXOs, .paymentCannotSpendTokenUTXOs):
             return true
@@ -115,6 +125,9 @@ extension _OpalBase.Account.Error: Equatable {
         case (.transactionConfirmationRefreshFailed(let leftHash, let leftError),
               .transactionConfirmationRefreshFailed(let rightHash, let rightError)):
             return leftHash == rightHash && OpalBase.Network.checkFailureEquivalence(leftError, rightError)
+        case (.cashFusionReservationFailed(let leftError), .cashFusionReservationFailed(let rightError)),
+            (.cashFusionOutputReservationFailed(let leftError), .cashFusionOutputReservationFailed(let rightError)):
+            return OpalBase.Network.checkFailureEquivalence(leftError, rightError)
         case (.coinSelectionFailed(let leftError), .coinSelectionFailed(let rightError)),
             (.tokenGenesisCannotComputeDustThreshold(let leftError), .tokenGenesisCannotComputeDustThreshold(let rightError)),
             (.tokenGenesisTransactionBuildFailed(let leftError), .tokenGenesisTransactionBuildFailed(let rightError)),

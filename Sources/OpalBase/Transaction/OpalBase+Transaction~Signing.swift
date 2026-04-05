@@ -1,6 +1,7 @@
 // OpalBase+Transaction~Signing.swift
 
 import Foundation
+import OpalCrypto
 
 extension _OpalBase.Transaction {
     /// Constructs the preimage for signing a specific input.
@@ -129,6 +130,88 @@ private extension _OpalBase.Transaction {
 }
 
 extension _OpalBase.Transaction {
+    func signInputInPlace(
+        at index: Int,
+        spending outputBeingSpent: Output,
+        privateKey: Data,
+        signatureFormat: OpalBase.Transaction.SignatureFormat,
+        unlocker: OpalBase.Transaction.Unlocker,
+        using templateTransaction: OpalBase.Transaction? = nil,
+        spentOutputs: [Output]? = nil
+    ) throws -> OpalBase.Transaction {
+        if case .ecdsa(.raw) = signatureFormat {
+            throw OpalBase.Transaction.Error.unsupportedSignatureFormat
+        }
+
+        let signingTransaction = templateTransaction ?? self
+        let publicKey = try OpalBase.Key.PublicKey(privateKeyData: privateKey)
+
+        switch unlocker {
+        case .p2pkh_CheckSig(let hashType):
+            let preimage = try signingTransaction.generatePreimage(
+                for: index,
+                hashType: hashType,
+                outputBeingSpent: outputBeingSpent,
+                spentOutputs: spentOutputs
+            )
+
+            let signatureMessage: Data = switch signatureFormat {
+            case .ecdsa:
+                OpalCryptoAdapter.sha256(preimage)
+            case .schnorr:
+                OpalCryptoAdapter.hash256(preimage)
+            }
+            let signature = try OpalCrypto.Signature.sign(
+                message: signatureMessage,
+                privateKey: privateKey,
+                format: signatureFormat.opalCryptoFormat
+            )
+            let signatureWithType = signature + Data([UInt8(hashType.value)])
+            let unlockingScript = Data.push(signatureWithType) + Data.push(publicKey.compressedData)
+
+            return try injectUnlockingScript(unlockingScript, inputIndex: index)
+        case .p2pkh_CheckDataSig(let message):
+            let signatureMessage: Data = switch signatureFormat {
+            case .ecdsa:
+                message
+            case .schnorr:
+                OpalCryptoAdapter.sha256(message)
+            }
+            let signature = try OpalCrypto.Signature.sign(
+                message: signatureMessage,
+                privateKey: privateKey,
+                format: signatureFormat.opalCryptoFormat
+            )
+            let unlockingScript = Data.push(signature) + Data.push(message) + Data.push(publicKey.compressedData)
+
+            return try injectUnlockingScript(unlockingScript, inputIndex: index)
+        }
+    }
+
+    func signInputInPlace(
+        at index: Int,
+        spending unspentOutput: OpalBase.Transaction.Output.Unspent,
+        privateKey: Data,
+        signatureFormat: OpalBase.Transaction.SignatureFormat,
+        unlocker: OpalBase.Transaction.Unlocker,
+        using templateTransaction: OpalBase.Transaction? = nil,
+        spentOutputs: [Output]? = nil
+    ) throws -> OpalBase.Transaction {
+        try signInputInPlace(
+            at: index,
+            spending: Output(
+                value: unspentOutput.value,
+                lockingScript: unspentOutput.lockingScript,
+                tokenData: unspentOutput.tokenData
+            ),
+            privateKey: privateKey,
+            signatureFormat: signatureFormat,
+            unlocker: unlocker,
+            using: templateTransaction,
+            spentOutputs: spentOutputs
+        )
+    }
+
     /// Inserts the signature into the unlocking script of the specified input.
     /// - Parameters:
     ///   - signature: The signature to insert.
