@@ -123,81 +123,121 @@ extension _OpalBase.Account {
     private func resolveCashFusionReservedInputs(
         from selectedInputs: [OpalBase.Transaction.Output.Unspent]
     ) async throws -> [CashFusionReservation.ReservedInput] {
+        let classifications = try await classifyCashFusionSelectedInputs(selectedInputs)
         var reservedInputs: [CashFusionReservation.ReservedInput] = []
-        reservedInputs.reserveCapacity(selectedInputs.count)
+        reservedInputs.reserveCapacity(classifications.count)
 
-        for selectedInput in selectedInputs {
-            if selectedInput.tokenData != nil {
+        for classification in classifications {
+            switch classification.status {
+            case .eligible(let reservedInput):
+                reservedInputs.append(reservedInput)
+            case .blocked(.tokenUTXO):
                 throw Error.cashFusionCannotSpendTokenUTXOs
-            }
-
-            let script: OpalBase.Script
-            do {
-                script = try OpalBase.Script.decode(lockingScript: selectedInput.lockingScript)
-            } catch {
+            case .blocked(.unsupportedLockingScript), .blocked(.noEligibleUTXOs):
                 throw Error.cashFusionUnsupportedSelectedInputs
             }
-
-            let publicKeyHash: OpalBase.Key.PublicKey.Hash
-            switch script {
-            case .p2pkh_OPCHECKSIG(let hash):
-                publicKeyHash = hash
-            default:
-                throw Error.cashFusionUnsupportedSelectedInputs
-            }
-
-            let address: OpalBase.Address
-            do {
-                address = try OpalBase.Address(script: script)
-            } catch {
-                throw Error.cashFusionUnsupportedSelectedInputs
-            }
-
-            guard let entry = await addressBook.findEntry(for: address) else {
-                throw Error.cashFusionUnsupportedSelectedInputs
-            }
-
-            let privateKey: Data
-            do {
-                privateKey = try await addressBook.generatePrivateKey(
-                    at: entry.derivationPath.index,
-                    for: entry.derivationPath.usage
-                )
-            } catch {
-                throw Error.cashFusionReservationFailed(error)
-            }
-
-            let compressedPublicKey: Data
-            do {
-                let publicKey = try OpalBase.Key.PublicKey(privateKeyData: privateKey)
-                let derivedPublicKeyHash = OpalBase.Key.PublicKey.Hash(publicKey: publicKey)
-                guard derivedPublicKeyHash == publicKeyHash else {
-                    throw Error.cashFusionUnsupportedSelectedInputs
-                }
-                compressedPublicKey = publicKey.compressedData
-            } catch let error as OpalBase.Account.Error {
-                throw error
-            } catch {
-                throw Error.cashFusionReservationFailed(error)
-            }
-
-            reservedInputs.append(
-                .init(
-                    unspentOutput: selectedInput,
-                    privateKey: privateKey,
-                    compressedPublicKey: compressedPublicKey,
-                    participantInput: .init(
-                        outpointTransactionHash: [UInt8](selectedInput.previousTransactionHash.reverseOrder),
-                        outpointIndex: selectedInput.previousTransactionOutputIndex,
-                        amountSatoshis: selectedInput.value,
-                        lockingScript: [UInt8](selectedInput.lockingScript),
-                        publicKey: [UInt8](compressedPublicKey)
-                    )
-                )
-            )
         }
 
         return reservedInputs
+    }
+
+    func classifyCashFusionSelectedInputs(
+        _ selectedInputs: [OpalBase.Transaction.Output.Unspent]
+    ) async throws -> [CashFusionSelectedInputClassification] {
+        var classifications: [CashFusionSelectedInputClassification] = []
+        classifications.reserveCapacity(selectedInputs.count)
+
+        for selectedInput in selectedInputs {
+            let classification = try await classifyCashFusionSelectedInput(selectedInput)
+            classifications.append(classification)
+        }
+
+        return classifications
+    }
+
+    private func classifyCashFusionSelectedInput(
+        _ selectedInput: OpalBase.Transaction.Output.Unspent
+    ) async throws -> CashFusionSelectedInputClassification {
+        if selectedInput.tokenData != nil {
+            return .init(
+                unspentOutput: selectedInput,
+                status: .blocked(.tokenUTXO)
+            )
+        }
+
+        let script: OpalBase.Script
+        do {
+            script = try OpalBase.Script.decode(lockingScript: selectedInput.lockingScript)
+        } catch {
+            return .init(
+                unspentOutput: selectedInput,
+                status: .blocked(.unsupportedLockingScript)
+            )
+        }
+
+        let publicKeyHash: OpalBase.Key.PublicKey.Hash
+        switch script {
+        case .p2pkh_OPCHECKSIG(let hash):
+            publicKeyHash = hash
+        default:
+            return .init(
+                unspentOutput: selectedInput,
+                status: .blocked(.unsupportedLockingScript)
+            )
+        }
+
+        let address: OpalBase.Address
+        do {
+            address = try OpalBase.Address(script: script)
+        } catch {
+            throw Error.cashFusionUnsupportedSelectedInputs
+        }
+
+        guard let entry = await addressBook.findEntry(for: address) else {
+            throw Error.cashFusionUnsupportedSelectedInputs
+        }
+
+        let privateKey: Data
+        do {
+            privateKey = try await addressBook.generatePrivateKey(
+                at: entry.derivationPath.index,
+                for: entry.derivationPath.usage
+            )
+        } catch {
+            throw Error.cashFusionReservationFailed(error)
+        }
+
+        let compressedPublicKey: Data
+        do {
+            let publicKey = try OpalBase.Key.PublicKey(privateKeyData: privateKey)
+            let derivedPublicKeyHash = OpalBase.Key.PublicKey.Hash(publicKey: publicKey)
+            guard derivedPublicKeyHash == publicKeyHash else {
+                throw Error.cashFusionUnsupportedSelectedInputs
+            }
+            compressedPublicKey = publicKey.compressedData
+        } catch let error as OpalBase.Account.Error {
+            throw error
+        } catch {
+            throw Error.cashFusionReservationFailed(error)
+        }
+
+        let reservedInput = CashFusionReservation.ReservedInput(
+            unspentOutput: selectedInput,
+            privateKey: privateKey,
+            compressedPublicKey: compressedPublicKey,
+            participantInput: .init(
+                outpointTransactionHash: [UInt8](selectedInput.previousTransactionHash.reverseOrder),
+                outpointIndex: selectedInput.previousTransactionOutputIndex,
+                amountSatoshis: selectedInput.value,
+                lockingScript: [UInt8](selectedInput.lockingScript),
+                publicKey: [UInt8](compressedPublicKey)
+            )
+        )
+
+        return .init(
+            unspentOutput: selectedInput,
+            status: .eligible(reservedInput)
+        )
     }
 
     private func reserveCashFusionReceivingEntries(

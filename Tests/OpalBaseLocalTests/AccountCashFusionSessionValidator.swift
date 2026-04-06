@@ -177,6 +177,151 @@ struct AccountCashFusionSessionValidator {
 
         await session.stop()
     }
+
+    @Test("makePublicStatus maps a disconnected snapshot with no round")
+    func makePublicStatusMapsADisconnectedSnapshotWithNoRound() async throws {
+        let account = try await AccountTestFixtures.makeAccount()
+        let selectedInput = try await CashFusionTestSupport.makeWalletOwnedUnspentOutput(
+            to: account,
+            value: 170_000,
+            usage: .change,
+            hashByte: 0xD7
+        )
+        let capture = CashFusionWrappedSessionCapture()
+        let session = try await makeSession(
+            account: account,
+            selectedInput: selectedInput,
+            capture: capture
+        )
+
+        let publicStatus = await session.makePublicStatus()
+
+        #expect(publicStatus == .init(isConnected: false, round: nil, lastError: nil))
+
+        await session.stop()
+    }
+
+    @Test("makePublicStatus maps an active round snapshot")
+    func makePublicStatusMapsAnActiveRoundSnapshot() async throws {
+        let account = try await AccountTestFixtures.makeAccount()
+        let selectedInput = try await CashFusionTestSupport.makeWalletOwnedUnspentOutput(
+            to: account,
+            value: 170_000,
+            usage: .change,
+            hashByte: 0xD8
+        )
+        let capture = CashFusionWrappedSessionCapture()
+        let session = try await makeSession(
+            account: account,
+            selectedInput: selectedInput,
+            capture: capture
+        )
+        let fakeSession = try #require(capture.load())
+
+        await fakeSession.emit(
+            snapshot: CashFusionTestSupport.makeSnapshot(
+                identifier: "round-active",
+                phase: .assemblingTransaction,
+                isConnected: true
+            )
+        )
+
+        let publicStatus = await session.makePublicStatus()
+
+        #expect(publicStatus.isConnected)
+        #expect(
+            publicStatus.round == .init(
+                identifier: "round-active",
+                phase: .assemblingTransaction,
+                participantCount: 3,
+                completionStatus: nil,
+                isTerminal: false
+            )
+        )
+        #expect(publicStatus.lastError == nil)
+
+        await session.stop()
+    }
+
+    @Test("makePublicStatus maps terminal success snapshots")
+    func makePublicStatusMapsTerminalSuccessSnapshots() async throws {
+        let account = try await AccountTestFixtures.makeAccount()
+        let selectedInput = try await CashFusionTestSupport.makeWalletOwnedUnspentOutput(
+            to: account,
+            value: 170_000,
+            usage: .change,
+            hashByte: 0xD9
+        )
+        let capture = CashFusionWrappedSessionCapture()
+        let session = try await makeSession(
+            account: account,
+            selectedInput: selectedInput,
+            capture: capture
+        )
+        let fakeSession = try #require(capture.load())
+
+        await fakeSession.emit(
+            snapshot: CashFusionTestSupport.makeSnapshot(
+                identifier: "round-success",
+                phase: .completed,
+                completionStatus: .success,
+                isTerminal: true,
+                isConnected: true
+            )
+        )
+
+        let publicStatus = await session.makePublicStatus()
+
+        #expect(publicStatus.isConnected)
+        #expect(
+            publicStatus.round == .init(
+                identifier: "round-success",
+                phase: .completed,
+                participantCount: 3,
+                completionStatus: .success,
+                isTerminal: true
+            )
+        )
+        #expect(publicStatus.lastError == nil)
+
+        await session.stop()
+    }
+
+    @Test("makePublicStatus maps last error values")
+    func makePublicStatusMapsLastErrorValues() async throws {
+        let account = try await AccountTestFixtures.makeAccount()
+        let selectedInput = try await CashFusionTestSupport.makeWalletOwnedUnspentOutput(
+            to: account,
+            value: 170_000,
+            usage: .change,
+            hashByte: 0xDA
+        )
+        let capture = CashFusionWrappedSessionCapture()
+        let session = try await makeSession(
+            account: account,
+            selectedInput: selectedInput,
+            capture: capture
+        )
+        let fakeSession = try #require(capture.load())
+
+        await fakeSession.emit(
+            snapshot: .init(
+                state: .init(
+                    isConnected: false,
+                    round: nil
+                ),
+                lastError: .transportUnavailable
+            )
+        )
+
+        let publicStatus = await session.makePublicStatus()
+
+        #expect(publicStatus.isConnected == false)
+        #expect(publicStatus.round == nil)
+        #expect(publicStatus.lastError == .transportUnavailable)
+
+        await session.stop()
+    }
 }
 
 private extension AccountCashFusionSessionValidator {

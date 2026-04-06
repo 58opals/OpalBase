@@ -48,6 +48,55 @@ struct PublicAPISmokeValidator {
         await monitor.stop()
     }
 
+    @Test("cash fusion readiness and status wrappers compose from OpalBase only")
+    func cashFusionReadinessAndStatusWrappersComposeFromOpalBaseOnly() async throws {
+        let wallet = try OpalBase.Wallet(mnemonic: makeSmokeMnemonic())
+
+        try await wallet.addAccount(unhardenedIndex: 0)
+        let account = try await wallet.fetchAccount(at: 0)
+        let receivingEntry = try await account.selectNextEntry(
+            for: OpalBase.Key.DerivationPath.Usage.receiving
+        )
+        let unspentOutput = OpalBase.Transaction.Output.Unspent(
+            output: .init(
+                value: 120_000,
+                address: receivingEntry.address
+            ),
+            previousTransactionHash: .init(naturalOrder: Data(repeating: 0x11, count: 32)),
+            previousTransactionOutputIndex: 0
+        )
+
+        _ = try await account.replaceUTXOs(
+            for: receivingEntry.address,
+            with: [unspentOutput]
+        )
+
+        let readiness = try await account.evaluateCashFusionReadiness()
+
+        #expect(readiness.pilotAvailability == .available)
+        #expect(readiness.accountStatus == .ready)
+        #expect(readiness.utxoEligibility.count == 1)
+        #expect(readiness.utxoEligibility.first?.unspentOutput == unspentOutput)
+        #expect(readiness.utxoEligibility.first?.status == .eligible)
+
+        let sessionStatus = OpalBase.Account.CashFusionSessionStatus(
+            isConnected: false,
+            round: .init(
+                identifier: "round-smoke",
+                phase: .connecting,
+                participantCount: nil,
+                completionStatus: nil,
+                isTerminal: false
+            ),
+            lastError: nil
+        )
+
+        #expect(sessionStatus.isConnected == false)
+        #expect(sessionStatus.round?.identifier == "round-smoke")
+        #expect(sessionStatus.round?.phase == .connecting)
+        #expect(sessionStatus.lastError == nil)
+    }
+
     @Test("transaction signature facade exposes owned enum")
     func transactionSignatureFacadeExposesOwnedEnum() {
         let signatureFormat: OpalBase.Transaction.SignatureFormat = .ecdsa(.der)
