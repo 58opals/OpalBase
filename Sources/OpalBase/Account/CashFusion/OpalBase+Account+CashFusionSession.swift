@@ -55,8 +55,16 @@ extension _OpalBase.Account {
         func receiveCashFusionSnapshot(
             _ snapshot: OpalFusion.Client.Session.Snapshot
         ) async {
-            guard terminalOutcome == nil,
-                  let round = snapshot.state.round,
+            guard terminalOutcome == nil else {
+                return
+            }
+
+            if snapshot.lastError != nil, snapshot.state.round == nil {
+                await finalize(with: .failed)
+                return
+            }
+
+            guard let round = snapshot.state.round,
                   round.isTerminal || round.completionStatus != nil else {
                 return
             }

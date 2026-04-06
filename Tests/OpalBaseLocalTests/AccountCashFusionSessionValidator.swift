@@ -7,6 +7,22 @@ import Testing
 
 @Suite("OpalBase.Account CashFusion session", .tags(.unit, .wallet))
 struct AccountCashFusionSessionValidator {
+    @Test("invalid configuration releases reservations before a round starts")
+    func invalidConfigurationReleasesReservationsBeforeARoundStarts() async throws {
+        try await assertPreRoundFatalFailureReleasesReservation(
+            lastError: .invalidConfiguration,
+            hashByte: 0xD5
+        )
+    }
+
+    @Test("transport failure releases reservations before a round starts")
+    func transportFailureReleasesReservationsBeforeARoundStarts() async throws {
+        try await assertPreRoundFatalFailureReleasesReservation(
+            lastError: .transportUnavailable,
+            hashByte: 0xD6
+        )
+    }
+
     @Test("successful terminal snapshot completes reservations")
     func successfulTerminalSnapshotCompletesReservations() async throws {
         let account = try await AccountTestFixtures.makeAccount()
@@ -164,6 +180,49 @@ struct AccountCashFusionSessionValidator {
 }
 
 private extension AccountCashFusionSessionValidator {
+    func assertPreRoundFatalFailureReleasesReservation(
+        lastError: OpalFusion.Client.Error,
+        hashByte: UInt8
+    ) async throws {
+        let account = try await AccountTestFixtures.makeAccount()
+        let selectedInput = try await CashFusionTestSupport.makeWalletOwnedUnspentOutput(
+            to: account,
+            value: 170_000,
+            usage: .change,
+            hashByte: hashByte
+        )
+        let capture = CashFusionWrappedSessionCapture()
+        let session = try await makeSession(
+            account: account,
+            selectedInput: selectedInput,
+            capture: capture
+        )
+        let reservation = await session.reservation
+        let fakeSession = try #require(capture.load())
+
+        await session.start()
+        await fakeSession.emit(
+            snapshot: .init(
+                state: .init(
+                    isConnected: false,
+                    round: nil
+                ),
+                lastError: lastError
+            )
+        )
+
+        #expect(await fakeSession.readStartCount() == 1)
+        #expect(await fakeSession.readStopCount() == 1)
+        try await assertReceivingEntries(
+            reservation.reservedReceivingEntries,
+            on: account,
+            expectedUsed: false,
+            expectedReserved: false
+        )
+        let addressBook = await account.addressBook
+        #expect(await addressBook.listSpendableUTXOs().contains(selectedInput))
+    }
+
     func makeSession(
         account: OpalBase.Account,
         selectedInput: OpalBase.Transaction.Output.Unspent,
