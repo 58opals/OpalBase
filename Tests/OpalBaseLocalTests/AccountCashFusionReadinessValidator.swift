@@ -1,3 +1,4 @@
+#if os(macOS)
 // AccountCashFusionReadinessValidator.swift
 
 import Foundation
@@ -81,3 +82,4 @@ struct AccountCashFusionReadinessValidator {
         #expect(eligibility.status == .blocked(.unsupportedLockingScript))
     }
 }
+#endif

@@ -1,3 +1,4 @@
+#if os(macOS)
 // AccountCashFusionSessionValidator.swift
 
 import Foundation
@@ -412,3 +413,4 @@ private extension AccountCashFusionSessionValidator {
         }
     }
 }
+#endif

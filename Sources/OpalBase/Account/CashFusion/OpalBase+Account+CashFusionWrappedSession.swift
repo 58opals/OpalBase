@@ -1,3 +1,4 @@
+#if os(macOS)
 // OpalBase+Account+CashFusionWrappedSession.swift
 
 import Foundation
@@ -41,3 +42,4 @@ extension _OpalBase.Account {
 }
 
 extension OpalFusion.Client.Session: _OpalBase.Account.CashFusionWrappedSession {}
+#endif

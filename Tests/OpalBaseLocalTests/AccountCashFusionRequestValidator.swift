@@ -1,3 +1,4 @@
+#if os(macOS)
 // AccountCashFusionRequestValidator.swift
 
 import Foundation
@@ -55,3 +56,4 @@ struct AccountCashFusionRequestValidator {
         await session.stop()
     }
 }
+#endif

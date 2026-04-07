@@ -1,3 +1,4 @@
+#if os(macOS)
 // OpalBase+Account+CashFusionBlockedReason.swift
 
 import Foundation
@@ -9,3 +10,4 @@ extension _OpalBase.Account {
         case unsupportedLockingScript
     }
 }
+#endif

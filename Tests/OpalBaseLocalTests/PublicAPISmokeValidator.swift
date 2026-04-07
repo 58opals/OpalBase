@@ -48,6 +48,7 @@ struct PublicAPISmokeValidator {
         await monitor.stop()
     }
 
+    #if os(macOS)
     @Test("cash fusion readiness and status wrappers compose from OpalBase only")
     func cashFusionReadinessAndStatusWrappersComposeFromOpalBaseOnly() async throws {
         let wallet = try OpalBase.Wallet(mnemonic: makeSmokeMnemonic())
@@ -96,6 +97,7 @@ struct PublicAPISmokeValidator {
         #expect(sessionStatus.round?.phase == .connecting)
         #expect(sessionStatus.lastError == nil)
     }
+    #endif
 
     @Test("transaction signature facade exposes owned enum")
     func transactionSignatureFacadeExposesOwnedEnum() {

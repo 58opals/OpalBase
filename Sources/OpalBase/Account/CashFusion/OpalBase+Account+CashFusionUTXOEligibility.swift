@@ -1,3 +1,4 @@
+#if os(macOS)
 // OpalBase+Account+CashFusionUTXOEligibility.swift
 
 import Foundation
@@ -21,3 +22,4 @@ extension _OpalBase.Account {
         }
     }
 }
+#endif

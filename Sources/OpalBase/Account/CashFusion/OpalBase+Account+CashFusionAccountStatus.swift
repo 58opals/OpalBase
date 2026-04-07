@@ -1,3 +1,4 @@
+#if os(macOS)
 // OpalBase+Account+CashFusionAccountStatus.swift
 
 import Foundation
@@ -8,3 +9,4 @@ extension _OpalBase.Account {
         case blocked(OpalBase.Account.CashFusionBlockedReason)
     }
 }
+#endif

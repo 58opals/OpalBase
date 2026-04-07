@@ -1,3 +1,4 @@
+#if os(macOS)
 // OpalBase+Account+CashFusionTransactionAssembler.swift
 
 import Foundation
@@ -100,3 +101,4 @@ private extension _OpalBase.Account.CashFusionTransactionAssembler {
         }
     }
 }
+#endif

@@ -1,3 +1,4 @@
+#if os(macOS)
 // OpalBase+Account+CashFusionSelectedInputClassification.swift
 
 import Foundation
@@ -38,3 +39,4 @@ extension _OpalBase.Account.CashFusionSelectedInputClassification {
         }
     }
 }
+#endif

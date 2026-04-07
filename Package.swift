@@ -26,7 +26,11 @@ let package = Package(
                 dependencies: [
                     .product(name: "SwiftFulcrum", package: "SwiftFulcrum"),
                     .product(name: "OpalCrypto", package: "OpalCrypto"),
-                    .product(name: "OpalFusion", package: "OpalFusion")
+                    .product(
+                        name: "OpalFusion",
+                        package: "OpalFusion",
+                        condition: .when(platforms: [.macOS])
+                    )
                 ]
                ),
         .target(
@@ -39,7 +43,11 @@ let package = Package(
             dependencies: [
                 "OpalBase",
                 "OpalBaseTestSupport",
-                .product(name: "OpalFusion", package: "OpalFusion")
+                .product(
+                    name: "OpalFusion",
+                    package: "OpalFusion",
+                    condition: .when(platforms: [.macOS])
+                )
             ],
             path: "Tests/OpalBaseLocalTests"
         ),

@@ -1,3 +1,4 @@
+#if os(macOS)
 // OpalBase+Account+CashFusionSession.swift
 
 import Foundation
@@ -109,3 +110,4 @@ extension _OpalBase.Account {
         }
     }
 }
+#endif

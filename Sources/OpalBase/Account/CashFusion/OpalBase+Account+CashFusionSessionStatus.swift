@@ -1,3 +1,4 @@
+#if os(macOS)
 // OpalBase+Account+CashFusionSessionStatus.swift
 
 import Foundation
@@ -162,3 +163,4 @@ extension _OpalBase.Account.CashFusionSession {
         return .init(snapshot: sessionSnapshot)
     }
 }
+#endif

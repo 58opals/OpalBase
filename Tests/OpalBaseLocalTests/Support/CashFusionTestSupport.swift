@@ -1,3 +1,4 @@
+#if os(macOS)
 // CashFusionTestSupport.swift
 
 import Foundation
@@ -298,3 +299,4 @@ private func readCashFusionPushedElement(
     offset += count
     return element
 }
+#endif

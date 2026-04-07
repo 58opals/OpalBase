@@ -1,3 +1,4 @@
+#if os(macOS)
 // AccountCashFusionReservationValidator.swift
 
 import Foundation
@@ -167,3 +168,4 @@ struct AccountCashFusionReservationValidator {
         try await reservation.cancel()
     }
 }
+#endif
