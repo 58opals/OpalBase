@@ -7,20 +7,33 @@ import Testing
 @testable import OpalBase
 
 enum CashFusionTestSupport {
-    static func makeConfiguration() -> OpalFusion.Client.Configuration {
+    static func makeConfiguration() -> OpalBase.Account.CashFusionSession.Configuration {
         .init(
-            coordinatorHost: "fusion.example.com",
-            coordinatorPort: 8787,
+            coordinator: .init(
+                host: "fusion.example.com",
+                port: 8787
+            ),
             covertChannel: .init(
                 entryPath: "/covert",
                 maxPayloadBytes: 32 * 1_024,
                 requestTimeoutMilliseconds: 15_000
+            ),
+            torSocks5: .init(
+                host: "127.0.0.1",
+                port: 9050
+            ),
+            genesisHash: [UInt8](repeating: 0xAB, count: 32),
+            joinPools: .init(
+                tiers: [100_000],
+                tags: [
+                    .init(
+                        identifier: [0x01, 0x02, 0x03, 0x04],
+                        limit: 1,
+                        noIp: true
+                    )
+                ]
             )
         )
-    }
-
-    static func makeJoinPools() -> OpalFusion.ProtocolModel.JoinPools {
-        .init(tiers: [100_000], tags: [])
     }
 
     static func makeSnapshot(
@@ -125,38 +138,6 @@ enum CashFusionTestSupport {
     }
 }
 
-actor CashFusionStateObserverSpy: OpalFusion.Client.StateObserver {
-    private var snapshots: [OpalFusion.Client.Session.Snapshot] = []
-
-    func receive(_ snapshot: OpalFusion.Client.Session.Snapshot) async {
-        snapshots.append(snapshot)
-    }
-
-    func snapshotHistory() -> [OpalFusion.Client.Session.Snapshot] {
-        snapshots
-    }
-}
-
-actor CashFusionEventObserverSpy: OpalFusion.Host.EventObserver {
-    struct Record: Sendable, Equatable {
-        let event: OpalFusion.Host.Event
-        let roundIdentifier: OpalFusion.Round.Identifier
-    }
-
-    private var records: [Record] = []
-
-    func receive(
-        _ event: OpalFusion.Host.Event,
-        for roundIdentifier: OpalFusion.Round.Identifier
-    ) async {
-        records.append(.init(event: event, roundIdentifier: roundIdentifier))
-    }
-
-    func recordHistory() -> [Record] {
-        records
-    }
-}
-
 final class CashFusionWrappedSessionCapture: @unchecked Sendable {
     private let lock = NSLock()
     private var session: CashFusionFakeWrappedSession?
@@ -176,7 +157,6 @@ final class CashFusionWrappedSessionCapture: @unchecked Sendable {
 }
 
 actor CashFusionFakeWrappedSession: OpalBase.Account.CashFusionWrappedSession {
-    private let eventObserver: (any OpalFusion.Host.EventObserver)?
     private let stateObserver: (any OpalFusion.Client.StateObserver)?
 
     private var startCount = 0
@@ -184,10 +164,8 @@ actor CashFusionFakeWrappedSession: OpalBase.Account.CashFusionWrappedSession {
     private var currentSnapshot: OpalFusion.Client.Session.Snapshot = .init()
 
     init(
-        eventObserver: (any OpalFusion.Host.EventObserver)?,
         stateObserver: (any OpalFusion.Client.StateObserver)?
     ) {
-        self.eventObserver = eventObserver
         self.stateObserver = stateObserver
     }
 
@@ -206,13 +184,6 @@ actor CashFusionFakeWrappedSession: OpalBase.Account.CashFusionWrappedSession {
     func emit(snapshot: OpalFusion.Client.Session.Snapshot) async {
         currentSnapshot = snapshot
         await stateObserver?.receive(snapshot)
-    }
-
-    func emit(
-        event: OpalFusion.Host.Event,
-        for roundIdentifier: OpalFusion.Round.Identifier
-    ) async {
-        await eventObserver?.receive(event, for: roundIdentifier)
     }
 
     func readStartCount() -> Int {

@@ -134,51 +134,6 @@ struct AccountCashFusionSessionValidator {
         await session.stop()
     }
 
-    @Test("caller observers receive forwarded state and event updates")
-    func callerObserversReceiveForwardedStateAndEventUpdates() async throws {
-        let account = try await AccountTestFixtures.makeAccount()
-        let selectedInput = try await CashFusionTestSupport.makeWalletOwnedUnspentOutput(
-            to: account,
-            value: 170_000,
-            usage: .change,
-            hashByte: 0xD4
-        )
-        let capture = CashFusionWrappedSessionCapture()
-        let stateObserver = CashFusionStateObserverSpy()
-        let eventObserver = CashFusionEventObserverSpy()
-        let session = try await makeSession(
-            account: account,
-            selectedInput: selectedInput,
-            capture: capture,
-            eventObserver: eventObserver,
-            stateObserver: stateObserver
-        )
-        let fakeSession = try #require(capture.load())
-        let expectedSnapshot = CashFusionTestSupport.makeSnapshot(
-            phase: .assemblingTransaction
-        )
-        let expectedEvent = OpalFusion.Host.Event(
-            kind: .status,
-            phase: .assemblingTransaction,
-            summary: "assembling transaction",
-            isTerminal: false
-        )
-        let roundIdentifier = OpalFusion.Round.Identifier(rawValue: "round-forwarded")
-
-        await session.start()
-        await fakeSession.emit(snapshot: expectedSnapshot)
-        await fakeSession.emit(event: expectedEvent, for: roundIdentifier)
-
-        #expect(await stateObserver.snapshotHistory().contains(expectedSnapshot))
-        #expect(
-            await eventObserver.recordHistory().contains(
-                .init(event: expectedEvent, roundIdentifier: roundIdentifier)
-            )
-        )
-
-        await session.stop()
-    }
-
     @Test("makePublicStatus maps a disconnected snapshot with no round")
     func makePublicStatusMapsADisconnectedSnapshotWithNoRound() async throws {
         let account = try await AccountTestFixtures.makeAccount()
@@ -372,22 +327,16 @@ private extension AccountCashFusionSessionValidator {
     func makeSession(
         account: OpalBase.Account,
         selectedInput: OpalBase.Transaction.Output.Unspent,
-        capture: CashFusionWrappedSessionCapture,
-        eventObserver: (any OpalFusion.Host.EventObserver)? = nil,
-        stateObserver: (any OpalFusion.Client.StateObserver)? = nil
+        capture: CashFusionWrappedSessionCapture
     ) async throws -> OpalBase.Account.CashFusionSession {
         try await account.prepareCashFusionSession(
             configuration: CashFusionTestSupport.makeConfiguration(),
-            joinPools: CashFusionTestSupport.makeJoinPools(),
             request: .init(
                 selectedInputs: [selectedInput],
                 outputAmounts: [try OpalBase.Satoshi(55_000)]
             ),
-            eventObserver: eventObserver,
-            stateObserver: stateObserver,
-            sessionFactory: { _, _, _, _, _, wrappedEventObserver, wrappedStateObserver in
+            sessionFactory: { _, _, _, _, _, _, wrappedStateObserver in
                 let session = CashFusionFakeWrappedSession(
-                    eventObserver: wrappedEventObserver,
                     stateObserver: wrappedStateObserver
                 )
                 capture.store(session)

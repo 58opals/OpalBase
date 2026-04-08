@@ -6,31 +6,19 @@ import OpalFusion
 
 extension _OpalBase.Account {
     public func prepareCashFusionSession(
-        configuration: OpalFusion.Client.Configuration,
-        genesisHash: [UInt8]? = nil,
-        joinPools: OpalFusion.ProtocolModel.JoinPools,
-        request: OpalBase.Account.CashFusionRequest,
-        eventObserver: (any OpalFusion.Host.EventObserver)? = nil,
-        stateObserver: (any OpalFusion.Client.StateObserver)? = nil
+        configuration: OpalBase.Account.CashFusionSession.Configuration,
+        request: OpalBase.Account.CashFusionRequest
     ) async throws -> OpalBase.Account.CashFusionSession {
         try await prepareCashFusionSession(
             configuration: configuration,
-            genesisHash: genesisHash,
-            joinPools: joinPools,
             request: request,
-            eventObserver: eventObserver,
-            stateObserver: stateObserver,
             sessionFactory: Self.defaultCashFusionWrappedSessionFactory
         )
     }
 
     func prepareCashFusionSession(
-        configuration: OpalFusion.Client.Configuration,
-        genesisHash: [UInt8]? = nil,
-        joinPools: OpalFusion.ProtocolModel.JoinPools,
+        configuration: OpalBase.Account.CashFusionSession.Configuration,
         request: OpalBase.Account.CashFusionRequest,
-        eventObserver: (any OpalFusion.Host.EventObserver)? = nil,
-        stateObserver: (any OpalFusion.Client.StateObserver)? = nil,
         sessionFactory: CashFusionWrappedSessionFactory
     ) async throws -> OpalBase.Account.CashFusionSession {
         let reservation = try await prepareCashFusionReservation(request: request)
@@ -40,24 +28,19 @@ extension _OpalBase.Account {
         let transactionAssembler = CashFusionTransactionAssembler(
             reservation: reservation
         )
-        let observerSink = CashFusionObserverSink(
-            eventObserver: eventObserver,
-            stateObserver: stateObserver
-        )
+        let observerSink = CashFusionObserverSink()
         let wrappedSession = sessionFactory(
-            configuration,
-            genesisHash,
-            joinPools,
+            configuration.makeClientConfiguration(),
+            configuration.genesisHash,
+            configuration.joinPools.makeJoinPools(),
             participantInputProvider,
             transactionAssembler,
-            observerSink,
+            nil,
             observerSink
         )
         let session = CashFusionSession(
             reservation: reservation,
             wrappedSession: wrappedSession,
-            eventObserver: eventObserver,
-            stateObserver: stateObserver,
             observerSink: observerSink
         )
         observerSink.owner = session
@@ -285,6 +268,56 @@ extension _OpalBase.Account {
         if let firstError {
             throw firstError
         }
+    }
+}
+
+private extension _OpalBase.Account.CashFusionSession.Configuration {
+    func makeClientConfiguration() -> OpalFusion.Client.Configuration {
+        .init(
+            coordinatorHost: coordinator.host,
+            coordinatorPort: coordinator.port,
+            covertChannel: covertChannel.makeCovertChannelConfiguration(),
+            torSocks5: torSocks5?.makeTorSocks5Configuration()
+        )
+    }
+}
+
+private extension _OpalBase.Account.CashFusionSession.Configuration.CovertChannel {
+    func makeCovertChannelConfiguration() -> OpalFusion.Transport.CovertChannelConfiguration {
+        .init(
+            entryPath: entryPath,
+            maxPayloadBytes: maxPayloadBytes,
+            requestTimeoutMilliseconds: requestTimeoutMilliseconds
+        )
+    }
+}
+
+private extension _OpalBase.Account.CashFusionSession.Configuration.TorSocks5 {
+    func makeTorSocks5Configuration() -> OpalFusion.Transport.TorSocks5Configuration {
+        .init(
+            host: host,
+            port: port,
+            resolvesCoordinatorHostNameRemotely: resolvesCoordinatorHostNameRemotely
+        )
+    }
+}
+
+private extension _OpalBase.Account.CashFusionSession.Configuration.JoinPools {
+    func makeJoinPools() -> OpalFusion.ProtocolModel.JoinPools {
+        .init(
+            tiers: tiers,
+            tags: tags.map(\.makePoolTag)
+        )
+    }
+}
+
+private extension _OpalBase.Account.CashFusionSession.Configuration.PoolTag {
+    var makePoolTag: OpalFusion.ProtocolModel.PoolTag {
+        .init(
+            identifier: identifier,
+            limit: limit,
+            noIp: noIp
+        )
     }
 }
 #endif

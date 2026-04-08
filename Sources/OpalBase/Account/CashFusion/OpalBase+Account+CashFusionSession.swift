@@ -14,8 +14,6 @@ extension _OpalBase.Account {
 
         let reservation: CashFusionReservation
         let wrappedSession: any CashFusionWrappedSession
-        let eventObserver: (any OpalFusion.Host.EventObserver)?
-        let stateObserver: (any OpalFusion.Client.StateObserver)?
         let observerSink: CashFusionObserverSink
 
         var hasStarted = false
@@ -25,14 +23,10 @@ extension _OpalBase.Account {
         init(
             reservation: CashFusionReservation,
             wrappedSession: any CashFusionWrappedSession,
-            eventObserver: (any OpalFusion.Host.EventObserver)?,
-            stateObserver: (any OpalFusion.Client.StateObserver)?,
             observerSink: CashFusionObserverSink
         ) {
             self.reservation = reservation
             self.wrappedSession = wrappedSession
-            self.eventObserver = eventObserver
-            self.stateObserver = stateObserver
             self.observerSink = observerSink
         }
 
@@ -49,7 +43,7 @@ extension _OpalBase.Account {
             await finalize(with: .stopped)
         }
 
-        public func snapshot() async -> OpalFusion.Client.Session.Snapshot {
+        func snapshot() async -> OpalFusion.Client.Session.Snapshot {
             await wrappedSession.snapshot()
         }
 
