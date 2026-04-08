@@ -2,7 +2,6 @@
 // AccountCashFusionRequestValidator.swift
 
 import Foundation
-import OpalFusion
 import Testing
 @testable import OpalBase
 
@@ -47,11 +46,14 @@ struct AccountCashFusionRequestValidator {
 
         let session = try await account.prepareCashFusionSession(
             configuration: CashFusionTestSupport.makeConfiguration(),
-            joinPools: CashFusionTestSupport.makeJoinPools(),
             request: request
         )
 
-        #expect(await session.snapshot() == .init())
+        #expect(await session.makePublicStatus() == .init(
+            isConnected: false,
+            round: nil,
+            lastError: nil
+        ))
 
         await session.stop()
     }
