@@ -85,6 +85,68 @@ struct AccountTokenSpendValidator {
         
         _ = try plan.buildTransaction()
     }
+
+    @Test("prepareTokenSpend refreshes wallet token change when the selected change entry becomes stale")
+    func prepareTokenSpendRefreshesWalletTokenChangeWhenSelectedChangeEntryBecomesStale() async throws {
+        let account = try await makeAccount()
+        let addressBook = await account.addressBook
+        let category = try OpalBase.CashTokens.CategoryID(transactionOrderData: Data(repeating: 0xC3, count: 32))
+        let tokenData = OpalBase.CashTokens.TokenData(category: category, amount: 100, nft: nil)
+        _ = try await addUnspentOutput(
+            to: account,
+            value: 15_000,
+            tokenData: tokenData,
+            previousTransactionHash: OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0x21, count: 32)),
+            previousTransactionOutputIndex: 0
+        )
+        let reservedFundingOutput = try await addUnspentOutput(
+            to: account,
+            value: 30_000,
+            tokenData: nil,
+            previousTransactionHash: OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0x22, count: 32)),
+            previousTransactionOutputIndex: 0
+        )
+        _ = try await addUnspentOutput(
+            to: account,
+            value: 120_000,
+            tokenData: nil,
+            previousTransactionHash: OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0x23, count: 32)),
+            previousTransactionOutputIndex: 0
+        )
+        let staleChangeEntry = try await addressBook.selectNextEntry(for: .change)
+
+        let recipientAddress = try OpalBase.Address("bitcoincash:zpm2qsznhks23z7629mms6s4cwef74vcwvrqekrq9w")
+        let transfer = OpalBase.Account.TokenTransfer(recipients: [
+            .init(
+                address: recipientAddress,
+                amount: try OpalBase.Satoshi(1_000),
+                tokenData: OpalBase.CashTokens.TokenData(category: category, amount: 40, nft: nil)
+            )
+        ])
+
+        let plan = try await account.prepareTokenSpend(
+            transfer,
+            feePolicy: .init(),
+            beforeReservation: { selectedChangeEntry in
+                #expect(selectedChangeEntry.address == staleChangeEntry.address)
+                _ = try await addressBook.reserveSpend(
+                    utxos: [reservedFundingOutput],
+                    changeEntry: selectedChangeEntry,
+                    tokenSelectionPolicy: .excludeTokenUTXOs
+                )
+            }
+        )
+
+        #expect(!plan.tokenChangeOutputs.isEmpty)
+        #expect(plan.bchChangeOutput.lockingScript != staleChangeEntry.address.lockingScript.data)
+        #expect(plan.tokenChangeOutputs.allSatisfy { $0.lockingScript == plan.bchChangeOutput.lockingScript })
+        #expect(plan.tokenChangeOutputs.allSatisfy { $0.lockingScript != staleChangeEntry.address.lockingScript.data })
+
+        try await plan.cancelReservation()
+        for reservation in await addressBook.readActiveSpendReservations() {
+            try await addressBook.releaseSpendReservation(reservation, outcome: .cancelled)
+        }
+    }
 }
 
 private func makeAccount() async throws -> OpalBase.Account {

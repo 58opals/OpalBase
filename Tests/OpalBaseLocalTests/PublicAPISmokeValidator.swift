@@ -98,6 +98,22 @@ struct PublicAPISmokeValidator {
         #expect(sessionStatus.lastError == nil)
         #expect(sessionStatus.lastErrorSummary == nil)
     }
+
+    @Test("cash fusion coordinator configuration exposes TLS default and override")
+    func cashFusionCoordinatorConfigurationExposesTLSDefaultAndOverride() {
+        let defaultCoordinator = OpalBase.Account.CashFusionSession.Configuration.Coordinator(
+            host: "fusion.example.com",
+            port: 8787
+        )
+        let tlsCoordinator = OpalBase.Account.CashFusionSession.Configuration.Coordinator(
+            host: "fusion.example.com",
+            port: 8787,
+            requiresTLS: true
+        )
+
+        #expect(defaultCoordinator.requiresTLS == false)
+        #expect(tlsCoordinator.requiresTLS == true)
+    }
     #endif
 
     @Test("transaction signature facade exposes owned enum")

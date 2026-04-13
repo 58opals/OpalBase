@@ -276,6 +276,7 @@ private extension _OpalBase.Account.CashFusionSession.Configuration {
         .init(
             coordinatorHost: coordinator.host,
             coordinatorPort: coordinator.port,
+            coordinatorRequiresTLS: coordinator.requiresTLS,
             covertChannel: covertChannel.makeCovertChannelConfiguration(),
             torSocks5: torSocks5?.makeTorSocks5Configuration()
         )

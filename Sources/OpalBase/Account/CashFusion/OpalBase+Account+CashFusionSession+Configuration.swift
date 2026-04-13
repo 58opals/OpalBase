@@ -8,13 +8,16 @@ extension _OpalBase.Account.CashFusionSession {
         public struct Coordinator: Sendable, Equatable {
             public let host: String
             public let port: UInt16
+            public let requiresTLS: Bool
 
             public init(
                 host: String,
-                port: UInt16
+                port: UInt16,
+                requiresTLS: Bool = false
             ) {
                 self.host = host
                 self.port = port
+                self.requiresTLS = requiresTLS
             }
         }
 

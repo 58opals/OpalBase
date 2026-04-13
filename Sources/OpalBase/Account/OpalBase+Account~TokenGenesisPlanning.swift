@@ -8,6 +8,20 @@ extension _OpalBase.Account {
         preferredGenesisInput: OpalBase.Transaction.Output.Unspent? = nil,
         feePolicy: OpalBase.Wallet.FeePolicy = .init()
     ) async throws -> TokenGenesisPlan {
+        try await prepareTokenGenesis(
+            genesis,
+            preferredGenesisInput: preferredGenesisInput,
+            feePolicy: feePolicy,
+            beforeReservation: nil
+        )
+    }
+
+    func prepareTokenGenesis(
+        _ genesis: TokenGenesis,
+        preferredGenesisInput: OpalBase.Transaction.Output.Unspent? = nil,
+        feePolicy: OpalBase.Wallet.FeePolicy = .init(),
+        beforeReservation: (@Sendable (OpalBase.Address.Book.Entry) async throws -> Void)?
+    ) async throws -> TokenGenesisPlan {
         guard !genesis.recipients.isEmpty || genesis.reservedSupplyToSelf != nil else {
             throw Error.tokenGenesisHasNoRecipients
         }
@@ -47,7 +61,9 @@ extension _OpalBase.Account {
         }
         
         let changeEntry = try await addressBook.selectNextEntry(for: .change)
+        let tokenChangeAddress = try makeTokenAwareAddress(for: changeEntry)
         var rawOutputs: [OpalBase.Transaction.Output] = .init()
+        var walletReservedSupplyOutput: OpalBase.Transaction.Output?
         for recipient in genesis.recipients {
             let tokenData = OpalBase.CashTokens.TokenData(category: category,
                                                  amount: recipient.fungibleAmount,
@@ -73,8 +89,6 @@ extension _OpalBase.Account {
         }
         
         if let reservedSupply = genesis.reservedSupplyToSelf {
-            let tokenChangeAddress = try OpalBase.Address(script: changeEntry.address.lockingScript,
-                                                 format: .tokenAware)
             let mintingToken: OpalBase.CashTokens.NFT?
             if reservedSupply.shouldIncludeMintingNonFungibleToken {
                 do {
@@ -89,11 +103,13 @@ extension _OpalBase.Account {
             let tokenData = OpalBase.CashTokens.TokenData(category: category,
                                                  amount: reservedSupply.fungibleAmount,
                                                  nft: mintingToken)
-            rawOutputs.append(try makeTokenOutput(
+            let reservedSupplyOutput = try makeTokenOutput(
                 address: tokenChangeAddress,
                 tokenData: tokenData,
                 mapDustError: { Error.tokenGenesisCannotComputeDustThreshold($0) }
-            ))
+            )
+            rawOutputs.append(reservedSupplyOutput)
+            walletReservedSupplyOutput = reservedSupplyOutput
         }
         
         let organizedOutputs = await privacyShaper.organizeOutputs(rawOutputs)
@@ -112,19 +128,41 @@ extension _OpalBase.Account {
             changeEntry: changeEntry,
             tokenSelectionPolicy: .excludeTokenUTXOs,
             mapReservationError: { Error.coinSelectionFailed($0) },
-            mapInsufficientFundsError: Error.transactionBuildFailed(OpalBase.Satoshi.Error.negativeResult)
+            mapInsufficientFundsError: Error.transactionBuildFailed(OpalBase.Satoshi.Error.negativeResult),
+            beforeReservation: beforeReservation
         )
+
+        let resolvedRawOutputs: [OpalBase.Transaction.Output]
+        let resolvedOrganizedOutputs: [OpalBase.Transaction.Output]
+        let reservedTokenChangeAddress = try makeTokenAwareAddress(for: reservedSpendContext.changeEntry)
+        if let walletReservedSupplyOutput, reservedTokenChangeAddress != tokenChangeAddress {
+            let resolvedReservedSupplyOutput = makeRetargetedOutput(walletReservedSupplyOutput,
+                                                                    for: reservedTokenChangeAddress)
+            resolvedRawOutputs = replacePlannedOutputs(
+                in: rawOutputs,
+                originals: [walletReservedSupplyOutput],
+                replacements: [resolvedReservedSupplyOutput]
+            )
+            resolvedOrganizedOutputs = replacePlannedOutputs(
+                in: organizedOutputs,
+                originals: [walletReservedSupplyOutput],
+                replacements: [resolvedReservedSupplyOutput]
+            )
+        } else {
+            resolvedRawOutputs = rawOutputs
+            resolvedOrganizedOutputs = organizedOutputs
+        }
         
         return TokenGenesisPlan(genesis: genesis,
                                 category: category,
                                 feeRate: feeRate,
                                 genesisInput: genesisInput,
                                 bchInputs: bchInputs,
-                                outputs: organizedOutputs,
+                                outputs: resolvedOrganizedOutputs,
                                 reservationHandle: reservedSpendContext.reservationHandle,
                                 privateKeys: reservedSpendContext.privateKeys,
                                 changeOutput: reservedSpendContext.changeOutput,
-                                plannedMintedOutputs: rawOutputs,
+                                plannedMintedOutputs: resolvedRawOutputs,
                                 shouldAllowDustDonation: genesis.shouldAllowDustDonation,
                                 shouldRandomizeRecipientOrdering: privacyConfiguration.shouldRandomizeRecipientOrdering)
     }

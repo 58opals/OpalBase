@@ -7,6 +7,18 @@ extension _OpalBase.Account {
         _ mutation: TokenCommitmentMutation,
         feePolicy: OpalBase.Wallet.FeePolicy = .init()
     ) async throws -> TokenCommitmentMutationPlan {
+        try await prepareTokenCommitmentMutation(
+            mutation,
+            feePolicy: feePolicy,
+            beforeReservation: nil
+        )
+    }
+
+    func prepareTokenCommitmentMutation(
+        _ mutation: TokenCommitmentMutation,
+        feePolicy: OpalBase.Wallet.FeePolicy = .init(),
+        beforeReservation: (@Sendable (OpalBase.Address.Book.Entry) async throws -> Void)?
+    ) async throws -> TokenCommitmentMutationPlan {
         let spendableOutputs = await addressBook.sortSpendableUTXOs(by: { $0.value > $1.value })
         let authorityInput: OpalBase.Transaction.Output.Unspent
         switch mutation.target {
@@ -48,7 +60,7 @@ extension _OpalBase.Account {
         }
         
         let changeEntry = try await addressBook.selectNextEntry(for: .change)
-        let tokenChangeAddress = try OpalBase.Address(script: changeEntry.address.lockingScript, format: .tokenAware)
+        let tokenChangeAddress = try makeTokenAwareAddress(for: changeEntry)
         
         let destinationIsExternal = await !addressBook.contains(address: mutation.destination)
         let attachedFungibleAmount = authorityTokenData.amount
@@ -99,21 +111,37 @@ extension _OpalBase.Account {
             changeEntry: changeEntry,
             tokenSelectionPolicy: .allowTokenUTXOs,
             mapReservationError: { Error.tokenSelectionFailed($0) },
-            mapInsufficientFundsError: Error.transactionBuildFailed(OpalBase.Satoshi.Error.negativeResult)
+            mapInsufficientFundsError: Error.transactionBuildFailed(OpalBase.Satoshi.Error.negativeResult),
+            beforeReservation: beforeReservation
         )
+
+        let resolvedFungiblePreservationOutput: OpalBase.Transaction.Output?
+        let resolvedOrganizedTokenOutputs: [OpalBase.Transaction.Output]
+        let reservedTokenChangeAddress = try makeTokenAwareAddress(for: reservedSpendContext.changeEntry)
+        if let fungiblePreservationOutput, reservedTokenChangeAddress != tokenChangeAddress {
+            resolvedFungiblePreservationOutput = makeRetargetedOutput(fungiblePreservationOutput,
+                                                                      for: reservedTokenChangeAddress)
+            resolvedOrganizedTokenOutputs = replacePlannedOutputs(
+                in: organizedTokenOutputs,
+                originals: [fungiblePreservationOutput],
+                replacements: [resolvedFungiblePreservationOutput!]
+            )
+        } else {
+            resolvedFungiblePreservationOutput = fungiblePreservationOutput
+            resolvedOrganizedTokenOutputs = organizedTokenOutputs
+        }
         
         return TokenCommitmentMutationPlan(mutation: mutation,
                                            feeRate: feeRate,
                                            authorityInput: authorityInput,
                                            bchInputs: bchInputs,
                                            mutatedTokenOutput: mutatedTokenOutput,
-                                           fungiblePreservationOutput: fungiblePreservationOutput,
+                                           fungiblePreservationOutput: resolvedFungiblePreservationOutput,
                                            bchChangeOutput: reservedSpendContext.changeOutput,
                                            shouldAllowDustDonation: mutation.shouldAllowDustDonation,
                                            reservationHandle: reservedSpendContext.reservationHandle,
                                            privateKeys: reservedSpendContext.privateKeys,
-                                           organizedTokenOutputs: organizedTokenOutputs,
+                                           organizedTokenOutputs: resolvedOrganizedTokenOutputs,
                                            shouldRandomizeRecipientOrdering: privacyConfiguration.shouldRandomizeRecipientOrdering)
     }
 }
-

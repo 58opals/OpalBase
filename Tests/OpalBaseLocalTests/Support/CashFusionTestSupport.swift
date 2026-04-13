@@ -7,11 +7,14 @@ import Testing
 @testable import OpalBase
 
 enum CashFusionTestSupport {
-    static func makeConfiguration() -> OpalBase.Account.CashFusionSession.Configuration {
+    static func makeConfiguration(
+        requiresTLS: Bool = false
+    ) -> OpalBase.Account.CashFusionSession.Configuration {
         .init(
             coordinator: .init(
                 host: "fusion.example.com",
-                port: 8787
+                port: 8787,
+                requiresTLS: requiresTLS
             ),
             covertChannel: .init(
                 entryPath: "/covert",
@@ -143,10 +146,15 @@ enum CashFusionTestSupport {
 final class CashFusionWrappedSessionCapture: @unchecked Sendable {
     private let lock = NSLock()
     private var session: CashFusionFakeWrappedSession?
+    private var configuration: OpalFusion.Client.Configuration?
 
-    func store(_ session: CashFusionFakeWrappedSession) {
+    func store(
+        _ session: CashFusionFakeWrappedSession,
+        configuration: OpalFusion.Client.Configuration
+    ) {
         lock.lock()
         self.session = session
+        self.configuration = configuration
         lock.unlock()
     }
 
@@ -155,6 +163,13 @@ final class CashFusionWrappedSessionCapture: @unchecked Sendable {
         let session = session
         lock.unlock()
         return session
+    }
+
+    func loadConfiguration() -> OpalFusion.Client.Configuration? {
+        lock.lock()
+        let configuration = configuration
+        lock.unlock()
+        return configuration
     }
 }
 
