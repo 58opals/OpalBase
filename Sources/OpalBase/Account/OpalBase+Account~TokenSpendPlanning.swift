@@ -5,6 +5,18 @@ import Foundation
 extension _OpalBase.Account {
     public func prepareTokenSpend(_ transfer: TokenTransfer,
                                   feePolicy: OpalBase.Wallet.FeePolicy = .init()) async throws -> TokenSpendPlan {
+        try await prepareTokenSpend(
+            transfer,
+            feePolicy: feePolicy,
+            beforeReservation: nil
+        )
+    }
+
+    func prepareTokenSpend(
+        _ transfer: TokenTransfer,
+        feePolicy: OpalBase.Wallet.FeePolicy = .init(),
+        beforeReservation: (@Sendable (OpalBase.Address.Book.Entry) async throws -> Void)?
+    ) async throws -> TokenSpendPlan {
         guard !transfer.recipients.isEmpty || !transfer.burns.isEmpty else {
             throw Error.tokenTransferHasNoRecipients
         }
@@ -17,7 +29,7 @@ extension _OpalBase.Account {
         let requirementsByCategory = try makeTokenRequirementsByCategory(for: transfer)
         let spendableOutputs = await addressBook.sortSpendableUTXOs(by: { $0.value > $1.value })
         let changeEntry = try await addressBook.selectNextEntry(for: .change)
-        let tokenChangeAddress = try OpalBase.Address(script: changeEntry.address.lockingScript, format: .tokenAware)
+        let tokenChangeAddress = try makeTokenAwareAddress(for: changeEntry)
         var spendableTokenByCategory: [OpalBase.CashTokens.CategoryID: [OpalBase.Transaction.Output.Unspent]] = .init()
         for unspentOutput in spendableOutputs {
             guard let category = unspentOutput.tokenData?.category else { continue }
@@ -72,20 +84,38 @@ extension _OpalBase.Account {
             changeEntry: changeEntry,
             tokenSelectionPolicy: .allowTokenUTXOs,
             mapReservationError: { Error.tokenSelectionFailed($0) },
-            mapInsufficientFundsError: Error.transactionBuildFailed(OpalBase.Satoshi.Error.negativeResult)
+            mapInsufficientFundsError: Error.transactionBuildFailed(OpalBase.Satoshi.Error.negativeResult),
+            beforeReservation: beforeReservation
         )
+
+        let resolvedTokenChangeOutputs: [OpalBase.Transaction.Output]
+        let resolvedOrganizedTokenOutputs: [OpalBase.Transaction.Output]
+        let reservedTokenChangeAddress = try makeTokenAwareAddress(for: reservedSpendContext.changeEntry)
+        if reservedTokenChangeAddress == tokenChangeAddress {
+            resolvedTokenChangeOutputs = tokenChangeOutputs
+            resolvedOrganizedTokenOutputs = organizedTokenOutputs
+        } else {
+            resolvedTokenChangeOutputs = tokenChangeOutputs.map { output in
+                makeRetargetedOutput(output, for: reservedTokenChangeAddress)
+            }
+            resolvedOrganizedTokenOutputs = replacePlannedOutputs(
+                in: organizedTokenOutputs,
+                originals: tokenChangeOutputs,
+                replacements: resolvedTokenChangeOutputs
+            )
+        }
         
         return TokenSpendPlan(transfer: transfer,
                               feeRate: feeRate,
                               tokenInputs: selectedTokenInputs,
                               bchInputs: bchInputs,
                               tokenRecipientOutputs: rawRecipientOutputs,
-                              tokenChangeOutputs: tokenChangeOutputs,
+                              tokenChangeOutputs: resolvedTokenChangeOutputs,
                               bchChangeOutput: reservedSpendContext.changeOutput,
                               shouldAllowDustDonation: transfer.shouldAllowDustDonation,
                               reservationHandle: reservedSpendContext.reservationHandle,
                               privateKeys: reservedSpendContext.privateKeys,
-                              organizedTokenOutputs: organizedTokenOutputs,
+                              organizedTokenOutputs: resolvedOrganizedTokenOutputs,
                               shouldRandomizeRecipientOrdering: privacyConfiguration.shouldRandomizeRecipientOrdering)
     }
 }

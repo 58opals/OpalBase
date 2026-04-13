@@ -8,6 +8,20 @@ extension _OpalBase.Account {
         preferredMintingInput: OpalBase.Transaction.Output.Unspent? = nil,
         feePolicy: OpalBase.Wallet.FeePolicy = .init()
     ) async throws -> TokenMintPlan {
+        try await prepareTokenMint(
+            mint,
+            preferredMintingInput: preferredMintingInput,
+            feePolicy: feePolicy,
+            beforeReservation: nil
+        )
+    }
+
+    func prepareTokenMint(
+        _ mint: TokenMint,
+        preferredMintingInput: OpalBase.Transaction.Output.Unspent? = nil,
+        feePolicy: OpalBase.Wallet.FeePolicy = .init(),
+        beforeReservation: (@Sendable (OpalBase.Address.Book.Entry) async throws -> Void)?
+    ) async throws -> TokenMintPlan {
         let spendableOutputs = await addressBook.sortSpendableUTXOs(by: { $0.value > $1.value })
         let authorityInput: OpalBase.Transaction.Output.Unspent
         if let preferredMintingInput {
@@ -68,7 +82,7 @@ extension _OpalBase.Account {
         }
         
         let changeEntry = try await addressBook.selectNextEntry(for: .change)
-        let tokenChangeAddress = try OpalBase.Address(script: changeEntry.address.lockingScript, format: .tokenAware)
+        let tokenChangeAddress = try makeTokenAwareAddress(for: changeEntry)
         
         let tokenRecipientOutputs = try mint.recipients.map { recipient in
             let tokenData = OpalBase.CashTokens.TokenData(category: mint.category,
@@ -98,9 +112,12 @@ extension _OpalBase.Account {
         }
         
         var authorityReturnOutput: OpalBase.Transaction.Output?
+        var authorityReturnUsesWalletChange = false
         var fungiblePreservationOutput: OpalBase.Transaction.Output?
+        var fungiblePreservationUsesWalletChange = false
         switch mint.authorityReturn {
         case .toWalletChange:
+            authorityReturnUsesWalletChange = true
             
             let authorityToken = OpalBase.CashTokens.TokenData(category: mint.category,
                                                       amount: preservedFungible > 0 ? preservedFungible : nil,
@@ -121,6 +138,7 @@ extension _OpalBase.Account {
                 mapDustError: { Error.transactionBuildFailed($0) }
             )
             if preservedFungible > 0 {
+                fungiblePreservationUsesWalletChange = true
                 let fungibleToken = OpalBase.CashTokens.TokenData(category: mint.category,
                                                          amount: preservedFungible,
                                                          nft: nil)
@@ -132,6 +150,7 @@ extension _OpalBase.Account {
             }
         case .burn:
             if preservedFungible > 0 {
+                fungiblePreservationUsesWalletChange = true
                 let fungibleToken = OpalBase.CashTokens.TokenData(category: mint.category,
                                                          amount: preservedFungible,
                                                          nft: nil)
@@ -162,8 +181,40 @@ extension _OpalBase.Account {
             changeEntry: changeEntry,
             tokenSelectionPolicy: .allowTokenUTXOs,
             mapReservationError: { Error.tokenSelectionFailed($0) },
-            mapInsufficientFundsError: Error.transactionBuildFailed(OpalBase.Satoshi.Error.negativeResult)
+            mapInsufficientFundsError: Error.transactionBuildFailed(OpalBase.Satoshi.Error.negativeResult),
+            beforeReservation: beforeReservation
         )
+
+        let resolvedAuthorityReturnOutput: OpalBase.Transaction.Output?
+        let resolvedFungiblePreservationOutput: OpalBase.Transaction.Output?
+        let resolvedOrganizedTokenOutputs: [OpalBase.Transaction.Output]
+        let reservedTokenChangeAddress = try makeTokenAwareAddress(for: reservedSpendContext.changeEntry)
+        if reservedTokenChangeAddress == tokenChangeAddress {
+            resolvedAuthorityReturnOutput = authorityReturnOutput
+            resolvedFungiblePreservationOutput = fungiblePreservationOutput
+            resolvedOrganizedTokenOutputs = organizedTokenOutputs
+        } else {
+            resolvedAuthorityReturnOutput = authorityReturnUsesWalletChange
+            ? authorityReturnOutput.map { makeRetargetedOutput($0, for: reservedTokenChangeAddress) }
+            : authorityReturnOutput
+            resolvedFungiblePreservationOutput = fungiblePreservationUsesWalletChange
+            ? fungiblePreservationOutput.map { makeRetargetedOutput($0, for: reservedTokenChangeAddress) }
+            : fungiblePreservationOutput
+
+            let originalWalletOutputs = [
+                authorityReturnUsesWalletChange ? authorityReturnOutput : nil,
+                fungiblePreservationUsesWalletChange ? fungiblePreservationOutput : nil
+            ].compactMap { $0 }
+            let resolvedWalletOutputs = [
+                authorityReturnUsesWalletChange ? resolvedAuthorityReturnOutput : nil,
+                fungiblePreservationUsesWalletChange ? resolvedFungiblePreservationOutput : nil
+            ].compactMap { $0 }
+            resolvedOrganizedTokenOutputs = replacePlannedOutputs(
+                in: organizedTokenOutputs,
+                originals: originalWalletOutputs,
+                replacements: resolvedWalletOutputs
+            )
+        }
         
         return TokenMintPlan(mint: mint,
                              feeRate: feeRate,
@@ -171,13 +222,13 @@ extension _OpalBase.Account {
                              extraFungibleInputs: extraFungibleInputs,
                              bchInputs: bchInputs,
                              tokenRecipientOutputs: tokenRecipientOutputs,
-                             authorityReturnOutput: authorityReturnOutput,
-                             fungiblePreservationOutput: fungiblePreservationOutput,
+                             authorityReturnOutput: resolvedAuthorityReturnOutput,
+                             fungiblePreservationOutput: resolvedFungiblePreservationOutput,
                              bchChangeOutput: reservedSpendContext.changeOutput,
                              shouldAllowDustDonation: mint.shouldAllowDustDonation,
                              reservationHandle: reservedSpendContext.reservationHandle,
                              privateKeys: reservedSpendContext.privateKeys,
-                             organizedTokenOutputs: organizedTokenOutputs,
+                             organizedTokenOutputs: resolvedOrganizedTokenOutputs,
                              shouldRandomizeRecipientOrdering: privacyConfiguration.shouldRandomizeRecipientOrdering)
     }
 }

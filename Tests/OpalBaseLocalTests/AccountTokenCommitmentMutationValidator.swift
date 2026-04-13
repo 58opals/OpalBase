@@ -134,6 +134,67 @@ struct AccountTokenCommitmentMutationValidator {
         
         #expect(!transactionResult.transaction.outputs.isEmpty)
     }
+
+    @Test("prepareTokenCommitmentMutation refreshes preserved fungible change when the selected change entry becomes stale")
+    func prepareTokenCommitmentMutationRefreshesPreservedFungibleChangeWhenSelectedChangeEntryBecomesStale() async throws {
+        let account = try await makeAccount()
+        let addressBook = await account.addressBook
+        let staleChangeEntry = try await addressBook.selectNextEntry(for: .change)
+        let category = try OpalBase.CashTokens.CategoryID(transactionOrderData: Data(repeating: 0xD4, count: 32))
+        let mutableToken = try OpalBase.CashTokens.NFT(capability: .mutable, commitment: Data([0x07]))
+        let authorityTokenData = OpalBase.CashTokens.TokenData(category: category, amount: 25, nft: mutableToken)
+        let authorityOutput = try await addUnspentOutput(
+            to: account,
+            value: 25_000,
+            tokenData: authorityTokenData,
+            previousTransactionHash: OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0x27, count: 32)),
+            previousTransactionOutputIndex: 0
+        )
+        let reservedFundingOutput = try await addUnspentOutput(
+            to: account,
+            value: 35_000,
+            tokenData: nil,
+            previousTransactionHash: OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0x28, count: 32)),
+            previousTransactionOutputIndex: 0
+        )
+        _ = try await addUnspentOutput(
+            to: account,
+            value: 120_000,
+            tokenData: nil,
+            previousTransactionHash: OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0x29, count: 32)),
+            previousTransactionOutputIndex: 0
+        )
+        let destinationAddress = try OpalBase.Address("bitcoincash:zpm2qsznhks23z7629mms6s4cwef74vcwvrqekrq9w")
+        let mutation = try OpalBase.Account.TokenCommitmentMutation(
+            target: .preferredInput(authorityOutput),
+            newCommitment: Data([0x08]),
+            destination: destinationAddress,
+            shouldPreserveAttachedFungibleToWallet: true
+        )
+
+        let plan = try await account.prepareTokenCommitmentMutation(
+            mutation,
+            feePolicy: .init(),
+            beforeReservation: { selectedChangeEntry in
+                #expect(selectedChangeEntry.address == staleChangeEntry.address)
+                _ = try await addressBook.reserveSpend(
+                    utxos: [reservedFundingOutput],
+                    changeEntry: selectedChangeEntry,
+                    tokenSelectionPolicy: .excludeTokenUTXOs
+                )
+            }
+        )
+        let preservationOutput = try #require(plan.fungiblePreservationOutput)
+
+        #expect(plan.bchChangeOutput.lockingScript != staleChangeEntry.address.lockingScript.data)
+        #expect(preservationOutput.lockingScript == plan.bchChangeOutput.lockingScript)
+        #expect(preservationOutput.lockingScript != staleChangeEntry.address.lockingScript.data)
+
+        try await plan.cancelReservation()
+        for reservation in await addressBook.readActiveSpendReservations() {
+            try await addressBook.releaseSpendReservation(reservation, outcome: .cancelled)
+        }
+    }
 }
 
 private func makeAccount() async throws -> OpalBase.Account {

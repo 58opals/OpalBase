@@ -101,6 +101,64 @@ struct AccountTokenGenesisValidator {
             _ = try await account.prepareTokenGenesis(genesis, preferredGenesisInput: unspentOutput)
         }
     }
+
+    @Test("prepareTokenGenesis refreshes reserved supply outputs when the selected change entry becomes stale")
+    func prepareTokenGenesisRefreshesReservedSupplyOutputsWhenSelectedChangeEntryBecomesStale() async throws {
+        let account = try await makeAccount()
+        let addressBook = await account.addressBook
+        let staleChangeEntry = try await addressBook.selectNextEntry(for: .change)
+        let genesisInput = try await addSpendableOutput(
+            to: account,
+            previousTransactionHash: OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0x55, count: 32)),
+            previousTransactionOutputIndex: 0
+        )
+        let reservedFundingOutput = try await addSpendableOutput(
+            to: account,
+            previousTransactionHash: OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0x56, count: 32)),
+            previousTransactionOutputIndex: 0,
+            value: 35_000
+        )
+        _ = try await addSpendableOutput(
+            to: account,
+            previousTransactionHash: OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0x57, count: 32)),
+            previousTransactionOutputIndex: 0,
+            value: 120_000
+        )
+
+        let recipientAddress = try OpalBase.Address("bitcoincash:zpm2qsznhks23z7629mms6s4cwef74vcwvrqekrq9w")
+        let genesis = try OpalBase.Account.TokenGenesis(
+            recipients: [.init(address: recipientAddress, fungibleAmount: 1)],
+            reservedSupplyToSelf: .init(fungibleAmount: 77, shouldIncludeMintingNonFungibleToken: false)
+        )
+
+        let plan = try await account.prepareTokenGenesis(
+            genesis,
+            preferredGenesisInput: genesisInput,
+            feePolicy: .init(),
+            beforeReservation: { selectedChangeEntry in
+                #expect(selectedChangeEntry.address == staleChangeEntry.address)
+                _ = try await addressBook.reserveSpend(
+                    utxos: [reservedFundingOutput],
+                    changeEntry: selectedChangeEntry,
+                    tokenSelectionPolicy: .excludeTokenUTXOs
+                )
+            }
+        )
+
+        let transactionResult = try plan.buildTransaction()
+        let reservedSupplyOutput = try #require(transactionResult.mintedOutputs.first(where: {
+            $0.tokenData?.amount == 77
+        }))
+        let bchChange = try #require(transactionResult.bchChange)
+        #expect(bchChange.entry.address.lockingScript.data != staleChangeEntry.address.lockingScript.data)
+        #expect(reservedSupplyOutput.lockingScript == bchChange.entry.address.lockingScript.data)
+        #expect(reservedSupplyOutput.lockingScript != staleChangeEntry.address.lockingScript.data)
+
+        try await plan.cancelReservation()
+        for reservation in await addressBook.readActiveSpendReservations() {
+            try await addressBook.releaseSpendReservation(reservation, outcome: .cancelled)
+        }
+    }
 }
 
 private func makeAccount() async throws -> OpalBase.Account {

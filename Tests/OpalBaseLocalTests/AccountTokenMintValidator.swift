@@ -98,6 +98,70 @@ struct AccountTokenMintValidator {
             .map { $0.address.lockingScript.data }
         #expect(changeLockingScripts.contains(preservationOutput.lockingScript))
     }
+
+    @Test("prepareTokenMint refreshes wallet-owned token outputs when the selected change entry becomes stale")
+    func prepareTokenMintRefreshesWalletOwnedTokenOutputsWhenSelectedChangeEntryBecomesStale() async throws {
+        let account = try await makeAccount()
+        let addressBook = await account.addressBook
+        let staleChangeEntry = try await addressBook.selectNextEntry(for: .change)
+        let reservedFundingOutput = try await AccountTestFixtures.addUnspentOutput(
+            to: account,
+            value: 35_000,
+            hashByte: 0x47
+        )
+        let category = try OpalBase.CashTokens.CategoryID(transactionOrderData: Data(repeating: 0xC4, count: 32))
+        let mintingNonFungibleToken = try OpalBase.CashTokens.NFT(capability: .minting, commitment: Data([0x09]))
+        let authorityTokenData = OpalBase.CashTokens.TokenData(category: category, amount: 40, nft: mintingNonFungibleToken)
+        _ = try await addUnspentOutput(
+            to: account,
+            value: 25_000,
+            tokenData: authorityTokenData,
+            previousTransactionHash: OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0x48, count: 32)),
+            previousTransactionOutputIndex: 0
+        )
+        _ = try await AccountTestFixtures.addUnspentOutput(
+            to: account,
+            value: 120_000,
+            hashByte: 0x49
+        )
+
+        let recipientAddress = try OpalBase.Address("bitcoincash:zpm2qsznhks23z7629mms6s4cwef74vcwvrqekrq9w")
+        let externalAddress = try OpalBase.Address("bitcoincash:zpm2qsznhks23z7629mms6s4cwef74vcwvrqekrq9w")
+        let mint = try OpalBase.Account.TokenMint(
+            category: category,
+            recipients: [
+                try .init(
+                    address: recipientAddress,
+                    nft: OpalBase.CashTokens.NFT(capability: .none, commitment: Data([0x0A]))
+                )
+            ],
+            authorityReturn: .toAddress(externalAddress)
+        )
+
+        let plan = try await account.prepareTokenMint(
+            mint,
+            preferredMintingInput: nil,
+            feePolicy: .init(),
+            beforeReservation: { selectedChangeEntry in
+                #expect(selectedChangeEntry.address == staleChangeEntry.address)
+                _ = try await addressBook.reserveSpend(
+                    utxos: [reservedFundingOutput],
+                    changeEntry: selectedChangeEntry,
+                    tokenSelectionPolicy: .excludeTokenUTXOs
+                )
+            }
+        )
+        let preservationOutput = try #require(plan.fungiblePreservationOutput)
+
+        #expect(plan.bchChangeOutput.lockingScript != staleChangeEntry.address.lockingScript.data)
+        #expect(preservationOutput.lockingScript == plan.bchChangeOutput.lockingScript)
+        #expect(preservationOutput.lockingScript != externalAddress.lockingScript.data)
+
+        try await plan.cancelReservation()
+        for reservation in await addressBook.readActiveSpendReservations() {
+            try await addressBook.releaseSpendReservation(reservation, outcome: .cancelled)
+        }
+    }
 }
 
 private func makeAccount() async throws -> OpalBase.Account {
