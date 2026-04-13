@@ -61,15 +61,18 @@ extension _OpalBase.Account {
         public let isConnected: Bool
         public let round: Round?
         public let lastError: LastError?
+        public let lastErrorSummary: String?
 
         public init(
             isConnected: Bool,
             round: Round?,
-            lastError: LastError?
+            lastError: LastError?,
+            lastErrorSummary: String? = nil
         ) {
             self.isConnected = isConnected
             self.round = round
             self.lastError = lastError
+            self.lastErrorSummary = lastErrorSummary
         }
     }
 }
@@ -79,7 +82,8 @@ extension _OpalBase.Account.CashFusionSessionStatus {
         self.init(
             isConnected: snapshot.state.isConnected,
             round: snapshot.state.round.map(Self.makeRound(_:)),
-            lastError: snapshot.lastError.map(Self.makeLastError(_:))
+            lastError: snapshot.lastError.map(Self.makeLastError(_:)),
+            lastErrorSummary: snapshot.lastErrorSummary
         )
     }
 

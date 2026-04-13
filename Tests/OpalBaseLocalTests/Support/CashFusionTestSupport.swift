@@ -42,7 +42,8 @@ enum CashFusionTestSupport {
         completionStatus: OpalFusion.Round.CompletionStatus? = nil,
         isTerminal: Bool = false,
         isConnected: Bool = true,
-        lastError: OpalFusion.Client.Error? = nil
+        lastError: OpalFusion.Client.Error? = nil,
+        lastErrorSummary: String? = nil
     ) -> OpalFusion.Client.Session.Snapshot {
         .init(
             state: .init(
@@ -55,7 +56,8 @@ enum CashFusionTestSupport {
                     isTerminal: isTerminal
                 )
             ),
-            lastError: lastError
+            lastError: lastError,
+            lastErrorSummary: lastErrorSummary
         )
     }
 

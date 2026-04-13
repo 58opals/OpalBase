@@ -56,18 +56,28 @@ extension _OpalBase.Address.Book {
         } catch {
             throw error
         }
-        
-        let reservedEntry = try reserveEntry(address: changeEntry.address)
-        try await generateEntriesIfNeeded(for: reservedEntry.derivationPath.usage)
-        
-        spendReservationStates[identifier] = SpendReservation.State(utxos: utxoSet,
-                                                                    entry: reservedEntry,
-                                                                    hasBeenUsedPreviously: changeEntry.isUsed,
-                                                                    reservedAt: reservationDate)
-        
-        scheduleAutomaticSpendReservationRelease(for: identifier)
-        
-        return SpendReservation(id: identifier, changeEntry: reservedEntry, reservedAt: reservationDate)
+
+        do {
+            let changeReservation = try await reserveFreshChangeEntry(preferred: changeEntry)
+
+            spendReservationStates[identifier] = SpendReservation.State(
+                utxos: utxoSet,
+                entry: changeReservation.entry,
+                hasBeenUsedPreviously: changeReservation.hasBeenUsedPreviously,
+                reservedAt: reservationDate
+            )
+
+            scheduleAutomaticSpendReservationRelease(for: identifier)
+
+            return SpendReservation(
+                id: identifier,
+                changeEntry: changeReservation.entry,
+                reservedAt: reservationDate
+            )
+        } catch {
+            utxoStore.release(utxoSet)
+            throw error
+        }
     }
     
     func releaseSpendReservation(_ reservation: SpendReservation, outcome: SpendReservation.Outcome) async throws {
@@ -140,6 +150,35 @@ extension _OpalBase.Address.Book {
         
         if !shouldKeepUsed {
             try await generateEntriesIfNeeded(for: updatedEntry.derivationPath.usage)
+        }
+    }
+
+    private func reserveFreshChangeEntry(
+        preferred changeEntry: Entry
+    ) async throws -> (entry: Entry, hasBeenUsedPreviously: Bool) {
+        let candidateEntry: Entry
+        if let currentEntry = findEntry(for: changeEntry.address),
+           currentEntry.isUsed == false,
+           currentEntry.isReserved == false {
+            candidateEntry = currentEntry
+        } else {
+            candidateEntry = try await selectNextEntry(for: changeEntry.derivationPath.usage)
+        }
+
+        let reservedEntry = try reserveEntry(address: candidateEntry.address)
+
+        do {
+            try await generateEntriesIfNeeded(for: reservedEntry.derivationPath.usage)
+            return (
+                entry: reservedEntry,
+                hasBeenUsedPreviously: candidateEntry.isUsed
+            )
+        } catch {
+            _ = try? releaseReservation(
+                address: reservedEntry.address,
+                shouldKeepUsed: candidateEntry.isUsed
+            )
+            throw error
         }
     }
 }

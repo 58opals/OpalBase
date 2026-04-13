@@ -48,6 +48,112 @@ extension StoragePersistenceValidator {
         #expect(restored.mnemonicProtectionMode == nil)
     }
 
+    @Test("restore tolerates recoverable Secure Enclave mnemonic decrypt failures while preserving the snapshot")
+    func tolerateRecoverableSecureEnclaveMnemonicDecryptFailureDuringRestore() async throws {
+        let valueClient = OpalBase.Storage.ValueClient.makeInMemory()
+        let storingSecurity = OpalBase.Storage.Security(
+            encrypt: { value in
+                .init(mode: .secureEnclave, payload: value)
+            },
+            decrypt: { ciphertext in
+                ciphertext.payload
+            },
+            checkSecureEnclaveErrorRecoverability: { error in
+                SecureEnclaveAdapter.isRecoverable(error)
+            }
+        )
+        let storingStorage = try OpalBase.Storage(
+            valueClient: valueClient,
+            security: storingSecurity
+        )
+        let wallet = try await AccountTestFixtures.makeWallet(passphrase: "secure-enclave")
+
+        _ = try await storingStorage.persistState(
+            for: wallet,
+            policy: .acceptProviderOutput
+        )
+
+        let restoringSecurity = OpalBase.Storage.Security(
+            encrypt: { value in
+                .init(mode: .secureEnclave, payload: value)
+            },
+            decrypt: { _ in
+                throw NSError(
+                    domain: NSOSStatusErrorDomain,
+                    code: Int(errSecItemNotFound)
+                )
+            },
+            checkSecureEnclaveErrorRecoverability: { error in
+                SecureEnclaveAdapter.isRecoverable(error)
+            }
+        )
+        let restoringStorage = try OpalBase.Storage(
+            valueClient: valueClient,
+            security: restoringSecurity
+        )
+        let committedGeneration = try #require(
+            try await restoringStorage.loadCommittedWalletSnapshotGeneration()
+        )
+
+        await #expect(throws: OpalBase.Storage.Error.self) {
+            _ = try await restoringStorage.loadMnemonicState(
+                generation: committedGeneration
+            )
+        }
+
+        let session = OpalBase.Storage.PersistenceSession(storage: restoringStorage)
+        let restored = try await session.restore()
+
+        #expect(restored.walletSnapshot != nil)
+        #expect(restored.mnemonic == nil)
+        #expect(restored.mnemonicProtectionMode == nil)
+    }
+
+    @Test("restore fails closed for Secure Enclave decrypt decode failures")
+    func failClosedForSecureEnclaveMnemonicDecodeFailureDuringRestore() async throws {
+        let valueClient = OpalBase.Storage.ValueClient.makeInMemory()
+        let storingSecurity = OpalBase.Storage.Security(
+            encrypt: { value in
+                .init(mode: .secureEnclave, payload: value)
+            },
+            decrypt: { ciphertext in
+                ciphertext.payload
+            }
+        )
+        let storingStorage = try OpalBase.Storage(
+            valueClient: valueClient,
+            security: storingSecurity
+        )
+        let wallet = try await AccountTestFixtures.makeWallet(passphrase: "secure-enclave-decode")
+
+        _ = try await storingStorage.persistState(
+            for: wallet,
+            policy: .acceptProviderOutput
+        )
+
+        let restoringSecurity = OpalBase.Storage.Security(
+            encrypt: { value in
+                .init(mode: .secureEnclave, payload: value)
+            },
+            decrypt: { _ in
+                throw NSError(
+                    domain: NSOSStatusErrorDomain,
+                    code: Int(errSecDecode)
+                )
+            }
+        )
+        let restoringStorage = try OpalBase.Storage(
+            valueClient: valueClient,
+            security: restoringSecurity
+        )
+
+        let session = OpalBase.Storage.PersistenceSession(storage: restoringStorage)
+
+        await #expect(throws: OpalBase.Storage.Error.self) {
+            _ = try await session.restore()
+        }
+    }
+
     @Test("wipeAll removes persisted wallet artifacts")
     func removePersistedArtifactsWithWipeAll() async throws {
         let valueClient = OpalBase.Storage.ValueClient.makeInMemory()

@@ -110,6 +110,83 @@ struct AccountCommandValidator {
         try await reusablePlan.cancelReservation()
     }
 
+    @Test("reserveSpend refreshes a stale change entry when the preferred entry is already reserved")
+    func reserveSpendRefreshesReservedStaleChangeEntry() async throws {
+        let account = try await AccountTestFixtures.makeAccount()
+        let addressBook = await account.addressBook
+        let firstUTXO = try await AccountTestFixtures.addUnspentOutput(
+            to: account,
+            value: 25_000,
+            hashByte: 0x41
+        )
+        let secondUTXO = try await AccountTestFixtures.addUnspentOutput(
+            to: account,
+            value: 26_000,
+            hashByte: 0x42
+        )
+        let staleChangeEntry = try await addressBook.selectNextEntry(for: .change)
+
+        let firstReservation = try await addressBook.reserveSpend(
+            utxos: [firstUTXO],
+            changeEntry: staleChangeEntry,
+            tokenSelectionPolicy: .excludeTokenUTXOs
+        )
+        let secondReservation = try await addressBook.reserveSpend(
+            utxos: [secondUTXO],
+            changeEntry: staleChangeEntry,
+            tokenSelectionPolicy: .excludeTokenUTXOs
+        )
+
+        #expect(firstReservation.changeEntry.address == staleChangeEntry.address)
+        #expect(secondReservation.changeEntry.address != staleChangeEntry.address)
+        #expect(secondReservation.changeEntry.derivationPath.index == staleChangeEntry.derivationPath.index + 1)
+
+        try await addressBook.releaseSpendReservation(secondReservation, outcome: .cancelled)
+        try await addressBook.releaseSpendReservation(firstReservation, outcome: .cancelled)
+    }
+
+    @Test("reserveSpend does not reuse a completed stale change entry")
+    func reserveSpendAvoidsReusingCompletedStaleChangeEntry() async throws {
+        let account = try await AccountTestFixtures.makeAccount()
+        let addressBook = await account.addressBook
+        let firstUTXO = try await AccountTestFixtures.addUnspentOutput(
+            to: account,
+            value: 25_000,
+            hashByte: 0x43
+        )
+        let secondUTXO = try await AccountTestFixtures.addUnspentOutput(
+            to: account,
+            value: 26_000,
+            hashByte: 0x44
+        )
+        let staleChangeEntry = try await addressBook.selectNextEntry(for: .change)
+
+        let firstReservation = try await addressBook.reserveSpend(
+            utxos: [firstUTXO],
+            changeEntry: staleChangeEntry,
+            tokenSelectionPolicy: .excludeTokenUTXOs
+        )
+        try await addressBook.releaseSpendReservation(firstReservation, outcome: .completed)
+
+        let secondReservation = try await addressBook.reserveSpend(
+            utxos: [secondUTXO],
+            changeEntry: staleChangeEntry,
+            tokenSelectionPolicy: .excludeTokenUTXOs
+        )
+
+        #expect(secondReservation.changeEntry.address != staleChangeEntry.address)
+        #expect(secondReservation.changeEntry.derivationPath.index == staleChangeEntry.derivationPath.index + 1)
+
+        let changeEntries = await addressBook.listEntries(for: .change)
+        let completedChangeEntry = changeEntries.first {
+            $0.derivationPath.index == staleChangeEntry.derivationPath.index
+        }
+        #expect(completedChangeEntry?.isUsed == true)
+        #expect(completedChangeEntry?.isReserved == false)
+
+        try await addressBook.releaseSpendReservation(secondReservation, outcome: .cancelled)
+    }
+
     @Test("reserveNextReceivingEntry advances receiving entries")
     func reserveNextReceivingEntryAdvancesReceivingEntries() async throws {
         let account = try await AccountTestFixtures.makeAccount()
