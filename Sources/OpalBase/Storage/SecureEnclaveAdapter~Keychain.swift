@@ -45,7 +45,10 @@ extension SecureEnclaveAdapter {
 
     static func loadPrivateKey(applicationTag: Data) throws -> SecureEnclave.P256.KeyAgreement.PrivateKey {
         guard let persistentReference = try findPersistentReference(applicationTag: applicationTag) else {
-            throw _OpalBase.Storage.Security.Error.protectionUnavailable
+            throw makeSecurityError(
+                status: errSecItemNotFound,
+                message: "Secure Enclave key material is unavailable for decryption."
+            )
         }
 
         return try SecureEnclave.P256.KeyAgreement.PrivateKey(dataRepresentation: persistentReference)

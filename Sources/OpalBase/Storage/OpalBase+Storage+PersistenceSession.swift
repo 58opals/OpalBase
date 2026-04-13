@@ -113,7 +113,16 @@ extension _OpalBase.Storage {
 
             if let committedGeneration {
                 walletSnapshot = try await snapshotStore.loadWalletSnapshot(generation: committedGeneration)
-                mnemonicState = try await storedMnemonicStore.loadMnemonicState(generation: committedGeneration)
+                do {
+                    mnemonicState = try await storedMnemonicStore.loadMnemonicState(
+                        generation: committedGeneration
+                    )
+                } catch {
+                    guard storedMnemonicStore.isRecoverableLoadFailure(error) else {
+                        throw error
+                    }
+                    mnemonicState = nil
+                }
             } else {
                 walletSnapshot = nil
                 mnemonicState = nil

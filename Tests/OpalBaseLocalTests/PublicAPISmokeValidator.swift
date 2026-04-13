@@ -96,6 +96,7 @@ struct PublicAPISmokeValidator {
         #expect(sessionStatus.round?.identifier == "round-smoke")
         #expect(sessionStatus.round?.phase == .connecting)
         #expect(sessionStatus.lastError == nil)
+        #expect(sessionStatus.lastErrorSummary == nil)
     }
     #endif
 

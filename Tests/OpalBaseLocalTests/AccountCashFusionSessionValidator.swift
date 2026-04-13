@@ -152,7 +152,50 @@ struct AccountCashFusionSessionValidator {
 
         let publicStatus = await session.makePublicStatus()
 
-        #expect(publicStatus == .init(isConnected: false, round: nil, lastError: nil))
+        #expect(
+            publicStatus == .init(
+                isConnected: false,
+                round: nil,
+                lastError: nil,
+                lastErrorSummary: nil
+            )
+        )
+
+        await session.stop()
+    }
+
+    @Test("makePublicStatus keeps nil error summary for idle snapshots")
+    func makePublicStatusKeepsNilErrorSummaryForIdleSnapshots() async throws {
+        let account = try await AccountTestFixtures.makeAccount()
+        let selectedInput = try await CashFusionTestSupport.makeWalletOwnedUnspentOutput(
+            to: account,
+            value: 170_000,
+            usage: .change,
+            hashByte: 0xDB
+        )
+        let capture = CashFusionWrappedSessionCapture()
+        let session = try await makeSession(
+            account: account,
+            selectedInput: selectedInput,
+            capture: capture
+        )
+        let fakeSession = try #require(capture.load())
+
+        await fakeSession.emit(
+            snapshot: CashFusionTestSupport.makeSnapshot(
+                identifier: "round-idle",
+                phase: .idle,
+                isConnected: false
+            )
+        )
+
+        let publicStatus = await session.makePublicStatus()
+
+        #expect(publicStatus.isConnected == false)
+        #expect(publicStatus.round?.identifier == "round-idle")
+        #expect(publicStatus.round?.phase == .idle)
+        #expect(publicStatus.lastError == nil)
+        #expect(publicStatus.lastErrorSummary == nil)
 
         await session.stop()
     }
@@ -195,6 +238,7 @@ struct AccountCashFusionSessionValidator {
             )
         )
         #expect(publicStatus.lastError == nil)
+        #expect(publicStatus.lastErrorSummary == nil)
 
         await session.stop()
     }
@@ -239,12 +283,13 @@ struct AccountCashFusionSessionValidator {
             )
         )
         #expect(publicStatus.lastError == nil)
+        #expect(publicStatus.lastErrorSummary == nil)
 
         await session.stop()
     }
 
-    @Test("makePublicStatus maps last error values")
-    func makePublicStatusMapsLastErrorValues() async throws {
+    @Test("makePublicStatus preserves last error values and summary")
+    func makePublicStatusPreservesLastErrorValuesAndSummary() async throws {
         let account = try await AccountTestFixtures.makeAccount()
         let selectedInput = try await CashFusionTestSupport.makeWalletOwnedUnspentOutput(
             to: account,
@@ -259,6 +304,7 @@ struct AccountCashFusionSessionValidator {
             capture: capture
         )
         let fakeSession = try #require(capture.load())
+        let lastErrorSummary = "Primary connect failed: connection reset"
 
         await fakeSession.emit(
             snapshot: .init(
@@ -266,7 +312,8 @@ struct AccountCashFusionSessionValidator {
                     isConnected: false,
                     round: nil
                 ),
-                lastError: .transportUnavailable
+                lastError: .transportUnavailable,
+                lastErrorSummary: lastErrorSummary
             )
         )
 
@@ -275,6 +322,7 @@ struct AccountCashFusionSessionValidator {
         #expect(publicStatus.isConnected == false)
         #expect(publicStatus.round == nil)
         #expect(publicStatus.lastError == .transportUnavailable)
+        #expect(publicStatus.lastErrorSummary == lastErrorSummary)
 
         await session.stop()
     }
