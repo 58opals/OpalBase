@@ -326,6 +326,18 @@ struct AccountCashFusionSessionValidator {
 
         await session.stop()
     }
+
+    @Test("prepareCashFusionSession maps coordinator TLS into wrapped client configuration")
+    func prepareCashFusionSessionMapsCoordinatorTLSIntoWrappedClientConfiguration() async throws {
+        try await assertWrappedClientConfiguration(
+            requiresTLS: false,
+            hashByte: 0xDB
+        )
+        try await assertWrappedClientConfiguration(
+            requiresTLS: true,
+            hashByte: 0xDC
+        )
+    }
 }
 
 private extension AccountCashFusionSessionValidator {
@@ -375,22 +387,56 @@ private extension AccountCashFusionSessionValidator {
     func makeSession(
         account: OpalBase.Account,
         selectedInput: OpalBase.Transaction.Output.Unspent,
+        configuration: OpalBase.Account.CashFusionSession.Configuration = CashFusionTestSupport.makeConfiguration(),
         capture: CashFusionWrappedSessionCapture
     ) async throws -> OpalBase.Account.CashFusionSession {
         try await account.prepareCashFusionSession(
-            configuration: CashFusionTestSupport.makeConfiguration(),
+            configuration: configuration,
             request: .init(
                 selectedInputs: [selectedInput],
                 outputAmounts: [try OpalBase.Satoshi(55_000)]
             ),
-            sessionFactory: { _, _, _, _, _, _, wrappedStateObserver in
+            sessionFactory: { clientConfiguration, _, _, _, _, _, wrappedStateObserver in
                 let session = CashFusionFakeWrappedSession(
                     stateObserver: wrappedStateObserver
                 )
-                capture.store(session)
+                capture.store(
+                    session,
+                    configuration: clientConfiguration
+                )
                 return session
             }
         )
+    }
+
+    func assertWrappedClientConfiguration(
+        requiresTLS: Bool,
+        hashByte: UInt8
+    ) async throws {
+        let account = try await AccountTestFixtures.makeAccount()
+        let selectedInput = try await CashFusionTestSupport.makeWalletOwnedUnspentOutput(
+            to: account,
+            value: 170_000,
+            usage: .change,
+            hashByte: hashByte
+        )
+        let configuration = CashFusionTestSupport.makeConfiguration(
+            requiresTLS: requiresTLS
+        )
+        let capture = CashFusionWrappedSessionCapture()
+        let session = try await makeSession(
+            account: account,
+            selectedInput: selectedInput,
+            configuration: configuration,
+            capture: capture
+        )
+        let clientConfiguration = try #require(capture.loadConfiguration())
+
+        #expect(clientConfiguration.coordinatorHost == configuration.coordinator.host)
+        #expect(clientConfiguration.coordinatorPort == configuration.coordinator.port)
+        #expect(clientConfiguration.coordinatorRequiresTLS == requiresTLS)
+
+        await session.stop()
     }
 
     func assertReceivingEntries(
