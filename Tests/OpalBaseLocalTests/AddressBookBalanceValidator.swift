@@ -10,7 +10,7 @@ import OpalBaseTestSupport
 struct AddressBookBalanceValidator {
     @Test("calculateCachedTotalBalance throws when the sum exceeds the maximum supply")
     func calculateCachedTotalBalanceDetectsOverflow() async throws {
-        let rootExtendedPrivateKey = try OpalCrypto.Key.ExtendedPrivateKey.root(
+        let rootExtendedPrivateKey = try OpalCrypto.Key.ExtendedPrivate.root(
             seed: AccountTestFixtures.makeMnemonic().deriveSeed()
         )
         let book = try await OpalBase.Address.Book(

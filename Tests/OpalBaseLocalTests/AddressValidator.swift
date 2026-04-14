@@ -102,7 +102,7 @@ struct AddressValidator {
     
     @Test("address book only replenishes the gap deficit")
     func addressBookMaintainsGapLimit() async throws {
-        let rootExtendedPrivateKey = try OpalCrypto.Key.ExtendedPrivateKey.root(
+        let rootExtendedPrivateKey = try OpalCrypto.Key.ExtendedPrivate.root(
             seed: AccountTestFixtures.makeMnemonic().deriveSeed()
         )
         let account = try OpalBase.Key.DerivationPath.Account(rawIndexInteger: 0)
@@ -131,7 +131,7 @@ struct AddressValidator {
     
     @Test("address book uses distinct receiving and change addresses")
     func addressBookUsesDistinctReceivingAndChangeAddresses() async throws {
-        let rootExtendedPrivateKey = try OpalCrypto.Key.ExtendedPrivateKey.root(
+        let rootExtendedPrivateKey = try OpalCrypto.Key.ExtendedPrivate.root(
             seed: AccountTestFixtures.makeMnemonic().deriveSeed()
         )
         let account = try OpalBase.Key.DerivationPath.Account(rawIndexInteger: 0)

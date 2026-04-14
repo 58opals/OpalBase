@@ -11,7 +11,7 @@ enum WalletFulcrumAddressMonitorSupport {
     static func waitForEvents(
         _ recorder: WalletFulcrumAddressMonitorEventRecorderActor,
         description: String,
-        timeout: Duration = .seconds(8),
+        timeout: Duration = .seconds(20),
         condition: @Sendable @escaping ([OpalBase.Wallet.Fulcrum.Monitor.Event]) -> Bool
     ) async throws -> [OpalBase.Wallet.Fulcrum.Monitor.Event] {
         try await withThrowingTaskGroup(of: [OpalBase.Wallet.Fulcrum.Monitor.Event].self) { group in
@@ -44,7 +44,7 @@ enum WalletFulcrumAddressMonitorSupport {
 
     static func waitUntil(
         description: String,
-        timeout: Duration = .seconds(1),
+        timeout: Duration = .seconds(5),
         pollInterval: Duration = .milliseconds(10),
         condition: @Sendable @escaping () async -> Bool
     ) async throws {

@@ -5,7 +5,7 @@ import OpalCrypto
 
 extension OpalBase {
     public actor Account: Identifiable {
-        private let rootExtendedPrivateKey: OpalCrypto.Key.ExtendedPrivateKey
+        private let rootExtendedPrivateKey: OpalCrypto.Key.ExtendedPrivate
 
         let purpose: OpalBase.Key.DerivationPath.Purpose
         let coinType: OpalBase.Key.DerivationPath.CoinType
@@ -18,7 +18,7 @@ extension OpalBase {
         public let privacyConfiguration: PrivacyShaperActor.Configuration
 
         init(
-            rootExtendedPrivateKey: OpalCrypto.Key.ExtendedPrivateKey,
+            rootExtendedPrivateKey: OpalCrypto.Key.ExtendedPrivate,
             purpose: OpalBase.Key.DerivationPath.Purpose,
             coinType: OpalBase.Key.DerivationPath.CoinType,
             account: OpalBase.Key.DerivationPath.Account,
@@ -42,7 +42,7 @@ extension OpalBase {
         }
 
         init(
-            rootExtendedPrivateKey: OpalCrypto.Key.ExtendedPrivateKey,
+            rootExtendedPrivateKey: OpalCrypto.Key.ExtendedPrivate,
             purpose: OpalBase.Key.DerivationPath.Purpose,
             coinType: OpalBase.Key.DerivationPath.CoinType,
             account: OpalBase.Key.DerivationPath.Account,
@@ -67,7 +67,7 @@ extension OpalBase {
 
         init(
             from snapshot: OpalBase.Account.Snapshot,
-            rootExtendedPrivateKey: OpalCrypto.Key.ExtendedPrivateKey,
+            rootExtendedPrivateKey: OpalCrypto.Key.ExtendedPrivate,
             purpose: OpalBase.Key.DerivationPath.Purpose,
             coinType: OpalBase.Key.DerivationPath.CoinType,
             privacyConfiguration: PrivacyShaperActor.Configuration = .standard

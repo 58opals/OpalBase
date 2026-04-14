@@ -161,11 +161,19 @@ extension _OpalBase.Transaction {
             case .schnorr:
                 OpalCryptoAdapter.hash256(preimage)
             }
-            let signature = try OpalCrypto.Signature.sign(
-                message: signatureMessage,
-                privateKey: privateKey,
-                format: signatureFormat.opalCryptoFormat
-            )
+            let signature: Data = switch signatureFormat {
+            case .ecdsa:
+                try OpalCrypto.Signature.signECDSA(
+                    message: signatureMessage,
+                    privateKey: privateKey,
+                    format: signatureFormat.opalCryptoECDSAFormat!
+                )
+            case .schnorr:
+                try OpalCrypto.Signature.signSchnorr(
+                    digest: signatureMessage,
+                    privateKey: privateKey
+                )
+            }
             let signatureWithType = signature + Data([UInt8(hashType.value)])
             let unlockingScript = Data.push(signatureWithType) + Data.push(publicKey.compressedData)
 
@@ -177,11 +185,19 @@ extension _OpalBase.Transaction {
             case .schnorr:
                 OpalCryptoAdapter.sha256(message)
             }
-            let signature = try OpalCrypto.Signature.sign(
-                message: signatureMessage,
-                privateKey: privateKey,
-                format: signatureFormat.opalCryptoFormat
-            )
+            let signature: Data = switch signatureFormat {
+            case .ecdsa:
+                try OpalCrypto.Signature.signECDSA(
+                    message: signatureMessage,
+                    privateKey: privateKey,
+                    format: signatureFormat.opalCryptoECDSAFormat!
+                )
+            case .schnorr:
+                try OpalCrypto.Signature.signSchnorr(
+                    digest: signatureMessage,
+                    privateKey: privateKey
+                )
+            }
             let unlockingScript = Data.push(signature) + Data.push(message) + Data.push(publicKey.compressedData)
 
             return try injectUnlockingScript(unlockingScript, inputIndex: index)

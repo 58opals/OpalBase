@@ -200,6 +200,120 @@ struct WalletFulcrumAddressMonitorValidator {
         _ = await collector.result
     }
 
+    @Test("convenience event stream retains its monitor until core events arrive")
+    func convenienceEventStreamRetainsMonitorUntilCoreEventsArrive() async throws {
+        let account = try await AccountTestFixtures.makeAccount()
+        let targetEntry = try await account.selectNextEntry(for: .receiving)
+        let hash = AccountTestFixtures.makeHash(byte: 0x71)
+        let unspentOutput = OpalBase.Transaction.Output.Unspent(
+            value: 15_000,
+            lockingScript: targetEntry.address.lockingScript.data,
+            previousTransactionHash: AccountTestFixtures.makeHash(byte: 0x72),
+            previousTransactionOutputIndex: 0
+        )
+
+        let addressReader = WalletAddressReaderTestActor(
+            unspentByAddress: [targetEntry.address.string: [unspentOutput]],
+            historyByAddress: [
+                targetEntry.address.string: [.init(transactionIdentifier: hash.reverseOrder.hexadecimalString, blockHeight: 11, fee: nil)]
+            ],
+            updatesByAddress: [
+                targetEntry.address.string: [.init(kind: .initialSnapshot, address: targetEntry.address.string, status: "ready")]
+            ]
+        )
+        let confirmationClient = TransactionConfirmationClientTestActor(
+            statusesByHash: [hash: .init(transactionHash: hash, transactionHeight: 13, tipHeight: 16, confirmations: 4)]
+        )
+        let headerReader = BlockHeaderReaderTestActor(
+            snapshots: [.init(height: 16, headerHexadecimal: String(repeating: "d", count: 160))]
+        )
+        let fulcrum = OpalBase.Wallet.Fulcrum(
+            addressReader: addressReader,
+            transactionHandler: confirmationClient
+        )
+
+        let stream = await fulcrum.makeEventStream(
+            for: account,
+            blockHeaderReader: headerReader,
+            retryDelay: .milliseconds(10)
+        )
+        let recorder = WalletFulcrumAddressMonitorEventRecorderActor()
+        let collector = Task {
+            do {
+                for try await event in stream {
+                    await recorder.append(event)
+                }
+            } catch { }
+        }
+        do {
+            let events = try await WalletFulcrumAddressMonitorSupport.waitForEvents(recorder, description: "convenience monitor core events") { events in
+                WalletFulcrumAddressMonitorSupport.hasAddressTracked(events) &&
+                    WalletFulcrumAddressMonitorSupport.hasUTXOChange(events) &&
+                    WalletFulcrumAddressMonitorSupport.hasHistoryChange(events)
+            }
+
+            #expect(WalletFulcrumAddressMonitorSupport.hasAddressTracked(events))
+            #expect(WalletFulcrumAddressMonitorSupport.hasUTXOChange(events))
+            #expect(WalletFulcrumAddressMonitorSupport.hasHistoryChange(events))
+        } catch {
+            collector.cancel()
+            _ = await collector.result
+            throw error
+        }
+        collector.cancel()
+        _ = await collector.result
+    }
+
+    @Test("convenience event stream cancels subscriptions when the collector ends")
+    func convenienceEventStreamCancelsSubscriptionsWhenCollectorEnds() async throws {
+        let account = try await AccountTestFixtures.makeAccount()
+        let targetEntry = try await account.selectNextEntry(for: .receiving)
+        let addressReader = WalletAddressReaderTestActor(
+            updatesByAddress: [
+                targetEntry.address.string: [.init(kind: .initialSnapshot, address: targetEntry.address.string, status: "ready")]
+            ]
+        )
+        let confirmationClient = TransactionConfirmationClientTestActor()
+        let headerReader = BlockHeaderReaderTestActor(
+            snapshots: [.init(height: 21, headerHexadecimal: String(repeating: "e", count: 160))]
+        )
+        let fulcrum = OpalBase.Wallet.Fulcrum(
+            addressReader: addressReader,
+            transactionHandler: confirmationClient
+        )
+
+        let stream = await fulcrum.makeEventStream(
+            for: account,
+            blockHeaderReader: headerReader,
+            retryDelay: .milliseconds(10)
+        )
+        let collector = Task {
+            do {
+                for try await _ in stream { }
+            } catch { }
+        }
+        do {
+            try await WalletFulcrumAddressMonitorSupport.waitUntil(description: "convenience monitor subscriptions started") {
+                let subscribeRequests = await addressReader.readSubscribeRequests()
+                let subscriptionCount = await headerReader.readSubscriptionCount()
+                return !subscribeRequests.isEmpty && subscriptionCount > 0
+            }
+
+            collector.cancel()
+            _ = await collector.result
+
+            try await WalletFulcrumAddressMonitorSupport.waitUntil(description: "convenience monitor subscriptions terminated") {
+                let addressTerminations = await addressReader.readSubscriptionTerminationCount(for: targetEntry.address.string)
+                let tipTerminations = await headerReader.readTerminationCount()
+                return addressTerminations > 0 && tipTerminations > 0
+            }
+        } catch {
+            collector.cancel()
+            _ = await collector.result
+            throw error
+        }
+    }
+
     @Test("monitor deinit cancels address and header subscriptions without explicit stop")
     func monitorDeinitCancelsSubscriptions() async throws {
         let account = try await AccountTestFixtures.makeAccount()

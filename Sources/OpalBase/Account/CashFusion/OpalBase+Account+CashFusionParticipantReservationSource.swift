@@ -1,19 +1,12 @@
 #if os(macOS)
-// OpalBase+Account+CashFusionParticipantInputProvider.swift
+// OpalBase+Account+CashFusionParticipantReservationSource.swift
 
 import Foundation
 import OpalFusion
 
 extension _OpalBase.Account {
-    struct CashFusionParticipantInputProvider: OpalFusion.Host.ParticipantInputProvider {
+    struct CashFusionParticipantReservationSource: OpalFusion.Host.ParticipantReservationSource {
         let reservation: OpalFusion.Host.ParticipantReservation
-
-        func reservedInputs(
-            for roundIdentifier: OpalFusion.Round.Identifier
-        ) async throws -> [OpalFusion.Host.ParticipantInput] {
-            _ = roundIdentifier
-            return reservation.inputs
-        }
 
         func participantReservation(
             for roundIdentifier: OpalFusion.Round.Identifier

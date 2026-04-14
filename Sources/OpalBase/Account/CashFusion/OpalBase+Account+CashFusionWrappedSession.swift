@@ -15,7 +15,7 @@ extension _OpalBase.Account {
         OpalFusion.Client.Configuration,
         [UInt8]?,
         OpalFusion.ProtocolModel.JoinPools,
-        any OpalFusion.Host.ParticipantInputProvider,
+        any OpalFusion.Host.ParticipantReservationSource,
         any OpalFusion.Host.TransactionAssembler,
         (any OpalFusion.Host.EventObserver)?,
         (any OpalFusion.Client.StateObserver)?
@@ -25,7 +25,7 @@ extension _OpalBase.Account {
         configuration,
         genesisHash,
         joinPools,
-        participantInputProvider,
+        participantReservationSource,
         transactionAssembler,
         eventObserver,
         stateObserver in
@@ -33,7 +33,7 @@ extension _OpalBase.Account {
             configuration: configuration,
             genesisHash: genesisHash,
             joinPools: joinPools,
-            participantInputProvider: participantInputProvider,
+            participantReservationSource: participantReservationSource,
             transactionAssembler: transactionAssembler,
             eventObserver: eventObserver,
             stateObserver: stateObserver

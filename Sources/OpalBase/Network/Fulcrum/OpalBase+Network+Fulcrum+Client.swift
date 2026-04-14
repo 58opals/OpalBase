@@ -41,10 +41,7 @@ extension _OpalBase.Network.Fulcrum {
                 network: configuration.network.fulcrumNetwork
             )
             
-            self.fulcrum = try await SwiftFulcrum.Client(
-                url: nil,
-                configuration: fulcrumConfiguration
-            )
+            self.fulcrum = try await SwiftFulcrum.Client(configuration: fulcrumConfiguration)
             try await self.fulcrum.start()
         }
         
@@ -75,15 +72,20 @@ extension _OpalBase.Network.Fulcrum {
         
         func subscribe<Initial: Decodable & Sendable, Notification: Decodable & Sendable>(
             method: SwiftFulcrum.RPC.Method,
-            initialType: Initial.Type = Initial.self,
-            notificationType: Notification.Type = Notification.self,
+            initial: Initial.Type = Initial.self,
+            notifications: Notification.Type = Notification.self,
             options: SwiftFulcrum.Client.Call.Options = .init()
         ) async throws -> (Initial, AsyncThrowingStream<Notification, Swift.Error>, @Sendable () async -> Void) {
-            try await fulcrum.subscribe(
+            let subscription = try await fulcrum.subscribe(
                 method: method,
-                initialType: initialType,
-                notificationType: notificationType,
+                initial: initial,
+                notifications: notifications,
                 options: options
+            )
+            return (
+                subscription.initial,
+                subscription.updates,
+                { await subscription.cancel() }
             )
         }
     }

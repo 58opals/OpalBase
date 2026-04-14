@@ -130,7 +130,7 @@ struct AccountCashFusionReservationValidator {
         #expect(reservation.reservedReceivingEntries.map(\.address) == expectedEntries.map(\.address))
         #expect(reservation.reservedReceivingEntries.allSatisfy { $0.derivationPath.usage == .receiving })
         #expect(reservation.reservedReceivingEntries.allSatisfy { $0.isReserved })
-        #expect(reservation.participantReservation.outputs.map(\.lockingScript) == expectedEntries.map {
+        #expect(reservation.participantReservation.outputs.map(\.lockingScriptBytes) == expectedEntries.map {
             [UInt8]($0.address.lockingScript.data)
         })
 
@@ -161,8 +161,8 @@ struct AccountCashFusionReservationValidator {
 
         for reservedInput in reservation.reservedInputs {
             #expect(reservedInput.participantInput.publicKey == [UInt8](reservedInput.compressedPublicKey))
-            #expect(reservedInput.participantInput.lockingScript == [UInt8](reservedInput.unspentOutput.lockingScript))
-            #expect(reservedInput.participantInput.outpointTransactionHash == [UInt8](reservedInput.unspentOutput.previousTransactionHash.reverseOrder))
+            #expect(reservedInput.participantInput.lockingScriptBytes == [UInt8](reservedInput.unspentOutput.lockingScript))
+            #expect(reservedInput.participantInput.outpointTransactionHashBytes == [UInt8](reservedInput.unspentOutput.previousTransactionHash.reverseOrder))
         }
 
         try await reservation.cancel()

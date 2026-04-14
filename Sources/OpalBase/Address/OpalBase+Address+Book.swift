@@ -6,13 +6,13 @@ import OpalCrypto
 extension _OpalBase.Address {
     public actor Book {
         struct UsageDerivationCache {
-            let baseExtendedPrivateKey: OpalCrypto.Key.ExtendedPrivateKey
+            let baseExtendedPrivateKey: OpalCrypto.Key.ExtendedPrivate
             let baseCompressedPublicKey: Data
             let baseFingerprint: Data
         }
         
-        let rootExtendedPrivateKey: OpalCrypto.Key.ExtendedPrivateKey?
-        let rootExtendedPublicKey: OpalCrypto.Key.ExtendedPublicKey
+        let rootExtendedPrivateKey: OpalCrypto.Key.ExtendedPrivate?
+        let rootExtendedPublicKey: OpalCrypto.Key.ExtendedPublic
         let purpose: OpalBase.Key.DerivationPath.Purpose
         let coinType: OpalBase.Key.DerivationPath.CoinType
         let account: OpalBase.Key.DerivationPath.Account
@@ -30,8 +30,8 @@ extension _OpalBase.Address {
         
         let entryPublisher = Entry.PublisherActor()
         
-        init(rootExtendedPrivateKey: OpalCrypto.Key.ExtendedPrivateKey? = nil,
-             rootExtendedPublicKey: OpalCrypto.Key.ExtendedPublicKey? = nil,
+        init(rootExtendedPrivateKey: OpalCrypto.Key.ExtendedPrivate? = nil,
+             rootExtendedPublicKey: OpalCrypto.Key.ExtendedPublic? = nil,
              purpose: OpalBase.Key.DerivationPath.Purpose,
              coinType: OpalBase.Key.DerivationPath.CoinType,
              account: OpalBase.Key.DerivationPath.Account,

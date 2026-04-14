@@ -20,7 +20,7 @@ extension _OpalBase.Account {
         ) async throws -> OpalFusion.Host.FinalizedTransaction {
             _ = roundIdentifier
 
-            let serializedUnsignedTransaction = Data(proposal.serializedUnsignedTransaction)
+            let serializedUnsignedTransaction = Data(proposal.unsignedTransactionBytes)
             let decoded = try OpalBase.Transaction.decode(from: serializedUnsignedTransaction)
             guard decoded.bytesRead == serializedUnsignedTransaction.count else {
                 throw CashFusionTransactionAssemblyError.trailingUnsignedTransactionBytes
@@ -34,14 +34,14 @@ extension _OpalBase.Account {
                     at: assignment.transactionInputIndex,
                     spending: assignment.reservedInput.unspentOutput,
                     privateKey: assignment.reservedInput.privateKey,
-                    signatureFormat: .schnorr,
-                    unlocker: .p2pkh_CheckSig(),
+                    signatureFormat: OpalBase.Transaction.SignatureFormat.schnorr,
+                    unlocker: OpalBase.Transaction.Unlocker.p2pkh_CheckSig(),
                     using: decoded.transaction
                 )
             }
 
             return .init(
-                serializedTransaction: [UInt8](try finalizedTransaction.encode())
+                transactionBytes: [UInt8](try finalizedTransaction.encode())
             )
         }
 

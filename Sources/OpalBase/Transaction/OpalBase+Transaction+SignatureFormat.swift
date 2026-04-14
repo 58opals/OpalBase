@@ -16,14 +16,14 @@ extension _OpalBase.Transaction {
 }
 
 extension _OpalBase.Transaction.SignatureFormat {
-    var opalCryptoFormat: OpalCrypto.Signature.Format {
+    var opalCryptoECDSAFormat: OpalCrypto.Signature.ECDSAFormat? {
         switch self {
         case .ecdsa(.der):
-            return .ecdsa(.der)
+            return .der
         case .ecdsa(.raw):
-            return .ecdsa(.raw)
+            return .raw
         case .schnorr:
-            return .schnorr
+            return nil
         }
     }
 }

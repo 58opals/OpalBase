@@ -22,7 +22,7 @@ extension _OpalBase.Account {
         sessionFactory: CashFusionWrappedSessionFactory
     ) async throws -> OpalBase.Account.CashFusionSession {
         let reservation = try await prepareCashFusionReservation(request: request)
-        let participantInputProvider = CashFusionParticipantInputProvider(
+        let participantReservationSource = CashFusionParticipantReservationSource(
             reservation: reservation.participantReservation
         )
         let transactionAssembler = CashFusionTransactionAssembler(
@@ -33,7 +33,7 @@ extension _OpalBase.Account {
             configuration.makeClientConfiguration(),
             configuration.genesisHash,
             configuration.joinPools.makeJoinPools(),
-            participantInputProvider,
+            participantReservationSource,
             transactionAssembler,
             nil,
             observerSink
@@ -88,7 +88,7 @@ extension _OpalBase.Account {
             request.outputAmounts
         ).map { entry, amount in
             OpalFusion.Host.ParticipantOutput(
-                lockingScript: [UInt8](entry.address.lockingScript.data),
+                lockingScriptBytes: [UInt8](entry.address.lockingScript.data),
                 amountSatoshis: amount.uint64
             )
         }
@@ -210,10 +210,10 @@ extension _OpalBase.Account {
             privateKey: privateKey,
             compressedPublicKey: compressedPublicKey,
             participantInput: .init(
-                outpointTransactionHash: [UInt8](selectedInput.previousTransactionHash.reverseOrder),
+                outpointTransactionHashBytes: [UInt8](selectedInput.previousTransactionHash.reverseOrder),
                 outpointIndex: selectedInput.previousTransactionOutputIndex,
                 amountSatoshis: selectedInput.value,
-                lockingScript: [UInt8](selectedInput.lockingScript),
+                lockingScriptBytes: [UInt8](selectedInput.lockingScript),
                 publicKey: [UInt8](compressedPublicKey)
             )
         )
