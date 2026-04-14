@@ -8,7 +8,7 @@ extension OpalBase {
         public let mnemonic: OpalBase.Key.Mnemonic
         public let passphrase: String
         let tokenMetadataStore: OpalBase.CashTokens.MetadataRepository
-        let rootExtendedPrivateKey: OpalCrypto.Key.ExtendedPrivateKey
+        let rootExtendedPrivateKey: OpalCrypto.Key.ExtendedPrivate
         
         let purpose: OpalBase.Key.DerivationPath.Purpose
         let coinType: OpalBase.Key.DerivationPath.CoinType
@@ -24,7 +24,7 @@ extension OpalBase {
             self.mnemonic = mnemonic
             self.passphrase = passphrase
             self.tokenMetadataStore = OpalBase.CashTokens.MetadataRepository()
-            self.rootExtendedPrivateKey = try OpalCrypto.Key.ExtendedPrivateKey.root(
+            self.rootExtendedPrivateKey = try OpalCrypto.Key.ExtendedPrivate.root(
                 seed: mnemonic.deriveSeed(passphrase: passphrase)
             )
             self.purpose = purpose

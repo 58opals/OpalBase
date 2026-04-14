@@ -46,7 +46,7 @@ extension _OpalBase.Address.Book {
         
         let derivationPath = try createDerivationPath(usage: usage, index: index)
         
-        let derivedPublicKey: OpalCrypto.Key.ExtendedPublicKey
+        let derivedPublicKey: OpalCrypto.Key.ExtendedPublic
         if let extendedPrivateKey = rootExtendedPrivateKey {
             derivedPublicKey = try extendedPrivateKey.derived(indices: derivationPath.makeIndices()).publicKey
         } else {

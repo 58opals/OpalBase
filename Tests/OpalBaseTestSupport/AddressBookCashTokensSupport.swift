@@ -12,7 +12,7 @@ public enum AddressBookCashTokensSupport {
                 "abandon", "abandon", "abandon", "abandon", "abandon", "about",
             ].map(OpalCrypto.Key.Mnemonic.Word.init)
         )
-        let rootExtendedPrivateKey = try OpalCrypto.Key.ExtendedPrivateKey.root(seed: mnemonic.deriveSeed())
+        let rootExtendedPrivateKey = try OpalCrypto.Key.ExtendedPrivate.root(seed: mnemonic.deriveSeed())
 
         return try await OpalBase.Address.Book(
             rootExtendedPrivateKey: rootExtendedPrivateKey,

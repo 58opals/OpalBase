@@ -46,8 +46,7 @@ struct AccountCashFusionSessionValidator {
         await fakeSession.emit(
             snapshot: CashFusionTestSupport.makeSnapshot(
                 phase: .completed,
-                completionStatus: .success,
-                isTerminal: true
+                completionStatus: .success
             )
         )
 
@@ -116,8 +115,7 @@ struct AccountCashFusionSessionValidator {
         await fakeSession.emit(
             snapshot: CashFusionTestSupport.makeSnapshot(
                 phase: .blame,
-                completionStatus: nil,
-                isTerminal: false
+                completionStatus: nil
             )
         )
 
@@ -265,7 +263,6 @@ struct AccountCashFusionSessionValidator {
                 identifier: "round-success",
                 phase: .completed,
                 completionStatus: .success,
-                isTerminal: true,
                 isConnected: true
             )
         )

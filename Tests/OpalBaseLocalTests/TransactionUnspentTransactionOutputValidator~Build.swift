@@ -44,17 +44,15 @@ extension TransactionUnspentTransactionOutputValidator {
         let messageDigest = OpalCrypto.Hashing.computeHash256(preimage)
         let verificationKey = try OpalCrypto.Signature.VerificationKey(publicKey: publicKey)
 
-        let isValidThroughCachedKey = try OpalCrypto.Signature.verify(
+        let isValidThroughCachedKey = try OpalCrypto.Signature.verifySchnorr(
             signature: signature,
-            message: messageDigest,
-            verificationKey: verificationKey,
-            format: .schnorr
+            digest: messageDigest,
+            verificationKey: verificationKey
         )
-        let isValidThroughLegacyPath = try OpalCrypto.Signature.verify(
+        let isValidThroughLegacyPath = try OpalCrypto.Signature.verifySchnorr(
             signature: signature,
-            message: messageDigest,
-            publicKey: publicKey,
-            format: .schnorr
+            digest: messageDigest,
+            publicKey: publicKey
         )
 
         #expect(isValidThroughCachedKey)

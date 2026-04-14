@@ -127,8 +127,8 @@ struct NetworkFulcrumClientValidator {
         try await NetworkTestClient.withClient(configuration: configuration) { client in
             let (initial, updates, cancel) = try await client.subscribe(
                 method: .blockchain(.address(.subscribe(address: Self.sampleCashAddr))),
-                initialType: SwiftFulcrum.RPC.Response.Result.Blockchain.Address.Subscribe.self,
-                notificationType: SwiftFulcrum.RPC.Response.Result.Blockchain.Address.SubscribeNotification.self
+                initial: SwiftFulcrum.RPC.Response.Result.Blockchain.Address.Subscribe.self,
+                notifications: SwiftFulcrum.RPC.Response.Result.Blockchain.Address.SubscribeNotification.self
             )
             
             #expect(!(initial.status?.isEmpty ?? true))
@@ -153,8 +153,8 @@ struct NetworkFulcrumClientValidator {
         try await NetworkTestClient.withClient(configuration: configuration) { client in
             let (initial, stream, cancel) = try await client.subscribe(
                 method: .blockchain(.headers(.subscribe)),
-                initialType: SwiftFulcrum.RPC.Response.Result.Blockchain.Headers.Subscribe.self,
-                notificationType: SwiftFulcrum.RPC.Response.Result.Blockchain.Headers.SubscribeNotification.self
+                initial: SwiftFulcrum.RPC.Response.Result.Blockchain.Headers.Subscribe.self,
+                notifications: SwiftFulcrum.RPC.Response.Result.Blockchain.Headers.SubscribeNotification.self
             )
             
             #expect(initial.height > 0)

@@ -5,8 +5,8 @@ import OpalCrypto
 
 extension _OpalBase.Address.Book {
     init(from snapshot: Snapshot,
-         rootExtendedPrivateKey: OpalCrypto.Key.ExtendedPrivateKey? = nil,
-         rootExtendedPublicKey: OpalCrypto.Key.ExtendedPublicKey? = nil,
+         rootExtendedPrivateKey: OpalCrypto.Key.ExtendedPrivate? = nil,
+         rootExtendedPublicKey: OpalCrypto.Key.ExtendedPublic? = nil,
          purpose: OpalBase.Key.DerivationPath.Purpose,
          coinType: OpalBase.Key.DerivationPath.CoinType,
          account: OpalBase.Key.DerivationPath.Account,

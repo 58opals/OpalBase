@@ -144,8 +144,8 @@ extension _OpalBase.Network.Fulcrum {
             try await OpalBase.Network.performWithFailureTranslation {
                 let (initial, updates, cancel) = try await client.subscribe(
                     method: .blockchain(.address(.subscribe(address: address))),
-                    initialType: SwiftFulcrum.RPC.Response.Result.Blockchain.Address.Subscribe.self,
-                    notificationType: SwiftFulcrum.RPC.Response.Result.Blockchain.Address.SubscribeNotification.self,
+                    initial: SwiftFulcrum.RPC.Response.Result.Blockchain.Address.Subscribe.self,
+                    notifications: SwiftFulcrum.RPC.Response.Result.Blockchain.Address.SubscribeNotification.self,
                     options: .init(timeout: timeouts.addressSubscription)
                 )
                 

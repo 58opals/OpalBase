@@ -43,21 +43,29 @@ enum CashFusionTestSupport {
         identifier: String = "round-1",
         phase: OpalFusion.Round.Phase,
         completionStatus: OpalFusion.Round.CompletionStatus? = nil,
-        isTerminal: Bool = false,
         isConnected: Bool = true,
         lastError: OpalFusion.Client.Error? = nil,
         lastErrorSummary: String? = nil
     ) -> OpalFusion.Client.Session.Snapshot {
-        .init(
+        let round: OpalFusion.Round.State
+        if let completionStatus {
+            round = .init(
+                identifier: .init(rawValue: identifier),
+                participantCount: 3,
+                completionStatus: completionStatus
+            )
+        } else {
+            round = .init(
+                identifier: .init(rawValue: identifier),
+                phase: phase,
+                participantCount: 3
+            )
+        }
+
+        return .init(
             state: .init(
                 isConnected: isConnected,
-                round: .init(
-                    identifier: .init(rawValue: identifier),
-                    phase: phase,
-                    participantCount: 3,
-                    completionStatus: completionStatus,
-                    isTerminal: isTerminal
-                )
+                round: round
             ),
             lastError: lastError,
             lastErrorSummary: lastErrorSummary
@@ -68,7 +76,7 @@ enum CashFusionTestSupport {
         transaction: OpalBase.Transaction
     ) throws -> OpalFusion.Host.TransactionFinalizationProposal {
         .init(
-            serializedUnsignedTransaction: [UInt8](try transaction.encode()),
+            unsignedTransactionBytes: [UInt8](try transaction.encode()),
             expectedInputCount: transaction.inputs.count,
             expectedOutputCount: transaction.outputs.count
         )

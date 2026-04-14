@@ -28,8 +28,8 @@ extension _OpalBase.Network.Fulcrum {
             try await OpalBase.Network.performWithFailureTranslation {
                 let (initial, updates, cancel) = try await client.subscribe(
                     method: .blockchain(.headers(.subscribe)),
-                    initialType: SwiftFulcrum.RPC.Response.Result.Blockchain.Headers.Subscribe.self,
-                    notificationType: SwiftFulcrum.RPC.Response.Result.Blockchain.Headers.SubscribeNotification.self,
+                    initial: SwiftFulcrum.RPC.Response.Result.Blockchain.Headers.Subscribe.self,
+                    notifications: SwiftFulcrum.RPC.Response.Result.Blockchain.Headers.SubscribeNotification.self,
                     options: .init(timeout: timeouts.headersSubscription)
                 )
                 

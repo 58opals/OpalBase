@@ -64,7 +64,7 @@ struct AccountCashFusionTransactionAssemblerValidator {
             proposal: CashFusionTestSupport.makeProposal(transaction: unsignedTransaction)
         )
         let decoded = try OpalBase.Transaction.decode(
-            from: Data(finalized.serializedTransaction)
+            from: Data(finalized.transactionBytes)
         ).transaction
 
         #expect(decoded.outputs == unsignedTransaction.outputs)
@@ -186,7 +186,7 @@ struct AccountCashFusionTransactionAssemblerValidator {
             proposal: CashFusionTestSupport.makeProposal(transaction: unsignedTransaction)
         )
         let decoded = try OpalBase.Transaction.decode(
-            from: Data(finalized.serializedTransaction)
+            from: Data(finalized.transactionBytes)
         ).transaction
         let unlockingScript = try decodeCashFusionP2PKHUnlockingScript(
             decoded.inputs[0].unlockingScript
@@ -208,11 +208,10 @@ struct AccountCashFusionTransactionAssemblerValidator {
             hashType: .makeAll(anyoneCanPay: false),
             outputBeingSpent: outputBeingSpent
         )
-        let isValid = try OpalCrypto.Signature.verify(
+        let isValid = try OpalCrypto.Signature.verifySchnorr(
             signature: signature,
-            message: OpalCrypto.Hashing.computeHash256(preimage),
-            publicKey: unlockingScript.publicKey,
-            format: .schnorr
+            digest: OpalCrypto.Hashing.computeHash256(preimage),
+            publicKey: unlockingScript.publicKey
         )
 
         #expect(hashType == UInt8(truncatingIfNeeded: OpalBase.Transaction.HashType.makeAll().value))

@@ -131,7 +131,7 @@ private extension TransactionHistoryTokenDeltaValidator {
     }
     
     func makeAddressBook() async throws -> OpalBase.Address.Book {
-        let rootExtendedPrivateKey = try OpalCrypto.Key.ExtendedPrivateKey.root(
+        let rootExtendedPrivateKey = try OpalCrypto.Key.ExtendedPrivate.root(
             seed: AccountTestFixtures.makeMnemonic().deriveSeed()
         )
         return try await OpalBase.Address.Book(rootExtendedPrivateKey: rootExtendedPrivateKey,
