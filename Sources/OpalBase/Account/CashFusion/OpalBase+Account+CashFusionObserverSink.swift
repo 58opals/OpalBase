@@ -5,11 +5,23 @@ import Foundation
 import OpalFusion
 
 extension _OpalBase.Account {
-    final class CashFusionObserverSink: OpalFusion.Client.StateObserver, @unchecked Sendable {
-        weak var owner: OpalBase.Account.CashFusionSession?
+    actor CashFusionObserverSink: OpalFusion.Client.StateObserver {
+        private weak var owner: OpalBase.Account.CashFusionSession?
+
+        func bind(to owner: OpalBase.Account.CashFusionSession) {
+            self.owner = owner
+        }
+
+        func unbind() {
+            owner = nil
+        }
 
         func receive(_ snapshot: OpalFusion.Client.Session.Snapshot) async {
-            await owner?.receiveCashFusionSnapshot(snapshot)
+            guard let owner else {
+                return
+            }
+
+            await owner.receiveCashFusionSnapshot(snapshot)
         }
     }
 }

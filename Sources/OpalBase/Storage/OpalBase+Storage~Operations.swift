@@ -3,37 +3,31 @@
 import Foundation
 
 extension _OpalBase.Storage {
-    @MainActor
     public func saveWalletSnapshot(_ snapshot: OpalBase.Wallet.Snapshot) async throws {
         try await saveWalletSnapshot(snapshot, key: .walletSnapshot)
     }
 
-    @MainActor
     public func loadWalletSnapshot() async throws -> OpalBase.Wallet.Snapshot? {
         try await loadWalletSnapshot(key: .walletSnapshot)
     }
 
-    @MainActor
     public func saveAccountSnapshot(_ snapshot: OpalBase.Account.Snapshot,
                                     accountIdentifier: Data) async throws {
         let encodedSnapshot = try encodeSnapshot(snapshot)
         try await storeValue(encodedSnapshot, for: .accountSnapshot(accountIdentifier))
     }
 
-    @MainActor
     public func loadAccountSnapshot(accountIdentifier: Data) async throws -> OpalBase.Account.Snapshot? {
         guard let data = try await loadValue(for: .accountSnapshot(accountIdentifier)) else { return nil }
         return try decodeSnapshot(OpalBase.Account.Snapshot.self, from: data)
     }
 
-    @MainActor
     public func saveAddressBookSnapshot(_ snapshot: OpalBase.Address.Book.Snapshot,
                                         accountIdentifier: Data) async throws {
         let encodedSnapshot = try encodeSnapshot(snapshot)
         try await storeValue(encodedSnapshot, for: .addressBookSnapshot(accountIdentifier))
     }
 
-    @MainActor
     public func loadAddressBookSnapshot(accountIdentifier: Data) async throws -> OpalBase.Address.Book.Snapshot? {
         guard let data = try await loadValue(for: .addressBookSnapshot(accountIdentifier)) else { return nil }
         return try decodeSnapshot(OpalBase.Address.Book.Snapshot.self, from: data)
@@ -78,7 +72,7 @@ extension _OpalBase.Storage {
         for wallet: OpalBase.Wallet,
         policy: Security.PersistencePolicy
     ) async throws -> Security.ProtectionMode {
-        let session = PersistenceSession(storage: self)
+        let session = await PersistenceSession(storage: self)
         return try await session.save(wallet: wallet, policy: policy)
     }
 
@@ -93,12 +87,10 @@ extension _OpalBase.Storage {
 }
 
 extension _OpalBase.Storage {
-    @MainActor
     func saveWalletSnapshot(_ snapshot: OpalBase.Wallet.Snapshot, generation: String) async throws {
         try await saveWalletSnapshot(snapshot, key: .walletSnapshotGeneration(generation))
     }
 
-    @MainActor
     func loadWalletSnapshot(generation: String) async throws -> OpalBase.Wallet.Snapshot? {
         try await loadWalletSnapshot(key: .walletSnapshotGeneration(generation))
     }
@@ -169,13 +161,11 @@ extension _OpalBase.Storage {
 }
 
 private extension _OpalBase.Storage {
-    @MainActor
     func saveWalletSnapshot(_ snapshot: OpalBase.Wallet.Snapshot, key: OpalBase.Storage.Key) async throws {
         let encodedSnapshot = try encodeSnapshot(snapshot)
         try await storeValue(encodedSnapshot, for: key)
     }
 
-    @MainActor
     func loadWalletSnapshot(key: OpalBase.Storage.Key) async throws -> OpalBase.Wallet.Snapshot? {
         guard let data = try await loadValue(for: key) else { return nil }
         return try decodeSnapshot(OpalBase.Wallet.Snapshot.self, from: data)

@@ -151,8 +151,7 @@ enum CashFusionTestSupport {
     }
 }
 
-final class CashFusionWrappedSessionCapture: @unchecked Sendable {
-    private let lock = NSLock()
+actor CashFusionWrappedSessionCapture {
     private var session: CashFusionFakeWrappedSession?
     private var configuration: OpalFusion.Client.Configuration?
 
@@ -160,24 +159,16 @@ final class CashFusionWrappedSessionCapture: @unchecked Sendable {
         _ session: CashFusionFakeWrappedSession,
         configuration: OpalFusion.Client.Configuration
     ) {
-        lock.lock()
         self.session = session
         self.configuration = configuration
-        lock.unlock()
     }
 
     func load() -> CashFusionFakeWrappedSession? {
-        lock.lock()
-        let session = session
-        lock.unlock()
-        return session
+        session
     }
 
     func loadConfiguration() -> OpalFusion.Client.Configuration? {
-        lock.lock()
-        let configuration = configuration
-        lock.unlock()
-        return configuration
+        configuration
     }
 }
 

@@ -7,8 +7,8 @@ import OpalBaseTestSupport
 
 @Suite("Snapshot encoding and decoding", .tags(.unit))
 struct SnapshotPersistenceValidator {
-    @MainActor @Test("address book snapshot encodes token fields")
-    func addressBookSnapshotEncodesTokenFields() throws {
+    @Test("address book snapshot encodes token fields")
+    func addressBookSnapshotEncodesTokenFields() async throws {
         let storage = try OpalBase.Storage()
         let tokenData = try makeTokenDataWithNonFungibleToken()
         let tokenCategory = tokenData.category.hexForDisplay
@@ -33,8 +33,8 @@ struct SnapshotPersistenceValidator {
             transactions: .init()
         )
         
-        let data = try storage.encodeSnapshot(snapshot)
-        let decoded = try storage.decodeSnapshot(OpalBase.Address.Book.Snapshot.self, from: data)
+        let data = try await storage.encodeSnapshot(snapshot)
+        let decoded = try await storage.decodeSnapshot(OpalBase.Address.Book.Snapshot.self, from: data)
         let decodedUnspentOutput = try #require(decoded.utxos.first)
         
         #expect(decodedUnspentOutput.tokenCategory == tokenCategory)
@@ -49,15 +49,15 @@ struct SnapshotPersistenceValidator {
         #expect(decodedTokenData?.nft?.commitment == nonFungibleToken?.commitment)
     }
     
-    @MainActor @Test("address book snapshot decodes without token fields")
-    func addressBookSnapshotDecodesWithoutTokenFields() throws {
+    @Test("address book snapshot decodes without token fields")
+    func addressBookSnapshotDecodesWithoutTokenFields() async throws {
         let storage = try OpalBase.Storage()
         let snapshotJSON = """
         {"receivingEntries":[],"changeEntries":[],"utxos":[{"value":1000,"lockingScript":"51","transactionHash":"abcd","outputIndex":0}],"transactions":[]}
         """
         let data = Data(snapshotJSON.utf8)
         
-        let decoded = try storage.decodeSnapshot(OpalBase.Address.Book.Snapshot.self, from: data)
+        let decoded = try await storage.decodeSnapshot(OpalBase.Address.Book.Snapshot.self, from: data)
         let decodedUnspentOutput = try #require(decoded.utxos.first)
         
         #expect(decodedUnspentOutput.tokenCategory == nil)

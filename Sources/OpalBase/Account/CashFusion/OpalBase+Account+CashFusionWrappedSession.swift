@@ -19,7 +19,7 @@ extension _OpalBase.Account {
         any OpalFusion.Host.TransactionAssembler,
         (any OpalFusion.Host.EventObserver)?,
         (any OpalFusion.Client.StateObserver)?
-    ) -> any CashFusionWrappedSession
+    ) async -> any CashFusionWrappedSession
 
     static let defaultCashFusionWrappedSessionFactory: CashFusionWrappedSessionFactory = {
         configuration,

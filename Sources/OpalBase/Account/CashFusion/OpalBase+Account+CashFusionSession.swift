@@ -80,6 +80,7 @@ extension _OpalBase.Account {
             }
 
             terminalOutcome = outcome
+            await observerSink.unbind()
             await stopWrappedSessionIfNeeded()
 
             do {

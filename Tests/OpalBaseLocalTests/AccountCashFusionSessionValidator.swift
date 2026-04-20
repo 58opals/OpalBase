@@ -40,7 +40,7 @@ struct AccountCashFusionSessionValidator {
             capture: capture
         )
         let reservation = await session.reservation
-        let fakeSession = try #require(capture.load())
+        let fakeSession = try #require(await capture.load())
 
         await session.start()
         await fakeSession.emit(
@@ -78,7 +78,7 @@ struct AccountCashFusionSessionValidator {
             capture: capture
         )
         let reservation = await session.reservation
-        let fakeSession = try #require(capture.load())
+        let fakeSession = try #require(await capture.load())
 
         await session.stop()
 
@@ -109,7 +109,7 @@ struct AccountCashFusionSessionValidator {
             capture: capture
         )
         let reservation = await session.reservation
-        let fakeSession = try #require(capture.load())
+        let fakeSession = try #require(await capture.load())
 
         await session.start()
         await fakeSession.emit(
@@ -177,7 +177,7 @@ struct AccountCashFusionSessionValidator {
             selectedInput: selectedInput,
             capture: capture
         )
-        let fakeSession = try #require(capture.load())
+        let fakeSession = try #require(await capture.load())
 
         await fakeSession.emit(
             snapshot: CashFusionTestSupport.makeSnapshot(
@@ -213,7 +213,7 @@ struct AccountCashFusionSessionValidator {
             selectedInput: selectedInput,
             capture: capture
         )
-        let fakeSession = try #require(capture.load())
+        let fakeSession = try #require(await capture.load())
 
         await fakeSession.emit(
             snapshot: CashFusionTestSupport.makeSnapshot(
@@ -256,7 +256,7 @@ struct AccountCashFusionSessionValidator {
             selectedInput: selectedInput,
             capture: capture
         )
-        let fakeSession = try #require(capture.load())
+        let fakeSession = try #require(await capture.load())
 
         await fakeSession.emit(
             snapshot: CashFusionTestSupport.makeSnapshot(
@@ -300,7 +300,7 @@ struct AccountCashFusionSessionValidator {
             selectedInput: selectedInput,
             capture: capture
         )
-        let fakeSession = try #require(capture.load())
+        let fakeSession = try #require(await capture.load())
         let lastErrorSummary = "Primary connect failed: connection reset"
 
         await fakeSession.emit(
@@ -356,7 +356,7 @@ private extension AccountCashFusionSessionValidator {
             capture: capture
         )
         let reservation = await session.reservation
-        let fakeSession = try #require(capture.load())
+        let fakeSession = try #require(await capture.load())
 
         await session.start()
         await fakeSession.emit(
@@ -397,7 +397,7 @@ private extension AccountCashFusionSessionValidator {
                 let session = CashFusionFakeWrappedSession(
                     stateObserver: wrappedStateObserver
                 )
-                capture.store(
+                await capture.store(
                     session,
                     configuration: clientConfiguration
                 )
@@ -427,7 +427,7 @@ private extension AccountCashFusionSessionValidator {
             configuration: configuration,
             capture: capture
         )
-        let clientConfiguration = try #require(capture.loadConfiguration())
+        let clientConfiguration = try #require(await capture.loadConfiguration())
 
         #expect(clientConfiguration.coordinatorHost == configuration.coordinator.host)
         #expect(clientConfiguration.coordinatorPort == configuration.coordinator.port)

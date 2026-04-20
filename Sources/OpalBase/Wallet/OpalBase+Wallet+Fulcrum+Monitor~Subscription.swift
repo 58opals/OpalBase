@@ -3,16 +3,16 @@
 import Foundation
 
 extension _OpalBase.Wallet.Fulcrum.Monitor {
-    func registerEntry(_ entry: OpalBase.Address.Book.Entry) {
+    func registerEntry(_ entry: OpalBase.Address.Book.Entry) async {
         let address = entry.address
         ensureSubscription(for: address)
-        relay.publish(.addressTracked(address))
+        await dependencies.eventHub.publish(.addressTracked(address))
     }
 
     func startEntryObservation() async {
         guard newEntryTask == nil else { return }
         let account = dependencies.account
-        newEntryTask = Task.detached { [weak self] in
+        newEntryTask = Task { [weak self, account] in
             let stream = await account.observeNewEntries()
             for await entry in stream {
                 do {
@@ -26,9 +26,9 @@ extension _OpalBase.Wallet.Fulcrum.Monitor {
         }
     }
 
-    private func handleObservedEntry(_ entry: OpalBase.Address.Book.Entry) {
+    private func handleObservedEntry(_ entry: OpalBase.Address.Book.Entry) async {
         guard isRunning else { return }
-        registerEntry(entry)
+        await registerEntry(entry)
     }
 
     private func ensureSubscription(for address: OpalBase.Address) {
@@ -43,14 +43,14 @@ extension _OpalBase.Wallet.Fulcrum.Monitor {
         let reader = dependencies.addressReader
         let retryDelay = dependencies.retryDelay
 
-        return Task.detached {
+        return Task {
             while !Task.isCancelled {
                 do {
                     let stream = try await reader.subscribeToAddress(address.string)
                     try await consumeSubscription(stream: stream, address: address, dependencies: dependencies)
                 } catch {
                     if error.isCancellationError { return }
-                    publishFailure(address: address, error: error, relay: dependencies.relay)
+                    await publishFailure(address: address, error: error, eventHub: dependencies.eventHub)
                     guard !Task.isCancelled else { return }
                     try? await Task.sleep(for: retryDelay)
                 }
@@ -84,14 +84,14 @@ extension _OpalBase.Wallet.Fulcrum.Monitor {
             let changeSet = try await dependencies.account.replaceUTXOs(for: address,
                                                                         with: utxos,
                                                                         timestamp: timestamp)
-            dependencies.relay.publish(.utxosChanged(changeSet))
+            await dependencies.eventHub.publish(.utxosChanged(changeSet))
 
             let historyChangeSet = try await dependencies.account.refreshTransactionHistory(for: address,
                                                                                             using: dependencies.addressReader,
                                                                                             includeUnconfirmed: dependencies.shouldIncludeUnconfirmed,
                                                                                             transactionReader: dependencies.transactionReader)
             if !historyChangeSet.isEmpty {
-                dependencies.relay.publish(.historyChanged(historyChangeSet))
+                await dependencies.eventHub.publish(.historyChanged(historyChangeSet))
             }
         } catch {
             await handleIncrementalFailure(for: address, error: error, dependencies: dependencies)
@@ -102,22 +102,22 @@ extension _OpalBase.Wallet.Fulcrum.Monitor {
                                          error: Swift.Error,
                                          dependencies: WorkerDependencies) async {
         if error.isCancellationError { return }
-        publishFailure(address: address, error: error, relay: dependencies.relay)
+        await publishFailure(address: address, error: error, eventHub: dependencies.eventHub)
 
         do {
             let utxoRefresh = try await dependencies.account.refreshUTXOSet(using: dependencies.addressReader)
             let historyChangeSet = try await dependencies.account.refreshTransactionHistory(using: dependencies.addressReader,
                                                                                             includeUnconfirmed: dependencies.shouldIncludeUnconfirmed,
                                                                                             transactionReader: dependencies.transactionReader)
-            dependencies.relay.publish(.performedFullRefresh(utxoRefresh, historyChangeSet))
+            await dependencies.eventHub.publish(.performedFullRefresh(utxoRefresh, historyChangeSet))
         } catch {
-            publishFailure(address: address, error: error, relay: dependencies.relay)
+            await publishFailure(address: address, error: error, eventHub: dependencies.eventHub)
         }
     }
 
     static func publishFailure(address: OpalBase.Address?,
                                error: Swift.Error,
-                               relay: EventRelay) {
-        relay.publish(.encounteredFailure(.init(address: address, message: String(describing: error))))
+                               eventHub: EventHub) async {
+        await eventHub.publish(.encounteredFailure(.init(address: address, message: String(describing: error))))
     }
 }

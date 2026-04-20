@@ -130,7 +130,7 @@ extension _OpalBase.Storage {
         }
     }
 
-    public nonisolated func makeStoredMnemonicStore() -> StoredMnemonicStore {
+    public func makeStoredMnemonicStore() -> StoredMnemonicStore {
         let recoverableLoadFailure: @Sendable (Swift.Error) -> Bool = { error in
             isRecoverableStoredMnemonicLoadFailure(error)
         }
