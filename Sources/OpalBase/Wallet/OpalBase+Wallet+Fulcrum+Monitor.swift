@@ -114,13 +114,13 @@ extension _OpalBase.Wallet.Fulcrum {
                 relay.storeContinuation(continuation, identifier: identifier)
 
                 if autoStart {
-                    Task.detached(priority: .userInitiated) { [lifetime] in
+                    Task(priority: .userInitiated) { [lifetime] in
                         await lifetime.monitor.startIfStreamIsStillActive(identifier: lifetime.identifier)
                     }
                 }
 
                 continuation.onTermination = { [lifetime] termination in
-                    Task.detached { [lifetime] in
+                    Task { [lifetime] in
                         await lifetime.monitor.handleEventStreamTermination(
                             identifier: lifetime.identifier,
                             termination: termination

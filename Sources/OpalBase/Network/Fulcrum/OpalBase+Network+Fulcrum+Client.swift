@@ -12,8 +12,7 @@ extension _OpalBase.Network.Fulcrum {
             configuration: OpalBase.Network.Configuration,
             metrics: OpalBase.Network.Metrics? = nil,
             logger: OpalBase.Network.Logger? = nil,
-            isLoggingEnabled: Bool = true,
-            urlSession: URLSession? = nil
+            isLoggingEnabled: Bool = true
         ) async throws {
             self.configuration = configuration
             
@@ -33,7 +32,6 @@ extension _OpalBase.Network.Fulcrum {
                 metrics: fulcrumMetrics,
                 logger: fulcrumLogger,
                 isLoggingEnabled: isLoggingEnabled,
-                urlSession: urlSession,
                 connectionTimeout: configuration.connectTimeout.totalSeconds,
                 maximumMessageSize: configuration.maximumMessageSize,
                 bootstrapServers: bootstrapServers.isEmpty ? nil : bootstrapServers,

@@ -100,10 +100,10 @@ extension _OpalBase.Network {
                 )
                 return .init(hex: result.hex,
                              blockhash: result.blockHash,
-                             blocktime: UInt32(result.blocktime),
-                             confirmations: UInt32(result.confirmations),
+                             blocktime: result.blocktime.flatMap(UInt32.init(exactly:)),
+                             confirmations: result.confirmations.flatMap(UInt32.init(exactly:)),
                              size: UInt32(result.size),
-                             time: UInt32(result.time))
+                             time: result.time.flatMap(UInt32.init(exactly:)))
             }
         }
 

@@ -77,7 +77,7 @@ extension _OpalBase.Network {
             return false
         }
         
-        private static func translateTransport(_ transport: SwiftFulcrum.Client.Error.TransportModel) -> OpalBase.Network.Error {
+        private static func translateTransport(_ transport: SwiftFulcrum.Client.Error.Transport) -> OpalBase.Network.Error {
             switch transport {
             case .setupFailed:
                 return OpalBase.Network.Error(reason: .transport, message: "Failed to create transport")
@@ -106,7 +106,7 @@ extension _OpalBase.Network {
             }
         }
         
-        private static func translateCoding(_ coding: SwiftFulcrum.Client.Error.CodingModel) -> OpalBase.Network.Error {
+        private static func translateCoding(_ coding: SwiftFulcrum.Client.Error.Coding) -> OpalBase.Network.Error {
             switch coding {
             case .encode(let underlying):
                 return OpalBase.Network.Error(reason: .encoding, message: describe(underlying))
