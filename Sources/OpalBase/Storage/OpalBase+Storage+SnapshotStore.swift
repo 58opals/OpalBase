@@ -52,7 +52,7 @@ extension _OpalBase.Storage {
         }
     }
 
-    public nonisolated func makeSnapshotStore() -> SnapshotStore {
+    public func makeSnapshotStore() -> SnapshotStore {
         SnapshotStore(
             saveWalletSnapshot: saveWalletSnapshot(_:generation:),
             loadWalletSnapshot: loadWalletSnapshot(generation:),

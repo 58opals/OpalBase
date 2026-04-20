@@ -14,14 +14,14 @@ extension _OpalBase.Wallet.Fulcrum.Monitor {
         let reader = dependencies.blockHeaderReader
         let retryDelay = dependencies.retryDelay
 
-        return Task.detached {
+        return Task {
             while !Task.isCancelled {
                 do {
                     let stream = try await reader.subscribeToTip()
                     try await consumeHeaderStream(stream, dependencies: dependencies)
                 } catch {
                     if error.isCancellationError { return }
-                    publishFailure(address: nil, error: error, relay: dependencies.relay)
+                    await publishFailure(address: nil, error: error, eventHub: dependencies.eventHub)
                     guard !Task.isCancelled else { return }
                     try? await Task.sleep(for: retryDelay)
                 }
@@ -40,7 +40,7 @@ extension _OpalBase.Wallet.Fulcrum.Monitor {
             if error.isCancellationError {
                 throw error
             }
-            publishFailure(address: nil, error: error, relay: dependencies.relay)
+            await publishFailure(address: nil, error: error, eventHub: dependencies.eventHub)
             throw error
         }
     }
@@ -49,10 +49,10 @@ extension _OpalBase.Wallet.Fulcrum.Monitor {
         do {
             let changeSet = try await dependencies.account.refreshTransactionConfirmations(using: dependencies.transactionClient)
             if !changeSet.isEmpty {
-                dependencies.relay.publish(.confirmationsChanged(changeSet))
+                await dependencies.eventHub.publish(.confirmationsChanged(changeSet))
             }
         } catch {
-            publishFailure(address: nil, error: error, relay: dependencies.relay)
+            await publishFailure(address: nil, error: error, eventHub: dependencies.eventHub)
         }
     }
 }

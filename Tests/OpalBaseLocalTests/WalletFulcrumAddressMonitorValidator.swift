@@ -292,8 +292,12 @@ struct WalletFulcrumAddressMonitorValidator {
                 for try await _ in stream { }
             } catch { }
         }
+        await Task.yield()
         do {
-            try await WalletFulcrumAddressMonitorSupport.waitUntil(description: "convenience monitor subscriptions started") {
+            try await WalletFulcrumAddressMonitorSupport.waitUntil(
+                description: "convenience monitor subscriptions started",
+                timeout: .seconds(20)
+            ) {
                 let subscribeRequests = await addressReader.readSubscribeRequests()
                 let subscriptionCount = await headerReader.readSubscriptionCount()
                 return !subscribeRequests.isEmpty && subscriptionCount > 0
@@ -302,7 +306,10 @@ struct WalletFulcrumAddressMonitorValidator {
             collector.cancel()
             _ = await collector.result
 
-            try await WalletFulcrumAddressMonitorSupport.waitUntil(description: "convenience monitor subscriptions terminated") {
+            try await WalletFulcrumAddressMonitorSupport.waitUntil(
+                description: "convenience monitor subscriptions terminated",
+                timeout: .seconds(20)
+            ) {
                 let addressTerminations = await addressReader.readSubscriptionTerminationCount(for: targetEntry.address.string)
                 let tipTerminations = await headerReader.readTerminationCount()
                 return addressTerminations > 0 && tipTerminations > 0

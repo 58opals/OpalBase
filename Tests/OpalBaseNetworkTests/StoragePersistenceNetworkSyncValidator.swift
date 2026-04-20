@@ -102,7 +102,7 @@ struct StoragePersistenceNetworkSyncValidator {
                     #expect([OpalBase.Storage.Security.ProtectionMode.plaintext, .software, .secureEnclave].contains(mode))
 
                     let restoredStorage = try OpalBase.Storage(valueClient: valueClient)
-                    let session = OpalBase.Storage.PersistenceSession(storage: restoredStorage)
+                    let session = await OpalBase.Storage.PersistenceSession(storage: restoredStorage)
                     let restored = try await session.restore()
 
                     guard let restoredWalletSnapshot = restored.walletSnapshot else {

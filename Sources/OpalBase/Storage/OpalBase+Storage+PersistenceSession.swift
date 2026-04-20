@@ -10,10 +10,17 @@ extension _OpalBase.Storage {
         private let storedMnemonicStore: OpalBase.Storage.StoredMnemonicStore
         private let progressHandler: ProgressHandler
         
-        public init(storage: OpalBase.Storage, progressHandler: @escaping ProgressHandler = { _ in }) {
-            self.init(snapshotStore: storage.makeSnapshotStore(),
-                      storedMnemonicStore: storage.makeStoredMnemonicStore(),
-                      progressHandler: progressHandler)
+        public init(
+            storage: OpalBase.Storage,
+            progressHandler: @escaping ProgressHandler = { _ in }
+        ) async {
+            let snapshotStore = await storage.makeSnapshotStore()
+            let storedMnemonicStore = await storage.makeStoredMnemonicStore()
+            self.init(
+                snapshotStore: snapshotStore,
+                storedMnemonicStore: storedMnemonicStore,
+                progressHandler: progressHandler
+            )
         }
         
         public init(snapshotStore: OpalBase.Storage.SnapshotStore,

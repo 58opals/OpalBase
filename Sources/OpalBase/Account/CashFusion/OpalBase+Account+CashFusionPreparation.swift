@@ -29,7 +29,7 @@ extension _OpalBase.Account {
             reservation: reservation
         )
         let observerSink = CashFusionObserverSink()
-        let wrappedSession = sessionFactory(
+        let wrappedSession = await sessionFactory(
             configuration.makeClientConfiguration(),
             configuration.genesisHash,
             configuration.joinPools.makeJoinPools(),
@@ -43,7 +43,7 @@ extension _OpalBase.Account {
             wrappedSession: wrappedSession,
             observerSink: observerSink
         )
-        observerSink.owner = session
+        await observerSink.bind(to: session)
         return session
     }
 

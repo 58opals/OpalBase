@@ -38,7 +38,7 @@ extension _OpalBase.Wallet.Fulcrum {
         }
 
         let dependencies: WorkerDependencies
-        let relay: EventRelay
+        let eventHub: EventHub
         var addressSubscriptions: [OpalBase.Address: Task<Void, Never>]
         var newEntryTask: Task<Void, Never>?
         var headerTask: Task<Void, Never>?
@@ -53,8 +53,8 @@ extension _OpalBase.Wallet.Fulcrum {
                     transactionReader: OpalBase.Network.TransactionReader? = nil,
                     includeUnconfirmed: Bool = true,
                     retryDelay: Duration = .seconds(2)) {
-            let relay = EventRelay()
-            self.relay = relay
+            let eventHub = EventHub()
+            self.eventHub = eventHub
             self.dependencies = .init(
                 account: account,
                 addressReader: addressReader,
@@ -63,7 +63,7 @@ extension _OpalBase.Wallet.Fulcrum {
                 transactionReader: transactionReader,
                 shouldIncludeUnconfirmed: includeUnconfirmed,
                 retryDelay: retryDelay,
-                relay: relay
+                eventHub: eventHub
             )
             self.addressSubscriptions = .init()
             self.activeEventStreamIdentifiers = .init()
@@ -77,7 +77,10 @@ extension _OpalBase.Wallet.Fulcrum {
             }
             newEntryTask?.cancel()
             headerTask?.cancel()
-            relay.finishAll()
+            let eventHub = eventHub
+            Task {
+                await eventHub.finishAll()
+            }
         }
 
         public func start() async {
@@ -86,18 +89,18 @@ extension _OpalBase.Wallet.Fulcrum {
 
             let existingEntries = await dependencies.account.listTrackedEntries()
             for entry in existingEntries {
-                registerEntry(entry)
+                await registerEntry(entry)
             }
 
             await startEntryObservation()
             await startHeaderSubscription()
         }
 
-        public func stop(reason: Termination.Reason = .stopped) {
-            tearDown(reason: reason, shouldPublishTermination: true)
+        public func stop(reason: Termination.Reason = .stopped) async {
+            await tearDown(reason: reason, shouldPublishTermination: true)
         }
 
-        public func makeEventStream(autoStart: Bool = true) -> AsyncThrowingStream<Event, Swift.Error> {
+        public func makeEventStream(autoStart: Bool = true) async -> AsyncThrowingStream<Event, Swift.Error> {
             guard !isFinished else {
                 return AsyncThrowingStream { continuation in
                     continuation.finish()
@@ -105,32 +108,16 @@ extension _OpalBase.Wallet.Fulcrum {
             }
 
             let identifier = UUID()
-            let relay = relay
             activeEventStreamIdentifiers.insert(identifier)
-            let lifetime = EventStreamLifetime(monitor: self, identifier: identifier)
 
-            return AsyncThrowingStream { continuation in
-                _ = lifetime
-                relay.storeContinuation(continuation, identifier: identifier)
-
-                if autoStart {
-                    Task.detached(priority: .userInitiated) { [lifetime] in
-                        await lifetime.monitor.startIfStreamIsStillActive(identifier: lifetime.identifier)
-                    }
-                }
-
-                continuation.onTermination = { [lifetime] termination in
-                    Task.detached { [lifetime] in
-                        await lifetime.monitor.handleEventStreamTermination(
-                            identifier: lifetime.identifier,
-                            termination: termination
-                        )
-                    }
-                }
-            }
+            return await eventHub.makeStream(
+                identifier: identifier,
+                autoStart: autoStart,
+                monitor: self
+            )
         }
 
-        private func startIfStreamIsStillActive(identifier: UUID) async {
+        fileprivate func startIfStreamIsStillActive(identifier: UUID) async {
             guard !isFinished,
                   activeEventStreamIdentifiers.contains(identifier) else {
                 return
@@ -139,12 +126,12 @@ extension _OpalBase.Wallet.Fulcrum {
             await start()
         }
 
-        private func handleEventStreamTermination(
+        fileprivate func handleEventStreamTermination(
             identifier: UUID,
             termination: AsyncThrowingStream<Event, Swift.Error>.Continuation.Termination
         ) async {
             activeEventStreamIdentifiers.remove(identifier)
-            _ = relay.removeContinuation(withIdentifier: identifier)
+            await eventHub.removeContinuation(withIdentifier: identifier)
 
             guard activeEventStreamIdentifiers.isEmpty else {
                 return
@@ -152,16 +139,16 @@ extension _OpalBase.Wallet.Fulcrum {
 
             switch termination {
             case .cancelled:
-                tearDown(reason: .cancelled, shouldPublishTermination: false)
+                await tearDown(reason: .cancelled, shouldPublishTermination: false)
             default:
-                tearDown(reason: .stopped, shouldPublishTermination: false)
+                await tearDown(reason: .stopped, shouldPublishTermination: false)
             }
         }
 
         private func tearDown(
             reason: Termination.Reason,
             shouldPublishTermination: Bool
-        ) {
+        ) async {
             guard !isFinished else { return }
 
             isFinished = true
@@ -172,9 +159,9 @@ extension _OpalBase.Wallet.Fulcrum {
             cancelHeaderTask()
 
             if shouldPublishTermination {
-                relay.publish(.terminated(.init(reason: reason)))
+                await eventHub.publish(.terminated(.init(reason: reason)))
             }
-            relay.finishAll()
+            await eventHub.finishAll()
         }
 
         private func cancelSubscriptions() {
@@ -205,70 +192,58 @@ extension _OpalBase.Wallet.Fulcrum.Monitor {
         let transactionReader: OpalBase.Network.TransactionReader?
         let shouldIncludeUnconfirmed: Bool
         let retryDelay: Duration
-        let relay: EventRelay
+        let eventHub: EventHub
     }
 }
 
-private final class EventStreamLifetime: @unchecked Sendable {
-    let monitor: OpalBase.Wallet.Fulcrum.Monitor
-    let identifier: UUID
+extension _OpalBase.Wallet.Fulcrum.Monitor {
+    actor EventHub {
+        typealias Event = OpalBase.Wallet.Fulcrum.Monitor.Event
+        typealias Continuation = AsyncThrowingStream<Event, Swift.Error>.Continuation
 
-    init(
-        monitor: OpalBase.Wallet.Fulcrum.Monitor,
-        identifier: UUID
-    ) {
-        self.monitor = monitor
-        self.identifier = identifier
-    }
-}
+        private var continuations: [UUID: Continuation] = .init()
 
-final class EventRelay: @unchecked Sendable {
-    typealias Event = OpalBase.Wallet.Fulcrum.Monitor.Event
-    typealias Continuation = AsyncThrowingStream<Event, Swift.Error>.Continuation
+        func makeStream(
+            identifier: UUID,
+            autoStart: Bool,
+            monitor: OpalBase.Wallet.Fulcrum.Monitor
+        ) -> AsyncThrowingStream<Event, Swift.Error> {
+            AsyncThrowingStream { continuation in
+                continuations[identifier] = continuation
 
-    private let lock = NSLock()
-    private var continuations: [UUID: Continuation] = .init()
+                if autoStart {
+                    Task(priority: .userInitiated) {
+                        await monitor.startIfStreamIsStillActive(identifier: identifier)
+                    }
+                }
 
-    func storeContinuation(_ continuation: Continuation, identifier: UUID) {
-        lock.lock()
-        continuations[identifier] = continuation
-        lock.unlock()
-    }
-
-    func removeContinuation(withIdentifier identifier: UUID) -> Bool {
-        lock.lock()
-        continuations.removeValue(forKey: identifier)
-        let isEmpty = continuations.isEmpty
-        lock.unlock()
-        return isEmpty
-    }
-
-    func publish(_ event: Event) {
-        let activeContinuations = snapshotContinuations()
-        for continuation in activeContinuations {
-            continuation.yield(event)
+                continuation.onTermination = { [monitor] termination in
+                    Task {
+                        await monitor.handleEventStreamTermination(
+                            identifier: identifier,
+                            termination: termination
+                        )
+                    }
+                }
+            }
         }
-    }
 
-    func finishAll() {
-        let activeContinuations = drainContinuations()
-        for continuation in activeContinuations {
-            continuation.finish()
+        func removeContinuation(withIdentifier identifier: UUID) {
+            continuations.removeValue(forKey: identifier)
         }
-    }
 
-    private func snapshotContinuations() -> [Continuation] {
-        lock.lock()
-        let activeContinuations = Array(continuations.values)
-        lock.unlock()
-        return activeContinuations
-    }
+        func publish(_ event: Event) {
+            for continuation in continuations.values {
+                continuation.yield(event)
+            }
+        }
 
-    private func drainContinuations() -> [Continuation] {
-        lock.lock()
-        let activeContinuations = Array(continuations.values)
-        continuations.removeAll()
-        lock.unlock()
-        return activeContinuations
+        func finishAll() {
+            let activeContinuations = Array(continuations.values)
+            continuations.removeAll()
+            for continuation in activeContinuations {
+                continuation.finish()
+            }
+        }
     }
 }

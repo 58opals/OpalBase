@@ -19,7 +19,7 @@ extension StoragePersistenceValidator {
         )
         try await storage.deleteWalletSnapshot(generation: committedGeneration)
 
-        let session = OpalBase.Storage.PersistenceSession(storage: storage)
+        let session = await OpalBase.Storage.PersistenceSession(storage: storage)
         let restored = try await session.restore()
 
         #expect(restored.walletSnapshot == nil)
@@ -40,7 +40,7 @@ extension StoragePersistenceValidator {
         )
         try await storage.deleteMnemonic(generation: committedGeneration)
 
-        let session = OpalBase.Storage.PersistenceSession(storage: storage)
+        let session = await OpalBase.Storage.PersistenceSession(storage: storage)
         let restored = try await session.restore()
 
         #expect(restored.walletSnapshot != nil)
@@ -101,7 +101,7 @@ extension StoragePersistenceValidator {
             )
         }
 
-        let session = OpalBase.Storage.PersistenceSession(storage: restoringStorage)
+        let session = await OpalBase.Storage.PersistenceSession(storage: restoringStorage)
         let restored = try await session.restore()
 
         #expect(restored.walletSnapshot != nil)
@@ -147,7 +147,7 @@ extension StoragePersistenceValidator {
             security: restoringSecurity
         )
 
-        let session = OpalBase.Storage.PersistenceSession(storage: restoringStorage)
+        let session = await OpalBase.Storage.PersistenceSession(storage: restoringStorage)
 
         await #expect(throws: OpalBase.Storage.Error.self) {
             _ = try await session.restore()
@@ -164,7 +164,7 @@ extension StoragePersistenceValidator {
         _ = try await storage.persistState(for: wallet)
         try await storage.wipeAll()
 
-        let session = OpalBase.Storage.PersistenceSession(storage: storage)
+        let session = await OpalBase.Storage.PersistenceSession(storage: storage)
         let restored = try await session.restore()
 
         #expect(restored.walletSnapshot == nil)

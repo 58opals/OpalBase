@@ -49,6 +49,37 @@ struct NetworkFulcrumTransactionReaderValidator {
         #expect(await client.readLastVerboseTransactionHash() == fixture.transactionHash.reverseOrder.hexadecimalString)
     }
 
+    @Test("preserves missing verbose transaction metadata as nil")
+    func fetchDetailedTransactionPreservesMissingVerboseMetadata() async throws {
+        let fixture = try TransactionFixture.make()
+        let verboseResponse = try TransactionFixture.makeVerboseResponse(
+            transactionHash: fixture.transactionHash.reverseOrder.hexadecimalString,
+            rawTransactionHexadecimal: fixture.rawTransactionHexadecimal,
+            blockHashHexadecimal: fixture.blockHashData.hexadecimalString,
+            blockTime: nil,
+            confirmations: nil,
+            transactionTime: nil,
+            size: fixture.rawTransactionData.count
+        )
+        let client = TransactionReaderClientTestActor(
+            rawTransactionHex: fixture.rawTransactionHexadecimal,
+            verboseTransaction: verboseResponse
+        )
+        let reader = OpalBase.Network.FulcrumTransactionReader(client: client)
+
+        let detail = try await reader.fetchDetailedTransaction(for: fixture.transactionHash)
+
+        #expect(detail.hash == fixture.transactionHash)
+        #expect(detail.rawTransactionData == fixture.rawTransactionData)
+        #expect(detail.blockHash == fixture.blockHashData)
+        #expect(detail.blockTime == nil)
+        #expect(detail.confirmations == nil)
+        #expect(detail.time == nil)
+        #expect(try detail.transaction.encode() == fixture.rawTransactionData)
+        #expect(await client.readVerboseFetchCount() == 1)
+        #expect(await client.readRawFetchCount() == 0)
+    }
+
     @Test("falls back to raw transaction fetch when verbose decoding fails")
     func fetchDetailedTransactionFallsBackToRawAfterVerboseDecodingFailure() async throws {
         let fixture = try TransactionFixture.make()
@@ -252,24 +283,21 @@ private struct TransactionFixture {
         )
     }
 
-    private static func makeVerboseResponse(
+    static func makeVerboseResponse(
         transactionHash: String,
         rawTransactionHexadecimal: String,
         blockHashHexadecimal: String,
-        blockTime: UInt32,
-        confirmations: UInt32,
-        transactionTime: UInt32,
+        blockTime: UInt32?,
+        confirmations: UInt32?,
+        transactionTime: UInt32?,
         size: Int
     ) throws -> SwiftFulcrum.RPC.Response.Result.Blockchain.Transaction.Get {
-        let payload = try JSONSerialization.data(withJSONObject: [
+        var payload: [String: Any] = [
             "blockhash": blockHashHexadecimal,
-            "blocktime": blockTime,
-            "confirmations": confirmations,
             "hash": transactionHash,
             "hex": rawTransactionHexadecimal,
             "locktime": 0,
             "size": size,
-            "time": transactionTime,
             "txid": transactionHash,
             "version": 2,
             "vin": [
@@ -296,10 +324,20 @@ private struct TransactionFixture {
                     "value": 0.00000546
                 ]
             ]
-        ])
+        ]
+        if let blockTime {
+            payload["blocktime"] = blockTime
+        }
+        if let confirmations {
+            payload["confirmations"] = confirmations
+        }
+        if let transactionTime {
+            payload["time"] = transactionTime
+        }
+        let payloadData = try JSONSerialization.data(withJSONObject: payload)
         return try JSONDecoder().decode(
             SwiftFulcrum.RPC.Response.Result.Blockchain.Transaction.Get.self,
-            from: payload
+            from: payloadData
         )
     }
 }

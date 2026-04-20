@@ -20,7 +20,7 @@ extension StoragePersistenceValidator {
         #expect([OpalBase.Storage.Security.ProtectionMode.plaintext, .software, .secureEnclave].contains(protectionMode))
 
         let restoredStorage = try OpalBase.Storage(valueClient: valueClient)
-        let session = OpalBase.Storage.PersistenceSession(storage: restoredStorage)
+        let session = await OpalBase.Storage.PersistenceSession(storage: restoredStorage)
         let restored = try await session.restore()
 
         let restoredWalletSnapshot = try #require(restored.walletSnapshot)
@@ -53,7 +53,7 @@ extension StoragePersistenceValidator {
     func restoreEmptyStateWhenNothingPersisted() async throws {
         let valueClient = OpalBase.Storage.ValueClient.makeInMemory()
         let storage = try OpalBase.Storage(valueClient: valueClient)
-        let session = OpalBase.Storage.PersistenceSession(storage: storage)
+        let session = await OpalBase.Storage.PersistenceSession(storage: storage)
 
         let restored = try await session.restore()
 
