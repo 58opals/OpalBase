@@ -7,6 +7,32 @@ import OpalBaseTestSupport
 
 @Suite("OpalBase.Transaction decoding", .tags(.unit))
 struct TransactionDecodeValidator {
+    @Test("encode rejects invalid previous transaction hash length")
+    func transactionEncodeRejectsInvalidPreviousTransactionHashLength() throws {
+        let invalidHash = OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0x01, count: 31))
+        let input = OpalBase.Transaction.Input(
+            previousTransactionHash: invalidHash,
+            previousTransactionOutputIndex: 0,
+            unlockingScript: Data()
+        )
+        let output = OpalBase.Transaction.Output(value: 546, lockingScript: Data([0x51]))
+        let transaction = OpalBase.Transaction(
+            version: 2,
+            inputs: [input],
+            outputs: [output],
+            lockTime: 0
+        )
+
+        #expect(
+            throws: OpalBase.Transaction.Error.invalidTransactionHashLength(
+                expected: 32,
+                actual: 31
+            )
+        ) {
+            try transaction.encode()
+        }
+    }
+
     @Test("decode reports consumed length for sliced data")
     func transactionDecodeBytesReadMatchesSliceLength() throws {
         let previousHash = OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 1, count: 32))

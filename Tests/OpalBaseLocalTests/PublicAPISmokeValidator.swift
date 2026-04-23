@@ -127,6 +127,38 @@ struct PublicAPISmokeValidator {
         }
     }
 
+    @Test("claimable facade composes from OpalBase only")
+    func claimableFacadeComposesFromOpalBaseOnly() throws {
+        let refundPrivateKey = Data(repeating: 0, count: 31) + Data([0x02])
+        let draft = try OpalBase.Claimable.Draft(
+            network: .chipnet,
+            refundPrivateKey: refundPrivateKey,
+            expiryBlockHeight: 500
+        )
+        let fundingOutput = draft.makeFundingOutput(value: 20_000)
+        let envelope = try OpalBase.Claimable.Envelope(
+            contract: draft.contract,
+            claimPrivateKey: draft.claimPrivateKey,
+            fundingTransactionHash: .init(naturalOrder: Data(repeating: 0x44, count: 32)),
+            fundingOutputIndex: 1,
+            fundingValue: 20_000
+        )
+        let decodedEnvelope = try OpalBase.Claimable.Envelope.decode(
+            from: envelope.encode(),
+            on: .chipnet
+        )
+        let localStatus = decodedEnvelope.makeLocalStatus(currentBlockHeight: 499)
+        let recoveryMaterial = try decodedEnvelope.makeClaimRecoveryMaterial()
+
+        #expect(fundingOutput.lockingScript == draft.contract.fundingLockingScriptData)
+        #expect(decodedEnvelope.contract == draft.contract)
+        #expect(localStatus.allowsClaim)
+        #expect(localStatus.allowsRefund == false)
+        #expect(recoveryMaterial.spendPath == .claim)
+        #expect(recoveryMaterial.fundingValueSatoshis == 20_000)
+        #expect(recoveryMaterial.privateKeyWalletImportFormat.isEmpty == false)
+    }
+
     @Test("cash token metadata facades interoperate")
     func cashTokenMetadataFacadesInterop() async throws {
         let client = OpalBase.CashTokens.BCMR.Client(

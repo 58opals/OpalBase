@@ -29,8 +29,11 @@ extension _OpalBase.Transaction {
         let changeDustThreshold = try changeOutputTemplate.calculateDustThreshold(feeRate: minimumRelayFeeRate)
         
         if desiredChange == 0 {
-            // No change output needed.
+            if changeOutputTemplate.tokenData != nil {
+                try validateDustDonationAllowed(for: changeOutputTemplate)
+            }
         } else if desiredChange < changeDustThreshold {
+            try validateDustDonationAllowed(for: changeOutputTemplate)
             guard shouldAllowDustDonation else { throw Error.outputValueIsLessThanTheDustLimit }
         } else {
             outputs.append(.init(value: desiredChange,
@@ -121,6 +124,12 @@ extension _OpalBase.Transaction {
         }
         
         return inputTotal - outputTotal
+    }
+
+    static func validateDustDonationAllowed(for changeOutput: Output) throws {
+        guard changeOutput.tokenData == nil else {
+            throw Error.outputValueIsLessThanTheDustLimit
+        }
     }
 }
 
