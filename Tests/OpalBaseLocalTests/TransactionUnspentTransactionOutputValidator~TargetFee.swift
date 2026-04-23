@@ -31,6 +31,27 @@ extension TransactionUnspentTransactionOutputValidator {
             )
         }
     }
+
+    @Test("computeOutputsForTargetFee rejects dust donation for token change")
+    func computeOutputsForTargetFeeRejectsDustDonationForTokenChange() throws {
+        let recipientOutputs = [OpalBase.Transaction.Output(value: 1_000, lockingScript: Data([0x51]))]
+        let tokenData = try makeTokenData(fillByte: 0x7A, amount: 7)
+        let changeOutput = OpalBase.Transaction.Output(
+            value: 900,
+            lockingScript: Data([0x52]),
+            tokenData: tokenData
+        )
+
+        #expect(throws: OpalBase.Transaction.Error.outputValueIsLessThanTheDustLimit) {
+            _ = try OpalBase.Transaction.computeOutputsForTargetFee(
+                recipientOutputs: recipientOutputs,
+                changeOutputTemplate: changeOutput,
+                outputOrderingStrategy: .privacyRandomized,
+                targetFee: 850,
+                shouldAllowDustDonation: true
+            )
+        }
+    }
     
     @Test("computeOutputsForTargetFee applies privacy output shuffler to change output")
     func computeOutputsForTargetFeeAppliesPrivacyOutputShuffler() throws {

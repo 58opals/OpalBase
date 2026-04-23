@@ -74,7 +74,15 @@ extension _OpalBase.Transaction {
         var writer = Data.Writer()
         writer.writeLittleEndian(version)
         writer.writeCompactSize(CompactSize(value: UInt64(inputs.count)))
-        inputs.forEach { writer.writeData($0.encode()) }
+        for input in inputs {
+            guard input.previousTransactionHash.naturalOrder.count == Hash.expectedByteCount else {
+                throw OpalBase.Transaction.Error.invalidTransactionHashLength(
+                    expected: Hash.expectedByteCount,
+                    actual: input.previousTransactionHash.naturalOrder.count
+                )
+            }
+            writer.writeData(input.encode())
+        }
         writer.writeCompactSize(CompactSize(value: UInt64(outputs.count)))
         for output in outputs {
             writer.writeData(try output.encode())

@@ -85,6 +85,7 @@ extension _OpalBase.Transaction {
         
         if changeAmount < estimatedFeeWithChange {
             didRemoveChangeOutput = true
+            try validateDustDonationAllowed(for: changeOutput)
             
             let transactionWithoutChange = OpalBase.Transaction(version: version,
                                                        inputs: inputs,
@@ -110,12 +111,15 @@ extension _OpalBase.Transaction {
             
             if remainingChange > 0 {
                 if remainingChange < changeDustThreshold {
+                    try validateDustDonationAllowed(for: changeOutput)
                     guard shouldAllowDustDonation else { throw Error.outputValueIsLessThanTheDustLimit }
                 } else {
                     outputs.append(.init(value: remainingChange,
                                          lockingScript: changeOutput.lockingScript,
                                          tokenData: changeOutput.tokenData))
                 }
+            } else if changeOutput.tokenData != nil {
+                try validateDustDonationAllowed(for: changeOutput)
             }
         }
         

@@ -31,6 +31,18 @@ struct ClaimableContractValidator {
         #expect(decodedFundingScript == .p2sh(scriptHash: contract.fundingScriptHashData))
     }
 
+    @Test("rejects timestamp locktime expiry")
+    func rejectsTimestampLocktimeExpiry() throws {
+        #expect(throws: OpalBase.Claimable.Error.invalidExpiryBlockHeight) {
+            try OpalBase.Claimable.Contract(
+                network: .chipnet,
+                claimPublicKeyHash: Data(repeating: 0x11, count: 20),
+                refundPublicKeyHash: Data(repeating: 0x22, count: 20),
+                expiryBlockHeight: 500_000_000
+            )
+        }
+    }
+
     @Test("draft derives claim branch and funding output")
     func draftDerivesClaimBranchAndFundingOutput() throws {
         let (draft, refundPrivateKey) = try makeClaimableDraft()

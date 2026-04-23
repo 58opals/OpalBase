@@ -42,7 +42,7 @@ extension _OpalBase.Claimable {
             )
             let unspentOutputs = try await scriptHashReader.fetchUnspent(
                 forScriptHash: scriptHashHex,
-                tokenFilter: .exclude
+                tokenFilter: .include
             )
 
             let fundingState = try await makeFundingState(
@@ -126,7 +126,7 @@ private extension _OpalBase.Claimable.StatusResolver {
             guard let transaction = try? OpalBase.Transaction.decode(
                 from: rawTransactionData
             ).transaction else {
-                return .unknown
+                continue
             }
 
             for input in transaction.inputs where input.matchesClaimableOutpoint(envelope) {

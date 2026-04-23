@@ -76,6 +76,45 @@ struct ClaimableStatusResolverValidator {
         #expect(status.localStatus.allowsClaim)
     }
 
+    @Test("reports invalid funding state for token-bearing funding output")
+    func reportsInvalidFundingStateForTokenBearingFundingOutput() async throws {
+        let (envelope, _) = try makeClaimableEnvelope(network: .chipnet)
+        let category = try OpalBase.CashTokens.CategoryID(
+            transactionOrderData: Data(repeating: 0x42, count: 32)
+        )
+        let tokenData = OpalBase.CashTokens.TokenData(category: category, amount: 1, nft: nil)
+        let tokenBearingOutput = OpalBase.Transaction.Output.Unspent(
+            value: envelope.fundingValue,
+            lockingScript: envelope.contract.fundingLockingScriptData,
+            tokenData: tokenData,
+            previousTransactionHash: envelope.fundingTransactionHash,
+            previousTransactionOutputIndex: envelope.fundingOutputIndex
+        )
+        let resolver = OpalBase.Claimable.StatusResolver(
+            network: .chipnet,
+            scriptHashReader: .init(
+                fetchHistory: { _, _ in
+                    [
+                        makeClaimableHistoryEntry(
+                            transactionHash: envelope.fundingTransactionHash
+                        )
+                    ]
+                },
+                fetchUnspent: { _, tokenFilter in
+                    tokenFilter == .include ? [tokenBearingOutput] : []
+                }
+            )
+        )
+
+        let status = try await resolver.resolve(
+            for: envelope,
+            includeUnconfirmed: true,
+            currentBlockHeight: 400
+        )
+
+        #expect(status.fundingState == .invalid)
+    }
+
     @Test("reports unknown spent funding state without transaction reader")
     func reportsUnknownSpentFundingStateWithoutTransactionReader() async throws {
         let (envelope, _) = try makeClaimableEnvelope(network: .chipnet)
@@ -170,6 +209,53 @@ struct ClaimableStatusResolverValidator {
             transactionReader: makeClaimableTransactionReader(
                 rawTransactionsByHash: [
                     envelope.fundingTransactionHash: try fundingTransaction.encode(),
+                    claimTransactionHash: try claimTransaction.encode()
+                ]
+            )
+        )
+
+        let status = try await resolver.resolve(
+            for: envelope,
+            includeUnconfirmed: true,
+            currentBlockHeight: 700
+        )
+
+        #expect(status.fundingState == .spent(spendPath: .claim))
+    }
+
+    @Test("continues spend path scan past malformed unrelated history transaction")
+    func continuesSpendPathScanPastMalformedUnrelatedHistoryTransaction() async throws {
+        let (envelope, _) = try makeClaimableEnvelope(
+            network: .chipnet,
+            expiryBlockHeight: 500
+        )
+        let fundingTransaction = makeClaimableFundingTransaction(for: envelope)
+        let malformedTransactionHash = OpalBase.Transaction.Hash(
+            naturalOrder: Data(repeating: 0x50, count: 32)
+        )
+        let claimTransaction = try envelope.buildClaimTransaction(
+            destinationLockingScript: makeClaimableDestinationLockingScript(fillByte: 0x51),
+            currentBlockHeight: 499
+        )
+        let claimTransactionHash = OpalBase.Transaction.Hash(
+            naturalOrder: Data(repeating: 0x51, count: 32)
+        )
+        let resolver = OpalBase.Claimable.StatusResolver(
+            network: .chipnet,
+            scriptHashReader: makeClaimableScriptHashReader(
+                history: [
+                    makeClaimableHistoryEntry(
+                        transactionHash: envelope.fundingTransactionHash
+                    ),
+                    makeClaimableHistoryEntry(transactionHash: malformedTransactionHash),
+                    makeClaimableHistoryEntry(transactionHash: claimTransactionHash)
+                ],
+                unspentOutputs: []
+            ),
+            transactionReader: makeClaimableTransactionReader(
+                rawTransactionsByHash: [
+                    envelope.fundingTransactionHash: try fundingTransaction.encode(),
+                    malformedTransactionHash: Data([0x00]),
                     claimTransactionHash: try claimTransaction.encode()
                 ]
             )

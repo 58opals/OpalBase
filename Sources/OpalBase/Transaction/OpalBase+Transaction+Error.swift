@@ -14,6 +14,7 @@ extension _OpalBase.Transaction {
         case sighashSingleIndexOutOfRange
         case missingUnspentTransactionOutputs
         case unspentTransactionOutputsCountMismatch(expected: Int, actual: Int)
+        case invalidTransactionHashLength(expected: Int, actual: Int)
         case transactionNotFound
         case feeCalculationOverflow(size: Int, feePerByte: UInt64)
     }

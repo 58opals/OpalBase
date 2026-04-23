@@ -21,6 +21,9 @@ extension _OpalBase.Claimable {
             guard refundPublicKeyHash.count == 20 else {
                 throw OpalBase.Claimable.Error.invalidRefundPublicKeyHash
             }
+            guard expiryBlockHeight < 500_000_000 else {
+                throw OpalBase.Claimable.Error.invalidExpiryBlockHeight
+            }
 
             self.network = network
             self.claimPublicKeyHash = claimPublicKeyHash

@@ -12,6 +12,7 @@ extension _OpalBase.Claimable {
         case invalidRefundPrivateKey
         case invalidClaimPublicKeyHash
         case invalidRefundPublicKeyHash
+        case invalidExpiryBlockHeight
         case invalidFundingReference
         case invalidFundingOutput
         case claimRequiresPreExpiry
