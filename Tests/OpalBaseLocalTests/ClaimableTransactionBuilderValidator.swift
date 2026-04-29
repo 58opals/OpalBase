@@ -1,6 +1,7 @@
 // ClaimableTransactionBuilderValidator.swift
 
 import Foundation
+import OpalCrypto
 import Testing
 @testable import OpalBase
 
@@ -38,6 +39,29 @@ struct ClaimableTransactionBuilderValidator {
         #expect(decodedUnlockingScript.branchOpcode == ScriptOperationCode._1.rawValue)
         #expect(decodedUnlockingScript.redeemScriptData == envelope.contract.redeemScriptData)
         #expect(encodedHashType == UInt8(OpalBase.Transaction.HashType.makeAll().value))
+    }
+
+    @Test("claim signature covers redeem script instead of P2SH funding script")
+    func claimSignatureCoversRedeemScriptInsteadOfP2SHFundingScript() throws {
+        let (envelope, _) = try makeClaimableEnvelope(
+            expiryBlockHeight: 500,
+            fundingValue: 50_000
+        )
+        let transaction = try envelope.buildClaimTransaction(
+            destinationLockingScript: makeClaimableDestinationLockingScript(fillByte: 0x55),
+            feePerByte: 1,
+            currentBlockHeight: 499
+        )
+        let expectedClaimPublicKey = try makeClaimableCompressedPublicKey(
+            from: envelope.claimPrivateKey,
+            invalidError: .invalidClaimPrivateKey
+        )
+
+        try expectClaimableSignature(
+            in: transaction,
+            envelope: envelope,
+            expectedPublicKey: expectedClaimPublicKey
+        )
     }
 
     @Test("rejects claim transaction at and after expiry")
@@ -107,6 +131,30 @@ struct ClaimableTransactionBuilderValidator {
         #expect(decodedUnlockingScript.redeemScriptData == envelope.contract.redeemScriptData)
     }
 
+    @Test("refund signature covers redeem script instead of P2SH funding script")
+    func refundSignatureCoversRedeemScriptInsteadOfP2SHFundingScript() throws {
+        let (envelope, refundPrivateKey) = try makeClaimableEnvelope(
+            expiryBlockHeight: 500,
+            fundingValue: 50_000
+        )
+        let transaction = try envelope.buildRefundTransaction(
+            refundPrivateKey: refundPrivateKey,
+            destinationLockingScript: makeClaimableDestinationLockingScript(fillByte: 0x66),
+            feePerByte: 1,
+            currentBlockHeight: 500
+        )
+        let expectedRefundPublicKey = try makeClaimableCompressedPublicKey(
+            from: refundPrivateKey,
+            invalidError: .invalidRefundPrivateKey
+        )
+
+        try expectClaimableSignature(
+            in: transaction,
+            envelope: envelope,
+            expectedPublicKey: expectedRefundPublicKey
+        )
+    }
+
     @Test("rejects dust sweep output")
     func rejectsDustSweepOutput() throws {
         let destinationLockingScript = makeClaimableDestinationLockingScript(fillByte: 0x44)
@@ -167,5 +215,57 @@ struct ClaimableTransactionBuilderValidator {
                 currentBlockHeight: 499
             )
         }
+    }
+
+    private func expectClaimableSignature(
+        in transaction: OpalBase.Transaction,
+        envelope: OpalBase.Claimable.Envelope,
+        expectedPublicKey: Data
+    ) throws {
+        let input = try #require(transaction.inputs.first)
+        let decodedUnlockingScript = try decodeClaimableUnlockingScript(input.unlockingScript)
+        let signatureWithHashType = decodedUnlockingScript.signatureWithHashType
+        let signature = try #require(
+            signatureWithHashType.dropLast().isEmpty
+                ? nil
+                : Data(signatureWithHashType.dropLast())
+        )
+        let encodedHashType = try #require(signatureWithHashType.last)
+        let hashType = OpalBase.Transaction.HashType.makeAll(anyoneCanPay: false)
+        let redeemScriptOutput = OpalBase.Transaction.Output(
+            value: envelope.fundingValue,
+            lockingScript: envelope.contract.redeemScriptData
+        )
+        let fundingLockingScriptOutput = OpalBase.Transaction.Output(
+            value: envelope.fundingValue,
+            lockingScript: envelope.contract.fundingLockingScriptData
+        )
+        let redeemScriptPreimage = try transaction.generatePreimage(
+            for: 0,
+            hashType: hashType,
+            outputBeingSpent: redeemScriptOutput
+        )
+        let fundingLockingScriptPreimage = try transaction.generatePreimage(
+            for: 0,
+            hashType: hashType,
+            outputBeingSpent: fundingLockingScriptOutput
+        )
+        let isValidAgainstRedeemScript = try OpalCrypto.Signature.verifySchnorr(
+            signature: signature,
+            digest: OpalCrypto.Hashing.computeHash256(redeemScriptPreimage),
+            publicKey: decodedUnlockingScript.publicKey
+        )
+        let isValidAgainstFundingLockingScript = try OpalCrypto.Signature.verifySchnorr(
+            signature: signature,
+            digest: OpalCrypto.Hashing.computeHash256(fundingLockingScriptPreimage),
+            publicKey: decodedUnlockingScript.publicKey
+        )
+
+        #expect(encodedHashType == UInt8(truncatingIfNeeded: hashType.value))
+        #expect(signature.count == 64)
+        #expect(decodedUnlockingScript.publicKey == expectedPublicKey)
+        #expect(envelope.contract.redeemScriptData != envelope.contract.fundingLockingScriptData)
+        #expect(isValidAgainstRedeemScript)
+        #expect(!isValidAgainstFundingLockingScript)
     }
 }
