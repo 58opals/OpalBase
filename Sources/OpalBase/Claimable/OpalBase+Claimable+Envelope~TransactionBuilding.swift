@@ -66,6 +66,13 @@ private extension _OpalBase.Claimable.Envelope {
         )
     }
 
+    var signingOutput: OpalBase.Transaction.Output {
+        OpalBase.Transaction.Output(
+            value: fundingValue,
+            lockingScript: contract.redeemScriptData
+        )
+    }
+
     func buildClaimableSpendTransaction(
         destinationLockingScript: Data,
         feePerByte: UInt64,
@@ -134,7 +141,7 @@ private extension _OpalBase.Claimable.Envelope {
         let preimage = try unsignedTransaction.generatePreimage(
             for: 0,
             hashType: hashType,
-            outputBeingSpent: fundingOutput
+            outputBeingSpent: signingOutput
         )
         let signature = try OpalCrypto.Signature.signSchnorr(
             digest: OpalCryptoAdapter.hash256(preimage),
