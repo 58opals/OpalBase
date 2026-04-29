@@ -72,6 +72,31 @@ enum WalletFulcrumAddressMonitorSupport {
         events.contains { if case .historyChanged = $0 { true } else { false } }
     }
 
+    static func firstUTXOChangeIndex(_ events: [OpalBase.Wallet.Fulcrum.Monitor.Event]) -> Int? {
+        events.firstIndex { if case .utxosChanged = $0 { true } else { false } }
+    }
+
+    static func firstUTXOChangeIndex(
+        _ events: [OpalBase.Wallet.Fulcrum.Monitor.Event],
+        containing utxo: OpalBase.Transaction.Output.Unspent
+    ) -> Int? {
+        events.firstIndex {
+            guard case .utxosChanged(let changeSet) = $0 else { return false }
+            return changeSet.updated.contains(utxo)
+        }
+    }
+
+    static func firstHistoryChangeIndex(
+        _ events: [OpalBase.Wallet.Fulcrum.Monitor.Event],
+        containing transactionHash: OpalBase.Transaction.Hash
+    ) -> Int? {
+        events.firstIndex {
+            guard case .historyChanged(let changeSet) = $0 else { return false }
+            let records = changeSet.inserted + changeSet.updated
+            return records.contains { $0.transactionHash == transactionHash }
+        }
+    }
+
     static func hasConfirmationChange(_ events: [OpalBase.Wallet.Fulcrum.Monitor.Event]) -> Bool {
         events.contains { if case .confirmationsChanged = $0 { true } else { false } }
     }

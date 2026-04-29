@@ -41,6 +41,9 @@ extension _OpalBase.Address.Book {
                 let changeSet = try replaceUTXOs(for: address,
                                                  with: utxos,
                                                  timestamp: refreshTimestamp)
+                try updateCachedBalance(for: address,
+                                        balance: changeSet.balance,
+                                        timestamp: refreshTimestamp)
                 changeSets.append(changeSet)
                 
                 if !utxos.isEmpty {

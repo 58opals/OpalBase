@@ -103,6 +103,52 @@ struct SnapshotPersistenceValidator {
         #expect(restoredReceivingEntries.allSatisfy { !$0.isUsed && !$0.isReserved })
         #expect(restoredChangeEntries.allSatisfy { !$0.isUsed && !$0.isReserved })
     }
+
+    @Test("address book restore keeps existing state when snapshot UTXO is malformed")
+    func addressBookRestoreKeepsExistingStateWhenSnapshotUTXOIsMalformed() async throws {
+        let account = try await AccountTestFixtures.makeAccount()
+        let book = await account.addressBook
+        let entry = try #require(await book.listEntries(for: .receiving).first)
+        try await book.updateCachedBalance(
+            for: entry.address,
+            balance: try OpalBase.Satoshi(1_234),
+            timestamp: .now
+        )
+
+        let snapshot = await book.makeSnapshot()
+        let alteredReceivingEntries = snapshot.receivingEntries.map { snapshotEntry in
+            OpalBase.Address.Book.Snapshot.Entry(
+                usage: snapshotEntry.usage,
+                index: snapshotEntry.index,
+                isUsed: snapshotEntry.isUsed,
+                isReserved: snapshotEntry.isReserved,
+                balance: snapshotEntry.index == entry.derivationPath.index ? 9_999 : snapshotEntry.balance,
+                lastUpdated: snapshotEntry.lastUpdated
+            )
+        }
+        let malformedUTXO = OpalBase.Address.Book.Snapshot.UTXO(
+            value: 500,
+            lockingScript: "not-hex",
+            tokenCategory: nil,
+            tokenAmount: nil,
+            nftCapability: nil,
+            nftCommitment: nil,
+            transactionHash: String(repeating: "1", count: 64),
+            outputIndex: 0
+        )
+        let malformedSnapshot = OpalBase.Address.Book.Snapshot(
+            receivingEntries: alteredReceivingEntries,
+            changeEntries: snapshot.changeEntries,
+            utxos: [malformedUTXO],
+            transactions: snapshot.transactions
+        )
+
+        await #expect(throws: (any Swift.Error).self) {
+            try await book.refresh(with: malformedSnapshot)
+        }
+
+        #expect(try await book.readCachedBalance(for: entry.address) == OpalBase.Satoshi(1_234))
+    }
     
     private func makeTokenDataWithNonFungibleToken() throws -> OpalBase.CashTokens.TokenData {
         let fixture = try #require(TokenPrefixTestData.validVectors.first { vector in

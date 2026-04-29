@@ -60,6 +60,18 @@ struct AddressValidator {
             _ = try OpalBase.Address(mixedCasePayload)
         }
     }
+
+    @Test("CashAddr rejects empty separator components")
+    func rejectCashAddrEmptySeparatorComponents() {
+        let payload = "qpm2qsznhks23z7629mms6s4cwef74vcwvy22gdx6a"
+
+        #expect(throws: OpalBase.Address.Error.invalidCashAddrFormat) {
+            _ = try OpalBase.Address("bitcoincash::\(payload)")
+        }
+        #expect(throws: OpalBase.Address.Error.invalidCashAddrFormat) {
+            _ = try OpalBase.Address("bitcoincash:\(payload):")
+        }
+    }
     
     @Test("CashAddr accepts uppercase prefix")
     func decodeCashAddrWithUppercasePrefix() throws {

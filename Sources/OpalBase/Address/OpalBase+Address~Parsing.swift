@@ -13,7 +13,10 @@ extension _OpalBase.Address {
         let prefix: String
         
         if string.contains(OpalBase.Address.separator) {
-            let splitComponents = string.split(separator: OpalBase.Address.separator)
+            let splitComponents = string.split(
+                separator: Character(OpalBase.Address.separator),
+                omittingEmptySubsequences: false
+            )
             guard splitComponents.count == 2 else { throw Error.invalidCashAddrFormat }
             let providedPrefix = String(splitComponents[0])
             guard providedPrefix.caseInsensitiveCompare(OpalBase.Address.prefix) == .orderedSame else {

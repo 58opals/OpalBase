@@ -113,6 +113,16 @@ extension _OpalBase.Block.Header.ChainActor {
         
         var detachedHeights: [UInt32] = .init()
         
+        if height <= tipHeight,
+           let existingHash = hashes[height],
+           existingHash != headerHash,
+           height > checkpointHeight {
+            guard let previousHash = hashes[height - 1],
+                  previousHash == header.previousBlockHash else {
+                throw Error.doesNotConnect(height: height)
+            }
+        }
+
         if height <= tipHeight {
             if let existingHash = hashes[height], existingHash != headerHash {
                 detachedHeights = Array(height...tipHeight)
@@ -135,6 +145,7 @@ extension _OpalBase.Block.Header.ChainActor {
             tipHeight = checkpointHeight
             tipHash = checkpointHash
             queuedMaintenanceEvents.append(.requiresResynchronization(from: .init(height: height, hash: headerHash)))
+            return UpdateResult(detachedHeights: detachedHeights, newTip: currentTip)
         }
         
         if height > checkpointHeight, let previousHash = hashes[height - 1] {
