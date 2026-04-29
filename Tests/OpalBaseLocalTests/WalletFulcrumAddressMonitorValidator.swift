@@ -77,6 +77,133 @@ struct WalletFulcrumAddressMonitorValidator {
         _ = await collector.result
     }
 
+    @Test("monitor publishes matching history before UTXO changes")
+    func monitorPublishesMatchingHistoryBeforeUTXOChanges() async throws {
+        let account = try await AccountTestFixtures.makeAccount()
+        let targetEntry = try await account.selectNextEntry(for: .receiving)
+        let fundingHash = AccountTestFixtures.makeHash(byte: 0x81)
+        let unspentOutput = OpalBase.Transaction.Output.Unspent(
+            value: 12_000,
+            lockingScript: targetEntry.address.lockingScript.data,
+            previousTransactionHash: fundingHash,
+            previousTransactionOutputIndex: 0
+        )
+
+        let addressReader = WalletAddressReaderTestActor(
+            unspentByAddress: [targetEntry.address.string: [unspentOutput]],
+            historyByAddress: [
+                targetEntry.address.string: [.init(transactionIdentifier: fundingHash.reverseOrder.hexadecimalString, blockHeight: 14, fee: nil)]
+            ],
+            updatesByAddress: [
+                targetEntry.address.string: [.init(kind: .initialSnapshot, address: targetEntry.address.string, status: "ready")]
+            ]
+        )
+        let confirmationClient = TransactionConfirmationClientTestActor()
+        let headerReader = BlockHeaderReaderTestActor(snapshots: .init())
+        let fulcrum = OpalBase.Wallet.Fulcrum(
+            addressReader: addressReader,
+            transactionHandler: confirmationClient
+        )
+        let monitor = await fulcrum.makeMonitor(
+            for: account,
+            blockHeaderReader: headerReader,
+            retryDelay: .milliseconds(10)
+        )
+        let stream = await monitor.makeEventStream(autoStart: true)
+        let recorder = WalletFulcrumAddressMonitorEventRecorderActor()
+        let collector = Task {
+            do {
+                for try await event in stream {
+                    await recorder.append(event)
+                }
+            } catch { }
+        }
+        do {
+            let events = try await WalletFulcrumAddressMonitorSupport.waitForEvents(recorder, description: "matching history before UTXO") { events in
+                WalletFulcrumAddressMonitorSupport.firstHistoryChangeIndex(events, containing: fundingHash) != nil &&
+                    WalletFulcrumAddressMonitorSupport.firstUTXOChangeIndex(events, containing: unspentOutput) != nil
+            }
+            let historyIndex = try #require(WalletFulcrumAddressMonitorSupport.firstHistoryChangeIndex(events, containing: fundingHash))
+            let utxoIndex = try #require(WalletFulcrumAddressMonitorSupport.firstUTXOChangeIndex(events, containing: unspentOutput))
+            #expect(historyIndex < utxoIndex)
+
+            let records = await account.loadTransactionHistory()
+            #expect(records.contains { $0.transactionHash == fundingHash })
+
+            await monitor.stop()
+        } catch {
+            await monitor.stop(reason: .cancelled)
+            collector.cancel()
+            _ = await collector.result
+            throw error
+        }
+        collector.cancel()
+        _ = await collector.result
+    }
+
+    @Test("monitor falls back without partial UTXO event when history refresh fails")
+    func monitorFallsBackWithoutPartialUTXOEventWhenHistoryRefreshFails() async throws {
+        let account = try await AccountTestFixtures.makeAccount()
+        let targetEntry = try await account.selectNextEntry(for: .receiving)
+        let fundingHash = AccountTestFixtures.makeHash(byte: 0x82)
+        let unspentOutput = OpalBase.Transaction.Output.Unspent(
+            value: 11_000,
+            lockingScript: targetEntry.address.lockingScript.data,
+            previousTransactionHash: fundingHash,
+            previousTransactionOutputIndex: 0
+        )
+
+        let addressReader = WalletAddressReaderTestActor(
+            unspentByAddress: [targetEntry.address.string: [unspentOutput]],
+            historyByAddress: [
+                targetEntry.address.string: [.init(transactionIdentifier: fundingHash.reverseOrder.hexadecimalString, blockHeight: 15, fee: nil)]
+            ],
+            updatesByAddress: [
+                targetEntry.address.string: [.init(kind: .initialSnapshot, address: targetEntry.address.string, status: "update")]
+            ],
+            failHistoryCountByAddress: [targetEntry.address.string: 1]
+        )
+        let confirmationClient = TransactionConfirmationClientTestActor()
+        let headerReader = BlockHeaderReaderTestActor(snapshots: .init())
+        let fulcrum = OpalBase.Wallet.Fulcrum(
+            addressReader: addressReader,
+            transactionHandler: confirmationClient
+        )
+        let monitor = await fulcrum.makeMonitor(
+            for: account,
+            blockHeaderReader: headerReader,
+            retryDelay: .milliseconds(10)
+        )
+        let stream = await monitor.makeEventStream(autoStart: true)
+        let recorder = WalletFulcrumAddressMonitorEventRecorderActor()
+        let collector = Task {
+            do {
+                for try await event in stream {
+                    await recorder.append(event)
+                }
+            } catch { }
+        }
+        do {
+            let recoveryEvents = try await WalletFulcrumAddressMonitorSupport.waitForEvents(recorder, description: "history failure full refresh") { events in
+                WalletFulcrumAddressMonitorSupport.hasFailure(events, address: targetEntry.address) &&
+                    WalletFulcrumAddressMonitorSupport.hasFullRefresh(events)
+            }
+            #expect(WalletFulcrumAddressMonitorSupport.firstUTXOChangeIndex(recoveryEvents) == nil)
+
+            let historyRequests = await addressReader.readHistoryRequests()
+            #expect(historyRequests.count >= 2)
+
+            await monitor.stop(reason: .cancelled)
+        } catch {
+            await monitor.stop(reason: .cancelled)
+            collector.cancel()
+            _ = await collector.result
+            throw error
+        }
+        collector.cancel()
+        _ = await collector.result
+    }
+
     @Test("monitor emits confirmation changes when block headers advance")
     func monitorEmitsConfirmationChanges() async throws {
         let account = try await AccountTestFixtures.makeAccount()

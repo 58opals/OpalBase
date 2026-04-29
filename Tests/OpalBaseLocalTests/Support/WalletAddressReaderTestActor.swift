@@ -12,6 +12,7 @@ actor WalletAddressReaderTestActor: OpalBase.Network.AddressReadable {
     private let shouldKeepSubscriptionsOpen: Bool
 
     private var remainingUnspentFailuresByAddress: [String: Int]
+    private var remainingHistoryFailuresByAddress: [String: Int]
 
     private var balanceRequests: [String] = .init()
     private var unspentRequests: [String] = .init()
@@ -26,6 +27,7 @@ actor WalletAddressReaderTestActor: OpalBase.Network.AddressReadable {
         updatesByAddress: [String: [OpalBase.Network.AddressSubscriptionUpdate]] = .init(),
         subscriptionErrorsByAddress: [String: Swift.Error] = .init(),
         failUnspentCountByAddress: [String: Int] = .init(),
+        failHistoryCountByAddress: [String: Int] = .init(),
         shouldKeepSubscriptionsOpen: Bool = true
     ) {
         self.balancesByAddress = balancesByAddress
@@ -34,6 +36,7 @@ actor WalletAddressReaderTestActor: OpalBase.Network.AddressReadable {
         self.updatesByAddress = updatesByAddress
         self.subscriptionErrorsByAddress = subscriptionErrorsByAddress
         self.remainingUnspentFailuresByAddress = failUnspentCountByAddress
+        self.remainingHistoryFailuresByAddress = failHistoryCountByAddress
         self.shouldKeepSubscriptionsOpen = shouldKeepSubscriptionsOpen
     }
 
@@ -53,6 +56,10 @@ actor WalletAddressReaderTestActor: OpalBase.Network.AddressReadable {
 
     func fetchHistory(for address: String, includeUnconfirmed: Bool) async throws -> [OpalBase.Network.TransactionHistoryEntry] {
         historyRequests.append((address, includeUnconfirmed))
+        if let remaining = remainingHistoryFailuresByAddress[address], remaining > 0 {
+            remainingHistoryFailuresByAddress[address] = remaining - 1
+            throw NetworkStubError.forced("history-\(address)")
+        }
         return historyByAddress[address, default: .init()]
     }
 

@@ -88,24 +88,49 @@ extension _OpalBase.Address.Book {
     }
 
     public func refresh(with snapshot: Snapshot) async throws {
+        try validateEntryBalances(in: snapshot.receivingEntries + snapshot.changeEntries)
+        let restoredUTXOs = try makeRestoredUTXOs(from: snapshot.utxos)
+        let restoredTransactions = try makeRestoredTransactionRecords(from: snapshot.transactions)
+
         inventory = .init(cacheValidityDuration: inventory.cacheValidityDuration)
         try await restore(entrySnapshots: snapshot.receivingEntries, usage: .receiving)
         try await restore(entrySnapshots: snapshot.changeEntries, usage: .change)
-
-        let restoredUTXOs = try snapshot.utxos.map {
-            let tokenData = try $0.makeTokenData()
-            return OpalBase.Transaction.Output.Unspent(value: $0.value,
-                                              lockingScript: try Data(hexadecimalString: $0.lockingScript),
-                                              tokenData: tokenData,
-                                              previousTransactionHash: .init(naturalOrder: try Data(hexadecimalString: $0.transactionHash)),
-                                              previousTransactionOutputIndex: $0.outputIndex)
-        }
 
         utxoStore.replace(with: Set(restoredUTXOs))
         clearSpendReservationState()
         transactionLog.reset()
 
-        for transaction in snapshot.transactions {
+        for record in restoredTransactions {
+            transactionLog.store(record)
+        }
+    }
+
+    private func validateEntryBalances(in entries: [Snapshot.Entry]) throws {
+        for entry in entries {
+            guard let balanceValue = entry.balance else { continue }
+            do {
+                _ = try OpalBase.Satoshi(balanceValue)
+            } catch {
+                throw OpalBase.Address.Book.Error.invalidSnapshotBalance(value: balanceValue, reason: error)
+            }
+        }
+    }
+
+    private func makeRestoredUTXOs(from snapshots: [Snapshot.UTXO]) throws -> [OpalBase.Transaction.Output.Unspent] {
+        try snapshots.map {
+            let tokenData = try $0.makeTokenData()
+            return OpalBase.Transaction.Output.Unspent(value: $0.value,
+                                                       lockingScript: try Data(hexadecimalString: $0.lockingScript),
+                                                       tokenData: tokenData,
+                                                       previousTransactionHash: .init(naturalOrder: try Data(hexadecimalString: $0.transactionHash)),
+                                                       previousTransactionOutputIndex: $0.outputIndex)
+        }
+    }
+
+    private func makeRestoredTransactionRecords(
+        from snapshots: [Snapshot.Transaction]
+    ) throws -> [OpalBase.Transaction.History.Record] {
+        try snapshots.map { transaction in
             let hash = OpalBase.Transaction.Hash(naturalOrder: try Data(hexadecimalString: transaction.transactionHash))
             let proof = try transaction.merkleProof.map { proof -> OpalBase.Transaction.MerkleProof in
                 let branch = try proof.branch.map { try Data(hexadecimalString: $0) }
@@ -140,7 +165,7 @@ extension _OpalBase.Address.Book {
                                                     confirmationMetadata: confirmationMetadata,
                                                     verificationMetadata: verificationMetadata,
                                                     tokenDelta: tokenDelta)
-            transactionLog.store(record)
+            return record
         }
     }
 

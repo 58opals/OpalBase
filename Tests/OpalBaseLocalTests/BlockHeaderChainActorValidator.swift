@@ -91,6 +91,53 @@ struct BlockHeaderChainActorValidator {
         #expect(events == [.requiresResynchronization(from: .init(height: 1, hash: competingHeader.proofOfWorkHash))])
     }
 
+    @Test("apply rejects disconnected competing headers without detaching current tip")
+    func applyRejectsDisconnectedCompetingHeadersWithoutDetachingCurrentTip() async throws {
+        let checkpointHeader = try Self.makeSatisfiedHeader(previousBlockHash: Data(repeating: 0x00, count: 32), seed: 20)
+        let chain = OpalBase.Block.Header.ChainActor(checkpointHeight: 0, checkpointHash: checkpointHeader.proofOfWorkHash)
+        _ = try await chain.apply(header: checkpointHeader, at: 0)
+
+        let firstHeader = try Self.makeSatisfiedHeader(previousBlockHash: checkpointHeader.proofOfWorkHash, seed: 21)
+        _ = try await chain.apply(header: firstHeader, at: 1)
+        let secondHeader = try Self.makeSatisfiedHeader(previousBlockHash: firstHeader.proofOfWorkHash, seed: 22)
+        _ = try await chain.apply(header: secondHeader, at: 2)
+
+        let disconnectedCompetingHeader = try Self.makeSatisfiedHeader(previousBlockHash: Data(repeating: 0x99, count: 32), seed: 23)
+        do {
+            _ = try await chain.apply(header: disconnectedCompetingHeader, at: 2)
+            Issue.record("Expected does-not-connect failure")
+        } catch let error as OpalBase.Block.Header.ChainActor.Error {
+            guard case .doesNotConnect(let height) = error else {
+                Issue.record("Expected doesNotConnect, got: \(error)")
+                return
+            }
+            #expect(height == 2)
+        } catch {
+            Issue.record("Unexpected error: \(error)")
+        }
+
+        #expect(await chain.currentTip == .init(height: 2, hash: secondHeader.proofOfWorkHash))
+        #expect(await chain.lookupHeader(at: 2) == secondHeader)
+        #expect(await chain.dequeueMaintenanceEvents().isEmpty)
+    }
+
+    @Test("apply queues resynchronization without accepting a gap header")
+    func applyQueuesResynchronizationWithoutAcceptingGapHeader() async throws {
+        let checkpointHeader = try Self.makeSatisfiedHeader(previousBlockHash: Data(repeating: 0x00, count: 32), seed: 30)
+        let chain = OpalBase.Block.Header.ChainActor(checkpointHeight: 0, checkpointHash: checkpointHeader.proofOfWorkHash)
+        _ = try await chain.apply(header: checkpointHeader, at: 0)
+
+        let gapHeader = try Self.makeSatisfiedHeader(previousBlockHash: Data(repeating: 0x88, count: 32), seed: 31)
+        let result = try await chain.apply(header: gapHeader, at: 3)
+        let events = await chain.dequeueMaintenanceEvents()
+
+        #expect(result.detachedHeights.isEmpty)
+        #expect(result.newTip == .init(height: 0, hash: checkpointHeader.proofOfWorkHash))
+        #expect(await chain.currentTip == .init(height: 0, hash: checkpointHeader.proofOfWorkHash))
+        #expect(await chain.lookupHeader(at: 3) == nil)
+        #expect(events == [.requiresResynchronization(from: .init(height: 3, hash: gapHeader.proofOfWorkHash))])
+    }
+
     @Test("updateTipStatus publishes a stale-tip event only once per status")
     func updateTipStatusPublishesStaleTipOncePerStatus() async throws {
         let checkpointHeader = try Self.makeSatisfiedHeader(previousBlockHash: Data(repeating: 0x00, count: 32), seed: 9, time: 1_700_000_000)
