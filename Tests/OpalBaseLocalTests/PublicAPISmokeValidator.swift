@@ -147,11 +147,14 @@ struct PublicAPISmokeValidator {
             from: envelope.encode(),
             on: .chipnet
         )
+        let shareCode = try OpalBase.Claimable.ShareCode.encode(envelope: envelope)
+        let decodedShareCodeEnvelope = try OpalBase.Claimable.ShareCode.decode(shareCode)
         let localStatus = decodedEnvelope.makeLocalStatus(currentBlockHeight: 499)
         let recoveryMaterial = try decodedEnvelope.makeClaimRecoveryMaterial()
 
         #expect(fundingOutput.lockingScript == draft.contract.fundingLockingScriptData)
         #expect(decodedEnvelope.contract == draft.contract)
+        #expect(decodedShareCodeEnvelope == envelope)
         #expect(localStatus.allowsClaim)
         #expect(localStatus.allowsRefund == false)
         #expect(recoveryMaterial.spendPath == .claim)
