@@ -8,6 +8,11 @@ extension _OpalBase.Claimable {
         case invalidNetworkTag(UInt8)
         case invalidEnvelopeLength(expected: Int, actual: Int)
         case networkMismatch(expected: OpalBase.Network.Environment, actual: OpalBase.Network.Environment)
+        case invalidShareCodeFormat
+        case unsupportedShareCodeVersion(String)
+        case invalidShareCodeNetwork(String)
+        case emptyShareCodePayload
+        case invalidShareCodePayload
         case invalidClaimPrivateKey
         case invalidRefundPrivateKey
         case invalidClaimPublicKeyHash
