@@ -158,6 +158,12 @@ extension _OpalBase.Address.Book {
             }
         ) { record in
             let status = try await handler.fetchConfirmationStatus(for: record.transactionHash)
+            guard status.transactionHash == record.transactionHash else {
+                throw OpalBase.Network.Error(
+                    reason: .protocolViolation,
+                    message: "Confirmation status hash mismatch"
+                )
+            }
             return OpalBase.Address.Book.History.ConfirmationUpdate(record: record, status: status)
         }
         

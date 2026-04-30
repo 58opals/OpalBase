@@ -77,6 +77,61 @@ struct TransactionHistoryTokenDeltaValidator {
         #expect(record.tokenDelta.nonFungibleTokenRemovals.contains(removalTokenData))
         #expect(record.tokenDelta.bchLockedInTokenOutputDelta == 150)
     }
+
+    @Test("throws instead of overflowing large fungible token deltas")
+    func tokenDeltaOverflowThrows() async throws {
+        let book = try await makeAddressBook()
+        let receivingEntry = await book.listEntries(for: .receiving).first
+        let walletAddress = try #require(receivingEntry?.address)
+        let category = try OpalBase.CashTokens.CategoryID(transactionOrderData: Data(repeating: 0x44, count: 32))
+        let tokenData = OpalBase.CashTokens.TokenData(
+            category: category,
+            amount: UInt64(Int64.max),
+            nft: nil
+        )
+        let outputs = [
+            OpalBase.Transaction.Output(value: 546, lockingScript: walletAddress.lockingScript.data, tokenData: tokenData),
+            OpalBase.Transaction.Output(value: 546, lockingScript: walletAddress.lockingScript.data, tokenData: tokenData)
+        ]
+        let transaction = OpalBase.Transaction(version: 2, inputs: [], outputs: outputs, lockTime: 0)
+        let transactionReader = OpalBase.Network.TransactionReader(
+            TransactionReaderClient(rawTransactionsByHash: [:])
+        )
+
+        await #expect(throws: OpalBase.Address.Book.Error.tokenDeltaOverflow) {
+            _ = try await book.makeTokenDelta(
+                from: transaction,
+                transactionReader: transactionReader,
+                walletScriptHashes: [walletAddress.makeScriptHash().hexadecimalString]
+            )
+        }
+    }
+
+    @Test("throws instead of overflowing locked BCH token delta")
+    func lockedBCHTokenDeltaOverflowThrows() async throws {
+        let book = try await makeAddressBook()
+        let receivingEntry = await book.listEntries(for: .receiving).first
+        let walletAddress = try #require(receivingEntry?.address)
+        let category = try OpalBase.CashTokens.CategoryID(transactionOrderData: Data(repeating: 0x45, count: 32))
+        let tokenData = OpalBase.CashTokens.TokenData(category: category, amount: 1, nft: nil)
+        let output = OpalBase.Transaction.Output(
+            value: UInt64(Int64.max) + 1,
+            lockingScript: walletAddress.lockingScript.data,
+            tokenData: tokenData
+        )
+        let transaction = OpalBase.Transaction(version: 2, inputs: [], outputs: [output], lockTime: 0)
+        let transactionReader = OpalBase.Network.TransactionReader(
+            TransactionReaderClient(rawTransactionsByHash: [:])
+        )
+
+        await #expect(throws: OpalBase.Address.Book.Error.tokenDeltaOverflow) {
+            _ = try await book.makeTokenDelta(
+                from: transaction,
+                transactionReader: transactionReader,
+                walletScriptHashes: [walletAddress.makeScriptHash().hexadecimalString]
+            )
+        }
+    }
 }
 
 private extension TransactionHistoryTokenDeltaValidator {

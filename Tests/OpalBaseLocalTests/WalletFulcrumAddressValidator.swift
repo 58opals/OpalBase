@@ -175,6 +175,60 @@ struct WalletFulcrumAddressValidator {
         #expect(requestedHashes == [hash])
     }
 
+    @Test("updateTransactionConfirmations rejects mismatched status hashes")
+    func updateTransactionConfirmationsRejectsMismatchedStatusHashes() async throws {
+        let account = try await AccountTestFixtures.makeAccount()
+        let targetEntry = try await account.selectNextEntry(for: .receiving)
+        let requestedHash = AccountTestFixtures.makeHash(byte: 0x32)
+        let mismatchedHash = AccountTestFixtures.makeHash(byte: 0x33)
+        let historyEntry = OpalBase.Network.TransactionHistoryEntry(
+            transactionIdentifier: requestedHash.reverseOrder.hexadecimalString,
+            blockHeight: -1,
+            fee: nil
+        )
+
+        let addressReader = WalletAddressReaderTestActor(
+            historyByAddress: [targetEntry.address.string: [historyEntry]]
+        )
+        let confirmationClient = TransactionConfirmationClientTestActor(
+            statusesByHash: [
+                requestedHash: .init(
+                    transactionHash: mismatchedHash,
+                    transactionHeight: 10,
+                    tipHeight: 20,
+                    confirmations: 11
+                )
+            ]
+        )
+        let fulcrum = OpalBase.Wallet.Fulcrum(
+            addressReader: addressReader,
+            transactionHandler: confirmationClient
+        )
+
+        _ = try await fulcrum.refreshTransactionHistory(for: account, usage: .receiving, includeUnconfirmed: true)
+
+        do {
+            _ = try await fulcrum.updateTransactionConfirmations(
+                for: account,
+                transactionHashes: [requestedHash]
+            )
+            Issue.record("Expected mismatched confirmation status to fail")
+        } catch let error as OpalBase.Account.Error {
+            guard case .transactionConfirmationRefreshFailed(let hash, let underlying) = error else {
+                Issue.record("Unexpected account error: \(error)")
+                return
+            }
+            #expect(hash == requestedHash)
+            let networkError = try #require(underlying as? OpalBase.Network.Error)
+            #expect(networkError.reason == .protocolViolation)
+            #expect(networkError.message == "Confirmation status hash mismatch")
+        }
+
+        let record = try #require(await account.loadTransactionHistory().first { $0.transactionHash == requestedHash })
+        #expect(record.status == .discovered)
+        #expect(record.confirmationMetadata.height == nil)
+    }
+
     @Test("refreshTransactionConfirmations updates all tracked transactions")
     func refreshTransactionConfirmationsUsesKnownHistory() async throws {
         let account = try await AccountTestFixtures.makeAccount()

@@ -27,10 +27,27 @@ extension _OpalBase.Network {
             let identifier = transactionHash.reverseOrder.hexadecimalString
             
             return try await OpalBase.Network.performWithFailureTranslation {
-                let result = try await client.fetchTransactionMerkleProof(
+                let heightResult = try await client.fetchTransactionHeight(
                     transactionHash: identifier,
                     options: .init(timeout: timeouts.transactionMerkleProof)
                 )
+                guard let blockHeight = heightResult.height else {
+                    throw SwiftFulcrum.Client.Error.client(
+                        .protocolMismatch("Merkle proof requires a confirmed transaction height.")
+                    )
+                }
+                let result = try await client.fetchTransactionMerkleProof(
+                    transactionHash: identifier,
+                    blockHeight: blockHeight,
+                    options: .init(timeout: timeouts.transactionMerkleProof)
+                )
+                guard result.blockHeight == blockHeight else {
+                    throw SwiftFulcrum.Client.Error.client(
+                        .protocolMismatch(
+                            "Merkle proof block height mismatch: requested=\(blockHeight), response=\(result.blockHeight)"
+                        )
+                    )
+                }
                 
                 return OpalBase.Network.TransactionMerkleProof(
                     blockHeight: result.blockHeight,

@@ -15,6 +15,7 @@ extension _OpalBase.Network.Fulcrum {
         
         public func fetchBalance(for address: String, tokenFilter: OpalBase.Network.TokenFilter) async throws -> OpalBase.Network.AddressBalance {
             try await OpalBase.Network.performWithFailureTranslation {
+                _ = try validateAddress(address)
                 let result = try await client.request(
                     method: .blockchain(.address(.getBalance(address: address, tokenFilter: tokenFilter.fulcrumTokenFilter))),
                     responseType: SwiftFulcrum.RPC.Response.Result.Blockchain.Address.GetBalance.self,
@@ -26,15 +27,7 @@ extension _OpalBase.Network.Fulcrum {
         
         public func fetchUnspentOutputs(for address: String, tokenFilter: OpalBase.Network.TokenFilter) async throws -> [OpalBase.Transaction.Output.Unspent] {
             try await OpalBase.Network.performWithFailureTranslation {
-                let lockingScriptData: Data
-                do {
-                    lockingScriptData = try OpalBase.Address(address).lockingScript.data
-                } catch {
-                    throw OpalBase.Network.Error(
-                        reason: .protocolViolation,
-                        message: "Invalid address provided: \(address)"
-                    )
-                }
+                let lockingScriptData = try validateAddress(address).lockingScript.data
                 
                 let result = try await client.request(
                     method: .blockchain(.address(.listUnspent(address: address, tokenFilter: tokenFilter.fulcrumTokenFilter))),
@@ -66,6 +59,7 @@ extension _OpalBase.Network.Fulcrum {
         
         public func fetchHistory(for address: String, includeUnconfirmed: Bool) async throws -> [OpalBase.Network.TransactionHistoryEntry] {
             try await OpalBase.Network.performWithFailureTranslation {
+                _ = try validateAddress(address)
                 let result = try await client.request(
                     method: .blockchain(
                         .address(
@@ -93,6 +87,7 @@ extension _OpalBase.Network.Fulcrum {
         
         public func fetchFirstUse(for address: String) async throws -> OpalBase.Network.AddressFirstUse? {
             try await OpalBase.Network.performWithFailureTranslation {
+                _ = try validateAddress(address)
                 let result = try await client.request(
                     method: .blockchain(.address(.getFirstUse(address: address))),
                     responseType: SwiftFulcrum.RPC.Response.Result.Blockchain.Address.GetFirstUse.self,
@@ -113,6 +108,7 @@ extension _OpalBase.Network.Fulcrum {
         
         public func fetchMempoolTransactions(for address: String) async throws -> [OpalBase.Network.TransactionHistoryEntry] {
             try await OpalBase.Network.performWithFailureTranslation {
+                _ = try validateAddress(address)
                 let result = try await client.request(
                     method: .blockchain(.address(.getMempool(address: address))),
                     responseType: SwiftFulcrum.RPC.Response.Result.Blockchain.Address.GetMempool.self,
@@ -131,6 +127,7 @@ extension _OpalBase.Network.Fulcrum {
         
         public func fetchScriptHash(for address: String) async throws -> String {
             try await OpalBase.Network.performWithFailureTranslation {
+                _ = try validateAddress(address)
                 let result = try await client.request(
                     method: .blockchain(.address(.getScriptHash(address: address))),
                     responseType: SwiftFulcrum.RPC.Response.Result.Blockchain.Address.GetScriptHash.self,
@@ -142,6 +139,7 @@ extension _OpalBase.Network.Fulcrum {
         
         public func subscribeToAddress(_ address: String) async throws -> AsyncThrowingStream<OpalBase.Network.AddressSubscriptionUpdate, any Swift.Error> {
             try await OpalBase.Network.performWithFailureTranslation {
+                _ = try validateAddress(address)
                 let (initial, updates, cancel) = try await client.subscribe(
                     method: .blockchain(.address(.subscribe(address: address))),
                     initial: SwiftFulcrum.RPC.Response.Result.Blockchain.Address.Subscribe.self,
@@ -176,6 +174,20 @@ extension _OpalBase.Network.Fulcrum {
                     deduplicationKey: { update in
                         update.status
                     }
+                )
+            }
+        }
+
+        private func validateAddress(_ address: String) throws -> OpalBase.Address {
+            do {
+                return try OpalBase.Address(
+                    string: address,
+                    network: client.configuration.network
+                )
+            } catch {
+                throw OpalBase.Network.Error(
+                    reason: .protocolViolation,
+                    message: "Invalid address provided: \(address)"
                 )
             }
         }

@@ -5,8 +5,13 @@ import SwiftFulcrum
 
 extension _OpalBase.Network.Fulcrum {
     protocol TransactionProofClient: Sendable {
+        func fetchTransactionHeight(
+            transactionHash: String,
+            options: SwiftFulcrum.Client.Call.Options
+        ) async throws -> SwiftFulcrum.RPC.Response.Result.Blockchain.Transaction.GetHeight
         func fetchTransactionMerkleProof(
             transactionHash: String,
+            blockHeight: UInt,
             options: SwiftFulcrum.Client.Call.Options
         ) async throws -> SwiftFulcrum.RPC.Response.Result.Blockchain.Transaction.GetMerkle
         func fetchTransactionIdentifier(
@@ -19,12 +24,24 @@ extension _OpalBase.Network.Fulcrum {
 }
 
 extension _OpalBase.Network.Fulcrum.Client: _OpalBase.Network.Fulcrum.TransactionProofClient {
+    func fetchTransactionHeight(
+        transactionHash: String,
+        options: SwiftFulcrum.Client.Call.Options
+    ) async throws -> SwiftFulcrum.RPC.Response.Result.Blockchain.Transaction.GetHeight {
+        try await request(
+            method: .blockchain(.transaction(.getHeight(transactionHash: transactionHash))),
+            responseType: SwiftFulcrum.RPC.Response.Result.Blockchain.Transaction.GetHeight.self,
+            options: options
+        )
+    }
+
     func fetchTransactionMerkleProof(
         transactionHash: String,
+        blockHeight: UInt,
         options: SwiftFulcrum.Client.Call.Options
     ) async throws -> SwiftFulcrum.RPC.Response.Result.Blockchain.Transaction.GetMerkle {
         try await request(
-            method: .blockchain(.transaction(.getMerkle(transactionHash: transactionHash))),
+            method: .blockchain(.transaction(.getMerkle(transactionHash: transactionHash, height: blockHeight))),
             responseType: SwiftFulcrum.RPC.Response.Result.Blockchain.Transaction.GetMerkle.self,
             options: options
         )

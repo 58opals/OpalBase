@@ -9,23 +9,25 @@ extension OpalBase {
         public let string: String
         public let lockingScript: OpalBase.Script
         public let format: Format
+        public let network: OpalBase.Network.Environment
         
-        public init(_ string: String) throws {
-            try self.init(string: string)
+        public init(_ string: String, network: OpalBase.Network.Environment = .mainnet) throws {
+            try self.init(string: string, network: network)
         }
         
-        public init(string: String) throws {
+        public init(string: String, network: OpalBase.Network.Environment = .mainnet) throws {
             if string.contains(OpalBase.Address.separator) {
-                self = try OpalBase.Address.parseCashAddr(from: string)
+                self = try OpalBase.Address.parseCashAddr(from: string, network: network)
                 return
             }
             
-            if let cashAddr = try? OpalBase.Address.parseCashAddr(from: string) {
+            if let cashAddr = try? OpalBase.Address.parseCashAddr(from: string, network: network) {
                 self = cashAddr
                 return
             }
             
-            if let legacyAddress = try? OpalBase.Address.parseLegacyAddress(from: string) {
+            if network == .mainnet,
+               let legacyAddress = try? OpalBase.Address.parseLegacyAddress(from: string) {
                 self = legacyAddress
                 return
             }
@@ -33,15 +35,29 @@ extension OpalBase {
             throw Error.invalidCashAddrFormat
         }
         
-        public init(script: OpalBase.Script, format: Format = .standard) throws {
-            let string = try OpalBase.Address.makeCashAddrString(for: script, format: format)
-            self.init(cashAddrPayload: string, lockingScript: script, format: format)
+        public init(
+            script: OpalBase.Script,
+            format: Format = .standard,
+            network: OpalBase.Network.Environment = .mainnet
+        ) throws {
+            let string = try OpalBase.Address.makeCashAddrString(
+                for: script,
+                format: format,
+                network: network
+            )
+            self.init(cashAddrPayload: string, lockingScript: script, format: format, network: network)
         }
         
-        init(cashAddrPayload: String, lockingScript: OpalBase.Script, format: Format) {
+        init(
+            cashAddrPayload: String,
+            lockingScript: OpalBase.Script,
+            format: Format,
+            network: OpalBase.Network.Environment
+        ) {
             self.string = cashAddrPayload
             self.lockingScript = lockingScript
             self.format = format
+            self.network = network
         }
     }
 }
@@ -52,7 +68,20 @@ extension _OpalBase.Address {
     }
     
     public var tokenAwareString: String {
-        (try? OpalBase.Address.makeCashAddrString(for: lockingScript, format: .tokenAware)) ?? string
+        (try? OpalBase.Address.makeCashAddrString(
+            for: lockingScript,
+            format: .tokenAware,
+            network: network
+        )) ?? string
+    }
+
+    public static func cashAddrPrefix(for network: OpalBase.Network.Environment) -> String {
+        switch network {
+        case .mainnet:
+            return "bitcoincash"
+        case .chipnet, .testnet:
+            return "bchtest"
+        }
     }
     
     static func convertPrefixToFiveBitValues(prefix: String) throws -> [UInt8] {
@@ -90,7 +119,11 @@ extension _OpalBase.Address {
         return checksum
     }
     
-    private static func makeCashAddrString(for script: OpalBase.Script, format: Format) throws -> String {
+    private static func makeCashAddrString(
+        for script: OpalBase.Script,
+        format: Format,
+        network: OpalBase.Network.Environment
+    ) throws -> String {
         let versionByte = try makeVersionByte(for: script, format: format)
         let payload: Data
         switch script {
@@ -105,7 +138,7 @@ extension _OpalBase.Address {
         
         let payload5BitValues = try OpalBase.Address.convertPayloadToFiveBitValues(payload: payload)
         let checksum = try OpalBase.Address.generateChecksum(
-            prefix: OpalBase.Address.prefix,
+            prefix: OpalBase.Address.cashAddrPrefix(for: network),
             payload5BitValues: payload5BitValues
         )
         let combined = payload5BitValues + checksum
@@ -125,8 +158,11 @@ extension _OpalBase.Address {
 }
 
 extension _OpalBase.Address {
-    public static func filterBase32(from string: String) -> String {
-        let prefixWithSeparator = OpalBase.Address.prefix + OpalBase.Address.separator
+    public static func filterBase32(
+        from string: String,
+        network: OpalBase.Network.Environment = .mainnet
+    ) -> String {
+        let prefixWithSeparator = OpalBase.Address.cashAddrPrefix(for: network) + OpalBase.Address.separator
         
         let cleanedSubstring: Substring
         if let prefixRange = string.range(
@@ -175,16 +211,17 @@ extension _OpalBase.Address: CustomStringConvertible {
     }
     
     public func generateString(withPrefix: Bool = false) -> String {
-        withPrefix ? (OpalBase.Address.prefix + OpalBase.Address.separator + string) : string
+        withPrefix ? (OpalBase.Address.cashAddrPrefix(for: network) + OpalBase.Address.separator + string) : string
     }
 }
 
 extension _OpalBase.Address: Hashable {
     public static func == (lhs: OpalBase.Address, rhs: OpalBase.Address) -> Bool {
-        lhs.lockingScript == rhs.lockingScript
+        lhs.network == rhs.network && lhs.lockingScript == rhs.lockingScript
     }
     
     public func hash(into hasher: inout Hasher) {
+        hasher.combine(network)
         hasher.combine(lockingScript)
     }
 }

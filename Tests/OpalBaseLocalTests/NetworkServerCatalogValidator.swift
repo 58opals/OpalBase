@@ -25,9 +25,14 @@ struct NetworkServerCatalogValidator {
         #expect(!testnetServers.contains(where: { $0.host == "chipnet.imaginary.cash" }))
     }
     
-    @Test("chipnet maps to FulcrumClient testnet framing")
-    func chipnetMapsToFulcrumTestnet() {
-        #expect(OpalBase.Network.Environment.chipnet.fulcrumNetwork == SwiftFulcrum.Client.Configuration.Network.testnet)
+    @Test("network environments map one-to-one to FulcrumClient networks")
+    func environmentsMapOneToOneToFulcrumNetworks() {
+        #expect(OpalBase.Network.Environment.mainnet.fulcrumNetwork == SwiftFulcrum.Client.Configuration.Network.mainnet)
+        #expect(OpalBase.Network.Environment.testnet.fulcrumNetwork == SwiftFulcrum.Client.Configuration.Network.testnet)
+        #expect(OpalBase.Network.Environment.chipnet.fulcrumNetwork == SwiftFulcrum.Client.Configuration.Network.chipnet)
+        #expect(OpalBase.Network.Environment(SwiftFulcrum.Client.Configuration.Network.mainnet) == .mainnet)
+        #expect(OpalBase.Network.Environment(SwiftFulcrum.Client.Configuration.Network.testnet) == .testnet)
+        #expect(OpalBase.Network.Environment(SwiftFulcrum.Client.Configuration.Network.chipnet) == .chipnet)
     }
     
     @Test("server catalog loader keeps overrides authoritative and appends fallback")
