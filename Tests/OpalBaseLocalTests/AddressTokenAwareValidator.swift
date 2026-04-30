@@ -7,6 +7,10 @@ import OpalBaseTestSupport
 
 @Suite("Token-aware CashAddr", .tags(.unit, .address, .cashTokens))
 struct AddressTokenAwareValidator {
+    private func makeKnownP2PKHScript() throws -> OpalBase.Script {
+        try OpalBase.Address("qpm2qsznhks23z7629mms6s4cwef74vcwvy22gdx6a").lockingScript
+    }
+
     @Test("token-aware P2PKH CashAddr decodes")
     func decodeTokenAwarePublicKeyHashAddress() throws {
         let tokenAwareAddress = "bitcoincash:zpm2qsznhks23z7629mms6s4cwef74vcwvrqekrq9w"
@@ -17,7 +21,7 @@ struct AddressTokenAwareValidator {
         #expect(address.string == expectedPayload)
         #expect(address.tokenAwareString == expectedPayload)
         #expect(address.generateString(withPrefix: true) == tokenAwareAddress)
-        
+
         switch address.lockingScript {
         case .p2pkh_OPCHECKSIG(let hash):
             #expect(hash.data.count == 20)
@@ -25,7 +29,7 @@ struct AddressTokenAwareValidator {
             #expect(Bool(false), "Expected P2PKH locking script")
         }
     }
-    
+
     @Test("token-aware P2SH CashAddr decodes")
     func decodeTokenAwareScriptHashAddress() throws {
         let tokenAwareAddress = "bitcoincash:rqgjyv6y24n80zyeqz4thnxaamlsqyfzxve4yxax2l"
@@ -35,7 +39,7 @@ struct AddressTokenAwareValidator {
         #expect(address.format == .tokenAware)
         #expect(address.string == expectedPayload)
         #expect(address.generateString(withPrefix: true) == tokenAwareAddress)
-        
+
         switch address.lockingScript {
         case .p2sh(let scriptHash):
             #expect(scriptHash.count == 20)
@@ -43,7 +47,7 @@ struct AddressTokenAwareValidator {
             #expect(Bool(false), "Expected P2SH locking script")
         }
     }
-    
+
     @Test("token-aware string is derived from standard CashAddr")
     func tokenAwareStringForStandardAddress() throws {
         let standardAddress = "bitcoincash:qpm2qsznhks23z7629mms6s4cwef74vcwvy22gdx6a"
@@ -52,7 +56,7 @@ struct AddressTokenAwareValidator {
         #expect(address.isTokenAware == false)
         #expect(address.tokenAwareString == expectedTokenAwarePayload)
     }
-    
+
     @Test("base58 address parses as standard CashAddr")
     func decodeLegacyBase58Address() throws {
         let legacyAddress = "1BpEi6DfDAUFd7GtittLSdBeYJvcoaVggu"
@@ -62,5 +66,33 @@ struct AddressTokenAwareValidator {
         #expect(address.string == expectedPayload)
         #expect(address.generateString(withPrefix: true) == "bitcoincash:\(expectedPayload)")
     }
-}
 
+    @Test("token-aware string preserves address network")
+    func tokenAwareStringPreservesAddressNetwork() throws {
+        let script = try makeKnownP2PKHScript()
+        let mainnetAddress = try OpalBase.Address(script: script, network: .mainnet)
+        let testnetAddress = try OpalBase.Address(script: script, network: .testnet)
+        let chipnetAddress = try OpalBase.Address(script: script, network: .chipnet)
+
+        let parsedTestnetTokenAware = try OpalBase.Address(
+            string: testnetAddress.tokenAwareString,
+            network: .testnet
+        )
+        let parsedChipnetTokenAware = try OpalBase.Address(
+            string: chipnetAddress.tokenAwareString,
+            network: .chipnet
+        )
+
+        #expect(mainnetAddress.tokenAwareString != testnetAddress.tokenAwareString)
+        #expect(testnetAddress.tokenAwareString == chipnetAddress.tokenAwareString)
+        #expect(parsedTestnetTokenAware.format == .tokenAware)
+        #expect(parsedChipnetTokenAware.format == .tokenAware)
+        #expect(parsedTestnetTokenAware.network == .testnet)
+        #expect(parsedChipnetTokenAware.network == .chipnet)
+        #expect(parsedTestnetTokenAware.generateString(withPrefix: true).hasPrefix("bchtest:"))
+        #expect(parsedChipnetTokenAware.generateString(withPrefix: true).hasPrefix("bchtest:"))
+        #expect(throws: OpalBase.Address.Error.invalidCashAddrFormat) {
+            _ = try OpalBase.Address(string: testnetAddress.tokenAwareString)
+        }
+    }
+}

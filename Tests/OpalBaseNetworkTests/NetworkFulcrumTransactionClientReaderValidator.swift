@@ -75,7 +75,8 @@ struct NetworkFulcrumTransactionClientReaderValidator {
                 method: .blockchain(.transaction(.getHeight(transactionHash: confirmedEntry.transactionIdentifier))),
                 responseType: SwiftFulcrum.RPC.Response.Result.Blockchain.Transaction.GetHeight.self
             )
-            #expect(transactionHeight.height == confirmedEntry.blockHeight)
+            let resolvedTransactionHeight = try #require(transactionHeight.height)
+            #expect(resolvedTransactionHeight == confirmedEntry.blockHeight)
 
             let tipHeight: SwiftFulcrum.RPC.Response.Result.Blockchain.Headers.GetTip = try await client.request(
                 method: .blockchain(.headers(.getTip)),
@@ -83,7 +84,7 @@ struct NetworkFulcrumTransactionClientReaderValidator {
             )
 
             let expectedConfirmations = OpalBase.Network.Fulcrum.TransactionClient.calculateConfirmationCount(
-                transactionHeight: transactionHeight.height,
+                transactionHeight: resolvedTransactionHeight,
                 tipHeight: tipHeight.height
             )
 

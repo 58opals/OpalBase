@@ -88,6 +88,10 @@ extension _OpalBase.Address.Book {
     }
 
     public func refresh(with snapshot: Snapshot) async throws {
+        try validateEntryUsage(in: snapshot.receivingEntries, expected: .receiving)
+        try validateEntryUsage(in: snapshot.changeEntries, expected: .change)
+        try validateUniqueEntryIndices(in: snapshot.receivingEntries, usage: .receiving)
+        try validateUniqueEntryIndices(in: snapshot.changeEntries, usage: .change)
         try validateEntryBalances(in: snapshot.receivingEntries + snapshot.changeEntries)
         let restoredUTXOs = try makeRestoredUTXOs(from: snapshot.utxos)
         let restoredTransactions = try makeRestoredTransactionRecords(from: snapshot.transactions)
@@ -116,31 +120,117 @@ extension _OpalBase.Address.Book {
         }
     }
 
-    private func makeRestoredUTXOs(from snapshots: [Snapshot.UTXO]) throws -> [OpalBase.Transaction.Output.Unspent] {
-        try snapshots.map {
-            let tokenData = try $0.makeTokenData()
-            return OpalBase.Transaction.Output.Unspent(value: $0.value,
-                                                       lockingScript: try Data(hexadecimalString: $0.lockingScript),
-                                                       tokenData: tokenData,
-                                                       previousTransactionHash: .init(naturalOrder: try Data(hexadecimalString: $0.transactionHash)),
-                                                       previousTransactionOutputIndex: $0.outputIndex)
+    private func validateEntryUsage(
+        in entries: [Snapshot.Entry],
+        expected: OpalBase.Key.DerivationPath.Usage
+    ) throws {
+        for entry in entries where entry.usage != expected {
+            throw OpalBase.Address.Book.Error.invalidSnapshotEntryUsage(
+                expected: expected,
+                actual: entry.usage,
+                index: entry.index
+            )
         }
+    }
+
+    private func validateUniqueEntryIndices(
+        in entries: [Snapshot.Entry],
+        usage: OpalBase.Key.DerivationPath.Usage
+    ) throws {
+        var seenIndices: Set<UInt32> = .init()
+        for entry in entries where !seenIndices.insert(entry.index).inserted {
+            throw OpalBase.Address.Book.Error.invalidSnapshotDuplicateEntry(
+                usage: usage,
+                index: entry.index
+            )
+        }
+    }
+
+    private func makeRestoredUTXOs(from snapshots: [Snapshot.UTXO]) throws -> [OpalBase.Transaction.Output.Unspent] {
+        var restoredUTXOs: [OpalBase.Transaction.Output.Unspent] = .init()
+        restoredUTXOs.reserveCapacity(snapshots.count)
+        var seenOutpoints: Set<UTXORepository.Outpoint> = .init()
+
+        for snapshot in snapshots {
+            let tokenData = try snapshot.makeTokenData()
+            let transactionHashData = try Data(hexadecimalString: snapshot.transactionHash)
+            guard transactionHashData.count == OpalBase.Transaction.Hash.expectedByteCount else {
+                throw OpalBase.Address.Book.Error.invalidSnapshotTransactionHashLength(
+                    expected: OpalBase.Transaction.Hash.expectedByteCount,
+                    actual: transactionHashData.count
+                )
+            }
+            let transactionHash = OpalBase.Transaction.Hash(naturalOrder: transactionHashData)
+            let utxo = OpalBase.Transaction.Output.Unspent(
+                value: snapshot.value,
+                lockingScript: try Data(hexadecimalString: snapshot.lockingScript),
+                tokenData: tokenData,
+                previousTransactionHash: transactionHash,
+                previousTransactionOutputIndex: snapshot.outputIndex
+            )
+            let outpoint = UTXORepository.Outpoint(utxo)
+            guard seenOutpoints.insert(outpoint).inserted else {
+                throw OpalBase.Address.Book.Error.invalidSnapshotDuplicateUTXO(
+                    transactionHash: transactionHash,
+                    outputIndex: snapshot.outputIndex
+                )
+            }
+            restoredUTXOs.append(utxo)
+        }
+
+        return restoredUTXOs
     }
 
     private func makeRestoredTransactionRecords(
         from snapshots: [Snapshot.Transaction]
     ) throws -> [OpalBase.Transaction.History.Record] {
-        try snapshots.map { transaction in
-            let hash = OpalBase.Transaction.Hash(naturalOrder: try Data(hexadecimalString: transaction.transactionHash))
+        var seenTransactionHashes: Set<OpalBase.Transaction.Hash> = .init()
+        return try snapshots.map { transaction in
+            let hashData = try Data(hexadecimalString: transaction.transactionHash)
+            guard hashData.count == OpalBase.Transaction.Hash.expectedByteCount else {
+                throw OpalBase.Address.Book.Error.invalidSnapshotTransactionHashLength(
+                    expected: OpalBase.Transaction.Hash.expectedByteCount,
+                    actual: hashData.count
+                )
+            }
+            let hash = OpalBase.Transaction.Hash(naturalOrder: hashData)
+            guard seenTransactionHashes.insert(hash).inserted else {
+                throw OpalBase.Address.Book.Error.invalidSnapshotDuplicateTransaction(hash)
+            }
+            try validateScriptHashes(in: transaction.scriptHashes)
             let proof = try transaction.merkleProof.map { proof -> OpalBase.Transaction.MerkleProof in
-                let branch = try proof.branch.map { try Data(hexadecimalString: $0) }
-                let blockHash = try proof.blockHash.map { try Data(hexadecimalString: $0) }
+                let branch = try proof.branch.map { branchNode -> Data in
+                    let data = try Data(hexadecimalString: branchNode)
+                    guard data.count == OpalBase.Transaction.Hash.expectedByteCount else {
+                        throw OpalBase.Address.Book.Error.invalidSnapshotMerkleProofHashLength(
+                            expected: OpalBase.Transaction.Hash.expectedByteCount,
+                            actual: data.count
+                        )
+                    }
+                    return data
+                }
+                let blockHash = try proof.blockHash.map { blockHash -> Data in
+                    let data = try Data(hexadecimalString: blockHash)
+                    guard data.count == OpalBase.Transaction.Hash.expectedByteCount else {
+                        throw OpalBase.Address.Book.Error.invalidSnapshotMerkleProofHashLength(
+                            expected: OpalBase.Transaction.Hash.expectedByteCount,
+                            actual: data.count
+                        )
+                    }
+                    return data
+                }
                 return OpalBase.Transaction.MerkleProof(
                     blockHeight: proof.blockHeight,
                     position: proof.position,
                     branch: branch,
                     blockHash: blockHash
                 )
+            }
+            if transaction.verificationStatus == .verified && proof == nil {
+                throw OpalBase.Address.Book.Error.invalidSnapshotVerificationState
+            }
+            if transaction.status == .confirmed && transaction.confirmationHeight == nil {
+                throw OpalBase.Address.Book.Error.invalidSnapshotConfirmationState
             }
             let chainMetadata = OpalBase.Transaction.History.Record.ChainMetadata(height: transaction.height,
                                                                          fee: transaction.fee,
@@ -166,6 +256,21 @@ extension _OpalBase.Address.Book {
                                                     verificationMetadata: verificationMetadata,
                                                     tokenDelta: tokenDelta)
             return record
+        }
+    }
+
+    private func validateScriptHashes(in scriptHashes: [String]) throws {
+        guard !scriptHashes.isEmpty else {
+            throw OpalBase.Address.Book.Error.invalidSnapshotMissingScriptHashes
+        }
+        for scriptHash in scriptHashes {
+            let data = try Data(hexadecimalString: scriptHash)
+            guard data.count == OpalBase.Transaction.Hash.expectedByteCount else {
+                throw OpalBase.Address.Book.Error.invalidSnapshotScriptHashLength(
+                    expected: OpalBase.Transaction.Hash.expectedByteCount,
+                    actual: data.count
+                )
+            }
         }
     }
 

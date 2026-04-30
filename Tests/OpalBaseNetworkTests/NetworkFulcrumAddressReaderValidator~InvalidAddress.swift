@@ -4,6 +4,22 @@ import Testing
 @testable import OpalBase
 
 extension NetworkFulcrumAddressReaderValidator {
+    @Test("rejects invalid balance addresses before network usage", .timeLimit(.minutes(1)))
+    func fetchBalanceRejectsInvalidAddress() async throws {
+        guard NetworkTestClient.isExtendedLiveNetworkEnabled else { return }
+        let configuration = OpalBase.Network.Configuration(serverURLs: [Self.primaryServerAddress, Self.backupServerAddress])
+        try await NetworkTestClient.withClient(configuration: configuration) { client in
+            let reader = OpalBase.Network.Fulcrum.AddressReader(client: client)
+            do {
+                _ = try await reader.fetchBalance(for: Self.invalidCashAddr, tokenFilter: .include)
+                #expect(Bool(false), "Expected an invalid address to throw a protocol violation failure")
+            } catch let failure as OpalBase.Network.Error {
+                #expect(failure.reason == .protocolViolation)
+                #expect(failure.message?.contains("Invalid address") ?? false)
+            }
+        }
+    }
+
     @Test("rejects invalid addresses before network usage", .timeLimit(.minutes(1)))
     func fetchUnspentOutputsRejectsInvalidAddress1() async throws {
         guard NetworkTestClient.isExtendedLiveNetworkEnabled else { return }

@@ -77,6 +77,12 @@ extension _OpalBase.Script {
             defer { index += length }
             return lockingScript.subdata(in: index..<index + length)
         }
+
+        func requireEndOfScript() throws {
+            guard index == lockingScript.count else {
+                throw Error.cannotDecodeScript
+            }
+        }
         
         while index < lockingScript.count {
             guard let opcode = readByte() else { break }
@@ -93,8 +99,10 @@ extension _OpalBase.Script {
                 let publicKeyHash = OpalBase.Key.PublicKey.Hash(hash)
                 switch finalOp {
                 case ScriptOperationCode._CHECKSIG.rawValue:
+                    try requireEndOfScript()
                     return .p2pkh_OPCHECKSIG(hash: publicKeyHash)
                 case ScriptOperationCode._CHECKDATASIG.rawValue:
+                    try requireEndOfScript()
                     return .p2pkh_OPCHECKDATASIG(hash: publicKeyHash)
                 default:
                     throw Error.invalidP2PKHScript
@@ -105,6 +113,7 @@ extension _OpalBase.Script {
                 else { throw Error.invalidP2PKScript }
                 
                 let publicKey = try OpalBase.Key.PublicKey(compressedData: publicKeyData)
+                try requireEndOfScript()
                 return .p2pk(publicKey: publicKey)
             case ScriptOperationCode._HASH160.rawValue:
                 guard readByte() == ScriptOperationCode._PUSHBYTES_20.rawValue,
@@ -112,6 +121,7 @@ extension _OpalBase.Script {
                       readByte() == ScriptOperationCode._EQUAL.rawValue
                 else { throw Error.invalidP2SHScript }
                 
+                try requireEndOfScript()
                 return .p2sh(scriptHash: scriptHash)
                 
             case ScriptOperationCode._1.rawValue...ScriptOperationCode._16.rawValue:
@@ -147,6 +157,7 @@ extension _OpalBase.Script {
                       finalOpcode == ScriptOperationCode._CHECKMULTISIG.rawValue
                 else { throw Error.invalidP2MSScript }
                 
+                try requireEndOfScript()
                 return .p2ms(numberOfRequiredSignatures: numberOfRequiredSignatures, publicKeys: publicKeys)
                 
             default:

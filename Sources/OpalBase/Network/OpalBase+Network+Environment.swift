@@ -4,10 +4,10 @@ import Foundation
 import SwiftFulcrum
 
 extension _OpalBase.Network {
-    public enum Environment: Sendable, Equatable {
+    public enum Environment: Sendable, Equatable, Hashable {
         case mainnet
-        case chipnet
         case testnet
+        case chipnet
     }
 }
 
@@ -16,7 +16,9 @@ extension _OpalBase.Network.Environment {
         switch self {
         case .mainnet:
             return .mainnet
-        case .chipnet, .testnet:
+        case .chipnet:
+            return .chipnet
+        case .testnet:
             return .testnet
         }
     }
@@ -24,6 +26,7 @@ extension _OpalBase.Network.Environment {
     init(_ fulcrumNetwork: SwiftFulcrum.Client.Configuration.Network) {
         switch fulcrumNetwork {
         case .mainnet: self = .mainnet
+        case .chipnet: self = .chipnet
         case .testnet: self = .testnet
         }
     }

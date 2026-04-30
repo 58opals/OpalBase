@@ -365,6 +365,70 @@ struct ClaimableStatusResolverValidator {
         #expect(status.fundingState == .spent(spendPath: .unknown))
     }
 
+    @Test("continues spend path scan past ambiguous matching spend")
+    func continuesSpendPathScanPastAmbiguousMatchingSpend() async throws {
+        let (envelope, _) = try makeClaimableEnvelope(
+            network: .chipnet,
+            expiryBlockHeight: 500
+        )
+        let fundingTransaction = makeClaimableFundingTransaction(for: envelope)
+        let ambiguousTransaction = OpalBase.Transaction(
+            version: 2,
+            inputs: [
+                .init(
+                    previousTransactionHash: envelope.fundingTransactionHash,
+                    previousTransactionOutputIndex: envelope.fundingOutputIndex,
+                    unlockingScript: Data([ScriptOperationCode._1.rawValue])
+                )
+            ],
+            outputs: [
+                .init(
+                    value: 1_000,
+                    lockingScript: makeClaimableDestinationLockingScript(fillByte: 0x53)
+                )
+            ],
+            lockTime: 0
+        )
+        let ambiguousTransactionHash = OpalBase.Transaction.Hash(
+            naturalOrder: Data(repeating: 0x53, count: 32)
+        )
+        let claimTransaction = try envelope.buildClaimTransaction(
+            destinationLockingScript: makeClaimableDestinationLockingScript(fillByte: 0x54),
+            currentBlockHeight: 499
+        )
+        let claimTransactionHash = OpalBase.Transaction.Hash(
+            naturalOrder: Data(repeating: 0x54, count: 32)
+        )
+        let resolver = OpalBase.Claimable.StatusResolver(
+            network: .chipnet,
+            scriptHashReader: makeClaimableScriptHashReader(
+                history: [
+                    makeClaimableHistoryEntry(
+                        transactionHash: envelope.fundingTransactionHash
+                    ),
+                    makeClaimableHistoryEntry(transactionHash: ambiguousTransactionHash),
+                    makeClaimableHistoryEntry(transactionHash: claimTransactionHash)
+                ],
+                unspentOutputs: []
+            ),
+            transactionReader: makeClaimableTransactionReader(
+                rawTransactionsByHash: [
+                    envelope.fundingTransactionHash: try fundingTransaction.encode(),
+                    ambiguousTransactionHash: try ambiguousTransaction.encode(),
+                    claimTransactionHash: try claimTransaction.encode()
+                ]
+            )
+        )
+
+        let status = try await resolver.resolve(
+            for: envelope,
+            includeUnconfirmed: true,
+            currentBlockHeight: 700
+        )
+
+        #expect(status.fundingState == .spent(spendPath: .claim))
+    }
+
     @Test("rejects resolver network mismatch")
     func rejectsResolverNetworkMismatch() async throws {
         let (envelope, _) = try makeClaimableEnvelope(network: .chipnet)

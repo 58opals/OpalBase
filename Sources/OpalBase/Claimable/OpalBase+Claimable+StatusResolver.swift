@@ -130,10 +130,12 @@ private extension _OpalBase.Claimable.StatusResolver {
             }
 
             for input in transaction.inputs where input.matchesClaimableOutpoint(envelope) {
-                return makeClaimableSpendPath(
+                if let spendPath = makeClaimableSpendPath(
                     from: input.unlockingScript,
                     expectedRedeemScriptData: envelope.contract.redeemScriptData
-                ) ?? .unknown
+                ) {
+                    return spendPath
+                }
             }
         }
 

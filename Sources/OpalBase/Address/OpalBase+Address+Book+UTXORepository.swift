@@ -125,10 +125,21 @@ extension _OpalBase.Address.Book {
         }
         
         private mutating func store(_ utxo: OpalBase.Transaction.Output.Unspent) {
+            let outpoint = Outpoint(utxo)
+            var shouldRestoreReservation = false
+            if let existing = utxosByOutpoint[outpoint] {
+                shouldRestoreReservation = reservedUTXOs.contains(existing)
+                discard(existing)
+                reservedUTXOs.remove(existing)
+            }
+
             var utxos = utxosByLockingScript[utxo.lockingScript] ?? .init()
             utxos.insert(utxo)
             utxosByLockingScript[utxo.lockingScript] = utxos
-            utxosByOutpoint[Outpoint(utxo)] = utxo
+            utxosByOutpoint[outpoint] = utxo
+            if shouldRestoreReservation {
+                reservedUTXOs.insert(utxo)
+            }
         }
         
         private mutating func discard(_ utxo: OpalBase.Transaction.Output.Unspent) {

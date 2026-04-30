@@ -63,7 +63,11 @@ extension _OpalBase.Account {
     }
 
     func makeTokenAwareAddress(for changeEntry: OpalBase.Address.Book.Entry) throws -> OpalBase.Address {
-        try OpalBase.Address(script: changeEntry.address.lockingScript, format: .tokenAware)
+        try OpalBase.Address(
+            script: changeEntry.address.lockingScript,
+            format: .tokenAware,
+            network: changeEntry.address.network
+        )
     }
 
     func makeRetargetedOutput(_ output: OpalBase.Transaction.Output,

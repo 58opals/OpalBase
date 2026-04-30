@@ -69,11 +69,11 @@ extension _OpalBase.Address.Book {
             let scriptHash = makeScriptHashHex(from: output.lockingScript)
             guard walletScriptHashes.contains(scriptHash) else { continue }
             guard let tokenData = output.tokenData else { continue }
-            addFungibleDelta(from: tokenData, sign: 1, into: &fungibleDeltas)
+            try addFungibleDelta(from: tokenData, sign: 1, into: &fungibleDeltas)
             if let nonFungibleTokenData = makeNonFungibleTokenData(from: tokenData) {
                 nonFungibleAdditions.insert(nonFungibleTokenData)
             }
-            lockedBCHDelta += Int64(output.value)
+            try addLockedBCHDelta(output.value, sign: 1, into: &lockedBCHDelta)
         }
         
         for input in transaction.inputs {
@@ -84,11 +84,11 @@ extension _OpalBase.Address.Book {
             let scriptHash = makeScriptHashHex(from: previousOutput.lockingScript)
             guard walletScriptHashes.contains(scriptHash) else { continue }
             guard let tokenData = previousOutput.tokenData else { continue }
-            addFungibleDelta(from: tokenData, sign: -1, into: &fungibleDeltas)
+            try addFungibleDelta(from: tokenData, sign: -1, into: &fungibleDeltas)
             if let nonFungibleTokenData = makeNonFungibleTokenData(from: tokenData) {
                 nonFungibleRemovals.insert(nonFungibleTokenData)
             }
-            lockedBCHDelta -= Int64(previousOutput.value)
+            try addLockedBCHDelta(previousOutput.value, sign: -1, into: &lockedBCHDelta)
         }
         
         return OpalBase.Transaction.History.Record.TokenDelta(
@@ -114,9 +114,31 @@ extension _OpalBase.Address.Book {
         from tokenData: OpalBase.CashTokens.TokenData,
         sign: Int64,
         into deltas: inout [OpalBase.CashTokens.CategoryID: Int64]
-    ) {
+    ) throws {
         guard let amount = tokenData.amount else { return }
-        let signedAmount = Int64(amount) * sign
-        deltas[tokenData.category, default: 0] += signedAmount
+        guard let magnitude = Int64(exactly: amount) else {
+            throw OpalBase.Address.Book.Error.tokenDeltaOverflow
+        }
+        let signedAmount = magnitude * sign
+        let current = deltas[tokenData.category, default: 0]
+        deltas[tokenData.category] = try current.addOrThrow(
+            signedAmount,
+            overflowError: OpalBase.Address.Book.Error.tokenDeltaOverflow
+        )
+    }
+
+    func addLockedBCHDelta(
+        _ value: UInt64,
+        sign: Int64,
+        into delta: inout Int64
+    ) throws {
+        guard let magnitude = Int64(exactly: value) else {
+            throw OpalBase.Address.Book.Error.tokenDeltaOverflow
+        }
+        let signedValue = magnitude * sign
+        delta = try delta.addOrThrow(
+            signedValue,
+            overflowError: OpalBase.Address.Book.Error.tokenDeltaOverflow
+        )
     }
 }

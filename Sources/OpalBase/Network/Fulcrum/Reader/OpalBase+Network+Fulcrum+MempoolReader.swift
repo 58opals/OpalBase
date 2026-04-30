@@ -39,6 +39,11 @@ extension _OpalBase.Network.Fulcrum {
                 
                 return response.histogram.map { result in
                     OpalBase.Network.MempoolFeeHistogramBin(fee: result.fee, virtualSize: result.virtualSize)
+                }.sorted { lhs, rhs in
+                    if lhs.fee == rhs.fee {
+                        return lhs.virtualSize < rhs.virtualSize
+                    }
+                    return lhs.fee < rhs.fee
                 }
             }
         }

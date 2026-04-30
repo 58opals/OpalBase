@@ -83,4 +83,32 @@ struct AddressBookUnspentTransactionOutputRefreshValidator {
 
         #expect(try await book.readCachedBalance(for: entry.address) == OpalBase.Satoshi(9_000))
     }
+
+    @Test("adding the same outpoint replaces address-indexed UTXO metadata")
+    func addUTXOReplacesAddressIndexedMetadataForSameOutpoint() async throws {
+        let book = try await AddressBookCashTokensTestData.makeAddressBook()
+        let entry = try await book.selectNextEntry(for: .receiving)
+        let transactionHash = OpalBase.Transaction.Hash(
+            naturalOrder: Data(repeating: 0x55, count: 32)
+        )
+        let original = OpalBase.Transaction.Output.Unspent(
+            value: 1_000,
+            lockingScript: entry.address.lockingScript.data,
+            previousTransactionHash: transactionHash,
+            previousTransactionOutputIndex: 0
+        )
+        let replacement = OpalBase.Transaction.Output.Unspent(
+            value: 2_000,
+            lockingScript: entry.address.lockingScript.data,
+            previousTransactionHash: transactionHash,
+            previousTransactionOutputIndex: 0
+        )
+
+        await book.addUTXO(original)
+        await book.addUTXO(replacement)
+
+        let storedOutputs = await book.listUTXOs(for: entry.address)
+        #expect(storedOutputs.count == 1)
+        #expect(storedOutputs.first?.value == replacement.value)
+    }
 }

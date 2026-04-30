@@ -24,7 +24,28 @@ extension _OpalBase.Address.Book {
         case cacheInvalid
         case cacheUpdateFailed(OpalBase.Address, Swift.Error)
         case invalidSnapshotBalance(value: UInt64, reason: Swift.Error)
+        case invalidSnapshotEntryUsage(
+            expected: OpalBase.Key.DerivationPath.Usage,
+            actual: OpalBase.Key.DerivationPath.Usage,
+            index: UInt32
+        )
+        case invalidSnapshotDuplicateEntry(
+            usage: OpalBase.Key.DerivationPath.Usage,
+            index: UInt32
+        )
+        case invalidSnapshotDuplicateUTXO(
+            transactionHash: OpalBase.Transaction.Hash,
+            outputIndex: UInt32
+        )
+        case invalidSnapshotDuplicateTransaction(OpalBase.Transaction.Hash)
+        case invalidSnapshotTransactionHashLength(expected: Int, actual: Int)
+        case invalidSnapshotScriptHashLength(expected: Int, actual: Int)
+        case invalidSnapshotMissingScriptHashes
+        case invalidSnapshotMerkleProofHashLength(expected: Int, actual: Int)
         case invalidSnapshotTokenData(reason: Swift.Error)
+        case invalidSnapshotVerificationState
+        case invalidSnapshotConfirmationState
+        case tokenDeltaOverflow
         case transactionHistoryRefreshFailed(OpalBase.Address, Swift.Error)
         case transactionDetailsRefreshFailed(OpalBase.Transaction.Hash, Swift.Error)
         case transactionConfirmationRefreshFailed(OpalBase.Transaction.Hash, Swift.Error)
@@ -40,6 +61,10 @@ extension _OpalBase.Address.Book.Error: Equatable {
             (.entryNotFound, .entryNotFound),
             (.insufficientFunds, .insufficientFunds),
             (.paymentExceedsMaximumAmount, .paymentExceedsMaximumAmount),
+            (.tokenDeltaOverflow, .tokenDeltaOverflow),
+            (.invalidSnapshotVerificationState, .invalidSnapshotVerificationState),
+            (.invalidSnapshotConfirmationState, .invalidSnapshotConfirmationState),
+            (.invalidSnapshotMissingScriptHashes, .invalidSnapshotMissingScriptHashes),
             (.utxoNotFound, .utxoNotFound),
             (.cacheInvalid, .cacheInvalid):
             return true
@@ -58,6 +83,27 @@ extension _OpalBase.Address.Book.Error: Equatable {
         case (.invalidSnapshotBalance(let leftValue, let leftError),
               .invalidSnapshotBalance(let rightValue, let rightError)):
             return leftValue == rightValue && OpalBase.Network.checkFailureEquivalence(leftError, rightError)
+        case (.invalidSnapshotEntryUsage(let leftExpected, let leftActual, let leftIndex),
+              .invalidSnapshotEntryUsage(let rightExpected, let rightActual, let rightIndex)):
+            return leftExpected == rightExpected && leftActual == rightActual && leftIndex == rightIndex
+        case (.invalidSnapshotDuplicateEntry(let leftUsage, let leftIndex),
+              .invalidSnapshotDuplicateEntry(let rightUsage, let rightIndex)):
+            return leftUsage == rightUsage && leftIndex == rightIndex
+        case (.invalidSnapshotDuplicateUTXO(let leftHash, let leftIndex),
+              .invalidSnapshotDuplicateUTXO(let rightHash, let rightIndex)):
+            return leftHash == rightHash && leftIndex == rightIndex
+        case (.invalidSnapshotDuplicateTransaction(let leftHash),
+              .invalidSnapshotDuplicateTransaction(let rightHash)):
+            return leftHash == rightHash
+        case (.invalidSnapshotTransactionHashLength(let leftExpected, let leftActual),
+              .invalidSnapshotTransactionHashLength(let rightExpected, let rightActual)):
+            return leftExpected == rightExpected && leftActual == rightActual
+        case (.invalidSnapshotScriptHashLength(let leftExpected, let leftActual),
+              .invalidSnapshotScriptHashLength(let rightExpected, let rightActual)):
+            return leftExpected == rightExpected && leftActual == rightActual
+        case (.invalidSnapshotMerkleProofHashLength(let leftExpected, let leftActual),
+              .invalidSnapshotMerkleProofHashLength(let rightExpected, let rightActual)):
+            return leftExpected == rightExpected && leftActual == rightActual
         case (.invalidSnapshotTokenData(let leftError),
               .invalidSnapshotTokenData(let rightError)):
             return OpalBase.Network.checkFailureEquivalence(leftError, rightError)
