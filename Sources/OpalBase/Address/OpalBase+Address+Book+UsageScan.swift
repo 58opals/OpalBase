@@ -3,11 +3,11 @@
 import Foundation
 
 extension _OpalBase.Address.Book {
-    public struct UsageScan: Sendable, Equatable {
-        public let discoveredUsedEntries: [OpalBase.Key.DerivationPath.Usage: [Entry]]
-        public let totalScannedPerUsage: [OpalBase.Key.DerivationPath.Usage: Int]
+    struct UsageScan: Sendable, Equatable {
+        let discoveredUsedEntries: [OpalBase.Key.DerivationPath.Usage: [Entry]]
+        let totalScannedPerUsage: [OpalBase.Key.DerivationPath.Usage: Int]
         
-        public init(discoveredUsedEntries: [OpalBase.Key.DerivationPath.Usage: [Entry]],
+        init(discoveredUsedEntries: [OpalBase.Key.DerivationPath.Usage: [Entry]],
                     totalScannedPerUsage: [OpalBase.Key.DerivationPath.Usage: Int]) {
             self.discoveredUsedEntries = discoveredUsedEntries
             self.totalScannedPerUsage = totalScannedPerUsage
@@ -16,7 +16,7 @@ extension _OpalBase.Address.Book {
 }
 
 extension _OpalBase.Address.Book {
-    public func scanForUsedAddresses(using service: OpalBase.Network.AddressReader,
+    func scanForUsedAddresses(using service: OpalBase.Network.AddressReader,
                                      usage: OpalBase.Key.DerivationPath.Usage? = nil,
                                      includeUnconfirmed: Bool = true) async throws -> UsageScan {
         let targetUsages = OpalBase.Key.DerivationPath.Usage.resolveTargetUsages(for: usage)

@@ -202,8 +202,8 @@ struct AccountTokenGenesisValidator {
             $0.tokenData?.amount == 77
         }))
         let bchChange = try #require(transactionResult.bchChange)
-        #expect(bchChange.entry.address.lockingScript.data != staleChangeEntry.address.lockingScript.data)
-        #expect(reservedSupplyOutput.lockingScript == bchChange.entry.address.lockingScript.data)
+        #expect(bchChange.derivedAddress.address.lockingScript.data != staleChangeEntry.address.lockingScript.data)
+        #expect(reservedSupplyOutput.lockingScript == bchChange.derivedAddress.address.lockingScript.data)
         #expect(reservedSupplyOutput.lockingScript != staleChangeEntry.address.lockingScript.data)
 
         try await plan.cancelReservation()

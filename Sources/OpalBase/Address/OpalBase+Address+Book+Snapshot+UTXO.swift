@@ -3,17 +3,17 @@
 import Foundation
 
 extension _OpalBase.Address.Book.Snapshot {
-    public struct UTXO: Codable, Equatable, Hashable, Sendable {
-        public let value: UInt64
-        public let lockingScript: String
-        public let tokenCategory: String?
-        public let tokenAmount: UInt64?
-        public let nftCapability: OpalBase.CashTokens.NFT.Capability?
-        public let nftCommitment: String?
-        public let transactionHash: String
-        public let outputIndex: UInt32
+    struct UTXO: Codable, Equatable, Hashable, Sendable {
+        let value: UInt64
+        let lockingScript: String
+        let tokenCategory: String?
+        let tokenAmount: UInt64?
+        let nftCapability: OpalBase.CashTokens.NFT.Capability?
+        let nftCommitment: String?
+        let transactionHash: String
+        let outputIndex: UInt32
 
-        public init(value: UInt64,
+        init(value: UInt64,
                     lockingScript: String,
                     tokenCategory: String?,
                     tokenAmount: UInt64?,
@@ -31,7 +31,7 @@ extension _OpalBase.Address.Book.Snapshot {
             self.outputIndex = outputIndex
         }
 
-        public init(value: UInt64,
+        init(value: UInt64,
                     lockingScript: String,
                     tokenData: OpalBase.CashTokens.TokenData?,
                     transactionHash: String,
@@ -47,7 +47,7 @@ extension _OpalBase.Address.Book.Snapshot {
                       outputIndex: outputIndex)
         }
 
-        public func makeTokenData() throws -> OpalBase.CashTokens.TokenData? {
+        func makeTokenData() throws -> OpalBase.CashTokens.TokenData? {
             guard let tokenCategory else {
                 guard tokenAmount == nil, nftCapability == nil, nftCommitment == nil else {
                     throw OpalBase.Address.Book.Error.invalidSnapshotTokenData(reason: SnapshotTokenDataError.missingTokenCategory)

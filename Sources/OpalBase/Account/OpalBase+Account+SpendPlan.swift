@@ -7,12 +7,16 @@ extension _OpalBase.Account {
     public struct SpendPlan: Sendable {
         public struct TransactionResult: Sendable {
             public struct Change: Sendable {
-                public let entry: OpalBase.Address.Book.Entry
+                public let derivedAddress: OpalBase.Account.DerivedAddress
                 public let amount: OpalBase.Satoshi
                 
-                public init(entry: OpalBase.Address.Book.Entry, amount: OpalBase.Satoshi) {
-                    self.entry = entry
+                public init(derivedAddress: OpalBase.Account.DerivedAddress, amount: OpalBase.Satoshi) {
+                    self.derivedAddress = derivedAddress
                     self.amount = amount
+                }
+
+                init(entry: OpalBase.Address.Book.Entry, amount: OpalBase.Satoshi) {
+                    self.init(derivedAddress: .init(entry), amount: amount)
                 }
             }
             

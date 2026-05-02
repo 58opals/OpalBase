@@ -16,7 +16,7 @@ struct NetworkFulcrumTransactionProofReaderValidator {
             merkleResponse: merkleResponse,
             identifierResponse: identifierResponse
         )
-        let reader = OpalBase.Network.FulcrumTransactionProofReader(client: client)
+        let reader = OpalBase.Network.Fulcrum.TransactionProofReader(client: client)
         let transactionHash = OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0x11, count: 32))
 
         let merkleProof = try await reader.fetchMerkleProof(for: transactionHash)
@@ -37,7 +37,7 @@ struct NetworkFulcrumTransactionProofReaderValidator {
         let client = TransactionProofClientTestActor(
             merkleError: SwiftFulcrum.Client.Error.client(.protocolMismatch("unexpected merkle response"))
         )
-        let reader = OpalBase.Network.FulcrumTransactionProofReader(client: client)
+        let reader = OpalBase.Network.Fulcrum.TransactionProofReader(client: client)
 
         let failure = await Self.captureNetworkError {
             _ = try await reader.fetchMerkleProof(for: .init(naturalOrder: Data(repeating: 0x01, count: 32)))
@@ -53,7 +53,7 @@ struct NetworkFulcrumTransactionProofReaderValidator {
             merkleResponse: try Self.makeMerkleResponse(blockHeight: 13),
             heightResponse: try Self.makeHeightResponse(blockHeight: 12)
         )
-        let reader = OpalBase.Network.FulcrumTransactionProofReader(client: client)
+        let reader = OpalBase.Network.Fulcrum.TransactionProofReader(client: client)
 
         let failure = await Self.captureNetworkError {
             _ = try await reader.fetchMerkleProof(for: .init(naturalOrder: Data(repeating: 0x01, count: 32)))

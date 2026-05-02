@@ -11,24 +11,24 @@ extension _OpalBase.Storage {
         try await loadWalletSnapshot(key: .walletSnapshot)
     }
 
-    public func saveAccountSnapshot(_ snapshot: OpalBase.Account.Snapshot,
-                                    accountIdentifier: Data) async throws {
+    func saveAccountSnapshot(_ snapshot: OpalBase.Account.Snapshot,
+                             accountIdentifier: Data) async throws {
         let encodedSnapshot = try encodeSnapshot(snapshot)
         try await storeValue(encodedSnapshot, for: .accountSnapshot(accountIdentifier))
     }
 
-    public func loadAccountSnapshot(accountIdentifier: Data) async throws -> OpalBase.Account.Snapshot? {
+    func loadAccountSnapshot(accountIdentifier: Data) async throws -> OpalBase.Account.Snapshot? {
         guard let data = try await loadValue(for: .accountSnapshot(accountIdentifier)) else { return nil }
         return try decodeSnapshot(OpalBase.Account.Snapshot.self, from: data)
     }
 
-    public func saveAddressBookSnapshot(_ snapshot: OpalBase.Address.Book.Snapshot,
-                                        accountIdentifier: Data) async throws {
+    func saveAddressBookSnapshot(_ snapshot: OpalBase.Address.Book.Snapshot,
+                                 accountIdentifier: Data) async throws {
         let encodedSnapshot = try encodeSnapshot(snapshot)
         try await storeValue(encodedSnapshot, for: .addressBookSnapshot(accountIdentifier))
     }
 
-    public func loadAddressBookSnapshot(accountIdentifier: Data) async throws -> OpalBase.Address.Book.Snapshot? {
+    func loadAddressBookSnapshot(accountIdentifier: Data) async throws -> OpalBase.Address.Book.Snapshot? {
         guard let data = try await loadValue(for: .addressBookSnapshot(accountIdentifier)) else { return nil }
         return try decodeSnapshot(OpalBase.Address.Book.Snapshot.self, from: data)
     }

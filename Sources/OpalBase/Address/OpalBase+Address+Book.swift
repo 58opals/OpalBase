@@ -4,7 +4,7 @@ import Foundation
 import OpalCrypto
 
 extension _OpalBase.Address {
-    public actor Book {
+    actor Book {
         struct UsageDerivationCache {
             let baseExtendedPrivateKey: OpalCrypto.Key.ExtendedPrivate
             let baseCompressedPublicKey: Data

@@ -21,7 +21,7 @@ struct NetworkFulcrumTransactionReaderValidator {
         let configuration = makeConfiguration()
 
         try await NetworkTestClient.withClient(configuration: configuration) { client in
-            let reader = OpalBase.Network.FulcrumTransactionReader(client: client)
+            let reader = OpalBase.Network.Fulcrum.TransactionReader(client: client)
             let transactionHash = try OpalBase.Network.decodeTransactionHash(
                 from: Self.confirmedTransactionIdentifier
             )

@@ -24,7 +24,7 @@ extension _OpalBase.Address.Book {
         try await refresh(with: snapshot)
     }
 
-    public func makeSnapshot() -> Snapshot {
+    func makeSnapshot() -> Snapshot {
         let receiving = makeEntrySnapshots(for: .receiving)
         let change = makeEntrySnapshots(for: .change)
 
@@ -87,7 +87,7 @@ extension _OpalBase.Address.Book {
         }
     }
 
-    public func refresh(with snapshot: Snapshot) async throws {
+    func refresh(with snapshot: Snapshot) async throws {
         try validateEntryUsage(in: snapshot.receivingEntries, expected: .receiving)
         try validateEntryUsage(in: snapshot.changeEntries, expected: .change)
         try validateUniqueEntryIndices(in: snapshot.receivingEntries, usage: .receiving)

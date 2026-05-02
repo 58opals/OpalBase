@@ -3,17 +3,17 @@
 import Foundation
 
 extension _OpalBase.Address.Book {
-    public struct UTXOChangeSet {
-        public let address: OpalBase.Address
-        public let previous: [OpalBase.Transaction.Output.Unspent]
-        public let updated: [OpalBase.Transaction.Output.Unspent]
-        public let inserted: [OpalBase.Transaction.Output.Unspent]
-        public let removed: [OpalBase.Transaction.Output.Unspent]
-        public let retained: [OpalBase.Transaction.Output.Unspent]
-        public let balance: OpalBase.Satoshi
-        public let timestamp: Date
+    struct UTXOChangeSet {
+        let address: OpalBase.Address
+        let previous: [OpalBase.Transaction.Output.Unspent]
+        let updated: [OpalBase.Transaction.Output.Unspent]
+        let inserted: [OpalBase.Transaction.Output.Unspent]
+        let removed: [OpalBase.Transaction.Output.Unspent]
+        let retained: [OpalBase.Transaction.Output.Unspent]
+        let balance: OpalBase.Satoshi
+        let timestamp: Date
         
-        public init(address: OpalBase.Address,
+        init(address: OpalBase.Address,
                     previous: [OpalBase.Transaction.Output.Unspent],
                     updated: [OpalBase.Transaction.Output.Unspent],
                     timestamp: Date = .now) throws {

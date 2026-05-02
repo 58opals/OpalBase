@@ -3,7 +3,7 @@
 import Foundation
 
 extension _OpalBase.Account {
-    public actor PrivacyShaperActor {
+    actor PrivacyShaperActor {
         private struct AnyOperation: Sendable {
             let execution: @Sendable () async -> Void
             let cancellation: @Sendable () -> Void

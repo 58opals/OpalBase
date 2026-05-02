@@ -10,6 +10,12 @@ extension _OpalBase.Account {
         let fungibleAmount: UInt64
         let nonFungibleTokens: [OpalBase.Address.Book.TokenInventory.NonFungibleTokenGroup: Int]
     }
+
+    struct TokenSelectionInventory {
+        let category: OpalBase.CashTokens.CategoryID
+        let fungibleAmount: UInt64
+        let nonFungibleTokens: [OpalBase.Address.Book.TokenInventory.NonFungibleTokenGroup: Int]
+    }
 }
 
 extension _OpalBase.Account {
@@ -53,7 +59,7 @@ extension _OpalBase.Account {
     }
     
     func makeTokenInventory(from unspentOutputs: [OpalBase.Transaction.Output.Unspent],
-                            category: OpalBase.CashTokens.CategoryID) throws -> TokenInventory {
+                            category: OpalBase.CashTokens.CategoryID) throws -> TokenSelectionInventory {
         var fungibleAmount: UInt64 = 0
         var nonFungibleTokens: [OpalBase.Address.Book.TokenInventory.NonFungibleTokenGroup: Int] = .init()
         for unspentOutput in unspentOutputs {
@@ -69,13 +75,13 @@ extension _OpalBase.Account {
                 nonFungibleTokens[group, default: 0] += 1
             }
         }
-        return TokenInventory(category: category,
-                              fungibleAmount: fungibleAmount,
-                              nonFungibleTokens: nonFungibleTokens)
+        return TokenSelectionInventory(category: category,
+                                       fungibleAmount: fungibleAmount,
+                                       nonFungibleTokens: nonFungibleTokens)
     }
     
-    func subtractTokenInventory(input: TokenInventory,
-                                requirements: TokenRequirements) throws -> TokenInventory {
+    func subtractTokenInventory(input: TokenSelectionInventory,
+                                requirements: TokenRequirements) throws -> TokenSelectionInventory {
         guard input.fungibleAmount >= requirements.fungibleAmount else {
             throw Error.tokenTransferInsufficientTokens
         }
@@ -96,12 +102,12 @@ extension _OpalBase.Account {
                 throw Error.tokenTransferInsufficientTokens
             }
         }
-        return TokenInventory(category: input.category,
-                              fungibleAmount: remainingFungible,
-                              nonFungibleTokens: remainingNonFungible)
+        return TokenSelectionInventory(category: input.category,
+                                       fungibleAmount: remainingFungible,
+                                       nonFungibleTokens: remainingNonFungible)
     }
     
-    func makeTokenChangeOutputs(from inventory: TokenInventory,
+    func makeTokenChangeOutputs(from inventory: TokenSelectionInventory,
                                 changeAddress: OpalBase.Address) throws -> [OpalBase.Transaction.Output] {
         var outputs: [OpalBase.Transaction.Output] = .init()
         var remainingFungible = inventory.fungibleAmount

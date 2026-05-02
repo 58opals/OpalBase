@@ -2,8 +2,13 @@
 
 import Foundation
 
-extension _OpalBase.Network {
-    public struct FulcrumTransactionReader {
+extension _OpalBase.Network.Fulcrum {
+    /// Reads transaction data from a Fulcrum server.
+    ///
+    /// Most wallet applications should use `OpalBase.Wallet.Fulcrum` for live
+    /// synchronization. Use this reader directly when composing a custom network
+    /// adapter.
+    public struct TransactionReader {
         private let client: any OpalBase.Network.Fulcrum.TransactionReaderClient
         private let timeouts: OpalBase.Network.FulcrumRequestTimeout
         private let cache: OpalBase.Transaction.Cache
@@ -145,5 +150,5 @@ extension _OpalBase.Network {
     }
 }
 
-extension _OpalBase.Network.FulcrumTransactionReader: Sendable {}
-extension _OpalBase.Network.FulcrumTransactionReader: OpalBase.Network.TransactionReadableClient {}
+extension _OpalBase.Network.Fulcrum.TransactionReader: Sendable {}
+extension _OpalBase.Network.Fulcrum.TransactionReader: OpalBase.Network.TransactionReadableClient {}

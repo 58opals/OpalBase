@@ -3,11 +3,11 @@
 import Foundation
 
 extension _OpalBase.Address.Book {
-    public struct UnspentOutputPartition: Sendable, Equatable {
-        public let bchOnlyUTXOs: Set<OpalBase.Transaction.Output.Unspent>
-        public let tokenUTXOs: Set<OpalBase.Transaction.Output.Unspent>
+    struct UnspentOutputPartition: Sendable, Equatable {
+        let bchOnlyUTXOs: Set<OpalBase.Transaction.Output.Unspent>
+        let tokenUTXOs: Set<OpalBase.Transaction.Output.Unspent>
         
-        public init(bchOnlyUTXOs: Set<OpalBase.Transaction.Output.Unspent>,
+        init(bchOnlyUTXOs: Set<OpalBase.Transaction.Output.Unspent>,
                     tokenUTXOs: Set<OpalBase.Transaction.Output.Unspent>) {
             self.bchOnlyUTXOs = bchOnlyUTXOs
             self.tokenUTXOs = tokenUTXOs

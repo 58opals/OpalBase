@@ -13,7 +13,7 @@ struct NetworkFulcrumTransactionReaderValidator {
             rawTransactionHex: fixture.rawTransactionHexadecimal,
             verboseTransaction: fixture.verboseResponse
         )
-        let reader = OpalBase.Network.FulcrumTransactionReader(client: client)
+        let reader = OpalBase.Network.Fulcrum.TransactionReader(client: client)
 
         let first = try await reader.fetchRawTransaction(for: fixture.transactionHash)
         let second = try await reader.fetchRawTransaction(for: fixture.transactionHash)
@@ -32,7 +32,7 @@ struct NetworkFulcrumTransactionReaderValidator {
             rawTransactionHex: fixture.rawTransactionHexadecimal,
             verboseTransaction: fixture.verboseResponse
         )
-        let reader = OpalBase.Network.FulcrumTransactionReader(client: client)
+        let reader = OpalBase.Network.Fulcrum.TransactionReader(client: client)
 
         let detail = try await reader.fetchDetailedTransaction(for: fixture.transactionHash)
 
@@ -65,7 +65,7 @@ struct NetworkFulcrumTransactionReaderValidator {
             rawTransactionHex: fixture.rawTransactionHexadecimal,
             verboseTransaction: verboseResponse
         )
-        let reader = OpalBase.Network.FulcrumTransactionReader(client: client)
+        let reader = OpalBase.Network.Fulcrum.TransactionReader(client: client)
 
         let detail = try await reader.fetchDetailedTransaction(for: fixture.transactionHash)
 
@@ -88,7 +88,7 @@ struct NetworkFulcrumTransactionReaderValidator {
             verboseTransaction: fixture.verboseResponse,
             verboseError: SwiftFulcrum.Client.Error.coding(.decode(nil))
         )
-        let reader = OpalBase.Network.FulcrumTransactionReader(client: client)
+        let reader = OpalBase.Network.Fulcrum.TransactionReader(client: client)
 
         let detail = try await reader.fetchDetailedTransaction(for: fixture.transactionHash)
 
@@ -134,7 +134,7 @@ struct NetworkFulcrumTransactionReaderValidator {
                 verboseTransaction: fixture.verboseResponse,
                 verboseError: verboseError
             )
-            let reader = OpalBase.Network.FulcrumTransactionReader(client: client)
+            let reader = OpalBase.Network.Fulcrum.TransactionReader(client: client)
 
             let failure = await Self.captureNetworkError {
                 _ = try await reader.fetchDetailedTransaction(for: fixture.transactionHash)
@@ -154,7 +154,7 @@ struct NetworkFulcrumTransactionReaderValidator {
             verboseTransaction: fixture.verboseResponse
         )
         let cache = OpalBase.Transaction.Cache()
-        let reader = OpalBase.Network.FulcrumTransactionReader(client: client, cache: cache)
+        let reader = OpalBase.Network.Fulcrum.TransactionReader(client: client, cache: cache)
 
         let first = try await reader.fetchDetailedTransaction(for: fixture.transactionHash)
         let second = try await reader.fetchDetailedTransaction(for: fixture.transactionHash)

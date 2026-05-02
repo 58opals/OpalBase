@@ -9,7 +9,7 @@ extension _OpalBase.Account {
         guard !payment.recipients.isEmpty else { throw Error.paymentHasNoRecipients }
         
         if payment.recipients.contains(where: { $0.tokenData != nil }) { throw Error.paymentDoesNotSupportTokensUseTokenTransfer }
-        if payment.tokenSelectionPolicy == .allowTokenUTXOs { throw Error.paymentCannotSpendTokenUTXOs }
+        if payment.tokenInputPolicy == .allowTokenUTXOs { throw Error.paymentCannotSpendTokenUTXOs }
         
         let targetAmount = try payment.recipients.sumSatoshi(or: Error.paymentExceedsMaximumAmount) { recipient in
             recipient.amount
@@ -28,7 +28,7 @@ extension _OpalBase.Account {
         
         let coinSelectionConfiguration = OpalBase.Address.Book.CoinSelection.Configuration(recipientOutputs: organizedRecipientOutputs,
                                                                                   changeLockingScript: changeEntry.address.lockingScript.data,
-                                                                                  strategy: payment.coinSelection,
+                                                                                  strategy: payment.coinSelection.addressBookStrategy,
                                                                                   shouldAllowDustDonation: payment.shouldAllowDustDonation,
                                                                                   tokenSelectionPolicy: .excludeTokenUTXOs)
         

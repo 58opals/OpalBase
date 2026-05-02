@@ -3,8 +3,12 @@
 import Foundation
 import SwiftFulcrum
 
-extension _OpalBase.Network {
-    public struct FulcrumTransactionProofReader {
+extension _OpalBase.Network.Fulcrum {
+    /// Reads transaction inclusion proofs from a Fulcrum server.
+    ///
+    /// This reader is an advanced adapter surface. Prefer `OpalBase.Wallet.Fulcrum`
+    /// unless the application needs custom proof handling.
+    public struct TransactionProofReader {
         private let client: any OpalBase.Network.Fulcrum.TransactionProofClient
         private let timeouts: OpalBase.Network.FulcrumRequestTimeout
         

@@ -20,7 +20,7 @@ extension _OpalBase.Address.Book.History {
 }
 
 extension _OpalBase.Address.Book {
-    public func refreshTransactionHistory(using service: OpalBase.Network.AddressReader,
+    func refreshTransactionHistory(using service: OpalBase.Network.AddressReader,
                                           usage: OpalBase.Key.DerivationPath.Usage? = nil,
                                           includeUnconfirmed: Bool = true,
                                           transactionReader: OpalBase.Network.TransactionReader? = nil) async throws -> OpalBase.Transaction.History.ChangeSet {
@@ -79,7 +79,7 @@ extension _OpalBase.Address.Book {
 }
 
 extension _OpalBase.Address.Book {
-    public func refreshTransactionHistory(for address: OpalBase.Address,
+    func refreshTransactionHistory(for address: OpalBase.Address,
                                           using service: OpalBase.Network.AddressReader,
                                           includeUnconfirmed: Bool,
                                           transactionReader: OpalBase.Network.TransactionReader? = nil) async throws -> OpalBase.Transaction.History.ChangeSet {
@@ -140,7 +140,7 @@ private extension _OpalBase.Address.Book {
 }
 
 extension _OpalBase.Address.Book {
-    public func updateTransactionConfirmations(using handler: OpalBase.Network.TransactionClient,
+    func updateTransactionConfirmations(using handler: OpalBase.Network.TransactionClient,
                                                for transactionHashes: [OpalBase.Transaction.Hash]) async throws -> OpalBase.Transaction.History.ChangeSet {
         guard !transactionHashes.isEmpty else { return .init() }
         
@@ -202,7 +202,7 @@ extension _OpalBase.Address.Book {
         try await updateTransactionConfirmations(using: .init(confirmations: handler), for: transactionHashes)
     }
     
-    public func refreshTransactionConfirmations(using handler: OpalBase.Network.TransactionClient) async throws -> OpalBase.Transaction.History.ChangeSet {
+    func refreshTransactionConfirmations(using handler: OpalBase.Network.TransactionClient) async throws -> OpalBase.Transaction.History.ChangeSet {
         let records = transactionLog.listRecords()
         guard !records.isEmpty else { return .init() }
         let hashes = records.map(\.transactionHash)

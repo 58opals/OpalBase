@@ -3,13 +3,13 @@
 import Foundation
 
 extension _OpalBase.Address.Book {
-    public struct TokenInventory: Sendable, Equatable {
-        public struct NonFungibleTokenGroup: Hashable, Sendable {
-            public let category: OpalBase.CashTokens.CategoryID
-            public let commitment: Data
-            public let capability: OpalBase.CashTokens.NFT.Capability
+    struct TokenInventory: Sendable, Equatable {
+        struct NonFungibleTokenGroup: Hashable, Sendable {
+            let category: OpalBase.CashTokens.CategoryID
+            let commitment: Data
+            let capability: OpalBase.CashTokens.NFT.Capability
             
-            public init(category: OpalBase.CashTokens.CategoryID,
+            init(category: OpalBase.CashTokens.CategoryID,
                         commitment: Data,
                         capability: OpalBase.CashTokens.NFT.Capability) {
                 self.category = category
@@ -18,10 +18,10 @@ extension _OpalBase.Address.Book {
             }
         }
         
-        public let fungibleAmountsByCategory: [OpalBase.CashTokens.CategoryID: UInt64]
-        public let nonFungibleTokensByGroup: [NonFungibleTokenGroup: Int]
+        let fungibleAmountsByCategory: [OpalBase.CashTokens.CategoryID: UInt64]
+        let nonFungibleTokensByGroup: [NonFungibleTokenGroup: Int]
         
-        public init(fungibleAmountsByCategory: [OpalBase.CashTokens.CategoryID: UInt64],
+        init(fungibleAmountsByCategory: [OpalBase.CashTokens.CategoryID: UInt64],
                     nonFungibleTokensByGroup: [NonFungibleTokenGroup: Int]) {
             self.fungibleAmountsByCategory = fungibleAmountsByCategory
             self.nonFungibleTokensByGroup = nonFungibleTokensByGroup
@@ -30,7 +30,7 @@ extension _OpalBase.Address.Book {
 }
 
 extension _OpalBase.Address.Book {
-    public func partitionUnspentOutputs() -> UnspentOutputPartition {
+    func partitionUnspentOutputs() -> UnspentOutputPartition {
         let utxos = listUTXOs()
         var bchOnlyUTXOs: Set<OpalBase.Transaction.Output.Unspent> = .init()
         var tokenUTXOs: Set<OpalBase.Transaction.Output.Unspent> = .init()
@@ -45,7 +45,7 @@ extension _OpalBase.Address.Book {
                                       tokenUTXOs: tokenUTXOs)
     }
     
-    public func calculateUnspentOutputBalances() async throws -> UnspentOutputBalances {
+    func calculateUnspentOutputBalances() async throws -> UnspentOutputBalances {
         let utxos = listUTXOs()
         var tokenUTXOs: Set<OpalBase.Transaction.Output.Unspent> = .init()
         tokenUTXOs.reserveCapacity(utxos.count)
@@ -66,7 +66,7 @@ extension _OpalBase.Address.Book {
                                      tokenInventory: tokenInventory)
     }
     
-    public func calculateTokenInventory() throws -> TokenInventory {
+    func calculateTokenInventory() throws -> TokenInventory {
         let partition = partitionUnspentOutputs()
         return try makeTokenInventory(from: partition.tokenUTXOs)
     }

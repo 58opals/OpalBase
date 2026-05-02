@@ -3,10 +3,10 @@
 import Foundation
 
 extension _OpalBase.Address.Book {
-    public struct Entry {
-        public let address: OpalBase.Address
-        public let derivationPath: OpalBase.Key.DerivationPath
-        public let createdAt: Date
+    struct Entry {
+        let address: OpalBase.Address
+        let derivationPath: OpalBase.Key.DerivationPath
+        let createdAt: Date
         var isUsed: Bool
         var isReserved: Bool
         var cache: Cache
@@ -144,7 +144,7 @@ extension _OpalBase.Address.Book {
 
 // MARK: - Get
 extension _OpalBase.Address.Book {
-    public func selectNextEntry(for usage: OpalBase.Key.DerivationPath.Usage) async throws -> Entry {
+    func selectNextEntry(for usage: OpalBase.Key.DerivationPath.Usage) async throws -> Entry {
         try await generateEntriesIfNeeded(for: usage)
         
         let entries = inventory.listEntries(for: usage)
@@ -153,7 +153,7 @@ extension _OpalBase.Address.Book {
         return nextEntry
     }
     
-    public func reserveNextEntry(for usage: OpalBase.Key.DerivationPath.Usage) async throws -> Entry {
+    func reserveNextEntry(for usage: OpalBase.Key.DerivationPath.Usage) async throws -> Entry {
         let nextEntry = try await selectNextEntry(for: usage)
         let reservedEntry = try reserveEntry(address: nextEntry.address)
         try await generateEntriesIfNeeded(for: reservedEntry.derivationPath.usage)

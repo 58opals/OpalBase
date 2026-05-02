@@ -3,11 +3,11 @@
 import Foundation
 
 extension _OpalBase.Wallet {
-    public func loadUnspentOutputBalances() async throws -> OpalBase.Address.Book.UnspentOutputBalances {
+    public func loadUnspentOutputBalances() async throws -> OpalBase.Account.UnspentOutputBalances {
         var bchTotal = OpalBase.Satoshi()
         var bchSpendable = OpalBase.Satoshi()
         var fungibleAmountsByCategory: [OpalBase.CashTokens.CategoryID: UInt64] = .init()
-        var nonFungibleTokensByGroup: [OpalBase.Address.Book.TokenInventory.NonFungibleTokenGroup: Int] = .init()
+        var nonFungibleTokensByGroup: [OpalBase.Account.TokenInventory.NonFungibleTokenGroup: Int] = .init()
         
         for account in accounts.values {
             let balances = try await account.loadUnspentOutputBalances()
@@ -19,14 +19,18 @@ extension _OpalBase.Wallet {
                                    into: &nonFungibleTokensByGroup)
         }
         
-        let tokenInventory = OpalBase.Address.Book.TokenInventory(fungibleAmountsByCategory: fungibleAmountsByCategory,
-                                                         nonFungibleTokensByGroup: nonFungibleTokensByGroup)
-        return OpalBase.Address.Book.UnspentOutputBalances(bchTotal: bchTotal,
-                                                  bchSpendable: bchSpendable,
-                                                  tokenInventory: tokenInventory)
+        let tokenInventory = OpalBase.Account.TokenInventory(
+            fungibleAmountsByCategory: fungibleAmountsByCategory,
+            nonFungibleTokensByGroup: nonFungibleTokensByGroup
+        )
+        return OpalBase.Account.UnspentOutputBalances(
+            bchTotal: bchTotal,
+            bchSpendable: bchSpendable,
+            tokenInventory: tokenInventory
+        )
     }
     
-    public func loadTokenInventory() async throws -> OpalBase.Address.Book.TokenInventory {
+    public func loadTokenInventory() async throws -> OpalBase.Account.TokenInventory {
         let balances = try await loadUnspentOutputBalances()
         return balances.tokenInventory
     }
@@ -44,11 +48,10 @@ private extension _OpalBase.Wallet {
         }
     }
     
-    func mergeNonFungibleTokens(from additions: [OpalBase.Address.Book.TokenInventory.NonFungibleTokenGroup: Int],
-                                into totals: inout [OpalBase.Address.Book.TokenInventory.NonFungibleTokenGroup: Int]) {
+    func mergeNonFungibleTokens(from additions: [OpalBase.Account.TokenInventory.NonFungibleTokenGroup: Int],
+                                into totals: inout [OpalBase.Account.TokenInventory.NonFungibleTokenGroup: Int]) {
         for (group, count) in additions {
             totals[group, default: 0] += count
         }
     }
 }
-

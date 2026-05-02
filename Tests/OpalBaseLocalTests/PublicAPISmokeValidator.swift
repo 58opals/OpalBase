@@ -40,10 +40,13 @@ struct PublicAPISmokeValidator {
         let cachedHistory = await account.loadTransactionHistory()
         #expect(cachedHistory.isEmpty)
 
-        let nextReceivingEntry = try await account.selectNextEntry(
+        let nextReceivingAddress = try await account.reserveNextReceivingDerivedAddress()
+        #expect(nextReceivingAddress.derivationPath.usage == .receiving)
+
+        let listedReceivingAddresses = await account.listDerivedAddresses(
             for: OpalBase.Key.DerivationPath.Usage.receiving
         )
-        #expect(nextReceivingEntry.derivationPath.usage == .receiving)
+        #expect(listedReceivingAddresses.contains(nextReceivingAddress))
 
         await monitor.stop()
     }
@@ -55,21 +58,23 @@ struct PublicAPISmokeValidator {
 
         try await wallet.addAccount(unhardenedIndex: 0)
         let account = try await wallet.fetchAccount(at: 0)
-        let receivingEntry = try await account.selectNextEntry(
+        let receivingAddress = try await account.selectNextDerivedAddress(
             for: OpalBase.Key.DerivationPath.Usage.receiving
         )
         let unspentOutput = OpalBase.Transaction.Output.Unspent(
             output: .init(
                 value: 120_000,
-                address: receivingEntry.address
+                address: receivingAddress.address
             ),
             previousTransactionHash: .init(naturalOrder: Data(repeating: 0x11, count: 32)),
             previousTransactionOutputIndex: 0
         )
 
-        _ = try await account.replaceUTXOs(
-            for: receivingEntry.address,
-            with: [unspentOutput]
+        _ = try await account.refreshUTXOSet(
+            using: makeSmokeAddressReader(
+                unspentOutputsByAddress: [receivingAddress.address.string: [unspentOutput]]
+            ),
+            usage: .receiving
         )
 
         let readiness = try await account.evaluateCashFusionReadiness()
@@ -221,8 +226,8 @@ struct PublicAPISmokeValidator {
         let wallet = try OpalBase.Wallet(mnemonic: makeSmokeMnemonic())
         try await wallet.addAccount(unhardenedIndex: 0)
         let account = try await wallet.fetchAccount(at: 0)
-        let receivingEntry = try await account.selectNextEntry(for: .receiving)
-        let tokenAwareAddress = try receivingEntry.address.converted(to: .tokenAware)
+        let receivingAddress = try await account.selectNextDerivedAddress(for: .receiving)
+        let tokenAwareAddress = try receivingAddress.address.converted(to: .tokenAware)
         let category = try OpalBase.CashTokens.CategoryID(
             transactionOrderData: Data(repeating: 0x61, count: 32)
         )
@@ -230,7 +235,7 @@ struct PublicAPISmokeValidator {
         let tokenInput = OpalBase.Transaction.Output.Unspent(
             output: .init(
                 value: 20_000,
-                address: receivingEntry.address,
+                address: receivingAddress.address,
                 tokenData: tokenInputData
             ),
             previousTransactionHash: .init(naturalOrder: Data(repeating: 0x62, count: 32)),
@@ -239,14 +244,16 @@ struct PublicAPISmokeValidator {
         let genesisInput = OpalBase.Transaction.Output.Unspent(
             output: .init(
                 value: 120_000,
-                address: receivingEntry.address
+                address: receivingAddress.address
             ),
             previousTransactionHash: .init(naturalOrder: Data(repeating: 0x63, count: 32)),
             previousTransactionOutputIndex: 0
         )
-        _ = try await account.replaceUTXOs(
-            for: receivingEntry.address,
-            with: [tokenInput, genesisInput]
+        _ = try await account.refreshUTXOSet(
+            using: makeSmokeAddressReader(
+                unspentOutputsByAddress: [receivingAddress.address.string: [tokenInput, genesisInput]]
+            ),
+            usage: .receiving
         )
 
         let transfer = OpalBase.Account.TokenTransfer(recipients: [
@@ -359,10 +366,19 @@ private func makeSmokeMnemonic() throws -> OpalBase.Key.Mnemonic {
     )
 }
 
-private func makeSmokeAddressReader() -> OpalBase.Network.AddressReader {
+private func makeSmokeAddressReader(
+    unspentOutputsByAddress: [String: [OpalBase.Transaction.Output.Unspent]] = [:]
+) -> OpalBase.Network.AddressReader {
     OpalBase.Network.AddressReader(
-        fetchBalance: { _, _ in .init(confirmed: 0, unconfirmed: 0) },
-        fetchUnspentOutputs: { _, _ in [] },
+        fetchBalance: { address, _ in
+            .init(
+                confirmed: unspentOutputsByAddress[address, default: []].reduce(UInt64(0)) { $0 + $1.value },
+                unconfirmed: 0
+            )
+        },
+        fetchUnspentOutputs: { address, _ in
+            unspentOutputsByAddress[address, default: []]
+        },
         fetchHistory: { _, _ in [] },
         fetchFirstUse: { _ in nil },
         fetchMempoolTransactions: { _ in [] },

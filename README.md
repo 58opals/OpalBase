@@ -11,7 +11,7 @@ Use Opal Base if you're building an Apple-platform app or service that needs BCH
 - Opal Base owns the app-facing Bitcoin Cash wallet and account domain layer for Apple-platform consumers.
 - It sits above `OpalCrypto` and `SwiftFulcrum`, so downstream apps can work with wallet flows instead of raw cryptography or raw Fulcrum transport.
 - Downstream consumers include Opal Wallet and other Swift/BCH apps that need reusable wallet, storage, and network orchestration.
-- For package boundaries and integration notes, see [Architecture](docs/architecture.md).
+- For package boundaries and integration notes, see [Architecture](docs/architecture.md) and the [Public API Guide](docs/public-api.md).
 
 ## Requirements
 
@@ -58,9 +58,9 @@ let wallet = try OpalBase.Wallet(mnemonic: mnemonic)
 
 try await wallet.addAccount(unhardenedIndex: 0)
 let account = try await wallet.fetchAccount(at: 0)
-let firstReceivingEntry = try await account.selectNextEntry(for: .receiving)
+let firstReceivingAddress = try await account.reserveNextReceivingDerivedAddress()
 
-print(firstReceivingEntry.address.string)
+print(firstReceivingAddress.address.string)
 ```
 
 This gives you a wallet, the first account, and the first derived receiving address. From there you can attach `OpalBase.Network.Fulcrum.Client` and `OpalBase.Wallet.Fulcrum` to refresh balances, history, and confirmations against live BCH infrastructure.
@@ -111,5 +111,6 @@ swift test
 ## More Examples
 
 - [Public API smoke test](Tests/OpalBaseLocalTests/PublicAPISmokeValidator.swift)
+- [Public API guide](docs/public-api.md)
 - [Network live smoke test](Tests/OpalBaseNetworkTests/NetworkLiveSmokeValidator.swift)
 - [Architecture and integration notes](docs/architecture.md)

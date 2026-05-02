@@ -3,7 +3,7 @@
 import Foundation
 
 extension _OpalBase.Address.Book {
-    public func listEntries(for usage: OpalBase.Key.DerivationPath.Usage) -> [Entry] {
+    func listEntries(for usage: OpalBase.Key.DerivationPath.Usage) -> [Entry] {
         inventory.listEntries(for: usage)
     }
     
@@ -11,7 +11,7 @@ extension _OpalBase.Address.Book {
         inventory.checkCacheValidity(cache, currentDate: currentDate)
     }
     
-    public func updateCachedBalance(for address: OpalBase.Address,
+    func updateCachedBalance(for address: OpalBase.Address,
                                     balance: OpalBase.Satoshi,
                                     timestamp: Date) throws {
         try inventory.updateCache(for: address,

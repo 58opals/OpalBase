@@ -3,18 +3,18 @@
 import Foundation
 
 extension _OpalBase.Address.Book {
-    public typealias AddressBookSnapshotTransactionHistory = OpalBase.Transaction.History
+    typealias AddressBookSnapshotTransactionHistory = OpalBase.Transaction.History
 
-    public struct Snapshot: Codable, Equatable, Hashable, Sendable {
-        public struct Entry: Codable, Equatable, Hashable, Sendable {
-            public let usage: OpalBase.Key.DerivationPath.Usage
-            public let index: UInt32
-            public let isUsed: Bool
-            public let isReserved: Bool
-            public let balance: UInt64?
-            public let lastUpdated: Date?
+    struct Snapshot: Codable, Equatable, Hashable, Sendable {
+        struct Entry: Codable, Equatable, Hashable, Sendable {
+            let usage: OpalBase.Key.DerivationPath.Usage
+            let index: UInt32
+            let isUsed: Bool
+            let isReserved: Bool
+            let balance: UInt64?
+            let lastUpdated: Date?
 
-            public init(usage: OpalBase.Key.DerivationPath.Usage,
+            init(usage: OpalBase.Key.DerivationPath.Usage,
                         index: UInt32,
                         isUsed: Bool,
                         isReserved: Bool,
@@ -29,14 +29,14 @@ extension _OpalBase.Address.Book {
             }
         }
 
-        public struct Transaction: Codable, Equatable, Hashable, Sendable {
-            public struct MerkleProof: Codable, Equatable, Hashable, Sendable {
-                public let blockHeight: UInt32
-                public let position: UInt32
-                public let branch: [String]
-                public let blockHash: String?
+        struct Transaction: Codable, Equatable, Hashable, Sendable {
+            struct MerkleProof: Codable, Equatable, Hashable, Sendable {
+                let blockHeight: UInt32
+                let position: UInt32
+                let branch: [String]
+                let blockHash: String?
 
-                public init(blockHeight: UInt32,
+                init(blockHeight: UInt32,
                             position: UInt32,
                             branch: [String],
                             blockHash: String?) {
@@ -47,25 +47,25 @@ extension _OpalBase.Address.Book {
                 }
             }
 
-            public let transactionHash: String
-            public let height: Int
-            public let fee: UInt64?
-            public let scriptHashes: [String]
-            public let firstSeenAt: Date
-            public let lastUpdatedAt: Date
-            public let status: AddressBookSnapshotTransactionHistory.Status
-            public let confirmationHeight: UInt64?
-            public let confirmedAt: Date?
-            public let verificationStatus: AddressBookSnapshotTransactionHistory.Status.Verification
-            public let merkleProof: MerkleProof?
-            public let lastVerifiedHeight: UInt32?
-            public let lastCheckedAt: Date?
-            public let fungibleTokenDeltasByCategory: [OpalBase.CashTokens.CategoryID: Int64]?
-            public let nonFungibleTokenAdditions: [OpalBase.CashTokens.TokenData]?
-            public let nonFungibleTokenRemovals: [OpalBase.CashTokens.TokenData]?
-            public let bchLockedInTokenOutputDelta: Int64?
+            let transactionHash: String
+            let height: Int
+            let fee: UInt64?
+            let scriptHashes: [String]
+            let firstSeenAt: Date
+            let lastUpdatedAt: Date
+            let status: AddressBookSnapshotTransactionHistory.Status
+            let confirmationHeight: UInt64?
+            let confirmedAt: Date?
+            let verificationStatus: AddressBookSnapshotTransactionHistory.Status.Verification
+            let merkleProof: MerkleProof?
+            let lastVerifiedHeight: UInt32?
+            let lastCheckedAt: Date?
+            let fungibleTokenDeltasByCategory: [OpalBase.CashTokens.CategoryID: Int64]?
+            let nonFungibleTokenAdditions: [OpalBase.CashTokens.TokenData]?
+            let nonFungibleTokenRemovals: [OpalBase.CashTokens.TokenData]?
+            let bchLockedInTokenOutputDelta: Int64?
 
-            public init(transactionHash: String,
+            init(transactionHash: String,
                         height: Int,
                         fee: UInt64?,
                         scriptHashes: [String],
@@ -102,12 +102,12 @@ extension _OpalBase.Address.Book {
             }
         }
 
-        public let receivingEntries: [Entry]
-        public let changeEntries: [Entry]
-        public let utxos: [UTXO]
-        public let transactions: [Transaction]
+        let receivingEntries: [Entry]
+        let changeEntries: [Entry]
+        let utxos: [UTXO]
+        let transactions: [Transaction]
 
-        public init(receivingEntries: [Entry],
+        init(receivingEntries: [Entry],
                     changeEntries: [Entry],
                     utxos: [UTXO],
                     transactions: [Transaction]) {

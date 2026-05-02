@@ -15,7 +15,7 @@ extension OpalBase {
         let addressBook: OpalBase.Address.Book
 
         let privacyShaper: PrivacyShaperActor
-        public let privacyConfiguration: PrivacyShaperActor.Configuration
+        let privacyConfiguration: PrivacyShaperActor.Configuration
 
         init(
             rootExtendedPrivateKey: OpalCrypto.Key.ExtendedPrivate,
@@ -74,7 +74,7 @@ extension OpalBase {
         ) async throws {
             let accountPath = try OpalBase.Key.DerivationPath.Account(rawIndexInteger: snapshot.accountUnhardenedIndex)
             let addressBook = try await OpalBase.Address.Book(
-                from: snapshot.addressBook,
+                from: snapshot.addressBook.addressBookSnapshot,
                 rootExtendedPrivateKey: rootExtendedPrivateKey,
                 purpose: purpose,
                 coinType: coinType,
@@ -135,15 +135,26 @@ extension _OpalBase.Account {
 
 // MARK: - OpalBase.Address.Book Accessors
 extension _OpalBase.Account {
-    public func listEntries(for usage: OpalBase.Key.DerivationPath.Usage) async -> [OpalBase.Address.Book.Entry] {
+    /// Lists wallet-derived addresses for a derivation usage.
+    public func listDerivedAddresses(for usage: OpalBase.Key.DerivationPath.Usage) async -> [DerivedAddress] {
+        await listEntries(for: usage).map(DerivedAddress.init)
+    }
+
+    func listEntries(for usage: OpalBase.Key.DerivationPath.Usage) async -> [OpalBase.Address.Book.Entry] {
         await addressBook.listEntries(for: usage)
     }
     
-    public func selectNextEntry(for usage: OpalBase.Key.DerivationPath.Usage) async throws -> OpalBase.Address.Book.Entry {
+    /// Selects the next derived address for the requested usage without exposing
+    /// the underlying address-book entry.
+    public func selectNextDerivedAddress(for usage: OpalBase.Key.DerivationPath.Usage) async throws -> DerivedAddress {
+        try await DerivedAddress(selectNextEntry(for: usage))
+    }
+
+    func selectNextEntry(for usage: OpalBase.Key.DerivationPath.Usage) async throws -> OpalBase.Address.Book.Entry {
         try await addressBook.selectNextEntry(for: usage)
     }
     
-    public func readGapLimit() async -> Int {
+    func readGapLimit() async -> Int {
         await addressBook.readGapLimit()
     }
 }

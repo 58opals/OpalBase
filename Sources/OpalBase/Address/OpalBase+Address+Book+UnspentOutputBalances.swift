@@ -3,12 +3,12 @@
 import Foundation
 
 extension _OpalBase.Address.Book {
-    public struct UnspentOutputBalances: Sendable, Equatable {
-        public let bchTotal: OpalBase.Satoshi
-        public let bchSpendable: OpalBase.Satoshi
-        public let tokenInventory: TokenInventory
+    struct UnspentOutputBalances: Sendable, Equatable {
+        let bchTotal: OpalBase.Satoshi
+        let bchSpendable: OpalBase.Satoshi
+        let tokenInventory: TokenInventory
         
-        public init(bchTotal: OpalBase.Satoshi,
+        init(bchTotal: OpalBase.Satoshi,
                     bchSpendable: OpalBase.Satoshi,
                     tokenInventory: TokenInventory) {
             self.bchTotal = bchTotal
