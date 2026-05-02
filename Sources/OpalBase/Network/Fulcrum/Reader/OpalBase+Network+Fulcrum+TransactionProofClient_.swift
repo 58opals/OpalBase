@@ -8,18 +8,18 @@ extension _OpalBase.Network.Fulcrum {
         func fetchTransactionHeight(
             transactionHash: String,
             options: SwiftFulcrum.Client.Call.Options
-        ) async throws -> SwiftFulcrum.RPC.Response.Result.Blockchain.Transaction.GetHeight
+        ) async throws -> SwiftFulcrum.Response.Blockchain.Transaction.GetHeight
         func fetchTransactionMerkleProof(
             transactionHash: String,
             blockHeight: UInt,
             options: SwiftFulcrum.Client.Call.Options
-        ) async throws -> SwiftFulcrum.RPC.Response.Result.Blockchain.Transaction.GetMerkle
+        ) async throws -> SwiftFulcrum.Response.Blockchain.Transaction.GetMerkle
         func fetchTransactionIdentifier(
             blockHeight: UInt,
             transactionPosition: UInt,
             shouldIncludeMerkleProof: Bool,
             options: SwiftFulcrum.Client.Call.Options
-        ) async throws -> SwiftFulcrum.RPC.Response.Result.Blockchain.Transaction.IDFromPos
+        ) async throws -> SwiftFulcrum.Response.Blockchain.Transaction.IDFromPos
     }
 }
 
@@ -27,10 +27,9 @@ extension _OpalBase.Network.Fulcrum.Client: _OpalBase.Network.Fulcrum.Transactio
     func fetchTransactionHeight(
         transactionHash: String,
         options: SwiftFulcrum.Client.Call.Options
-    ) async throws -> SwiftFulcrum.RPC.Response.Result.Blockchain.Transaction.GetHeight {
+    ) async throws -> SwiftFulcrum.Response.Blockchain.Transaction.GetHeight {
         try await request(
-            method: .blockchain(.transaction(.getHeight(transactionHash: transactionHash))),
-            responseType: SwiftFulcrum.RPC.Response.Result.Blockchain.Transaction.GetHeight.self,
+            .blockchain.transaction.getHeight(transactionHash: transactionHash),
             options: options
         )
     }
@@ -39,10 +38,9 @@ extension _OpalBase.Network.Fulcrum.Client: _OpalBase.Network.Fulcrum.Transactio
         transactionHash: String,
         blockHeight: UInt,
         options: SwiftFulcrum.Client.Call.Options
-    ) async throws -> SwiftFulcrum.RPC.Response.Result.Blockchain.Transaction.GetMerkle {
+    ) async throws -> SwiftFulcrum.Response.Blockchain.Transaction.GetMerkle {
         try await request(
-            method: .blockchain(.transaction(.getMerkle(transactionHash: transactionHash, height: blockHeight))),
-            responseType: SwiftFulcrum.RPC.Response.Result.Blockchain.Transaction.GetMerkle.self,
+            .blockchain.transaction.getMerkle(transactionHash: transactionHash, height: blockHeight),
             options: options
         )
     }
@@ -52,18 +50,13 @@ extension _OpalBase.Network.Fulcrum.Client: _OpalBase.Network.Fulcrum.Transactio
         transactionPosition: UInt,
         shouldIncludeMerkleProof: Bool,
         options: SwiftFulcrum.Client.Call.Options
-    ) async throws -> SwiftFulcrum.RPC.Response.Result.Blockchain.Transaction.IDFromPos {
+    ) async throws -> SwiftFulcrum.Response.Blockchain.Transaction.IDFromPos {
         try await request(
-            method: .blockchain(
-                .transaction(
-                    .idFromPos(
-                        blockHeight: blockHeight,
-                        transactionPosition: transactionPosition,
-                        shouldIncludeMerkleProof: shouldIncludeMerkleProof
-                    )
-                )
+            .blockchain.transaction.idFromPos(
+                blockHeight: blockHeight,
+                transactionPosition: transactionPosition,
+                shouldIncludeMerkleProof: shouldIncludeMerkleProof
             ),
-            responseType: SwiftFulcrum.RPC.Response.Result.Blockchain.Transaction.IDFromPos.self,
             options: options
         )
     }

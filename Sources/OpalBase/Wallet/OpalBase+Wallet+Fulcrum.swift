@@ -3,6 +3,8 @@
 import Foundation
 
 extension _OpalBase.Wallet {
+    /// Fulcrum-backed wallet orchestration for balances, history,
+    /// confirmations, and monitoring.
     public actor Fulcrum {
         private let addressReader: OpalBase.Network.AddressReader
         private let blockHeaderReader: OpalBase.Network.BlockHeaderReader

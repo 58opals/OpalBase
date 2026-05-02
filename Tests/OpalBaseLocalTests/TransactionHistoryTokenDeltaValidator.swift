@@ -132,6 +132,57 @@ struct TransactionHistoryTokenDeltaValidator {
             )
         }
     }
+
+    @Test("throws when a spent previous output index is missing")
+    func tokenDeltaThrowsWhenPreviousOutputIndexIsMissing() async throws {
+        let book = try await makeAddressBook()
+        let receivingEntry = await book.listEntries(for: .receiving).first
+        let walletAddress = try #require(receivingEntry?.address)
+        let externalAddress = try makeExternalAddress()
+        let category = try OpalBase.CashTokens.CategoryID(transactionOrderData: Data(repeating: 0x46, count: 32))
+        let tokenData = OpalBase.CashTokens.TokenData(category: category, amount: 1, nft: nil)
+
+        let previousHash = OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0x03, count: 32))
+        let previousInput = OpalBase.Transaction.Input(
+            previousTransactionHash: OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0x00, count: 32)),
+            previousTransactionOutputIndex: 0,
+            unlockingScript: Data()
+        )
+        let previousTransaction = OpalBase.Transaction(
+            version: 2,
+            inputs: [previousInput],
+            outputs: [
+                .init(value: 546, lockingScript: walletAddress.lockingScript.data, tokenData: tokenData)
+            ],
+            lockTime: 0
+        )
+        let currentInput = OpalBase.Transaction.Input(
+            previousTransactionHash: previousHash,
+            previousTransactionOutputIndex: 1,
+            unlockingScript: Data()
+        )
+        let currentTransaction = OpalBase.Transaction(
+            version: 2,
+            inputs: [currentInput],
+            outputs: [
+                .init(value: 546, lockingScript: externalAddress.lockingScript.data)
+            ],
+            lockTime: 0
+        )
+        let transactionReader = OpalBase.Network.TransactionReader(
+            TransactionReaderClient(rawTransactionsByHash: [
+                previousHash: try previousTransaction.encode()
+            ])
+        )
+
+        await #expect(throws: Data.Error.indexOutOfRange) {
+            _ = try await book.makeTokenDelta(
+                from: currentTransaction,
+                transactionReader: transactionReader,
+                walletScriptHashes: [walletAddress.makeScriptHash().hexadecimalString]
+            )
+        }
+    }
 }
 
 private extension TransactionHistoryTokenDeltaValidator {

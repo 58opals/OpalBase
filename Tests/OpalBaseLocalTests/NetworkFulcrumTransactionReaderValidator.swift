@@ -13,7 +13,7 @@ struct NetworkFulcrumTransactionReaderValidator {
             rawTransactionHex: fixture.rawTransactionHexadecimal,
             verboseTransaction: fixture.verboseResponse
         )
-        let reader = OpalBase.Network.FulcrumTransactionReader(client: client)
+        let reader = OpalBase.Network.Fulcrum.TransactionReader(client: client)
 
         let first = try await reader.fetchRawTransaction(for: fixture.transactionHash)
         let second = try await reader.fetchRawTransaction(for: fixture.transactionHash)
@@ -32,7 +32,7 @@ struct NetworkFulcrumTransactionReaderValidator {
             rawTransactionHex: fixture.rawTransactionHexadecimal,
             verboseTransaction: fixture.verboseResponse
         )
-        let reader = OpalBase.Network.FulcrumTransactionReader(client: client)
+        let reader = OpalBase.Network.Fulcrum.TransactionReader(client: client)
 
         let detail = try await reader.fetchDetailedTransaction(for: fixture.transactionHash)
 
@@ -65,7 +65,7 @@ struct NetworkFulcrumTransactionReaderValidator {
             rawTransactionHex: fixture.rawTransactionHexadecimal,
             verboseTransaction: verboseResponse
         )
-        let reader = OpalBase.Network.FulcrumTransactionReader(client: client)
+        let reader = OpalBase.Network.Fulcrum.TransactionReader(client: client)
 
         let detail = try await reader.fetchDetailedTransaction(for: fixture.transactionHash)
 
@@ -88,7 +88,7 @@ struct NetworkFulcrumTransactionReaderValidator {
             verboseTransaction: fixture.verboseResponse,
             verboseError: SwiftFulcrum.Client.Error.coding(.decode(nil))
         )
-        let reader = OpalBase.Network.FulcrumTransactionReader(client: client)
+        let reader = OpalBase.Network.Fulcrum.TransactionReader(client: client)
 
         let detail = try await reader.fetchDetailedTransaction(for: fixture.transactionHash)
 
@@ -99,6 +99,59 @@ struct NetworkFulcrumTransactionReaderValidator {
         #expect(detail.confirmations == nil)
         #expect(detail.time == nil)
         #expect(try detail.transaction.encode() == fixture.rawTransactionData)
+        #expect(await client.readVerboseFetchCount() == 1)
+        #expect(await client.readRawFetchCount() == 1)
+    }
+
+    @Test("falls back to raw transaction fetch when verbose block hash is malformed")
+    func fetchDetailedTransactionFallsBackToRawAfterMalformedVerboseBlockHash() async throws {
+        let fixture = try TransactionFixture.make()
+        let verboseResponse = try TransactionFixture.makeVerboseResponse(
+            transactionHash: fixture.transactionHash.reverseOrder.hexadecimalString,
+            rawTransactionHexadecimal: fixture.rawTransactionHexadecimal,
+            blockHashHexadecimal: "aa",
+            blockTime: fixture.blockTime,
+            confirmations: fixture.confirmations,
+            transactionTime: fixture.transactionTime,
+            size: fixture.rawTransactionData.count
+        )
+        let client = TransactionReaderClientTestActor(
+            rawTransactionHex: fixture.rawTransactionHexadecimal,
+            verboseTransaction: verboseResponse
+        )
+        let reader = OpalBase.Network.Fulcrum.TransactionReader(client: client)
+
+        let detail = try await reader.fetchDetailedTransaction(for: fixture.transactionHash)
+
+        #expect(detail.rawTransactionData == fixture.rawTransactionData)
+        #expect(detail.blockHash == nil)
+        #expect(await client.readVerboseFetchCount() == 1)
+        #expect(await client.readRawFetchCount() == 1)
+    }
+
+    @Test("falls back to raw transaction fetch when verbose size exceeds supported range")
+    func fetchDetailedTransactionFallsBackToRawAfterOversizedVerboseSize() async throws {
+        let fixture = try TransactionFixture.make()
+        let verboseResponse = try TransactionFixture.makeVerboseResponse(
+            transactionHash: fixture.transactionHash.reverseOrder.hexadecimalString,
+            rawTransactionHexadecimal: fixture.rawTransactionHexadecimal,
+            blockHashHexadecimal: fixture.blockHashData.hexadecimalString,
+            blockTime: fixture.blockTime,
+            confirmations: fixture.confirmations,
+            transactionTime: fixture.transactionTime,
+            size: Int(UInt32.max) + 1
+        )
+        let client = TransactionReaderClientTestActor(
+            rawTransactionHex: fixture.rawTransactionHexadecimal,
+            verboseTransaction: verboseResponse
+        )
+        let reader = OpalBase.Network.Fulcrum.TransactionReader(client: client)
+
+        let detail = try await reader.fetchDetailedTransaction(for: fixture.transactionHash)
+
+        #expect(detail.rawTransactionData == fixture.rawTransactionData)
+        #expect(detail.size == UInt32(fixture.rawTransactionData.count))
+        #expect(detail.blockHash == nil)
         #expect(await client.readVerboseFetchCount() == 1)
         #expect(await client.readRawFetchCount() == 1)
     }
@@ -134,7 +187,7 @@ struct NetworkFulcrumTransactionReaderValidator {
                 verboseTransaction: fixture.verboseResponse,
                 verboseError: verboseError
             )
-            let reader = OpalBase.Network.FulcrumTransactionReader(client: client)
+            let reader = OpalBase.Network.Fulcrum.TransactionReader(client: client)
 
             let failure = await Self.captureNetworkError {
                 _ = try await reader.fetchDetailedTransaction(for: fixture.transactionHash)
@@ -154,7 +207,7 @@ struct NetworkFulcrumTransactionReaderValidator {
             verboseTransaction: fixture.verboseResponse
         )
         let cache = OpalBase.Transaction.Cache()
-        let reader = OpalBase.Network.FulcrumTransactionReader(client: client, cache: cache)
+        let reader = OpalBase.Network.Fulcrum.TransactionReader(client: client, cache: cache)
 
         let first = try await reader.fetchDetailedTransaction(for: fixture.transactionHash)
         let second = try await reader.fetchDetailedTransaction(for: fixture.transactionHash)
@@ -171,7 +224,7 @@ struct NetworkFulcrumTransactionReaderValidator {
 
 private actor TransactionReaderClientTestActor: OpalBase.Network.Fulcrum.TransactionReaderClient {
     private let rawTransactionHex: String
-    private let verboseTransaction: SwiftFulcrum.RPC.Response.Result.Blockchain.Transaction.Get
+    private let verboseTransaction: SwiftFulcrum.Response.Blockchain.Transaction.Get
     private let rawError: Swift.Error?
     private let verboseError: Swift.Error?
     private var rawRequests: [String] = []
@@ -179,7 +232,7 @@ private actor TransactionReaderClientTestActor: OpalBase.Network.Fulcrum.Transac
 
     init(
         rawTransactionHex: String,
-        verboseTransaction: SwiftFulcrum.RPC.Response.Result.Blockchain.Transaction.Get,
+        verboseTransaction: SwiftFulcrum.Response.Blockchain.Transaction.Get,
         rawError: Swift.Error? = nil,
         verboseError: Swift.Error? = nil
     ) {
@@ -203,7 +256,7 @@ private actor TransactionReaderClientTestActor: OpalBase.Network.Fulcrum.Transac
     func fetchVerboseTransaction(
         transactionHash: String,
         options _: SwiftFulcrum.Client.Call.Options
-    ) async throws -> SwiftFulcrum.RPC.Response.Result.Blockchain.Transaction.Get {
+    ) async throws -> SwiftFulcrum.Response.Blockchain.Transaction.Get {
         verboseRequests.append(transactionHash)
         if let verboseError {
             throw verboseError
@@ -232,7 +285,7 @@ private struct TransactionFixture {
     let transactionHash: OpalBase.Transaction.Hash
     let rawTransactionData: Data
     let rawTransactionHexadecimal: String
-    let verboseResponse: SwiftFulcrum.RPC.Response.Result.Blockchain.Transaction.Get
+    let verboseResponse: SwiftFulcrum.Response.Blockchain.Transaction.Get
     let blockHashData: Data
     let blockTime: UInt32
     let confirmations: UInt32
@@ -291,7 +344,7 @@ private struct TransactionFixture {
         confirmations: UInt32?,
         transactionTime: UInt32?,
         size: Int
-    ) throws -> SwiftFulcrum.RPC.Response.Result.Blockchain.Transaction.Get {
+    ) throws -> SwiftFulcrum.Response.Blockchain.Transaction.Get {
         var payload: [String: Any] = [
             "blockhash": blockHashHexadecimal,
             "hash": transactionHash,
@@ -336,7 +389,7 @@ private struct TransactionFixture {
         }
         let payloadData = try JSONSerialization.data(withJSONObject: payload)
         return try JSONDecoder().decode(
-            SwiftFulcrum.RPC.Response.Result.Blockchain.Transaction.Get.self,
+            SwiftFulcrum.Response.Blockchain.Transaction.Get.self,
             from: payloadData
         )
     }

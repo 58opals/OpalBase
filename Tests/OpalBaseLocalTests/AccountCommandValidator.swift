@@ -105,9 +105,62 @@ struct AccountCommandValidator {
         #expect(completedFirstChange?.isReserved == false)
         let afterCompletionUnusedCount = afterCompletionEntries.filter { !$0.isUsed }.count
         #expect(afterCompletionUnusedCount >= gapLimit)
+        #expect(await addressBook.listSpendableUTXOs().contains(utxo) == false)
 
+        let replacementUTXO = OpalBase.Transaction.Output.Unspent(
+            value: 25_000,
+            lockingScript: receivingEntry.address.lockingScript.data,
+            previousTransactionHash: OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 2, count: 32)),
+            previousTransactionOutputIndex: 0
+        )
+        await addressBook.addUTXOs([replacementUTXO])
         let reusablePlan = try await account.prepareSpend(payment)
         try await reusablePlan.cancelReservation()
+    }
+
+    @Test("snapshot restore clears stale reservation flags")
+    func snapshotRestoreClearsStaleReservationFlags() async throws {
+        let wallet = try await AccountTestFixtures.makeWallet()
+        let account = try await wallet.fetchAccount(at: 0)
+        let addressBook = await account.addressBook
+        let receivingEntry = try await addressBook.selectNextEntry(for: .receiving)
+        let utxo = OpalBase.Transaction.Output.Unspent(
+            value: 25_000,
+            lockingScript: receivingEntry.address.lockingScript.data,
+            previousTransactionHash: AccountTestFixtures.makeHash(byte: 0x45),
+            previousTransactionOutputIndex: 0
+        )
+        await addressBook.addUTXOs([utxo])
+
+        let recipientAddress = try OpalBase.Address(AccountTestFixtures.standardAddressString)
+        let payment = OpalBase.Account.Payment(
+            recipients: [.init(address: recipientAddress, amount: try OpalBase.Satoshi(10_000))]
+        )
+        _ = try await account.prepareSpend(payment)
+
+        let reservedChangeEntry = try #require(
+            await addressBook.listEntries(for: .change).first { $0.isReserved }
+        )
+        #expect(reservedChangeEntry.isUsed)
+
+        let snapshot = await wallet.makeSnapshot()
+        let restoredWallet = try await OpalBase.Wallet(
+            mnemonic: try OpalBase.Key.Mnemonic(
+                words: AccountTestFixtures.mnemonicWords.map(OpalBase.Key.Mnemonic.Word.init)
+            ),
+            from: snapshot
+        )
+        let restoredAccount = try await restoredWallet.fetchAccount(at: 0)
+        let restoredAddressBook = await restoredAccount.addressBook
+        let restoredChangeEntry = try #require(
+            await restoredAddressBook.listEntries(for: OpalBase.Key.DerivationPath.Usage.change).first {
+                $0.derivationPath.index == reservedChangeEntry.derivationPath.index
+            }
+        )
+
+        #expect(restoredChangeEntry.isUsed)
+        #expect(restoredChangeEntry.isReserved == false)
+        #expect(await restoredAddressBook.readActiveSpendReservations().isEmpty)
     }
 
     @Test("reserveSpend refreshes a stale change entry when the preferred entry is already reserved")

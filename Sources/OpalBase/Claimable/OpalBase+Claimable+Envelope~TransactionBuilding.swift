@@ -143,10 +143,10 @@ private extension _OpalBase.Claimable.Envelope {
             hashType: hashType,
             outputBeingSpent: signingOutput
         )
-        let signature = try OpalCrypto.Signature.signSchnorr(
-            digest: OpalCryptoAdapter.hash256(preimage),
-            privateKey: signingPrivateKey
-        )
+        let signature = try OpalCrypto.Signature.Schnorr.sign(
+            digest: OpalCrypto.Signature.Digest(rawRepresentation: OpalCryptoAdapter.hash256(preimage)),
+            privateKey: OpalCrypto.Secp256k1.PrivateKey(rawRepresentation: signingPrivateKey)
+        ).rawRepresentation
         let signatureWithHashType = signature + Data([UInt8(hashType.value)])
         let unlockingScript = makeClaimableUnlockingScript(
             signatureWithHashType: signatureWithHashType,

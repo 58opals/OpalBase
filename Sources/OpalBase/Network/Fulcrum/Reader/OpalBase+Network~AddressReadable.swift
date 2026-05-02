@@ -14,7 +14,7 @@ extension _OpalBase.Network {
 }
 
 extension _OpalBase.Network.TokenFilter {
-    var fulcrumTokenFilter: SwiftFulcrum.RPC.Method.Blockchain.CashTokens.TokenFilter {
+    var fulcrumTokenFilter: SwiftFulcrum.CashTokens.TokenFilter {
         switch self {
         case .include:
             return .include

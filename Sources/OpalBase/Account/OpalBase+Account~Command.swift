@@ -4,28 +4,35 @@ import Foundation
 
 // MARK: - UTXO
 extension _OpalBase.Account {
-    public func refreshUTXOSet(using service: OpalBase.Network.AddressReader, usage: OpalBase.Key.DerivationPath.Usage? = nil) async throws -> OpalBase.Address.Book.UTXORefresh {
-        try await addressBook.refreshUTXOSet(using: service, usage: usage)
+    /// Refreshes wallet-owned UTXOs through a public address reader.
+    public func refreshUTXOSet(using service: OpalBase.Network.AddressReader, usage: OpalBase.Key.DerivationPath.Usage? = nil) async throws -> UTXORefresh {
+        let refresh = try await addressBook.refreshUTXOSet(using: service, usage: usage)
+        return UTXORefresh(refresh)
     }
 
-    func refreshUTXOSet(using service: any OpalBase.Network.AddressReadable,
-                        usage: OpalBase.Key.DerivationPath.Usage? = nil) async throws -> OpalBase.Address.Book.UTXORefresh {
-        try await refreshUTXOSet(using: .init(service), usage: usage)
+    func refreshAddressBookUTXOSet(using service: any OpalBase.Network.AddressReadable,
+                                   usage: OpalBase.Key.DerivationPath.Usage? = nil) async throws -> OpalBase.Address.Book.UTXORefresh {
+        try await addressBook.refreshUTXOSet(using: service, usage: usage)
     }
 }
 
 // MARK: - Receive
 extension _OpalBase.Account {
-    public func reserveNextReceivingEntry() async throws -> OpalBase.Address.Book.Entry {
+    /// Reserves the next receiving address for handing out to a payer.
+    public func reserveNextReceivingDerivedAddress() async throws -> DerivedAddress {
+        try await DerivedAddress(reserveNextReceivingEntry())
+    }
+
+    func reserveNextReceivingEntry() async throws -> OpalBase.Address.Book.Entry {
         try await addressBook.reserveNextEntry(for: .receiving)
     }
 }
 
 // MARK: - Usage
 extension _OpalBase.Account {
-    public func scanForUsedAddresses(using service: OpalBase.Network.AddressReader,
-                                     usage: OpalBase.Key.DerivationPath.Usage? = nil,
-                                     includeUnconfirmed: Bool = true) async throws -> OpalBase.Address.Book.UsageScan {
+    func scanForUsedAddresses(using service: OpalBase.Network.AddressReader,
+                              usage: OpalBase.Key.DerivationPath.Usage? = nil,
+                              includeUnconfirmed: Bool = true) async throws -> OpalBase.Address.Book.UsageScan {
         try await addressBook.scanForUsedAddresses(using: service,
                                                    usage: usage,
                                                    includeUnconfirmed: includeUnconfirmed)

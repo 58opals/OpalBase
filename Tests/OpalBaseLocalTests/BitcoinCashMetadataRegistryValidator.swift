@@ -27,7 +27,7 @@ struct BitcoinCashMetadataRegistryValidator {
     
     @Test("verifies registry hash")
     func verifyRegistryHash() {
-        let registryHash = OpalCrypto.Hashing.computeSHA256(BitcoinCashMetadataRegistryTestData.registryData)
+        let registryHash = OpalCrypto.Hashing.sha256(BitcoinCashMetadataRegistryTestData.registryData)
         #expect(registryHash == BitcoinCashMetadataRegistryTestData.registryHash)
     }
     

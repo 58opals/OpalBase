@@ -3,12 +3,13 @@
 import Foundation
 
 extension _OpalBase.Account {
-    public func loadUnspentOutputBalances() async throws -> OpalBase.Address.Book.UnspentOutputBalances {
-        try await addressBook.calculateUnspentOutputBalances()
+    public func loadUnspentOutputBalances() async throws -> UnspentOutputBalances {
+        let balances = try await addressBook.calculateUnspentOutputBalances()
+        return UnspentOutputBalances(balances)
     }
     
-    public func loadTokenInventory() async throws -> OpalBase.Address.Book.TokenInventory {
-        try await addressBook.calculateTokenInventory()
+    public func loadTokenInventory() async throws -> TokenInventory {
+        let inventory = try await addressBook.calculateTokenInventory()
+        return TokenInventory(inventory)
     }
 }
-

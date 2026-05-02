@@ -20,7 +20,7 @@ extension _OpalBase.Address.Book.History {
 }
 
 extension _OpalBase.Address.Book {
-    public func refreshTransactionHistory(using service: OpalBase.Network.AddressReader,
+    func refreshTransactionHistory(using service: OpalBase.Network.AddressReader,
                                           usage: OpalBase.Key.DerivationPath.Usage? = nil,
                                           includeUnconfirmed: Bool = true,
                                           transactionReader: OpalBase.Network.TransactionReader? = nil) async throws -> OpalBase.Transaction.History.ChangeSet {
@@ -79,7 +79,7 @@ extension _OpalBase.Address.Book {
 }
 
 extension _OpalBase.Address.Book {
-    public func refreshTransactionHistory(for address: OpalBase.Address,
+    func refreshTransactionHistory(for address: OpalBase.Address,
                                           using service: OpalBase.Network.AddressReader,
                                           includeUnconfirmed: Bool,
                                           transactionReader: OpalBase.Network.TransactionReader? = nil) async throws -> OpalBase.Transaction.History.ChangeSet {
@@ -130,6 +130,19 @@ private extension _OpalBase.Address.Book {
             let history = try await service.fetchHistory(for: address.string,
                                                          includeUnconfirmed: includeUnconfirmed)
             let mappedEntries = try history.map { try $0.makeHistoryEntry() }
+            var seenTransactionHashes: Set<OpalBase.Transaction.Hash> = .init()
+            for entry in mappedEntries where !seenTransactionHashes.insert(entry.transactionHash).inserted {
+                throw OpalBase.Network.Error(
+                    reason: .protocolViolation,
+                    message: "History response contained duplicate transaction identifiers"
+                )
+            }
+            if !includeUnconfirmed, mappedEntries.contains(where: { $0.height <= 0 }) {
+                throw OpalBase.Network.Error(
+                    reason: .protocolViolation,
+                    message: "Confirmed-only history response included an unconfirmed transaction"
+                )
+            }
             return OpalBase.Address.Book.History.QueryResult(address: address,
                                                     scriptHash: scriptHash,
                                                     entries: mappedEntries)
@@ -140,7 +153,7 @@ private extension _OpalBase.Address.Book {
 }
 
 extension _OpalBase.Address.Book {
-    public func updateTransactionConfirmations(using handler: OpalBase.Network.TransactionClient,
+    func updateTransactionConfirmations(using handler: OpalBase.Network.TransactionClient,
                                                for transactionHashes: [OpalBase.Transaction.Hash]) async throws -> OpalBase.Transaction.History.ChangeSet {
         guard !transactionHashes.isEmpty else { return .init() }
         
@@ -164,6 +177,7 @@ extension _OpalBase.Address.Book {
                     message: "Confirmation status hash mismatch"
                 )
             }
+            try Self.validateConfirmationStatus(status)
             return OpalBase.Address.Book.History.ConfirmationUpdate(record: record, status: status)
         }
         
@@ -202,7 +216,7 @@ extension _OpalBase.Address.Book {
         try await updateTransactionConfirmations(using: .init(confirmations: handler), for: transactionHashes)
     }
     
-    public func refreshTransactionConfirmations(using handler: OpalBase.Network.TransactionClient) async throws -> OpalBase.Transaction.History.ChangeSet {
+    func refreshTransactionConfirmations(using handler: OpalBase.Network.TransactionClient) async throws -> OpalBase.Transaction.History.ChangeSet {
         let records = transactionLog.listRecords()
         guard !records.isEmpty else { return .init() }
         let hashes = records.map(\.transactionHash)
@@ -211,5 +225,32 @@ extension _OpalBase.Address.Book {
 
     func refreshTransactionConfirmations(using handler: any OpalBase.Network.TransactionConfirmationClient) async throws -> OpalBase.Transaction.History.ChangeSet {
         try await refreshTransactionConfirmations(using: .init(confirmations: handler))
+    }
+
+    private static func validateConfirmationStatus(_ status: OpalBase.Network.TransactionConfirmationStatus) throws {
+        if let confirmations = status.confirmations, confirmations > 0 {
+            guard let transactionHeight = status.transactionHeight, transactionHeight > 0 else {
+                throw OpalBase.Network.Error(
+                    reason: .protocolViolation,
+                    message: "Confirmation count requires a confirmed transaction height"
+                )
+            }
+        }
+        guard let transactionHeight = status.transactionHeight, transactionHeight > 0 else { return }
+        guard UInt64(transactionHeight) <= status.tipHeight else {
+            throw OpalBase.Network.Error(
+                reason: .protocolViolation,
+                message: "Confirmation status height exceeds tip height"
+            )
+        }
+        if let confirmations = status.confirmations {
+            let expectedConfirmations = status.tipHeight - UInt64(transactionHeight) + 1
+            guard UInt64(confirmations) == expectedConfirmations else {
+                throw OpalBase.Network.Error(
+                    reason: .protocolViolation,
+                    message: "Confirmation status count does not match height and tip"
+                )
+            }
+        }
     }
 }

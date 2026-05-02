@@ -40,6 +40,7 @@ extension _OpalBase.Claimable {
                 forScriptHash: scriptHashHex,
                 includeUnconfirmed: includeUnconfirmed
             )
+            try Self.validateHistoryResponse(history, includeUnconfirmed: includeUnconfirmed)
             let unspentOutputs = try await scriptHashReader.fetchUnspent(
                 forScriptHash: scriptHashHex,
                 tokenFilter: .include
@@ -56,6 +57,18 @@ extension _OpalBase.Claimable {
             if fundingState != .missing, let transactionClient {
                 let confirmationStatus = try await transactionClient.fetchConfirmationStatus(
                     for: envelope.fundingTransactionHash
+                )
+                guard confirmationStatus.transactionHash == envelope.fundingTransactionHash else {
+                    throw OpalBase.Network.Error(
+                        reason: .protocolViolation,
+                        message: "Confirmation status hash mismatch"
+                    )
+                }
+                try Self.validateConfirmationStatus(confirmationStatus)
+                try Self.validateConfirmationStatus(
+                    confirmationStatus,
+                    against: history,
+                    envelope: envelope
                 )
                 confirmations = confirmationStatus.confirmations
                 tipHeight = confirmationStatus.tipHeight
@@ -74,11 +87,75 @@ extension _OpalBase.Claimable {
 extension _OpalBase.Claimable.StatusResolver: Sendable {}
 
 private extension _OpalBase.Claimable.StatusResolver {
+    static func validateHistoryResponse(
+        _ history: [OpalBase.Network.TransactionHistoryEntry],
+        includeUnconfirmed: Bool
+    ) throws {
+        var seenTransactionIdentifiers: Set<String> = .init()
+        for entry in history where !seenTransactionIdentifiers.insert(entry.transactionIdentifier.lowercased()).inserted {
+            throw OpalBase.Network.Error(
+                reason: .protocolViolation,
+                message: "History response contained duplicate transaction identifiers"
+            )
+        }
+        if !includeUnconfirmed, history.contains(where: { $0.blockHeight <= 0 }) {
+            throw OpalBase.Network.Error(
+                reason: .protocolViolation,
+                message: "Confirmed-only history response included an unconfirmed transaction"
+            )
+        }
+    }
+
+    static func validateConfirmationStatus(
+        _ status: OpalBase.Network.TransactionConfirmationStatus
+    ) throws {
+        if let confirmations = status.confirmations, confirmations > 0 {
+            guard let transactionHeight = status.transactionHeight, transactionHeight > 0 else {
+                throw OpalBase.Network.Error(
+                    reason: .protocolViolation,
+                    message: "Confirmation count requires a confirmed transaction height"
+                )
+            }
+        }
+        guard let transactionHeight = status.transactionHeight, transactionHeight > 0 else { return }
+        guard UInt64(transactionHeight) <= status.tipHeight else {
+            throw OpalBase.Network.Error(
+                reason: .protocolViolation,
+                message: "Confirmation status height exceeds tip height"
+            )
+        }
+        if let confirmations = status.confirmations {
+            let expectedConfirmations = status.tipHeight - UInt64(transactionHeight) + 1
+            guard UInt64(confirmations) == expectedConfirmations else {
+                throw OpalBase.Network.Error(
+                    reason: .protocolViolation,
+                    message: "Confirmation status count does not match height and tip"
+                )
+            }
+        }
+    }
+
+    static func validateConfirmationStatus(
+        _ status: OpalBase.Network.TransactionConfirmationStatus,
+        against history: [OpalBase.Network.TransactionHistoryEntry],
+        envelope: OpalBase.Claimable.Envelope
+    ) throws {
+        guard let fundingHistory = history.first(where: { $0.matchesClaimableFundingTransaction(envelope) }),
+              fundingHistory.blockHeight > 0 else { return }
+        guard status.transactionHeight == fundingHistory.blockHeight else {
+            throw OpalBase.Network.Error(
+                reason: .protocolViolation,
+                message: "Confirmation status height does not match funding history"
+            )
+        }
+    }
+
     func makeFundingState(
         for envelope: OpalBase.Claimable.Envelope,
         history: [OpalBase.Network.TransactionHistoryEntry],
         unspentOutputs: [OpalBase.Transaction.Output.Unspent]
     ) async throws -> OpalBase.Claimable.FundingState {
+        try validateUniqueUnspentOutpoints(unspentOutputs)
         if let unspentOutput = unspentOutputs.first(where: { $0.matchesClaimableOutpoint(envelope) }) {
             return unspentOutput.matchesClaimableFunding(envelope) ? .unspent : .invalid
         }
@@ -120,12 +197,15 @@ private extension _OpalBase.Claimable.StatusResolver {
             guard let transactionHash = try? entry.makeClaimableTransactionHash() else {
                 continue
             }
-            let rawTransactionData = try await transactionReader.fetchRawTransaction(
-                for: transactionHash
-            )
-            guard let transaction = try? OpalBase.Transaction.decode(
-                from: rawTransactionData
-            ).transaction else {
+            let rawTransactionData: Data
+            do {
+                rawTransactionData = try await transactionReader.fetchRawTransaction(for: transactionHash)
+            } catch let error as CancellationError {
+                throw error
+            } catch {
+                continue
+            }
+            guard let transaction = try? OpalBase.Transaction.decode(from: rawTransactionData).transaction else {
                 continue
             }
 
@@ -140,6 +220,28 @@ private extension _OpalBase.Claimable.StatusResolver {
         }
 
         return .unknown
+    }
+
+    func validateUniqueUnspentOutpoints(
+        _ unspentOutputs: [OpalBase.Transaction.Output.Unspent]
+    ) throws {
+        var seenOutpoints: Set<ClaimableUnspentOutpoint> = .init()
+        for unspentOutput in unspentOutputs where !seenOutpoints.insert(.init(unspentOutput)).inserted {
+            throw OpalBase.Network.Error(
+                reason: .protocolViolation,
+                message: "Unspent output response contained duplicate outpoints"
+            )
+        }
+    }
+}
+
+private struct ClaimableUnspentOutpoint: Hashable {
+    let transactionHash: OpalBase.Transaction.Hash
+    let outputIndex: UInt32
+
+    init(_ unspentOutput: OpalBase.Transaction.Output.Unspent) {
+        self.transactionHash = unspentOutput.previousTransactionHash
+        self.outputIndex = unspentOutput.previousTransactionOutputIndex
     }
 }
 

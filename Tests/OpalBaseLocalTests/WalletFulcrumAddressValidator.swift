@@ -143,6 +143,89 @@ struct WalletFulcrumAddressValidator {
         #expect(Set(historyRequests.map(\.address)).isSubset(of: receivingAddresses))
     }
 
+    @Test("refreshTransactionHistory rejects unconfirmed entries in confirmed-only results")
+    func refreshTransactionHistoryRejectsUnconfirmedEntriesWhenExcluded() async throws {
+        let account = try await AccountTestFixtures.makeAccount()
+        let targetEntry = try await account.selectNextEntry(for: .receiving)
+        let hash = AccountTestFixtures.makeHash(byte: 0x36)
+        let historyEntry = OpalBase.Network.TransactionHistoryEntry(
+            transactionIdentifier: hash.reverseOrder.hexadecimalString,
+            blockHeight: -1,
+            fee: nil
+        )
+        let addressReader = WalletAddressReaderTestActor(
+            historyByAddress: [targetEntry.address.string: [historyEntry]]
+        )
+        let fulcrum = OpalBase.Wallet.Fulcrum(
+            addressReader: addressReader,
+            transactionHandler: TransactionConfirmationClientTestActor()
+        )
+
+        do {
+            _ = try await fulcrum.refreshTransactionHistory(
+                for: account,
+                usage: .receiving,
+                includeUnconfirmed: false
+            )
+            Issue.record("Expected confirmed-only history refresh to reject unconfirmed entries")
+        } catch let error as OpalBase.Account.Error {
+            guard case .transactionHistoryRefreshFailed(let address, let underlying) = error else {
+                Issue.record("Unexpected account error: \(error)")
+                return
+            }
+            #expect(address == targetEntry.address)
+            let networkError = try #require(underlying as? OpalBase.Network.Error)
+            #expect(networkError.reason == .protocolViolation)
+            #expect(networkError.message == "Confirmed-only history response included an unconfirmed transaction")
+        }
+
+        #expect(await account.loadTransactionHistory().isEmpty)
+    }
+
+    @Test("refreshTransactionHistory rejects duplicate transaction identifiers in one response")
+    func refreshTransactionHistoryRejectsDuplicateTransactionIdentifiers() async throws {
+        let account = try await AccountTestFixtures.makeAccount()
+        let targetEntry = try await account.selectNextEntry(for: .receiving)
+        let hash = AccountTestFixtures.makeHash(byte: 0x38)
+        let firstEntry = OpalBase.Network.TransactionHistoryEntry(
+            transactionIdentifier: hash.reverseOrder.hexadecimalString,
+            blockHeight: -1,
+            fee: nil
+        )
+        let duplicateEntry = OpalBase.Network.TransactionHistoryEntry(
+            transactionIdentifier: hash.reverseOrder.hexadecimalString,
+            blockHeight: 7,
+            fee: nil
+        )
+        let addressReader = WalletAddressReaderTestActor(
+            historyByAddress: [targetEntry.address.string: [firstEntry, duplicateEntry]]
+        )
+        let fulcrum = OpalBase.Wallet.Fulcrum(
+            addressReader: addressReader,
+            transactionHandler: TransactionConfirmationClientTestActor()
+        )
+
+        do {
+            _ = try await fulcrum.refreshTransactionHistory(
+                for: account,
+                usage: .receiving,
+                includeUnconfirmed: true
+            )
+            Issue.record("Expected duplicate transaction identifiers to fail")
+        } catch let error as OpalBase.Account.Error {
+            guard case .transactionHistoryRefreshFailed(let address, let underlying) = error else {
+                Issue.record("Unexpected account error: \(error)")
+                return
+            }
+            #expect(address == targetEntry.address)
+            let networkError = try #require(underlying as? OpalBase.Network.Error)
+            #expect(networkError.reason == .protocolViolation)
+            #expect(networkError.message == "History response contained duplicate transaction identifiers")
+        }
+
+        #expect(await account.loadTransactionHistory().isEmpty)
+    }
+
     @Test("updateTransactionConfirmations forwards explicit hashes")
     func updateTransactionConfirmationsForwardsHashes() async throws {
         let account = try await AccountTestFixtures.makeAccount()
@@ -225,6 +308,165 @@ struct WalletFulcrumAddressValidator {
         }
 
         let record = try #require(await account.loadTransactionHistory().first { $0.transactionHash == requestedHash })
+        #expect(record.status == .discovered)
+        #expect(record.confirmationMetadata.height == nil)
+    }
+
+    @Test("updateTransactionConfirmations rejects heights above the reported tip")
+    func updateTransactionConfirmationsRejectsHeightsAboveTip() async throws {
+        let account = try await AccountTestFixtures.makeAccount()
+        let targetEntry = try await account.selectNextEntry(for: .receiving)
+        let hash = AccountTestFixtures.makeHash(byte: 0x34)
+        let historyEntry = OpalBase.Network.TransactionHistoryEntry(
+            transactionIdentifier: hash.reverseOrder.hexadecimalString,
+            blockHeight: -1,
+            fee: nil
+        )
+
+        let addressReader = WalletAddressReaderTestActor(
+            historyByAddress: [targetEntry.address.string: [historyEntry]]
+        )
+        let confirmationClient = TransactionConfirmationClientTestActor(
+            statusesByHash: [
+                hash: .init(
+                    transactionHash: hash,
+                    transactionHeight: 30,
+                    tipHeight: 20,
+                    confirmations: nil
+                )
+            ]
+        )
+        let fulcrum = OpalBase.Wallet.Fulcrum(
+            addressReader: addressReader,
+            transactionHandler: confirmationClient
+        )
+
+        _ = try await fulcrum.refreshTransactionHistory(for: account, usage: .receiving, includeUnconfirmed: true)
+
+        do {
+            _ = try await fulcrum.updateTransactionConfirmations(
+                for: account,
+                transactionHashes: [hash]
+            )
+            Issue.record("Expected future-height confirmation status to fail")
+        } catch let error as OpalBase.Account.Error {
+            guard case .transactionConfirmationRefreshFailed(let failedHash, let underlying) = error else {
+                Issue.record("Unexpected account error: \(error)")
+                return
+            }
+            #expect(failedHash == hash)
+            let networkError = try #require(underlying as? OpalBase.Network.Error)
+            #expect(networkError.reason == .protocolViolation)
+            #expect(networkError.message == "Confirmation status height exceeds tip height")
+        }
+
+        let record = try #require(await account.loadTransactionHistory().first { $0.transactionHash == hash })
+        #expect(record.status == .discovered)
+        #expect(record.confirmationMetadata.height == nil)
+    }
+
+    @Test("updateTransactionConfirmations rejects positive confirmations without height")
+    func updateTransactionConfirmationsRejectsConfirmationsWithoutHeight() async throws {
+        let account = try await AccountTestFixtures.makeAccount()
+        let targetEntry = try await account.selectNextEntry(for: .receiving)
+        let hash = AccountTestFixtures.makeHash(byte: 0x35)
+        let historyEntry = OpalBase.Network.TransactionHistoryEntry(
+            transactionIdentifier: hash.reverseOrder.hexadecimalString,
+            blockHeight: -1,
+            fee: nil
+        )
+
+        let addressReader = WalletAddressReaderTestActor(
+            historyByAddress: [targetEntry.address.string: [historyEntry]]
+        )
+        let confirmationClient = TransactionConfirmationClientTestActor(
+            statusesByHash: [
+                hash: .init(
+                    transactionHash: hash,
+                    transactionHeight: nil,
+                    tipHeight: 20,
+                    confirmations: 2
+                )
+            ]
+        )
+        let fulcrum = OpalBase.Wallet.Fulcrum(
+            addressReader: addressReader,
+            transactionHandler: confirmationClient
+        )
+
+        _ = try await fulcrum.refreshTransactionHistory(for: account, usage: .receiving, includeUnconfirmed: true)
+
+        do {
+            _ = try await fulcrum.updateTransactionConfirmations(
+                for: account,
+                transactionHashes: [hash]
+            )
+            Issue.record("Expected confirmation count without height to fail")
+        } catch let error as OpalBase.Account.Error {
+            guard case .transactionConfirmationRefreshFailed(let failedHash, let underlying) = error else {
+                Issue.record("Unexpected account error: \(error)")
+                return
+            }
+            #expect(failedHash == hash)
+            let networkError = try #require(underlying as? OpalBase.Network.Error)
+            #expect(networkError.reason == .protocolViolation)
+            #expect(networkError.message == "Confirmation count requires a confirmed transaction height")
+        }
+
+        let record = try #require(await account.loadTransactionHistory().first { $0.transactionHash == hash })
+        #expect(record.status == .discovered)
+        #expect(record.confirmationMetadata.height == nil)
+    }
+
+    @Test("updateTransactionConfirmations rejects confirmation counts that do not match height and tip")
+    func updateTransactionConfirmationsRejectsMismatchedConfirmationCounts() async throws {
+        let account = try await AccountTestFixtures.makeAccount()
+        let targetEntry = try await account.selectNextEntry(for: .receiving)
+        let hash = AccountTestFixtures.makeHash(byte: 0x37)
+        let historyEntry = OpalBase.Network.TransactionHistoryEntry(
+            transactionIdentifier: hash.reverseOrder.hexadecimalString,
+            blockHeight: -1,
+            fee: nil
+        )
+
+        let addressReader = WalletAddressReaderTestActor(
+            historyByAddress: [targetEntry.address.string: [historyEntry]]
+        )
+        let confirmationClient = TransactionConfirmationClientTestActor(
+            statusesByHash: [
+                hash: .init(
+                    transactionHash: hash,
+                    transactionHeight: 10,
+                    tipHeight: 20,
+                    confirmations: 1
+                )
+            ]
+        )
+        let fulcrum = OpalBase.Wallet.Fulcrum(
+            addressReader: addressReader,
+            transactionHandler: confirmationClient
+        )
+
+        _ = try await fulcrum.refreshTransactionHistory(for: account, usage: .receiving, includeUnconfirmed: true)
+
+        do {
+            _ = try await fulcrum.updateTransactionConfirmations(
+                for: account,
+                transactionHashes: [hash]
+            )
+            Issue.record("Expected mismatched confirmation count to fail")
+        } catch let error as OpalBase.Account.Error {
+            guard case .transactionConfirmationRefreshFailed(let failedHash, let underlying) = error else {
+                Issue.record("Unexpected account error: \(error)")
+                return
+            }
+            #expect(failedHash == hash)
+            let networkError = try #require(underlying as? OpalBase.Network.Error)
+            #expect(networkError.reason == .protocolViolation)
+            #expect(networkError.message == "Confirmation status count does not match height and tip")
+        }
+
+        let record = try #require(await account.loadTransactionHistory().first { $0.transactionHash == hash })
         #expect(record.status == .discovered)
         #expect(record.confirmationMetadata.height == nil)
     }

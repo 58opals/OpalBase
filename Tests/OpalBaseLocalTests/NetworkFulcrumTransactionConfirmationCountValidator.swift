@@ -59,4 +59,14 @@ struct NetworkFulcrumTransactionConfirmationCountValidator {
         )
         #expect(negativeHeight == nil)
     }
+
+    @Test("resolveFee rejects negative fee values instead of treating them as missing")
+    func resolveFeeRejectsNegativeValues() throws {
+        #expect(try OpalBase.Network.Fulcrum.resolveFee(Optional<Int>.none) == nil)
+        #expect(try OpalBase.Network.Fulcrum.resolveFee(Optional(42)) == 42)
+
+        #expect(throws: OpalBase.Network.Error(reason: .decoding, message: "Invalid transaction fee: -1")) {
+            _ = try OpalBase.Network.Fulcrum.resolveFee(Optional(-1))
+        }
+    }
 }

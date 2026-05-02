@@ -4,7 +4,7 @@
 
 Opal Base is the Bitcoin Cash application-layer foundation in the Opal package stack for Apple platforms. It owns the reusable wallet and account domain behavior that apps need after cryptography and Fulcrum transport are abstracted into lower-level packages.
 
-Consumers use Opal Base when they need wallet flows, CashAddr management, spend planning, snapshotting, and token-aware orchestration rather than raw key or socket primitives.
+Consumers use Opal Base when they need wallet flows, CashAddr management, spend planning, snapshotting, and token-aware orchestration rather than raw key or socket primitives. See the [Public API Guide](public-api.md) for the intended workflow entry points.
 
 ## Upstream Boundaries
 
@@ -16,7 +16,7 @@ Consumers use Opal Base when they need wallet flows, CashAddr management, spend 
 ## Downstream Integration
 
 - Primary downstream consumers are Opal Wallet and other Swift/BCH apps on Apple platforms.
-- A typical integration starts with `OpalBase.Wallet`, adds or restores an `OpalBase.Account`, derives receiving or change addresses, layers in live network access through `OpalBase.Network.Fulcrum.Client` and `OpalBase.Wallet.Fulcrum`, and persists state through `OpalBase.Storage`.
+- A typical integration starts with `OpalBase.Wallet`, adds or restores an `OpalBase.Account`, derives receiving addresses through account facade types, layers in live network access through `OpalBase.Network.Fulcrum.Client` and `OpalBase.Wallet.Fulcrum`, and persists state through `OpalBase.Storage.PersistenceSession`.
 - The package keeps app code focused on wallet workflows instead of re-implementing address books, reservation logic, UTXO caching, transaction history sync, or token metadata plumbing.
 
 ## Owned Capabilities
@@ -39,7 +39,7 @@ Consumers use Opal Base when they need wallet flows, CashAddr management, spend 
 
 ## Integration Pointers
 
-- Start with the quick start in the root README, then layer in live Fulcrum connectivity with `OpalBase.Network.Fulcrum.Client` and `OpalBase.Wallet.Fulcrum`.
+- Start with the quick start in the root README and the [Public API Guide](public-api.md), then layer in live Fulcrum connectivity with `OpalBase.Network.Fulcrum.Client` and `OpalBase.Wallet.Fulcrum`.
 - See `Tests/OpalBaseLocalTests/PublicAPISmokeValidator.swift` for public-surface composition across wallet, network, storage, block, and token metadata APIs.
 - See `Tests/OpalBaseNetworkTests/NetworkLiveSmokeValidator.swift` for a minimal live-network example using `OPAL_FULCRUM_URL` and `OPAL_RUN_LIVE_NETWORK_TESTS`.
 - Use `swift test` for package validation. Network tests remain opt-in through environment variables.

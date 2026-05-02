@@ -12,7 +12,7 @@ extension _OpalBase.Network {
             self.fetchRawTransactionHandler = fetchRawTransaction
         }
 
-        public init(_ reader: OpalBase.Network.FulcrumTransactionReader) {
+        public init(_ reader: OpalBase.Network.Fulcrum.TransactionReader) {
             self.init(fetchRawTransaction: reader.fetchRawTransaction(for:))
         }
 

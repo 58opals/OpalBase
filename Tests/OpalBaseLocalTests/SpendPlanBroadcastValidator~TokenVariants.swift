@@ -5,6 +5,39 @@ import Testing
 @testable import OpalBase
 
 extension SpendPlanBroadcastValidator {
+    @Test("token genesis buildAndBroadcast completes reservations on success")
+    func tokenGenesisPlanBuildAndBroadcastCompletesReservationOnSuccess() async throws {
+        let account = try await AccountTestFixtures.makeAccount()
+        let genesisInput = try await AccountTestFixtures.addUnspentOutput(
+            to: account,
+            value: 70_000,
+            hashByte: 0x78,
+            outputIndex: 0
+        )
+        let genesis = try OpalBase.Account.TokenGenesis(
+            recipients: [
+                .init(
+                    address: try OpalBase.Address(AccountTestFixtures.tokenAwareAddressString),
+                    fungibleAmount: 1
+                )
+            ]
+        )
+        let plan = try await account.prepareTokenGenesis(genesis, preferredGenesisInput: genesisInput)
+        let handler = TransactionHandlingTestActor(
+            deriveBroadcastTransactionHash: true
+        )
+
+        let result = try await plan.buildAndBroadcast(via: handler)
+
+        #expect(result.result.category.transactionOrderData == genesisInput.previousTransactionHash.naturalOrder)
+        #expect(!result.result.mintedOutputs.isEmpty)
+        #expect(await account.addressBook.readActiveSpendReservations().isEmpty)
+        let broadcasts = await handler.readBroadcastedTransactions()
+        #expect(broadcasts.count == 1)
+        let expectedHash = try expectedBroadcastHash(from: broadcasts)
+        #expect(result.hash == expectedHash)
+    }
+
     @Test("token genesis, mint, and mutation map domain-specific broadcast failures")
     func tokenPlanBroadcastFailuresMapDomainErrors() async throws {
         let failingHandler = TransactionHandlingTestActor(
@@ -121,4 +154,3 @@ private extension SpendPlanBroadcastValidator {
         return try await account.prepareTokenCommitmentMutation(mutation)
     }
 }
-

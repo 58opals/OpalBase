@@ -104,7 +104,7 @@ struct WalletOrchestrationValidator {
         let sourceSnapshot = await sourceWallet.makeSnapshot()
         let sourceAccountSnapshot = try #require(sourceSnapshot.accounts.first)
 
-        let reducedAddressBookSnapshot = OpalBase.Address.Book.Snapshot(
+        let reducedAddressBookSnapshot = OpalBase.Account.Snapshot.AddressBook(
             receivingEntries: Array(sourceAccountSnapshot.addressBook.receivingEntries.prefix(2)),
             changeEntries: Array(sourceAccountSnapshot.addressBook.changeEntries.prefix(1)),
             utxos: sourceAccountSnapshot.addressBook.utxos,
@@ -143,7 +143,7 @@ struct WalletOrchestrationValidator {
         #expect(restoredReceivingEntries.count == 21)
         #expect(restoredReceivingEntries.last?.derivationPath.index == 20)
         #expect(restoredReceivingEntries.first?.isUsed == true)
-        #expect(restoredReceivingEntries.first?.isReserved == true)
+        #expect(restoredReceivingEntries.first?.isReserved == false)
         #expect(restoredReceivingEntries.dropFirst().allSatisfy { !$0.isReserved })
         #expect(restoredReceivingEntries.filter { !$0.isUsed && !$0.isReserved }.count == 20)
         #expect(restoredChangeEntries.count == 20)
@@ -203,7 +203,7 @@ struct WalletOrchestrationValidator {
         let validSnapshot = try #require(sourceSnapshot.accounts.first { $0.accountUnhardenedIndex == 0 })
         let invalidBaseSnapshot = try #require(sourceSnapshot.accounts.first { $0.accountUnhardenedIndex == 3 })
 
-        let malformedAddressBook = OpalBase.Address.Book.Snapshot(
+        let malformedAddressBook = OpalBase.Account.Snapshot.AddressBook(
             receivingEntries: invalidBaseSnapshot.addressBook.receivingEntries,
             changeEntries: invalidBaseSnapshot.addressBook.changeEntries,
             utxos: [

@@ -15,7 +15,19 @@ extension _OpalBase.Transaction {
                              outputs: [Output],
                              version: UInt32 = 2,
                              lockTime: UInt32 = 0) throws -> Int {
-        guard inputCount >= 0 else { return 0 }
+        guard inputCount >= 0 else { throw OpalBase.Transaction.Error.cannotCreateTransaction }
+        if inputCount == 0 {
+            var writer = Data.Writer()
+            writer.writeLittleEndian(version)
+            writer.writeCompactSize(CompactSize(value: 0))
+            writer.writeCompactSize(CompactSize(value: UInt64(outputs.count)))
+            for output in outputs {
+                writer.writeData(try output.encode())
+            }
+            writer.writeLittleEndian(lockTime)
+            return writer.data.count
+        }
+
         let placeholderHash = OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0, count: 32))
         let templateInput = Input(previousTransactionHash: placeholderHash,
                                   previousTransactionOutputIndex: 0,

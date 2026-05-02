@@ -16,7 +16,7 @@ struct NetworkFulcrumTransactionProofReaderValidator {
             merkleResponse: merkleResponse,
             identifierResponse: identifierResponse
         )
-        let reader = OpalBase.Network.FulcrumTransactionProofReader(client: client)
+        let reader = OpalBase.Network.Fulcrum.TransactionProofReader(client: client)
         let transactionHash = OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0x11, count: 32))
 
         let merkleProof = try await reader.fetchMerkleProof(for: transactionHash)
@@ -37,7 +37,7 @@ struct NetworkFulcrumTransactionProofReaderValidator {
         let client = TransactionProofClientTestActor(
             merkleError: SwiftFulcrum.Client.Error.client(.protocolMismatch("unexpected merkle response"))
         )
-        let reader = OpalBase.Network.FulcrumTransactionProofReader(client: client)
+        let reader = OpalBase.Network.Fulcrum.TransactionProofReader(client: client)
 
         let failure = await Self.captureNetworkError {
             _ = try await reader.fetchMerkleProof(for: .init(naturalOrder: Data(repeating: 0x01, count: 32)))
@@ -53,7 +53,7 @@ struct NetworkFulcrumTransactionProofReaderValidator {
             merkleResponse: try Self.makeMerkleResponse(blockHeight: 13),
             heightResponse: try Self.makeHeightResponse(blockHeight: 12)
         )
-        let reader = OpalBase.Network.FulcrumTransactionProofReader(client: client)
+        let reader = OpalBase.Network.Fulcrum.TransactionProofReader(client: client)
 
         let failure = await Self.captureNetworkError {
             _ = try await reader.fetchMerkleProof(for: .init(naturalOrder: Data(repeating: 0x01, count: 32)))
@@ -65,18 +65,18 @@ struct NetworkFulcrumTransactionProofReaderValidator {
 }
 
 private actor TransactionProofClientTestActor: OpalBase.Network.Fulcrum.TransactionProofClient {
-    private let merkleResponse: SwiftFulcrum.RPC.Response.Result.Blockchain.Transaction.GetMerkle
-    private let heightResponse: SwiftFulcrum.RPC.Response.Result.Blockchain.Transaction.GetHeight
-    private let identifierResponse: SwiftFulcrum.RPC.Response.Result.Blockchain.Transaction.IDFromPos
+    private let merkleResponse: SwiftFulcrum.Response.Blockchain.Transaction.GetMerkle
+    private let heightResponse: SwiftFulcrum.Response.Blockchain.Transaction.GetHeight
+    private let identifierResponse: SwiftFulcrum.Response.Blockchain.Transaction.IDFromPos
     private let merkleError: Swift.Error?
     private var requestedTransactionHash: String?
     private var requestedMerkleBlockHeight: UInt?
     private var requestedPositionResolution: (UInt, UInt, Bool)?
 
     init(
-        merkleResponse: SwiftFulcrum.RPC.Response.Result.Blockchain.Transaction.GetMerkle? = nil,
-        heightResponse: SwiftFulcrum.RPC.Response.Result.Blockchain.Transaction.GetHeight? = nil,
-        identifierResponse: SwiftFulcrum.RPC.Response.Result.Blockchain.Transaction.IDFromPos? = nil,
+        merkleResponse: SwiftFulcrum.Response.Blockchain.Transaction.GetMerkle? = nil,
+        heightResponse: SwiftFulcrum.Response.Blockchain.Transaction.GetHeight? = nil,
+        identifierResponse: SwiftFulcrum.Response.Blockchain.Transaction.IDFromPos? = nil,
         merkleError: Swift.Error? = nil
     ) {
         self.merkleResponse = merkleResponse ?? (try! NetworkFulcrumTransactionProofReaderValidator.makeEmptyMerkleResponse())
@@ -89,7 +89,7 @@ private actor TransactionProofClientTestActor: OpalBase.Network.Fulcrum.Transact
         transactionHash: String,
         blockHeight: UInt,
         options _: SwiftFulcrum.Client.Call.Options
-    ) async throws -> SwiftFulcrum.RPC.Response.Result.Blockchain.Transaction.GetMerkle {
+    ) async throws -> SwiftFulcrum.Response.Blockchain.Transaction.GetMerkle {
         requestedTransactionHash = transactionHash
         requestedMerkleBlockHeight = blockHeight
         if let merkleError {
@@ -101,7 +101,7 @@ private actor TransactionProofClientTestActor: OpalBase.Network.Fulcrum.Transact
     func fetchTransactionHeight(
         transactionHash _: String,
         options _: SwiftFulcrum.Client.Call.Options
-    ) async throws -> SwiftFulcrum.RPC.Response.Result.Blockchain.Transaction.GetHeight {
+    ) async throws -> SwiftFulcrum.Response.Blockchain.Transaction.GetHeight {
         heightResponse
     }
 
@@ -110,7 +110,7 @@ private actor TransactionProofClientTestActor: OpalBase.Network.Fulcrum.Transact
         transactionPosition: UInt,
         shouldIncludeMerkleProof: Bool,
         options _: SwiftFulcrum.Client.Call.Options
-    ) async throws -> SwiftFulcrum.RPC.Response.Result.Blockchain.Transaction.IDFromPos {
+    ) async throws -> SwiftFulcrum.Response.Blockchain.Transaction.IDFromPos {
         requestedPositionResolution = (blockHeight, transactionPosition, shouldIncludeMerkleProof)
         return identifierResponse
     }
@@ -129,35 +129,35 @@ private actor TransactionProofClientTestActor: OpalBase.Network.Fulcrum.Transact
 }
 
 private extension NetworkFulcrumTransactionProofReaderValidator {
-    static func makeMerkleResponse() throws -> SwiftFulcrum.RPC.Response.Result.Blockchain.Transaction.GetMerkle {
+    static func makeMerkleResponse() throws -> SwiftFulcrum.Response.Blockchain.Transaction.GetMerkle {
         try makeMerkleResponse(blockHeight: 12)
     }
 
-    static func makeMerkleResponse(blockHeight: UInt) throws -> SwiftFulcrum.RPC.Response.Result.Blockchain.Transaction.GetMerkle {
+    static func makeMerkleResponse(blockHeight: UInt) throws -> SwiftFulcrum.Response.Blockchain.Transaction.GetMerkle {
         let payload = try JSONSerialization.data(withJSONObject: ["merkle": ["aa", "bb"], "block_height": blockHeight, "pos": 3])
-        return try JSONDecoder().decode(SwiftFulcrum.RPC.Response.Result.Blockchain.Transaction.GetMerkle.self, from: payload)
+        return try JSONDecoder().decode(SwiftFulcrum.Response.Blockchain.Transaction.GetMerkle.self, from: payload)
     }
 
-    static func makeHeightResponse(blockHeight: UInt) throws -> SwiftFulcrum.RPC.Response.Result.Blockchain.Transaction.GetHeight {
+    static func makeHeightResponse(blockHeight: UInt) throws -> SwiftFulcrum.Response.Blockchain.Transaction.GetHeight {
         try JSONDecoder().decode(
-            SwiftFulcrum.RPC.Response.Result.Blockchain.Transaction.GetHeight.self,
+            SwiftFulcrum.Response.Blockchain.Transaction.GetHeight.self,
             from: Data(String(blockHeight).utf8)
         )
     }
 
-    static func makeIdentifierResponse() throws -> SwiftFulcrum.RPC.Response.Result.Blockchain.Transaction.IDFromPos {
+    static func makeIdentifierResponse() throws -> SwiftFulcrum.Response.Blockchain.Transaction.IDFromPos {
         let payload = try JSONSerialization.data(withJSONObject: ["merkle": ["dd"], "tx_hash": String(repeating: "c", count: 64)])
-        return try JSONDecoder().decode(SwiftFulcrum.RPC.Response.Result.Blockchain.Transaction.IDFromPos.self, from: payload)
+        return try JSONDecoder().decode(SwiftFulcrum.Response.Blockchain.Transaction.IDFromPos.self, from: payload)
     }
 
-    static func makeEmptyMerkleResponse() throws -> SwiftFulcrum.RPC.Response.Result.Blockchain.Transaction.GetMerkle {
+    static func makeEmptyMerkleResponse() throws -> SwiftFulcrum.Response.Blockchain.Transaction.GetMerkle {
         let payload = try JSONSerialization.data(withJSONObject: ["merkle": [], "block_height": 0, "pos": 0])
-        return try JSONDecoder().decode(SwiftFulcrum.RPC.Response.Result.Blockchain.Transaction.GetMerkle.self, from: payload)
+        return try JSONDecoder().decode(SwiftFulcrum.Response.Blockchain.Transaction.GetMerkle.self, from: payload)
     }
 
-    static func makeEmptyIdentifierResponse() throws -> SwiftFulcrum.RPC.Response.Result.Blockchain.Transaction.IDFromPos {
+    static func makeEmptyIdentifierResponse() throws -> SwiftFulcrum.Response.Blockchain.Transaction.IDFromPos {
         let payload = try JSONSerialization.data(withJSONObject: ["merkle": [], "tx_hash": String(repeating: "0", count: 64)])
-        return try JSONDecoder().decode(SwiftFulcrum.RPC.Response.Result.Blockchain.Transaction.IDFromPos.self, from: payload)
+        return try JSONDecoder().decode(SwiftFulcrum.Response.Blockchain.Transaction.IDFromPos.self, from: payload)
     }
 
     static func captureNetworkError(

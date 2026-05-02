@@ -15,7 +15,7 @@ extension _OpalBase.Network {
             self.fetchUnspentHandler = fetchUnspent
         }
 
-        public init(_ reader: OpalBase.Network.FulcrumScriptHashReader) {
+        public init(_ reader: OpalBase.Network.Fulcrum.ScriptHashReader) {
             self.init(
                 fetchHistory: reader.fetchHistory(forScriptHash:includeUnconfirmed:),
                 fetchUnspent: reader.fetchUnspent(forScriptHash:tokenFilter:)

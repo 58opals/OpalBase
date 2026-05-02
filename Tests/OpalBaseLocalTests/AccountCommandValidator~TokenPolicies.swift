@@ -34,7 +34,7 @@ extension AccountCommandValidator {
         let recipientAddress = try OpalBase.Address("bitcoincash:qpm2qsznhks23z7629mms6s4cwef74vcwvy22gdx6a")
         let paymentAmount = try OpalBase.Satoshi(500)
         let payment = OpalBase.Account.Payment(recipients: [.init(address: recipientAddress, amount: paymentAmount)],
-                                      tokenSelectionPolicy: .allowTokenUTXOs)
+                                      tokenInputPolicy: .allowTokenUTXOs)
 
         do {
             _ = try await account.prepareSpend(payment)

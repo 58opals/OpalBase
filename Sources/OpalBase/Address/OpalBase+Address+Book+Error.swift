@@ -29,6 +29,10 @@ extension _OpalBase.Address.Book {
             actual: OpalBase.Key.DerivationPath.Usage,
             index: UInt32
         )
+        case invalidSnapshotEntryReservationState(
+            usage: OpalBase.Key.DerivationPath.Usage,
+            index: UInt32
+        )
         case invalidSnapshotDuplicateEntry(
             usage: OpalBase.Key.DerivationPath.Usage,
             index: UInt32
@@ -41,8 +45,10 @@ extension _OpalBase.Address.Book {
         case invalidSnapshotTransactionHashLength(expected: Int, actual: Int)
         case invalidSnapshotScriptHashLength(expected: Int, actual: Int)
         case invalidSnapshotMissingScriptHashes
+        case invalidSnapshotDuplicateScriptHash(String)
         case invalidSnapshotMerkleProofHashLength(expected: Int, actual: Int)
         case invalidSnapshotTokenData(reason: Swift.Error)
+        case invalidSnapshotDuplicateTokenDelta(OpalBase.CashTokens.TokenData)
         case invalidSnapshotVerificationState
         case invalidSnapshotConfirmationState
         case tokenDeltaOverflow
@@ -86,6 +92,9 @@ extension _OpalBase.Address.Book.Error: Equatable {
         case (.invalidSnapshotEntryUsage(let leftExpected, let leftActual, let leftIndex),
               .invalidSnapshotEntryUsage(let rightExpected, let rightActual, let rightIndex)):
             return leftExpected == rightExpected && leftActual == rightActual && leftIndex == rightIndex
+        case (.invalidSnapshotEntryReservationState(let leftUsage, let leftIndex),
+              .invalidSnapshotEntryReservationState(let rightUsage, let rightIndex)):
+            return leftUsage == rightUsage && leftIndex == rightIndex
         case (.invalidSnapshotDuplicateEntry(let leftUsage, let leftIndex),
               .invalidSnapshotDuplicateEntry(let rightUsage, let rightIndex)):
             return leftUsage == rightUsage && leftIndex == rightIndex
@@ -101,12 +110,18 @@ extension _OpalBase.Address.Book.Error: Equatable {
         case (.invalidSnapshotScriptHashLength(let leftExpected, let leftActual),
               .invalidSnapshotScriptHashLength(let rightExpected, let rightActual)):
             return leftExpected == rightExpected && leftActual == rightActual
+        case (.invalidSnapshotDuplicateScriptHash(let leftScriptHash),
+              .invalidSnapshotDuplicateScriptHash(let rightScriptHash)):
+            return leftScriptHash == rightScriptHash
         case (.invalidSnapshotMerkleProofHashLength(let leftExpected, let leftActual),
               .invalidSnapshotMerkleProofHashLength(let rightExpected, let rightActual)):
             return leftExpected == rightExpected && leftActual == rightActual
         case (.invalidSnapshotTokenData(let leftError),
               .invalidSnapshotTokenData(let rightError)):
             return OpalBase.Network.checkFailureEquivalence(leftError, rightError)
+        case (.invalidSnapshotDuplicateTokenDelta(let leftTokenData),
+              .invalidSnapshotDuplicateTokenDelta(let rightTokenData)):
+            return leftTokenData == rightTokenData
         case (.transactionHistoryRefreshFailed(let leftAddress, let leftError),
               .transactionHistoryRefreshFailed(let rightAddress, let rightError)):
             return leftAddress == rightAddress && OpalBase.Network.checkFailureEquivalence(leftError, rightError)

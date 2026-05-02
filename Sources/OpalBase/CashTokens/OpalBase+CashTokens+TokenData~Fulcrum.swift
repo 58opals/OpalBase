@@ -4,7 +4,7 @@ import Foundation
 import SwiftFulcrum
 
 extension _OpalBase.CashTokens.TokenData {
-    init(swiftFulcrumTokenData: SwiftFulcrum.RPC.Method.Blockchain.CashTokens.JSON) throws {
+    init(swiftFulcrumTokenData: SwiftFulcrum.CashTokens.TokenData) throws {
         let category = try OpalBase.CashTokens.CategoryID(hexFromRPC: swiftFulcrumTokenData.category)
         let amount = try Self.parseAmount(from: swiftFulcrumTokenData.amount)
         let nft = try swiftFulcrumTokenData.nft.map { try OpalBase.CashTokens.NFT(swiftFulcrumNFT: $0) }
@@ -20,7 +20,7 @@ extension _OpalBase.CashTokens.TokenData {
 }
 
 private extension _OpalBase.CashTokens.NFT {
-    init(swiftFulcrumNFT: SwiftFulcrum.RPC.Method.Blockchain.CashTokens.JSON.NFT) throws {
+    init(swiftFulcrumNFT: SwiftFulcrum.CashTokens.TokenData.NFT) throws {
         let capability = OpalBase.CashTokens.NFT.Capability(swiftFulcrumCapability: swiftFulcrumNFT.capability)
         let commitment: Data
         do {
@@ -33,7 +33,7 @@ private extension _OpalBase.CashTokens.NFT {
 }
 
 private extension _OpalBase.CashTokens.NFT.Capability {
-    init(swiftFulcrumCapability: SwiftFulcrum.RPC.Method.Blockchain.CashTokens.JSON.NFT.Capability) {
+    init(swiftFulcrumCapability: SwiftFulcrum.CashTokens.TokenData.NFT.Capability) {
         switch swiftFulcrumCapability {
         case .none:
             self = .none

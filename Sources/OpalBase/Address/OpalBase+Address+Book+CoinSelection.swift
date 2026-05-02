@@ -4,7 +4,7 @@ import Foundation
 
 // MARK: - Coin Selection
 extension _OpalBase.Address.Book {
-    public enum CoinSelection: Sendable {
+    enum CoinSelection: Sendable {
         case greedyLargestFirst
         case branchAndBound
         case sweepAll
@@ -12,7 +12,7 @@ extension _OpalBase.Address.Book {
 }
 
 extension _OpalBase.Address.Book.CoinSelection {
-    public enum TokenSelectionPolicy: Sendable {
+    enum TokenSelectionPolicy: Sendable {
         case excludeTokenUTXOs
         case allowTokenUTXOs
     }

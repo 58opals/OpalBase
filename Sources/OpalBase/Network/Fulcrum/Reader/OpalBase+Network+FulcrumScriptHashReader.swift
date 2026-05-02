@@ -3,11 +3,15 @@
 import Foundation
 import SwiftFulcrum
 
-extension _OpalBase.Network {
-    public struct FulcrumScriptHashReader: ScriptHashReadableClient {
+extension _OpalBase.Network.Fulcrum {
+    /// Reads script-hash history and UTXOs from a Fulcrum server.
+    ///
+    /// This reader is public for custom network composition. Wallet flows should
+    /// usually start with `OpalBase.Wallet.Fulcrum`.
+    public struct ScriptHashReader: OpalBase.Network.ScriptHashReadableClient {
         private let client: OpalBase.Network.Fulcrum.Client
         private let timeouts: OpalBase.Network.FulcrumRequestTimeout
-        private let transactionReader: FulcrumTransactionReader
+        private let transactionReader: TransactionReader
         
         public init(
             client: OpalBase.Network.Fulcrum.Client,
@@ -16,7 +20,7 @@ extension _OpalBase.Network {
         ) {
             self.client = client
             self.timeouts = timeouts
-            self.transactionReader = FulcrumTransactionReader(
+            self.transactionReader = TransactionReader(
                 client: client,
                 timeouts: timeouts,
                 cache: transactionCache
@@ -29,25 +33,18 @@ extension _OpalBase.Network {
         ) async throws -> [OpalBase.Network.TransactionHistoryEntry] {
             try await OpalBase.Network.performWithFailureTranslation {
                 let result = try await client.request(
-                    method: .blockchain(
-                        .scripthash(
-                            .getHistory(
-                                scripthash: scriptHashHex,
-                                fromHeight: nil,
-                                toHeight: nil,
-                                shouldIncludeUnconfirmed: includeUnconfirmed
-                            )
-                        )
+                    .blockchain.scriptHash.getHistory(
+                        scriptHash: scriptHashHex,
+                        shouldIncludeUnconfirmed: includeUnconfirmed
                     ),
-                    responseType: SwiftFulcrum.RPC.Response.Result.Blockchain.ScriptHash.GetHistory.self,
                     options: .init(timeout: timeouts.scriptHashHistory)
                 )
                 
-                return result.transactions.map { transaction in
+                return try result.transactions.map { transaction in
                     OpalBase.Network.TransactionHistoryEntry(
                         transactionIdentifier: transaction.transactionHash,
                         blockHeight: transaction.height,
-                        fee: OpalBase.Network.Fulcrum.resolveFee(transaction.fee)
+                        fee: try OpalBase.Network.Fulcrum.resolveFee(transaction.fee)
                     )
                 }
             }
@@ -59,15 +56,10 @@ extension _OpalBase.Network {
         ) async throws -> [OpalBase.Transaction.Output.Unspent] {
             try await OpalBase.Network.performWithFailureTranslation {
                 let result = try await client.request(
-                    method: .blockchain(
-                        .scripthash(
-                            .listUnspent(
-                                scripthash: scriptHashHex,
-                                tokenFilter: tokenFilter.fulcrumTokenFilter
-                            )
-                        )
+                    .blockchain.scriptHash.listUnspent(
+                        scriptHash: scriptHashHex,
+                        tokenFilter: tokenFilter.fulcrumTokenFilter
                     ),
-                    responseType: SwiftFulcrum.RPC.Response.Result.Blockchain.ScriptHash.ListUnspent.self,
                     options: .init(timeout: timeouts.scriptHashUnspent)
                 )
                 
@@ -80,7 +72,7 @@ extension _OpalBase.Network {
         }
         
         private func makeUnspentOutput(
-            from item: SwiftFulcrum.RPC.Response.Result.Blockchain.ScriptHash.ListUnspent.Item
+            from item: SwiftFulcrum.Response.Blockchain.ScriptHash.ListUnspent.Item
         ) async throws -> OpalBase.Transaction.Output.Unspent {
             guard let index = UInt32(exactly: item.transactionPosition) else {
                 throw OpalBase.Network.Error(reason: .decoding, message: "OpalBase.Transaction position overflow")

@@ -2,8 +2,13 @@
 
 import Foundation
 
-extension _OpalBase.Network {
-    public struct FulcrumTransactionReader {
+extension _OpalBase.Network.Fulcrum {
+    /// Reads transaction data from a Fulcrum server.
+    ///
+    /// Most wallet applications should use `OpalBase.Wallet.Fulcrum` for live
+    /// synchronization. Use this reader directly when composing a custom network
+    /// adapter.
+    public struct TransactionReader {
         private let client: any OpalBase.Network.Fulcrum.TransactionReaderClient
         private let timeouts: OpalBase.Network.FulcrumRequestTimeout
         private let cache: OpalBase.Transaction.Cache
@@ -41,7 +46,7 @@ extension _OpalBase.Network {
             isVerbose: TransactionGetVerbose?
         ) throws -> OpalBase.Transaction.Detail {
             let (transaction, _) = try OpalBase.Transaction.decode(from: rawTransactionData)
-            let blockHash = isVerbose?.blockhash.flatMap { try? Data(hexadecimalString: $0) }
+            let blockHash = try decodeBlockHash(isVerbose?.blockhash)
             
             return OpalBase.Transaction.Detail(
                 transaction: transaction,
@@ -53,6 +58,18 @@ extension _OpalBase.Network {
                 size: isVerbose?.size ?? UInt32(rawTransactionData.count),
                 time: isVerbose?.time
             )
+        }
+
+        private func decodeBlockHash(_ hexadecimalString: String?) throws -> Data? {
+            guard let hexadecimalString else { return nil }
+            let blockHash = try Data(hexadecimalString: hexadecimalString)
+            guard blockHash.count == OpalBase.Transaction.Hash.expectedByteCount else {
+                throw OpalBase.Network.Error(
+                    reason: .decoding,
+                    message: "Invalid block hash length: expected \(OpalBase.Transaction.Hash.expectedByteCount) bytes, got \(blockHash.count)"
+                )
+            }
+            return blockHash
         }
         
         public func fetchDetailedTransaction(for transactionHash: OpalBase.Transaction.Hash) async throws -> OpalBase.Transaction.Detail {
@@ -98,11 +115,17 @@ extension _OpalBase.Network {
                     transactionHash: identifier,
                     options: .init(timeout: timeouts.transactionConfirmations)
                 )
+                guard let size = UInt32(exactly: result.size) else {
+                    throw OpalBase.Network.Error(
+                        reason: .decoding,
+                        message: "Invalid transaction size: \(result.size)"
+                    )
+                }
                 return .init(hex: result.hex,
                              blockhash: result.blockHash,
                              blocktime: result.blocktime.flatMap(UInt32.init(exactly:)),
                              confirmations: result.confirmations.flatMap(UInt32.init(exactly:)),
-                             size: UInt32(result.size),
+                             size: size,
                              time: result.time.flatMap(UInt32.init(exactly:)))
             }
         }
@@ -145,5 +168,5 @@ extension _OpalBase.Network {
     }
 }
 
-extension _OpalBase.Network.FulcrumTransactionReader: Sendable {}
-extension _OpalBase.Network.FulcrumTransactionReader: OpalBase.Network.TransactionReadableClient {}
+extension _OpalBase.Network.Fulcrum.TransactionReader: Sendable {}
+extension _OpalBase.Network.Fulcrum.TransactionReader: OpalBase.Network.TransactionReadableClient {}

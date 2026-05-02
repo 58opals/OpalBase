@@ -51,6 +51,9 @@ extension OpalBase {
             guard inputsCount.value <= UInt64(Int.max) else {
                 throw Data.Error.indexOutOfRange
             }
+            guard inputsCount.value > 0 else {
+                throw OpalBase.Transaction.Error.cannotCreateTransaction
+            }
             let inputs = try (0..<Int(inputsCount.value)).map { _ -> Input in
                 try Input.decode(from: &reader)
             }
@@ -58,6 +61,9 @@ extension OpalBase {
             let outputsCount = try reader.readCompactSize()
             guard outputsCount.value <= UInt64(Int.max) else {
                 throw Data.Error.indexOutOfRange
+            }
+            guard outputsCount.value > 0 else {
+                throw OpalBase.Transaction.Error.cannotCreateTransaction
             }
             let outputs = try (0..<Int(outputsCount.value)).map { _ -> Output in
                 try Output.decode(from: &reader)
@@ -71,6 +77,9 @@ extension OpalBase {
 
 extension _OpalBase.Transaction {
     func makeSerializedTransaction(with inputs: [Input]) throws -> Data {
+        guard !inputs.isEmpty, !outputs.isEmpty else {
+            throw OpalBase.Transaction.Error.cannotCreateTransaction
+        }
         var writer = Data.Writer()
         writer.writeLittleEndian(version)
         writer.writeCompactSize(CompactSize(value: UInt64(inputs.count)))

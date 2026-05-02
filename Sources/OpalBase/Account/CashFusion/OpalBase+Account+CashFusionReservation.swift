@@ -23,15 +23,25 @@ extension _OpalBase.Account {
         }
 
         func complete() async throws {
-            try await releaseReservations(shouldKeepUsed: true)
+            try await releaseReservations(inputOutcome: .spent, shouldKeepUsed: true)
         }
 
         func cancel() async throws {
-            try await releaseReservations(shouldKeepUsed: false)
+            try await releaseReservations(inputOutcome: .released, shouldKeepUsed: false)
         }
 
-        private func releaseReservations(shouldKeepUsed: Bool) async throws {
-            await addressBook.releaseUTXOs(Set(selectedInputs))
+        private func releaseReservations(
+            inputOutcome: InputOutcome,
+            shouldKeepUsed: Bool
+        ) async throws {
+            switch inputOutcome {
+            case .spent:
+                for selectedInput in selectedInputs {
+                    await addressBook.removeUTXO(selectedInput)
+                }
+            case .released:
+                await addressBook.releaseUTXOs(Set(selectedInputs))
+            }
 
             var firstError: Swift.Error?
             for entry in reservedReceivingEntries {
@@ -50,6 +60,11 @@ extension _OpalBase.Account {
             if let firstError {
                 throw firstError
             }
+        }
+
+        private enum InputOutcome {
+            case spent
+            case released
         }
     }
 }

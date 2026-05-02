@@ -24,7 +24,7 @@ extension _OpalBase.Address.Book {
         try await refresh(with: snapshot)
     }
 
-    public func makeSnapshot() -> Snapshot {
+    func makeSnapshot() -> Snapshot {
         let receiving = makeEntrySnapshots(for: .receiving)
         let change = makeEntrySnapshots(for: .change)
 
@@ -87,9 +87,10 @@ extension _OpalBase.Address.Book {
         }
     }
 
-    public func refresh(with snapshot: Snapshot) async throws {
+    func refresh(with snapshot: Snapshot) async throws {
         try validateEntryUsage(in: snapshot.receivingEntries, expected: .receiving)
         try validateEntryUsage(in: snapshot.changeEntries, expected: .change)
+        try validateEntryReservationState(in: snapshot.receivingEntries + snapshot.changeEntries)
         try validateUniqueEntryIndices(in: snapshot.receivingEntries, usage: .receiving)
         try validateUniqueEntryIndices(in: snapshot.changeEntries, usage: .change)
         try validateEntryBalances(in: snapshot.receivingEntries + snapshot.changeEntries)
@@ -128,6 +129,15 @@ extension _OpalBase.Address.Book {
             throw OpalBase.Address.Book.Error.invalidSnapshotEntryUsage(
                 expected: expected,
                 actual: entry.usage,
+                index: entry.index
+            )
+        }
+    }
+
+    private func validateEntryReservationState(in entries: [Snapshot.Entry]) throws {
+        for entry in entries where entry.isReserved && !entry.isUsed {
+            throw OpalBase.Address.Book.Error.invalidSnapshotEntryReservationState(
+                usage: entry.usage,
                 index: entry.index
             )
         }
@@ -226,11 +236,23 @@ extension _OpalBase.Address.Book {
                     blockHash: blockHash
                 )
             }
-            if transaction.verificationStatus == .verified && proof == nil {
-                throw OpalBase.Address.Book.Error.invalidSnapshotVerificationState
+            if transaction.verificationStatus == .verified {
+                guard let proof,
+                      transaction.status == .confirmed,
+                      let confirmationHeight = transaction.confirmationHeight,
+                      UInt64(proof.blockHeight) == confirmationHeight else {
+                    throw OpalBase.Address.Book.Error.invalidSnapshotVerificationState
+                }
             }
-            if transaction.status == .confirmed && transaction.confirmationHeight == nil {
-                throw OpalBase.Address.Book.Error.invalidSnapshotConfirmationState
+            switch transaction.status {
+            case .confirmed:
+                if transaction.confirmationHeight == nil || transaction.confirmedAt == nil {
+                    throw OpalBase.Address.Book.Error.invalidSnapshotConfirmationState
+                }
+            case .discovered, .pending, .failed:
+                if transaction.confirmationHeight != nil || transaction.confirmedAt != nil {
+                    throw OpalBase.Address.Book.Error.invalidSnapshotConfirmationState
+                }
             }
             let chainMetadata = OpalBase.Transaction.History.Record.ChainMetadata(height: transaction.height,
                                                                          fee: transaction.fee,
@@ -243,10 +265,16 @@ extension _OpalBase.Address.Book {
                                                                                        merkleProof: proof,
                                                                                        lastVerifiedHeight: transaction.lastVerifiedHeight,
                                                                                        lastCheckedAt: transaction.lastCheckedAt)
+            let nonFungibleTokenAdditions = try validateUniqueTokenDeltas(
+                in: transaction.nonFungibleTokenAdditions ?? .init()
+            )
+            let nonFungibleTokenRemovals = try validateUniqueTokenDeltas(
+                in: transaction.nonFungibleTokenRemovals ?? .init()
+            )
             let tokenDelta = OpalBase.Transaction.History.Record.TokenDelta(
                 fungibleDeltasByCategory: transaction.fungibleTokenDeltasByCategory ?? .init(),
-                nonFungibleTokenAdditions: Set(transaction.nonFungibleTokenAdditions ?? .init()),
-                nonFungibleTokenRemovals: Set(transaction.nonFungibleTokenRemovals ?? .init()),
+                nonFungibleTokenAdditions: nonFungibleTokenAdditions,
+                nonFungibleTokenRemovals: nonFungibleTokenRemovals,
                 bchLockedInTokenOutputDelta: transaction.bchLockedInTokenOutputDelta ?? 0
             )
             let record = OpalBase.Transaction.History.Record(transactionHash: hash,
@@ -259,10 +287,21 @@ extension _OpalBase.Address.Book {
         }
     }
 
+    private func validateUniqueTokenDeltas(
+        in tokenDeltas: [OpalBase.CashTokens.TokenData]
+    ) throws -> Set<OpalBase.CashTokens.TokenData> {
+        var uniqueTokenDeltas: Set<OpalBase.CashTokens.TokenData> = .init()
+        for tokenDelta in tokenDeltas where !uniqueTokenDeltas.insert(tokenDelta).inserted {
+            throw OpalBase.Address.Book.Error.invalidSnapshotDuplicateTokenDelta(tokenDelta)
+        }
+        return uniqueTokenDeltas
+    }
+
     private func validateScriptHashes(in scriptHashes: [String]) throws {
         guard !scriptHashes.isEmpty else {
             throw OpalBase.Address.Book.Error.invalidSnapshotMissingScriptHashes
         }
+        var seenScriptHashes: Set<String> = .init()
         for scriptHash in scriptHashes {
             let data = try Data(hexadecimalString: scriptHash)
             guard data.count == OpalBase.Transaction.Hash.expectedByteCount else {
@@ -270,6 +309,9 @@ extension _OpalBase.Address.Book {
                     expected: OpalBase.Transaction.Hash.expectedByteCount,
                     actual: data.count
                 )
+            }
+            guard seenScriptHashes.insert(scriptHash).inserted else {
+                throw OpalBase.Address.Book.Error.invalidSnapshotDuplicateScriptHash(scriptHash)
             }
         }
     }
@@ -297,7 +339,7 @@ extension _OpalBase.Address.Book {
 
             inventory.updateEntry(at: Int(snapshotEntry.index), usage: usage) { entry in
                 entry.isUsed = snapshotEntry.isUsed
-                entry.isReserved = snapshotEntry.isReserved
+                entry.isReserved = false
                 entry.cache.balance = restoredBalance
                 entry.cache.lastUpdated = snapshotEntry.lastUpdated
             }

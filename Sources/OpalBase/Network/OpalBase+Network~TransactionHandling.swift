@@ -28,13 +28,41 @@ extension _OpalBase.Network {
         
         return OpalBase.Transaction.Hash(dataFromRPC: data)
     }
+
+    static func decodeBroadcastTransactionHash(
+        from identifier: String,
+        rawTransactionData: Data
+    ) throws -> OpalBase.Transaction.Hash {
+        let returnedHash = try decodeTransactionHash(
+            from: identifier,
+            label: "broadcast transaction identifier"
+        )
+        let expectedHash = OpalBase.Transaction.Hash(
+            naturalOrder: OpalCryptoAdapter.hash256(rawTransactionData)
+        )
+        guard returnedHash == expectedHash else {
+            throw OpalBase.Network.Error(
+                reason: .protocolViolation,
+                message: "Broadcast transaction hash mismatch",
+                metadata: [
+                    "expected": expectedHash.reverseOrder.hexadecimalString,
+                    "actual": returnedHash.reverseOrder.hexadecimalString
+                ]
+            )
+        }
+
+        return returnedHash
+    }
 }
 
 extension _OpalBase.Network.TransactionBroadcastClient {
     func broadcast(transaction: OpalBase.Transaction) async throws -> OpalBase.Transaction.Hash {
-        let rawHexadecimal = try transaction.encode().hexadecimalString
+        let rawTransactionData = try transaction.encode()
+        let rawHexadecimal = rawTransactionData.hexadecimalString
         let transactionIdentifier = try await broadcastTransaction(rawTransactionHexadecimal: rawHexadecimal)
-        return try OpalBase.Network.decodeTransactionHash(from: transactionIdentifier)
+        return try OpalBase.Network.decodeBroadcastTransactionHash(
+            from: transactionIdentifier,
+            rawTransactionData: rawTransactionData
+        )
     }
 }
-

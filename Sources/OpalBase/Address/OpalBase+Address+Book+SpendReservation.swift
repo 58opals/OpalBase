@@ -135,13 +135,13 @@ extension _OpalBase.Address.Book {
     
     private func finalizeRelease(for state: SpendReservation.State,
                                  outcome: SpendReservation.Outcome) async throws {
-        utxoStore.release(state.utxos)
-        
         let shouldKeepUsed: Bool
         switch outcome {
         case .completed:
+            utxoStore.remove(Array(state.utxos))
             shouldKeepUsed = true
         case .cancelled:
+            utxoStore.release(state.utxos)
             shouldKeepUsed = state.hasBeenUsedPreviously
         }
         

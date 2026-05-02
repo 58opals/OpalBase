@@ -14,9 +14,10 @@ struct AddressValidator {
 
     @Test("known private key derives stable wallet and address artifacts")
     func deriveStableWalletAndAddressArtifacts() throws {
-        let privateKey = Data(repeating: 0x00, count: 31) + Data([0x01])
+        let privateKeyData = Data(repeating: 0x00, count: 31) + Data([0x01])
+        let privateKey = try OpalCrypto.Secp256k1.PrivateKey(rawRepresentation: privateKeyData)
         let walletImportFormat = try OpalCrypto.Key.WIF(privateKey: privateKey).serialize()
-        let publicKey = try OpalBase.Key.PublicKey(privateKeyData: privateKey)
+        let publicKey = try OpalBase.Key.PublicKey(privateKeyData: privateKeyData)
         let hash = OpalBase.Key.PublicKey.Hash(publicKey: publicKey)
         let script = OpalBase.Script.p2pkh_OPCHECKSIG(hash: hash)
         let legacyAddress = try OpalBase.Address.Legacy(script)
@@ -139,7 +140,9 @@ struct AddressValidator {
     func decodeCashAddrWithUppercasePayload() throws {
         let cashAddr = "QPM2QSZNHKS23Z7629MMS6S4CWEF74VCWVY22GDX6A"
         let address = try OpalBase.Address(cashAddr)
-        #expect(address.string == cashAddr)
+        #expect(address.string == cashAddr.lowercased())
+        #expect(address.generateString(withPrefix: true) == "bitcoincash:\(cashAddr.lowercased())")
+        #expect(try OpalBase.Address(address.generateString(withPrefix: true)) == address)
 
         switch address.lockingScript {
         case .p2pkh_OPCHECKSIG(let hash):
@@ -175,7 +178,9 @@ struct AddressValidator {
         let payload = "QPM2QSZNHKS23Z7629MMS6S4CWEF74VCWVY22GDX6A"
         let cashAddr = "BITCOINCASH:\(payload)"
         let address = try OpalBase.Address(cashAddr)
-        #expect(address.string == payload)
+        #expect(address.string == payload.lowercased())
+        #expect(address.generateString(withPrefix: true) == "bitcoincash:\(payload.lowercased())")
+        #expect(try OpalBase.Address(address.generateString(withPrefix: true)) == address)
         #expect(address.network == .mainnet)
 
         switch address.lockingScript {
@@ -183,6 +188,15 @@ struct AddressValidator {
             #expect(hash.data.count == 20)
         default:
             #expect(Bool(false), "Expected P2PKH locking script")
+        }
+    }
+
+    @Test("mixed-case full CashAddr is rejected")
+    func rejectMixedCaseFullCashAddr() {
+        let payload = "QPM2QSZNHKS23Z7629MMS6S4CWEF74VCWVY22GDX6A"
+
+        #expect(throws: OpalBase.Address.Error.invalidCashAddrFormat) {
+            _ = try OpalBase.Address("bitcoincash:\(payload)")
         }
     }
 

@@ -3,10 +3,10 @@
 import Foundation
 
 extension _OpalBase.Account {
-    public struct TokenCommitmentMutation: Sendable {
+        public struct TokenCommitmentMutation: Sendable {
         public enum Target: Sendable {
             case preferredInput(OpalBase.Transaction.Output.Unspent)
-            case byGroup(OpalBase.Address.Book.TokenInventory.NonFungibleTokenGroup)
+            case byGroup(OpalBase.Account.TokenInventory.NonFungibleTokenGroup)
         }
         
         public let target: Target

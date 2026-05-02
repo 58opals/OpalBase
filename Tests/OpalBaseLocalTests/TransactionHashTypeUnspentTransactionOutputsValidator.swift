@@ -87,6 +87,6 @@ struct TransactionHashTypeUnspentTransactionOutputsValidator {
         for output in outputs {
             data.append(try output.encode())
         }
-        return OpalCrypto.Hashing.computeHash256(data)
+        return OpalCrypto.Hashing.hash256(data)
     }
 }

@@ -10,21 +10,20 @@ extension _OpalBase.Network.Fulcrum {
             clientName: String,
             protocolNegotiation: SwiftFulcrum.Client.Configuration.ProtocolNegotiation.Argument,
             options: SwiftFulcrum.Client.Call.Options
-        ) async throws -> SwiftFulcrum.RPC.Response.Result.Server.Version
-        func fetchServerFeatures(options: SwiftFulcrum.Client.Call.Options) async throws -> SwiftFulcrum.RPC.Response.Result.Server.Features
-        func fetchRelayFee(options: SwiftFulcrum.Client.Call.Options) async throws -> SwiftFulcrum.RPC.Response.Result.Blockchain.RelayFee
+        ) async throws -> SwiftFulcrum.Response.Server.Version
+        func fetchServerFeatures(options: SwiftFulcrum.Client.Call.Options) async throws -> SwiftFulcrum.Response.Server.Features
+        func fetchRelayFee(options: SwiftFulcrum.Client.Call.Options) async throws -> SwiftFulcrum.Response.Blockchain.RelayFee
         func estimateFee(
             numberOfBlocks: Int,
             options: SwiftFulcrum.Client.Call.Options
-        ) async throws -> SwiftFulcrum.RPC.Response.Result.Blockchain.EstimateFee
+        ) async throws -> SwiftFulcrum.Response.Blockchain.EstimateFee
     }
 }
 
 extension _OpalBase.Network.Fulcrum.Client: _OpalBase.Network.Fulcrum.ServerInfoClient {
     func pingServer(options: SwiftFulcrum.Client.Call.Options) async throws {
         _ = try await request(
-            method: .server(.ping),
-            responseType: SwiftFulcrum.RPC.Response.Result.Server.Ping.self,
+            .server.ping,
             options: options
         )
     }
@@ -33,26 +32,23 @@ extension _OpalBase.Network.Fulcrum.Client: _OpalBase.Network.Fulcrum.ServerInfo
         clientName: String,
         protocolNegotiation: SwiftFulcrum.Client.Configuration.ProtocolNegotiation.Argument,
         options: SwiftFulcrum.Client.Call.Options
-    ) async throws -> SwiftFulcrum.RPC.Response.Result.Server.Version {
+    ) async throws -> SwiftFulcrum.Response.Server.Version {
         try await request(
-            method: .server(.version(clientName: clientName, protocolNegotiation: protocolNegotiation)),
-            responseType: SwiftFulcrum.RPC.Response.Result.Server.Version.self,
+            .server.version(clientName: clientName, protocolNegotiation: protocolNegotiation),
             options: options
         )
     }
 
-    func fetchServerFeatures(options: SwiftFulcrum.Client.Call.Options) async throws -> SwiftFulcrum.RPC.Response.Result.Server.Features {
+    func fetchServerFeatures(options: SwiftFulcrum.Client.Call.Options) async throws -> SwiftFulcrum.Response.Server.Features {
         try await request(
-            method: .server(.features),
-            responseType: SwiftFulcrum.RPC.Response.Result.Server.Features.self,
+            .server.features,
             options: options
         )
     }
 
-    func fetchRelayFee(options: SwiftFulcrum.Client.Call.Options) async throws -> SwiftFulcrum.RPC.Response.Result.Blockchain.RelayFee {
+    func fetchRelayFee(options: SwiftFulcrum.Client.Call.Options) async throws -> SwiftFulcrum.Response.Blockchain.RelayFee {
         try await request(
-            method: .blockchain(.relayFee),
-            responseType: SwiftFulcrum.RPC.Response.Result.Blockchain.RelayFee.self,
+            .blockchain.relayFee,
             options: options
         )
     }
@@ -60,10 +56,9 @@ extension _OpalBase.Network.Fulcrum.Client: _OpalBase.Network.Fulcrum.ServerInfo
     func estimateFee(
         numberOfBlocks: Int,
         options: SwiftFulcrum.Client.Call.Options
-    ) async throws -> SwiftFulcrum.RPC.Response.Result.Blockchain.EstimateFee {
+    ) async throws -> SwiftFulcrum.Response.Blockchain.EstimateFee {
         try await request(
-            method: .blockchain(.estimateFee(numberOfBlocks: numberOfBlocks)),
-            responseType: SwiftFulcrum.RPC.Response.Result.Blockchain.EstimateFee.self,
+            .blockchain.estimateFee(numberOfBlocks: numberOfBlocks),
             options: options
         )
     }

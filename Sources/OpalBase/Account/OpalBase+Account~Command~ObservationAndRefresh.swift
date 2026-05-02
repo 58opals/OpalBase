@@ -4,21 +4,21 @@ import Foundation
 
 // MARK: - Address Book Observation And Refresh
 extension _OpalBase.Account {
-    public func listTrackedEntries() async -> [OpalBase.Address.Book.Entry] {
+    func listTrackedEntries() async -> [OpalBase.Address.Book.Entry] {
         await addressBook.listAllEntries()
     }
 }
 
 extension _OpalBase.Account {
-    public func observeNewEntries() async -> AsyncStream<OpalBase.Address.Book.Entry> {
+    func observeNewEntries() async -> AsyncStream<OpalBase.Address.Book.Entry> {
         await addressBook.observeNewEntries()
     }
 }
 
 extension _OpalBase.Account {
-    public func replaceUTXOs(for address: OpalBase.Address,
-                             with utxos: [OpalBase.Transaction.Output.Unspent],
-                             timestamp: Date = .now) async throws -> OpalBase.Address.Book.UTXOChangeSet {
+    func replaceUTXOs(for address: OpalBase.Address,
+                      with utxos: [OpalBase.Transaction.Output.Unspent],
+                      timestamp: Date = .now) async throws -> UTXOChangeSet {
         let changeSet = try await addressBook.replaceUTXOs(for: address,
                                                            with: utxos,
                                                            timestamp: timestamp)
@@ -30,15 +30,15 @@ extension _OpalBase.Account {
         try await addressBook.updateCachedBalance(for: address,
                                                   balance: changeSet.balance,
                                                   timestamp: timestamp)
-        return changeSet
+        return UTXOChangeSet(changeSet)
     }
 }
 
 extension _OpalBase.Account {
-    public func refreshTransactionHistory(for address: OpalBase.Address,
-                                          using service: OpalBase.Network.AddressReader,
-                                          includeUnconfirmed: Bool = true,
-                                          transactionReader: OpalBase.Network.TransactionReader? = nil) async throws -> OpalBase.Transaction.History.ChangeSet {
+    func refreshTransactionHistory(for address: OpalBase.Address,
+                                   using service: OpalBase.Network.AddressReader,
+                                   includeUnconfirmed: Bool = true,
+                                   transactionReader: OpalBase.Network.TransactionReader? = nil) async throws -> OpalBase.Transaction.History.ChangeSet {
         try await addressBook.refreshTransactionHistory(for: address,
                                                         using: service,
                                                         includeUnconfirmed: includeUnconfirmed,
