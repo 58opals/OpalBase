@@ -10,7 +10,7 @@ struct SpendPlanBroadcastValidator {
     @Test("buildAndBroadcast completes spend reservations on success")
     func spendPlanBuildAndBroadcastCompletesReservation() async throws {
         let account = try await AccountTestFixtures.makeAccount()
-        _ = try await AccountTestFixtures.addUnspentOutput(
+        let selectedInput = try await AccountTestFixtures.addUnspentOutput(
             to: account,
             value: 45_000,
             hashByte: 0x71
@@ -25,20 +25,22 @@ struct SpendPlanBroadcastValidator {
         )
         let plan = try await account.prepareSpend(payment)
 
-        let expectedHash = AccountTestFixtures.makeHash(byte: 0x72)
         let handler = TransactionHandlingTestActor(
-            broadcastResult: .success(expectedHash.reverseOrder.hexadecimalString)
+            deriveBroadcastTransactionHash: true
         )
         let result = try await plan.buildAndBroadcast(via: handler)
-        #expect(result.hash == expectedHash)
 
         let broadcasts = await handler.readBroadcastedTransactions()
         #expect(broadcasts.count == 1)
+        let expectedHash = try expectedBroadcastHash(from: broadcasts)
+        #expect(result.hash == expectedHash)
 
         let changeEntries = await account.addressBook.listEntries(for: .change)
         let firstChange = changeEntries.first { $0.derivationPath.index == 0 }
         #expect(firstChange?.isUsed == true)
         #expect(firstChange?.isReserved == false)
+        #expect(await account.addressBook.listUTXOs().contains(selectedInput) == false)
+        #expect(await account.addressBook.listSpendableUTXOs().contains(selectedInput) == false)
     }
 
     @Test("buildAndBroadcast maps spend broadcast failures and keeps reservation active")
@@ -109,13 +111,25 @@ struct SpendPlanBroadcastValidator {
         )
 
         let successPlan = try await account.prepareTokenSpend(transfer)
-        let expectedHash = AccountTestFixtures.makeHash(byte: 0x77)
         let successHandler = TransactionHandlingTestActor(
-            broadcastResult: .success(expectedHash.reverseOrder.hexadecimalString)
+            deriveBroadcastTransactionHash: true
         )
         let successResult = try await successPlan.buildAndBroadcast(via: successHandler)
+        let broadcasts = await successHandler.readBroadcastedTransactions()
+        let expectedHash = try expectedBroadcastHash(from: broadcasts)
         #expect(successResult.hash == expectedHash)
 
+        _ = try await AccountTestFixtures.addUnspentOutput(
+            to: account,
+            value: 20_000,
+            tokenData: tokenData,
+            hashByte: 0x77
+        )
+        _ = try await AccountTestFixtures.addUnspentOutput(
+            to: account,
+            value: 90_000,
+            hashByte: 0x79
+        )
         let failingPlan = try await account.prepareTokenSpend(transfer)
         let failingHandler = TransactionHandlingTestActor(
             broadcastResult: .failure(NetworkStubError.forced("token-spend-failure"))
@@ -133,3 +147,10 @@ struct SpendPlanBroadcastValidator {
     }
 }
 
+func expectedBroadcastHash(from broadcasts: [String]) throws -> OpalBase.Transaction.Hash {
+    let rawTransactionHexadecimal = try #require(broadcasts.first)
+    let rawTransactionData = try Data(hexadecimalString: rawTransactionHexadecimal)
+    return OpalBase.Transaction.Hash(
+        naturalOrder: OpalCryptoAdapter.hash256(rawTransactionData)
+    )
+}

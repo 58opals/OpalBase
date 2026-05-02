@@ -25,7 +25,7 @@ extension OpalBase {
             self.passphrase = passphrase
             self.tokenMetadataStore = OpalBase.CashTokens.MetadataRepository()
             self.rootExtendedPrivateKey = try OpalCrypto.Key.ExtendedPrivate.root(
-                seed: mnemonic.deriveSeed(passphrase: passphrase)
+                seed: OpalCrypto.Key.Seed(rawRepresentation: mnemonic.deriveSeed(passphrase: passphrase))
             )
             self.purpose = purpose
             self.coinType = coinType

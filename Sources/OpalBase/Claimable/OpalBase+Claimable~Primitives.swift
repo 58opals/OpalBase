@@ -7,10 +7,12 @@ func makeClaimableCompressedPublicKey(
     from privateKey: Data,
     invalidError: OpalBase.Claimable.Error
 ) throws -> Data {
-    guard OpalCrypto.Secp256k1.isPrivateKeyValid(privateKey) else {
+    do {
+        let typedPrivateKey = try OpalCrypto.Secp256k1.PrivateKey(rawRepresentation: privateKey)
+        return try OpalCrypto.Secp256k1.derivePublicKey(from: typedPrivateKey).rawRepresentation
+    } catch {
         throw invalidError
     }
-    return try OpalCrypto.Secp256k1.deriveCompressedPublicKey(from: privateKey)
 }
 
 func makeClaimablePublicKeyHash(
@@ -30,7 +32,9 @@ func makeClaimableWalletImportFormat(
     privateKey: Data,
     network: OpalBase.Network.Environment
 ) throws -> String {
-    guard OpalCrypto.Secp256k1.isPrivateKeyValid(privateKey) else {
+    do {
+        _ = try OpalCrypto.Secp256k1.PrivateKey(rawRepresentation: privateKey)
+    } catch {
         throw OpalBase.Claimable.Error.invalidClaimPrivateKey
     }
 

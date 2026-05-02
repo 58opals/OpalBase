@@ -40,18 +40,32 @@ extension _OpalBase.Address.Book {
         utxoStore.replace(with: utxos)
     }
     
-    func replaceUTXOs(for address: OpalBase.Address,
-                      with utxos: [OpalBase.Transaction.Output.Unspent],
-                      timestamp: Date = .now) throws -> OpalBase.Address.Book.UTXOChangeSet {
+    func makeUTXOChangeSet(for address: OpalBase.Address,
+                           with utxos: [OpalBase.Transaction.Output.Unspent],
+                           timestamp: Date = .now) throws -> OpalBase.Address.Book.UTXOChangeSet {
         let previous = listUTXOs(for: address)
         let orderedUTXOs = utxos.sorted { $0.compareOrder(before: $1) }
-        utxoStore.replace(for: address, with: orderedUTXOs)
         return try OpalBase.Address.Book.UTXOChangeSet(address: address,
                                               previous: previous,
                                               updated: orderedUTXOs,
                                               timestamp: timestamp)
     }
     
+    func replaceUTXOs(for address: OpalBase.Address,
+                      with utxos: [OpalBase.Transaction.Output.Unspent],
+                      timestamp: Date = .now) throws -> OpalBase.Address.Book.UTXOChangeSet {
+        let changeSet = try makeUTXOChangeSet(for: address,
+                                              with: utxos,
+                                              timestamp: timestamp)
+        replaceUTXOs(for: address, withValidated: changeSet.updated)
+        return changeSet
+    }
+
+    func replaceUTXOs(for address: OpalBase.Address,
+                      withValidated utxos: [OpalBase.Transaction.Output.Unspent]) {
+        utxoStore.replace(for: address, with: utxos)
+    }
+
     func removeUTXO(_ utxo: OpalBase.Transaction.Output.Unspent) {
         utxoStore.remove(utxo)
     }
@@ -74,4 +88,3 @@ extension _OpalBase.Address.Book {
                                      tokenSelectionPolicy: tokenSelectionPolicy)
     }
 }
-

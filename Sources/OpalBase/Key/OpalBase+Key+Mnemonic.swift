@@ -129,7 +129,7 @@ extension _OpalBase.Key {
 
         public func deriveSeed(passphrase: String = "") throws -> Data {
             do {
-                return try makeOpalCryptoMnemonic().deriveSeed(passphrase: passphrase)
+                return try makeOpalCryptoMnemonic().deriveSeed(passphrase: passphrase).rawRepresentation
             } catch {
                 throw Self.mapError(error)
             }

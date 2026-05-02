@@ -43,13 +43,13 @@ struct NetworkFulcrumMempoolReaderValidator {
 }
 
 private actor MempoolClientTestActor: OpalBase.Network.Fulcrum.MempoolClient {
-    private let infoResponse: SwiftFulcrum.RPC.Response.Result.Mempool.GetInfo
-    private let histogramResponse: SwiftFulcrum.RPC.Response.Result.Mempool.GetFeeHistogram
+    private let infoResponse: SwiftFulcrum.Response.Mempool.GetInfo
+    private let histogramResponse: SwiftFulcrum.Response.Mempool.GetFeeHistogram
     private let infoError: Swift.Error?
 
     init(
-        infoResponse: SwiftFulcrum.RPC.Response.Result.Mempool.GetInfo? = nil,
-        histogramResponse: SwiftFulcrum.RPC.Response.Result.Mempool.GetFeeHistogram? = nil,
+        infoResponse: SwiftFulcrum.Response.Mempool.GetInfo? = nil,
+        histogramResponse: SwiftFulcrum.Response.Mempool.GetFeeHistogram? = nil,
         infoError: Swift.Error? = nil
     ) {
         self.infoResponse = infoResponse ?? (try! NetworkFulcrumMempoolReaderValidator.makeInfoResponse())
@@ -57,7 +57,7 @@ private actor MempoolClientTestActor: OpalBase.Network.Fulcrum.MempoolClient {
         self.infoError = infoError
     }
 
-    func fetchMempoolInfo(options _: SwiftFulcrum.Client.Call.Options) async throws -> SwiftFulcrum.RPC.Response.Result.Mempool.GetInfo {
+    func fetchMempoolInfo(options _: SwiftFulcrum.Client.Call.Options) async throws -> SwiftFulcrum.Response.Mempool.GetInfo {
         if let infoError {
             throw infoError
         }
@@ -66,13 +66,13 @@ private actor MempoolClientTestActor: OpalBase.Network.Fulcrum.MempoolClient {
 
     func fetchMempoolFeeHistogram(
         options _: SwiftFulcrum.Client.Call.Options
-    ) async throws -> SwiftFulcrum.RPC.Response.Result.Mempool.GetFeeHistogram {
+    ) async throws -> SwiftFulcrum.Response.Mempool.GetFeeHistogram {
         histogramResponse
     }
 }
 
 private extension NetworkFulcrumMempoolReaderValidator {
-    static func makeInfoResponse() throws -> SwiftFulcrum.RPC.Response.Result.Mempool.GetInfo {
+    static func makeInfoResponse() throws -> SwiftFulcrum.Response.Mempool.GetInfo {
         let payload = try JSONSerialization.data(withJSONObject: [
             "mempoolminfee": 0.00001,
             "minrelaytxfee": 0.00002,
@@ -80,12 +80,12 @@ private extension NetworkFulcrumMempoolReaderValidator {
             "unbroadcastcount": 7,
             "fullrbf": true
         ])
-        return try JSONDecoder().decode(SwiftFulcrum.RPC.Response.Result.Mempool.GetInfo.self, from: payload)
+        return try JSONDecoder().decode(SwiftFulcrum.Response.Mempool.GetInfo.self, from: payload)
     }
 
-    static func makeHistogramResponse() throws -> SwiftFulcrum.RPC.Response.Result.Mempool.GetFeeHistogram {
+    static func makeHistogramResponse() throws -> SwiftFulcrum.Response.Mempool.GetFeeHistogram {
         let payload = try JSONSerialization.data(withJSONObject: [[3.0, 250], [1.5, 125]])
-        return try JSONDecoder().decode(SwiftFulcrum.RPC.Response.Result.Mempool.GetFeeHistogram.self, from: payload)
+        return try JSONDecoder().decode(SwiftFulcrum.Response.Mempool.GetFeeHistogram.self, from: payload)
     }
 
     static func captureNetworkError(

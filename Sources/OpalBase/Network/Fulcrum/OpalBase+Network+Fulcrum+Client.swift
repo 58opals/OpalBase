@@ -57,27 +57,21 @@ extension _OpalBase.Network.Fulcrum {
         }
         
         func request<Result: Decodable & Sendable>(
-            method: SwiftFulcrum.RPC.Method,
-            responseType: Result.Type = Result.self,
+            _ endpoint: SwiftFulcrum.API.Request<Result>,
             options: SwiftFulcrum.Client.Call.Options = .init()
         ) async throws -> Result {
             try await fulcrum.request(
-                method: method,
-                responseType: responseType,
+                endpoint,
                 options: options
             )
         }
         
         func subscribe<Initial: Decodable & Sendable, Notification: Decodable & Sendable>(
-            method: SwiftFulcrum.RPC.Method,
-            initial: Initial.Type = Initial.self,
-            notifications: Notification.Type = Notification.self,
+            _ endpoint: SwiftFulcrum.API.Subscription<Initial, Notification>,
             options: SwiftFulcrum.Client.Call.Options = .init()
         ) async throws -> (Initial, AsyncThrowingStream<Notification, Swift.Error>, @Sendable () async -> Void) {
             let subscription = try await fulcrum.subscribe(
-                method: method,
-                initial: initial,
-                notifications: notifications,
+                endpoint,
                 options: options
             )
             return (

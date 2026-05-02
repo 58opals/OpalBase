@@ -77,9 +77,13 @@ extension _OpalBase.Address.Book {
         }
         
         for input in transaction.inputs {
-            guard let previousTransaction = previousTransactionsByHash[input.previousTransactionHash] else { continue }
+            guard let previousTransaction = previousTransactionsByHash[input.previousTransactionHash] else {
+                throw OpalBase.Transaction.Error.transactionNotFound
+            }
             let outputIndex = Int(input.previousTransactionOutputIndex)
-            guard previousTransaction.outputs.indices.contains(outputIndex) else { continue }
+            guard previousTransaction.outputs.indices.contains(outputIndex) else {
+                throw Data.Error.indexOutOfRange
+            }
             let previousOutput = previousTransaction.outputs[outputIndex]
             let scriptHash = makeScriptHashHex(from: previousOutput.lockingScript)
             guard walletScriptHashes.contains(scriptHash) else { continue }

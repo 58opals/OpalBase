@@ -33,25 +33,18 @@ extension _OpalBase.Network.Fulcrum {
         ) async throws -> [OpalBase.Network.TransactionHistoryEntry] {
             try await OpalBase.Network.performWithFailureTranslation {
                 let result = try await client.request(
-                    method: .blockchain(
-                        .scripthash(
-                            .getHistory(
-                                scripthash: scriptHashHex,
-                                fromHeight: nil,
-                                toHeight: nil,
-                                shouldIncludeUnconfirmed: includeUnconfirmed
-                            )
-                        )
+                    .blockchain.scriptHash.getHistory(
+                        scriptHash: scriptHashHex,
+                        shouldIncludeUnconfirmed: includeUnconfirmed
                     ),
-                    responseType: SwiftFulcrum.RPC.Response.Result.Blockchain.ScriptHash.GetHistory.self,
                     options: .init(timeout: timeouts.scriptHashHistory)
                 )
                 
-                return result.transactions.map { transaction in
+                return try result.transactions.map { transaction in
                     OpalBase.Network.TransactionHistoryEntry(
                         transactionIdentifier: transaction.transactionHash,
                         blockHeight: transaction.height,
-                        fee: OpalBase.Network.Fulcrum.resolveFee(transaction.fee)
+                        fee: try OpalBase.Network.Fulcrum.resolveFee(transaction.fee)
                     )
                 }
             }
@@ -63,15 +56,10 @@ extension _OpalBase.Network.Fulcrum {
         ) async throws -> [OpalBase.Transaction.Output.Unspent] {
             try await OpalBase.Network.performWithFailureTranslation {
                 let result = try await client.request(
-                    method: .blockchain(
-                        .scripthash(
-                            .listUnspent(
-                                scripthash: scriptHashHex,
-                                tokenFilter: tokenFilter.fulcrumTokenFilter
-                            )
-                        )
+                    .blockchain.scriptHash.listUnspent(
+                        scriptHash: scriptHashHex,
+                        tokenFilter: tokenFilter.fulcrumTokenFilter
                     ),
-                    responseType: SwiftFulcrum.RPC.Response.Result.Blockchain.ScriptHash.ListUnspent.self,
                     options: .init(timeout: timeouts.scriptHashUnspent)
                 )
                 
@@ -84,7 +72,7 @@ extension _OpalBase.Network.Fulcrum {
         }
         
         private func makeUnspentOutput(
-            from item: SwiftFulcrum.RPC.Response.Result.Blockchain.ScriptHash.ListUnspent.Item
+            from item: SwiftFulcrum.Response.Blockchain.ScriptHash.ListUnspent.Item
         ) async throws -> OpalBase.Transaction.Output.Unspent {
             guard let index = UInt32(exactly: item.transactionPosition) else {
                 throw OpalBase.Network.Error(reason: .decoding, message: "OpalBase.Transaction position overflow")

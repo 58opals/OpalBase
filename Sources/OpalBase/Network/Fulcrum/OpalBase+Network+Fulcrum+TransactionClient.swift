@@ -16,8 +16,7 @@ extension _OpalBase.Network.Fulcrum {
         public func broadcastTransaction(rawTransactionHexadecimal: String) async throws -> String {
             try await OpalBase.Network.performWithFailureTranslation {
                 let response = try await client.request(
-                    method: .blockchain(.transaction(.broadcast(rawTransaction: rawTransactionHexadecimal))),
-                    responseType: SwiftFulcrum.RPC.Response.Result.Blockchain.Transaction.Broadcast.self,
+                    .blockchain.transaction.broadcast(rawTransaction: rawTransactionHexadecimal),
                     options: .init(timeout: timeouts.transactionBroadcast)
                 )
                 return response.transactionHash.hexadecimalString
@@ -35,13 +34,11 @@ extension _OpalBase.Network.Fulcrum {
             
             return try await OpalBase.Network.performWithFailureTranslation {
                 async let transactionHeightResponse = client.request(
-                    method: .blockchain(.transaction(.getHeight(transactionHash: identifier))),
-                    responseType: SwiftFulcrum.RPC.Response.Result.Blockchain.Transaction.GetHeight.self,
+                    .blockchain.transaction.getHeight(transactionHash: identifier),
                     options: .init(timeout: timeouts.transactionConfirmations)
                 )
                 async let tipHeightResponse = client.request(
-                    method: .blockchain(.headers(.getTip)),
-                    responseType: SwiftFulcrum.RPC.Response.Result.Blockchain.Headers.GetTip.self,
+                    .blockchain.headers.getTip,
                     options: .init(timeout: timeouts.headersTip)
                 )
                 
@@ -98,9 +95,15 @@ extension _OpalBase.Network.Fulcrum {
 }
 
 extension _OpalBase.Network.Fulcrum {
-    static func resolveFee<Fee: BinaryInteger>(_ fee: Fee?) -> UInt64? {
+    static func resolveFee<Fee: BinaryInteger>(_ fee: Fee?) throws -> UInt64? {
         guard let fee else { return nil }
-        return UInt64(exactly: fee)
+        guard let resolved = UInt64(exactly: fee) else {
+            throw OpalBase.Network.Error(
+                reason: .decoding,
+                message: "Invalid transaction fee: \(fee)"
+            )
+        }
+        return resolved
     }
     
     static func mapHistoryTransactions<TransactionValue>(
@@ -108,12 +111,12 @@ extension _OpalBase.Network.Fulcrum {
         transactionIdentifier: KeyPath<TransactionValue, String>,
         blockHeight: KeyPath<TransactionValue, Int>,
         fee: KeyPath<TransactionValue, UInt?>
-    ) -> [OpalBase.Network.TransactionHistoryEntry] {
-        transactions.map { transaction in
+    ) throws -> [OpalBase.Network.TransactionHistoryEntry] {
+        try transactions.map { transaction in
             OpalBase.Network.TransactionHistoryEntry(
                 transactionIdentifier: transaction[keyPath: transactionIdentifier],
                 blockHeight: transaction[keyPath: blockHeight],
-                fee: resolveFee(transaction[keyPath: fee])
+                fee: try resolveFee(transaction[keyPath: fee])
             )
         }
     }

@@ -28,6 +28,72 @@ struct ClaimableStatusResolverValidator {
         #expect(status.localStatus.allowsClaim)
     }
 
+    @Test("rejects unconfirmed history returned for confirmed-only resolution")
+    func rejectsUnconfirmedHistoryWhenExcluded() async throws {
+        let (envelope, _) = try makeClaimableEnvelope(network: .chipnet)
+        let resolver = OpalBase.Claimable.StatusResolver(
+            network: .chipnet,
+            scriptHashReader: .init(
+                fetchHistory: { _, _ in
+                    [
+                        makeClaimableHistoryEntry(
+                            transactionHash: envelope.fundingTransactionHash,
+                            blockHeight: -1
+                        )
+                    ]
+                },
+                fetchUnspent: { _, _ in [] }
+            )
+        )
+
+        do {
+            _ = try await resolver.resolve(
+                for: envelope,
+                includeUnconfirmed: false,
+                currentBlockHeight: 400
+            )
+            Issue.record("Expected confirmed-only history to reject unconfirmed entries")
+        } catch let error as OpalBase.Network.Error {
+            #expect(error.reason == .protocolViolation)
+            #expect(error.message == "Confirmed-only history response included an unconfirmed transaction")
+        }
+    }
+
+    @Test("rejects duplicate transaction identifiers in history")
+    func rejectsDuplicateTransactionIdentifiersInHistory() async throws {
+        let (envelope, _) = try makeClaimableEnvelope(network: .chipnet)
+        let resolver = OpalBase.Claimable.StatusResolver(
+            network: .chipnet,
+            scriptHashReader: .init(
+                fetchHistory: { _, _ in
+                    [
+                        makeClaimableHistoryEntry(
+                            transactionHash: envelope.fundingTransactionHash,
+                            blockHeight: 490
+                        ),
+                        makeClaimableHistoryEntry(
+                            transactionHash: envelope.fundingTransactionHash,
+                            blockHeight: 491
+                        )
+                    ]
+                },
+                fetchUnspent: { _, _ in [] }
+            )
+        )
+
+        do {
+            _ = try await resolver.resolve(
+                for: envelope,
+                includeUnconfirmed: true,
+                currentBlockHeight: 400
+            )
+            Issue.record("Expected duplicate history identifiers to fail")
+        } catch let error as OpalBase.Network.Error {
+            #expect(error.reason == .protocolViolation)
+            #expect(error.message == "History response contained duplicate transaction identifiers")
+        }
+    }
+
     @Test("reports unspent funding state with confirmations")
     func reportsUnspentFundingStateWithConfirmations() async throws {
         let (envelope, _) = try makeClaimableEnvelope(network: .chipnet)
@@ -74,6 +140,206 @@ struct ClaimableStatusResolverValidator {
         #expect(status.confirmations == 11)
         #expect(status.tipHeight == 500)
         #expect(status.localStatus.allowsClaim)
+    }
+
+    @Test("rejects confirmation status height that disagrees with funding history")
+    func rejectsConfirmationStatusHeightThatDisagreesWithFundingHistory() async throws {
+        let (envelope, _) = try makeClaimableEnvelope(network: .chipnet)
+        let unspentOutput = OpalBase.Transaction.Output.Unspent(
+            output: .init(
+                value: envelope.fundingValue,
+                lockingScript: envelope.contract.fundingLockingScriptData
+            ),
+            previousTransactionHash: envelope.fundingTransactionHash,
+            previousTransactionOutputIndex: envelope.fundingOutputIndex
+        )
+        let confirmationStatus = OpalBase.Network.TransactionConfirmationStatus(
+            transactionHash: envelope.fundingTransactionHash,
+            transactionHeight: 489,
+            tipHeight: 500,
+            confirmations: 12
+        )
+        let resolver = OpalBase.Claimable.StatusResolver(
+            network: .chipnet,
+            scriptHashReader: .init(
+                fetchHistory: { _, _ in
+                    [
+                        makeClaimableHistoryEntry(
+                            transactionHash: envelope.fundingTransactionHash,
+                            blockHeight: 490
+                        )
+                    ]
+                },
+                fetchUnspent: { _, _ in [unspentOutput] }
+            ),
+            transactionClient: .init(
+                broadcastTransaction: { _ in "" },
+                fetchConfirmations: { _ in 12 },
+                fetchConfirmationStatus: { _ in confirmationStatus }
+            )
+        )
+
+        do {
+            _ = try await resolver.resolve(
+                for: envelope,
+                includeUnconfirmed: true,
+                currentBlockHeight: 400
+            )
+            Issue.record("Expected mismatched confirmation height to fail")
+        } catch let error as OpalBase.Network.Error {
+            #expect(error.reason == .protocolViolation)
+            #expect(error.message == "Confirmation status height does not match funding history")
+        }
+    }
+
+    @Test("rejects confirmation status for a different funding transaction")
+    func rejectsMismatchedConfirmationStatusHash() async throws {
+        let (envelope, _) = try makeClaimableEnvelope(network: .chipnet)
+        let unspentOutput = OpalBase.Transaction.Output.Unspent(
+            output: .init(
+                value: envelope.fundingValue,
+                lockingScript: envelope.contract.fundingLockingScriptData
+            ),
+            previousTransactionHash: envelope.fundingTransactionHash,
+            previousTransactionOutputIndex: envelope.fundingOutputIndex
+        )
+        let mismatchedHash = OpalBase.Transaction.Hash(
+            naturalOrder: Data(repeating: 0x45, count: 32)
+        )
+        let confirmationStatus = OpalBase.Network.TransactionConfirmationStatus(
+            transactionHash: mismatchedHash,
+            transactionHeight: 490,
+            tipHeight: 500,
+            confirmations: 11
+        )
+        let resolver = OpalBase.Claimable.StatusResolver(
+            network: .chipnet,
+            scriptHashReader: .init(
+                fetchHistory: { _, _ in
+                    [
+                        makeClaimableHistoryEntry(
+                            transactionHash: envelope.fundingTransactionHash,
+                            blockHeight: 490
+                        )
+                    ]
+                },
+                fetchUnspent: { _, _ in [unspentOutput] }
+            ),
+            transactionClient: .init(
+                broadcastTransaction: { _ in "" },
+                fetchConfirmations: { _ in 11 },
+                fetchConfirmationStatus: { _ in confirmationStatus }
+            )
+        )
+
+        do {
+            _ = try await resolver.resolve(
+                for: envelope,
+                includeUnconfirmed: true,
+                currentBlockHeight: 400
+            )
+            Issue.record("Expected mismatched confirmation status hash to fail")
+        } catch let error as OpalBase.Network.Error {
+            #expect(error.reason == .protocolViolation)
+            #expect(error.message == "Confirmation status hash mismatch")
+        }
+    }
+
+    @Test("rejects confirmation status whose count does not match height and tip")
+    func rejectsMismatchedConfirmationStatusCount() async throws {
+        let (envelope, _) = try makeClaimableEnvelope(network: .chipnet)
+        let unspentOutput = OpalBase.Transaction.Output.Unspent(
+            output: .init(
+                value: envelope.fundingValue,
+                lockingScript: envelope.contract.fundingLockingScriptData
+            ),
+            previousTransactionHash: envelope.fundingTransactionHash,
+            previousTransactionOutputIndex: envelope.fundingOutputIndex
+        )
+        let confirmationStatus = OpalBase.Network.TransactionConfirmationStatus(
+            transactionHash: envelope.fundingTransactionHash,
+            transactionHeight: 490,
+            tipHeight: 500,
+            confirmations: 1
+        )
+        let resolver = OpalBase.Claimable.StatusResolver(
+            network: .chipnet,
+            scriptHashReader: .init(
+                fetchHistory: { _, _ in
+                    [
+                        makeClaimableHistoryEntry(
+                            transactionHash: envelope.fundingTransactionHash,
+                            blockHeight: 490
+                        )
+                    ]
+                },
+                fetchUnspent: { _, _ in [unspentOutput] }
+            ),
+            transactionClient: .init(
+                broadcastTransaction: { _ in "" },
+                fetchConfirmations: { _ in 1 },
+                fetchConfirmationStatus: { _ in confirmationStatus }
+            )
+        )
+
+        do {
+            _ = try await resolver.resolve(
+                for: envelope,
+                includeUnconfirmed: true,
+                currentBlockHeight: 400
+            )
+            Issue.record("Expected mismatched confirmation status count to fail")
+        } catch let error as OpalBase.Network.Error {
+            #expect(error.reason == .protocolViolation)
+            #expect(error.message == "Confirmation status count does not match height and tip")
+        }
+    }
+
+    @Test("rejects duplicate unspent funding outpoints")
+    func rejectsDuplicateUnspentFundingOutpoints() async throws {
+        let (envelope, _) = try makeClaimableEnvelope(network: .chipnet)
+        let validFundingOutput = OpalBase.Transaction.Output.Unspent(
+            output: .init(
+                value: envelope.fundingValue,
+                lockingScript: envelope.contract.fundingLockingScriptData
+            ),
+            previousTransactionHash: envelope.fundingTransactionHash,
+            previousTransactionOutputIndex: envelope.fundingOutputIndex
+        )
+        let conflictingFundingOutput = OpalBase.Transaction.Output.Unspent(
+            output: .init(
+                value: envelope.fundingValue + 1,
+                lockingScript: envelope.contract.fundingLockingScriptData
+            ),
+            previousTransactionHash: envelope.fundingTransactionHash,
+            previousTransactionOutputIndex: envelope.fundingOutputIndex
+        )
+        let resolver = OpalBase.Claimable.StatusResolver(
+            network: .chipnet,
+            scriptHashReader: .init(
+                fetchHistory: { _, _ in
+                    [
+                        makeClaimableHistoryEntry(
+                            transactionHash: envelope.fundingTransactionHash,
+                            blockHeight: 490
+                        )
+                    ]
+                },
+                fetchUnspent: { _, _ in [validFundingOutput, conflictingFundingOutput] }
+            )
+        )
+
+        do {
+            _ = try await resolver.resolve(
+                for: envelope,
+                includeUnconfirmed: true,
+                currentBlockHeight: 400
+            )
+            Issue.record("Expected duplicate funding outpoints to fail")
+        } catch let error as OpalBase.Network.Error {
+            #expect(error.reason == .protocolViolation)
+            #expect(error.message == "Unspent output response contained duplicate outpoints")
+        }
     }
 
     @Test("reports invalid funding state for token-bearing funding output")
@@ -268,6 +534,94 @@ struct ClaimableStatusResolverValidator {
         )
 
         #expect(status.fundingState == .spent(spendPath: .claim))
+    }
+
+    @Test("continues spend path scan past unfetchable unrelated history transaction")
+    func continuesSpendPathScanPastUnfetchableUnrelatedHistoryTransaction() async throws {
+        let (envelope, _) = try makeClaimableEnvelope(
+            network: .chipnet,
+            expiryBlockHeight: 500
+        )
+        let fundingTransaction = makeClaimableFundingTransaction(for: envelope)
+        let unfetchableTransactionHash = OpalBase.Transaction.Hash(
+            naturalOrder: Data(repeating: 0x50, count: 32)
+        )
+        let claimTransaction = try envelope.buildClaimTransaction(
+            destinationLockingScript: makeClaimableDestinationLockingScript(fillByte: 0x51),
+            currentBlockHeight: 499
+        )
+        let claimTransactionHash = OpalBase.Transaction.Hash(
+            naturalOrder: Data(repeating: 0x51, count: 32)
+        )
+        let resolver = OpalBase.Claimable.StatusResolver(
+            network: .chipnet,
+            scriptHashReader: makeClaimableScriptHashReader(
+                history: [
+                    makeClaimableHistoryEntry(
+                        transactionHash: envelope.fundingTransactionHash
+                    ),
+                    makeClaimableHistoryEntry(transactionHash: unfetchableTransactionHash),
+                    makeClaimableHistoryEntry(transactionHash: claimTransactionHash)
+                ],
+                unspentOutputs: []
+            ),
+            transactionReader: makeClaimableTransactionReader(
+                rawTransactionsByHash: [
+                    envelope.fundingTransactionHash: try fundingTransaction.encode(),
+                    claimTransactionHash: try claimTransaction.encode()
+                ]
+            )
+        )
+
+        let status = try await resolver.resolve(
+            for: envelope,
+            includeUnconfirmed: true,
+            currentBlockHeight: 700
+        )
+
+        #expect(status.fundingState == .spent(spendPath: .claim))
+    }
+
+    @Test("propagates cancellation while scanning spend path history")
+    func propagatesCancellationWhileScanningSpendPathHistory() async throws {
+        let (envelope, _) = try makeClaimableEnvelope(
+            network: .chipnet,
+            expiryBlockHeight: 500
+        )
+        let fundingTransaction = makeClaimableFundingTransaction(for: envelope)
+        let cancelledTransactionHash = OpalBase.Transaction.Hash(
+            naturalOrder: Data(repeating: 0x50, count: 32)
+        )
+        let resolver = OpalBase.Claimable.StatusResolver(
+            network: .chipnet,
+            scriptHashReader: makeClaimableScriptHashReader(
+                history: [
+                    makeClaimableHistoryEntry(
+                        transactionHash: envelope.fundingTransactionHash
+                    ),
+                    makeClaimableHistoryEntry(transactionHash: cancelledTransactionHash)
+                ],
+                unspentOutputs: []
+            ),
+            transactionReader: OpalBase.Network.TransactionReader { transactionHash in
+                if transactionHash == envelope.fundingTransactionHash {
+                    return try fundingTransaction.encode()
+                }
+                throw CancellationError()
+            }
+        )
+
+        do {
+            _ = try await resolver.resolve(
+                for: envelope,
+                includeUnconfirmed: true,
+                currentBlockHeight: 700
+            )
+            Issue.record("Expected cancellation to propagate")
+        } catch is CancellationError {
+        } catch {
+            Issue.record("Unexpected error: \(error)")
+        }
     }
 
     @Test("reports refund spend path")

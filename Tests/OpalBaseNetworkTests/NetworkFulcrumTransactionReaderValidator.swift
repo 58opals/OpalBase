@@ -27,26 +27,10 @@ struct NetworkFulcrumTransactionReaderValidator {
             )
 
             let rawHexadecimal: String = try await client.request(
-                method: .blockchain(
-                    .transaction(
-                        .get(
-                            transactionHash: Self.confirmedTransactionIdentifier,
-                            isVerbose: false
-                        )
-                    )
-                ),
-                responseType: String.self
+                .blockchain.transaction.get(transactionHash: Self.confirmedTransactionIdentifier)
             )
-            let verbose: SwiftFulcrum.RPC.Response.Result.Blockchain.Transaction.Get = try await client.request(
-                method: .blockchain(
-                    .transaction(
-                        .get(
-                            transactionHash: Self.confirmedTransactionIdentifier,
-                            isVerbose: true
-                        )
-                    )
-                ),
-                responseType: SwiftFulcrum.RPC.Response.Result.Blockchain.Transaction.Get.self
+            let verbose: SwiftFulcrum.Response.Blockchain.Transaction.Get = try await client.request(
+                .blockchain.transaction.getVerbose(transactionHash: Self.confirmedTransactionIdentifier)
             )
 
             let rawTransactionData = try await reader.fetchRawTransaction(for: transactionHash)

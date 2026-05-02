@@ -148,10 +148,26 @@ extension _OpalBase.Storage {
         public func wipe() async throws {
             await progressHandler(.beganWipe)
             if let committedGeneration = try await snapshotStore.loadCommittedGeneration() {
-                try await snapshotStore.deleteWalletSnapshot(generation: committedGeneration)
-                try await storedMnemonicStore.deleteMnemonic(generation: committedGeneration)
+                try await snapshotStore.deleteCommittedGeneration()
+                var deletionError: Swift.Error?
+                do {
+                    try await snapshotStore.deleteWalletSnapshot(generation: committedGeneration)
+                } catch {
+                    deletionError = error
+                }
+                do {
+                    try await storedMnemonicStore.deleteMnemonic(generation: committedGeneration)
+                } catch {
+                    if deletionError == nil {
+                        deletionError = error
+                    }
+                }
+                if let deletionError {
+                    throw deletionError
+                }
+            } else {
+                try await snapshotStore.deleteCommittedGeneration()
             }
-            try await snapshotStore.deleteCommittedGeneration()
             await progressHandler(.finishedWipe)
         }
     }

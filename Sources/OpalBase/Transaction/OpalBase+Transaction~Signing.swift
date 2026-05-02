@@ -145,6 +145,7 @@ extension _OpalBase.Transaction {
 
         let signingTransaction = templateTransaction ?? self
         let publicKey = try OpalBase.Key.PublicKey(privateKeyData: privateKey)
+        let opalPrivateKey = try OpalCrypto.Secp256k1.PrivateKey(rawRepresentation: privateKey)
 
         switch unlocker {
         case .p2pkh_CheckSig(let hashType):
@@ -154,25 +155,24 @@ extension _OpalBase.Transaction {
                 outputBeingSpent: outputBeingSpent,
                 spentOutputs: spentOutputs
             )
-
-            let signatureMessage: Data = switch signatureFormat {
-            case .ecdsa:
-                OpalCryptoAdapter.sha256(preimage)
-            case .schnorr:
-                OpalCryptoAdapter.hash256(preimage)
-            }
+            let signatureDigest = signingTransaction.makeSignatureDigest(
+                from: preimage,
+                inputIndex: index,
+                hashType: hashType
+            )
+            let typedSignatureDigest = try OpalCrypto.Signature.Digest(rawRepresentation: signatureDigest)
             let signature: Data = switch signatureFormat {
             case .ecdsa:
-                try OpalCrypto.Signature.signECDSA(
-                    message: signatureMessage,
-                    privateKey: privateKey,
+                try OpalCrypto.Signature.ECDSA.sign(
+                    digest: typedSignatureDigest,
+                    privateKey: opalPrivateKey,
                     format: signatureFormat.opalCryptoECDSAFormat!
-                )
+                ).rawRepresentation
             case .schnorr:
-                try OpalCrypto.Signature.signSchnorr(
-                    digest: signatureMessage,
-                    privateKey: privateKey
-                )
+                try OpalCrypto.Signature.Schnorr.sign(
+                    digest: typedSignatureDigest,
+                    privateKey: opalPrivateKey
+                ).rawRepresentation
             }
             let signatureWithType = signature + Data([UInt8(hashType.value)])
             let unlockingScript = Data.push(signatureWithType) + Data.push(publicKey.compressedData)
@@ -187,16 +187,16 @@ extension _OpalBase.Transaction {
             }
             let signature: Data = switch signatureFormat {
             case .ecdsa:
-                try OpalCrypto.Signature.signECDSA(
+                try OpalCrypto.Signature.ECDSA.sign(
                     message: signatureMessage,
-                    privateKey: privateKey,
+                    privateKey: opalPrivateKey,
                     format: signatureFormat.opalCryptoECDSAFormat!
-                )
+                ).rawRepresentation
             case .schnorr:
-                try OpalCrypto.Signature.signSchnorr(
-                    digest: signatureMessage,
-                    privateKey: privateKey
-                )
+                try OpalCrypto.Signature.Schnorr.sign(
+                    digest: OpalCrypto.Signature.Digest(rawRepresentation: signatureMessage),
+                    privateKey: opalPrivateKey
+                ).rawRepresentation
             }
             let unlockingScript = Data.push(signature) + Data.push(message) + Data.push(publicKey.compressedData)
 
@@ -257,5 +257,16 @@ extension _OpalBase.Transaction {
             outputs: self.outputs,
             lockTime: self.lockTime
         )
+    }
+
+    private func makeSignatureDigest(
+        from preimage: Data,
+        inputIndex: Int,
+        hashType: HashType
+    ) -> Data {
+        if hashType.mode == .single, inputIndex >= outputs.count {
+            return preimage
+        }
+        return OpalCryptoAdapter.hash256(preimage)
     }
 }

@@ -79,6 +79,10 @@ enum CompactSize {
     static func decode(from data: Data) throws -> (CompactSize, Int) {
         let compactSize = try CompactSize(data: data)
         let bytesRead = compactSize.encodedSize
+        let canonicalSize = CompactSize(value: compactSize.value).encodedSize
+        guard bytesRead == canonicalSize else {
+            throw Error.nonMinimalEncoding
+        }
         
         return (compactSize, bytesRead)
     }
@@ -111,5 +115,6 @@ extension CompactSize {
     enum Error: Swift.Error {
         case insufficientData
         case invalidPrefix
+        case nonMinimalEncoding
     }
 }

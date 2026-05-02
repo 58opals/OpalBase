@@ -14,6 +14,7 @@ extension OpalBase {
         }
         
         func encode() throws -> Data {
+            guard !transactions.isEmpty else { throw Error.emptyTransactionList }
             var writer = Data.Writer()
             writer.writeData(header.encode())
             writer.writeCompactSize(CompactSize(value: UInt64(transactions.count)))
@@ -28,6 +29,7 @@ extension OpalBase {
             let header = try Header.decode(from: &reader)
             let transactionCount = try reader.readCompactSize()
             guard transactionCount.value <= UInt64(Int.max) else { throw Error.transactionCountOverflow(transactionCount.value) }
+            guard transactionCount.value > 0 else { throw Error.emptyTransactionList }
             let transactions = try (0..<Int(transactionCount.value)).map { _ -> OpalBase.Transaction in
                 try OpalBase.Transaction.decode(from: &reader)
             }

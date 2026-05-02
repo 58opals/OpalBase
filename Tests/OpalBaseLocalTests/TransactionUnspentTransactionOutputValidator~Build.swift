@@ -24,7 +24,7 @@ extension TransactionUnspentTransactionOutputValidator {
         let firstInput = try #require(transaction.inputs.first)
         let decodedUnlockingScript = try decodeP2PKHUnlockingScript(firstInput.unlockingScript)
         let signatureWithHashType = decodedUnlockingScript.signatureWithHashType
-        let publicKey = decodedUnlockingScript.publicKey
+        let publicKeyData = decodedUnlockingScript.publicKey
         let signature = try #require(signatureWithHashType.dropLast().isEmpty ? nil : Data(signatureWithHashType.dropLast()))
         let encodedHashType = try #require(signatureWithHashType.last)
 
@@ -41,22 +41,79 @@ extension TransactionUnspentTransactionOutputValidator {
             hashType: hashType,
             outputBeingSpent: outputBeingSpent
         )
-        let messageDigest = OpalCrypto.Hashing.computeHash256(preimage)
-        let verificationKey = try OpalCrypto.Signature.VerificationKey(publicKey: publicKey)
+        let messageDigest = try OpalCrypto.Signature.Digest(rawRepresentation: OpalCrypto.Hashing.hash256(preimage))
+        let publicKey = try OpalCrypto.Secp256k1.PublicKey(rawRepresentation: publicKeyData)
+        let verificationKey = OpalCrypto.Signature.VerificationKey(publicKey: publicKey)
+        let schnorrSignature = try OpalCrypto.Signature.Schnorr(rawRepresentation: signature)
 
-        let isValidThroughCachedKey = try OpalCrypto.Signature.verifySchnorr(
-            signature: signature,
+        let isValidThroughCachedKey = try schnorrSignature.verify(
             digest: messageDigest,
             verificationKey: verificationKey
         )
-        let isValidThroughLegacyPath = try OpalCrypto.Signature.verifySchnorr(
-            signature: signature,
+        let isValidThroughPublicKey = try schnorrSignature.verify(
             digest: messageDigest,
             publicKey: publicKey
         )
 
         #expect(isValidThroughCachedKey)
-        #expect(isValidThroughLegacyPath)
+        #expect(isValidThroughPublicKey)
+    }
+
+    @Test("SIGHASH_SINGLE without matching output signs the fixed consensus digest")
+    func sighashSingleWithoutMatchingOutputSignsFixedConsensusDigest() throws {
+        let privateKey = Data(repeating: 0x02, count: 32)
+        let publicKey = try OpalCrypto.Secp256k1.derivePublicKey(
+            from: OpalCrypto.Secp256k1.PrivateKey(rawRepresentation: privateKey)
+        )
+        let lockingScript = Data([
+            ScriptOperationCode._DUP.rawValue,
+            ScriptOperationCode._HASH160.rawValue,
+            0x14
+        ] + Array(repeating: 0x01, count: 20) + [
+            ScriptOperationCode._EQUALVERIFY.rawValue,
+            ScriptOperationCode._CHECKSIG.rawValue
+        ])
+        let outputBeingSpent = OpalBase.Transaction.Output(value: 10_000, lockingScript: lockingScript)
+        let transaction = OpalBase.Transaction(
+            version: 2,
+            inputs: [
+                .init(
+                    previousTransactionHash: .init(naturalOrder: Data(repeating: 0x01, count: 32)),
+                    previousTransactionOutputIndex: 0,
+                    unlockingScript: Data()
+                ),
+                .init(
+                    previousTransactionHash: .init(naturalOrder: Data(repeating: 0x02, count: 32)),
+                    previousTransactionOutputIndex: 1,
+                    unlockingScript: Data()
+                )
+            ],
+            outputs: [
+                .init(value: 1_000, lockingScript: Data([0x51]))
+            ],
+            lockTime: 0
+        )
+        let hashType = OpalBase.Transaction.HashType.makeSingle()
+        let signed = try transaction.signInputInPlace(
+            at: 1,
+            spending: outputBeingSpent,
+            privateKey: privateKey,
+            signatureFormat: OpalBase.Transaction.SignatureFormat.schnorr,
+            unlocker: OpalBase.Transaction.Unlocker.p2pkh_CheckSig(hashType: hashType)
+        )
+        let decodedUnlockingScript = try decodeP2PKHUnlockingScript(signed.inputs[1].unlockingScript)
+        let signatureWithHashType = decodedUnlockingScript.signatureWithHashType
+        let signature = try #require(signatureWithHashType.dropLast().isEmpty ? nil : Data(signatureWithHashType.dropLast()))
+        var fixedDigest = Data(repeating: 0x00, count: 32)
+        fixedDigest[0] = 0x01
+
+        let isValid = try OpalCrypto.Signature.Schnorr(rawRepresentation: signature).verify(
+            digest: OpalCrypto.Signature.Digest(rawRepresentation: fixedDigest),
+            publicKey: publicKey
+        )
+
+        #expect(signatureWithHashType.last == UInt8(truncatingIfNeeded: hashType.value))
+        #expect(isValid)
     }
 
     @Test("build applies canonical BIP-69 output ordering when requested")

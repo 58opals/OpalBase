@@ -33,6 +33,27 @@ struct TransactionDecodeValidator {
         }
     }
 
+    @Test("encode rejects transactions without inputs or outputs")
+    func transactionEncodeRejectsEmptyInputOrOutputVectors() {
+        let previousHash = OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0x01, count: 32))
+        let input = OpalBase.Transaction.Input(
+            previousTransactionHash: previousHash,
+            previousTransactionOutputIndex: 0,
+            unlockingScript: Data()
+        )
+        let output = OpalBase.Transaction.Output(value: 546, lockingScript: Data([0x51]))
+
+        let noInputs = OpalBase.Transaction(version: 2, inputs: [], outputs: [output], lockTime: 0)
+        let noOutputs = OpalBase.Transaction(version: 2, inputs: [input], outputs: [], lockTime: 0)
+
+        #expect(throws: OpalBase.Transaction.Error.cannotCreateTransaction) {
+            try noInputs.encode()
+        }
+        #expect(throws: OpalBase.Transaction.Error.cannotCreateTransaction) {
+            try noOutputs.encode()
+        }
+    }
+
     @Test("decode reports consumed length for sliced data")
     func transactionDecodeBytesReadMatchesSliceLength() throws {
         let previousHash = OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 1, count: 32))
@@ -114,12 +135,61 @@ struct TransactionDecodeValidator {
             _ = try OpalBase.Transaction.decode(from: malformed)
         }
     }
+
+    @Test("decode rejects non-minimal CompactSize counts")
+    func transactionDecodeRejectsNonMinimalCompactSizeCounts() {
+        var malformed = Data()
+        malformed.append(contentsOf: [0x01, 0x00, 0x00, 0x00]) // version
+        malformed.append(contentsOf: [0xfd, 0x00, 0x00]) // non-minimal input count 0
+        malformed.append(0x00) // output count
+        malformed.append(contentsOf: [0x00, 0x00, 0x00, 0x00]) // lock time
+
+        do {
+            _ = try OpalBase.Transaction.decode(from: malformed)
+            Issue.record("Expected non-minimal CompactSize decoding to fail")
+        } catch {
+            // Expected: CompactSize encodings must be minimal in transaction wire data.
+        }
+    }
+
+    @Test("decode rejects transactions without inputs or outputs")
+    func transactionDecodeRejectsEmptyInputOrOutputVectors() {
+        var noInputs = Data()
+        noInputs.append(contentsOf: [0x01, 0x00, 0x00, 0x00]) // version
+        noInputs.append(0x00) // input count
+        noInputs.append(0x01) // output count
+        noInputs.append(Data(repeating: 0x00, count: 8)) // output value
+        noInputs.append(0x01) // locking bytecode length
+        noInputs.append(0x51) // locking bytecode
+        noInputs.append(contentsOf: [0x00, 0x00, 0x00, 0x00]) // lock time
+
+        var noOutputs = Data()
+        noOutputs.append(contentsOf: [0x01, 0x00, 0x00, 0x00]) // version
+        noOutputs.append(0x01) // input count
+        noOutputs.append(Data(repeating: 0x00, count: 32)) // previous tx hash
+        noOutputs.append(contentsOf: [0x00, 0x00, 0x00, 0x00]) // output index
+        noOutputs.append(0x00) // unlocking script length
+        noOutputs.append(contentsOf: [0xff, 0xff, 0xff, 0xff]) // sequence
+        noOutputs.append(0x00) // output count
+        noOutputs.append(contentsOf: [0x00, 0x00, 0x00, 0x00]) // lock time
+
+        #expect(throws: OpalBase.Transaction.Error.cannotCreateTransaction) {
+            _ = try OpalBase.Transaction.decode(from: noInputs)
+        }
+        #expect(throws: OpalBase.Transaction.Error.cannotCreateTransaction) {
+            _ = try OpalBase.Transaction.decode(from: noOutputs)
+        }
+    }
     
     @Test("decode rejects oversized output locking bytecode lengths")
     func transactionDecodeRejectsOversizedOutputLength() throws {
         var malformed = Data()
         malformed.append(contentsOf: [0x01, 0x00, 0x00, 0x00]) // version
-        malformed.append(0x00) // input count
+        malformed.append(0x01) // input count
+        malformed.append(Data(repeating: 0x00, count: 32)) // previous tx hash
+        malformed.append(contentsOf: [0x00, 0x00, 0x00, 0x00]) // output index
+        malformed.append(0x00) // unlocking script length
+        malformed.append(contentsOf: [0xff, 0xff, 0xff, 0xff]) // sequence
         malformed.append(0x01) // output count
         malformed.append(Data(repeating: 0x00, count: 8)) // output value
         malformed.append(0xff) // CompactSize uint64 prefix
@@ -159,5 +229,24 @@ struct TransactionDecodeValidator {
         #expect(decoded.header.version == header.version)
         #expect(decoded.transactions.count == block.transactions.count)
         #expect(bytesRead == encoded.count)
+    }
+
+    @Test("block encode and decode reject empty transaction lists")
+    func blockEncodeAndDecodeRejectEmptyTransactionLists() throws {
+        let header = OpalBase.Block.Header(version: 2,
+                                  previousBlockHash: Data(repeating: 0xaa, count: 32),
+                                  merkleRoot: Data(repeating: 0xbb, count: 32),
+                                  time: 1,
+                                  bits: 2,
+                                  nonce: 3)
+        let block = OpalBase.Block(header: header, transactions: [])
+        let encodedEmptyBlock = header.encode() + Data([0x00])
+
+        #expect(throws: OpalBase.Block.Error.emptyTransactionList) {
+            try block.encode()
+        }
+        #expect(throws: OpalBase.Block.Error.emptyTransactionList) {
+            _ = try OpalBase.Block.decode(from: encodedEmptyBlock)
+        }
     }
 }

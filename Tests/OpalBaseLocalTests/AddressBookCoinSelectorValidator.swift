@@ -27,8 +27,8 @@ struct AddressBookCoinSelectorValidator {
         )
 
         let configuration = OpalBase.Address.Book.CoinSelection.Configuration(
-            recipientOutputs: .init(),
-            outputsWithChange: .init(),
+            recipientOutputs: OpalBase.Address.Book.CoinSelection.Templates.recipientOutputs,
+            outputsWithChange: OpalBase.Address.Book.CoinSelection.Templates.outputsWithChange,
             strategy: .greedyLargestFirst
         )
 

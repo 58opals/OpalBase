@@ -23,19 +23,19 @@ extension SpendPlanBroadcastValidator {
             ]
         )
         let plan = try await account.prepareTokenGenesis(genesis, preferredGenesisInput: genesisInput)
-        let expectedHash = AccountTestFixtures.makeHash(byte: 0x79)
         let handler = TransactionHandlingTestActor(
-            broadcastResult: .success(expectedHash.reverseOrder.hexadecimalString)
+            deriveBroadcastTransactionHash: true
         )
 
         let result = try await plan.buildAndBroadcast(via: handler)
 
-        #expect(result.hash == expectedHash)
         #expect(result.result.category.transactionOrderData == genesisInput.previousTransactionHash.naturalOrder)
         #expect(!result.result.mintedOutputs.isEmpty)
         #expect(await account.addressBook.readActiveSpendReservations().isEmpty)
         let broadcasts = await handler.readBroadcastedTransactions()
         #expect(broadcasts.count == 1)
+        let expectedHash = try expectedBroadcastHash(from: broadcasts)
+        #expect(result.hash == expectedHash)
     }
 
     @Test("token genesis, mint, and mutation map domain-specific broadcast failures")

@@ -17,8 +17,7 @@ extension _OpalBase.Network.Fulcrum {
             try await OpalBase.Network.performWithFailureTranslation {
                 _ = try validateAddress(address)
                 let result = try await client.request(
-                    method: .blockchain(.address(.getBalance(address: address, tokenFilter: tokenFilter.fulcrumTokenFilter))),
-                    responseType: SwiftFulcrum.RPC.Response.Result.Blockchain.Address.GetBalance.self,
+                    .blockchain.address.getBalance(address: address, tokenFilter: tokenFilter.fulcrumTokenFilter),
                     options: .init(timeout: timeouts.addressBalance)
                 )
                 return OpalBase.Network.AddressBalance(confirmed: result.confirmed, unconfirmed: result.unconfirmed)
@@ -30,8 +29,7 @@ extension _OpalBase.Network.Fulcrum {
                 let lockingScriptData = try validateAddress(address).lockingScript.data
                 
                 let result = try await client.request(
-                    method: .blockchain(.address(.listUnspent(address: address, tokenFilter: tokenFilter.fulcrumTokenFilter))),
-                    responseType: SwiftFulcrum.RPC.Response.Result.Blockchain.Address.ListUnspent.self,
+                    .blockchain.address.listUnspent(address: address, tokenFilter: tokenFilter.fulcrumTokenFilter),
                     options: .init(timeout: timeouts.addressUnspent)
                 )
                 
@@ -61,25 +59,18 @@ extension _OpalBase.Network.Fulcrum {
             try await OpalBase.Network.performWithFailureTranslation {
                 _ = try validateAddress(address)
                 let result = try await client.request(
-                    method: .blockchain(
-                        .address(
-                            .getHistory(
-                                address: address,
-                                fromHeight: nil,
-                                toHeight: nil,
-                                shouldIncludeUnconfirmed: includeUnconfirmed
-                            )
-                        )
+                    .blockchain.address.getHistory(
+                        address: address,
+                        shouldIncludeUnconfirmed: includeUnconfirmed
                     ),
-                    responseType: SwiftFulcrum.RPC.Response.Result.Blockchain.Address.GetHistory.self,
                     options: .init(timeout: timeouts.addressHistory)
                 )
                 
-                return result.transactions.map { transaction in
+                return try result.transactions.map { transaction in
                     OpalBase.Network.TransactionHistoryEntry(
                         transactionIdentifier: transaction.transactionHash,
                         blockHeight: transaction.height,
-                        fee: OpalBase.Network.Fulcrum.resolveFee(transaction.fee)
+                        fee: try OpalBase.Network.Fulcrum.resolveFee(transaction.fee)
                     )
                 }
             }
@@ -89,8 +80,7 @@ extension _OpalBase.Network.Fulcrum {
             try await OpalBase.Network.performWithFailureTranslation {
                 _ = try validateAddress(address)
                 let result = try await client.request(
-                    method: .blockchain(.address(.getFirstUse(address: address))),
-                    responseType: SwiftFulcrum.RPC.Response.Result.Blockchain.Address.GetFirstUse.self,
+                    .blockchain.address.getFirstUse(address: address),
                     options: .init(timeout: timeouts.addressFirstUse)
                 )
                 
@@ -110,16 +100,15 @@ extension _OpalBase.Network.Fulcrum {
             try await OpalBase.Network.performWithFailureTranslation {
                 _ = try validateAddress(address)
                 let result = try await client.request(
-                    method: .blockchain(.address(.getMempool(address: address))),
-                    responseType: SwiftFulcrum.RPC.Response.Result.Blockchain.Address.GetMempool.self,
+                    .blockchain.address.getMempool(address: address),
                     options: .init(timeout: timeouts.addressMempool)
                 )
                 
-                return result.transactions.map { transaction in
+                return try result.transactions.map { transaction in
                     OpalBase.Network.TransactionHistoryEntry(
                         transactionIdentifier: transaction.transactionHash,
                         blockHeight: transaction.height,
-                        fee: OpalBase.Network.Fulcrum.resolveFee(transaction.fee)
+                        fee: try OpalBase.Network.Fulcrum.resolveFee(transaction.fee)
                     )
                 }
             }
@@ -129,8 +118,7 @@ extension _OpalBase.Network.Fulcrum {
             try await OpalBase.Network.performWithFailureTranslation {
                 _ = try validateAddress(address)
                 let result = try await client.request(
-                    method: .blockchain(.address(.getScriptHash(address: address))),
-                    responseType: SwiftFulcrum.RPC.Response.Result.Blockchain.Address.GetScriptHash.self,
+                    .blockchain.address.getScriptHash(address: address),
                     options: .init(timeout: timeouts.addressScriptHash)
                 )
                 return result.scriptHash
@@ -141,9 +129,7 @@ extension _OpalBase.Network.Fulcrum {
             try await OpalBase.Network.performWithFailureTranslation {
                 _ = try validateAddress(address)
                 let (initial, updates, cancel) = try await client.subscribe(
-                    method: .blockchain(.address(.subscribe(address: address))),
-                    initial: SwiftFulcrum.RPC.Response.Result.Blockchain.Address.Subscribe.self,
-                    notifications: SwiftFulcrum.RPC.Response.Result.Blockchain.Address.SubscribeNotification.self,
+                    .blockchain.address.subscribe(address: address),
                     options: .init(timeout: timeouts.addressSubscription)
                 )
                 

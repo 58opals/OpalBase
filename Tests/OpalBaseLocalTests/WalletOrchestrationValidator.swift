@@ -143,7 +143,7 @@ struct WalletOrchestrationValidator {
         #expect(restoredReceivingEntries.count == 21)
         #expect(restoredReceivingEntries.last?.derivationPath.index == 20)
         #expect(restoredReceivingEntries.first?.isUsed == true)
-        #expect(restoredReceivingEntries.first?.isReserved == true)
+        #expect(restoredReceivingEntries.first?.isReserved == false)
         #expect(restoredReceivingEntries.dropFirst().allSatisfy { !$0.isReserved })
         #expect(restoredReceivingEntries.filter { !$0.isUsed && !$0.isReserved }.count == 20)
         #expect(restoredChangeEntries.count == 20)

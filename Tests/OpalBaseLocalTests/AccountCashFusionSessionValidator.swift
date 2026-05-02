@@ -59,7 +59,8 @@ struct AccountCashFusionSessionValidator {
             expectedReserved: false
         )
         let addressBook = await account.addressBook
-        #expect(await addressBook.listSpendableUTXOs().contains(selectedInput))
+        #expect(await addressBook.listUTXOs().contains(selectedInput) == false)
+        #expect(await addressBook.listSpendableUTXOs().contains(selectedInput) == false)
     }
 
     @Test("explicit stop cancels reservations")

@@ -5,6 +5,24 @@ import Testing
 @testable import OpalBase
 
 extension TransactionUnspentTransactionOutputValidator {
+    @Test("estimate fee rejects negative input counts")
+    func estimateFeeRejectsNegativeInputCounts() {
+        #expect(throws: OpalBase.Transaction.Error.cannotCreateTransaction) {
+            _ = try OpalBase.Transaction.estimateSize(
+                inputCount: -1,
+                outputs: [OpalBase.Transaction.Output(value: 1_000, lockingScript: Data([0x51]))]
+            )
+        }
+
+        #expect(throws: OpalBase.Transaction.Error.cannotCreateTransaction) {
+            _ = try OpalBase.Transaction.estimateFee(
+                inputCount: -1,
+                outputs: [OpalBase.Transaction.Output(value: 1_000, lockingScript: Data([0x51]))],
+                feePerByte: 1
+            )
+        }
+    }
+
     @Test("computeOutputsForTargetFee handles dust donation policy")
     func computeOutputsForTargetFeeHandlesDustDonationPolicy() throws {
         let recipientOutputs = [OpalBase.Transaction.Output(value: 1_000, lockingScript: Data([0x51]))]

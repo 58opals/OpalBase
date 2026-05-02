@@ -208,10 +208,9 @@ struct AccountCashFusionTransactionAssemblerValidator {
             hashType: .makeAll(anyoneCanPay: false),
             outputBeingSpent: outputBeingSpent
         )
-        let isValid = try OpalCrypto.Signature.verifySchnorr(
-            signature: signature,
-            digest: OpalCrypto.Hashing.computeHash256(preimage),
-            publicKey: unlockingScript.publicKey
+        let isValid = try OpalCrypto.Signature.Schnorr(rawRepresentation: signature).verify(
+            digest: OpalCrypto.Signature.Digest(rawRepresentation: OpalCrypto.Hashing.hash256(preimage)),
+            publicKey: OpalCrypto.Secp256k1.PublicKey(rawRepresentation: unlockingScript.publicKey)
         )
 
         #expect(hashType == UInt8(truncatingIfNeeded: OpalBase.Transaction.HashType.makeAll().value))

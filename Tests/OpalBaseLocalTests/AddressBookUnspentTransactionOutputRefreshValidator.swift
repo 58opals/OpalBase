@@ -84,6 +84,147 @@ struct AddressBookUnspentTransactionOutputRefreshValidator {
         #expect(try await book.readCachedBalance(for: entry.address) == OpalBase.Satoshi(9_000))
     }
 
+    @Test("refresh rejects UTXOs whose locking script does not match the requested address")
+    func refreshRejectsMismatchedUTXOLockingScript() async throws {
+        let book = try await AddressBookCashTokensTestData.makeAddressBook()
+        let entry = try await book.selectNextEntry(for: .receiving)
+        let mismatchedUTXO = OpalBase.Transaction.Output.Unspent(
+            value: 9_000,
+            lockingScript: Data([0x51]),
+            previousTransactionHash: OpalBase.Transaction.Hash(
+                naturalOrder: Data(repeating: 0x45, count: 32)
+            ),
+            previousTransactionOutputIndex: 0
+        )
+        let reader = AddressReaderClient(unspentByAddress: [entry.address.string: [mismatchedUTXO]])
+
+        do {
+            _ = try await book.refreshUTXOSet(using: reader, usage: .receiving)
+            Issue.record("Expected mismatched UTXO locking script to fail")
+        } catch let error as OpalBase.Network.Error {
+            #expect(error.reason == .protocolViolation)
+            #expect(error.message == "Unspent output locking script does not match requested address")
+        }
+
+        #expect(await book.listUTXOs(for: entry.address).isEmpty)
+    }
+
+    @Test("refresh rejects duplicate UTXO outpoints from the same response")
+    func refreshRejectsDuplicateUTXOOutpointsFromResponse() async throws {
+        let book = try await AddressBookCashTokensTestData.makeAddressBook()
+        let entry = try await book.selectNextEntry(for: .receiving)
+        let transactionHash = OpalBase.Transaction.Hash(
+            naturalOrder: Data(repeating: 0x46, count: 32)
+        )
+        let firstUTXO = OpalBase.Transaction.Output.Unspent(
+            value: 9_000,
+            lockingScript: entry.address.lockingScript.data,
+            previousTransactionHash: transactionHash,
+            previousTransactionOutputIndex: 0
+        )
+        let duplicateUTXO = OpalBase.Transaction.Output.Unspent(
+            value: 12_000,
+            lockingScript: entry.address.lockingScript.data,
+            previousTransactionHash: transactionHash,
+            previousTransactionOutputIndex: 0
+        )
+        let reader = AddressReaderClient(unspentByAddress: [entry.address.string: [firstUTXO, duplicateUTXO]])
+
+        do {
+            _ = try await book.refreshUTXOSet(using: reader, usage: .receiving)
+            Issue.record("Expected duplicate UTXO outpoints to fail")
+        } catch let error as OpalBase.Network.Error {
+            #expect(error.reason == .protocolViolation)
+            #expect(error.message == "Unspent output response contained duplicate outpoints")
+        }
+
+        #expect(await book.listUTXOs(for: entry.address).isEmpty)
+    }
+
+    @Test("refresh keeps existing UTXOs when replacement balance exceeds the maximum supply")
+    func refreshKeepsExistingUTXOsWhenReplacementBalanceOverflows() async throws {
+        let book = try await AddressBookCashTokensTestData.makeAddressBook()
+        let entry = try await book.selectNextEntry(for: .receiving)
+        let existingUTXO = OpalBase.Transaction.Output.Unspent(
+            value: 500,
+            lockingScript: entry.address.lockingScript.data,
+            previousTransactionHash: OpalBase.Transaction.Hash(
+                naturalOrder: Data(repeating: 0x47, count: 32)
+            ),
+            previousTransactionOutputIndex: 0
+        )
+        let maximumUTXO = OpalBase.Transaction.Output.Unspent(
+            value: OpalBase.Satoshi.maximumSatoshi,
+            lockingScript: entry.address.lockingScript.data,
+            previousTransactionHash: OpalBase.Transaction.Hash(
+                naturalOrder: Data(repeating: 0x48, count: 32)
+            ),
+            previousTransactionOutputIndex: 0
+        )
+        let overflowUTXO = OpalBase.Transaction.Output.Unspent(
+            value: 1,
+            lockingScript: entry.address.lockingScript.data,
+            previousTransactionHash: OpalBase.Transaction.Hash(
+                naturalOrder: Data(repeating: 0x49, count: 32)
+            ),
+            previousTransactionOutputIndex: 0
+        )
+        await book.addUTXO(existingUTXO)
+        let reader = AddressReaderClient(unspentByAddress: [entry.address.string: [maximumUTXO, overflowUTXO]])
+
+        await #expect(throws: OpalBase.Satoshi.Error.exceedsMaximumAmount) {
+            _ = try await book.refreshUTXOSet(using: reader, usage: .receiving)
+        }
+
+        #expect(await book.listUTXOs(for: entry.address) == [existingUTXO])
+    }
+
+    @Test("refresh keeps existing UTXOs when aggregate balance exceeds the maximum supply")
+    func refreshKeepsExistingUTXOsWhenAggregateBalanceOverflows() async throws {
+        let book = try await AddressBookCashTokensTestData.makeAddressBook()
+        let entries = await book.listEntries(for: .receiving)
+        let firstEntry = try #require(entries.first)
+        let secondEntry = try #require(entries.dropFirst().first)
+        let existingUTXO = OpalBase.Transaction.Output.Unspent(
+            value: 500,
+            lockingScript: firstEntry.address.lockingScript.data,
+            previousTransactionHash: OpalBase.Transaction.Hash(
+                naturalOrder: Data(repeating: 0x4a, count: 32)
+            ),
+            previousTransactionOutputIndex: 0
+        )
+        let maximumUTXO = OpalBase.Transaction.Output.Unspent(
+            value: OpalBase.Satoshi.maximumSatoshi,
+            lockingScript: firstEntry.address.lockingScript.data,
+            previousTransactionHash: OpalBase.Transaction.Hash(
+                naturalOrder: Data(repeating: 0x4b, count: 32)
+            ),
+            previousTransactionOutputIndex: 0
+        )
+        let overflowUTXO = OpalBase.Transaction.Output.Unspent(
+            value: 1,
+            lockingScript: secondEntry.address.lockingScript.data,
+            previousTransactionHash: OpalBase.Transaction.Hash(
+                naturalOrder: Data(repeating: 0x4c, count: 32)
+            ),
+            previousTransactionOutputIndex: 0
+        )
+        await book.addUTXO(existingUTXO)
+        let reader = AddressReaderClient(
+            unspentByAddress: [
+                firstEntry.address.string: [maximumUTXO],
+                secondEntry.address.string: [overflowUTXO]
+            ]
+        )
+
+        await #expect(throws: OpalBase.Satoshi.Error.exceedsMaximumAmount) {
+            _ = try await book.refreshUTXOSet(using: reader, usage: .receiving)
+        }
+
+        #expect(await book.listUTXOs(for: firstEntry.address) == [existingUTXO])
+        #expect(await book.listUTXOs(for: secondEntry.address).isEmpty)
+    }
+
     @Test("adding the same outpoint replaces address-indexed UTXO metadata")
     func addUTXOReplacesAddressIndexedMetadataForSameOutpoint() async throws {
         let book = try await AddressBookCashTokensTestData.makeAddressBook()

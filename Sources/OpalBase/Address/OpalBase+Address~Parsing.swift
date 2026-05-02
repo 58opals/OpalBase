@@ -14,6 +14,7 @@ extension _OpalBase.Address {
     ) throws -> OpalBase.Address {
         let encodedPayload: String
         let prefix: String
+        let caseCheckString: String
         let expectedPrefix = OpalBase.Address.cashAddrPrefix(for: network)
         
         if string.contains(OpalBase.Address.separator) {
@@ -29,21 +30,24 @@ extension _OpalBase.Address {
             
             prefix = expectedPrefix
             encodedPayload = String(splitComponents[1])
+            caseCheckString = providedPrefix + encodedPayload
         } else {
             prefix = expectedPrefix
             encodedPayload = string
+            caseCheckString = encodedPayload
         }
         
-        let hasUppercase = encodedPayload.contains { character in
+        let hasUppercase = caseCheckString.contains { character in
             guard let asciiValue = character.asciiValue else { return false }
             return (0x41...0x5A).contains(asciiValue)
         }
-        let hasLowercase = encodedPayload.contains { character in
+        let hasLowercase = caseCheckString.contains { character in
             guard let asciiValue = character.asciiValue else { return false }
             return (0x61...0x7A).contains(asciiValue)
         }
         guard !(hasUppercase && hasLowercase) else { throw Error.invalidCashAddrFormat }
         
+        let canonicalPayload = encodedPayload.lowercased()
         let decodedData = try OpalCryptoAdapter.decodeBase32(
             encodedPayload,
             interpretedAsFiveBitValues: true
@@ -72,7 +76,7 @@ extension _OpalBase.Address {
             let script = OpalBase.Script.p2pkh_OPCHECKSIG(hash: hash)
             let format: Format = versionByte == tokenAwarePublicKeyHashVersionByte ? .tokenAware : .standard
             return OpalBase.Address(
-                cashAddrPayload: encodedPayload,
+                cashAddrPayload: canonicalPayload,
                 lockingScript: script,
                 format: format,
                 network: network
@@ -83,7 +87,7 @@ extension _OpalBase.Address {
             let script = OpalBase.Script.p2sh(scriptHash: scriptHash)
             let format: Format = versionByte == tokenAwareScriptHashVersionByte ? .tokenAware : .standard
             return OpalBase.Address(
-                cashAddrPayload: encodedPayload,
+                cashAddrPayload: canonicalPayload,
                 lockingScript: script,
                 format: format,
                 network: network

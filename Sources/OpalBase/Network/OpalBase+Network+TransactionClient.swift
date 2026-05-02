@@ -60,9 +60,13 @@ extension _OpalBase.Network {
         }
 
         public func broadcast(transaction: OpalBase.Transaction) async throws -> OpalBase.Transaction.Hash {
-            let rawHexadecimal = try transaction.encode().hexadecimalString
+            let rawTransactionData = try transaction.encode()
+            let rawHexadecimal = rawTransactionData.hexadecimalString
             let transactionIdentifier = try await broadcastTransaction(rawTransactionHexadecimal: rawHexadecimal)
-            return try OpalBase.Network.decodeTransactionHash(from: transactionIdentifier)
+            return try OpalBase.Network.decodeBroadcastTransactionHash(
+                from: transactionIdentifier,
+                rawTransactionData: rawTransactionData
+            )
         }
     }
 }

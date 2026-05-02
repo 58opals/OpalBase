@@ -13,7 +13,7 @@ extension _OpalBase.Claimable {
             refundPrivateKey: Data,
             expiryBlockHeight: UInt32
         ) throws {
-            let claimPrivateKey = try OpalCrypto.Secp256k1.generatePrivateKey()
+            let claimPrivateKey = try OpalCrypto.Secp256k1.PrivateKey.generate().rawRepresentation
             let claimPublicKeyHash = try makeClaimablePublicKeyHash(
                 from: claimPrivateKey,
                 invalidError: .invalidClaimPrivateKey

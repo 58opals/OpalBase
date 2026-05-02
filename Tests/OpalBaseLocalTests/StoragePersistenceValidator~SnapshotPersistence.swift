@@ -101,6 +101,35 @@ extension StoragePersistenceValidator {
         #expect(restoredMnemonic.passphrase == "first-passphrase")
         #expect(restored.mnemonicProtectionMode == .plaintext)
     }
+
+    @Test("failed wipes do not expose partial committed state on restore")
+    func failedWipeDoesNotExposePartialCommittedState() async throws {
+        let snapshotState = GenerationSnapshotStoreState()
+        let mnemonicState = GenerationMnemonicStoreState()
+        let session = OpalBase.Storage.PersistenceSession(
+            snapshotStore: makeGenerationSnapshotStore(state: snapshotState),
+            storedMnemonicStore: makeGenerationMnemonicStore(state: mnemonicState)
+        )
+
+        let wallet = try await AccountTestFixtures.makeWallet(passphrase: "wipe-failure")
+        _ = try await session.save(wallet: wallet)
+        await mnemonicState.failNextDelete()
+
+        do {
+            try await session.wipe()
+            Issue.record("Expected wipe() to report the mnemonic deletion failure.")
+        } catch GenerationStoreError.simulatedFailure {
+        } catch {
+            Issue.record("Unexpected error: \(error)")
+        }
+
+        let restored = try await session.restore()
+
+        #expect(restored.walletSnapshot == nil)
+        #expect(restored.mnemonic == nil)
+        #expect(restored.mnemonicProtectionMode == nil)
+        #expect(await snapshotState.loadCommittedGeneration() == nil)
+    }
 }
 
 private enum GenerationStoreError: Error {
@@ -142,6 +171,7 @@ private actor GenerationMnemonicStoreState {
         protectionMode: OpalBase.Storage.Security.ProtectionMode
     )] = .init()
     private var shouldFailNextSave = false
+    private var shouldFailNextDelete = false
 
     func saveMnemonic(
         _ mnemonic: OpalBase.Storage.StoredMnemonic,
@@ -165,12 +195,21 @@ private actor GenerationMnemonicStoreState {
         mnemonicStates[generation]
     }
 
-    func deleteMnemonic(generation: String) {
+    func deleteMnemonic(generation: String) throws {
+        if shouldFailNextDelete {
+            shouldFailNextDelete = false
+            throw GenerationStoreError.simulatedFailure
+        }
+
         mnemonicStates.removeValue(forKey: generation)
     }
 
     func failNextSave() {
         shouldFailNextSave = true
+    }
+
+    func failNextDelete() {
+        shouldFailNextDelete = true
     }
 }
 
@@ -214,7 +253,7 @@ private func makeGenerationMnemonicStore(
             await state.loadMnemonicState(generation: generation)
         },
         deleteMnemonic: { generation in
-            await state.deleteMnemonic(generation: generation)
+            try await state.deleteMnemonic(generation: generation)
         }
     )
 }

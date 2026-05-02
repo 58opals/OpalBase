@@ -250,15 +250,15 @@ struct ClaimableTransactionBuilderValidator {
             hashType: hashType,
             outputBeingSpent: fundingLockingScriptOutput
         )
-        let isValidAgainstRedeemScript = try OpalCrypto.Signature.verifySchnorr(
-            signature: signature,
-            digest: OpalCrypto.Hashing.computeHash256(redeemScriptPreimage),
-            publicKey: decodedUnlockingScript.publicKey
+        let schnorrSignature = try OpalCrypto.Signature.Schnorr(rawRepresentation: signature)
+        let publicKey = try OpalCrypto.Secp256k1.PublicKey(rawRepresentation: decodedUnlockingScript.publicKey)
+        let isValidAgainstRedeemScript = try schnorrSignature.verify(
+            digest: OpalCrypto.Signature.Digest(rawRepresentation: OpalCrypto.Hashing.hash256(redeemScriptPreimage)),
+            publicKey: publicKey
         )
-        let isValidAgainstFundingLockingScript = try OpalCrypto.Signature.verifySchnorr(
-            signature: signature,
-            digest: OpalCrypto.Hashing.computeHash256(fundingLockingScriptPreimage),
-            publicKey: decodedUnlockingScript.publicKey
+        let isValidAgainstFundingLockingScript = try schnorrSignature.verify(
+            digest: OpalCrypto.Signature.Digest(rawRepresentation: OpalCrypto.Hashing.hash256(fundingLockingScriptPreimage)),
+            publicKey: publicKey
         )
 
         #expect(encodedHashType == UInt8(truncatingIfNeeded: hashType.value))

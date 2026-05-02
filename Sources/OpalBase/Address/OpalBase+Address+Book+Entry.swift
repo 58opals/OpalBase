@@ -117,7 +117,7 @@ extension _OpalBase.Address.Book {
         
         for index in indices {
             let childExtendedPrivateKey = try usageCache.baseExtendedPrivateKey.derived(indices: [index])
-            childPrivateKeys.append(childExtendedPrivateKey.privateKey)
+            childPrivateKeys.append(childExtendedPrivateKey.privateKey.rawRepresentation)
             derivationPaths.append(try createDerivationPath(usage: usage, index: index))
         }
         

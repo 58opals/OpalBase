@@ -34,34 +34,23 @@ struct NetworkFulcrumClientValidator {
             let storedConfiguration = await client.configuration
             #expect(storedConfiguration == configuration)
             
-            let tip: SwiftFulcrum.RPC.Response.Result.Blockchain.Headers.GetTip = try await client.request(
-                method: .blockchain(.headers(.getTip)),
-                responseType: SwiftFulcrum.RPC.Response.Result.Blockchain.Headers.GetTip.self
+            let tip: SwiftFulcrum.Response.Blockchain.Headers.GetTip = try await client.request(
+                .blockchain.headers.getTip
             )
             #expect(tip.height > 0)
             #expect(!tip.hex.isEmpty)
             
-            let balance: SwiftFulcrum.RPC.Response.Result.Blockchain.Address.GetBalance = try await client.request(
-                method: .blockchain(
-                    .address(
-                        .getBalance(address: Self.sampleCashAddr, tokenFilter: .include)
-                    )
-                )
+            let balance: SwiftFulcrum.Response.Blockchain.Address.GetBalance = try await client.request(
+                .blockchain.address.getBalance(address: Self.sampleCashAddr, tokenFilter: .include)
             )
             _ = balance
             
             try await client.reconnect()
             
-            let history: SwiftFulcrum.RPC.Response.Result.Blockchain.Address.GetHistory = try await client.request(
-                method: .blockchain(
-                    .address(
-                        .getHistory(
-                            address: Self.sampleCashAddr,
-                            fromHeight: nil,
-                            toHeight: nil,
-                            shouldIncludeUnconfirmed: true
-                        )
-                    )
+            let history: SwiftFulcrum.Response.Blockchain.Address.GetHistory = try await client.request(
+                .blockchain.address.getHistory(
+                    address: Self.sampleCashAddr,
+                    shouldIncludeUnconfirmed: true
                 )
             )
             #expect(!history.transactions.isEmpty)
@@ -84,37 +73,24 @@ struct NetworkFulcrumClientValidator {
         )
         
         try await NetworkTestClient.withClient(configuration: configuration) { client in
-            let tip: SwiftFulcrum.RPC.Response.Result.Blockchain.Headers.GetTip = try await client.request(
-                method: .blockchain(.headers(.getTip)),
-                responseType: SwiftFulcrum.RPC.Response.Result.Blockchain.Headers.GetTip.self
+            let tip: SwiftFulcrum.Response.Blockchain.Headers.GetTip = try await client.request(
+                .blockchain.headers.getTip
             )
             #expect(tip.height > 0)
             #expect(!tip.hex.isEmpty)
             
             try await client.reconnect()
             
-            let balance: SwiftFulcrum.RPC.Response.Result.Blockchain.Address.GetBalance = try await client.request(
-                method: .blockchain(
-                    .address(
-                        .getBalance(address: Self.sampleCashAddr, tokenFilter: .include)
-                    )
-                ),
-                responseType: SwiftFulcrum.RPC.Response.Result.Blockchain.Address.GetBalance.self
+            let balance: SwiftFulcrum.Response.Blockchain.Address.GetBalance = try await client.request(
+                .blockchain.address.getBalance(address: Self.sampleCashAddr, tokenFilter: .include)
             )
             _ = balance
             
-            let history: SwiftFulcrum.RPC.Response.Result.Blockchain.Address.GetHistory = try await client.request(
-                method: .blockchain(
-                    .address(
-                        .getHistory(
-                            address: Self.sampleCashAddr,
-                            fromHeight: nil,
-                            toHeight: nil,
-                            shouldIncludeUnconfirmed: true
-                        )
-                    )
-                ),
-                responseType: SwiftFulcrum.RPC.Response.Result.Blockchain.Address.GetHistory.self
+            let history: SwiftFulcrum.Response.Blockchain.Address.GetHistory = try await client.request(
+                .blockchain.address.getHistory(
+                    address: Self.sampleCashAddr,
+                    shouldIncludeUnconfirmed: true
+                )
             )
             #expect(!history.transactions.isEmpty)
         }
@@ -126,9 +102,7 @@ struct NetworkFulcrumClientValidator {
         let configuration = OpalBase.Network.Configuration(serverURLs: [Self.primaryServerAddress, Self.backupServerAddress])
         try await NetworkTestClient.withClient(configuration: configuration) { client in
             let (initial, updates, cancel) = try await client.subscribe(
-                method: .blockchain(.address(.subscribe(address: Self.sampleCashAddr))),
-                initial: SwiftFulcrum.RPC.Response.Result.Blockchain.Address.Subscribe.self,
-                notifications: SwiftFulcrum.RPC.Response.Result.Blockchain.Address.SubscribeNotification.self
+                .blockchain.address.subscribe(address: Self.sampleCashAddr)
             )
             
             #expect(!(initial.status?.isEmpty ?? true))
@@ -152,16 +126,14 @@ struct NetworkFulcrumClientValidator {
         let configuration = OpalBase.Network.Configuration(serverURLs: [Self.primaryServerAddress, Self.backupServerAddress])
         try await NetworkTestClient.withClient(configuration: configuration) { client in
             let (initial, stream, cancel) = try await client.subscribe(
-                method: .blockchain(.headers(.subscribe)),
-                initial: SwiftFulcrum.RPC.Response.Result.Blockchain.Headers.Subscribe.self,
-                notifications: SwiftFulcrum.RPC.Response.Result.Blockchain.Headers.SubscribeNotification.self
+                .blockchain.headers.subscribe
             )
             
             #expect(initial.height > 0)
             #expect(!initial.hex.isEmpty)
             
             var iterator = stream.makeAsyncIterator()
-            async let nextNotification: SwiftFulcrum.RPC.Response.Result.Blockchain.Headers.SubscribeNotification? = iterator.next()
+            async let nextNotification: SwiftFulcrum.Response.Blockchain.Headers.SubscribeNotification? = iterator.next()
             
             await cancel()
             
