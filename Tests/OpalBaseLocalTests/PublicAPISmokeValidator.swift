@@ -216,6 +216,73 @@ struct PublicAPISmokeValidator {
         #expect((await wallet.makeTokenMetadataSnapshot()).byCategory.keys.contains(category.hexForDisplay))
     }
 
+    @Test("cash token transaction review facades compose from public API")
+    func cashTokenTransactionReviewFacadesComposeFromPublicAPI() async throws {
+        let wallet = try OpalBase.Wallet(mnemonic: makeSmokeMnemonic())
+        try await wallet.addAccount(unhardenedIndex: 0)
+        let account = try await wallet.fetchAccount(at: 0)
+        let receivingEntry = try await account.selectNextEntry(for: .receiving)
+        let tokenAwareAddress = try receivingEntry.address.converted(to: .tokenAware)
+        let category = try OpalBase.CashTokens.CategoryID(
+            transactionOrderData: Data(repeating: 0x61, count: 32)
+        )
+        let tokenInputData = OpalBase.CashTokens.TokenData(category: category, amount: 100, nft: nil)
+        let tokenInput = OpalBase.Transaction.Output.Unspent(
+            output: .init(
+                value: 20_000,
+                address: receivingEntry.address,
+                tokenData: tokenInputData
+            ),
+            previousTransactionHash: .init(naturalOrder: Data(repeating: 0x62, count: 32)),
+            previousTransactionOutputIndex: 0
+        )
+        let genesisInput = OpalBase.Transaction.Output.Unspent(
+            output: .init(
+                value: 120_000,
+                address: receivingEntry.address
+            ),
+            previousTransactionHash: .init(naturalOrder: Data(repeating: 0x63, count: 32)),
+            previousTransactionOutputIndex: 0
+        )
+        _ = try await account.replaceUTXOs(
+            for: receivingEntry.address,
+            with: [tokenInput, genesisInput]
+        )
+
+        let transfer = OpalBase.Account.TokenTransfer(recipients: [
+            .init(
+                address: tokenAwareAddress,
+                amount: try OpalBase.Satoshi(1_000),
+                tokenData: .init(category: category, amount: 5, nft: nil)
+            )
+        ])
+        let tokenSpendPlan = try await account.prepareTokenSpend(transfer)
+        let tokenSpendReview = try tokenSpendPlan.buildReview()
+
+        #expect(tokenAwareAddress.isTokenAware)
+        #expect(tokenSpendReview.tokenRecipientOutputs.first?.role == .recipient)
+        #expect(tokenSpendReview.tokenRecipientOutputs.first?.category == category)
+        #expect(tokenSpendReview.tokenRecipientOutputs.first?.fungibleAmount == 5)
+        #expect(tokenSpendReview.rawTransactionByteCount == tokenSpendReview.rawTransactionData.count)
+        try await tokenSpendPlan.cancelReservation()
+
+        let genesis = try OpalBase.Account.TokenGenesis(recipients: [
+            .init(address: tokenAwareAddress, fungibleAmount: 7)
+        ])
+        let tokenGenesisPlan = try await account.prepareTokenGenesis(
+            genesis,
+            preferredGenesisInput: genesisInput
+        )
+        let tokenGenesisReview = try tokenGenesisPlan.buildReview()
+        let expectedTotalBCHNeeded = try tokenGenesisReview.lockedBCHOutputValue + tokenGenesisReview.fee
+
+        #expect(tokenGenesisReview.category.transactionOrderData == genesisInput.previousTransactionHash.naturalOrder)
+        #expect(tokenGenesisReview.mintedOutputs.first?.role == .minted)
+        #expect(tokenGenesisReview.mintedOutputs.first?.fungibleAmount == 7)
+        #expect(tokenGenesisReview.totalBCHNeeded == expectedTotalBCHNeeded)
+        try await tokenGenesisPlan.cancelReservation()
+    }
+
     @Test("storage concrete stores accept facade test doubles")
     func storageConcreteStoresAcceptFacadeTestDoubles() async throws {
         let wallet = try OpalBase.Wallet(mnemonic: makeSmokeMnemonic())

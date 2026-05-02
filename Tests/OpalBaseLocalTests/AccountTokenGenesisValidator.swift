@@ -16,17 +16,17 @@ struct AccountTokenGenesisValidator {
             previousTransactionHash: previousTransactionHash,
             previousTransactionOutputIndex: 1
         )
-        
+
         let recipientAddress = try OpalBase.Address("bitcoincash:zpm2qsznhks23z7629mms6s4cwef74vcwvrqekrq9w")
         let genesis = try OpalBase.Account.TokenGenesis(recipients: [
             .init(address: recipientAddress, fungibleAmount: 1)
         ])
-        
+
         await #expect(throws: OpalBase.Account.Error.tokenGenesisInvalidGenesisInput) {
             _ = try await account.prepareTokenGenesis(genesis, preferredGenesisInput: unspentOutput)
         }
     }
-    
+
     @Test("derives token category from genesis input hash")
     func derivesTokenCategoryFromGenesisInputHash() async throws {
         let account = try await makeAccount()
@@ -36,16 +36,16 @@ struct AccountTokenGenesisValidator {
             previousTransactionHash: previousTransactionHash,
             previousTransactionOutputIndex: 0
         )
-        
+
         let recipientAddress = try OpalBase.Address("bitcoincash:zpm2qsznhks23z7629mms6s4cwef74vcwvrqekrq9w")
         let genesis = try OpalBase.Account.TokenGenesis(recipients: [
             .init(address: recipientAddress, fungibleAmount: 1)
         ])
-        
+
         let plan = try await account.prepareTokenGenesis(genesis, preferredGenesisInput: unspentOutput)
         let result = try plan.buildTransaction()
         #expect(!result.mintedOutputs.isEmpty)
-        
+
         let expectedDisplayHex = previousTransactionHash.reverseOrder.hexadecimalString
         for output in result.mintedOutputs {
             let tokenData = try #require(output.tokenData)
@@ -53,7 +53,7 @@ struct AccountTokenGenesisValidator {
             #expect(tokenData.category.hexForDisplay == expectedDisplayHex)
         }
     }
-    
+
     @Test("uses dust threshold when genesis recipient lacks BCH amount")
     func usesDustThresholdWhenRecipientAmountIsNil() async throws {
         let account = try await makeAccount()
@@ -63,12 +63,12 @@ struct AccountTokenGenesisValidator {
             previousTransactionHash: previousTransactionHash,
             previousTransactionOutputIndex: 0
         )
-        
+
         let recipientAddress = try OpalBase.Address("bitcoincash:zpm2qsznhks23z7629mms6s4cwef74vcwvrqekrq9w")
         let genesis = try OpalBase.Account.TokenGenesis(recipients: [
             .init(address: recipientAddress, fungibleAmount: 1)
         ])
-        
+
         let plan = try await account.prepareTokenGenesis(genesis)
         let tokenOutput = try #require(plan.outputs.first { $0.tokenData != nil })
         let expectedDustOutput = OpalBase.Transaction.Output(
@@ -81,7 +81,59 @@ struct AccountTokenGenesisValidator {
         )
         #expect(tokenOutput.value == expectedDustThreshold)
     }
-    
+
+    @Test("buildReview summarizes token genesis outputs and BCH accounting")
+    func buildReviewSummarizesTokenGenesisOutputsAndBCHAccounting() async throws {
+        let account = try await makeAccount()
+        let previousTransactionHash = OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0x66, count: 32))
+        let genesisInput = try await addSpendableOutput(
+            to: account,
+            previousTransactionHash: previousTransactionHash,
+            previousTransactionOutputIndex: 0,
+            value: 80_000
+        )
+        let nonFungibleToken = try OpalBase.CashTokens.NFT(
+            capability: .mutable,
+            commitment: Data([0xAB, 0xCD])
+        )
+        let recipientAddress = try OpalBase.Address("bitcoincash:zpm2qsznhks23z7629mms6s4cwef74vcwvrqekrq9w")
+        let genesis = try OpalBase.Account.TokenGenesis(recipients: [
+            .init(
+                address: recipientAddress,
+                fungibleAmount: 42,
+                nft: nonFungibleToken
+            )
+        ])
+
+        let plan = try await account.prepareTokenGenesis(genesis, preferredGenesisInput: genesisInput)
+        let review = try plan.buildReview()
+        let mintedOutput = try #require(review.mintedOutputs.first)
+        let expectedCategory = try OpalBase.CashTokens.CategoryID(
+            transactionOrderData: previousTransactionHash.naturalOrder
+        )
+
+        #expect(review.category == expectedCategory)
+        #expect(review.category.hexForDisplay == previousTransactionHash.reverseOrder.hexadecimalString)
+        #expect(review.rawTransactionByteCount == review.rawTransactionData.count)
+        #expect(review.rawTransactionByteCount > 0)
+        #expect(review.configuredFeeRate == plan.feeRate)
+        #expect(review.effectiveFeeRate == Double(review.fee.uint64) / Double(review.rawTransactionByteCount))
+        #expect(review.mintedOutputs.count == 1)
+        #expect(mintedOutput.role == .minted)
+        #expect(mintedOutput.category == expectedCategory)
+        #expect(mintedOutput.fungibleAmount == 42)
+        #expect(mintedOutput.nonFungibleTokenCapability == .mutable)
+        #expect(mintedOutput.nonFungibleTokenCommitment == Data([0xAB, 0xCD]))
+        let expectedLockedBCH = try OpalBase.Satoshi.sum(of: review.mintedOutputs) { $0.value }
+        let expectedTotalBCHNeeded = try review.lockedBCHOutputValue + review.fee
+        #expect(review.lockedBCHOutputValue == expectedLockedBCH)
+        #expect(review.totalBCHNeeded == expectedTotalBCHNeeded)
+        #expect(await account.addressBook.readActiveSpendReservations().count == 1)
+
+        try await plan.cancelReservation()
+        #expect(await account.addressBook.readActiveSpendReservations().isEmpty)
+    }
+
     @Test("rejects non-token-aware genesis recipients")
     func rejectsNonTokenAwareRecipients() async throws {
         let account = try await makeAccount()
@@ -91,12 +143,12 @@ struct AccountTokenGenesisValidator {
             previousTransactionHash: previousTransactionHash,
             previousTransactionOutputIndex: 0
         )
-        
+
         let recipientAddress = try OpalBase.Address("bitcoincash:qpm2qsznhks23z7629mms6s4cwef74vcwvy22gdx6a")
         let genesis = try OpalBase.Account.TokenGenesis(recipients: [
             .init(address: recipientAddress, fungibleAmount: 1)
         ])
-        
+
         await #expect(throws: OpalBase.Account.Error.tokenGenesisRequiresTokenAwareAddress([recipientAddress])) {
             _ = try await account.prepareTokenGenesis(genesis, preferredGenesisInput: unspentOutput)
         }

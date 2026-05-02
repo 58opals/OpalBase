@@ -95,4 +95,33 @@ struct AddressTokenAwareValidator {
             _ = try OpalBase.Address(string: testnetAddress.tokenAwareString)
         }
     }
+
+    @Test("converted(to:) preserves script and network")
+    func convertedFormatPreservesScriptAndNetwork() throws {
+        let script = try makeKnownP2PKHScript()
+        let mainnetAddress = try OpalBase.Address(script: script, network: .mainnet)
+        let testnetAddress = try OpalBase.Address(script: script, network: .testnet)
+        let chipnetAddress = try OpalBase.Address(script: script, network: .chipnet)
+
+        let mainnetTokenAware = try mainnetAddress.converted(to: .tokenAware)
+        let testnetTokenAware = try testnetAddress.converted(to: .tokenAware)
+        let chipnetTokenAware = try chipnetAddress.converted(to: .tokenAware)
+        let standardAgain = try mainnetTokenAware.converted(to: .standard)
+
+        #expect(mainnetTokenAware.lockingScript == mainnetAddress.lockingScript)
+        #expect(testnetTokenAware.lockingScript == testnetAddress.lockingScript)
+        #expect(chipnetTokenAware.lockingScript == chipnetAddress.lockingScript)
+        #expect(mainnetTokenAware.network == .mainnet)
+        #expect(testnetTokenAware.network == .testnet)
+        #expect(chipnetTokenAware.network == .chipnet)
+        #expect(mainnetTokenAware.format == .tokenAware)
+        #expect(testnetTokenAware.format == .tokenAware)
+        #expect(chipnetTokenAware.format == .tokenAware)
+        #expect(mainnetTokenAware.generateString(withPrefix: true).hasPrefix("bitcoincash:"))
+        #expect(testnetTokenAware.generateString(withPrefix: true).hasPrefix("bchtest:"))
+        #expect(chipnetTokenAware.generateString(withPrefix: true).hasPrefix("bchtest:"))
+        #expect(standardAgain.format == .standard)
+        #expect(standardAgain.lockingScript == mainnetAddress.lockingScript)
+        #expect(standardAgain.network == .mainnet)
+    }
 }

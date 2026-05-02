@@ -67,6 +67,7 @@ struct AccountTokenSpendValidator {
         
         let transfer = OpalBase.Account.TokenTransfer(recipients: recipients)
         let plan = try await account.prepareTokenSpend(transfer)
+        let review = try plan.buildReview()
         
         let tokenInputCategories = Set(plan.tokenInputs.compactMap { $0.tokenData?.category })
         #expect(tokenInputCategories == Set([categoryAlpha, categoryBeta]))
@@ -83,7 +84,42 @@ struct AccountTokenSpendValidator {
         #expect(changeByCategory[categoryAlpha]?.amount == 60)
         #expect(changeByCategory[categoryBeta]?.amount == 40)
         
-        _ = try plan.buildTransaction()
+        #expect(review.rawTransactionByteCount == review.rawTransactionData.count)
+        #expect(review.rawTransactionByteCount > 0)
+        #expect(review.configuredFeeRate == plan.feeRate)
+        #expect(review.effectiveFeeRate == Double(review.fee.uint64) / Double(review.rawTransactionByteCount))
+        #expect(review.tokenRecipientOutputs.count == recipients.count)
+        #expect(review.tokenRecipientOutputs.allSatisfy { $0.role == .recipient })
+        #expect(review.tokenChangeOutputs.allSatisfy { $0.role == .tokenChange })
+        #expect(review.tokenRecipientOutputs.map(\.category) == recipients.map { Optional($0.tokenData.category) })
+        #expect(review.tokenRecipientOutputs.map(\.fungibleAmount) == recipients.map { $0.tokenData.amount })
+        let reviewedNonFungibleOutput = try #require(review.tokenRecipientOutputs.first {
+            $0.nonFungibleTokenCommitment == nonFungibleToken.commitment
+        })
+        #expect(reviewedNonFungibleOutput.nonFungibleTokenCapability == Optional(OpalBase.CashTokens.NFT.Capability.none))
+        #expect(reviewedNonFungibleOutput.category == categoryAlpha)
+        let reviewedTokenChangeByCategory = Dictionary(
+            uniqueKeysWithValues: review.tokenChangeOutputs.compactMap { output in
+                output.category.map { ($0, output) }
+            }
+        )
+        #expect(reviewedTokenChangeByCategory[categoryAlpha]?.fungibleAmount == 60)
+        #expect(reviewedTokenChangeByCategory[categoryBeta]?.fungibleAmount == 40)
+        let selectedBCH = try OpalBase.Satoshi.sum(
+            of: plan.tokenInputs + plan.bchInputs
+        ) { try OpalBase.Satoshi($0.value) }
+        let outputBCH = try OpalBase.Satoshi.sum(
+            of: review.transaction.outputs
+        ) { try OpalBase.Satoshi($0.value) }
+        #expect(try selectedBCH - outputBCH == review.fee)
+        let expectedLockedBCH = try OpalBase.Satoshi.sum(
+            of: review.tokenRecipientOutputs + review.tokenChangeOutputs
+        ) { $0.value }
+        #expect(review.lockedBCHOutputValue == expectedLockedBCH)
+        #expect(await account.addressBook.readActiveSpendReservations().count == 1)
+
+        try await plan.cancelReservation()
+        #expect(await account.addressBook.readActiveSpendReservations().isEmpty)
     }
 
     @Test("prepareTokenSpend refreshes wallet token change when the selected change entry becomes stale")
