@@ -94,6 +94,90 @@ struct AccountCashFusionSessionValidator {
         #expect(await addressBook.listSpendableUTXOs().contains(selectedInput))
     }
 
+    @Test("start and explicit stop are idempotent")
+    func startAndExplicitStopAreIdempotent() async throws {
+        let account = try await AccountTestFixtures.makeAccount()
+        let selectedInput = try await CashFusionTestSupport.makeWalletOwnedUnspentOutput(
+            to: account,
+            value: 170_000,
+            usage: .change,
+            hashByte: 0xDD
+        )
+        let capture = CashFusionWrappedSessionCapture()
+        let session = try await makeSession(
+            account: account,
+            selectedInput: selectedInput,
+            capture: capture
+        )
+        let reservation = await session.reservation
+        let fakeSession = try #require(await capture.load())
+
+        await session.start()
+        await session.start()
+        await session.stop()
+        await session.stop()
+
+        #expect(await fakeSession.readStartCount() == 1)
+        #expect(await fakeSession.readStopCount() == 1)
+        try await assertReceivingEntries(
+            reservation.reservedReceivingEntries,
+            on: account,
+            expectedUsed: false,
+            expectedReserved: false
+        )
+        let addressBook = await account.addressBook
+        #expect(await addressBook.listSpendableUTXOs().contains(selectedInput))
+    }
+
+    @Test("post-terminal snapshots do not rewrite successful cleanup")
+    func postTerminalSnapshotsDoNotRewriteSuccessfulCleanup() async throws {
+        let account = try await AccountTestFixtures.makeAccount()
+        let selectedInput = try await CashFusionTestSupport.makeWalletOwnedUnspentOutput(
+            to: account,
+            value: 170_000,
+            usage: .change,
+            hashByte: 0xDE
+        )
+        let capture = CashFusionWrappedSessionCapture()
+        let session = try await makeSession(
+            account: account,
+            selectedInput: selectedInput,
+            capture: capture
+        )
+        let reservation = await session.reservation
+        let fakeSession = try #require(await capture.load())
+
+        await session.start()
+        await fakeSession.emit(
+            snapshot: CashFusionTestSupport.makeSnapshot(
+                phase: .completed,
+                completionStatus: .success
+            )
+        )
+        await session.stop()
+        await fakeSession.emit(
+            snapshot: .init(
+                state: .init(
+                    isConnected: false,
+                    round: nil
+                ),
+                lastError: .transportUnavailable
+            )
+        )
+
+        #expect(await fakeSession.readStartCount() == 1)
+        #expect(await fakeSession.readStopCount() == 1)
+        try await assertReceivingEntries(
+            reservation.reservedReceivingEntries,
+            on: account,
+            expectedUsed: true,
+            expectedReserved: false
+        )
+        let addressBook = await account.addressBook
+        #expect(await addressBook.listUTXOs().contains(selectedInput) == false)
+        #expect(await addressBook.listSpendableUTXOs().contains(selectedInput) == false)
+    }
+
     @Test("restart and blame intermediate snapshots keep reservations active")
     func restartAndBlameIntermediateSnapshotsKeepReservationsActive() async throws {
         let account = try await AccountTestFixtures.makeAccount()
@@ -131,6 +215,56 @@ struct AccountCashFusionSessionValidator {
         #expect(await addressBook.listSpendableUTXOs().contains(selectedInput) == false)
 
         await session.stop()
+    }
+
+    @Test("makePublicStatus maps every terminal completion status")
+    func makePublicStatusMapsEveryTerminalCompletionStatus() {
+        let cases: [(OpalFusion.Round.CompletionStatus, OpalBase.Account.CashFusionSessionStatus.CompletionStatus)] = [
+            (.success, .success),
+            (.coordinatorRejected, .coordinatorRejected),
+            (.hostRejected, .hostRejected),
+            (.protocolIncompatible, .protocolIncompatible),
+            (.transportFailed, .transportFailed),
+            (.blameRequired, .blameRequired)
+        ]
+
+        for (fusionStatus, expectedStatus) in cases {
+            let publicStatus = OpalBase.Account.CashFusionSessionStatus(
+                snapshot: CashFusionTestSupport.makeSnapshot(
+                    phase: .completed,
+                    completionStatus: fusionStatus
+                )
+            )
+
+            #expect(publicStatus.round?.completionStatus == expectedStatus)
+            #expect(publicStatus.round?.isTerminal == true)
+        }
+    }
+
+    @Test("makePublicStatus maps every client error category")
+    func makePublicStatusMapsEveryClientErrorCategory() {
+        let cases: [(OpalFusion.Client.Error, OpalBase.Account.CashFusionSessionStatus.LastError)] = [
+            (.invalidConfiguration, .invalidConfiguration),
+            (.transportUnavailable, .transportUnavailable),
+            (.coordinatorRejected, .coordinatorRejected),
+            (.hostRejected, .hostRejected),
+            (.protocolIncompatible, .protocolIncompatible),
+            (.blameRequired, .blameRequired),
+            (.notImplemented, .notImplemented)
+        ]
+
+        for (fusionError, expectedError) in cases {
+            let publicStatus = OpalBase.Account.CashFusionSessionStatus(
+                snapshot: .init(
+                    state: .init(),
+                    lastError: fusionError,
+                    lastErrorSummary: "CashFusion failed"
+                )
+            )
+
+            #expect(publicStatus.lastError == expectedError)
+            #expect(publicStatus.lastErrorSummary == "CashFusion failed")
+        }
     }
 
     @Test("makePublicStatus maps a disconnected snapshot with no round")
@@ -336,6 +470,84 @@ struct AccountCashFusionSessionValidator {
             hashByte: 0xDC
         )
     }
+
+    @Test("prepareCashFusionSession forwards production configuration to OpalFusion")
+    func prepareCashFusionSessionForwardsProductionConfigurationToOpalFusion() async throws {
+        let account = try await AccountTestFixtures.makeAccount()
+        let selectedInput = try await CashFusionTestSupport.makeWalletOwnedUnspentOutput(
+            to: account,
+            value: 170_000,
+            usage: .change,
+            hashByte: 0xDF
+        )
+        let genesisHash = (0..<32).map(UInt8.init)
+        let configuration = OpalBase.Account.CashFusionSession.Configuration(
+            coordinator: .init(
+                host: "cashfusion.example.com",
+                port: 8788,
+                requiresTLS: true
+            ),
+            covertChannel: .init(
+                entryPath: "/fusion/covert",
+                maxPayloadBytes: 64 * 1_024,
+                requestTimeoutMilliseconds: 12_345
+            ),
+            torSocks5: .init(
+                host: "127.0.0.1",
+                port: 9150,
+                resolvesCoordinatorHostNameRemotely: false
+            ),
+            genesisHash: genesisHash,
+            joinPools: .init(
+                tiers: [100_000, 1_000_000],
+                tags: [
+                    .init(
+                        identifier: [0x01, 0x02, 0x03, 0x04],
+                        limit: 2,
+                        noIp: true
+                    ),
+                    .init(
+                        identifier: [0x05, 0x06, 0x07, 0x08],
+                        limit: 1,
+                        noIp: false
+                    )
+                ]
+            )
+        )
+        let capture = CashFusionWrappedSessionCapture()
+        let session = try await makeSession(
+            account: account,
+            selectedInput: selectedInput,
+            configuration: configuration,
+            capture: capture
+        )
+        let clientConfiguration = try #require(await capture.loadConfiguration())
+        let torSocks5 = try #require(clientConfiguration.torSocks5)
+        let joinPools = try #require(await capture.loadJoinPools())
+
+        #expect(clientConfiguration.coordinatorHost == configuration.coordinator.host)
+        #expect(clientConfiguration.coordinatorPort == configuration.coordinator.port)
+        #expect(clientConfiguration.coordinatorRequiresTLS)
+        #expect(clientConfiguration.covertChannel.entryPath == configuration.covertChannel.entryPath)
+        #expect(clientConfiguration.covertChannel.maxPayloadBytes == configuration.covertChannel.maxPayloadBytes)
+        #expect(
+            clientConfiguration.covertChannel.requestTimeoutMilliseconds ==
+                configuration.covertChannel.requestTimeoutMilliseconds
+        )
+        #expect(torSocks5.host == configuration.torSocks5?.host)
+        #expect(torSocks5.port == configuration.torSocks5?.port)
+        #expect(
+            torSocks5.resolvesCoordinatorHostNameRemotely ==
+                configuration.torSocks5?.resolvesCoordinatorHostNameRemotely
+        )
+        #expect(await capture.loadGenesisHash() == configuration.genesisHash)
+        #expect(joinPools.tiers == configuration.joinPools.tiers)
+        #expect(joinPools.tags.map(\.identifier) == configuration.joinPools.tags.map(\.identifier))
+        #expect(joinPools.tags.map(\.limit) == configuration.joinPools.tags.map(\.limit))
+        #expect(joinPools.tags.map(\.noIp) == configuration.joinPools.tags.map(\.noIp))
+
+        await session.stop()
+    }
 }
 
 private extension AccountCashFusionSessionValidator {
@@ -394,13 +606,15 @@ private extension AccountCashFusionSessionValidator {
                 selectedInputs: [selectedInput],
                 outputAmounts: [try OpalBase.Satoshi(55_000)]
             ),
-            sessionFactory: { clientConfiguration, _, _, _, _, _, wrappedStateObserver in
+            sessionFactory: { clientConfiguration, genesisHash, joinPools, _, _, _, wrappedStateObserver in
                 let session = CashFusionFakeWrappedSession(
                     stateObserver: wrappedStateObserver
                 )
                 await capture.store(
                     session,
-                    configuration: clientConfiguration
+                    configuration: clientConfiguration,
+                    genesisHash: genesisHash,
+                    joinPools: joinPools
                 )
                 return session
             }

@@ -56,20 +56,21 @@ extension _OpalBase.Address.Book {
         mutating func replace(for address: OpalBase.Address, with utxos: [OpalBase.Transaction.Output.Unspent]) {
             let lockingScript = address.lockingScript.data
             let newUTXOs = Set(utxos)
+            let newOutpoints = Set(newUTXOs.map(Outpoint.init))
             
             if let oldUTXOs = utxosByLockingScript[lockingScript] {
-                for utxo in oldUTXOs {
+                for utxo in oldUTXOs where newOutpoints.contains(Outpoint(utxo)) == false {
                     utxosByOutpoint.removeValue(forKey: Outpoint(utxo))
                     reservedUTXOs.remove(utxo)
+                    discard(utxo)
                 }
             }
             
             if newUTXOs.isEmpty {
                 utxosByLockingScript.removeValue(forKey: lockingScript)
             } else {
-                utxosByLockingScript[lockingScript] = newUTXOs
                 for utxo in newUTXOs {
-                    utxosByOutpoint[Outpoint(utxo)] = utxo
+                    store(utxo)
                 }
             }
             

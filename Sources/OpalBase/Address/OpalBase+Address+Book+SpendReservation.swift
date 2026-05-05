@@ -33,6 +33,9 @@ extension _OpalBase.Address.Book {
                       changeEntry: Entry,
                       tokenSelectionPolicy: OpalBase.Address.Book.CoinSelection.TokenSelectionPolicy) async throws -> SpendReservation {
         let utxoSet = Set(utxos)
+        guard !utxoSet.isEmpty else {
+            throw OpalBase.Address.Book.Error.utxoNotFound
+        }
         
         if let existingReservation = findMatchingReservation(for: utxoSet) {
             let refreshedDate = Date.now

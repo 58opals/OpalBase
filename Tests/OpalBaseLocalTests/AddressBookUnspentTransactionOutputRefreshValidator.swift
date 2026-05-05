@@ -252,4 +252,34 @@ struct AddressBookUnspentTransactionOutputRefreshValidator {
         #expect(storedOutputs.count == 1)
         #expect(storedOutputs.first?.value == replacement.value)
     }
+
+    @Test("address replacement moves same outpoint between address indexes")
+    func addressReplacementMovesSameOutpointBetweenAddressIndexes() async throws {
+        let book = try await AddressBookCashTokensTestData.makeAddressBook()
+        let entries = await book.listEntries(for: .receiving)
+        let firstEntry = try #require(entries.first)
+        let secondEntry = try #require(entries.dropFirst().first)
+        let transactionHash = OpalBase.Transaction.Hash(
+            naturalOrder: Data(repeating: 0x56, count: 32)
+        )
+        let original = OpalBase.Transaction.Output.Unspent(
+            value: 1_000,
+            lockingScript: firstEntry.address.lockingScript.data,
+            previousTransactionHash: transactionHash,
+            previousTransactionOutputIndex: 0
+        )
+        let moved = OpalBase.Transaction.Output.Unspent(
+            value: 2_000,
+            lockingScript: secondEntry.address.lockingScript.data,
+            previousTransactionHash: transactionHash,
+            previousTransactionOutputIndex: 0
+        )
+
+        await book.addUTXO(original)
+        await book.replaceUTXOs(for: secondEntry.address, withValidated: [moved])
+
+        #expect(await book.listUTXOs(for: firstEntry.address).isEmpty)
+        #expect(await book.listUTXOs(for: secondEntry.address) == [moved])
+        #expect(await book.listUTXOs() == [moved])
+    }
 }

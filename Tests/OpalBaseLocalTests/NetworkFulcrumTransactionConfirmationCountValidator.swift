@@ -69,4 +69,21 @@ struct NetworkFulcrumTransactionConfirmationCountValidator {
             _ = try OpalBase.Network.Fulcrum.resolveFee(Optional(-1))
         }
     }
+
+    @Test("height resolution rejects malformed wire values instead of clamping")
+    func heightResolutionRejectsMalformedWireValues() throws {
+        #expect(try OpalBase.Network.Fulcrum.TransactionClient.resolveTransactionHeight(Optional<Int>.none) == nil)
+        #expect(try OpalBase.Network.Fulcrum.TransactionClient.resolveTransactionHeight(Optional(-1)) == nil)
+        #expect(try OpalBase.Network.Fulcrum.TransactionClient.resolveTransactionHeight(Optional(42)) == 42)
+        #expect(try OpalBase.Network.Fulcrum.TransactionClient.resolveTipHeight(42) == 42)
+
+        let oversizedTransactionHeight = UInt64(Int.max) + 1
+        #expect(throws: OpalBase.Network.Error(reason: .decoding, message: "Invalid transaction height: \(oversizedTransactionHeight)")) {
+            _ = try OpalBase.Network.Fulcrum.TransactionClient.resolveTransactionHeight(Optional(oversizedTransactionHeight))
+        }
+
+        #expect(throws: OpalBase.Network.Error(reason: .decoding, message: "Invalid tip height: -1")) {
+            _ = try OpalBase.Network.Fulcrum.TransactionClient.resolveTipHeight(-1)
+        }
+    }
 }

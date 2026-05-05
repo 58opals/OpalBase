@@ -53,8 +53,8 @@ extension _OpalBase.Network.Fulcrum {
                     tipHeight: tipHeight
                 )
                 
-                let resolvedHeight = Self.resolveTransactionHeight(transactionHeight)
-                let resolvedTipHeight = Self.resolveTipHeight(tipHeight)
+                let resolvedHeight = try Self.resolveTransactionHeight(transactionHeight)
+                let resolvedTipHeight = try Self.resolveTipHeight(tipHeight)
                 
                 return OpalBase.Network.TransactionConfirmationStatus(transactionHash: transactionHash,
                                                              transactionHeight: resolvedHeight,
@@ -75,21 +75,26 @@ extension _OpalBase.Network.Fulcrum {
             return UInt(confirmationCount)
         }
         
-        private static func resolveTransactionHeight<Height: BinaryInteger>(_ height: Height?) -> Int? {
+        static func resolveTransactionHeight<Height: BinaryInteger>(_ height: Height?) throws -> Int? {
             guard let height else { return nil }
             guard height > 0 else { return nil }
             if let resolved = Int(exactly: height) {
                 return resolved
             }
-            return Int.max
+            throw OpalBase.Network.Error(
+                reason: .decoding,
+                message: "Invalid transaction height: \(height)"
+            )
         }
         
-        private static func resolveTipHeight<Height: BinaryInteger>(_ height: Height) -> UInt64 {
+        static func resolveTipHeight<Height: BinaryInteger>(_ height: Height) throws -> UInt64 {
             if let resolved = UInt64(exactly: height) {
                 return resolved
             }
-            if height < 0 { return 0 }
-            return UInt64.max
+            throw OpalBase.Network.Error(
+                reason: .decoding,
+                message: "Invalid tip height: \(height)"
+            )
         }
     }
 }

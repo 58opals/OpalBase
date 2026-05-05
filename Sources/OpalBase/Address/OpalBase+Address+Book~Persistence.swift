@@ -162,6 +162,14 @@ extension _OpalBase.Address.Book {
         var seenOutpoints: Set<UTXORepository.Outpoint> = .init()
 
         for snapshot in snapshots {
+            do {
+                _ = try OpalBase.Satoshi(snapshot.value)
+            } catch {
+                throw OpalBase.Address.Book.Error.invalidSnapshotBalance(
+                    value: snapshot.value,
+                    reason: error
+                )
+            }
             let tokenData = try snapshot.makeTokenData()
             let transactionHashData = try Data(hexadecimalString: snapshot.transactionHash)
             guard transactionHashData.count == OpalBase.Transaction.Hash.expectedByteCount else {

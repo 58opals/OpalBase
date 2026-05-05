@@ -154,13 +154,19 @@ enum CashFusionTestSupport {
 actor CashFusionWrappedSessionCapture {
     private var session: CashFusionFakeWrappedSession?
     private var configuration: OpalFusion.Client.Configuration?
+    private var genesisHash: [UInt8]?
+    private var joinPools: OpalFusion.ProtocolModel.JoinPools?
 
     func store(
         _ session: CashFusionFakeWrappedSession,
-        configuration: OpalFusion.Client.Configuration
+        configuration: OpalFusion.Client.Configuration,
+        genesisHash: [UInt8]?,
+        joinPools: OpalFusion.ProtocolModel.JoinPools
     ) {
         self.session = session
         self.configuration = configuration
+        self.genesisHash = genesisHash
+        self.joinPools = joinPools
     }
 
     func load() -> CashFusionFakeWrappedSession? {
@@ -169,6 +175,14 @@ actor CashFusionWrappedSessionCapture {
 
     func loadConfiguration() -> OpalFusion.Client.Configuration? {
         configuration
+    }
+
+    func loadGenesisHash() -> [UInt8]? {
+        genesisHash
+    }
+
+    func loadJoinPools() -> OpalFusion.ProtocolModel.JoinPools? {
+        joinPools
     }
 }
 
