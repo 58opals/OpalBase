@@ -56,6 +56,9 @@ extension _OpalBase.Account {
         guard request.outputAmounts.isEmpty == false else {
             throw Error.cashFusionHasNoOutputAmounts
         }
+        guard request.outputAmounts.allSatisfy({ $0.uint64 > 0 }) else {
+            throw Error.cashFusionHasNoOutputAmounts
+        }
         guard Set(request.selectedInputs).count == request.selectedInputs.count else {
             throw Error.cashFusionUnsupportedSelectedInputs
         }

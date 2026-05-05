@@ -39,6 +39,47 @@ struct AccountCashFusionReservationValidator {
         }
     }
 
+    @Test("zero output amounts are rejected")
+    func zeroOutputAmountsAreRejected() async throws {
+        let account = try await AccountTestFixtures.makeAccount()
+        let selectedInput = try await CashFusionTestSupport.makeWalletOwnedUnspentOutput(
+            to: account,
+            value: 120_000,
+            usage: .change,
+            hashByte: 0xBC
+        )
+        let request = OpalBase.Account.CashFusionRequest(
+            selectedInputs: [selectedInput],
+            outputAmounts: [OpalBase.Satoshi()]
+        )
+
+        await #expect(throws: OpalBase.Account.Error.cashFusionHasNoOutputAmounts) {
+            _ = try await account.prepareCashFusionReservation(request: request)
+        }
+    }
+
+    @Test("duplicate selected inputs are rejected before reservation")
+    func duplicateSelectedInputsAreRejectedBeforeReservation() async throws {
+        let account = try await AccountTestFixtures.makeAccount()
+        let selectedInput = try await CashFusionTestSupport.makeWalletOwnedUnspentOutput(
+            to: account,
+            value: 120_000,
+            usage: .change,
+            hashByte: 0xBD
+        )
+        let request = OpalBase.Account.CashFusionRequest(
+            selectedInputs: [selectedInput, selectedInput],
+            outputAmounts: [try OpalBase.Satoshi(25_000)]
+        )
+
+        await #expect(throws: OpalBase.Account.Error.cashFusionUnsupportedSelectedInputs) {
+            _ = try await account.prepareCashFusionReservation(request: request)
+        }
+
+        let addressBook = await account.addressBook
+        #expect(await addressBook.listSpendableUTXOs().contains(selectedInput))
+    }
+
     @Test("token UTXOs are rejected")
     func tokenUTXOsAreRejected() async throws {
         let account = try await AccountTestFixtures.makeAccount()
@@ -130,6 +171,7 @@ struct AccountCashFusionReservationValidator {
         #expect(reservation.reservedReceivingEntries.map(\.address) == expectedEntries.map(\.address))
         #expect(reservation.reservedReceivingEntries.allSatisfy { $0.derivationPath.usage == .receiving })
         #expect(reservation.reservedReceivingEntries.allSatisfy { $0.isReserved })
+        #expect(reservation.participantReservation.outputs.map(\.amountSatoshis) == [40_000, 50_000])
         #expect(reservation.participantReservation.outputs.map(\.lockingScriptBytes) == expectedEntries.map {
             [UInt8]($0.address.lockingScript.data)
         })
@@ -159,6 +201,9 @@ struct AccountCashFusionReservationValidator {
             )
         )
 
+        #expect(reservation.selectedInputs == [firstInput, secondInput])
+        #expect(reservation.participantReservation.inputs.map(\.amountSatoshis) == [110_000, 115_000])
+
         for reservedInput in reservation.reservedInputs {
             #expect(reservedInput.participantInput.publicKey == [UInt8](reservedInput.compressedPublicKey))
             #expect(reservedInput.participantInput.lockingScriptBytes == [UInt8](reservedInput.unspentOutput.lockingScript))
@@ -167,5 +212,6 @@ struct AccountCashFusionReservationValidator {
 
         try await reservation.cancel()
     }
+
 }
 #endif

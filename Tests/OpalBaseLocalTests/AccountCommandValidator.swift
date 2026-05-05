@@ -198,6 +198,26 @@ struct AccountCommandValidator {
         try await addressBook.releaseSpendReservation(firstReservation, outcome: .cancelled)
     }
 
+    @Test("reserveSpend rejects empty input sets before reserving change")
+    func reserveSpendRejectsEmptyInputSetsBeforeReservingChange() async throws {
+        let account = try await AccountTestFixtures.makeAccount()
+        let addressBook = await account.addressBook
+        let changeEntry = try await addressBook.selectNextEntry(for: .change)
+
+        await #expect(throws: OpalBase.Address.Book.Error.utxoNotFound) {
+            _ = try await addressBook.reserveSpend(
+                utxos: [],
+                changeEntry: changeEntry,
+                tokenSelectionPolicy: .excludeTokenUTXOs
+            )
+        }
+
+        let changeEntries = await addressBook.listEntries(for: .change)
+        let firstChangeEntry = changeEntries.first { $0.derivationPath.index == changeEntry.derivationPath.index }
+        #expect(firstChangeEntry?.isReserved == false)
+        #expect(await addressBook.readActiveSpendReservations().isEmpty)
+    }
+
     @Test("reserveSpend does not reuse a completed stale change entry")
     func reserveSpendAvoidsReusingCompletedStaleChangeEntry() async throws {
         let account = try await AccountTestFixtures.makeAccount()
