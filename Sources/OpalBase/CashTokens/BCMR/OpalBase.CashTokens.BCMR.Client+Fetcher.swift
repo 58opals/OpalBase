@@ -50,6 +50,7 @@ private extension OpalBase.CashTokens.BCMR.Client.Fetcher {
             guard let response = response as? HTTPURLResponse else {
                 throw Error.unexpectedResponseStatus(-1)
             }
+            try validateFetchScheme(for: response.url ?? currentResourceLocation)
             
             if response.statusCode == 301 {
                 let location = try resolveRedirectLocation(from: response, currentResourceLocation: currentResourceLocation)
@@ -160,9 +161,18 @@ private extension OpalBase.CashTokens.BCMR.Client.Fetcher {
             throw Error.missingRedirectLocation
         }
         if let locationResource = URL(string: locationValue, relativeTo: currentResourceLocation) {
-            return locationResource
+            let resolvedLocation = locationResource.absoluteURL
+            try validateFetchScheme(for: resolvedLocation)
+            return resolvedLocation
         }
         throw Error.missingRedirectLocation
+    }
+
+    func validateFetchScheme(for resourceLocation: URL) throws {
+        let scheme = resourceLocation.scheme?.lowercased()
+        guard scheme == "https" else {
+            throw Error.unsupportedScheme(scheme ?? "")
+        }
     }
     
     func noteCacheControlMaxAge(from response: HTTPURLResponse, resourceLocation: URL) {
@@ -180,4 +190,3 @@ private extension OpalBase.CashTokens.BCMR.Client.Fetcher {
         }
     }
 }
-

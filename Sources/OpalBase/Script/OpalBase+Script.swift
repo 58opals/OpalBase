@@ -161,7 +161,7 @@ extension _OpalBase.Script {
                 return .p2ms(numberOfRequiredSignatures: numberOfRequiredSignatures, publicKeys: publicKeys)
                 
             default:
-                break
+                throw Error.cannotDecodeScript
             }
         }
         

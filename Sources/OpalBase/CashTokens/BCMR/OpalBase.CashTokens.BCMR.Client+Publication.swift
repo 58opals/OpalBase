@@ -55,31 +55,19 @@ extension OpalBase.CashTokens.BCMR.Client {
             return readData(length: length)
         }
         
+        guard index < lockingScript.count, lockingScript[index] == 0x6a else { return nil }
+        index += 1
+
+        guard let tag = readPushData(), tag == prefix else { return nil }
+        guard let sha256 = readPushData(), sha256.count == 32 else { return nil }
+
+        var uris: [String] = .init()
         while index < lockingScript.count {
-            let opcode = lockingScript[index]
-            index += 1
-            
-            if opcode == 0x6a {
-                guard let tag = readPushData() else { return nil }
-                guard tag == prefix else { continue }
-                guard let sha256 = readPushData(), sha256.count == 32 else { return nil }
-                
-                var uris: [String] = .init()
-                while index < lockingScript.count {
-                    guard let uriData = readPushData() else { return nil }
-                    guard let uri = String(data: uriData, encoding: .utf8) else { return nil }
-                    uris.append(uri)
-                }
-                
-                return Publication(sha256: sha256, uris: uris)
-            }
-            
-            guard let length = readPushDataLength(opcode: opcode) else { continue }
-            guard index + length <= lockingScript.count else { return nil }
-            index += length
+            guard let uriData = readPushData() else { return nil }
+            guard let uri = String(data: uriData, encoding: .utf8) else { return nil }
+            uris.append(uri)
         }
-        
-        return nil
+
+        return Publication(sha256: sha256, uris: uris)
     }
 }
-

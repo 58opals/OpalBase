@@ -174,6 +174,23 @@ struct NetworkServerCatalogValidator {
         #expect(normalized.contains(where: { $0.scheme == "ws" && $0.host == "chipnet.imaginary.cash" }))
         #expect(!normalized.contains(where: { $0.scheme == "ftp" }))
     }
+
+    @Test("normalizes default websocket ports before deduplication")
+    func normalizationCollapsesDefaultWebSocketPorts() {
+        let rawServers = [
+            URL(string: "https://default-port.example.com:443")!,
+            URL(string: "wss://default-port.example.com")!,
+            URL(string: "http://insecure-default.example.com:80")!,
+            URL(string: "ws://insecure-default.example.com")!
+        ]
+
+        let normalized = OpalBase.Network.ServerCatalog.makeNormalizedServers(rawServers)
+
+        #expect(normalized == [
+            URL(string: "wss://default-port.example.com")!,
+            URL(string: "ws://insecure-default.example.com")!
+        ])
+    }
     
     @Test("merged server catalogs preserve priority ordering and uniqueness")
     func mergedServersPreservePriorityOrdering() {

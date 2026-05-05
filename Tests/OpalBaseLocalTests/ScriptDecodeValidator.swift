@@ -18,4 +18,19 @@ struct ScriptDecodeValidator {
             Issue.record("Unexpected script decode error: \(error)")
         }
     }
+
+    @Test("rejects standard scripts with leading bytes")
+    func rejectsStandardScriptsWithLeadingBytes() throws {
+        var lockingScript = Data([0xff])
+        lockingScript.append(OpalBase.Script.p2sh(scriptHash: Data(repeating: 0x11, count: 20)).data)
+
+        do {
+            _ = try OpalBase.Script.decode(lockingScript: lockingScript)
+            Issue.record("Expected leading bytes to reject standard script decoding")
+        } catch OpalBase.Script.Error.cannotDecodeScript {
+            return
+        } catch {
+            Issue.record("Unexpected script decode error: \(error)")
+        }
+    }
 }
