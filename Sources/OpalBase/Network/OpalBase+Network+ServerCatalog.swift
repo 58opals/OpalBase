@@ -96,6 +96,11 @@ extension _OpalBase.Network.ServerCatalog {
         }
         
         components.scheme = normalizedScheme
+        if normalizedScheme == "wss", components.port == 443 {
+            components.port = nil
+        } else if normalizedScheme == "ws", components.port == 80 {
+            components.port = nil
+        }
         return components.url ?? server
     }
 }

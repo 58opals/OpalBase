@@ -19,7 +19,9 @@ extension _OpalBase.Network {
         }
         
         public init?(string: String) {
-            let components = string.split(separator: ".").compactMap { Int($0) }
+            let rawComponents = string.split(separator: ".", omittingEmptySubsequences: false)
+            let components = rawComponents.compactMap { Int($0) }
+            guard components.count == rawComponents.count else { return nil }
             switch components.count {
             case 2:
                 self.init(major: components[0], minor: components[1], patch: 0, isPatchComponentIncluded: false)
