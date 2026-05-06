@@ -54,6 +54,47 @@ struct AccountCommandValidator {
         }
     }
 
+    @Test("prepareSpend reports fee shortfall before reserving sweep-all funds")
+    func prepareSpendReportsFeeShortfallBeforeReservingSweepAllFunds() async throws {
+        let account = try await AccountTestFixtures.makeAccount()
+        let addressBook = await account.addressBook
+        let receivingEntry = try await addressBook.selectNextEntry(for: OpalBase.Key.DerivationPath.Usage.receiving)
+        let previousTransactionHash = OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 3, count: 32))
+        let utxo = OpalBase.Transaction.Output.Unspent(
+            value: 1_000,
+            lockingScript: receivingEntry.address.lockingScript.data,
+            previousTransactionHash: previousTransactionHash,
+            previousTransactionOutputIndex: 0
+        )
+        await addressBook.addUTXOs([utxo])
+
+        let recipientAddress = try OpalBase.Address("bitcoincash:qpm2qsznhks23z7629mms6s4cwef74vcwvy22gdx6a")
+        let payment = OpalBase.Account.Payment(
+            recipients: [.init(address: recipientAddress, amount: try OpalBase.Satoshi(1_000))],
+            coinSelection: .sweepAll
+        )
+
+        do {
+            _ = try await account.prepareSpend(payment)
+            Issue.record("Expected prepareSpend to reject sweep-all fee shortfall")
+        } catch let error as OpalBase.Account.Error {
+            switch error {
+            case .coinSelectionFailed(let underlyingError):
+                guard case OpalBase.Transaction.Error.insufficientFunds(required: let requiredAmount) = underlyingError else {
+                    Issue.record("Expected insufficient funds but received \(underlyingError)")
+                    return
+                }
+                #expect(requiredAmount > 0)
+            default:
+                Issue.record("Expected coinSelectionFailed but received \(error)")
+            }
+        } catch {
+            Issue.record("Unexpected error: \(error)")
+        }
+
+        #expect(await addressBook.readActiveSpendReservations().isEmpty)
+    }
+
     @Test("prepareSpend reserves spend resources until explicitly released")
     func prepareSpendReservesUntilReleased() async throws {
         let account = try await AccountTestFixtures.makeAccount()

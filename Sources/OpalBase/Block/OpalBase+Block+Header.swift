@@ -79,8 +79,26 @@ extension _OpalBase.Block.Header {
     }
     
     public var isProofOfWorkSatisfied: Bool {
+        guard Self.isCompactTargetValid(bits) else { return false }
         let hashNumber = LargeUnsignedInteger(proofOfWorkHash)
         let target = OpalBase.Block.Header.calculateTarget(for: bits)
         return hashNumber <= target.value
+    }
+
+    private static func isCompactTargetValid(_ bits: UInt32) -> Bool {
+        let exponent = Int(bits >> 24)
+        let mantissa = bits & 0x00ff_ffff
+        guard mantissa != 0 else { return false }
+        guard mantissa & 0x0080_0000 == 0 else { return false }
+
+        if exponent <= 3 {
+            let shiftedMantissa = mantissa >> UInt32(8 * (3 - exponent))
+            return shiftedMantissa != 0
+        }
+
+        if exponent > 34 { return false }
+        if mantissa > 0xff && exponent > 33 { return false }
+        if mantissa > 0xffff && exponent > 32 { return false }
+        return true
     }
 }

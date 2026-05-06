@@ -25,6 +25,29 @@ struct NetworkFulcrumTransactionReaderValidator {
         #expect(await client.readLastRawTransactionHash() == fixture.transactionHash.reverseOrder.hexadecimalString)
     }
 
+    @Test("fetchRawTransaction rejects trailing bytes after decoded transaction")
+    func fetchRawTransactionRejectsTrailingPayloadBytes() async throws {
+        let fixture = try TransactionFixture.make()
+        let malformedRawTransactionData = fixture.rawTransactionData + Data([0x00])
+        let malformedHash = OpalBase.Transaction.Hash(
+            naturalOrder: OpalCryptoAdapter.hash256(malformedRawTransactionData)
+        )
+        let client = TransactionReaderClientTestActor(
+            rawTransactionHex: malformedRawTransactionData.hexadecimalString,
+            verboseTransaction: fixture.verboseResponse
+        )
+        let reader = OpalBase.Network.Fulcrum.TransactionReader(client: client)
+
+        let failure = await Self.captureNetworkError {
+            _ = try await reader.fetchRawTransaction(for: malformedHash)
+        }
+
+        #expect(failure.reason == .decoding)
+        #expect(failure.message == "Transaction payload has trailing bytes")
+        #expect(await client.readRawFetchCount() == 1)
+        #expect(await client.readVerboseFetchCount() == 0)
+    }
+
     @Test("fetches detailed transactions from verbose responses")
     func fetchDetailedTransactionMapsVerboseResponses() async throws {
         let fixture = try TransactionFixture.make()
@@ -152,6 +175,68 @@ struct NetworkFulcrumTransactionReaderValidator {
         #expect(detail.rawTransactionData == fixture.rawTransactionData)
         #expect(detail.size == UInt32(fixture.rawTransactionData.count))
         #expect(detail.blockHash == nil)
+        #expect(await client.readVerboseFetchCount() == 1)
+        #expect(await client.readRawFetchCount() == 1)
+    }
+
+    @Test("fetchDetailedTransaction rejects transaction payload hash mismatches")
+    func fetchDetailedTransactionRejectsPayloadHashMismatches() async throws {
+        let fixture = try TransactionFixture.make()
+        var mismatchedRawTransactionData = fixture.rawTransactionData
+        mismatchedRawTransactionData[mismatchedRawTransactionData.count - 1] ^= 0x01
+        let verboseResponse = try TransactionFixture.makeVerboseResponse(
+            transactionHash: fixture.transactionHash.reverseOrder.hexadecimalString,
+            rawTransactionHexadecimal: mismatchedRawTransactionData.hexadecimalString,
+            blockHashHexadecimal: fixture.blockHashData.hexadecimalString,
+            blockTime: fixture.blockTime,
+            confirmations: fixture.confirmations,
+            transactionTime: fixture.transactionTime,
+            size: mismatchedRawTransactionData.count
+        )
+        let client = TransactionReaderClientTestActor(
+            rawTransactionHex: mismatchedRawTransactionData.hexadecimalString,
+            verboseTransaction: verboseResponse
+        )
+        let reader = OpalBase.Network.Fulcrum.TransactionReader(client: client)
+
+        let failure = await Self.captureNetworkError {
+            _ = try await reader.fetchDetailedTransaction(for: fixture.transactionHash)
+        }
+
+        #expect(failure.reason == .protocolViolation)
+        #expect(failure.message == "Transaction payload hash mismatch")
+        #expect(await client.readVerboseFetchCount() == 1)
+        #expect(await client.readRawFetchCount() == 0)
+    }
+
+    @Test("fetchDetailedTransaction rejects trailing bytes after decoded transaction")
+    func fetchDetailedTransactionRejectsTrailingPayloadBytes() async throws {
+        let fixture = try TransactionFixture.make()
+        let malformedRawTransactionData = fixture.rawTransactionData + Data([0x00])
+        let malformedHash = OpalBase.Transaction.Hash(
+            naturalOrder: OpalCryptoAdapter.hash256(malformedRawTransactionData)
+        )
+        let verboseResponse = try TransactionFixture.makeVerboseResponse(
+            transactionHash: malformedHash.reverseOrder.hexadecimalString,
+            rawTransactionHexadecimal: malformedRawTransactionData.hexadecimalString,
+            blockHashHexadecimal: fixture.blockHashData.hexadecimalString,
+            blockTime: fixture.blockTime,
+            confirmations: fixture.confirmations,
+            transactionTime: fixture.transactionTime,
+            size: malformedRawTransactionData.count
+        )
+        let client = TransactionReaderClientTestActor(
+            rawTransactionHex: malformedRawTransactionData.hexadecimalString,
+            verboseTransaction: verboseResponse
+        )
+        let reader = OpalBase.Network.Fulcrum.TransactionReader(client: client)
+
+        let failure = await Self.captureNetworkError {
+            _ = try await reader.fetchDetailedTransaction(for: malformedHash)
+        }
+
+        #expect(failure.reason == .decoding)
+        #expect(failure.message == "Transaction payload has trailing bytes")
         #expect(await client.readVerboseFetchCount() == 1)
         #expect(await client.readRawFetchCount() == 1)
     }
@@ -292,7 +377,6 @@ private struct TransactionFixture {
     let transactionTime: UInt32
 
     static func make() throws -> TransactionFixture {
-        let transactionHash = OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0x02, count: 32))
         let transaction = OpalBase.Transaction(
             version: 2,
             inputs: [
@@ -308,6 +392,9 @@ private struct TransactionFixture {
             lockTime: 0
         )
         let rawTransactionData = try transaction.encode()
+        let transactionHash = OpalBase.Transaction.Hash(
+            naturalOrder: OpalCryptoAdapter.hash256(rawTransactionData)
+        )
         let rawTransactionHexadecimal = rawTransactionData.hexadecimalString
         let blockHashData = Data(repeating: 0xaa, count: 32)
         let blockHashHexadecimal = blockHashData.hexadecimalString

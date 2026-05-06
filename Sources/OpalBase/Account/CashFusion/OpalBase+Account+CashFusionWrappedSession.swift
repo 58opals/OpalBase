@@ -18,7 +18,8 @@ extension _OpalBase.Account {
         any OpalFusion.Host.ParticipantReservationSource,
         any OpalFusion.Host.TransactionAssembler,
         (any OpalFusion.Host.EventObserver)?,
-        (any OpalFusion.Client.StateObserver)?
+        (any OpalFusion.Client.StateObserver)?,
+        OpalFusion.Client.ReconnectPolicy
     ) async -> any CashFusionWrappedSession
 
     static let defaultCashFusionWrappedSessionFactory: CashFusionWrappedSessionFactory = {
@@ -28,7 +29,8 @@ extension _OpalBase.Account {
         participantReservationSource,
         transactionAssembler,
         eventObserver,
-        stateObserver in
+        stateObserver,
+        reconnectPolicy in
         OpalFusion.Client.Session(
             configuration: configuration,
             genesisHash: genesisHash,
@@ -36,7 +38,8 @@ extension _OpalBase.Account {
             participantReservationSource: participantReservationSource,
             transactionAssembler: transactionAssembler,
             eventObserver: eventObserver,
-            stateObserver: stateObserver
+            stateObserver: stateObserver,
+            reconnectPolicy: reconnectPolicy
         )
     }
 }

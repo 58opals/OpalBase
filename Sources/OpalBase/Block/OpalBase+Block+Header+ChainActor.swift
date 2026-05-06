@@ -95,7 +95,14 @@ extension _OpalBase.Block.Header.ChainActor {
     func apply(header: OpalBase.Block.Header, at height: UInt32) throws -> UpdateResult {
         guard header.isProofOfWorkSatisfied else { throw Error.invalidProofOfWork(height: height) }
         let headerHash = header.proofOfWorkHash
-        
+
+        guard height >= checkpointHeight else {
+            throw Error.checkpointViolation(
+                expected: .init(height: checkpointHeight, hash: checkpointHash),
+                actual: .init(height: height, hash: headerHash)
+            )
+        }
+
         if height == checkpointHeight {
             guard headerHash == checkpointHash else {
                 throw Error.checkpointViolation(expected: .init(height: checkpointHeight, hash: checkpointHash),
@@ -138,8 +145,15 @@ extension _OpalBase.Block.Header.ChainActor {
                 queuedMaintenanceEvents.append(.requiresResynchronization(from: .init(height: height, hash: headerHash)))
             }
         } else if height > tipHeight + 1, hashes[height - 1] == nil {
+            let checkpointHeader = headers[checkpointHeight]
             headers.removeAll()
             hashes.removeAll()
+            if let checkpointHeader {
+                headers[checkpointHeight] = checkpointHeader
+                tipTimestamp = checkpointHeader.time
+            } else {
+                tipTimestamp = nil
+            }
             hashes[checkpointHeight] = checkpointHash
             checkpoints = [Checkpoint(height: checkpointHeight, hash: checkpointHash)]
             tipHeight = checkpointHeight

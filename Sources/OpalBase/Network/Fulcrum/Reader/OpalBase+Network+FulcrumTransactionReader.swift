@@ -45,7 +45,14 @@ extension _OpalBase.Network.Fulcrum {
             rawTransactionData: Data,
             isVerbose: TransactionGetVerbose?
         ) throws -> OpalBase.Transaction.Detail {
-            let (transaction, _) = try OpalBase.Transaction.decode(from: rawTransactionData)
+            try validatePayloadHash(rawTransactionData, expected: transactionHash)
+            let (transaction, bytesRead) = try OpalBase.Transaction.decode(from: rawTransactionData)
+            guard bytesRead == rawTransactionData.count else {
+                throw OpalBase.Network.Error(
+                    reason: .decoding,
+                    message: "Transaction payload has trailing bytes"
+                )
+            }
             let blockHash = try decodeBlockHash(isVerbose?.blockhash)
             
             return OpalBase.Transaction.Detail(
@@ -70,6 +77,25 @@ extension _OpalBase.Network.Fulcrum {
                 )
             }
             return blockHash
+        }
+
+        private func validatePayloadHash(
+            _ rawTransactionData: Data,
+            expected transactionHash: OpalBase.Transaction.Hash
+        ) throws {
+            let actualHash = OpalBase.Transaction.Hash(
+                naturalOrder: OpalCryptoAdapter.hash256(rawTransactionData)
+            )
+            guard actualHash == transactionHash else {
+                throw OpalBase.Network.Error(
+                    reason: .protocolViolation,
+                    message: "Transaction payload hash mismatch",
+                    metadata: [
+                        "expected": transactionHash.reverseOrder.hexadecimalString,
+                        "actual": actualHash.reverseOrder.hexadecimalString
+                    ]
+                )
+            }
         }
         
         public func fetchDetailedTransaction(for transactionHash: OpalBase.Transaction.Hash) async throws -> OpalBase.Transaction.Detail {
@@ -103,7 +129,16 @@ extension _OpalBase.Network.Fulcrum {
                     options: .init(timeout: timeouts.transactionConfirmations)
                 )
                 
-                return try Data(hexadecimalString: rawTransactionHex)
+                let rawTransactionData = try Data(hexadecimalString: rawTransactionHex)
+                try validatePayloadHash(rawTransactionData, expected: transactionHash)
+                let (_, bytesRead) = try OpalBase.Transaction.decode(from: rawTransactionData)
+                guard bytesRead == rawTransactionData.count else {
+                    throw OpalBase.Network.Error(
+                        reason: .decoding,
+                        message: "Transaction payload has trailing bytes"
+                    )
+                }
+                return rawTransactionData
             }
         }
         

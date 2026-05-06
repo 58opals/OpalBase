@@ -45,7 +45,8 @@ enum CashFusionTestSupport {
         completionStatus: OpalFusion.Round.CompletionStatus? = nil,
         isConnected: Bool = true,
         lastError: OpalFusion.Client.Error? = nil,
-        lastErrorSummary: String? = nil
+        lastErrorSummary: String? = nil,
+        diagnostics: OpalFusion.Client.Diagnostics = .init()
     ) -> OpalFusion.Client.Session.Snapshot {
         let round: OpalFusion.Round.State
         if let completionStatus {
@@ -68,7 +69,8 @@ enum CashFusionTestSupport {
                 round: round
             ),
             lastError: lastError,
-            lastErrorSummary: lastErrorSummary
+            lastErrorSummary: lastErrorSummary,
+            diagnostics: diagnostics
         )
     }
 
@@ -156,17 +158,20 @@ actor CashFusionWrappedSessionCapture {
     private var configuration: OpalFusion.Client.Configuration?
     private var genesisHash: [UInt8]?
     private var joinPools: OpalFusion.ProtocolModel.JoinPools?
+    private var reconnectPolicy: OpalFusion.Client.ReconnectPolicy?
 
     func store(
         _ session: CashFusionFakeWrappedSession,
         configuration: OpalFusion.Client.Configuration,
         genesisHash: [UInt8]?,
-        joinPools: OpalFusion.ProtocolModel.JoinPools
+        joinPools: OpalFusion.ProtocolModel.JoinPools,
+        reconnectPolicy: OpalFusion.Client.ReconnectPolicy
     ) {
         self.session = session
         self.configuration = configuration
         self.genesisHash = genesisHash
         self.joinPools = joinPools
+        self.reconnectPolicy = reconnectPolicy
     }
 
     func load() -> CashFusionFakeWrappedSession? {
@@ -183,6 +188,10 @@ actor CashFusionWrappedSessionCapture {
 
     func loadJoinPools() -> OpalFusion.ProtocolModel.JoinPools? {
         joinPools
+    }
+
+    func loadReconnectPolicy() -> OpalFusion.Client.ReconnectPolicy? {
+        reconnectPolicy
     }
 }
 

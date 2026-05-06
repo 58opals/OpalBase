@@ -60,6 +60,38 @@ extension _OpalBase.Account {
             
             throw Error.coinSelectionFailed(OpalBase.Transaction.Error.insufficientFunds(required: requiredAdditionalAmount))
         }
+
+        do {
+            let evaluation = try OpalBase.Address.Book.CoinSelection.evaluate(
+                configuration: coinSelectionConfiguration,
+                total: totalSelectedAmount.uint64,
+                inputCount: heuristicallyOrderedInputs.count,
+                targetAmount: targetAmount.uint64,
+                recipientOutputs: organizedRecipientOutputs,
+                outputsWithChange: coinSelectionConfiguration.outputsWithChange,
+                minimumRelayFeeRate: OpalBase.Transaction.minimumRelayFeeRate,
+                feePerByte: feeRate
+            )
+            if evaluation == nil {
+                let feeWithoutChange = try OpalBase.Transaction.estimateFee(
+                    inputCount: heuristicallyOrderedInputs.count,
+                    outputs: organizedRecipientOutputs,
+                    feePerByte: feeRate
+                )
+                let requiredAmount = try targetAmount.uint64.addOrThrow(
+                    feeWithoutChange,
+                    overflowError: Error.paymentExceedsMaximumAmount
+                )
+                let requiredAdditionalAmount = requiredAmount > totalSelectedAmount.uint64
+                ? requiredAmount - totalSelectedAmount.uint64
+                : 0
+                throw Error.coinSelectionFailed(OpalBase.Transaction.Error.insufficientFunds(required: requiredAdditionalAmount))
+            }
+        } catch let error as Error {
+            throw error
+        } catch {
+            throw Error.coinSelectionFailed(error)
+        }
         
         let initialChangeAmount: OpalBase.Satoshi
         do {

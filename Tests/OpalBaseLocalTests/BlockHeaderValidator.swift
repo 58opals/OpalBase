@@ -88,7 +88,22 @@ struct BlockHeaderValidator {
                                          time: header.time,
                                          bits: header.bits,
                                          nonce: 0)
-        
+
         #expect(!invalidHeader.isProofOfWorkSatisfied)
     }
+
+    @Test("proof-of-work validation rejects overflowing compact targets")
+    func proofOfWorkValidationRejectsOverflowingCompactTargets() {
+        let header = OpalBase.Block.Header(
+            version: 1,
+            previousBlockHash: Data(repeating: 0x11, count: 32),
+            merkleRoot: Data(repeating: 0x22, count: 32),
+            time: 0,
+            bits: 0x23010000,
+            nonce: 0
+        )
+
+        #expect(!header.isProofOfWorkSatisfied)
+    }
+
 }

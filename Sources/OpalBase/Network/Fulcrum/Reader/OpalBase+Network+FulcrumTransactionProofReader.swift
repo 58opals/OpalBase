@@ -52,6 +52,7 @@ extension _OpalBase.Network.Fulcrum {
                         )
                     )
                 }
+                try Self.validateMerkleBranch(result.merkle)
                 
                 return OpalBase.Network.TransactionMerkleProof(
                     blockHeight: result.blockHeight,
@@ -73,11 +74,38 @@ extension _OpalBase.Network.Fulcrum {
                     shouldIncludeMerkleProof: shouldIncludeMerkleProof,
                     options: .init(timeout: timeouts.transactionPositionResolution)
                 )
+                try Self.validateMerkleBranch(result.merkle)
+                _ = try OpalBase.Network.decodeTransactionHash(
+                    from: result.transactionHash,
+                    label: "position transaction identifier"
+                )
                 
                 return OpalBase.Network.TransactionPositionResolution(
                     blockHeight: blockHeight,
                     transactionIdentifier: result.transactionHash,
                     merkle: result.merkle
+                )
+            }
+        }
+    }
+}
+
+private extension _OpalBase.Network.Fulcrum.TransactionProofReader {
+    static func validateMerkleBranch(_ branch: [String]) throws {
+        for (index, hashString) in branch.enumerated() {
+            let hashData: Data
+            do {
+                hashData = try Data(hexadecimalString: hashString)
+            } catch {
+                throw SwiftFulcrum.Client.Error.client(
+                    .protocolMismatch("Cannot decode merkle proof branch hash at index \(index).")
+                )
+            }
+            guard hashData.count == OpalBase.Transaction.Hash.expectedByteCount else {
+                throw SwiftFulcrum.Client.Error.client(
+                    .protocolMismatch(
+                        "Merkle proof branch hash length at index \(index): expected \(OpalBase.Transaction.Hash.expectedByteCount) bytes, got \(hashData.count)"
+                    )
                 )
             }
         }

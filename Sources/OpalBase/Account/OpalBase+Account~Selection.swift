@@ -61,8 +61,9 @@ extension _OpalBase.Account {
                                  feeRate: UInt64,
                                  shouldAllowDustDonation: Bool,
                                  changeLockingScript: Data) throws -> [OpalBase.Transaction.Output.Unspent] {
+        let existingInputSet = Set(existingInputs)
         let bchOnlyOutputs = unspentOutputs
-            .filter { $0.tokenData == nil }
+            .filter { $0.tokenData == nil && !existingInputSet.contains($0) }
             .sorted {
                 if $0.value == $1.value {
                     return $0.compareOrder(before: $1)
@@ -115,4 +116,3 @@ extension _OpalBase.Account {
         throw Error.tokenTransferInsufficientFunds(required: requiredAdditional)
     }
 }
-

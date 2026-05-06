@@ -26,6 +26,15 @@ extension _OpalBase.Account {
             case blameRequired
         }
 
+        public enum Activity: String, Sendable, Equatable {
+            case idle
+            case connecting
+            case running
+            case retrying
+            case failed
+            case stopped
+        }
+
         public enum LastError: String, Sendable, Equatable {
             case invalidConfiguration
             case transportUnavailable
@@ -62,17 +71,26 @@ extension _OpalBase.Account {
         public let round: Round?
         public let lastError: LastError?
         public let lastErrorSummary: String?
+        public let activity: Activity
+        public let retryAttempt: Int?
+        public let nextRetryDelayMilliseconds: Int?
 
         public init(
             isConnected: Bool,
             round: Round?,
             lastError: LastError?,
-            lastErrorSummary: String? = nil
+            lastErrorSummary: String? = nil,
+            activity: Activity = .idle,
+            retryAttempt: Int? = nil,
+            nextRetryDelayMilliseconds: Int? = nil
         ) {
             self.isConnected = isConnected
             self.round = round
             self.lastError = lastError
             self.lastErrorSummary = lastErrorSummary
+            self.activity = activity
+            self.retryAttempt = retryAttempt
+            self.nextRetryDelayMilliseconds = nextRetryDelayMilliseconds
         }
     }
 }
@@ -83,7 +101,10 @@ extension _OpalBase.Account.CashFusionSessionStatus {
             isConnected: snapshot.state.isConnected,
             round: snapshot.state.round.map(Self.makeRound(_:)),
             lastError: snapshot.lastError.map(Self.makeLastError(_:)),
-            lastErrorSummary: snapshot.lastErrorSummary
+            lastErrorSummary: snapshot.lastErrorSummary,
+            activity: Self.makeActivity(snapshot.diagnostics.activity),
+            retryAttempt: snapshot.diagnostics.retryAttempt,
+            nextRetryDelayMilliseconds: snapshot.diagnostics.nextRetryDelayMilliseconds
         )
     }
 
@@ -157,6 +178,25 @@ extension _OpalBase.Account.CashFusionSessionStatus {
             return .blameRequired
         case .notImplemented:
             return .notImplemented
+        }
+    }
+
+    private static func makeActivity(
+        _ activity: OpalFusion.Client.Diagnostics.Activity
+    ) -> OpalBase.Account.CashFusionSessionStatus.Activity {
+        switch activity {
+        case .idle:
+            return .idle
+        case .connecting:
+            return .connecting
+        case .running:
+            return .running
+        case .retrying:
+            return .retrying
+        case .failed:
+            return .failed
+        case .stopped:
+            return .stopped
         }
     }
 }

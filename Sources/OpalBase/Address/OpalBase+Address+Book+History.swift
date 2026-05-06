@@ -42,6 +42,7 @@ extension _OpalBase.Address.Book {
                                                        using: service,
                                                        includeUnconfirmed: includeUnconfirmed)
             }
+            try Self.validateConsistentHistoryEntries(in: usageResults)
             
             if let transactionReader {
                 let usageEntries = usageResults.flatMap(\.entries)
@@ -148,6 +149,31 @@ private extension _OpalBase.Address.Book {
                                                     entries: mappedEntries)
         } catch {
             throw OpalBase.Address.Book.Error.transactionHistoryRefreshFailed(address, error)
+        }
+    }
+
+    static func validateConsistentHistoryEntries(
+        in results: [OpalBase.Address.Book.History.QueryResult]
+    ) throws {
+        var entriesByTransactionHash: [OpalBase.Transaction.Hash: OpalBase.Transaction.History.Entry] = .init()
+
+        for result in results {
+            for entry in result.entries {
+                guard let existing = entriesByTransactionHash[entry.transactionHash] else {
+                    entriesByTransactionHash[entry.transactionHash] = entry
+                    continue
+                }
+
+                guard existing.height == entry.height else {
+                    throw OpalBase.Address.Book.Error.transactionHistoryRefreshFailed(
+                        result.address,
+                        OpalBase.Network.Error(
+                            reason: .protocolViolation,
+                            message: "History response contained conflicting transaction heights"
+                        )
+                    )
+                }
+            }
         }
     }
 }

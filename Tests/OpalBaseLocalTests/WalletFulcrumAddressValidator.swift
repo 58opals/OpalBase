@@ -226,6 +226,53 @@ struct WalletFulcrumAddressValidator {
         #expect(await account.loadTransactionHistory().isEmpty)
     }
 
+    @Test("refreshTransactionHistory rejects conflicting heights across wallet addresses")
+    func refreshTransactionHistoryRejectsConflictingHeightsAcrossWalletAddresses() async throws {
+        let account = try await AccountTestFixtures.makeAccount()
+        let firstEntry = try await account.reserveNextReceivingEntry()
+        let secondEntry = try await account.reserveNextReceivingEntry()
+        let hash = AccountTestFixtures.makeHash(byte: 0x39)
+        let unconfirmedEntry = OpalBase.Network.TransactionHistoryEntry(
+            transactionIdentifier: hash.reverseOrder.hexadecimalString,
+            blockHeight: -1,
+            fee: nil
+        )
+        let confirmedEntry = OpalBase.Network.TransactionHistoryEntry(
+            transactionIdentifier: hash.reverseOrder.hexadecimalString,
+            blockHeight: 7,
+            fee: nil
+        )
+        let addressReader = WalletAddressReaderTestActor(
+            historyByAddress: [
+                firstEntry.address.string: [unconfirmedEntry],
+                secondEntry.address.string: [confirmedEntry]
+            ]
+        )
+        let fulcrum = OpalBase.Wallet.Fulcrum(
+            addressReader: addressReader,
+            transactionHandler: TransactionConfirmationClientTestActor()
+        )
+
+        do {
+            _ = try await fulcrum.refreshTransactionHistory(
+                for: account,
+                usage: .receiving,
+                includeUnconfirmed: true
+            )
+            Issue.record("Expected conflicting cross-address history heights to fail")
+        } catch let error as OpalBase.Account.Error {
+            guard case .transactionHistoryRefreshFailed(_, let underlying) = error else {
+                Issue.record("Unexpected account error: \(error)")
+                return
+            }
+            let networkError = try #require(underlying as? OpalBase.Network.Error)
+            #expect(networkError.reason == .protocolViolation)
+            #expect(networkError.message == "History response contained conflicting transaction heights")
+        }
+
+        #expect(await account.loadTransactionHistory().isEmpty)
+    }
+
     @Test("updateTransactionConfirmations forwards explicit hashes")
     func updateTransactionConfirmationsForwardsHashes() async throws {
         let account = try await AccountTestFixtures.makeAccount()

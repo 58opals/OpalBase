@@ -45,6 +45,7 @@ extension _OpalBase.Wallet.Fulcrum {
         var activeEventStreamIdentifiers: Set<UUID>
         var isRunning: Bool
         var isFinished: Bool
+        var isManagedByEventStreams: Bool
 
         public init(account: OpalBase.Account,
                     addressReader: OpalBase.Network.AddressReader,
@@ -69,6 +70,7 @@ extension _OpalBase.Wallet.Fulcrum {
             self.activeEventStreamIdentifiers = .init()
             self.isRunning = false
             self.isFinished = false
+            self.isManagedByEventStreams = false
         }
 
         deinit {
@@ -84,8 +86,19 @@ extension _OpalBase.Wallet.Fulcrum {
         }
 
         public func start() async {
-            guard !isFinished, !isRunning else { return }
+            await start(shouldStopWhenStreamsEnd: false)
+        }
+
+        private func start(shouldStopWhenStreamsEnd: Bool) async {
+            guard !isFinished else { return }
+            if isRunning {
+                if shouldStopWhenStreamsEnd == false {
+                    isManagedByEventStreams = false
+                }
+                return
+            }
             isRunning = true
+            isManagedByEventStreams = shouldStopWhenStreamsEnd
 
             let existingEntries = await dependencies.account.listTrackedEntries()
             for entry in existingEntries {
@@ -123,7 +136,7 @@ extension _OpalBase.Wallet.Fulcrum {
                 return
             }
 
-            await start()
+            await start(shouldStopWhenStreamsEnd: true)
         }
 
         fileprivate func handleEventStreamTermination(
@@ -134,6 +147,9 @@ extension _OpalBase.Wallet.Fulcrum {
             await eventHub.removeContinuation(withIdentifier: identifier)
 
             guard activeEventStreamIdentifiers.isEmpty else {
+                return
+            }
+            guard isManagedByEventStreams else {
                 return
             }
 
@@ -153,6 +169,7 @@ extension _OpalBase.Wallet.Fulcrum {
 
             isFinished = true
             isRunning = false
+            isManagedByEventStreams = false
             activeEventStreamIdentifiers.removeAll()
             cancelSubscriptions()
             cancelEntryTask()

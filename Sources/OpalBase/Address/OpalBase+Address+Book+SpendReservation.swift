@@ -38,6 +38,14 @@ extension _OpalBase.Address.Book {
         }
         
         if let existingReservation = findMatchingReservation(for: utxoSet) {
+            let allowedUTXOs = utxoStore.filterUTXOs(
+                utxoStore.allUTXOs,
+                tokenSelectionPolicy: tokenSelectionPolicy
+            )
+            guard utxoSet.isSubset(of: allowedUTXOs) else {
+                throw OpalBase.Address.Book.Error.utxoNotFound
+            }
+
             let refreshedDate = Date.now
             let refreshedState = SpendReservation.State(utxos: existingReservation.state.utxos,
                                                         entry: existingReservation.state.entry,

@@ -448,6 +448,73 @@ struct WalletFulcrumAddressMonitorValidator {
         }
     }
 
+    @Test("passive event stream cancellation does not stop a manually started monitor")
+    func passiveEventStreamCancellationDoesNotStopManuallyStartedMonitor() async throws {
+        let account = try await AccountTestFixtures.makeAccount()
+        let targetEntry = try await account.selectNextEntry(for: .receiving)
+        let addressReader = WalletAddressReaderTestActor(
+            updatesByAddress: [
+                targetEntry.address.string: [.init(kind: .initialSnapshot, address: targetEntry.address.string, status: "ready")]
+            ]
+        )
+        let confirmationClient = TransactionConfirmationClientTestActor()
+        let headerReader = BlockHeaderReaderTestActor(
+            snapshots: [.init(height: 22, headerHexadecimal: String(repeating: "f", count: 160))]
+        )
+        let fulcrum = OpalBase.Wallet.Fulcrum(
+            addressReader: addressReader,
+            transactionHandler: confirmationClient
+        )
+        let monitor = await fulcrum.makeMonitor(
+            for: account,
+            blockHeaderReader: headerReader,
+            retryDelay: .milliseconds(10)
+        )
+
+        await monitor.start()
+        try await WalletFulcrumAddressMonitorSupport.waitUntil(
+            description: "manual monitor subscriptions started",
+            timeout: .seconds(20)
+        ) {
+            let subscribeRequests = await addressReader.readSubscribeRequests()
+            let subscriptionCount = await headerReader.readSubscriptionCount()
+            return !subscribeRequests.isEmpty && subscriptionCount > 0
+        }
+
+        let stream = await monitor.makeEventStream(autoStart: false)
+        let collector = Task {
+            do {
+                for try await _ in stream { }
+            } catch { }
+        }
+        await Task.yield()
+        collector.cancel()
+        _ = await collector.result
+
+        try await WalletFulcrumAddressMonitorSupport.waitUntil(
+            description: "passive stream detached",
+            timeout: .seconds(20)
+        ) {
+            await monitor.activeEventStreamIdentifiers.isEmpty
+        }
+
+        #expect(await monitor.isFinished == false)
+        #expect(await monitor.addressSubscriptions.isEmpty == false)
+        #expect(await monitor.headerTask != nil)
+        #expect(await addressReader.readSubscriptionTerminationCount(for: targetEntry.address.string) == 0)
+        #expect(await headerReader.readTerminationCount() == 0)
+
+        await monitor.stop()
+        try await WalletFulcrumAddressMonitorSupport.waitUntil(
+            description: "manual monitor subscriptions stopped",
+            timeout: .seconds(20)
+        ) {
+            let addressTerminations = await addressReader.readSubscriptionTerminationCount(for: targetEntry.address.string)
+            let tipTerminations = await headerReader.readTerminationCount()
+            return addressTerminations > 0 && tipTerminations > 0
+        }
+    }
+
     @Test("monitor deinit cancels address and header subscriptions without explicit stop")
     func monitorDeinitCancelsSubscriptions() async throws {
         let account = try await AccountTestFixtures.makeAccount()

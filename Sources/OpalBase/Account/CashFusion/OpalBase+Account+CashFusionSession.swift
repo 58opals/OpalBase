@@ -54,7 +54,9 @@ extension _OpalBase.Account {
                 return
             }
 
-            if snapshot.lastError != nil, snapshot.state.round == nil {
+            if snapshot.lastError != nil,
+               snapshot.state.round == nil,
+               isRetryingPreRoundTransportFailure(snapshot) == false {
                 await finalize(with: .failed)
                 return
             }
@@ -72,6 +74,13 @@ extension _OpalBase.Account {
             default:
                 await finalize(with: .failed)
             }
+        }
+
+        private func isRetryingPreRoundTransportFailure(
+            _ snapshot: OpalFusion.Client.Session.Snapshot
+        ) -> Bool {
+            snapshot.lastError == .transportUnavailable &&
+                snapshot.diagnostics.activity == .retrying
         }
 
         private func finalize(with outcome: TerminalOutcome) async {

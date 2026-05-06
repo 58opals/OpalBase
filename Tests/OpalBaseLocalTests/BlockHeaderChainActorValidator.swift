@@ -121,6 +121,32 @@ struct BlockHeaderChainActorValidator {
         #expect(await chain.dequeueMaintenanceEvents().isEmpty)
     }
 
+    @Test("apply rejects headers below a nonzero checkpoint")
+    func applyRejectsHeadersBelowNonzeroCheckpoint() async throws {
+        let checkpointHeader = try Self.makeSatisfiedHeader(previousBlockHash: Data(repeating: 0x00, count: 32), seed: 24)
+        let chain = OpalBase.Block.Header.ChainActor(checkpointHeight: 10, checkpointHash: checkpointHeader.proofOfWorkHash)
+
+        let earlierHeader = try Self.makeSatisfiedHeader(previousBlockHash: Data(repeating: 0x99, count: 32), seed: 25)
+
+        do {
+            _ = try await chain.apply(header: earlierHeader, at: 9)
+            Issue.record("Expected below-checkpoint header to be rejected")
+        } catch let error as OpalBase.Block.Header.ChainActor.Error {
+            guard case .checkpointViolation(let expected, let actual) = error else {
+                Issue.record("Expected checkpointViolation, got: \(error)")
+                return
+            }
+            #expect(expected == .init(height: 10, hash: checkpointHeader.proofOfWorkHash))
+            #expect(actual == .init(height: 9, hash: earlierHeader.proofOfWorkHash))
+        } catch {
+            Issue.record("Unexpected error: \(error)")
+        }
+
+        #expect(await chain.currentTip == .init(height: 10, hash: checkpointHeader.proofOfWorkHash))
+        #expect(await chain.lookupHeader(at: 9) == nil)
+        #expect(await chain.lookupHash(at: 9) == nil)
+    }
+
     @Test("apply queues resynchronization without accepting a gap header")
     func applyQueuesResynchronizationWithoutAcceptingGapHeader() async throws {
         let checkpointHeader = try Self.makeSatisfiedHeader(previousBlockHash: Data(repeating: 0x00, count: 32), seed: 30)
@@ -134,6 +160,7 @@ struct BlockHeaderChainActorValidator {
         #expect(result.detachedHeights.isEmpty)
         #expect(result.newTip == .init(height: 0, hash: checkpointHeader.proofOfWorkHash))
         #expect(await chain.currentTip == .init(height: 0, hash: checkpointHeader.proofOfWorkHash))
+        #expect(await chain.lookupHeader(at: 0) == checkpointHeader)
         #expect(await chain.lookupHeader(at: 3) == nil)
         #expect(events == [.requiresResynchronization(from: .init(height: 3, hash: gapHeader.proofOfWorkHash))])
     }
