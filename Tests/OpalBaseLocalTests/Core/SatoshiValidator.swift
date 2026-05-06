@@ -147,5 +147,11 @@ struct SatoshiValidator {
             _ = try OpalBase.Satoshi(bch: 0.000000015)
         }
     }
-}
 
+    @Test("initialization from BCH rejects values above maximum supply before rounding")
+    func initializeFromBCHRejectsValuesAboveMaximumSupplyBeforeRounding() throws {
+        #expect(throws: OpalBase.Satoshi.Error.exceedsMaximumAmount) {
+            _ = try OpalBase.Satoshi(bch: 21_000_000.000000004)
+        }
+    }
+}

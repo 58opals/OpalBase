@@ -15,6 +15,7 @@ extension _OpalBase.Account {
         
         for unspentOutput in unspentOutputs {
             guard let tokenData = unspentOutput.tokenData else { continue }
+            guard tokenData.category == requirements.category else { continue }
             var shouldSelect = false
             if remainingFungible > 0, let amount = tokenData.amount, amount > 0 {
                 shouldSelect = true

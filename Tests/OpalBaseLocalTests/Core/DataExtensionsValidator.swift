@@ -22,12 +22,15 @@ struct DataExtensionsValidator {
     func hexadecimalInitializerDecodesValidStrings() throws {
         let lowercaseHexadecimal = "deadbeef"
         let prefixedUppercaseHexadecimal = "0xCAFEBABE"
+        let uppercasePrefixedHexadecimal = "0XDEADBEEF"
         
         let lowercaseData = try Data(hexadecimalString: lowercaseHexadecimal)
         let prefixedUppercaseData = try Data(hexadecimalString: prefixedUppercaseHexadecimal)
+        let uppercasePrefixedData = try Data(hexadecimalString: uppercasePrefixedHexadecimal)
         
         #expect(lowercaseData == Data([0xde, 0xad, 0xbe, 0xef]))
         #expect(prefixedUppercaseData == Data([0xca, 0xfe, 0xba, 0xbe]))
+        #expect(uppercasePrefixedData == Data([0xde, 0xad, 0xbe, 0xef]))
     }
     
     @Test("hexadecimal initializer rejects malformed strings")

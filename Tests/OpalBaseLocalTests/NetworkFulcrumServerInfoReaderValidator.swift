@@ -49,6 +49,8 @@ struct NetworkFulcrumServerInfoReaderValidator {
         #expect(OpalBase.Network.ProtocolVersion(string: "1.x.2") == nil)
         #expect(OpalBase.Network.ProtocolVersion(string: "1..2") == nil)
         #expect(OpalBase.Network.ProtocolVersion(string: "1.2.") == nil)
+        #expect(OpalBase.Network.ProtocolVersion(string: "+1.2") == nil)
+        #expect(OpalBase.Network.ProtocolVersion(string: "1.+2") == nil)
     }
 
     @Test("translates timeout failures for server info requests")

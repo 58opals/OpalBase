@@ -27,6 +27,7 @@ extension OpalBase {
             let scaledValue = bch * Double(OpalBase.Satoshi.perBCH)
             guard scaledValue.isFinite else { throw Error.exceedsMaximumAmount }
             guard scaledValue >= 0 else { throw Error.negativeResult }
+            guard scaledValue <= Double(OpalBase.Satoshi.maximumSatoshi) else { throw Error.exceedsMaximumAmount }
             
             let roundedValue = scaledValue.rounded()
             let roundingError = abs(roundedValue - scaledValue)
