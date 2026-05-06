@@ -82,6 +82,10 @@ extension _OpalBase.Network.ServerCatalog {
         guard let rawScheme = components.scheme?.lowercased() else {
             return nil
         }
+
+        guard let host = components.host, host.isEmpty == false else {
+            return nil
+        }
         
         let normalizedScheme: String
         switch rawScheme {

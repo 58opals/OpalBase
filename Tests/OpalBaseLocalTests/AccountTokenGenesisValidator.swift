@@ -211,6 +211,38 @@ struct AccountTokenGenesisValidator {
             try await addressBook.releaseSpendReservation(reservation, outcome: .cancelled)
         }
     }
+
+    @Test("BCH funding selection excludes the token genesis input")
+    func bchFundingSelectionExcludesTokenGenesisInput() async throws {
+        let account = try await makeAccount()
+        let addressBook = await account.addressBook
+        let changeEntry = try await addressBook.selectNextEntry(for: .change)
+        let genesisInput = try await addSpendableOutput(
+            to: account,
+            previousTransactionHash: OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0x58, count: 32)),
+            previousTransactionOutputIndex: 0,
+            value: 1_000
+        )
+        let fundingInput = try await addSpendableOutput(
+            to: account,
+            previousTransactionHash: OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0x59, count: 32)),
+            previousTransactionOutputIndex: 0,
+            value: 800
+        )
+        let recipientAddress = try OpalBase.Address("bitcoincash:zpm2qsznhks23z7629mms6s4cwef74vcwvrqekrq9w")
+        let output = OpalBase.Transaction.Output(value: 1_300, address: recipientAddress, tokenData: nil)
+
+        let selected = try await account.selectBCHInputs(
+            from: [genesisInput, fundingInput],
+            existingInputs: [genesisInput],
+            outputs: [output],
+            feeRate: 1,
+            shouldAllowDustDonation: true,
+            changeLockingScript: changeEntry.address.lockingScript.data
+        )
+
+        #expect(selected == [fundingInput])
+    }
 }
 
 private func makeAccount() async throws -> OpalBase.Account {

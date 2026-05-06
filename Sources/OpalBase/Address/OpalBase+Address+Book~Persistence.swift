@@ -248,17 +248,24 @@ extension _OpalBase.Address.Book {
                 guard let proof,
                       transaction.status == .confirmed,
                       let confirmationHeight = transaction.confirmationHeight,
-                      UInt64(proof.blockHeight) == confirmationHeight else {
+                      UInt64(proof.blockHeight) == confirmationHeight,
+                      transaction.lastVerifiedHeight != nil,
+                      transaction.lastCheckedAt != nil else {
                     throw OpalBase.Address.Book.Error.invalidSnapshotVerificationState
                 }
             }
             switch transaction.status {
             case .confirmed:
-                if transaction.confirmationHeight == nil || transaction.confirmedAt == nil {
+                guard let confirmationHeight = transaction.confirmationHeight,
+                      transaction.confirmedAt != nil,
+                      let chainHeight = UInt64(exactly: transaction.height),
+                      chainHeight == confirmationHeight else {
                     throw OpalBase.Address.Book.Error.invalidSnapshotConfirmationState
                 }
             case .discovered, .pending, .failed:
-                if transaction.confirmationHeight != nil || transaction.confirmedAt != nil {
+                if transaction.height > 0 ||
+                    transaction.confirmationHeight != nil ||
+                    transaction.confirmedAt != nil {
                     throw OpalBase.Address.Book.Error.invalidSnapshotConfirmationState
                 }
             }

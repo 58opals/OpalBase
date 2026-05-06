@@ -278,7 +278,7 @@ private extension _OpalBase.Storage {
         case .insufficientProtection:
             return true
         case .encryptionFailure(let underlying):
-            return security.checkSecureEnclaveErrorRecoverability(underlying)
+            return checkCiphertextErrorRecoverability(underlying)
         case .decryptionFailure:
             return false
         }

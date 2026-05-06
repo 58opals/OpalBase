@@ -24,6 +24,104 @@ struct AccountCashFusionSessionValidator {
         )
     }
 
+    @Test("retrying non-transport pre-round failure releases reservations")
+    func retryingNonTransportPreRoundFailureReleasesReservations() async throws {
+        try await assertPreRoundFatalFailureReleasesReservation(
+            lastError: .invalidConfiguration,
+            diagnostics: .init(
+                activity: .retrying,
+                retryAttempt: 1,
+                nextRetryDelayMilliseconds: 10
+            ),
+            hashByte: 0xE1
+        )
+    }
+
+    @Test("retrying pre-round transport failure keeps reservations active")
+    func retryingPreRoundTransportFailureKeepsReservationsActive() async throws {
+        let account = try await AccountTestFixtures.makeAccount()
+        let selectedInput = try await CashFusionTestSupport.makeWalletOwnedUnspentOutput(
+            to: account,
+            value: 170_000,
+            usage: .change,
+            hashByte: 0xE0
+        )
+        let capture = CashFusionWrappedSessionCapture()
+        let session = try await makeSession(
+            account: account,
+            selectedInput: selectedInput,
+            capture: capture
+        )
+        let reservation = await session.reservation
+        let fakeSession = try #require(await capture.load())
+
+        await session.start()
+        await fakeSession.emit(
+            snapshot: .init(
+                state: .init(
+                    isConnected: false,
+                    round: nil
+                ),
+                lastError: .transportUnavailable,
+                lastErrorSummary: "Primary connection failed",
+                diagnostics: .init(
+                    activity: .retrying,
+                    retryAttempt: 1,
+                    nextRetryDelayMilliseconds: 10,
+                    primaryFailureCategory: .transportUnavailable,
+                    primaryFailureSummary: "Primary connection failed"
+                )
+            )
+        )
+
+        #expect(await fakeSession.readStartCount() == 1)
+        #expect(await fakeSession.readStopCount() == 0)
+        try await assertReceivingEntries(
+            reservation.reservedReceivingEntries,
+            on: account,
+            expectedUsed: true,
+            expectedReserved: true
+        )
+        let addressBook = await account.addressBook
+        #expect(await addressBook.listSpendableUTXOs().contains(selectedInput) == false)
+
+        await fakeSession.emit(
+            snapshot: .init(
+                state: .init(
+                    isConnected: true,
+                    round: nil
+                ),
+                diagnostics: .init(activity: .running)
+            )
+        )
+
+        #expect(await fakeSession.readStopCount() == 0)
+        try await assertReceivingEntries(
+            reservation.reservedReceivingEntries,
+            on: account,
+            expectedUsed: true,
+            expectedReserved: true
+        )
+
+        await fakeSession.emit(
+            snapshot: CashFusionTestSupport.makeSnapshot(
+                phase: .completed,
+                completionStatus: .success,
+                diagnostics: .init(activity: .running)
+            )
+        )
+
+        #expect(await fakeSession.readStopCount() == 1)
+        try await assertReceivingEntries(
+            reservation.reservedReceivingEntries,
+            on: account,
+            expectedUsed: true,
+            expectedReserved: false
+        )
+        #expect(await addressBook.listUTXOs().contains(selectedInput) == false)
+        #expect(await addressBook.listSpendableUTXOs().contains(selectedInput) == false)
+    }
+
     @Test("successful terminal snapshot completes reservations")
     func successfulTerminalSnapshotCompletesReservations() async throws {
         let account = try await AccountTestFixtures.makeAccount()
@@ -459,6 +557,35 @@ struct AccountCashFusionSessionValidator {
         await session.stop()
     }
 
+    @Test("makePublicStatus maps retry diagnostics")
+    func makePublicStatusMapsRetryDiagnostics() {
+        let publicStatus = OpalBase.Account.CashFusionSessionStatus(
+            snapshot: .init(
+                state: .init(
+                    isConnected: false,
+                    round: nil
+                ),
+                lastError: .transportUnavailable,
+                lastErrorSummary: "Primary connection failed",
+                diagnostics: .init(
+                    activity: .retrying,
+                    retryAttempt: 2,
+                    nextRetryDelayMilliseconds: 4_500,
+                    primaryFailureCategory: .transportUnavailable,
+                    primaryFailureSummary: "Primary connection failed"
+                )
+            )
+        )
+
+        #expect(publicStatus.isConnected == false)
+        #expect(publicStatus.round == nil)
+        #expect(publicStatus.lastError == .transportUnavailable)
+        #expect(publicStatus.lastErrorSummary == "Primary connection failed")
+        #expect(publicStatus.activity == .retrying)
+        #expect(publicStatus.retryAttempt == 2)
+        #expect(publicStatus.nextRetryDelayMilliseconds == 4_500)
+    }
+
     @Test("prepareCashFusionSession maps coordinator TLS into wrapped client configuration")
     func prepareCashFusionSessionMapsCoordinatorTLSIntoWrappedClientConfiguration() async throws {
         try await assertWrappedClientConfiguration(
@@ -524,6 +651,7 @@ struct AccountCashFusionSessionValidator {
         let clientConfiguration = try #require(await capture.loadConfiguration())
         let torSocks5 = try #require(clientConfiguration.torSocks5)
         let joinPools = try #require(await capture.loadJoinPools())
+        let reconnectPolicy = try #require(await capture.loadReconnectPolicy())
 
         #expect(clientConfiguration.coordinatorHost == configuration.coordinator.host)
         #expect(clientConfiguration.coordinatorPort == configuration.coordinator.port)
@@ -545,6 +673,7 @@ struct AccountCashFusionSessionValidator {
         #expect(joinPools.tags.map(\.identifier) == configuration.joinPools.tags.map(\.identifier))
         #expect(joinPools.tags.map(\.limit) == configuration.joinPools.tags.map(\.limit))
         #expect(joinPools.tags.map(\.noIp) == configuration.joinPools.tags.map(\.noIp))
+        #expect(reconnectPolicy == .walletDefault)
 
         await session.stop()
     }
@@ -553,6 +682,7 @@ struct AccountCashFusionSessionValidator {
 private extension AccountCashFusionSessionValidator {
     func assertPreRoundFatalFailureReleasesReservation(
         lastError: OpalFusion.Client.Error,
+        diagnostics: OpalFusion.Client.Diagnostics = .init(),
         hashByte: UInt8
     ) async throws {
         let account = try await AccountTestFixtures.makeAccount()
@@ -578,7 +708,8 @@ private extension AccountCashFusionSessionValidator {
                     isConnected: false,
                     round: nil
                 ),
-                lastError: lastError
+                lastError: lastError,
+                diagnostics: diagnostics
             )
         )
 
@@ -606,7 +737,15 @@ private extension AccountCashFusionSessionValidator {
                 selectedInputs: [selectedInput],
                 outputAmounts: [try OpalBase.Satoshi(55_000)]
             ),
-            sessionFactory: { clientConfiguration, genesisHash, joinPools, _, _, _, wrappedStateObserver in
+            sessionFactory: {
+                clientConfiguration,
+                genesisHash,
+                joinPools,
+                _,
+                _,
+                _,
+                wrappedStateObserver,
+                reconnectPolicy in
                 let session = CashFusionFakeWrappedSession(
                     stateObserver: wrappedStateObserver
                 )
@@ -614,7 +753,8 @@ private extension AccountCashFusionSessionValidator {
                     session,
                     configuration: clientConfiguration,
                     genesisHash: genesisHash,
-                    joinPools: joinPools
+                    joinPools: joinPools,
+                    reconnectPolicy: reconnectPolicy
                 )
                 return session
             }

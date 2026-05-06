@@ -191,6 +191,20 @@ struct NetworkServerCatalogValidator {
             URL(string: "ws://insecure-default.example.com")!
         ])
     }
+
+    @Test("normalization rejects websocket URLs without hosts")
+    func normalizationRejectsWebSocketURLsWithoutHosts() {
+        let rawServers = [
+            URL(string: "wss:///missing-host")!,
+            URL(string: "ws://")!,
+            URL(string: "https:/missing-host")!,
+            URL(string: "wss://valid.example.com:50004")!
+        ]
+
+        let normalized = OpalBase.Network.ServerCatalog.makeNormalizedServers(rawServers)
+
+        #expect(normalized == [URL(string: "wss://valid.example.com:50004")!])
+    }
     
     @Test("merged server catalogs preserve priority ordering and uniqueness")
     func mergedServersPreservePriorityOrdering() {

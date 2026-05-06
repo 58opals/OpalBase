@@ -45,4 +45,33 @@ extension AccountCommandValidator {
             Issue.record("Unexpected error: \(error)")
         }
     }
+
+    @Test("reserveSpend revalidates token policy when refreshing an existing reservation")
+    func reserveSpendRevalidatesTokenPolicyForExistingReservation() async throws {
+        let account = try await AccountTestFixtures.makeAccount()
+        let addressBook = await account.addressBook
+        let tokenUTXO = try await AccountTestFixtures.addUnspentOutput(
+            to: account,
+            value: 12_000,
+            tokenData: AddressBookCashTokensTestData.makeTokenData(),
+            hashByte: 0xE2
+        )
+        let changeEntry = try await addressBook.selectNextEntry(for: .change)
+
+        let tokenReservation = try await addressBook.reserveSpend(
+            utxos: [tokenUTXO],
+            changeEntry: changeEntry,
+            tokenSelectionPolicy: .allowTokenUTXOs
+        )
+
+        await #expect(throws: OpalBase.Address.Book.Error.utxoNotFound) {
+            _ = try await addressBook.reserveSpend(
+                utxos: [tokenUTXO],
+                changeEntry: changeEntry,
+                tokenSelectionPolicy: .excludeTokenUTXOs
+            )
+        }
+
+        try await addressBook.releaseSpendReservation(tokenReservation, outcome: .cancelled)
+    }
 }

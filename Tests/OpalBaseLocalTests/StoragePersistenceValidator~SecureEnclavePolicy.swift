@@ -49,6 +49,30 @@ extension StoragePersistenceValidator {
         #expect(try await storage.loadMnemonicState() == nil)
     }
 
+    @Test("legacy plaintext fallback handles wrapped protection-unavailable errors")
+    func legacyPlaintextFallbackHandlesWrappedProtectionUnavailable() async throws {
+        let valueClient = OpalBase.Storage.ValueClient.makeInMemory()
+        let security = OpalBase.Storage.Security(
+            encrypt: { _ in
+                throw OpalBase.Storage.Security.Error.protectionUnavailable
+            },
+            decrypt: { ciphertext in
+                ciphertext.payload
+            }
+        )
+        let storage = try OpalBase.Storage(valueClient: valueClient, security: security)
+
+        let protectionMode = try await storage.saveMnemonic(
+            Self.makeStoredMnemonic(passphrase: "wrapped-protection"),
+            policy: .legacyFallbackToPlaintext
+        )
+
+        #expect(protectionMode == .plaintext)
+        let restored = try #require(try await storage.loadMnemonicState())
+        #expect(restored.mnemonic.passphrase == "wrapped-protection")
+        #expect(restored.protectionMode == .plaintext)
+    }
+
     @Test("persistState(policy: .requireSecureEnclave) leaves no committed artifacts when protection fails")
     func persistStateRequireSecureEnclaveRollsBackStagedArtifacts() async throws {
         let storage = try OpalBase.Storage(valueClient: .makeInMemory(), security: .makePlaintextOnly())

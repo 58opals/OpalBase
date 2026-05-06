@@ -36,7 +36,8 @@ extension _OpalBase.Account {
             participantReservationSource,
             transactionAssembler,
             nil,
-            observerSink
+            observerSink,
+            .walletDefault
         )
         let session = CashFusionSession(
             reservation: reservation,
