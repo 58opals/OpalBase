@@ -64,6 +64,48 @@ struct BitcoinCashMetadataRegistryValidator {
         #expect(metadata.lastUpdated == expectedDate)
     }
 
+    @Test("latest metadata snapshot prefers dated keys over unparsable keys")
+    func latestMetadataSnapshotPrefersDatedKeysOverUnparsableKeys() throws {
+        let registries = BitcoinCashMetadataRegistryTestClient.makeRegistries()
+        let registry = OpalBase.CashTokens.BCMR.Client.Registry(
+            version: "1",
+            registryIdentity: nil,
+            identities: [
+                "example.identity": [
+                    "2024-01-01T00:00:00Z": .init(
+                        name: "Dated Token",
+                        description: nil,
+                        token: .init(
+                            category: BitcoinCashMetadataRegistryTestData.categoryHexadecimal,
+                            symbol: "DATED",
+                            decimals: 2
+                        ),
+                        uris: nil
+                    ),
+                    "zzzz": .init(
+                        name: "Undated Token",
+                        description: nil,
+                        token: .init(
+                            category: BitcoinCashMetadataRegistryTestData.categoryHexadecimal,
+                            symbol: "UNDATED",
+                            decimals: 0
+                        ),
+                        uris: nil
+                    )
+                ]
+            ]
+        )
+
+        let metadata = try #require(
+            registries.extractTokenMetadata(from: registry)[BitcoinCashMetadataRegistryTestData.categoryIdentifier]
+        )
+
+        #expect(metadata.name == "Dated Token")
+        #expect(metadata.symbol == "DATED")
+        #expect(metadata.decimals == 2)
+        #expect(metadata.lastUpdated == ISO8601DateFormatter().date(from: "2024-01-01T00:00:00Z"))
+    }
+
     @Test("registry fetcher rejects redirects to unsupported schemes")
     func registryFetcherRejectsRedirectsToUnsupportedSchemes() async throws {
         let configuration = URLSessionConfiguration.ephemeral

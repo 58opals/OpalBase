@@ -41,6 +41,7 @@ extension _OpalBase.Address.Book {
             transactionHash: OpalBase.Transaction.Hash,
             outputIndex: UInt32
         )
+        case invalidSnapshotUTXOLockingScript(Data)
         case invalidSnapshotDuplicateTransaction(OpalBase.Transaction.Hash)
         case invalidSnapshotTransactionHashLength(expected: Int, actual: Int)
         case invalidSnapshotScriptHashLength(expected: Int, actual: Int)
@@ -101,6 +102,9 @@ extension _OpalBase.Address.Book.Error: Equatable {
         case (.invalidSnapshotDuplicateUTXO(let leftHash, let leftIndex),
               .invalidSnapshotDuplicateUTXO(let rightHash, let rightIndex)):
             return leftHash == rightHash && leftIndex == rightIndex
+        case (.invalidSnapshotUTXOLockingScript(let leftLockingScript),
+              .invalidSnapshotUTXOLockingScript(let rightLockingScript)):
+            return leftLockingScript == rightLockingScript
         case (.invalidSnapshotDuplicateTransaction(let leftHash),
               .invalidSnapshotDuplicateTransaction(let rightHash)):
             return leftHash == rightHash

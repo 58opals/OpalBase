@@ -102,6 +102,22 @@ struct PublicAPISmokeValidator {
         #expect(sessionStatus.round?.phase == .connecting)
         #expect(sessionStatus.lastError == nil)
         #expect(sessionStatus.lastErrorSummary == nil)
+
+        let coordinatorStatus = OpalBase.Account.CashFusionSessionStatus.CoordinatorStatus(
+            updateSequence: 4,
+            latestMessageKind: "TierStatusUpdate",
+            latestMessagePayloadByteCount: 24,
+            queueStatus: .init(
+                tierSatoshis: 100_000,
+                playerCount: 3,
+                minimumPlayerCount: 2,
+                maximumPlayerCount: 8,
+                timeRemainingSeconds: 17
+            )
+        )
+
+        #expect(coordinatorStatus.queueStatus?.tierSatoshis == 100_000)
+        #expect(coordinatorStatus.queueStatus?.playerCount == 3)
     }
 
     @Test("cash fusion coordinator configuration exposes TLS default and override")

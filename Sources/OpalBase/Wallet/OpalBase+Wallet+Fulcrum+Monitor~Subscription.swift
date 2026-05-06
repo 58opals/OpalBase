@@ -84,13 +84,13 @@ extension _OpalBase.Wallet.Fulcrum.Monitor {
                                                                                             using: dependencies.addressReader,
                                                                                             includeUnconfirmed: dependencies.shouldIncludeUnconfirmed,
                                                                                             transactionReader: dependencies.transactionReader)
+            if !historyChangeSet.isEmpty {
+                await dependencies.eventHub.publish(.historyChanged(historyChangeSet))
+            }
             let timestamp = Date.now
             let changeSet = try await dependencies.account.replaceUTXOs(for: address,
                                                                         with: utxos,
                                                                         timestamp: timestamp)
-            if !historyChangeSet.isEmpty {
-                await dependencies.eventHub.publish(.historyChanged(historyChangeSet))
-            }
             await dependencies.eventHub.publish(.utxosChanged(changeSet))
         } catch {
             await handleIncrementalFailure(for: address, error: error, dependencies: dependencies)

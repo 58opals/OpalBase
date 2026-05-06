@@ -1,12 +1,39 @@
 // SpendPlanBroadcastValidator.swift
 
 import Foundation
+import OpalCrypto
 import Testing
 import OpalBaseTestSupport
 @testable import OpalBase
 
 @Suite("Spend plan broadcast", .tags(.unit, .wallet, .transaction, .cashTokens))
 struct SpendPlanBroadcastValidator {
+    @Test("buildTransaction reports actual change when recipient matches reserved change")
+    func spendPlanBuildTransactionReportsActualChangeWhenRecipientMatchesReservedChange() async throws {
+        let account = try await makeAccountWithoutOutputRandomization()
+        let selectedInput = try await AccountTestFixtures.addUnspentOutput(
+            to: account,
+            value: 45_000,
+            hashByte: 0x70
+        )
+        let changeEntries = await account.addressBook.listEntries(for: .change)
+        let firstChange = try #require(changeEntries.first { $0.derivationPath.index == 0 })
+        let paymentAmount = try OpalBase.Satoshi(15_000)
+        let payment = OpalBase.Account.Payment(
+            recipients: [
+                .init(address: firstChange.address, amount: paymentAmount)
+            ]
+        )
+        let plan = try await account.prepareSpend(payment)
+
+        let result = try plan.buildTransaction()
+        let expectedChange = selectedInput.value - paymentAmount.uint64 - result.fee.uint64
+
+        #expect(expectedChange > paymentAmount.uint64)
+        #expect(result.change?.derivedAddress.address == firstChange.address)
+        #expect(result.change?.amount.uint64 == expectedChange)
+    }
+
     @Test("buildAndBroadcast completes spend reservations on success")
     func spendPlanBuildAndBroadcastCompletesReservation() async throws {
         let account = try await AccountTestFixtures.makeAccount()
@@ -145,6 +172,26 @@ struct SpendPlanBroadcastValidator {
         }
         try await failingPlan.cancelReservation()
     }
+}
+
+private func makeAccountWithoutOutputRandomization() async throws -> OpalBase.Account {
+    let rootExtendedPrivateKey = try OpalCrypto.Key.ExtendedPrivate.root(
+        seed: AccountTestFixtures.makeMnemonic().deriveSeed()
+    )
+    return try await OpalBase.Account(
+        rootExtendedPrivateKey: rootExtendedPrivateKey,
+        purpose: .bip44,
+        coinType: .bitcoinCash,
+        account: .init(rawIndexInteger: 0),
+        privacyConfiguration: .init(
+            batchingIntervalRange: 0 ... 0,
+            operationJitterRange: 0 ... 0,
+            decoyQueryRange: 0 ... 0,
+            decoyProbability: 0,
+            shouldRandomizeUTXOOrdering: false,
+            shouldRandomizeRecipientOrdering: false
+        )
+    )
 }
 
 func expectedBroadcastHash(from broadcasts: [String]) throws -> OpalBase.Transaction.Hash {

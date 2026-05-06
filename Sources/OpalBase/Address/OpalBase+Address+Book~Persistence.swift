@@ -94,7 +94,13 @@ extension _OpalBase.Address.Book {
         try validateUniqueEntryIndices(in: snapshot.receivingEntries, usage: .receiving)
         try validateUniqueEntryIndices(in: snapshot.changeEntries, usage: .change)
         try validateEntryBalances(in: snapshot.receivingEntries + snapshot.changeEntries)
-        let restoredUTXOs = try makeRestoredUTXOs(from: snapshot.utxos)
+        let restoredEntryLockingScripts = try makeRestoredEntryLockingScripts(
+            from: snapshot.receivingEntries + snapshot.changeEntries
+        )
+        let restoredUTXOs = try makeRestoredUTXOs(
+            from: snapshot.utxos,
+            restoredEntryLockingScripts: restoredEntryLockingScripts
+        )
         let restoredTransactions = try makeRestoredTransactionRecords(from: snapshot.transactions)
 
         inventory = .init(cacheValidityDuration: inventory.cacheValidityDuration)
@@ -156,7 +162,24 @@ extension _OpalBase.Address.Book {
         }
     }
 
-    private func makeRestoredUTXOs(from snapshots: [Snapshot.UTXO]) throws -> [OpalBase.Transaction.Output.Unspent] {
+    private func makeRestoredEntryLockingScripts(
+        from entries: [Snapshot.Entry]
+    ) throws -> Set<Data> {
+        var lockingScripts: Set<Data> = .init()
+        lockingScripts.reserveCapacity(entries.count)
+
+        for entry in entries {
+            let address = try generateAddress(at: entry.index, for: entry.usage)
+            lockingScripts.insert(address.lockingScript.data)
+        }
+
+        return lockingScripts
+    }
+
+    private func makeRestoredUTXOs(
+        from snapshots: [Snapshot.UTXO],
+        restoredEntryLockingScripts: Set<Data>
+    ) throws -> [OpalBase.Transaction.Output.Unspent] {
         var restoredUTXOs: [OpalBase.Transaction.Output.Unspent] = .init()
         restoredUTXOs.reserveCapacity(snapshots.count)
         var seenOutpoints: Set<UTXORepository.Outpoint> = .init()
@@ -178,10 +201,14 @@ extension _OpalBase.Address.Book {
                     actual: transactionHashData.count
                 )
             }
+            let lockingScript = try Data(hexadecimalString: snapshot.lockingScript)
+            guard restoredEntryLockingScripts.contains(lockingScript) else {
+                throw OpalBase.Address.Book.Error.invalidSnapshotUTXOLockingScript(lockingScript)
+            }
             let transactionHash = OpalBase.Transaction.Hash(naturalOrder: transactionHashData)
             let utxo = OpalBase.Transaction.Output.Unspent(
                 value: snapshot.value,
-                lockingScript: try Data(hexadecimalString: snapshot.lockingScript),
+                lockingScript: lockingScript,
                 tokenData: tokenData,
                 previousTransactionHash: transactionHash,
                 previousTransactionOutputIndex: snapshot.outputIndex

@@ -56,10 +56,23 @@ extension _OpalBase.Account {
         } catch {
             throw Error.paymentExceedsMaximumAmount
         }
+
+        let recipientTotal = try recipientOutputs.sumSatoshi(or: Error.paymentExceedsMaximumAmount) {
+            try OpalBase.Satoshi($0.value)
+        }
+
+        let bchChangeAmount: OpalBase.Satoshi
+        do {
+            bchChangeAmount = try totalOutput - recipientTotal
+        } catch {
+            throw mapBuildError(error)
+        }
         
         let change: SpendPlan.TransactionResult.Change?
         do {
-            change = try findBCHChange(in: transaction, changeEntry: changeEntry)
+            change = try findBCHChange(in: transaction,
+                                       changeEntry: changeEntry,
+                                       amount: bchChangeAmount)
         } catch {
             throw mapBuildError(error)
         }
@@ -69,16 +82,21 @@ extension _OpalBase.Account {
     
     private static func findBCHChange(
         in transaction: OpalBase.Transaction,
-        changeEntry: OpalBase.Address.Book.Entry
+        changeEntry: OpalBase.Address.Book.Entry,
+        amount: OpalBase.Satoshi
     ) throws -> SpendPlan.TransactionResult.Change? {
+        guard amount.uint64 > 0 else { return nil }
+
         let lockingScript = changeEntry.address.lockingScript.data
         
-        guard let output = transaction.outputs.first(where: {
-            $0.lockingScript == lockingScript && $0.tokenData == nil && $0.value > 0
+        guard transaction.outputs.contains(where: {
+            $0.lockingScript == lockingScript
+                && $0.tokenData == nil
+                && $0.value == amount.uint64
         }) else {
-            return nil
+            throw OpalBase.Transaction.Error.cannotCreateTransaction
         }
         
-        return .init(entry: changeEntry, amount: try OpalBase.Satoshi(output.value))
+        return .init(entry: changeEntry, amount: amount)
     }
 }

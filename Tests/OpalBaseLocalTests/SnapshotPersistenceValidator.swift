@@ -319,6 +319,59 @@ struct SnapshotPersistenceValidator {
         #expect(try await book.readCachedBalance(for: entry.address) == OpalBase.Satoshi(1_234))
     }
 
+    @Test("address book restore rejects untracked UTXO locking scripts before mutation")
+    func addressBookRestoreRejectsUntrackedUTXOLockingScriptsBeforeMutation() async throws {
+        let account = try await AccountTestFixtures.makeAccount(unhardenedIndex: 0)
+        let foreignAccount = try await AccountTestFixtures.makeAccount(unhardenedIndex: 1)
+        let book = await account.addressBook
+        let foreignBook = await foreignAccount.addressBook
+        let entry = try #require(await book.listEntries(for: .receiving).first)
+        let foreignEntry = try #require(await foreignBook.listEntries(for: .receiving).first)
+        try await book.updateCachedBalance(
+            for: entry.address,
+            balance: try OpalBase.Satoshi(1_234),
+            timestamp: .now
+        )
+
+        let snapshot = await book.makeSnapshot()
+        let alteredReceivingEntries = snapshot.receivingEntries.map { snapshotEntry in
+            OpalBase.Address.Book.Snapshot.Entry(
+                usage: snapshotEntry.usage,
+                index: snapshotEntry.index,
+                isUsed: snapshotEntry.isUsed,
+                isReserved: snapshotEntry.isReserved,
+                balance: snapshotEntry.index == entry.derivationPath.index ? 9_999 : snapshotEntry.balance,
+                lastUpdated: snapshotEntry.lastUpdated
+            )
+        }
+        let foreignUTXO = OpalBase.Address.Book.Snapshot.UTXO(
+            value: 500,
+            lockingScript: foreignEntry.address.lockingScript.data.hexadecimalString,
+            tokenCategory: nil,
+            tokenAmount: nil,
+            nftCapability: nil,
+            nftCommitment: nil,
+            transactionHash: String(repeating: "1", count: 64),
+            outputIndex: 0
+        )
+        let malformedSnapshot = OpalBase.Address.Book.Snapshot(
+            receivingEntries: alteredReceivingEntries,
+            changeEntries: snapshot.changeEntries,
+            utxos: [foreignUTXO],
+            transactions: snapshot.transactions
+        )
+
+        await #expect(
+            throws: OpalBase.Address.Book.Error.invalidSnapshotUTXOLockingScript(
+                foreignEntry.address.lockingScript.data
+            )
+        ) {
+            try await book.refresh(with: malformedSnapshot)
+        }
+        #expect(try await book.readCachedBalance(for: entry.address) == OpalBase.Satoshi(1_234))
+        #expect(await book.listSpendableUTXOs().isEmpty)
+    }
+
     @Test("address book restore rejects UTXO values above maximum supply before mutation")
     func addressBookRestoreRejectsOversizedUTXOValuesBeforeMutation() async throws {
         let account = try await AccountTestFixtures.makeAccount()

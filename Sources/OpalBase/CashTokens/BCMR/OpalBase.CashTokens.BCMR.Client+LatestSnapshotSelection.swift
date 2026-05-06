@@ -76,12 +76,19 @@ private extension OpalBase.CashTokens.BCMR.Client {
     }
     
     func compareSnapshotKeys(_ left: String, laterThan right: String) -> Bool {
-        if let leftDate = parseSnapshotDate(from: left),
-           let rightDate = parseSnapshotDate(from: right) {
+        let leftDate = parseSnapshotDate(from: left)
+        let rightDate = parseSnapshotDate(from: right)
+
+        switch (leftDate, rightDate) {
+        case (.some(let leftDate), .some(let rightDate)):
             return leftDate > rightDate
+        case (.some, .none):
+            return true
+        case (.none, .some):
+            return false
+        case (.none, .none):
+            return left > right
         }
-        
-        return left > right
     }
     
     func parseSnapshotDate(from snapshotKey: String) -> Date? {
@@ -95,4 +102,3 @@ private extension OpalBase.CashTokens.BCMR.Client {
         return formatter.date(from: snapshotKey)
     }
 }
-

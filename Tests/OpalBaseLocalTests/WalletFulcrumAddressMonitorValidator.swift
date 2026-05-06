@@ -141,6 +141,74 @@ struct WalletFulcrumAddressMonitorValidator {
         _ = await collector.result
     }
 
+    @Test("monitor publishes history changes before UTXO replacement failures")
+    func monitorPublishesHistoryChangesBeforeUTXOReplacementFailures() async throws {
+        let account = try await AccountTestFixtures.makeAccount()
+        let targetEntry = try await account.selectNextEntry(for: .receiving)
+        let fundingHash = AccountTestFixtures.makeHash(byte: 0x83)
+        let invalidUnspentOutput = OpalBase.Transaction.Output.Unspent(
+            value: UInt64.max,
+            lockingScript: targetEntry.address.lockingScript.data,
+            previousTransactionHash: AccountTestFixtures.makeHash(byte: 0x84),
+            previousTransactionOutputIndex: 0
+        )
+
+        let addressReader = WalletAddressReaderTestActor(
+            unspentByAddress: [targetEntry.address.string: [invalidUnspentOutput]],
+            historyByAddress: [
+                targetEntry.address.string: [.init(transactionIdentifier: fundingHash.reverseOrder.hexadecimalString, blockHeight: 14, fee: nil)]
+            ],
+            updatesByAddress: [
+                targetEntry.address.string: [.init(kind: .initialSnapshot, address: targetEntry.address.string, status: "ready")]
+            ]
+        )
+        let confirmationClient = TransactionConfirmationClientTestActor()
+        let headerReader = BlockHeaderReaderTestActor(snapshots: .init())
+        let fulcrum = OpalBase.Wallet.Fulcrum(
+            addressReader: addressReader,
+            transactionHandler: confirmationClient
+        )
+        let monitor = await fulcrum.makeMonitor(
+            for: account,
+            blockHeaderReader: headerReader,
+            retryDelay: .milliseconds(10)
+        )
+        let stream = await monitor.makeEventStream(autoStart: true)
+        let recorder = WalletFulcrumAddressMonitorEventRecorderActor()
+        let collector = Task {
+            do {
+                for try await event in stream {
+                    await recorder.append(event)
+                }
+            } catch { }
+        }
+        do {
+            let events = try await WalletFulcrumAddressMonitorSupport.waitForEvents(
+                recorder,
+                description: "history before UTXO replacement failure",
+                timeout: .seconds(2)
+            ) { events in
+                WalletFulcrumAddressMonitorSupport.firstHistoryChangeIndex(events, containing: fundingHash) != nil &&
+                    WalletFulcrumAddressMonitorSupport.hasFailure(events, address: targetEntry.address)
+            }
+            let historyIndex = try #require(WalletFulcrumAddressMonitorSupport.firstHistoryChangeIndex(events, containing: fundingHash))
+            let failureIndex = try #require(events.firstIndex { if case .encounteredFailure = $0 { true } else { false } })
+            #expect(historyIndex < failureIndex)
+
+            let records = await account.loadTransactionHistory()
+            #expect(records.contains { $0.transactionHash == fundingHash })
+
+            await monitor.stop()
+        } catch {
+            await monitor.stop(reason: .cancelled)
+            collector.cancel()
+            _ = await collector.result
+            throw error
+        }
+        collector.cancel()
+        _ = await collector.result
+    }
+
     @Test("monitor falls back without partial UTXO event when history refresh fails")
     func monitorFallsBackWithoutPartialUTXOEventWhenHistoryRefreshFails() async throws {
         let account = try await AccountTestFixtures.makeAccount()

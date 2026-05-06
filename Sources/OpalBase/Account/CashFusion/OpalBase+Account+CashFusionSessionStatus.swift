@@ -67,6 +67,47 @@ extension _OpalBase.Account {
             }
         }
 
+        public struct CoordinatorStatus: Sendable, Equatable {
+            public struct QueueStatus: Sendable, Equatable {
+                public let tierSatoshis: UInt64
+                public let playerCount: UInt32?
+                public let minimumPlayerCount: UInt32?
+                public let maximumPlayerCount: UInt32?
+                public let timeRemainingSeconds: UInt32?
+
+                public init(
+                    tierSatoshis: UInt64,
+                    playerCount: UInt32? = nil,
+                    minimumPlayerCount: UInt32? = nil,
+                    maximumPlayerCount: UInt32? = nil,
+                    timeRemainingSeconds: UInt32? = nil
+                ) {
+                    self.tierSatoshis = tierSatoshis
+                    self.playerCount = playerCount
+                    self.minimumPlayerCount = minimumPlayerCount
+                    self.maximumPlayerCount = maximumPlayerCount
+                    self.timeRemainingSeconds = timeRemainingSeconds
+                }
+            }
+
+            public let updateSequence: UInt64
+            public let latestMessageKind: String?
+            public let latestMessagePayloadByteCount: Int?
+            public let queueStatus: QueueStatus?
+
+            public init(
+                updateSequence: UInt64 = 0,
+                latestMessageKind: String? = nil,
+                latestMessagePayloadByteCount: Int? = nil,
+                queueStatus: QueueStatus? = nil
+            ) {
+                self.updateSequence = updateSequence
+                self.latestMessageKind = latestMessageKind
+                self.latestMessagePayloadByteCount = latestMessagePayloadByteCount
+                self.queueStatus = queueStatus
+            }
+        }
+
         public let isConnected: Bool
         public let round: Round?
         public let lastError: LastError?
@@ -74,6 +115,7 @@ extension _OpalBase.Account {
         public let activity: Activity
         public let retryAttempt: Int?
         public let nextRetryDelayMilliseconds: Int?
+        public let coordinatorStatus: CoordinatorStatus
 
         public init(
             isConnected: Bool,
@@ -82,7 +124,8 @@ extension _OpalBase.Account {
             lastErrorSummary: String? = nil,
             activity: Activity = .idle,
             retryAttempt: Int? = nil,
-            nextRetryDelayMilliseconds: Int? = nil
+            nextRetryDelayMilliseconds: Int? = nil,
+            coordinatorStatus: CoordinatorStatus = .init()
         ) {
             self.isConnected = isConnected
             self.round = round
@@ -91,6 +134,7 @@ extension _OpalBase.Account {
             self.activity = activity
             self.retryAttempt = retryAttempt
             self.nextRetryDelayMilliseconds = nextRetryDelayMilliseconds
+            self.coordinatorStatus = coordinatorStatus
         }
     }
 }
@@ -104,7 +148,8 @@ extension _OpalBase.Account.CashFusionSessionStatus {
             lastErrorSummary: snapshot.lastErrorSummary,
             activity: Self.makeActivity(snapshot.diagnostics.activity),
             retryAttempt: snapshot.diagnostics.retryAttempt,
-            nextRetryDelayMilliseconds: snapshot.diagnostics.nextRetryDelayMilliseconds
+            nextRetryDelayMilliseconds: snapshot.diagnostics.nextRetryDelayMilliseconds,
+            coordinatorStatus: Self.makeCoordinatorStatus(snapshot.coordinatorStatus)
         )
     }
 
@@ -198,6 +243,29 @@ extension _OpalBase.Account.CashFusionSessionStatus {
         case .stopped:
             return .stopped
         }
+    }
+
+    private static func makeCoordinatorStatus(
+        _ coordinatorStatus: OpalFusion.Client.Session.Snapshot.CoordinatorStatus
+    ) -> OpalBase.Account.CashFusionSessionStatus.CoordinatorStatus {
+        .init(
+            updateSequence: coordinatorStatus.updateSequence,
+            latestMessageKind: coordinatorStatus.latestInboundMessageKind,
+            latestMessagePayloadByteCount: coordinatorStatus.latestInboundPayloadByteCount,
+            queueStatus: coordinatorStatus.queueStatus.map(Self.makeQueueStatus(_:))
+        )
+    }
+
+    private static func makeQueueStatus(
+        _ queueStatus: OpalFusion.Client.Session.Snapshot.CoordinatorStatus.QueueStatus
+    ) -> OpalBase.Account.CashFusionSessionStatus.CoordinatorStatus.QueueStatus {
+        .init(
+            tierSatoshis: queueStatus.tierSatoshis,
+            playerCount: queueStatus.players,
+            minimumPlayerCount: queueStatus.minPlayers,
+            maximumPlayerCount: queueStatus.maxPlayers,
+            timeRemainingSeconds: queueStatus.timeRemaining
+        )
     }
 }
 

@@ -586,6 +586,51 @@ struct AccountCashFusionSessionValidator {
         #expect(publicStatus.nextRetryDelayMilliseconds == 4_500)
     }
 
+    @Test("makePublicStatus maps coordinator queue status")
+    func makePublicStatusMapsCoordinatorQueueStatus() {
+        let publicStatus = OpalBase.Account.CashFusionSessionStatus(
+            snapshot: CashFusionTestSupport.makeSnapshot(
+                phase: .connecting,
+                coordinatorStatus: .init(
+                    updateSequence: 7,
+                    latestInboundMessageKind: "TierStatusUpdate",
+                    latestInboundPayloadByteCount: 24,
+                    queueStatus: .init(
+                        tierSatoshis: 100_000,
+                        players: 3,
+                        minPlayers: 2,
+                        maxPlayers: 8,
+                        timeRemaining: 17
+                    )
+                )
+            )
+        )
+
+        #expect(
+            publicStatus.coordinatorStatus == .init(
+                updateSequence: 7,
+                latestMessageKind: "TierStatusUpdate",
+                latestMessagePayloadByteCount: 24,
+                queueStatus: .init(
+                    tierSatoshis: 100_000,
+                    playerCount: 3,
+                    minimumPlayerCount: 2,
+                    maximumPlayerCount: 8,
+                    timeRemainingSeconds: 17
+                )
+            )
+        )
+    }
+
+    @Test("makePublicStatus maps empty coordinator status")
+    func makePublicStatusMapsEmptyCoordinatorStatus() {
+        let publicStatus = OpalBase.Account.CashFusionSessionStatus(
+            snapshot: .init()
+        )
+
+        #expect(publicStatus.coordinatorStatus == .init())
+    }
+
     @Test("prepareCashFusionSession maps coordinator TLS into wrapped client configuration")
     func prepareCashFusionSessionMapsCoordinatorTLSIntoWrappedClientConfiguration() async throws {
         try await assertWrappedClientConfiguration(

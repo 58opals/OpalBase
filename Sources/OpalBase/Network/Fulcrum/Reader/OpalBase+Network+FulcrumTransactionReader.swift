@@ -158,11 +158,25 @@ extension _OpalBase.Network.Fulcrum {
                 }
                 return .init(hex: result.hex,
                              blockhash: result.blockHash,
-                             blocktime: result.blocktime.flatMap(UInt32.init(exactly:)),
-                             confirmations: result.confirmations.flatMap(UInt32.init(exactly:)),
+                             blocktime: try Self.makeOptionalUInt32(result.blocktime, fieldName: "blocktime"),
+                             confirmations: try Self.makeOptionalUInt32(result.confirmations, fieldName: "confirmations"),
                              size: size,
-                             time: result.time.flatMap(UInt32.init(exactly:)))
+                             time: try Self.makeOptionalUInt32(result.time, fieldName: "time"))
             }
+        }
+
+        private static func makeOptionalUInt32(
+            _ value: UInt?,
+            fieldName: String
+        ) throws -> UInt32? {
+            guard let value else { return nil }
+            guard let converted = UInt32(exactly: value) else {
+                throw OpalBase.Network.Error(
+                    reason: .decoding,
+                    message: "Invalid transaction \(fieldName): \(value)"
+                )
+            }
+            return converted
         }
 
         private func fetchDetailedTransactionUsingVerboseResponse(

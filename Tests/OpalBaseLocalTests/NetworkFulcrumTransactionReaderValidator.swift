@@ -179,6 +179,33 @@ struct NetworkFulcrumTransactionReaderValidator {
         #expect(await client.readRawFetchCount() == 1)
     }
 
+    @Test("falls back to raw transaction fetch when verbose confirmations exceed supported range")
+    func fetchDetailedTransactionFallsBackToRawAfterOversizedVerboseConfirmations() async throws {
+        let fixture = try TransactionFixture.make()
+        let verboseResponse = try TransactionFixture.makeVerboseResponseWithUnsignedMetadata(
+            transactionHash: fixture.transactionHash.reverseOrder.hexadecimalString,
+            rawTransactionHexadecimal: fixture.rawTransactionHexadecimal,
+            blockHashHexadecimal: fixture.blockHashData.hexadecimalString,
+            blockTime: UInt(fixture.blockTime),
+            confirmations: UInt(UInt32.max) + 1,
+            transactionTime: UInt(fixture.transactionTime),
+            size: fixture.rawTransactionData.count
+        )
+        let client = TransactionReaderClientTestActor(
+            rawTransactionHex: fixture.rawTransactionHexadecimal,
+            verboseTransaction: verboseResponse
+        )
+        let reader = OpalBase.Network.Fulcrum.TransactionReader(client: client)
+
+        let detail = try await reader.fetchDetailedTransaction(for: fixture.transactionHash)
+
+        #expect(detail.rawTransactionData == fixture.rawTransactionData)
+        #expect(detail.confirmations == nil)
+        #expect(detail.blockHash == nil)
+        #expect(await client.readVerboseFetchCount() == 1)
+        #expect(await client.readRawFetchCount() == 1)
+    }
+
     @Test("fetchDetailedTransaction rejects transaction payload hash mismatches")
     func fetchDetailedTransactionRejectsPayloadHashMismatches() async throws {
         let fixture = try TransactionFixture.make()
@@ -430,6 +457,26 @@ private struct TransactionFixture {
         blockTime: UInt32?,
         confirmations: UInt32?,
         transactionTime: UInt32?,
+        size: Int
+    ) throws -> SwiftFulcrum.Response.Blockchain.Transaction.Get {
+        try makeVerboseResponseWithUnsignedMetadata(
+            transactionHash: transactionHash,
+            rawTransactionHexadecimal: rawTransactionHexadecimal,
+            blockHashHexadecimal: blockHashHexadecimal,
+            blockTime: blockTime.map(UInt.init),
+            confirmations: confirmations.map(UInt.init),
+            transactionTime: transactionTime.map(UInt.init),
+            size: size
+        )
+    }
+
+    static func makeVerboseResponseWithUnsignedMetadata(
+        transactionHash: String,
+        rawTransactionHexadecimal: String,
+        blockHashHexadecimal: String,
+        blockTime: UInt?,
+        confirmations: UInt?,
+        transactionTime: UInt?,
         size: Int
     ) throws -> SwiftFulcrum.Response.Blockchain.Transaction.Get {
         var payload: [String: Any] = [
