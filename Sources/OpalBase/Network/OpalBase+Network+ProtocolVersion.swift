@@ -20,6 +20,12 @@ extension _OpalBase.Network {
         
         public init?(string: String) {
             let rawComponents = string.split(separator: ".", omittingEmptySubsequences: false)
+            guard rawComponents.allSatisfy({ component in
+                !component.isEmpty
+                && component.unicodeScalars.allSatisfy { scalar in
+                    scalar.value >= 48 && scalar.value <= 57
+                }
+            }) else { return nil }
             let components = rawComponents.compactMap { Int($0) }
             guard components.count == rawComponents.count else { return nil }
             switch components.count {

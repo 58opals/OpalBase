@@ -7,6 +7,60 @@ import OpalBaseTestSupport
 
 @Suite("OpalBase.Account Token Spend", .tags(.unit, .wallet, .cashTokens))
 struct AccountTokenSpendValidator {
+    @Test("token input selection ignores fungible tokens from other categories")
+    func tokenInputSelectionIgnoresFungibleTokensFromOtherCategories() async throws {
+        let account = try await makeAccount()
+        let requestedCategory = try OpalBase.CashTokens.CategoryID(transactionOrderData: Data(repeating: 0xA1, count: 32))
+        let otherCategory = try OpalBase.CashTokens.CategoryID(transactionOrderData: Data(repeating: 0xB2, count: 32))
+        let wrongCategoryOutput = makeTokenUnspentOutput(
+            category: otherCategory,
+            amount: 100,
+            previousTransactionByte: 0x10
+        )
+        let requestedCategoryOutput = makeTokenUnspentOutput(
+            category: requestedCategory,
+            amount: 20,
+            previousTransactionByte: 0x11
+        )
+        let requirements = OpalBase.Account.TokenRequirements(
+            category: requestedCategory,
+            fungibleAmount: 10,
+            nonFungibleTokens: .init()
+        )
+
+        let selected = try await account.selectTokenInputs(
+            from: [wrongCategoryOutput, requestedCategoryOutput],
+            requirements: requirements
+        )
+
+        #expect(selected == [requestedCategoryOutput])
+    }
+
+    @Test("token inventory ignores fungible tokens from other categories")
+    func tokenInventoryIgnoresFungibleTokensFromOtherCategories() async throws {
+        let account = try await makeAccount()
+        let requestedCategory = try OpalBase.CashTokens.CategoryID(transactionOrderData: Data(repeating: 0xA1, count: 32))
+        let otherCategory = try OpalBase.CashTokens.CategoryID(transactionOrderData: Data(repeating: 0xB2, count: 32))
+        let requestedCategoryOutput = makeTokenUnspentOutput(
+            category: requestedCategory,
+            amount: 20,
+            previousTransactionByte: 0x11
+        )
+        let otherCategoryOutput = makeTokenUnspentOutput(
+            category: otherCategory,
+            amount: 100,
+            previousTransactionByte: 0x12
+        )
+
+        let inventory = try await account.makeTokenInventory(
+            from: [requestedCategoryOutput, otherCategoryOutput],
+            category: requestedCategory
+        )
+
+        #expect(inventory.fungibleAmount == 20)
+        #expect(inventory.nonFungibleTokens.isEmpty)
+    }
+
     @Test("prepareTokenSpend builds a multi-category plan with token change")
     func prepareTokenSpendBuildsMultiCategoryPlanWithTokenChange() async throws {
         let account = try await makeAccount()
@@ -187,6 +241,20 @@ struct AccountTokenSpendValidator {
 
 private func makeAccount() async throws -> OpalBase.Account {
     try await AccountTestFixtures.makeAccount()
+}
+
+private func makeTokenUnspentOutput(
+    category: OpalBase.CashTokens.CategoryID,
+    amount: UInt64,
+    previousTransactionByte: UInt8
+) -> OpalBase.Transaction.Output.Unspent {
+    OpalBase.Transaction.Output.Unspent(
+        value: 15_000,
+        lockingScript: Data([0x51]),
+        tokenData: OpalBase.CashTokens.TokenData(category: category, amount: amount, nft: nil),
+        previousTransactionHash: OpalBase.Transaction.Hash(naturalOrder: Data(repeating: previousTransactionByte, count: 32)),
+        previousTransactionOutputIndex: 0
+    )
 }
 
 private func addUnspentOutput(

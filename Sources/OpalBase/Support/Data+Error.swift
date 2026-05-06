@@ -15,7 +15,7 @@ extension Data {
         byteArray.reserveCapacity(hexadecimalString.unicodeScalars.lazy.underestimatedCount)
         
         var byteBuffer: UInt8?
-        var charactersToSkip = hexadecimalString.hasPrefix("0x") ? 2 : 0
+        var charactersToSkip = hexadecimalString.hasPrefix("0x") || hexadecimalString.hasPrefix("0X") ? 2 : 0
         for unicodeScalar in hexadecimalString.unicodeScalars.lazy {
             guard charactersToSkip == 0 else {
                 charactersToSkip -= 1

@@ -64,6 +64,7 @@ extension _OpalBase.Account {
         var nonFungibleTokens: [OpalBase.Address.Book.TokenInventory.NonFungibleTokenGroup: Int] = .init()
         for unspentOutput in unspentOutputs {
             guard let tokenData = unspentOutput.tokenData else { continue }
+            guard tokenData.category == category else { continue }
             if let amount = tokenData.amount {
                 fungibleAmount = try fungibleAmount.addOrThrow(amount,
                                                                overflowError: Error.paymentExceedsMaximumAmount)
