@@ -7,6 +7,8 @@ import OpalFusion
 extension _OpalBase.Account {
     enum CashFusionTransactionAssemblyError: Swift.Error, Equatable {
         case trailingUnsignedTransactionBytes
+        case inputCountMismatch(expected: Int, actual: Int)
+        case outputCountMismatch(expected: Int, actual: Int)
         case localInputMismatch
         case localInputOrderMismatch
     }
@@ -18,12 +20,26 @@ extension _OpalBase.Account {
             for roundIdentifier: OpalFusion.Round.Identifier,
             proposal: OpalFusion.Host.TransactionFinalizationProposal
         ) async throws -> OpalFusion.Host.FinalizedTransaction {
-            _ = roundIdentifier
+            _ = try await reservation.participantReservation(for: roundIdentifier)
 
             let serializedUnsignedTransaction = Data(proposal.unsignedTransactionBytes)
             let decoded = try OpalBase.Transaction.decode(from: serializedUnsignedTransaction)
             guard decoded.bytesRead == serializedUnsignedTransaction.count else {
                 throw CashFusionTransactionAssemblyError.trailingUnsignedTransactionBytes
+            }
+            if let expectedInputCount = proposal.expectedInputCount,
+               decoded.transaction.inputs.count != expectedInputCount {
+                throw CashFusionTransactionAssemblyError.inputCountMismatch(
+                    expected: expectedInputCount,
+                    actual: decoded.transaction.inputs.count
+                )
+            }
+            if let expectedOutputCount = proposal.expectedOutputCount,
+               decoded.transaction.outputs.count != expectedOutputCount {
+                throw CashFusionTransactionAssemblyError.outputCountMismatch(
+                    expected: expectedOutputCount,
+                    actual: decoded.transaction.outputs.count
+                )
             }
 
             let inputAssignments = try makeInputAssignments(for: decoded.transaction)

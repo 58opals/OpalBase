@@ -94,14 +94,17 @@ extension _OpalBase.Address.Book {
         try validateUniqueEntryIndices(in: snapshot.receivingEntries, usage: .receiving)
         try validateUniqueEntryIndices(in: snapshot.changeEntries, usage: .change)
         try validateEntryBalances(in: snapshot.receivingEntries + snapshot.changeEntries)
-        let restoredEntryLockingScripts = try makeRestoredEntryLockingScripts(
+        let restoredEntryReferences = try makeRestoredEntryReferences(
             from: snapshot.receivingEntries + snapshot.changeEntries
         )
         let restoredUTXOs = try makeRestoredUTXOs(
             from: snapshot.utxos,
-            restoredEntryLockingScripts: restoredEntryLockingScripts
+            restoredEntryLockingScripts: restoredEntryReferences.lockingScripts
         )
-        let restoredTransactions = try makeRestoredTransactionRecords(from: snapshot.transactions)
+        let restoredTransactions = try makeRestoredTransactionRecords(
+            from: snapshot.transactions,
+            restoredEntryScriptHashes: restoredEntryReferences.scriptHashes
+        )
 
         inventory = .init(cacheValidityDuration: inventory.cacheValidityDuration)
         try await restore(entrySnapshots: snapshot.receivingEntries, usage: .receiving)
@@ -162,18 +165,21 @@ extension _OpalBase.Address.Book {
         }
     }
 
-    private func makeRestoredEntryLockingScripts(
+    private func makeRestoredEntryReferences(
         from entries: [Snapshot.Entry]
-    ) throws -> Set<Data> {
+    ) throws -> (lockingScripts: Set<Data>, scriptHashes: Set<String>) {
         var lockingScripts: Set<Data> = .init()
+        var scriptHashes: Set<String> = .init()
         lockingScripts.reserveCapacity(entries.count)
+        scriptHashes.reserveCapacity(entries.count)
 
         for entry in entries {
             let address = try generateAddress(at: entry.index, for: entry.usage)
             lockingScripts.insert(address.lockingScript.data)
+            scriptHashes.insert(address.makeScriptHash().hexadecimalString)
         }
 
-        return lockingScripts
+        return (lockingScripts, scriptHashes)
     }
 
     private func makeRestoredUTXOs(
@@ -227,7 +233,8 @@ extension _OpalBase.Address.Book {
     }
 
     private func makeRestoredTransactionRecords(
-        from snapshots: [Snapshot.Transaction]
+        from snapshots: [Snapshot.Transaction],
+        restoredEntryScriptHashes: Set<String>
     ) throws -> [OpalBase.Transaction.History.Record] {
         var seenTransactionHashes: Set<OpalBase.Transaction.Hash> = .init()
         return try snapshots.map { transaction in
@@ -242,7 +249,10 @@ extension _OpalBase.Address.Book {
             guard seenTransactionHashes.insert(hash).inserted else {
                 throw OpalBase.Address.Book.Error.invalidSnapshotDuplicateTransaction(hash)
             }
-            try validateScriptHashes(in: transaction.scriptHashes)
+            try validateScriptHashes(
+                in: transaction.scriptHashes,
+                restoredEntryScriptHashes: restoredEntryScriptHashes
+            )
             let proof = try transaction.merkleProof.map { proof -> OpalBase.Transaction.MerkleProof in
                 let branch = try proof.branch.map { branchNode -> Data in
                     let data = try Data(hexadecimalString: branchNode)
@@ -339,7 +349,10 @@ extension _OpalBase.Address.Book {
         return uniqueTokenDeltas
     }
 
-    private func validateScriptHashes(in scriptHashes: [String]) throws {
+    private func validateScriptHashes(
+        in scriptHashes: [String],
+        restoredEntryScriptHashes: Set<String>
+    ) throws {
         guard !scriptHashes.isEmpty else {
             throw OpalBase.Address.Book.Error.invalidSnapshotMissingScriptHashes
         }
@@ -354,6 +367,9 @@ extension _OpalBase.Address.Book {
             }
             guard seenScriptHashes.insert(scriptHash).inserted else {
                 throw OpalBase.Address.Book.Error.invalidSnapshotDuplicateScriptHash(scriptHash)
+            }
+            guard restoredEntryScriptHashes.contains(scriptHash) else {
+                throw OpalBase.Address.Book.Error.invalidSnapshotTransactionScriptHash(scriptHash)
             }
         }
     }

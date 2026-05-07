@@ -23,7 +23,7 @@ extension _OpalBase.Account {
     ) async throws -> OpalBase.Account.CashFusionSession {
         let reservation = try await prepareCashFusionReservation(request: request)
         let participantReservationSource = CashFusionParticipantReservationSource(
-            reservation: reservation.participantReservation
+            reservation: reservation
         )
         let transactionAssembler = CashFusionTransactionAssembler(
             reservation: reservation
@@ -54,15 +54,10 @@ extension _OpalBase.Account {
         guard request.selectedInputs.isEmpty == false else {
             throw Error.cashFusionHasNoSelectedInputs
         }
-        guard request.outputAmounts.isEmpty == false else {
-            throw Error.cashFusionHasNoOutputAmounts
-        }
-        guard request.outputAmounts.allSatisfy({ $0.uint64 > 0 }) else {
-            throw Error.cashFusionHasNoOutputAmounts
-        }
         guard Set(request.selectedInputs).count == request.selectedInputs.count else {
             throw Error.cashFusionUnsupportedSelectedInputs
         }
+        let outputStrategy = try validateCashFusionOutputPolicy(request.outputPolicy)
 
         let reservedInputs = try await resolveCashFusionReservedInputs(
             from: request.selectedInputs
@@ -77,35 +72,80 @@ extension _OpalBase.Account {
             throw Error.cashFusionReservationFailed(error)
         }
 
-        let reservedReceivingEntries: [OpalBase.Address.Book.Entry]
+        let outputReservation: (
+            reservedReceivingEntries: [OpalBase.Address.Book.Entry],
+            outputStrategy: CashFusionReservation.OutputStrategy
+        )
+
         do {
-            reservedReceivingEntries = try await reserveCashFusionReceivingEntries(
-                count: request.outputAmounts.count
+            outputReservation = try await makeCashFusionOutputReservation(
+                from: outputStrategy
             )
         } catch {
             await addressBook.releaseUTXOs(Set(request.selectedInputs))
-            throw Error.cashFusionOutputReservationFailed(error)
-        }
-
-        let participantOutputs = zip(
-            reservedReceivingEntries,
-            request.outputAmounts
-        ).map { entry, amount in
-            OpalFusion.Host.ParticipantOutput(
-                lockingScriptBytes: [UInt8](entry.address.lockingScript.data),
-                amountSatoshis: amount.uint64
-            )
+            throw error
         }
 
         return CashFusionReservation(
             addressBook: addressBook,
             reservedInputs: reservedInputs,
-            reservedReceivingEntries: reservedReceivingEntries,
-            participantReservation: .init(
-                inputs: reservedInputs.map(\.participantInput),
-                outputs: participantOutputs
-            )
+            reservedReceivingEntries: outputReservation.reservedReceivingEntries,
+            outputStrategy: outputReservation.outputStrategy
         )
+    }
+
+    private func validateCashFusionOutputPolicy(
+        _ outputPolicy: CashFusionRequest.OutputPolicy
+    ) throws -> CashFusionRequest.OutputPolicy {
+        switch outputPolicy {
+        case .explicitAmounts(let outputAmounts):
+            guard outputAmounts.isEmpty == false else {
+                throw Error.cashFusionHasNoOutputAmounts
+            }
+            guard outputAmounts.allSatisfy({ $0.uint64 > 0 }) else {
+                throw Error.cashFusionHasNoOutputAmounts
+            }
+        case .valuePreserving:
+            break
+        }
+
+        return outputPolicy
+    }
+
+    private func makeCashFusionOutputReservation(
+        from outputPolicy: CashFusionRequest.OutputPolicy
+    ) async throws -> (
+        reservedReceivingEntries: [OpalBase.Address.Book.Entry],
+        outputStrategy: CashFusionReservation.OutputStrategy
+    ) {
+        switch outputPolicy {
+        case .explicitAmounts(let outputAmounts):
+            let reservedReceivingEntries: [OpalBase.Address.Book.Entry]
+            do {
+                reservedReceivingEntries = try await reserveCashFusionReceivingEntries(
+                    count: outputAmounts.count
+                )
+            } catch {
+                throw Error.cashFusionOutputReservationFailed(error)
+            }
+
+            let participantOutputs = zip(
+                reservedReceivingEntries,
+                outputAmounts
+            ).map { entry, amount in
+                OpalFusion.Host.ParticipantOutput(
+                    lockingScriptBytes: [UInt8](entry.address.lockingScript.data),
+                    amountSatoshis: amount.uint64
+                )
+            }
+
+            return (
+                reservedReceivingEntries,
+                .explicit(participantOutputs)
+            )
+        case .valuePreserving:
+            return ([], .valuePreserving)
+        }
     }
 
     private func resolveCashFusionReservedInputs(

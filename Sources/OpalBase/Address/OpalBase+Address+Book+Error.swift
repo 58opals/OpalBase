@@ -47,6 +47,7 @@ extension _OpalBase.Address.Book {
         case invalidSnapshotScriptHashLength(expected: Int, actual: Int)
         case invalidSnapshotMissingScriptHashes
         case invalidSnapshotDuplicateScriptHash(String)
+        case invalidSnapshotTransactionScriptHash(String)
         case invalidSnapshotMerkleProofHashLength(expected: Int, actual: Int)
         case invalidSnapshotTokenData(reason: Swift.Error)
         case invalidSnapshotDuplicateTokenDelta(OpalBase.CashTokens.TokenData)
@@ -116,6 +117,9 @@ extension _OpalBase.Address.Book.Error: Equatable {
             return leftExpected == rightExpected && leftActual == rightActual
         case (.invalidSnapshotDuplicateScriptHash(let leftScriptHash),
               .invalidSnapshotDuplicateScriptHash(let rightScriptHash)):
+            return leftScriptHash == rightScriptHash
+        case (.invalidSnapshotTransactionScriptHash(let leftScriptHash),
+              .invalidSnapshotTransactionScriptHash(let rightScriptHash)):
             return leftScriptHash == rightScriptHash
         case (.invalidSnapshotMerkleProofHashLength(let leftExpected, let leftActual),
               .invalidSnapshotMerkleProofHashLength(let rightExpected, let rightActual)):

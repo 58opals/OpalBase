@@ -173,6 +173,15 @@ private extension _OpalBase.Address.Book {
                         )
                     )
                 }
+                guard existing.fee == entry.fee else {
+                    throw OpalBase.Address.Book.Error.transactionHistoryRefreshFailed(
+                        result.address,
+                        OpalBase.Network.Error(
+                            reason: .protocolViolation,
+                            message: "History response contained conflicting transaction fees"
+                        )
+                    )
+                }
             }
         }
     }
