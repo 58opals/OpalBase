@@ -44,7 +44,23 @@ struct CashTokensTokenPrefixValidator {
             #expect(result.lockingBytecode == trailingBytecode)
         }
     }
-    
+
+    @Test("decode returns zero-based locking bytecode from sliced prefix data")
+    func decodeReturnsZeroBasedLockingBytecodeFromSlicedPrefixData() throws {
+        let fixture = try #require(TokenPrefixTestData.validVectors.first)
+        let prefixData = try Data(hexadecimalString: fixture.prefix)
+        let lockingBytecode = OpalBase.Script.p2sh(scriptHash: Data(repeating: 0x55, count: 20)).data
+        var combined = prefixData
+        combined.append(lockingBytecode)
+
+        let slicedPrefixData = makeSlicedData(from: combined)
+        let result = try OpalBase.CashTokens.TokenPrefix.decode(prefixPlusBytecode: slicedPrefixData)
+
+        #expect(slicedPrefixData.startIndex != 0)
+        #expect(result.lockingBytecode == lockingBytecode)
+        #expect(result.lockingBytecode.startIndex == 0)
+    }
+
     @Test("valid token prefix vectors are internally consistent")
     func validateFixtureConsistency() throws {
         #expect(!TokenPrefixTestData.validVectors.isEmpty)
@@ -189,5 +205,10 @@ struct CashTokensTokenPrefixValidator {
         data.append(Data(repeating: 0x00, count: Int(commitmentByteCount)))
         return data
     }
-}
 
+    private func makeSlicedData(from data: Data) -> Data {
+        var paddedData = Data([0x00])
+        paddedData.append(data)
+        return paddedData[paddedData.index(after: paddedData.startIndex)...]
+    }
+}

@@ -236,6 +236,35 @@ struct NetworkFulcrumTransactionReaderValidator {
         #expect(await client.readRawFetchCount() == 0)
     }
 
+    @Test("fetchDetailedTransaction rejects verbose transaction identifier mismatches")
+    func fetchDetailedTransactionRejectsVerboseIdentifierMismatches() async throws {
+        let fixture = try TransactionFixture.make()
+        let mismatchedTransactionIdentifier = String(repeating: "0", count: 64)
+        let verboseResponse = try TransactionFixture.makeVerboseResponse(
+            transactionHash: mismatchedTransactionIdentifier,
+            rawTransactionHexadecimal: fixture.rawTransactionHexadecimal,
+            blockHashHexadecimal: fixture.blockHashData.hexadecimalString,
+            blockTime: fixture.blockTime,
+            confirmations: fixture.confirmations,
+            transactionTime: fixture.transactionTime,
+            size: fixture.rawTransactionData.count
+        )
+        let client = TransactionReaderClientTestActor(
+            rawTransactionHex: fixture.rawTransactionHexadecimal,
+            verboseTransaction: verboseResponse
+        )
+        let reader = OpalBase.Network.Fulcrum.TransactionReader(client: client)
+
+        let failure = await Self.captureNetworkError {
+            _ = try await reader.fetchDetailedTransaction(for: fixture.transactionHash)
+        }
+
+        #expect(failure.reason == .protocolViolation)
+        #expect(failure.message == "Verbose transaction identifier mismatch")
+        #expect(await client.readVerboseFetchCount() == 1)
+        #expect(await client.readRawFetchCount() == 0)
+    }
+
     @Test("fetchDetailedTransaction rejects trailing bytes after decoded transaction")
     func fetchDetailedTransactionRejectsTrailingPayloadBytes() async throws {
         let fixture = try TransactionFixture.make()

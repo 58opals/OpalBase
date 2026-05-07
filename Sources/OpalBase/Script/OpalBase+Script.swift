@@ -64,27 +64,29 @@ extension OpalBase {
 
 extension _OpalBase.Script {
     public static func decode(lockingScript: Data) throws -> OpalBase.Script {
-        var index = 0
-        
+        var index = lockingScript.startIndex
+
         func readByte() -> UInt8? {
-            guard index < lockingScript.count else { return nil }
-            defer { index += 1 }
+            guard index < lockingScript.endIndex else { return nil }
+            defer { index = lockingScript.index(after: index) }
             return lockingScript[index]
         }
-        
+
         func readData(length: Int) -> Data? {
-            guard index + length <= lockingScript.count else { return nil }
-            defer { index += length }
-            return lockingScript.subdata(in: index..<index + length)
+            guard length >= 0,
+                  let nextIndex = lockingScript.index(index, offsetBy: length, limitedBy: lockingScript.endIndex)
+            else { return nil }
+            defer { index = nextIndex }
+            return Data(lockingScript[index..<nextIndex])
         }
 
         func requireEndOfScript() throws {
-            guard index == lockingScript.count else {
+            guard index == lockingScript.endIndex else {
                 throw Error.cannotDecodeScript
             }
         }
-        
-        while index < lockingScript.count {
+
+        while index < lockingScript.endIndex {
             guard let opcode = readByte() else { break }
             
             switch opcode {
@@ -127,8 +129,8 @@ extension _OpalBase.Script {
             case ScriptOperationCode._1.rawValue...ScriptOperationCode._16.rawValue:
                 let numberOfRequiredSignatures = Int(opcode - ScriptOperationCode._1.rawValue) + 1
                 var publicKeys: [OpalBase.Key.PublicKey] = .init()
-                
-                while index < lockingScript.count {
+
+                while index < lockingScript.endIndex {
                     let nextOpcode = lockingScript[index]
                     if (ScriptOperationCode._1.rawValue...ScriptOperationCode._16.rawValue).contains(nextOpcode) {
                         break

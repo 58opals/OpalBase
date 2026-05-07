@@ -25,6 +25,25 @@ struct BitcoinCashMetadataRegistryValidator {
         )
     }
 
+    @Test("parses sliced publication output script")
+    func parseSlicedPublicationOutputScript() throws {
+        let script = BitcoinCashMetadataRegistryTestData.publicationScript
+        let paddedScript = Data([0x00]) + script
+        let slicedScript = paddedScript[paddedScript.index(after: paddedScript.startIndex)...]
+
+        let publication = try #require(
+            OpalBase.CashTokens.BCMR.Client.parsePublicationOutput(lockingScript: slicedScript)
+        )
+
+        #expect(slicedScript.startIndex != 0)
+        #expect(publication.sha256 == BitcoinCashMetadataRegistryTestData.publicationHash)
+        #expect(
+            publication.uris == [
+                BitcoinCashMetadataRegistryTestData.publicationUniformResourceIdentifier
+            ]
+        )
+    }
+
     @Test("rejects publication marker after leading script bytes")
     func rejectsPublicationMarkerAfterLeadingScriptBytes() {
         var script = Data([ScriptOperationCode._1.rawValue])

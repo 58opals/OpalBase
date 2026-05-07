@@ -4,6 +4,21 @@ import Testing
 
 @Suite("OpalBase.Script decoding", .tags(.unit))
 struct ScriptDecodeValidator {
+    @Test("decodes sliced P2PKH and P2SH locking bytecode")
+    func decodesSlicedStandardLockingBytecode() throws {
+        let scripts: [OpalBase.Script] = [
+            .p2pkh_OPCHECKSIG(hash: .init(Data(repeating: 0x22, count: 20))),
+            .p2sh(scriptHash: Data(repeating: 0x33, count: 20))
+        ]
+
+        for script in scripts {
+            let slicedLockingScript = makeSlicedData(from: script.data)
+
+            #expect(slicedLockingScript.startIndex != 0)
+            #expect(try OpalBase.Script.decode(lockingScript: slicedLockingScript) == script)
+        }
+    }
+
     @Test("rejects standard scripts with trailing bytes")
     func rejectsStandardScriptsWithTrailingBytes() throws {
         var lockingScript = OpalBase.Script.p2sh(scriptHash: Data(repeating: 0x11, count: 20)).data
@@ -32,5 +47,11 @@ struct ScriptDecodeValidator {
         } catch {
             Issue.record("Unexpected script decode error: \(error)")
         }
+    }
+
+    private func makeSlicedData(from data: Data) -> Data {
+        var paddedData = Data([0x00])
+        paddedData.append(data)
+        return paddedData[paddedData.index(after: paddedData.startIndex)...]
     }
 }

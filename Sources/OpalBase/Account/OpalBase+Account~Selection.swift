@@ -12,50 +12,71 @@ extension _OpalBase.Account {
         var remainingFungible = requirements.fungibleAmount
         var remainingNonFungible = requirements.nonFungibleTokens
         var selected: [OpalBase.Transaction.Output.Unspent] = .init()
-        
-        for unspentOutput in unspentOutputs {
-            guard let tokenData = unspentOutput.tokenData else { continue }
-            guard tokenData.category == requirements.category else { continue }
-            var shouldSelect = false
-            if remainingFungible > 0, let amount = tokenData.amount, amount > 0 {
-                shouldSelect = true
-            }
-            if let nonFungibleToken = tokenData.nft {
-                let group = OpalBase.Address.Book.TokenInventory.NonFungibleTokenGroup(category: tokenData.category,
-                                                                              commitment: nonFungibleToken.commitment,
-                                                                              capability: nonFungibleToken.capability)
-                if let remainingCount = remainingNonFungible[group], remainingCount > 0 {
-                    shouldSelect = true
-                }
-            }
-            guard shouldSelect else { continue }
-            
-            selected.append(unspentOutput)
-            if let amount = tokenData.amount, amount > 0 {
-                if remainingFungible <= amount {
-                    remainingFungible = 0
-                } else {
-                    remainingFungible -= amount
-                }
-            }
-            if let nonFungibleToken = tokenData.nft {
-                let group = OpalBase.Address.Book.TokenInventory.NonFungibleTokenGroup(category: tokenData.category,
-                                                                              commitment: nonFungibleToken.commitment,
-                                                                              capability: nonFungibleToken.capability)
-                if let remainingCount = remainingNonFungible[group], remainingCount > 0 {
-                    remainingNonFungible[group] = remainingCount - 1
-                }
-            }
-            let hasRemainingFungible = remainingFungible > 0
-            let hasRemainingNonFungible = remainingNonFungible.values.contains { $0 > 0 }
-            if !hasRemainingFungible && !hasRemainingNonFungible {
-                return selected
-            }
+
+        func hasSatisfiedRequirements() -> Bool {
+            remainingFungible == 0 && !remainingNonFungible.values.contains { $0 > 0 }
         }
-        
+
+        func selectOutputs(allowUnrequiredNonFungibleFungible: Bool) -> Bool {
+            for unspentOutput in unspentOutputs {
+                guard !selected.contains(unspentOutput) else { continue }
+                guard let tokenData = unspentOutput.tokenData else { continue }
+                guard tokenData.category == requirements.category else { continue }
+
+                var shouldSelect = false
+                var contributesRequiredNonFungible = false
+                if let nonFungibleToken = tokenData.nft {
+                    let group = OpalBase.Address.Book.TokenInventory.NonFungibleTokenGroup(category: tokenData.category,
+                                                                                  commitment: nonFungibleToken.commitment,
+                                                                                  capability: nonFungibleToken.capability)
+                    if let remainingCount = remainingNonFungible[group], remainingCount > 0 {
+                        shouldSelect = true
+                        contributesRequiredNonFungible = true
+                    }
+                }
+
+                if remainingFungible > 0, let amount = tokenData.amount, amount > 0 {
+                    if tokenData.nft == nil || contributesRequiredNonFungible || allowUnrequiredNonFungibleFungible {
+                        shouldSelect = true
+                    }
+                }
+                guard shouldSelect else { continue }
+
+                selected.append(unspentOutput)
+                if let amount = tokenData.amount, amount > 0 {
+                    if remainingFungible <= amount {
+                        remainingFungible = 0
+                    } else {
+                        remainingFungible -= amount
+                    }
+                }
+                if let nonFungibleToken = tokenData.nft {
+                    let group = OpalBase.Address.Book.TokenInventory.NonFungibleTokenGroup(category: tokenData.category,
+                                                                                  commitment: nonFungibleToken.commitment,
+                                                                                  capability: nonFungibleToken.capability)
+                    if let remainingCount = remainingNonFungible[group], remainingCount > 0 {
+                        remainingNonFungible[group] = remainingCount - 1
+                    }
+                }
+                if hasSatisfiedRequirements() {
+                    return true
+                }
+            }
+
+            return false
+        }
+
+        if selectOutputs(allowUnrequiredNonFungibleFungible: false) {
+            return selected
+        }
+
+        if selectOutputs(allowUnrequiredNonFungibleFungible: true) {
+            return selected
+        }
+
         throw Error.tokenTransferInsufficientTokens
     }
-    
+
     func selectBCHInputs(from unspentOutputs: [OpalBase.Transaction.Output.Unspent],
                                  existingInputs: [OpalBase.Transaction.Output.Unspent],
                                  outputs: [OpalBase.Transaction.Output],

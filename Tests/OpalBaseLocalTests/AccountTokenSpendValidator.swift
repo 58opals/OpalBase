@@ -36,6 +36,36 @@ struct AccountTokenSpendValidator {
         #expect(selected == [requestedCategoryOutput])
     }
 
+    @Test("token input selection prefers pure fungible outputs before unrelated NFTs")
+    func tokenInputSelectionPrefersPureFungibleOutputsBeforeUnrelatedNFTs() async throws {
+        let account = try await makeAccount()
+        let category = try OpalBase.CashTokens.CategoryID(transactionOrderData: Data(repeating: 0xA2, count: 32))
+        let unrelatedNonFungibleToken = try OpalBase.CashTokens.NFT(capability: .none, commitment: Data([0x01]))
+        let nonFungibleOutput = makeTokenUnspentOutput(
+            category: category,
+            amount: 100,
+            nonFungibleToken: unrelatedNonFungibleToken,
+            previousTransactionByte: 0x12
+        )
+        let pureFungibleOutput = makeTokenUnspentOutput(
+            category: category,
+            amount: 50,
+            previousTransactionByte: 0x13
+        )
+        let requirements = OpalBase.Account.TokenRequirements(
+            category: category,
+            fungibleAmount: 40,
+            nonFungibleTokens: .init()
+        )
+
+        let selected = try await account.selectTokenInputs(
+            from: [nonFungibleOutput, pureFungibleOutput],
+            requirements: requirements
+        )
+
+        #expect(selected == [pureFungibleOutput])
+    }
+
     @Test("token inventory ignores fungible tokens from other categories")
     func tokenInventoryIgnoresFungibleTokensFromOtherCategories() async throws {
         let account = try await makeAccount()
@@ -246,12 +276,13 @@ private func makeAccount() async throws -> OpalBase.Account {
 private func makeTokenUnspentOutput(
     category: OpalBase.CashTokens.CategoryID,
     amount: UInt64,
+    nonFungibleToken: OpalBase.CashTokens.NFT? = nil,
     previousTransactionByte: UInt8
 ) -> OpalBase.Transaction.Output.Unspent {
     OpalBase.Transaction.Output.Unspent(
         value: 15_000,
         lockingScript: Data([0x51]),
-        tokenData: OpalBase.CashTokens.TokenData(category: category, amount: amount, nft: nil),
+        tokenData: OpalBase.CashTokens.TokenData(category: category, amount: amount, nft: nonFungibleToken),
         previousTransactionHash: OpalBase.Transaction.Hash(naturalOrder: Data(repeating: previousTransactionByte, count: 32)),
         previousTransactionOutputIndex: 0
     )

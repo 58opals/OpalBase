@@ -94,6 +94,38 @@ struct ClaimableStatusResolverValidator {
         }
     }
 
+    @Test("rejects malformed transaction identifiers in history")
+    func rejectsMalformedTransactionIdentifiersInHistory() async throws {
+        let (envelope, _) = try makeClaimableEnvelope(network: .chipnet)
+        let resolver = OpalBase.Claimable.StatusResolver(
+            network: .chipnet,
+            scriptHashReader: .init(
+                fetchHistory: { _, _ in
+                    [
+                        OpalBase.Network.TransactionHistoryEntry(
+                            transactionIdentifier: "aa",
+                            blockHeight: 490,
+                            fee: nil
+                        )
+                    ]
+                },
+                fetchUnspent: { _, _ in [] }
+            )
+        )
+
+        do {
+            _ = try await resolver.resolve(
+                for: envelope,
+                includeUnconfirmed: true,
+                currentBlockHeight: 400
+            )
+            Issue.record("Expected malformed history identifiers to fail")
+        } catch let error as OpalBase.Network.Error {
+            #expect(error.reason == .protocolViolation)
+            #expect(error.message == "History response contained malformed transaction identifier")
+        }
+    }
+
     @Test("reports unspent funding state with confirmations")
     func reportsUnspentFundingStateWithConfirmations() async throws {
         let (envelope, _) = try makeClaimableEnvelope(network: .chipnet)

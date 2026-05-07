@@ -156,12 +156,26 @@ extension _OpalBase.Network.Fulcrum {
                         message: "Invalid transaction size: \(result.size)"
                     )
                 }
+                guard result.hash.caseInsensitiveCompare(identifier) == .orderedSame,
+                      result.transactionID.caseInsensitiveCompare(identifier) == .orderedSame else {
+                    throw OpalBase.Network.Error(
+                        reason: .protocolViolation,
+                        message: "Verbose transaction identifier mismatch",
+                        metadata: [
+                            "expected": identifier,
+                            "hash": result.hash,
+                            "txid": result.transactionID
+                        ]
+                    )
+                }
                 return .init(hex: result.hex,
                              blockhash: result.blockHash,
+                             hash: result.hash,
                              blocktime: try Self.makeOptionalUInt32(result.blocktime, fieldName: "blocktime"),
                              confirmations: try Self.makeOptionalUInt32(result.confirmations, fieldName: "confirmations"),
                              size: size,
-                             time: try Self.makeOptionalUInt32(result.time, fieldName: "time"))
+                             time: try Self.makeOptionalUInt32(result.time, fieldName: "time"),
+                             transactionID: result.transactionID)
             }
         }
 
@@ -209,10 +223,12 @@ extension _OpalBase.Network.Fulcrum {
         private struct TransactionGetVerbose: Codable, Sendable {
             let hex: String
             let blockhash: String?
+            let hash: String
             let blocktime: UInt32?
             let confirmations: UInt32?
             let size: UInt32?
             let time: UInt32?
+            let transactionID: String
         }
     }
 }
