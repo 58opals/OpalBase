@@ -19,7 +19,7 @@ extension Data {
         }
         
         var remainingData: Data {
-            data[index...]
+            Data(data[index...])
         }
         
         mutating func readLittleEndian<T: FixedWidthInteger>(_ type: T.Type = T.self) throws -> T {

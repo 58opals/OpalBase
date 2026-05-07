@@ -62,6 +62,12 @@ extension _OpalBase.Address.Book.Snapshot {
                 throw OpalBase.Address.Book.Error.invalidSnapshotTokenData(reason: error)
             }
 
+            if let tokenAmount, tokenAmount == 0 {
+                throw OpalBase.Address.Book.Error.invalidSnapshotTokenData(
+                    reason: OpalBase.CashTokens.Error.invalidTokenPrefixFungibleAmount
+                )
+            }
+
             let nonFungibleToken: OpalBase.CashTokens.NFT?
             if nftCapability == nil && nftCommitment == nil {
                 nonFungibleToken = nil
@@ -84,6 +90,12 @@ extension _OpalBase.Address.Book.Snapshot {
                 }
             }
 
+            guard tokenAmount != nil || nonFungibleToken != nil else {
+                throw OpalBase.Address.Book.Error.invalidSnapshotTokenData(
+                    reason: OpalBase.CashTokens.Error.invalidTokenPrefix
+                )
+            }
+
             return OpalBase.CashTokens.TokenData(category: category, amount: tokenAmount, nft: nonFungibleToken)
         }
 
@@ -93,4 +105,3 @@ extension _OpalBase.Address.Book.Snapshot {
         }
     }
 }
-

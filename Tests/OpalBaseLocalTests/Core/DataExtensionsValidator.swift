@@ -52,4 +52,17 @@ struct DataExtensionsValidator {
             _ = try reader.readData(count: -1)
         }
     }
+
+    @Test("reader remaining data is zero-based after consuming a slice")
+    func readerRemainingDataIsZeroBasedAfterConsumingSlice() throws {
+        let data = Data([0x00, 0x01, 0x02, 0x03])
+        let slicedData = data[data.index(after: data.startIndex)...]
+        var reader = Data.Reader(slicedData)
+
+        try reader.advance(by: 1)
+        let remainingData = reader.remainingData
+
+        #expect(remainingData == Data([0x02, 0x03]))
+        #expect(remainingData.startIndex == 0)
+    }
 }

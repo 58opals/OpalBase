@@ -41,7 +41,25 @@ struct TransactionOutputTokenValidator {
         #expect(decoded.tokenData == tokenData)
         #expect(reencoded == encoded)
     }
-    
+
+    @Test("decoded token output exposes zero-based locking script for script decoding")
+    func decodedTokenOutputExposesZeroBasedLockingScriptForScriptDecoding() throws {
+        let fixture = try #require(TokenPrefixTestData.validVectors.first)
+        let tokenData = try makeTokenData(from: fixture.data)
+        let expectedScript = OpalBase.Script.p2pkh_OPCHECKSIG(hash: .init(Data(repeating: 0x44, count: 20)))
+        let output = OpalBase.Transaction.Output(value: 546,
+                                                 lockingScript: expectedScript.data,
+                                                 tokenData: tokenData)
+
+        let encoded = try output.encode()
+        let (decoded, bytesRead) = try OpalBase.Transaction.Output.decode(from: encoded)
+
+        #expect(bytesRead == encoded.count)
+        #expect(decoded.lockingScript == expectedScript.data)
+        #expect(decoded.lockingScript.startIndex == 0)
+        #expect(try OpalBase.Script.decode(lockingScript: decoded.lockingScript) == expectedScript)
+    }
+
     private func makeTokenData(from fixture: TokenPrefixTokenData) throws -> OpalBase.CashTokens.TokenData {
         let category = try OpalBase.CashTokens.CategoryID(hexFromRPC: fixture.category)
         let amount = try parseAmount(from: fixture.amount)
@@ -78,4 +96,3 @@ struct TransactionOutputTokenValidator {
         }
     }
 }
-

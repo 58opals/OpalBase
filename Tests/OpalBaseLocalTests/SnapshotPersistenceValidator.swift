@@ -67,6 +67,52 @@ struct SnapshotPersistenceValidator {
         #expect(try decodedUnspentOutput.makeTokenData() == nil)
     }
 
+    @Test("address book snapshot rejects category-only token UTXOs")
+    func addressBookSnapshotRejectsCategoryOnlyTokenUTXOs() throws {
+        let category = try OpalBase.CashTokens.CategoryID(transactionOrderData: Data(repeating: 0x01, count: 32))
+        let unspentOutputSnapshot = OpalBase.Address.Book.Snapshot.UTXO(
+            value: 500,
+            lockingScript: "51",
+            tokenCategory: category.hexForDisplay,
+            tokenAmount: nil,
+            nftCapability: nil,
+            nftCommitment: nil,
+            transactionHash: String(repeating: "0", count: 64),
+            outputIndex: 1
+        )
+
+        #expect(
+            throws: OpalBase.Address.Book.Error.invalidSnapshotTokenData(
+                reason: OpalBase.CashTokens.Error.invalidTokenPrefix
+            )
+        ) {
+            _ = try unspentOutputSnapshot.makeTokenData()
+        }
+    }
+
+    @Test("address book snapshot rejects zero fungible token amounts")
+    func addressBookSnapshotRejectsZeroFungibleTokenAmounts() throws {
+        let category = try OpalBase.CashTokens.CategoryID(transactionOrderData: Data(repeating: 0x02, count: 32))
+        let unspentOutputSnapshot = OpalBase.Address.Book.Snapshot.UTXO(
+            value: 500,
+            lockingScript: "51",
+            tokenCategory: category.hexForDisplay,
+            tokenAmount: 0,
+            nftCapability: nil,
+            nftCommitment: nil,
+            transactionHash: String(repeating: "0", count: 64),
+            outputIndex: 1
+        )
+
+        #expect(
+            throws: OpalBase.Address.Book.Error.invalidSnapshotTokenData(
+                reason: OpalBase.CashTokens.Error.invalidTokenPrefixFungibleAmount
+            )
+        ) {
+            _ = try unspentOutputSnapshot.makeTokenData()
+        }
+    }
+
     @Test("address book restore replaces omitted entries and normalizes empty usages")
     func addressBookRestoreReplacesOmittedEntriesAndNormalizesEmptyUsages() async throws {
         let account = try await AccountTestFixtures.makeAccount()

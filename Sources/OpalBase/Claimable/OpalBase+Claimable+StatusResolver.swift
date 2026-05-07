@@ -92,11 +92,24 @@ private extension _OpalBase.Claimable.StatusResolver {
         includeUnconfirmed: Bool
     ) throws {
         var seenTransactionIdentifiers: Set<String> = .init()
-        for entry in history where !seenTransactionIdentifiers.insert(entry.transactionIdentifier.lowercased()).inserted {
-            throw OpalBase.Network.Error(
-                reason: .protocolViolation,
-                message: "History response contained duplicate transaction identifiers"
-            )
+        for entry in history {
+            do {
+                _ = try OpalBase.Network.decodeTransactionHash(
+                    from: entry.transactionIdentifier,
+                    label: "history transaction identifier"
+                )
+            } catch {
+                throw OpalBase.Network.Error(
+                    reason: .protocolViolation,
+                    message: "History response contained malformed transaction identifier"
+                )
+            }
+            guard seenTransactionIdentifiers.insert(entry.transactionIdentifier.lowercased()).inserted else {
+                throw OpalBase.Network.Error(
+                    reason: .protocolViolation,
+                    message: "History response contained duplicate transaction identifiers"
+                )
+            }
         }
         if !includeUnconfirmed, history.contains(where: { $0.blockHeight <= 0 }) {
             throw OpalBase.Network.Error(

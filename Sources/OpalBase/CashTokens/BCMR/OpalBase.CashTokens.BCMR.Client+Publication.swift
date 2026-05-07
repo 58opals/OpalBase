@@ -15,12 +15,14 @@ extension OpalBase.CashTokens.BCMR.Client {
     
     static func parsePublicationOutput(lockingScript: Data) -> Publication? {
         let prefix = Data([0x42, 0x43, 0x4d, 0x52])
-        var index = 0
+        var index = lockingScript.startIndex
         
         func readData(length: Int) -> Data? {
-            guard index + length <= lockingScript.count else { return nil }
-            defer { index += length }
-            return lockingScript.subdata(in: index..<index + length)
+            guard length >= 0,
+                  let nextIndex = lockingScript.index(index, offsetBy: length, limitedBy: lockingScript.endIndex)
+            else { return nil }
+            defer { index = nextIndex }
+            return Data(lockingScript[index..<nextIndex])
         }
         
         func readLength(byteCount: Int) -> Int? {
@@ -48,21 +50,21 @@ extension OpalBase.CashTokens.BCMR.Client {
         }
         
         func readPushData() -> Data? {
-            guard index < lockingScript.count else { return nil }
+            guard index < lockingScript.endIndex else { return nil }
             let opcode = lockingScript[index]
-            index += 1
+            index = lockingScript.index(after: index)
             guard let length = readPushDataLength(opcode: opcode) else { return nil }
             return readData(length: length)
         }
         
-        guard index < lockingScript.count, lockingScript[index] == 0x6a else { return nil }
-        index += 1
+        guard index < lockingScript.endIndex, lockingScript[index] == 0x6a else { return nil }
+        index = lockingScript.index(after: index)
 
         guard let tag = readPushData(), tag == prefix else { return nil }
         guard let sha256 = readPushData(), sha256.count == 32 else { return nil }
 
         var uris: [String] = .init()
-        while index < lockingScript.count {
+        while index < lockingScript.endIndex {
             guard let uriData = readPushData() else { return nil }
             guard let uri = String(data: uriData, encoding: .utf8) else { return nil }
             uris.append(uri)
