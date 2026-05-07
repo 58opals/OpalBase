@@ -107,7 +107,9 @@ extension _OpalBase.Address.Book.CoinSelection {
             if excess == 0 {
                 return Evaluation(excess: excess)
             }
-            if configuration.shouldAllowDustDonation && excess < changeDustThreshold {
+            if configuration.shouldAllowDustDonation,
+               changeOutputTemplate?.tokenData == nil,
+               excess < changeDustThreshold {
                 return Evaluation(excess: excess)
             }
         }

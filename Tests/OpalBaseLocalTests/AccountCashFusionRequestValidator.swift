@@ -28,6 +28,27 @@ struct AccountCashFusionRequestValidator {
 
         #expect(request.selectedInputs == [selectedInput])
         #expect(request.outputAmounts == outputAmounts)
+        #expect(request.outputPolicy == .explicitAmounts(outputAmounts))
+    }
+
+    @Test("request supports value-preserving output policy")
+    func requestSupportsValuePreservingOutputPolicy() async throws {
+        let account = try await AccountTestFixtures.makeAccount()
+        let selectedInput = try await CashFusionTestSupport.makeWalletOwnedUnspentOutput(
+            to: account,
+            value: 150_000,
+            usage: .change,
+            hashByte: 0xA3
+        )
+
+        let request = OpalBase.Account.CashFusionRequest(
+            selectedInputs: [selectedInput],
+            outputPolicy: .valuePreserving
+        )
+
+        #expect(request.selectedInputs == [selectedInput])
+        #expect(request.outputAmounts.isEmpty)
+        #expect(request.outputPolicy == .valuePreserving)
     }
 
     @Test("account prepares the public CashFusion session facade")

@@ -273,6 +273,53 @@ struct WalletFulcrumAddressValidator {
         #expect(await account.loadTransactionHistory().isEmpty)
     }
 
+    @Test("refreshTransactionHistory rejects conflicting fees across wallet addresses")
+    func refreshTransactionHistoryRejectsConflictingFeesAcrossWalletAddresses() async throws {
+        let account = try await AccountTestFixtures.makeAccount()
+        let firstEntry = try await account.reserveNextReceivingEntry()
+        let secondEntry = try await account.reserveNextReceivingEntry()
+        let hash = AccountTestFixtures.makeHash(byte: 0x3A)
+        let firstHistoryEntry = OpalBase.Network.TransactionHistoryEntry(
+            transactionIdentifier: hash.reverseOrder.hexadecimalString,
+            blockHeight: 7,
+            fee: 100
+        )
+        let secondHistoryEntry = OpalBase.Network.TransactionHistoryEntry(
+            transactionIdentifier: hash.reverseOrder.hexadecimalString,
+            blockHeight: 7,
+            fee: 200
+        )
+        let addressReader = WalletAddressReaderTestActor(
+            historyByAddress: [
+                firstEntry.address.string: [firstHistoryEntry],
+                secondEntry.address.string: [secondHistoryEntry]
+            ]
+        )
+        let fulcrum = OpalBase.Wallet.Fulcrum(
+            addressReader: addressReader,
+            transactionHandler: TransactionConfirmationClientTestActor()
+        )
+
+        do {
+            _ = try await fulcrum.refreshTransactionHistory(
+                for: account,
+                usage: .receiving,
+                includeUnconfirmed: true
+            )
+            Issue.record("Expected conflicting cross-address history fees to fail")
+        } catch let error as OpalBase.Account.Error {
+            guard case .transactionHistoryRefreshFailed(_, let underlying) = error else {
+                Issue.record("Unexpected account error: \(error)")
+                return
+            }
+            let networkError = try #require(underlying as? OpalBase.Network.Error)
+            #expect(networkError.reason == .protocolViolation)
+            #expect(networkError.message == "History response contained conflicting transaction fees")
+        }
+
+        #expect(await account.loadTransactionHistory().isEmpty)
+    }
+
     @Test("updateTransactionConfirmations forwards explicit hashes")
     func updateTransactionConfirmationsForwardsHashes() async throws {
         let account = try await AccountTestFixtures.makeAccount()

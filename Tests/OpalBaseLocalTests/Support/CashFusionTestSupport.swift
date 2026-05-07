@@ -160,6 +160,7 @@ actor CashFusionWrappedSessionCapture {
     private var configuration: OpalFusion.Client.Configuration?
     private var genesisHash: [UInt8]?
     private var joinPools: OpalFusion.ProtocolModel.JoinPools?
+    private var participantReservationSource: (any OpalFusion.Host.ParticipantReservationSource)?
     private var reconnectPolicy: OpalFusion.Client.ReconnectPolicy?
 
     func store(
@@ -167,12 +168,14 @@ actor CashFusionWrappedSessionCapture {
         configuration: OpalFusion.Client.Configuration,
         genesisHash: [UInt8]?,
         joinPools: OpalFusion.ProtocolModel.JoinPools,
+        participantReservationSource: any OpalFusion.Host.ParticipantReservationSource,
         reconnectPolicy: OpalFusion.Client.ReconnectPolicy
     ) {
         self.session = session
         self.configuration = configuration
         self.genesisHash = genesisHash
         self.joinPools = joinPools
+        self.participantReservationSource = participantReservationSource
         self.reconnectPolicy = reconnectPolicy
     }
 
@@ -190,6 +193,10 @@ actor CashFusionWrappedSessionCapture {
 
     func loadJoinPools() -> OpalFusion.ProtocolModel.JoinPools? {
         joinPools
+    }
+
+    func loadParticipantReservationSource() -> (any OpalFusion.Host.ParticipantReservationSource)? {
+        participantReservationSource
     }
 
     func loadReconnectPolicy() -> OpalFusion.Client.ReconnectPolicy? {

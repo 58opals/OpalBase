@@ -583,6 +583,48 @@ struct WalletFulcrumAddressMonitorValidator {
         }
     }
 
+    @Test("normally completed subscriptions wait before retrying")
+    func normallyCompletedSubscriptionsWaitBeforeRetrying() async throws {
+        let account = try await AccountTestFixtures.makeAccount()
+        let targetEntry = try await account.selectNextEntry(for: .receiving)
+        let addressReader = WalletAddressReaderTestActor(
+            updatesByAddress: [targetEntry.address.string: []],
+            shouldKeepSubscriptionsOpen: false
+        )
+        let confirmationClient = TransactionConfirmationClientTestActor()
+        let headerReader = BlockHeaderReaderTestActor(
+            snapshots: [],
+            shouldKeepSubscriptionOpen: false
+        )
+        let fulcrum = OpalBase.Wallet.Fulcrum(
+            addressReader: addressReader,
+            transactionHandler: confirmationClient
+        )
+        let monitor = await fulcrum.makeMonitor(
+            for: account,
+            blockHeaderReader: headerReader,
+            retryDelay: .seconds(20)
+        )
+
+        await monitor.start()
+        try await WalletFulcrumAddressMonitorSupport.waitUntil(
+            description: "normal completion subscriptions started",
+            timeout: .seconds(20)
+        ) {
+            let subscribeRequests = await addressReader.readSubscribeRequests()
+            let subscriptionCount = await headerReader.readSubscriptionCount()
+            return subscribeRequests.isEmpty == false && subscriptionCount > 0
+        }
+        let initialAddressSubscriptionCount = await addressReader.readSubscribeRequests().count
+        let initialHeaderSubscriptionCount = await headerReader.readSubscriptionCount()
+        try await Task.sleep(for: .milliseconds(50))
+
+        #expect(await addressReader.readSubscribeRequests().count == initialAddressSubscriptionCount)
+        #expect(await headerReader.readSubscriptionCount() == initialHeaderSubscriptionCount)
+
+        await monitor.stop()
+    }
+
     @Test("monitor deinit cancels address and header subscriptions without explicit stop")
     func monitorDeinitCancelsSubscriptions() async throws {
         let account = try await AccountTestFixtures.makeAccount()

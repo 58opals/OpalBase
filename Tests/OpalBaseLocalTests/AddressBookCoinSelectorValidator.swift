@@ -106,4 +106,42 @@ struct AddressBookCoinSelectorValidator {
             _ = try coinSelector.select()
         }
     }
+
+    @Test("evaluation rejects dust donation for token change outputs")
+    func evaluationRejectsDustDonationForTokenChangeOutputs() throws {
+        let recipientOutputs = [
+            OpalBase.Transaction.Output(value: 1_000, lockingScript: Data([0x51]))
+        ]
+        let tokenChangeOutput = OpalBase.Transaction.Output(
+            value: 0,
+            lockingScript: Data([0x52]),
+            tokenData: try AddressBookCashTokensTestData.makeTokenData()
+        )
+        let outputsWithChange = recipientOutputs + [tokenChangeOutput]
+        let configuration = OpalBase.Address.Book.CoinSelection.Configuration(
+            recipientOutputs: recipientOutputs,
+            outputsWithChange: outputsWithChange,
+            strategy: .greedyLargestFirst,
+            shouldAllowDustDonation: true,
+            tokenSelectionPolicy: .allowTokenUTXOs
+        )
+        let feeWithoutChange = try OpalBase.Transaction.estimateFee(
+            inputCount: 1,
+            outputs: recipientOutputs,
+            feePerByte: 1
+        )
+
+        let evaluation = try OpalBase.Address.Book.CoinSelection.evaluate(
+            configuration: configuration,
+            total: 1_000 + feeWithoutChange + 100,
+            inputCount: 1,
+            targetAmount: 1_000,
+            recipientOutputs: recipientOutputs,
+            outputsWithChange: outputsWithChange,
+            minimumRelayFeeRate: 1,
+            feePerByte: 1
+        )
+
+        #expect(evaluation == nil)
+    }
 }

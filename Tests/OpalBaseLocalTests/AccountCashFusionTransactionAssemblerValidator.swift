@@ -150,6 +150,73 @@ struct AccountCashFusionTransactionAssemblerValidator {
         try await reservation.cancel()
     }
 
+    @Test("proposal transaction count mismatches are rejected before signing")
+    func proposalTransactionCountMismatchesAreRejectedBeforeSigning() async throws {
+        let account = try await AccountTestFixtures.makeAccount()
+        let selectedInput = try await CashFusionTestSupport.makeWalletOwnedUnspentOutput(
+            to: account,
+            value: 130_000,
+            usage: .change,
+            hashByte: 0xC7
+        )
+        let reservation = try await account.prepareCashFusionReservation(
+            request: .init(
+                selectedInputs: [selectedInput],
+                outputAmounts: [try OpalBase.Satoshi(50_000)]
+            )
+        )
+        let assembler = OpalBase.Account.CashFusionTransactionAssembler(
+            reservation: reservation
+        )
+        let unsignedTransaction = OpalBase.Transaction(
+            version: 2,
+            inputs: [
+                .init(
+                    previousTransactionHash: selectedInput.previousTransactionHash,
+                    previousTransactionOutputIndex: selectedInput.previousTransactionOutputIndex,
+                    unlockingScript: Data()
+                )
+            ],
+            outputs: [.init(value: 80_000, lockingScript: Data([0x51]))],
+            lockTime: 0
+        )
+        let unsignedTransactionBytes = [UInt8](try unsignedTransaction.encode())
+
+        await #expect(
+            throws: OpalBase.Account.CashFusionTransactionAssemblyError.inputCountMismatch(
+                expected: 2,
+                actual: 1
+            )
+        ) {
+            _ = try await assembler.finalizeTransaction(
+                for: .init(rawValue: "round-input-count"),
+                proposal: .init(
+                    unsignedTransactionBytes: unsignedTransactionBytes,
+                    expectedInputCount: 2,
+                    expectedOutputCount: 1
+                )
+            )
+        }
+
+        await #expect(
+            throws: OpalBase.Account.CashFusionTransactionAssemblyError.outputCountMismatch(
+                expected: 2,
+                actual: 1
+            )
+        ) {
+            _ = try await assembler.finalizeTransaction(
+                for: .init(rawValue: "round-output-count"),
+                proposal: .init(
+                    unsignedTransactionBytes: unsignedTransactionBytes,
+                    expectedInputCount: 1,
+                    expectedOutputCount: 2
+                )
+            )
+        }
+
+        try await reservation.cancel()
+    }
+
     @Test("finalized unlocking scripts use the standard Schnorr P2PKH form")
     func finalizedUnlockingScriptsUseTheStandardSchnorrP2PKHForm() async throws {
         let account = try await AccountTestFixtures.makeAccount()

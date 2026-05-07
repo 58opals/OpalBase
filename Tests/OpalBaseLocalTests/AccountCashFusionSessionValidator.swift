@@ -315,6 +315,60 @@ struct AccountCashFusionSessionValidator {
         await session.stop()
     }
 
+    @Test("host rejection cancels dynamic round reservations")
+    func hostRejectionCancelsDynamicRoundReservations() async throws {
+        let account = try await AccountTestFixtures.makeAccount()
+        let selectedInput = try await CashFusionTestSupport.makeWalletOwnedUnspentOutput(
+            to: account,
+            value: 150_000,
+            usage: .change,
+            hashByte: 0xE2
+        )
+        let capture = CashFusionWrappedSessionCapture()
+        let session = try await makeSession(
+            account: account,
+            selectedInput: selectedInput,
+            outputPolicy: .valuePreserving,
+            capture: capture
+        )
+        let reservation = await session.reservation
+        let fakeSession = try #require(await capture.load())
+        let participantReservationSource = try #require(
+            await capture.loadParticipantReservationSource()
+        )
+        let context = OpalFusion.Host.ParticipantReservationContext(
+            roundIdentifier: .init(rawValue: "round-host-rejected"),
+            tierSatoshis: 100_000,
+            numberOfComponents: 2,
+            componentFeeRateSatoshisPerKb: 1_000,
+            minimumExcessFeeSatoshis: 200,
+            maximumExcessFeeSatoshis: 500
+        )
+
+        _ = try await participantReservationSource.participantReservation(for: context)
+        let roundReservation = try await reservation.roundReservation(for: context.roundIdentifier)
+
+        await session.start()
+        await fakeSession.emit(
+            snapshot: CashFusionTestSupport.makeSnapshot(
+                identifier: context.roundIdentifier.rawValue,
+                phase: .completed,
+                completionStatus: .hostRejected
+            )
+        )
+
+        #expect(await fakeSession.readStartCount() == 1)
+        #expect(await fakeSession.readStopCount() == 1)
+        try await assertReceivingEntries(
+            roundReservation.reservedReceivingEntries,
+            on: account,
+            expectedUsed: false,
+            expectedReserved: false
+        )
+        let addressBook = await account.addressBook
+        #expect(await addressBook.listSpendableUTXOs().contains(selectedInput))
+    }
+
     @Test("makePublicStatus maps every terminal completion status")
     func makePublicStatusMapsEveryTerminalCompletionStatus() {
         let cases: [(OpalFusion.Round.CompletionStatus, OpalBase.Account.CashFusionSessionStatus.CompletionStatus)] = [
@@ -773,20 +827,23 @@ private extension AccountCashFusionSessionValidator {
     func makeSession(
         account: OpalBase.Account,
         selectedInput: OpalBase.Transaction.Output.Unspent,
+        outputPolicy: OpalBase.Account.CashFusionRequest.OutputPolicy? = nil,
         configuration: OpalBase.Account.CashFusionSession.Configuration = CashFusionTestSupport.makeConfiguration(),
         capture: CashFusionWrappedSessionCapture
     ) async throws -> OpalBase.Account.CashFusionSession {
-        try await account.prepareCashFusionSession(
+        let resolvedOutputPolicy = try outputPolicy ?? .explicitAmounts([OpalBase.Satoshi(55_000)])
+
+        return try await account.prepareCashFusionSession(
             configuration: configuration,
             request: .init(
                 selectedInputs: [selectedInput],
-                outputAmounts: [try OpalBase.Satoshi(55_000)]
+                outputPolicy: resolvedOutputPolicy
             ),
             sessionFactory: {
                 clientConfiguration,
                 genesisHash,
                 joinPools,
-                _,
+                participantReservationSource,
                 _,
                 _,
                 wrappedStateObserver,
@@ -799,6 +856,7 @@ private extension AccountCashFusionSessionValidator {
                     configuration: clientConfiguration,
                     genesisHash: genesisHash,
                     joinPools: joinPools,
+                    participantReservationSource: participantReservationSource,
                     reconnectPolicy: reconnectPolicy
                 )
                 return session

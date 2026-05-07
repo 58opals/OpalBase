@@ -2,6 +2,7 @@
 // AccountCashFusionReservationValidator.swift
 
 import Foundation
+import OpalFusion
 import Testing
 @testable import OpalBase
 
@@ -171,10 +172,90 @@ struct AccountCashFusionReservationValidator {
         #expect(reservation.reservedReceivingEntries.map(\.address) == expectedEntries.map(\.address))
         #expect(reservation.reservedReceivingEntries.allSatisfy { $0.derivationPath.usage == .receiving })
         #expect(reservation.reservedReceivingEntries.allSatisfy { $0.isReserved })
-        #expect(reservation.participantReservation.outputs.map(\.amountSatoshis) == [40_000, 50_000])
-        #expect(reservation.participantReservation.outputs.map(\.lockingScriptBytes) == expectedEntries.map {
+        let participantReservation = try await reservation.participantReservation(
+            for: .init(rawValue: "round-explicit-outputs")
+        )
+
+        #expect(participantReservation.outputs.map(\.amountSatoshis) == [40_000, 50_000])
+        #expect(participantReservation.outputs.map(\.lockingScriptBytes) == expectedEntries.map {
             [UInt8]($0.address.lockingScript.data)
         })
+
+        try await reservation.cancel()
+    }
+
+    @Test("value-preserving outputs target the midpoint excess-fee range")
+    func valuePreservingOutputsTargetMidpointExcessFeeRange() async throws {
+        let account = try await AccountTestFixtures.makeAccount()
+        let selectedInput = try await CashFusionTestSupport.makeWalletOwnedUnspentOutput(
+            to: account,
+            value: 150_000,
+            usage: .change,
+            hashByte: 0xBE
+        )
+        let reservation = try await account.prepareCashFusionReservation(
+            request: .init(
+                selectedInputs: [selectedInput],
+                outputPolicy: .valuePreserving
+            )
+        )
+        let context = makeReservationContext(
+            roundIdentifier: "round-value-preserving",
+            numberOfComponents: 2,
+            componentFeeRateSatoshisPerKb: 1_000,
+            minimumExcessFeeSatoshis: 200,
+            maximumExcessFeeSatoshis: 500
+        )
+
+        let participantReservation = try await reservation.participantReservation(for: context)
+        let roundReservation = try await reservation.roundReservation(for: context.roundIdentifier)
+        let output = try #require(participantReservation.outputs.first)
+        let receivingEntry = try #require(roundReservation.reservedReceivingEntries.first)
+
+        #expect(participantReservation.inputs.map(\.amountSatoshis) == [150_000])
+        #expect(participantReservation.outputs.count == 1)
+        #expect(output.amountSatoshis == 149_475)
+        #expect(output.lockingScriptBytes == [UInt8](receivingEntry.address.lockingScript.data))
+        #expect(roundReservation.participantReservation == participantReservation)
+
+        try await reservation.cancel()
+    }
+
+    @Test("value-preserving reservations reject component-count overflow")
+    func valuePreservingReservationsRejectComponentCountOverflow() async throws {
+        let account = try await AccountTestFixtures.makeAccount()
+        let selectedInput = try await CashFusionTestSupport.makeWalletOwnedUnspentOutput(
+            to: account,
+            value: 150_000,
+            usage: .change,
+            hashByte: 0xBF
+        )
+        let reservation = try await account.prepareCashFusionReservation(
+            request: .init(
+                selectedInputs: [selectedInput],
+                outputPolicy: .valuePreserving
+            )
+        )
+        let context = makeReservationContext(
+            roundIdentifier: "round-component-overflow",
+            numberOfComponents: 1
+        )
+
+        await #expect(
+            throws: OpalBase.Account.CashFusionRoundReservationError.componentCountLimitExceeded(
+                required: 2,
+                limit: 1
+            )
+        ) {
+            _ = try await reservation.participantReservation(for: context)
+        }
+        await #expect(
+            throws: OpalBase.Account.CashFusionRoundReservationError.missingRoundReservation(
+                context.roundIdentifier
+            )
+        ) {
+            _ = try await reservation.roundReservation(for: context.roundIdentifier)
+        }
 
         try await reservation.cancel()
     }
@@ -201,8 +282,12 @@ struct AccountCashFusionReservationValidator {
             )
         )
 
+        let participantReservation = try await reservation.participantReservation(
+            for: .init(rawValue: "round-derived-keys")
+        )
+
         #expect(reservation.selectedInputs == [firstInput, secondInput])
-        #expect(reservation.participantReservation.inputs.map(\.amountSatoshis) == [110_000, 115_000])
+        #expect(participantReservation.inputs.map(\.amountSatoshis) == [110_000, 115_000])
 
         for reservedInput in reservation.reservedInputs {
             #expect(reservedInput.participantInput.publicKey == [UInt8](reservedInput.compressedPublicKey))
@@ -213,5 +298,24 @@ struct AccountCashFusionReservationValidator {
         try await reservation.cancel()
     }
 
+}
+
+private extension AccountCashFusionReservationValidator {
+    func makeReservationContext(
+        roundIdentifier: String,
+        numberOfComponents: UInt32,
+        componentFeeRateSatoshisPerKb: UInt64 = 1_000,
+        minimumExcessFeeSatoshis: UInt64 = 200,
+        maximumExcessFeeSatoshis: UInt64 = 500
+    ) -> OpalFusion.Host.ParticipantReservationContext {
+        .init(
+            roundIdentifier: .init(rawValue: roundIdentifier),
+            tierSatoshis: 100_000,
+            numberOfComponents: numberOfComponents,
+            componentFeeRateSatoshisPerKb: componentFeeRateSatoshisPerKb,
+            minimumExcessFeeSatoshis: minimumExcessFeeSatoshis,
+            maximumExcessFeeSatoshis: maximumExcessFeeSatoshis
+        )
+    }
 }
 #endif
