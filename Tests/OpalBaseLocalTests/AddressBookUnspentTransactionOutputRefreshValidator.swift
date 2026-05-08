@@ -84,6 +84,38 @@ struct AddressBookUnspentTransactionOutputRefreshValidator {
         #expect(try await book.readCachedBalance(for: entry.address) == OpalBase.Satoshi(9_000))
     }
 
+    @Test("refresh orders UTXOs by displayed transaction hash")
+    func refreshOrdersUTXOsByDisplayedTransactionHash() async throws {
+        let book = try await AddressBookCashTokensTestData.makeAddressBook()
+        let entry = try await book.selectNextEntry(for: .receiving)
+        let firstHash = OpalBase.Transaction.Hash(
+            naturalOrder: Data([0x01] + Array(repeating: 0x00, count: 31))
+        )
+        let secondHash = OpalBase.Transaction.Hash(
+            naturalOrder: Data([0x00] + Array(repeating: 0x00, count: 30) + [0x02])
+        )
+        let firstUTXO = OpalBase.Transaction.Output.Unspent(
+            value: 9_000,
+            lockingScript: entry.address.lockingScript.data,
+            previousTransactionHash: firstHash,
+            previousTransactionOutputIndex: 0
+        )
+        let secondUTXO = OpalBase.Transaction.Output.Unspent(
+            value: 10_000,
+            lockingScript: entry.address.lockingScript.data,
+            previousTransactionHash: secondHash,
+            previousTransactionOutputIndex: 0
+        )
+        let reader = AddressReaderClient(unspentByAddress: [entry.address.string: [secondUTXO, firstUTXO]])
+
+        let refresh = try await book.refreshUTXOSet(using: reader, usage: .receiving)
+        let refreshedOutputs = try #require(refresh.utxosByAddress[entry.address])
+
+        #expect(firstHash.reverseOrder.lexicographicallyPrecedes(secondHash.reverseOrder))
+        #expect(refreshedOutputs.map(\.previousTransactionHash) == [firstHash, secondHash])
+        #expect(await book.listUTXOs(for: entry.address).map(\.previousTransactionHash) == [firstHash, secondHash])
+    }
+
     @Test("refresh rejects UTXOs whose locking script does not match the requested address")
     func refreshRejectsMismatchedUTXOLockingScript() async throws {
         let book = try await AddressBookCashTokensTestData.makeAddressBook()
@@ -139,6 +171,46 @@ struct AddressBookUnspentTransactionOutputRefreshValidator {
         }
 
         #expect(await book.listUTXOs(for: entry.address).isEmpty)
+    }
+
+    @Test("refresh rejects duplicate UTXO outpoints across address responses")
+    func refreshRejectsDuplicateUTXOOutpointsAcrossAddressResponses() async throws {
+        let book = try await AddressBookCashTokensTestData.makeAddressBook()
+        let entries = await book.listEntries(for: .receiving)
+        let firstEntry = try #require(entries.first)
+        let secondEntry = try #require(entries.dropFirst().first)
+        let transactionHash = OpalBase.Transaction.Hash(
+            naturalOrder: Data(repeating: 0x4d, count: 32)
+        )
+        let firstUTXO = OpalBase.Transaction.Output.Unspent(
+            value: 9_000,
+            lockingScript: firstEntry.address.lockingScript.data,
+            previousTransactionHash: transactionHash,
+            previousTransactionOutputIndex: 0
+        )
+        let duplicateUTXO = OpalBase.Transaction.Output.Unspent(
+            value: 12_000,
+            lockingScript: secondEntry.address.lockingScript.data,
+            previousTransactionHash: transactionHash,
+            previousTransactionOutputIndex: 0
+        )
+        let reader = AddressReaderClient(
+            unspentByAddress: [
+                firstEntry.address.string: [firstUTXO],
+                secondEntry.address.string: [duplicateUTXO]
+            ]
+        )
+
+        do {
+            _ = try await book.refreshUTXOSet(using: reader, usage: .receiving)
+            Issue.record("Expected duplicate UTXO outpoints to fail")
+        } catch let error as OpalBase.Network.Error {
+            #expect(error.reason == .protocolViolation)
+            #expect(error.message == "Unspent output response contained duplicate outpoints")
+        }
+
+        #expect(await book.listUTXOs(for: firstEntry.address).isEmpty)
+        #expect(await book.listUTXOs(for: secondEntry.address).isEmpty)
     }
 
     @Test("refresh keeps existing UTXOs when replacement balance exceeds the maximum supply")

@@ -56,6 +56,20 @@ struct BitcoinCashMetadataRegistryValidator {
         #expect(publication == nil)
     }
     
+    @Test("rejects publication outputs without registry locations")
+    func rejectsPublicationOutputsWithoutRegistryLocations() {
+        let prefix = Data([0x42, 0x43, 0x4d, 0x52])
+        var script = Data([0x6a])
+        script.append(Data.push(prefix))
+        script.append(Data.push(BitcoinCashMetadataRegistryTestData.publicationHash))
+        
+        let publication = OpalBase.CashTokens.BCMR.Client.parsePublicationOutput(
+            lockingScript: script
+        )
+        
+        #expect(publication == nil)
+    }
+    
     @Test("verifies registry hash")
     func verifyRegistryHash() {
         let registryHash = OpalCrypto.Hashing.sha256(BitcoinCashMetadataRegistryTestData.registryData)
@@ -123,6 +137,66 @@ struct BitcoinCashMetadataRegistryValidator {
         #expect(metadata.symbol == "DATED")
         #expect(metadata.decimals == 2)
         #expect(metadata.lastUpdated == ISO8601DateFormatter().date(from: "2024-01-01T00:00:00Z"))
+    }
+    
+    @Test("authchain transaction decode rejects trailing payload bytes")
+    func authchainTransactionDecodeRejectsTrailingPayloadBytes() throws {
+        let transactionHash = OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0x44, count: 32))
+        let input = OpalBase.Transaction.Input(
+            previousTransactionHash: OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0x11, count: 32)),
+            previousTransactionOutputIndex: 0,
+            unlockingScript: Data()
+        )
+        let output = OpalBase.Transaction.Output(value: 0, lockingScript: Data([ScriptOperationCode._1.rawValue]))
+        let transaction = OpalBase.Transaction(
+            version: 1,
+            inputs: [input],
+            outputs: [output],
+            lockTime: 0
+        )
+        let rawTransactionData = try transaction.encode() + Data([0x00])
+        
+        do {
+            _ = try OpalBase.CashTokens.BCMR.Client.AuthchainResolver.decodeTransaction(
+                rawTransactionData,
+                transactionHash: transactionHash
+            )
+            Issue.record("Expected authchain decode to reject trailing bytes")
+        } catch let error as OpalBase.CashTokens.BCMR.Client.AuthchainResolver.Error {
+            guard case .transactionDecodingFailed(let failedHash, let underlying) = error else {
+                Issue.record("Expected transactionDecodingFailed, got \(error)")
+                return
+            }
+            #expect(failedHash == transactionHash)
+            let networkError = try #require(underlying as? OpalBase.Network.Error)
+            #expect(networkError.reason == .decoding)
+            #expect(networkError.message == "Transaction payload has trailing bytes")
+        } catch {
+            Issue.record("Unexpected error: \(error)")
+        }
+    }
+    
+    @Test("registry fetcher rejects insecure IPFS gateways before fetching")
+    func registryFetcherRejectsInsecureInterPlanetaryFileSystemGateways() async throws {
+        let gateway = try #require(URL(string: "http://gateway.example"))
+        let fetcher = OpalBase.CashTokens.BCMR.Client.Fetcher(
+            ipfsGateway: gateway,
+            maxBytes: 1_024
+        )
+        
+        do {
+            _ = try await fetcher.fetchRegistryBytes(from: "ipfs://bafybeigdyrzt")
+            Issue.record("Expected insecure IPFS gateway to be rejected before fetching")
+        } catch let error as OpalBase.CashTokens.BCMR.Client.Fetcher.Error {
+            switch error {
+            case .invalidInterPlanetaryFileSystemGateway(gateway):
+                break
+            default:
+                Issue.record("Expected invalidInterPlanetaryFileSystemGateway, got \(error)")
+            }
+        } catch {
+            Issue.record("Unexpected error: \(error)")
+        }
     }
 
     @Test("registry fetcher rejects redirects to unsupported schemes")

@@ -107,6 +107,63 @@ struct TransactionHistoryTokenDeltaValidator {
         }
     }
 
+    @Test("nets unchanged non-fungible tokens moved between wallet outputs")
+    func tokenDeltaNetsWalletInternalNonFungibleTokenMoves() async throws {
+        let book = try await makeAddressBook()
+        let receivingEntry = await book.listEntries(for: .receiving).first
+        let changeEntry = await book.listEntries(for: .change).first
+        let receivingAddress = try #require(receivingEntry?.address)
+        let changeAddress = try #require(changeEntry?.address)
+        let category = try OpalBase.CashTokens.CategoryID(transactionOrderData: Data(repeating: 0x48, count: 32))
+        let nonFungibleToken = try OpalBase.CashTokens.NFT(capability: .mutable, commitment: Data([0x01]))
+        let tokenData = OpalBase.CashTokens.TokenData(category: category, amount: nil, nft: nonFungibleToken)
+        let previousHash = OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0x05, count: 32))
+        let previousInput = OpalBase.Transaction.Input(
+            previousTransactionHash: OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0x00, count: 32)),
+            previousTransactionOutputIndex: 0,
+            unlockingScript: Data()
+        )
+        let previousTransaction = OpalBase.Transaction(
+            version: 2,
+            inputs: [previousInput],
+            outputs: [
+                .init(value: 546, lockingScript: receivingAddress.lockingScript.data, tokenData: tokenData)
+            ],
+            lockTime: 0
+        )
+        let currentInput = OpalBase.Transaction.Input(
+            previousTransactionHash: previousHash,
+            previousTransactionOutputIndex: 0,
+            unlockingScript: Data()
+        )
+        let currentTransaction = OpalBase.Transaction(
+            version: 2,
+            inputs: [currentInput],
+            outputs: [
+                .init(value: 546, lockingScript: changeAddress.lockingScript.data, tokenData: tokenData)
+            ],
+            lockTime: 0
+        )
+        let transactionReader = OpalBase.Network.TransactionReader(
+            TransactionReaderClient(rawTransactionsByHash: [
+                previousHash: try previousTransaction.encode()
+            ])
+        )
+
+        let tokenDelta = try await book.makeTokenDelta(
+            from: currentTransaction,
+            transactionReader: transactionReader,
+            walletScriptHashes: [
+                receivingAddress.makeScriptHash().hexadecimalString,
+                changeAddress.makeScriptHash().hexadecimalString
+            ]
+        )
+
+        #expect(tokenDelta.nonFungibleTokenAdditions.isEmpty)
+        #expect(tokenDelta.nonFungibleTokenRemovals.isEmpty)
+        #expect(tokenDelta.bchLockedInTokenOutputDelta == 0)
+    }
+
     @Test("throws instead of overflowing locked BCH token delta")
     func lockedBCHTokenDeltaOverflowThrows() async throws {
         let book = try await makeAddressBook()
@@ -181,6 +238,61 @@ struct TransactionHistoryTokenDeltaValidator {
                 transactionReader: transactionReader,
                 walletScriptHashes: [walletAddress.makeScriptHash().hexadecimalString]
             )
+        }
+    }
+
+    @Test("rejects previous transaction payloads with trailing bytes")
+    func tokenDeltaRejectsPreviousTransactionTrailingBytes() async throws {
+        let book = try await makeAddressBook()
+        let receivingEntry = await book.listEntries(for: .receiving).first
+        let walletAddress = try #require(receivingEntry?.address)
+        let externalAddress = try makeExternalAddress()
+        let category = try OpalBase.CashTokens.CategoryID(transactionOrderData: Data(repeating: 0x47, count: 32))
+        let tokenData = OpalBase.CashTokens.TokenData(category: category, amount: 1, nft: nil)
+
+        let previousHash = OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0x04, count: 32))
+        let previousInput = OpalBase.Transaction.Input(
+            previousTransactionHash: OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0x00, count: 32)),
+            previousTransactionOutputIndex: 0,
+            unlockingScript: Data()
+        )
+        let previousTransaction = OpalBase.Transaction(
+            version: 2,
+            inputs: [previousInput],
+            outputs: [
+                .init(value: 546, lockingScript: walletAddress.lockingScript.data, tokenData: tokenData)
+            ],
+            lockTime: 0
+        )
+        let currentInput = OpalBase.Transaction.Input(
+            previousTransactionHash: previousHash,
+            previousTransactionOutputIndex: 0,
+            unlockingScript: Data()
+        )
+        let currentTransaction = OpalBase.Transaction(
+            version: 2,
+            inputs: [currentInput],
+            outputs: [
+                .init(value: 546, lockingScript: externalAddress.lockingScript.data)
+            ],
+            lockTime: 0
+        )
+        let transactionReader = OpalBase.Network.TransactionReader(
+            TransactionReaderClient(rawTransactionsByHash: [
+                previousHash: try previousTransaction.encode() + Data([0x00])
+            ])
+        )
+
+        do {
+            _ = try await book.makeTokenDelta(
+                from: currentTransaction,
+                transactionReader: transactionReader,
+                walletScriptHashes: [walletAddress.makeScriptHash().hexadecimalString]
+            )
+            Issue.record("Expected trailing bytes in the previous transaction payload to be rejected.")
+        } catch let error as OpalBase.Network.Error {
+            #expect(error.reason == .decoding)
+            #expect(error.message == "Transaction payload has trailing bytes")
         }
     }
 }

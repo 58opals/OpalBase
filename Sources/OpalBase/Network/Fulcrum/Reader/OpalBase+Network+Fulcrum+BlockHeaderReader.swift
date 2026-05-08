@@ -19,7 +19,7 @@ extension _OpalBase.Network.Fulcrum {
                     .blockchain.headers.getTip,
                     options: .init(timeout: timeouts.headersTip)
                 )
-                return OpalBase.Network.BlockHeaderSnapshot(height: result.height, headerHexadecimal: result.hex)
+                return try Self.makeSnapshot(height: result.height, headerHexadecimal: result.hex)
             }
         }
         
@@ -36,15 +36,15 @@ extension _OpalBase.Network.Fulcrum {
                     cancel: cancel,
                     makeInitialUpdates: { snapshot in
                         [
-                            OpalBase.Network.BlockHeaderSnapshot(
+                            try Self.makeSnapshot(
                                 height: snapshot.height,
                                 headerHexadecimal: snapshot.hex
                             )
                         ]
                     },
                     makeUpdates: { notification in
-                        notification.blocks.map { block in
-                            OpalBase.Network.BlockHeaderSnapshot(
+                        try notification.blocks.map { block in
+                            try Self.makeSnapshot(
                                 height: block.height,
                                 headerHexadecimal: block.hex
                             )
@@ -55,6 +55,27 @@ extension _OpalBase.Network.Fulcrum {
                     }
                 )
             }
+        }
+        
+        static func makeSnapshot(height: UInt, headerHexadecimal: String) throws -> OpalBase.Network.BlockHeaderSnapshot {
+            let headerData: Data
+            do {
+                headerData = try Data(hexadecimalString: headerHexadecimal)
+            } catch {
+                throw OpalBase.Network.Error(
+                    reason: .decoding,
+                    message: "Cannot decode block header: \(headerHexadecimal)"
+                )
+            }
+            
+            guard headerData.count == 80 else {
+                throw OpalBase.Network.Error(
+                    reason: .decoding,
+                    message: "Invalid block header length: expected 80 bytes, got \(headerData.count)"
+                )
+            }
+            
+            return OpalBase.Network.BlockHeaderSnapshot(height: height, headerHexadecimal: headerHexadecimal)
         }
     }
 }

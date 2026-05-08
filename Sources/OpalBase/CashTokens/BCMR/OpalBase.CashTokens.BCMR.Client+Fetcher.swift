@@ -117,7 +117,10 @@ private extension OpalBase.CashTokens.BCMR.Client.Fetcher {
         guard let gateway = ipfsGateway else {
             throw Error.missingInterPlanetaryFileSystemGateway
         }
-        guard let gatewayScheme = gateway.scheme, let gatewayHost = gateway.host else {
+        guard let gatewayScheme = gateway.scheme,
+              gatewayScheme.lowercased() == "https",
+              let gatewayHost = gateway.host,
+              !gatewayHost.isEmpty else {
             throw Error.invalidInterPlanetaryFileSystemGateway(gateway)
         }
         

@@ -219,6 +219,18 @@ struct NetworkServerCatalogValidator {
         #expect(normalized == [URL(string: "wss://valid.example.com:50004")!])
     }
     
+    @Test("normalization rejects invalid websocket ports")
+    func normalizationRejectsInvalidWebSocketPorts() {
+        let rawServers = [
+            URL(string: "wss://invalid-port.example.com:0")!,
+            URL(string: "wss://valid.example.com:50004")!
+        ]
+        
+        let normalized = OpalBase.Network.ServerCatalog.makeNormalizedServers(rawServers)
+        
+        #expect(normalized == [URL(string: "wss://valid.example.com:50004")!])
+    }
+    
     @Test("merged server catalogs preserve priority ordering and uniqueness")
     func mergedServersPreservePriorityOrdering() {
         let primary = [

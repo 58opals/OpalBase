@@ -23,6 +23,7 @@ extension _OpalBase.Account {
         case tokenSendRequiresTokenAwareAddress([OpalBase.Address])
         case tokenTransferHasNoRecipients
         case tokenTransferRequiresSingleCategory
+        case tokenTransferInvalidTokenData(Swift.Error)
         case tokenTransferInsufficientTokens
         case tokenTransferInsufficientFunds(required: UInt64)
         case tokenSelectionFailed(Swift.Error)
@@ -92,6 +93,12 @@ extension _OpalBase.Account.Error: Equatable {
         case (.tokenGenesisRequiresTokenAwareAddress(let leftAddresses),
               .tokenGenesisRequiresTokenAwareAddress(let rightAddresses)):
             return leftAddresses == rightAddresses
+        case (.tokenTransferInvalidTokenData(let leftError), .tokenTransferInvalidTokenData(let rightError)):
+            if let leftTokenError = leftError as? OpalBase.CashTokens.Error,
+               let rightTokenError = rightError as? OpalBase.CashTokens.Error {
+                return leftTokenError == rightTokenError
+            }
+            return OpalBase.Network.checkFailureEquivalence(leftError, rightError)
         case (.tokenMintRequiresTokenAwareAddress(let leftAddresses),
               .tokenMintRequiresTokenAwareAddress(let rightAddresses)):
             return leftAddresses == rightAddresses

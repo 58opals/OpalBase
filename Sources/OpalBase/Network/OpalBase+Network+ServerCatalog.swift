@@ -87,6 +87,10 @@ extension _OpalBase.Network.ServerCatalog {
             return nil
         }
         
+        if let port = components.port, !(1...65_535).contains(port) {
+            return nil
+        }
+        
         let normalizedScheme: String
         switch rawScheme {
         case "wss", "ws":

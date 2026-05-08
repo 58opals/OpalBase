@@ -53,6 +53,18 @@ extension _OpalBase.Network.Fulcrum {
                     message: "Transaction payload has trailing bytes"
                 )
             }
+            guard let rawTransactionSize = UInt32(exactly: rawTransactionData.count) else {
+                throw OpalBase.Network.Error(
+                    reason: .decoding,
+                    message: "Invalid transaction size: \(rawTransactionData.count)"
+                )
+            }
+            if let verboseSize = isVerbose?.size, verboseSize != rawTransactionSize {
+                throw OpalBase.Network.Error(
+                    reason: .decoding,
+                    message: "Verbose transaction size mismatch"
+                )
+            }
             let blockHash = try decodeBlockHash(isVerbose?.blockhash)
             
             return OpalBase.Transaction.Detail(
@@ -62,7 +74,7 @@ extension _OpalBase.Network.Fulcrum {
                 confirmations: isVerbose?.confirmations,
                 hash: transactionHash,
                 rawTransactionData: rawTransactionData,
-                size: isVerbose?.size ?? UInt32(rawTransactionData.count),
+                size: rawTransactionSize,
                 time: isVerbose?.time
             )
         }

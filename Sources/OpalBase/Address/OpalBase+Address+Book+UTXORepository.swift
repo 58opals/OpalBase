@@ -120,6 +120,10 @@ extension _OpalBase.Address.Book {
             guard !utxos.isEmpty else { return }
             reservedUTXOs.subtract(utxos)
         }
+
+        mutating func releaseAllReservations() {
+            reservedUTXOs.removeAll()
+        }
         
         func findUTXO(matching input: OpalBase.Transaction.Input) -> OpalBase.Transaction.Output.Unspent? {
             utxosByOutpoint[Outpoint(input)]

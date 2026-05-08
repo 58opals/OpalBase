@@ -68,6 +68,44 @@ extension _OpalBase.Network {
 }
 
 extension _OpalBase.Network.ProtocolVersion {
+    private enum CodingKeys: String, CodingKey {
+        case major
+        case minor
+        case patch
+        case isPatchComponentIncluded
+    }
+    
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let major = try container.decode(Int.self, forKey: .major)
+        let minor = try container.decode(Int.self, forKey: .minor)
+        let patch = try container.decode(Int.self, forKey: .patch)
+        let isPatchComponentIncluded = try container.decode(Bool.self, forKey: .isPatchComponentIncluded)
+        
+        guard let version = Self(
+            major: major,
+            minor: minor,
+            patch: patch,
+            isPatchComponentIncluded: isPatchComponentIncluded
+        ) else {
+            throw DecodingError.dataCorrupted(
+                .init(codingPath: decoder.codingPath, debugDescription: "Invalid protocol version components")
+            )
+        }
+        
+        self = version
+    }
+    
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(major, forKey: .major)
+        try container.encode(minor, forKey: .minor)
+        try container.encode(patch, forKey: .patch)
+        try container.encode(isPatchComponentIncluded, forKey: .isPatchComponentIncluded)
+    }
+}
+
+extension _OpalBase.Network.ProtocolVersion {
     var swiftFulcrumProtocolVersion: SwiftFulcrum.ProtocolVersion {
         guard let protocolVersion = SwiftFulcrum.ProtocolVersion(
             major: major,

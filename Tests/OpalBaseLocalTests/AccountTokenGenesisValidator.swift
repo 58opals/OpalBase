@@ -54,6 +54,34 @@ struct AccountTokenGenesisValidator {
         }
     }
 
+    @Test("preferred genesis input uses stored UTXO metadata")
+    func preferredGenesisInputUsesStoredUTXOMetadata() async throws {
+        let account = try await makeAccount()
+        let previousTransactionHash = OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0x2A, count: 32))
+        let storedInput = try await addSpendableOutput(
+            to: account,
+            previousTransactionHash: previousTransactionHash,
+            previousTransactionOutputIndex: 0,
+            value: 50_000
+        )
+        let stalePreferredInput = OpalBase.Transaction.Output.Unspent(
+            value: 90_000,
+            lockingScript: storedInput.lockingScript,
+            previousTransactionHash: storedInput.previousTransactionHash,
+            previousTransactionOutputIndex: storedInput.previousTransactionOutputIndex
+        )
+
+        let recipientAddress = try OpalBase.Address("bitcoincash:zpm2qsznhks23z7629mms6s4cwef74vcwvrqekrq9w")
+        let genesis = try OpalBase.Account.TokenGenesis(recipients: [
+            .init(address: recipientAddress, fungibleAmount: 1)
+        ])
+
+        let plan = try await account.prepareTokenGenesis(genesis, preferredGenesisInput: stalePreferredInput)
+
+        #expect(plan.genesisInput == storedInput)
+        #expect(plan.genesisInput.value == storedInput.value)
+    }
+
     @Test("uses dust threshold when genesis recipient lacks BCH amount")
     func usesDustThresholdWhenRecipientAmountIsNil() async throws {
         let account = try await makeAccount()

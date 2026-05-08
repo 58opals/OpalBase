@@ -27,6 +27,6 @@ extension _OpalBase.Address.Book {
         
         spendReservationReleaseTasks.removeAll()
         spendReservationStates.removeAll()
+        utxoStore.releaseAllReservations()
     }
 }
-

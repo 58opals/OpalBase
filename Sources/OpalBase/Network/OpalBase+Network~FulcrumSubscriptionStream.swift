@@ -7,8 +7,8 @@ extension _OpalBase.Network {
         initial: Initial,
         updates: AsyncThrowingStream<Notification, Swift.Error>,
         cancel: @escaping @Sendable () async -> Void,
-        makeInitialUpdates: @escaping @Sendable (Initial) -> [Update],
-        makeUpdates: @escaping @Sendable (Notification) -> [Update],
+        makeInitialUpdates: @escaping @Sendable (Initial) throws -> [Update],
+        makeUpdates: @escaping @Sendable (Notification) throws -> [Update],
         deduplicationKey: @escaping @Sendable (Update) -> DeduplicationKey
     ) -> AsyncThrowingStream<Update, Swift.Error> {
         AsyncThrowingStream { continuation in
@@ -20,15 +20,21 @@ extension _OpalBase.Network {
             let makeUpdatesHandler = makeUpdates
             let deduplicationKeyHandler = deduplicationKey
             
-            for update in makeInitialUpdatesHandler(initialValue) {
-                lastKey = deduplicationKeyHandler(update)
-                continuation.yield(update)
+            do {
+                for update in try makeInitialUpdatesHandler(initialValue) {
+                    lastKey = deduplicationKeyHandler(update)
+                    continuation.yield(update)
+                }
+            } catch {
+                continuation.finish(throwing: FulcrumErrorTranslator.translate(error))
+                Task { await cancelHandler() }
+                return
             }
             
             let task = Task {
                 do {
                     for try await notification in updatesStream {
-                        for update in makeUpdatesHandler(notification) {
+                        for update in try makeUpdatesHandler(notification) {
                             let key = deduplicationKeyHandler(update)
                             guard key != lastKey else { continue }
                             lastKey = key
@@ -52,4 +58,3 @@ extension _OpalBase.Network {
         }
     }
 }
-

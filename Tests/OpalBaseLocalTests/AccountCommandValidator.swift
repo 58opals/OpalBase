@@ -204,6 +204,34 @@ struct AccountCommandValidator {
         #expect(await restoredAddressBook.readActiveSpendReservations().isEmpty)
     }
 
+    @Test("snapshot restore clears stale reserved UTXOs")
+    func snapshotRestoreClearsStaleReservedUTXOs() async throws {
+        let account = try await AccountTestFixtures.makeAccount()
+        let addressBook = await account.addressBook
+        let receivingEntry = try await addressBook.selectNextEntry(for: .receiving)
+        let utxo = OpalBase.Transaction.Output.Unspent(
+            value: 25_000,
+            lockingScript: receivingEntry.address.lockingScript.data,
+            previousTransactionHash: AccountTestFixtures.makeHash(byte: 0x46),
+            previousTransactionOutputIndex: 0
+        )
+        await addressBook.addUTXOs([utxo])
+
+        let recipientAddress = try OpalBase.Address(AccountTestFixtures.standardAddressString)
+        let payment = OpalBase.Account.Payment(
+            recipients: [.init(address: recipientAddress, amount: try OpalBase.Satoshi(10_000))]
+        )
+        _ = try await account.prepareSpend(payment)
+        #expect(await addressBook.listSpendableUTXOs().contains(utxo) == false)
+
+        let snapshot = await addressBook.makeSnapshot()
+        try await addressBook.refresh(with: snapshot)
+
+        #expect(await addressBook.readActiveSpendReservations().isEmpty)
+        #expect(await addressBook.listUTXOs().contains(utxo))
+        #expect(await addressBook.listSpendableUTXOs().contains(utxo))
+    }
+
     @Test("reserveSpend refreshes a stale change entry when the preferred entry is already reserved")
     func reserveSpendRefreshesReservedStaleChangeEntry() async throws {
         let account = try await AccountTestFixtures.makeAccount()

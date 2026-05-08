@@ -69,6 +69,8 @@ extension OpalBase.CashTokens.BCMR.Client {
             guard let uri = String(data: uriData, encoding: .utf8) else { return nil }
             uris.append(uri)
         }
+        
+        guard !uris.isEmpty else { return nil }
 
         return Publication(sha256: sha256, uris: uris)
     }

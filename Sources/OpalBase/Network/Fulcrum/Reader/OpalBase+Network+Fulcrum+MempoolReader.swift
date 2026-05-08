@@ -22,10 +22,22 @@ extension _OpalBase.Network.Fulcrum {
                 let response = try await client.fetchMempoolInfo(options: .init(timeout: timeouts.mempoolInfo))
                 
                 return OpalBase.Network.MempoolInfo(
-                    mempoolMinimumFee: response.mempoolMinimumFee,
-                    minimumRelayTransactionFee: response.minimumRelayTransactionFee,
-                    incrementalRelayFee: response.incrementalRelayFee,
-                    unbroadcastCount: response.unbroadcastCount,
+                    mempoolMinimumFee: try Self.validateMempoolInfoFeeRate(
+                        response.mempoolMinimumFee,
+                        fieldName: "mempool minimum fee"
+                    ),
+                    minimumRelayTransactionFee: try Self.validateMempoolInfoFeeRate(
+                        response.minimumRelayTransactionFee,
+                        fieldName: "minimum relay transaction fee"
+                    ),
+                    incrementalRelayFee: try Self.validateMempoolInfoFeeRate(
+                        response.incrementalRelayFee,
+                        fieldName: "incremental relay fee"
+                    ),
+                    unbroadcastCount: try Self.validateMempoolInfoCount(
+                        response.unbroadcastCount,
+                        fieldName: "unbroadcast count"
+                    ),
                     isFullReplaceByFeeEnabled: response.isFullReplaceByFeeEnabled
                 )
             }
@@ -46,6 +58,28 @@ extension _OpalBase.Network.Fulcrum {
                     return lhs.fee < rhs.fee
                 }
             }
+        }
+        
+        private static func validateMempoolInfoFeeRate(_ feeRate: Double?, fieldName: String) throws -> Double? {
+            guard let feeRate else { return nil }
+            guard feeRate.isFinite, feeRate >= 0 else {
+                throw OpalBase.Network.Error(
+                    reason: .decoding,
+                    message: "Invalid \(fieldName): \(feeRate)"
+                )
+            }
+            return feeRate
+        }
+        
+        private static func validateMempoolInfoCount(_ count: Int?, fieldName: String) throws -> Int? {
+            guard let count else { return nil }
+            guard count >= 0 else {
+                throw OpalBase.Network.Error(
+                    reason: .decoding,
+                    message: "Invalid \(fieldName): \(count)"
+                )
+            }
+            return count
         }
     }
 }

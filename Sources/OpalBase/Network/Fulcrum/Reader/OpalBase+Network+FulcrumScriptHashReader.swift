@@ -32,9 +32,10 @@ extension _OpalBase.Network.Fulcrum {
             includeUnconfirmed: Bool
         ) async throws -> [OpalBase.Network.TransactionHistoryEntry] {
             try await OpalBase.Network.performWithFailureTranslation {
+                let validatedScriptHash = try Self.validateScriptHash(scriptHashHex)
                 let result = try await client.request(
                     .blockchain.scriptHash.getHistory(
-                        scriptHash: scriptHashHex,
+                        scriptHash: validatedScriptHash,
                         shouldIncludeUnconfirmed: includeUnconfirmed
                     ),
                     options: .init(timeout: timeouts.scriptHashHistory)
@@ -55,9 +56,10 @@ extension _OpalBase.Network.Fulcrum {
             tokenFilter: OpalBase.Network.TokenFilter
         ) async throws -> [OpalBase.Transaction.Output.Unspent] {
             try await OpalBase.Network.performWithFailureTranslation {
+                let validatedScriptHash = try Self.validateScriptHash(scriptHashHex)
                 let result = try await client.request(
                     .blockchain.scriptHash.listUnspent(
-                        scriptHash: scriptHashHex,
+                        scriptHash: validatedScriptHash,
                         tokenFilter: tokenFilter.fulcrumTokenFilter
                     ),
                     options: .init(timeout: timeouts.scriptHashUnspent)
@@ -99,6 +101,10 @@ extension _OpalBase.Network.Fulcrum {
                 previousTransactionHash: hash,
                 previousTransactionOutputIndex: index
             )
+        }
+        
+        static func validateScriptHash(_ scriptHash: String) throws -> String {
+            try OpalBase.Network.Fulcrum.AddressReader.validateScriptHash(scriptHash)
         }
     }
 }

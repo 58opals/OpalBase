@@ -20,6 +20,7 @@ extension _OpalBase.Account {
         guard !transfer.recipients.isEmpty || !transfer.burns.isEmpty else {
             throw Error.tokenTransferHasNoRecipients
         }
+        try validateTokenData(in: transfer)
         
         let unsafeRecipients = transfer.recipients.filter { !$0.address.isTokenAware }
         if !unsafeRecipients.isEmpty {
@@ -117,5 +118,22 @@ extension _OpalBase.Account {
                               privateKeys: reservedSpendContext.privateKeys,
                               organizedTokenOutputs: resolvedOrganizedTokenOutputs,
                               shouldRandomizeRecipientOrdering: privacyConfiguration.shouldRandomizeRecipientOrdering)
+    }
+
+    private func validateTokenData(in transfer: TokenTransfer) throws {
+        for recipient in transfer.recipients {
+            try validateTransferTokenData(recipient.tokenData)
+        }
+        for burn in transfer.burns {
+            try validateTransferTokenData(burn.tokenData)
+        }
+    }
+
+    private func validateTransferTokenData(_ tokenData: OpalBase.CashTokens.TokenData) throws {
+        do {
+            _ = try OpalBase.CashTokens.TokenPrefix.encode(tokenData: tokenData)
+        } catch {
+            throw Error.tokenTransferInvalidTokenData(error)
+        }
     }
 }

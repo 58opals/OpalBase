@@ -48,8 +48,8 @@ extension _OpalBase.Transaction.Output.Unspent: Equatable {
 
 extension _OpalBase.Transaction.Output.Unspent {
     func compareOrder(before other: OpalBase.Transaction.Output.Unspent) -> Bool {
-        let leftHash = previousTransactionHash.naturalOrder
-        let rightHash = other.previousTransactionHash.naturalOrder
+        let leftHash = previousTransactionHash.reverseOrder
+        let rightHash = other.previousTransactionHash.reverseOrder
         if leftHash == rightHash {
             return previousTransactionOutputIndex < other.previousTransactionOutputIndex
         }
