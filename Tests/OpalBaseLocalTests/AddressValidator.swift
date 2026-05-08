@@ -207,6 +207,14 @@ struct AddressValidator {
         #expect(filtered == "qpm2qsznhks23z7629mms6s4cwef74vcwvy22gdx6a")
     }
 
+    @Test("filter strips prefix after surrounding whitespace")
+    func filterStripsPrefixAfterSurroundingWhitespace() {
+        let noisy = " \nBITCOINCASH:QPM2-QSZN HK S23Z7629MMS6S4CWEF74VCWVY22GDX6A\t"
+        let filtered = OpalBase.Address.filterBase32(from: noisy)
+
+        #expect(filtered == "qpm2qsznhks23z7629mms6s4cwef74vcwvy22gdx6a")
+    }
+
     @Test("filter normalizes uppercase base32 payloads", .tags(.unit))
     func filterBase32LowercasesUppercaseCharacters() {
         #expect(OpalBase.Address.filterBase32(from: "BITCOINCASH:QPY0") == "qpy0")

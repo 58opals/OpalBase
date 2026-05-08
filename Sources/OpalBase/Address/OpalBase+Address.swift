@@ -167,15 +167,16 @@ extension _OpalBase.Address {
         network: OpalBase.Network.Environment = .mainnet
     ) -> String {
         let prefixWithSeparator = OpalBase.Address.cashAddrPrefix(for: network) + OpalBase.Address.separator
+        let trimmedString = string.trimmingCharacters(in: .whitespacesAndNewlines)
 
         let cleanedSubstring: Substring
-        if let prefixRange = string.range(
+        if let prefixRange = trimmedString.range(
             of: prefixWithSeparator,
             options: [.caseInsensitive, .anchored]
         ) {
-            cleanedSubstring = string[prefixRange.upperBound...]
+            cleanedSubstring = trimmedString[prefixRange.upperBound...]
         } else {
-            cleanedSubstring = string[string.startIndex...]
+            cleanedSubstring = trimmedString[trimmedString.startIndex...]
         }
 
         let filteredString = cleanedSubstring.reduce(into: String()) { partialResult, candidate in

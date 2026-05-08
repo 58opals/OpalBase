@@ -105,6 +105,9 @@ extension _OpalBase.Network.ServerCatalog {
         } else if normalizedScheme == "ws", components.port == 80 {
             components.port = nil
         }
+        if components.path == "/" {
+            components.path = ""
+        }
         return components.url ?? server
     }
 }
