@@ -178,6 +178,33 @@ struct NetworkFulcrumTransactionReaderValidator {
         #expect(await client.readVerboseFetchCount() == 1)
         #expect(await client.readRawFetchCount() == 1)
     }
+    
+    @Test("falls back to raw transaction fetch when verbose size mismatches payload")
+    func fetchDetailedTransactionFallsBackToRawAfterMismatchedVerboseSize() async throws {
+        let fixture = try TransactionFixture.make()
+        let verboseResponse = try TransactionFixture.makeVerboseResponse(
+            transactionHash: fixture.transactionHash.reverseOrder.hexadecimalString,
+            rawTransactionHexadecimal: fixture.rawTransactionHexadecimal,
+            blockHashHexadecimal: fixture.blockHashData.hexadecimalString,
+            blockTime: fixture.blockTime,
+            confirmations: fixture.confirmations,
+            transactionTime: fixture.transactionTime,
+            size: fixture.rawTransactionData.count + 1
+        )
+        let client = TransactionReaderClientTestActor(
+            rawTransactionHex: fixture.rawTransactionHexadecimal,
+            verboseTransaction: verboseResponse
+        )
+        let reader = OpalBase.Network.Fulcrum.TransactionReader(client: client)
+        
+        let detail = try await reader.fetchDetailedTransaction(for: fixture.transactionHash)
+        
+        #expect(detail.rawTransactionData == fixture.rawTransactionData)
+        #expect(detail.size == UInt32(fixture.rawTransactionData.count))
+        #expect(detail.blockHash == nil)
+        #expect(await client.readVerboseFetchCount() == 1)
+        #expect(await client.readRawFetchCount() == 1)
+    }
 
     @Test("falls back to raw transaction fetch when verbose confirmations exceed supported range")
     func fetchDetailedTransactionFallsBackToRawAfterOversizedVerboseConfirmations() async throws {

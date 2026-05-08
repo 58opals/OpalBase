@@ -88,13 +88,31 @@ extension OpalBase.CashTokens.BCMR.Client.AuthchainResolver {
 private extension OpalBase.CashTokens.BCMR.Client.AuthchainResolver {
     func fetchTransaction(for transactionHash: OpalBase.Transaction.Hash) async throws -> OpalBase.Transaction {
         let rawTransactionData = try await transactionReader.fetchRawTransaction(for: transactionHash)
+        return try Self.decodeTransaction(rawTransactionData, transactionHash: transactionHash)
+    }
+}
+
+extension OpalBase.CashTokens.BCMR.Client.AuthchainResolver {
+    static func decodeTransaction(
+        _ rawTransactionData: Data,
+        transactionHash: OpalBase.Transaction.Hash
+    ) throws -> OpalBase.Transaction {
         do {
-            return try OpalBase.Transaction.decode(from: rawTransactionData).transaction
+            let decoded = try OpalBase.Transaction.decode(from: rawTransactionData)
+            guard decoded.bytesRead == rawTransactionData.count else {
+                throw OpalBase.Network.Error(
+                    reason: .decoding,
+                    message: "Transaction payload has trailing bytes"
+                )
+            }
+            return decoded.transaction
         } catch {
             throw Error.transactionDecodingFailed(transactionHash, error)
         }
     }
-    
+}
+
+private extension OpalBase.CashTokens.BCMR.Client.AuthchainResolver {
     func fetchHistoryEntries(
         for lockingScript: Data,
         transactionHash: OpalBase.Transaction.Hash

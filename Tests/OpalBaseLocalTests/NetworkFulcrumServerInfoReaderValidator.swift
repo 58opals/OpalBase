@@ -52,6 +52,24 @@ struct NetworkFulcrumServerInfoReaderValidator {
         #expect(OpalBase.Network.ProtocolVersion(string: "+1.2") == nil)
         #expect(OpalBase.Network.ProtocolVersion(string: "1.+2") == nil)
     }
+    
+    @Test("protocol version decoder rejects invalid components")
+    func protocolVersionDecoderRejectsInvalidComponents() throws {
+        let validVersion = try #require(OpalBase.Network.ProtocolVersion(major: 1, minor: 4))
+        let encoded = try JSONEncoder().encode(validVersion)
+        let decoded = try JSONDecoder().decode(OpalBase.Network.ProtocolVersion.self, from: encoded)
+        #expect(decoded == validVersion)
+        
+        let invalidPayload = Data(#"{"major":-1,"minor":4,"patch":0,"isPatchComponentIncluded":false}"#.utf8)
+        do {
+            _ = try JSONDecoder().decode(OpalBase.Network.ProtocolVersion.self, from: invalidPayload)
+            Issue.record("Expected protocol version decoding to reject negative components")
+        } catch DecodingError.dataCorrupted(let context) {
+            #expect(context.debugDescription == "Invalid protocol version components")
+        } catch {
+            Issue.record("Unexpected error: \(error)")
+        }
+    }
 
     @Test("translates timeout failures for server info requests")
     func pingTranslatesTimeoutFailures() async throws {
@@ -68,6 +86,165 @@ struct NetworkFulcrumServerInfoReaderValidator {
         #expect(failure.message == "Operation timed out")
         #expect(failure.metadata["timeoutSeconds"] == "3.0")
     }
+
+    @Test("rejects negative server fee rates")
+    func rejectsNegativeServerFeeRates() async throws {
+        let relayReader = OpalBase.Network.Fulcrum.ServerInfoReader(
+            client: ServerInfoClientTestActor(
+                relayFeeResponse: try Self.makeRelayFeeResponse(fee: -0.00001)
+            )
+        )
+        let relayFailure = await Self.captureNetworkError {
+            _ = try await relayReader.fetchRelayFee()
+        }
+        #expect(relayFailure.reason == .decoding)
+        #expect(relayFailure.message == "Invalid relay fee: -1e-05")
+
+        let estimateReader = OpalBase.Network.Fulcrum.ServerInfoReader(
+            client: ServerInfoClientTestActor(
+                estimatedFeeResponse: try Self.makeEstimateFeeResponse(fee: -1)
+            )
+        )
+        let estimateFailure = await Self.captureNetworkError {
+            _ = try await estimateReader.estimateFee(forConfirmationTarget: 6)
+        }
+        #expect(estimateFailure.reason == .decoding)
+        #expect(estimateFailure.message == "Invalid estimated fee: -1.0")
+    }
+    
+    @Test("rejects non-positive fee confirmation targets")
+    func rejectsNonPositiveFeeConfirmationTargets() async throws {
+        let client = ServerInfoClientTestActor()
+        let reader = OpalBase.Network.Fulcrum.ServerInfoReader(client: client)
+        
+        let zeroFailure = await Self.captureNetworkError {
+            _ = try await reader.estimateFee(forConfirmationTarget: 0)
+        }
+        #expect(zeroFailure.reason == .encoding)
+        #expect(zeroFailure.message == "Invalid fee confirmation target: 0")
+        
+        let negativeFailure = await Self.captureNetworkError {
+            _ = try await reader.estimateFee(forConfirmationTarget: -1)
+        }
+        #expect(negativeFailure.reason == .encoding)
+        #expect(negativeFailure.message == "Invalid fee confirmation target: -1")
+        
+        #expect(await client.readEstimateFeeTargets().isEmpty)
+    }
+    
+    @Test("rejects negative server feature pruning limits")
+    func fetchServerFeaturesRejectsNegativePruningLimits() async throws {
+        let reader = OpalBase.Network.Fulcrum.ServerInfoReader(
+            client: ServerInfoClientTestActor(
+                featuresResponse: try Self.makeFeaturesResponse(pruningLimit: -1)
+            )
+        )
+        
+        let failure = await Self.captureNetworkError {
+            _ = try await reader.fetchServerFeatures()
+        }
+        
+        #expect(failure.reason == .decoding)
+        #expect(failure.message == "Invalid server feature pruning limit: -1")
+    }
+    
+    @Test("rejects invalid server feature host ports")
+    func fetchServerFeaturesRejectsInvalidHostPorts() async throws {
+        let reader = OpalBase.Network.Fulcrum.ServerInfoReader(
+            client: ServerInfoClientTestActor(
+                featuresResponse: try Self.makeFeaturesResponse(
+                    hosts: ["fulcrum.example.com": ["ssl_port": -1, "tcp_port": 50001]]
+                )
+            )
+        )
+        
+        let failure = await Self.captureNetworkError {
+            _ = try await reader.fetchServerFeatures()
+        }
+        
+        #expect(failure.reason == .decoding)
+        #expect(failure.message == "Invalid server feature ssl port: -1")
+    }
+    
+    @Test("rejects negative reusable payment address metadata")
+    func fetchServerFeaturesRejectsNegativeReusablePaymentAddressMetadata() async throws {
+        let reader = OpalBase.Network.Fulcrum.ServerInfoReader(
+            client: ServerInfoClientTestActor(
+                featuresResponse: try Self.makeFeaturesResponse(
+                    reusablePaymentAddress: [
+                        "history_block_limit": -1,
+                        "max_history": 100,
+                        "prefix_bits": 16,
+                        "prefix_bits_min": 8,
+                        "starting_height": 800_000
+                    ]
+                )
+            )
+        )
+        
+        let failure = await Self.captureNetworkError {
+            _ = try await reader.fetchServerFeatures()
+        }
+        
+        #expect(failure.reason == .decoding)
+        #expect(failure.message == "Invalid server feature rpa history block limit: -1")
+    }
+    
+    @Test("rejects inconsistent reusable payment address prefix ranges")
+    func fetchServerFeaturesRejectsInconsistentReusablePaymentAddressPrefixRanges() async throws {
+        let reader = OpalBase.Network.Fulcrum.ServerInfoReader(
+            client: ServerInfoClientTestActor(
+                featuresResponse: try Self.makeFeaturesResponse(
+                    reusablePaymentAddress: [
+                        "history_block_limit": 288,
+                        "max_history": 100,
+                        "prefix_bits": 16,
+                        "prefix_bits_min": 17,
+                        "starting_height": 800_000
+                    ]
+                )
+            )
+        )
+        
+        let failure = await Self.captureNetworkError {
+            _ = try await reader.fetchServerFeatures()
+        }
+        
+        #expect(failure.reason == .decoding)
+        #expect(failure.message == "Invalid server feature rpa prefix range: minimum 17 exceeds indexed 16")
+    }
+    
+    @Test("rejects malformed server feature genesis hashes")
+    func fetchServerFeaturesRejectsMalformedGenesisHashes() async throws {
+        let reader = OpalBase.Network.Fulcrum.ServerInfoReader(
+            client: ServerInfoClientTestActor(
+                featuresResponse: try Self.makeFeaturesResponse(genesisHash: "aa")
+            )
+        )
+        
+        let failure = await Self.captureNetworkError {
+            _ = try await reader.fetchServerFeatures()
+        }
+        
+        #expect(failure.reason == .decoding)
+        #expect(failure.message == "Invalid server feature genesis hash length: expected 32 bytes, got 1")
+    }
+    
+    @Test("rejects unsupported server feature hash functions")
+    func fetchServerFeaturesRejectsUnsupportedHashFunctions() async throws {
+        let reader = OpalBase.Network.Fulcrum.ServerInfoReader(
+            client: ServerInfoClientTestActor(
+                featuresResponse: try Self.makeFeaturesResponse(hashFunction: "sha1")
+            )
+        )
+        
+        let failure = await Self.captureNetworkError {
+            _ = try await reader.fetchServerFeatures()
+        }
+        
+        #expect(failure.reason == .protocolViolation)
+        #expect(failure.message == "Unsupported server feature hash function: sha1")
+    }
 }
 
 private actor ServerInfoClientTestActor: OpalBase.Network.Fulcrum.ServerInfoClient {
@@ -76,6 +253,7 @@ private actor ServerInfoClientTestActor: OpalBase.Network.Fulcrum.ServerInfoClie
     private let featuresResponse: SwiftFulcrum.Response.Server.Features
     private let relayFeeResponse: SwiftFulcrum.Response.Blockchain.RelayFee
     private let estimatedFeeResponse: SwiftFulcrum.Response.Blockchain.EstimateFee
+    private var estimateFeeTargets: [Int] = []
 
     init(
         pingError: Swift.Error? = nil,
@@ -119,10 +297,15 @@ private actor ServerInfoClientTestActor: OpalBase.Network.Fulcrum.ServerInfoClie
     }
 
     func estimateFee(
-        numberOfBlocks _: Int,
+        numberOfBlocks: Int,
         options _: SwiftFulcrum.Client.Call.Options
     ) async throws -> SwiftFulcrum.Response.Blockchain.EstimateFee {
-        estimatedFeeResponse
+        estimateFeeTargets.append(numberOfBlocks)
+        return estimatedFeeResponse
+    }
+    
+    func readEstimateFeeTargets() -> [Int] {
+        estimateFeeTargets
     }
 }
 
@@ -135,20 +318,35 @@ private extension NetworkFulcrumServerInfoReaderValidator {
         return try JSONDecoder().decode(SwiftFulcrum.Response.Server.Version.self, from: payload)
     }
 
-    static func makeFeaturesResponse() throws -> SwiftFulcrum.Response.Server.Features {
-        let payload = try JSONSerialization.data(withJSONObject: [
-            "genesis_hash": String(repeating: "a", count: 64),
-            "hash_function": "sha256",
+    static func makeFeaturesResponse(
+        genesisHash: String = String(repeating: "a", count: 64),
+        hashFunction: String = "sha256",
+        pruningLimit: Int = 100,
+        hosts: [String: [String: Int]] = [
+            "fulcrum.example.com": ["ssl_port": 50002, "tcp_port": 50001, "ws_port": 50003, "wss_port": 50004]
+        ],
+        reusablePaymentAddress: [String: Int] = [
+            "history_block_limit": 288,
+            "max_history": 100,
+            "prefix_bits": 16,
+            "prefix_bits_min": 8,
+            "starting_height": 800_000
+        ]
+    ) throws -> SwiftFulcrum.Response.Server.Features {
+        let payloadObject: [String: Any] = [
+            "genesis_hash": genesisHash,
+            "hash_function": hashFunction,
             "server_version": "Fulcrum 1.9.0",
             "protocol_max": "1.5",
             "protocol_min": "1.4",
-            "pruning": 100,
-            "hosts": ["fulcrum.example.com": ["ssl_port": 50002, "tcp_port": 50001, "ws_port": 50003, "wss_port": 50004]],
+            "pruning": pruningLimit,
+            "hosts": hosts,
             "dsproof": true,
             "cashtokens": true,
-            "rpa": ["history_block_limit": 288, "max_history": 100, "prefix_bits": 16, "prefix_bits_min": 8, "starting_height": 800_000],
+            "rpa": reusablePaymentAddress,
             "broadcast_package": true
-        ])
+        ]
+        let payload = try JSONSerialization.data(withJSONObject: payloadObject)
         return try JSONDecoder().decode(SwiftFulcrum.Response.Server.Features.self, from: payload)
     }
 

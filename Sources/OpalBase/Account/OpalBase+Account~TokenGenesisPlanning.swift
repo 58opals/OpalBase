@@ -34,17 +34,12 @@ extension _OpalBase.Account {
         let spendableOutputs = await addressBook.sortSpendableUTXOs(by: { $0.value > $1.value })
         let genesisInput: OpalBase.Transaction.Output.Unspent
         if let preferredGenesisInput {
-            guard preferredGenesisInput.tokenData == nil,
-                  preferredGenesisInput.previousTransactionOutputIndex == 0 else {
+            guard let spendableGenesisInput = spendableOutputs.first(where: { $0 == preferredGenesisInput }),
+                  spendableGenesisInput.tokenData == nil,
+                  spendableGenesisInput.previousTransactionOutputIndex == 0 else {
                 throw Error.tokenGenesisInvalidGenesisInput
             }
-            if !spendableOutputs.contains(preferredGenesisInput) {
-                let allOutputs = await addressBook.sortUTXOs(by: { $0.value > $1.value })
-                guard allOutputs.contains(preferredGenesisInput) else {
-                    throw Error.tokenGenesisInvalidGenesisInput
-                }
-            }
-            genesisInput = preferredGenesisInput
+            genesisInput = spendableGenesisInput
         } else {
             guard let selectedGenesisInput = selectGenesisInput(from: spendableOutputs) else {
                 // Consider calling prepareTokenGenesisOutpoint to identify a valid genesis input.

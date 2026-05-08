@@ -26,6 +26,7 @@ extension _OpalBase.Address.Book {
                                usage: OpalBase.Key.DerivationPath.Usage? = nil) async throws -> UTXORefresh {
         var refreshedUTXOs: [OpalBase.Address: [OpalBase.Transaction.Output.Unspent]] = .init()
         var plannedRefreshes: [(address: OpalBase.Address, utxos: [OpalBase.Transaction.Output.Unspent], changeSet: UTXOChangeSet)] = .init()
+        var seenRefreshOutpoints: Set<UTXORepository.Outpoint> = .init()
         
         let refreshTimestamp = Date.now
         try await performForEachTargetUsage(usage) { _, entries in
@@ -53,6 +54,14 @@ extension _OpalBase.Address.Book {
             }
             
             for (address, utxos) in usageResults {
+                for utxo in utxos {
+                    guard seenRefreshOutpoints.insert(UTXORepository.Outpoint(utxo)).inserted else {
+                        throw OpalBase.Network.Error(
+                            reason: .protocolViolation,
+                            message: "Unspent output response contained duplicate outpoints"
+                        )
+                    }
+                }
                 refreshedUTXOs[address] = utxos
                 let changeSet = try makeUTXOChangeSet(for: address,
                                                        with: utxos,

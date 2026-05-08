@@ -101,11 +101,16 @@ extension _OpalBase.Wallet.Fulcrum {
             isManagedByEventStreams = shouldStopWhenStreamsEnd
 
             let existingEntries = await dependencies.account.listTrackedEntries()
+            guard isRunning, !isFinished else { return }
+
             for entry in existingEntries {
                 await registerEntry(entry)
+                guard isRunning, !isFinished else { return }
             }
 
             await startEntryObservation()
+            guard isRunning, !isFinished else { return }
+
             await startHeaderSubscription()
         }
 
@@ -196,6 +201,37 @@ extension _OpalBase.Wallet.Fulcrum {
         private func cancelHeaderTask() {
             headerTask?.cancel()
             headerTask = nil
+        }
+    }
+}
+
+extension _OpalBase.Wallet.Fulcrum.Monitor {
+    actor StartupGate {
+        private var isComplete = false
+        private var continuations: [CheckedContinuation<Void, Never>] = .init()
+
+        func wait() async {
+            if isComplete { return }
+
+            await withCheckedContinuation { continuation in
+                if isComplete {
+                    continuation.resume()
+                } else {
+                    continuations.append(continuation)
+                }
+            }
+        }
+
+        func complete() {
+            guard !isComplete else { return }
+
+            isComplete = true
+            let pendingContinuations = continuations
+            continuations.removeAll()
+
+            for continuation in pendingContinuations {
+                continuation.resume()
+            }
         }
     }
 }

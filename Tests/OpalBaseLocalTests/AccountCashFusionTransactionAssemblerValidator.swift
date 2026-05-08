@@ -3,6 +3,7 @@
 
 import Foundation
 import OpalCrypto
+import OpalFusion
 import Testing
 @testable import OpalBase
 
@@ -75,8 +76,8 @@ struct AccountCashFusionTransactionAssemblerValidator {
         try await reservation.cancel()
     }
 
-    @Test("mismatched or reordered local inputs are rejected")
-    func mismatchedOrReorderedLocalInputsAreRejected() async throws {
+    @Test("reordered local inputs are signed by matched outpoint")
+    func reorderedLocalInputsAreSignedByMatchedOutpoint() async throws {
         let account = try await AccountTestFixtures.makeAccount()
         let firstInput = try await CashFusionTestSupport.makeWalletOwnedUnspentOutput(
             to: account,
@@ -99,6 +100,11 @@ struct AccountCashFusionTransactionAssemblerValidator {
         let assembler = OpalBase.Account.CashFusionTransactionAssembler(
             reservation: reservation
         )
+        let remoteInput = OpalBase.Transaction.Input(
+            previousTransactionHash: AccountTestFixtures.makeHash(byte: 0xD4),
+            previousTransactionOutputIndex: 0,
+            unlockingScript: Data()
+        )
         let reorderedTransaction = OpalBase.Transaction(
             version: 2,
             inputs: [
@@ -107,6 +113,7 @@ struct AccountCashFusionTransactionAssemblerValidator {
                     previousTransactionOutputIndex: secondInput.previousTransactionOutputIndex,
                     unlockingScript: Data()
                 ),
+                remoteInput,
                 .init(
                     previousTransactionHash: firstInput.previousTransactionHash,
                     previousTransactionOutputIndex: firstInput.previousTransactionOutputIndex,
@@ -115,6 +122,55 @@ struct AccountCashFusionTransactionAssemblerValidator {
             ],
             outputs: [.init(value: 80_000, lockingScript: Data([0x51]))],
             lockTime: 0
+        )
+
+        let finalized = try await assembler.finalizeTransaction(
+            for: .init(rawValue: "round-reordered"),
+            proposal: CashFusionTestSupport.makeProposal(transaction: reorderedTransaction)
+        )
+        let decoded = try OpalBase.Transaction.decode(
+            from: Data(finalized.transactionBytes)
+        ).transaction
+        let firstReservedInput = try #require(reservation.reservedInputs.first)
+        let secondReservedInput = try #require(reservation.reservedInputs.dropFirst().first)
+        let firstLocalUnlockingScript = try decodeCashFusionP2PKHUnlockingScript(
+            decoded.inputs[0].unlockingScript
+        )
+        let secondLocalUnlockingScript = try decodeCashFusionP2PKHUnlockingScript(
+            decoded.inputs[2].unlockingScript
+        )
+
+        #expect(decoded.outputs == reorderedTransaction.outputs)
+        #expect(decoded.inputs[1].unlockingScript.isEmpty)
+        #expect(firstLocalUnlockingScript.publicKey == secondReservedInput.compressedPublicKey)
+        #expect(secondLocalUnlockingScript.publicKey == firstReservedInput.compressedPublicKey)
+
+        try await reservation.cancel()
+    }
+
+    @Test("mismatched local inputs are rejected as transaction assembly failures")
+    func mismatchedLocalInputsAreRejectedAsTransactionAssemblyFailures() async throws {
+        let account = try await AccountTestFixtures.makeAccount()
+        let firstInput = try await CashFusionTestSupport.makeWalletOwnedUnspentOutput(
+            to: account,
+            value: 120_000,
+            usage: .change,
+            hashByte: 0xD5
+        )
+        let secondInput = try await CashFusionTestSupport.makeWalletOwnedUnspentOutput(
+            to: account,
+            value: 130_000,
+            usage: .change,
+            hashByte: 0xD6
+        )
+        let reservation = try await account.prepareCashFusionReservation(
+            request: .init(
+                selectedInputs: [firstInput, secondInput],
+                outputAmounts: [try OpalBase.Satoshi(55_000)]
+            )
+        )
+        let assembler = OpalBase.Account.CashFusionTransactionAssembler(
+            reservation: reservation
         )
         let mismatchedTransaction = OpalBase.Transaction(
             version: 2,
@@ -130,16 +186,9 @@ struct AccountCashFusionTransactionAssemblerValidator {
         )
 
         await #expect(
-            throws: OpalBase.Account.CashFusionTransactionAssemblyError.localInputOrderMismatch
-        ) {
-            _ = try await assembler.finalizeTransaction(
-                for: .init(rawValue: "round-reordered"),
-                proposal: CashFusionTestSupport.makeProposal(transaction: reorderedTransaction)
+            throws: OpalFusion.Host.TransactionFinalizationFailure.transactionAssemblyFailed(
+                summary: "CashFusion transaction assembly failed"
             )
-        }
-
-        await #expect(
-            throws: OpalBase.Account.CashFusionTransactionAssemblyError.localInputMismatch
         ) {
             _ = try await assembler.finalizeTransaction(
                 for: .init(rawValue: "round-mismatched"),
@@ -183,9 +232,8 @@ struct AccountCashFusionTransactionAssemblerValidator {
         let unsignedTransactionBytes = [UInt8](try unsignedTransaction.encode())
 
         await #expect(
-            throws: OpalBase.Account.CashFusionTransactionAssemblyError.inputCountMismatch(
-                expected: 2,
-                actual: 1
+            throws: OpalFusion.Host.TransactionFinalizationFailure.transactionAssemblyFailed(
+                summary: "CashFusion transaction assembly failed"
             )
         ) {
             _ = try await assembler.finalizeTransaction(
@@ -199,9 +247,8 @@ struct AccountCashFusionTransactionAssemblerValidator {
         }
 
         await #expect(
-            throws: OpalBase.Account.CashFusionTransactionAssemblyError.outputCountMismatch(
-                expected: 2,
-                actual: 1
+            throws: OpalFusion.Host.TransactionFinalizationFailure.transactionAssemblyFailed(
+                summary: "CashFusion transaction assembly failed"
             )
         ) {
             _ = try await assembler.finalizeTransaction(
@@ -211,6 +258,51 @@ struct AccountCashFusionTransactionAssemblerValidator {
                     expectedInputCount: 1,
                     expectedOutputCount: 2
                 )
+            )
+        }
+
+        try await reservation.cancel()
+    }
+
+    @Test("reservation policy refusals are reported as host policy failures")
+    func reservationPolicyRefusalsAreReportedAsHostPolicyFailures() async throws {
+        let account = try await AccountTestFixtures.makeAccount()
+        let selectedInput = try await CashFusionTestSupport.makeWalletOwnedUnspentOutput(
+            to: account,
+            value: 150_000,
+            usage: .change,
+            hashByte: 0xD7
+        )
+        let reservation = try await account.prepareCashFusionReservation(
+            request: .init(
+                selectedInputs: [selectedInput],
+                outputPolicy: .valuePreserving
+            )
+        )
+        let assembler = OpalBase.Account.CashFusionTransactionAssembler(
+            reservation: reservation
+        )
+        let unsignedTransaction = OpalBase.Transaction(
+            version: 2,
+            inputs: [
+                .init(
+                    previousTransactionHash: selectedInput.previousTransactionHash,
+                    previousTransactionOutputIndex: selectedInput.previousTransactionOutputIndex,
+                    unlockingScript: Data()
+                )
+            ],
+            outputs: [.init(value: 80_000, lockingScript: Data([0x51]))],
+            lockTime: 0
+        )
+
+        await #expect(
+            throws: OpalFusion.Host.TransactionFinalizationFailure.hostPolicyRejected(
+                summary: "CashFusion host policy rejected transaction"
+            )
+        ) {
+            _ = try await assembler.finalizeTransaction(
+                for: .init(rawValue: "round-policy-refusal"),
+                proposal: CashFusionTestSupport.makeProposal(transaction: unsignedTransaction)
             )
         }
 

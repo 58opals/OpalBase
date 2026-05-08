@@ -192,6 +192,19 @@ struct NetworkServerCatalogValidator {
         ])
     }
 
+    @Test("normalizes root websocket paths before deduplication")
+    func normalizationCollapsesRootWebSocketPaths() {
+        let rawServers = [
+            URL(string: "wss://root-path.example.com")!,
+            URL(string: "wss://root-path.example.com/")!,
+            URL(string: "https://root-path.example.com:443/")!
+        ]
+
+        let normalized = OpalBase.Network.ServerCatalog.makeNormalizedServers(rawServers)
+
+        #expect(normalized == [URL(string: "wss://root-path.example.com")!])
+    }
+
     @Test("normalization rejects websocket URLs without hosts")
     func normalizationRejectsWebSocketURLsWithoutHosts() {
         let rawServers = [
@@ -203,6 +216,18 @@ struct NetworkServerCatalogValidator {
 
         let normalized = OpalBase.Network.ServerCatalog.makeNormalizedServers(rawServers)
 
+        #expect(normalized == [URL(string: "wss://valid.example.com:50004")!])
+    }
+    
+    @Test("normalization rejects invalid websocket ports")
+    func normalizationRejectsInvalidWebSocketPorts() {
+        let rawServers = [
+            URL(string: "wss://invalid-port.example.com:0")!,
+            URL(string: "wss://valid.example.com:50004")!
+        ]
+        
+        let normalized = OpalBase.Network.ServerCatalog.makeNormalizedServers(rawServers)
+        
         #expect(normalized == [URL(string: "wss://valid.example.com:50004")!])
     }
     

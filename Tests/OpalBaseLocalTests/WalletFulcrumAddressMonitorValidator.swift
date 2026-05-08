@@ -583,6 +583,33 @@ struct WalletFulcrumAddressMonitorValidator {
         }
     }
 
+    @Test("manual start waits for initial address and header subscriptions")
+    func manualStartWaitsForInitialSubscriptions() async throws {
+        let account = try await AccountTestFixtures.makeAccount()
+        let targetEntry = try await account.selectNextEntry(for: .receiving)
+        let addressReader = WalletAddressReaderTestActor()
+        let confirmationClient = TransactionConfirmationClientTestActor()
+        let headerReader = BlockHeaderReaderTestActor(snapshots: .init())
+        let fulcrum = OpalBase.Wallet.Fulcrum(
+            addressReader: addressReader,
+            transactionHandler: confirmationClient
+        )
+        let monitor = await fulcrum.makeMonitor(
+            for: account,
+            blockHeaderReader: headerReader,
+            retryDelay: .seconds(20)
+        )
+
+        await monitor.start()
+
+        let subscribeRequests = await addressReader.readSubscribeRequests()
+        #expect(subscribeRequests.contains(targetEntry.address.string))
+        #expect(subscribeRequests.isEmpty == false)
+        #expect(await headerReader.readSubscriptionCount() == 1)
+
+        await monitor.stop()
+    }
+
     @Test("normally completed subscriptions wait before retrying")
     func normallyCompletedSubscriptionsWaitBeforeRetrying() async throws {
         let account = try await AccountTestFixtures.makeAccount()

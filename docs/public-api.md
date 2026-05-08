@@ -118,6 +118,25 @@ CashTokens domain types remain public vocabulary:
 
 Use account token operations such as `prepareTokenSpend`, `prepareTokenGenesis`, token mint planning, and token commitment mutation planning for wallet-owned transaction flows.
 
+## Hedge Funding
+
+Use `OpalBase.Hedge` for the wallet-facing AnyHedge beta flow. Wallets can reserve participant material from an account, pass counterparty material and a verified oracle proof into a USD thirty-day simple hedge request, and prepare the wallet-owned BCH funding spend without importing `OpalHedge`:
+
+```swift
+let walletMaterial = try await account.reserveHedgeParticipantMaterial()
+let request = OpalBase.Hedge.USDThirtyDaySimpleHedgeRequest(
+    walletParticipant: walletMaterial,
+    counterpartyParticipant: counterpartyMaterial,
+    startingOracleProof: startingOracleProof,
+    nominalUnits: 1_000
+)
+
+let plan = try await account.prepareHedgeFunding(request)
+let review = try plan.buildReview()
+```
+
+`FundingPlan` keeps the account spend reservation active until the caller builds and broadcasts, completes, or cancels it. A successful `buildAndBroadcast` returns an `OpalBase.Hedge.FundingRecord` with OpalBase-native transaction hash, funding output index, funding amount, and persisted data-document JSON. Settlement summaries can be reconstructed later with `OpalBase.Hedge.makeSettlementSummary(...)` using persisted funding JSON plus verified oracle proofs.
+
 ## Claimable
 
 Use `OpalBase.Claimable` for claimable contract drafts, envelopes, share codes, local status checks, and recovery material. These APIs are separate from wallet account state so apps can create, decode, inspect, and claim funding envelopes without exposing account internals.

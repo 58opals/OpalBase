@@ -41,7 +41,7 @@ extension _OpalBase.Address.Book {
         walletScriptHashes: Set<String>
     ) async throws -> OpalBase.Transaction.History.Record.TokenDelta {
         let rawTransactionData = try await transactionReader.fetchRawTransaction(for: transactionHash)
-        let (transaction, _) = try OpalBase.Transaction.decode(from: rawTransactionData)
+        let transaction = try Self.decodeCompleteTransaction(from: rawTransactionData)
         return try await makeTokenDelta(from: transaction,
                                         transactionReader: transactionReader,
                                         walletScriptHashes: walletScriptHashes)
@@ -55,7 +55,7 @@ extension _OpalBase.Address.Book {
         let previousHashes = transaction.inputs.map(\.previousTransactionHash).deduplicate()
         let previousTransactions = try await previousHashes.mapConcurrently { hash in
             let rawTransactionData = try await transactionReader.fetchRawTransaction(for: hash)
-            let (previousTransaction, _) = try OpalBase.Transaction.decode(from: rawTransactionData)
+            let previousTransaction = try Self.decodeCompleteTransaction(from: rawTransactionData)
             return (hash, previousTransaction)
         }
         let previousTransactionsByHash = Dictionary(uniqueKeysWithValues: previousTransactions)
@@ -94,6 +94,11 @@ extension _OpalBase.Address.Book {
             }
             try addLockedBCHDelta(previousOutput.value, sign: -1, into: &lockedBCHDelta)
         }
+
+        netNonFungibleTokenDeltas(
+            additions: &nonFungibleAdditions,
+            removals: &nonFungibleRemovals
+        )
         
         return OpalBase.Transaction.History.Record.TokenDelta(
             fungibleDeltasByCategory: fungibleDeltas,
@@ -105,6 +110,26 @@ extension _OpalBase.Address.Book {
     
     func makeScriptHashHex(from lockingScript: Data) -> String {
         OpalCryptoAdapter.sha256(lockingScript).reversedData.hexadecimalString
+    }
+
+    nonisolated static func decodeCompleteTransaction(from rawTransactionData: Data) throws -> OpalBase.Transaction {
+        let (transaction, bytesRead) = try OpalBase.Transaction.decode(from: rawTransactionData)
+        guard bytesRead == rawTransactionData.count else {
+            throw OpalBase.Network.Error(
+                reason: .decoding,
+                message: "Transaction payload has trailing bytes"
+            )
+        }
+        return transaction
+    }
+
+    func netNonFungibleTokenDeltas(
+        additions: inout Set<OpalBase.CashTokens.TokenData>,
+        removals: inout Set<OpalBase.CashTokens.TokenData>
+    ) {
+        let unchangedTokens = additions.intersection(removals)
+        additions.subtract(unchangedTokens)
+        removals.subtract(unchangedTokens)
     }
     
     func makeNonFungibleTokenData(from tokenData: OpalBase.CashTokens.TokenData) -> OpalBase.CashTokens.TokenData? {

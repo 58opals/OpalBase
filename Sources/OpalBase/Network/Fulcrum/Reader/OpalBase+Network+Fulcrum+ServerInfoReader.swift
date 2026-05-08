@@ -52,29 +52,54 @@ extension _OpalBase.Network.Fulcrum {
                 let result = try await client.fetchServerFeatures(options: .init(timeout: timeouts.serverFeatures))
                 
                 return OpalBase.Network.FulcrumServerFeatures(
-                    genesisHash: result.genesisHash,
-                    hashFunction: result.hashFunction,
+                    genesisHash: try Self.validateFeatureHash(result.genesisHash, fieldName: "genesis hash"),
+                    hashFunction: try Self.validateHashFunction(result.hashFunction),
                     serverVersion: result.serverVersion,
                     minimumProtocolVersion: .init(result.minimumProtocolVersion),
                     maximumProtocolVersion: .init(result.maximumProtocolVersion),
-                    pruningLimit: result.pruningLimit,
-                    hosts: result.hosts?.mapValues { host in
+                    pruningLimit: try Self.validateFeatureCount(result.pruningLimit, fieldName: "pruning limit"),
+                    hosts: try result.hosts?.mapValues { host in
                         OpalBase.Network.FulcrumServerFeatures.Host(
-                            secureSocketsLayerPort: host.sslPort,
-                            transmissionControlProtocolPort: host.tcpPort,
-                            webSocketPort: host.webSocketPort,
-                            secureWebSocketPort: host.secureWebSocketPort
+                            secureSocketsLayerPort: try Self.validateFeaturePort(host.sslPort, fieldName: "ssl port"),
+                            transmissionControlProtocolPort: try Self.validateFeaturePort(host.tcpPort, fieldName: "tcp port"),
+                            webSocketPort: try Self.validateFeaturePort(host.webSocketPort, fieldName: "websocket port"),
+                            secureWebSocketPort: try Self.validateFeaturePort(host.secureWebSocketPort, fieldName: "secure websocket port")
                         )
                     },
                     hasDoubleSpendProofs: result.hasDoubleSpendProofs,
                     hasCashTokens: result.hasCashTokens,
-                    reusablePaymentAddress: result.reusablePaymentAddress.map { reusable in
-                        OpalBase.Network.FulcrumServerFeatures.ReusablePaymentAddress(
-                            historyBlockLimit: reusable.historyBlockLimit,
-                            maximumHistoryItems: reusable.maximumHistoryItems,
-                            indexedPrefixBits: reusable.indexedPrefixBits,
-                            minimumPrefixBits: reusable.minimumPrefixBits,
-                            startingHeight: reusable.startingHeight
+                    reusablePaymentAddress: try result.reusablePaymentAddress.map { reusable in
+                        let historyBlockLimit = try Self.validateFeatureCount(
+                            reusable.historyBlockLimit,
+                            fieldName: "rpa history block limit"
+                        )
+                        let maximumHistoryItems = try Self.validateFeatureCount(
+                            reusable.maximumHistoryItems,
+                            fieldName: "rpa maximum history items"
+                        )
+                        let indexedPrefixBits = try Self.validateFeatureCount(
+                            reusable.indexedPrefixBits,
+                            fieldName: "rpa indexed prefix bits"
+                        )
+                        let minimumPrefixBits = try Self.validateFeatureCount(
+                            reusable.minimumPrefixBits,
+                            fieldName: "rpa minimum prefix bits"
+                        )
+                        let startingHeight = try Self.validateFeatureCount(
+                            reusable.startingHeight,
+                            fieldName: "rpa starting height"
+                        )
+                        try Self.validateReusablePaymentAddressPrefixRange(
+                            minimumPrefixBits: minimumPrefixBits,
+                            indexedPrefixBits: indexedPrefixBits
+                        )
+                        
+                        return OpalBase.Network.FulcrumServerFeatures.ReusablePaymentAddress(
+                            historyBlockLimit: historyBlockLimit,
+                            maximumHistoryItems: maximumHistoryItems,
+                            indexedPrefixBits: indexedPrefixBits,
+                            minimumPrefixBits: minimumPrefixBits,
+                            startingHeight: startingHeight
                         )
                     },
                     hasBroadcastPackageSupport: result.hasBroadcastPackageSupport
@@ -85,17 +110,101 @@ extension _OpalBase.Network.Fulcrum {
         public func fetchRelayFee() async throws -> Double {
             try await OpalBase.Network.performWithFailureTranslation {
                 let result = try await client.fetchRelayFee(options: .init(timeout: timeouts.relayFee))
-                return result.fee
+                return try Self.validateFeeRate(result.fee, fieldName: "relay fee")
             }
         }
         
         public func estimateFee(forConfirmationTarget confirmationTarget: Int) async throws -> Double {
             try await OpalBase.Network.performWithFailureTranslation {
+                try Self.validateConfirmationTarget(confirmationTarget)
                 let result = try await client.estimateFee(
                     numberOfBlocks: confirmationTarget,
                     options: .init(timeout: timeouts.feeEstimation)
                 )
-                return result.fee
+                return try Self.validateFeeRate(result.fee, fieldName: "estimated fee")
+            }
+        }
+
+        private static func validateFeeRate(_ feeRate: Double, fieldName: String) throws -> Double {
+            guard feeRate.isFinite, feeRate >= 0 else {
+                throw OpalBase.Network.Error(
+                    reason: .decoding,
+                    message: "Invalid \(fieldName): \(feeRate)"
+                )
+            }
+            return feeRate
+        }
+        
+        private static func validateHashFunction(_ hashFunction: String) throws -> String {
+            guard hashFunction == "sha256" else {
+                throw OpalBase.Network.Error(
+                    reason: .protocolViolation,
+                    message: "Unsupported server feature hash function: \(hashFunction)"
+                )
+            }
+            return hashFunction
+        }
+        
+        private static func validateFeatureCount(_ count: Int?, fieldName: String) throws -> Int? {
+            guard let count else { return nil }
+            guard count >= 0 else {
+                throw OpalBase.Network.Error(
+                    reason: .decoding,
+                    message: "Invalid server feature \(fieldName): \(count)"
+                )
+            }
+            return count
+        }
+        
+        private static func validateFeaturePort(_ port: Int?, fieldName: String) throws -> Int? {
+            guard let port else { return nil }
+            guard (1...65_535).contains(port) else {
+                throw OpalBase.Network.Error(
+                    reason: .decoding,
+                    message: "Invalid server feature \(fieldName): \(port)"
+                )
+            }
+            return port
+        }
+        
+        private static func validateFeatureHash(_ hash: String, fieldName: String) throws -> String {
+            let data: Data
+            do {
+                data = try Data(hexadecimalString: hash)
+            } catch {
+                throw OpalBase.Network.Error(
+                    reason: .decoding,
+                    message: "Cannot decode server feature \(fieldName): \(hash)"
+                )
+            }
+            guard data.count == OpalBase.Transaction.Hash.expectedByteCount else {
+                throw OpalBase.Network.Error(
+                    reason: .decoding,
+                    message: "Invalid server feature \(fieldName) length: expected \(OpalBase.Transaction.Hash.expectedByteCount) bytes, got \(data.count)"
+                )
+            }
+            return hash
+        }
+        
+        private static func validateReusablePaymentAddressPrefixRange(
+            minimumPrefixBits: Int?,
+            indexedPrefixBits: Int?
+        ) throws {
+            guard let minimumPrefixBits, let indexedPrefixBits else { return }
+            guard minimumPrefixBits <= indexedPrefixBits else {
+                throw OpalBase.Network.Error(
+                    reason: .decoding,
+                    message: "Invalid server feature rpa prefix range: minimum \(minimumPrefixBits) exceeds indexed \(indexedPrefixBits)"
+                )
+            }
+        }
+        
+        private static func validateConfirmationTarget(_ confirmationTarget: Int) throws {
+            guard confirmationTarget > 0 else {
+                throw OpalBase.Network.Error(
+                    reason: .encoding,
+                    message: "Invalid fee confirmation target: \(confirmationTarget)"
+                )
             }
         }
     }

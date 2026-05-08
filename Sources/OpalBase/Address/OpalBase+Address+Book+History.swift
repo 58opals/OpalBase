@@ -26,6 +26,8 @@ extension _OpalBase.Address.Book {
                                           transactionReader: OpalBase.Network.TransactionReader? = nil) async throws -> OpalBase.Transaction.History.ChangeSet {
         var aggregatedChangeSet = OpalBase.Transaction.History.ChangeSet()
         var tokenDeltaCache: [OpalBase.Transaction.Hash: OpalBase.Transaction.History.Record.TokenDelta] = .init()
+        var entriesByTransactionHash: [OpalBase.Transaction.Hash: OpalBase.Transaction.History.Entry] = .init()
+        var resultsByUsage: [[OpalBase.Address.Book.History.QueryResult]] = .init()
         let walletScriptHashes = listWalletScriptHashes()
         
         let refreshTimestamp = Date.now
@@ -42,8 +44,12 @@ extension _OpalBase.Address.Book {
                                                        using: service,
                                                        includeUnconfirmed: includeUnconfirmed)
             }
-            try Self.validateConsistentHistoryEntries(in: usageResults)
-            
+            try Self.validateConsistentHistoryEntries(in: usageResults,
+                                                      entriesByTransactionHash: &entriesByTransactionHash)
+            resultsByUsage.append(usageResults)
+        }
+        
+        for usageResults in resultsByUsage {
             if let transactionReader {
                 let usageEntries = usageResults.flatMap(\.entries)
                 try await updateTokenDeltaCache(for: usageEntries,
@@ -51,7 +57,9 @@ extension _OpalBase.Address.Book {
                                                 walletScriptHashes: walletScriptHashes,
                                                 tokenDeltaCache: &tokenDeltaCache)
             }
-            
+        }
+        
+        for usageResults in resultsByUsage {
             for result in usageResults {
                 if !result.entries.isEmpty {
                     try await mark(address: result.address, isUsed: true)
@@ -153,10 +161,9 @@ private extension _OpalBase.Address.Book {
     }
 
     static func validateConsistentHistoryEntries(
-        in results: [OpalBase.Address.Book.History.QueryResult]
+        in results: [OpalBase.Address.Book.History.QueryResult],
+        entriesByTransactionHash: inout [OpalBase.Transaction.Hash: OpalBase.Transaction.History.Entry]
     ) throws {
-        var entriesByTransactionHash: [OpalBase.Transaction.Hash: OpalBase.Transaction.History.Entry] = .init()
-
         for result in results {
             for entry in result.entries {
                 guard let existing = entriesByTransactionHash[entry.transactionHash] else {

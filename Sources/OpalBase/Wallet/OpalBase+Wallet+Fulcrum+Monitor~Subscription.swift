@@ -4,8 +4,12 @@ import Foundation
 
 extension _OpalBase.Wallet.Fulcrum.Monitor {
     func registerEntry(_ entry: OpalBase.Address.Book.Entry) async {
+        guard isRunning, !isFinished else { return }
+
         let address = entry.address
-        ensureSubscription(for: address)
+        await ensureSubscription(for: address)
+        guard isRunning, !isFinished else { return }
+
         await dependencies.eventHub.publish(.addressTracked(address))
     }
 
@@ -31,15 +35,23 @@ extension _OpalBase.Wallet.Fulcrum.Monitor {
         await registerEntry(entry)
     }
 
-    private func ensureSubscription(for address: OpalBase.Address) {
+    private func ensureSubscription(for address: OpalBase.Address) async {
         guard addressSubscriptions[address] == nil else { return }
-        addressSubscriptions[address] = Self.makeAddressSubscriptionTask(for: address, dependencies: dependencies)
+
+        let startupGate = StartupGate()
+        addressSubscriptions[address] = Self.makeAddressSubscriptionTask(
+            for: address,
+            dependencies: dependencies,
+            startupGate: startupGate
+        )
+        await startupGate.wait()
     }
 }
 
 extension _OpalBase.Wallet.Fulcrum.Monitor {
     static func makeAddressSubscriptionTask(for address: OpalBase.Address,
-                                            dependencies: WorkerDependencies) -> Task<Void, Never> {
+                                            dependencies: WorkerDependencies,
+                                            startupGate: StartupGate? = nil) -> Task<Void, Never> {
         let reader = dependencies.addressReader
         let retryDelay = dependencies.retryDelay
 
@@ -47,16 +59,20 @@ extension _OpalBase.Wallet.Fulcrum.Monitor {
             while !Task.isCancelled {
                 do {
                     let stream = try await reader.subscribeToAddress(address.string)
+                    await startupGate?.complete()
                     try await consumeSubscription(stream: stream, address: address, dependencies: dependencies)
                     guard !Task.isCancelled else { return }
                     try? await Task.sleep(for: retryDelay)
                 } catch {
+                    await startupGate?.complete()
                     if error.isCancellationError { return }
                     await publishFailure(address: address, error: error, eventHub: dependencies.eventHub)
                     guard !Task.isCancelled else { return }
                     try? await Task.sleep(for: retryDelay)
                 }
             }
+
+            await startupGate?.complete()
         }
     }
 

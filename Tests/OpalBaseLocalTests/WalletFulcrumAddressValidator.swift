@@ -107,6 +107,35 @@ struct WalletFulcrumAddressValidator {
             )
         }
     }
+    
+    @Test("refreshBalances leaves cache unchanged when a later usage fails")
+    func refreshBalancesLeavesCacheUnchangedWhenLaterUsageFails() async throws {
+        let account = try await AccountTestFixtures.makeAccount()
+        let addressBook = await account.addressBook
+        let receivingEntry = try await addressBook.selectNextEntry(for: .receiving)
+        let changeEntry = try await addressBook.selectNextEntry(for: .change)
+        
+        do {
+            _ = try await account.refreshBalances { address in
+                if address == receivingEntry.address {
+                    return try OpalBase.Satoshi(1_200)
+                }
+                if address == changeEntry.address {
+                    throw BalanceRefreshTestFailure.rejected
+                }
+                return OpalBase.Satoshi()
+            }
+            Issue.record("Expected refreshBalances to fail when a later usage loader fails")
+        } catch let error as OpalBase.Account.Error {
+            guard case .balanceRefreshFailed(let address, _) = error else {
+                Issue.record("Unexpected account error: \(error)")
+                return
+            }
+            #expect(address == changeEntry.address)
+        }
+        
+        #expect(try await addressBook.readCachedBalance(for: receivingEntry.address) == nil)
+    }
 
     @Test("refreshTransactionHistory forwards includeUnconfirmed and usage")
     func refreshTransactionHistoryForwardsFlags() async throws {
@@ -315,6 +344,53 @@ struct WalletFulcrumAddressValidator {
             let networkError = try #require(underlying as? OpalBase.Network.Error)
             #expect(networkError.reason == .protocolViolation)
             #expect(networkError.message == "History response contained conflicting transaction fees")
+        }
+
+        #expect(await account.loadTransactionHistory().isEmpty)
+    }
+
+    @Test("refreshTransactionHistory rejects conflicting heights across usages")
+    func refreshTransactionHistoryRejectsConflictingHeightsAcrossUsages() async throws {
+        let account = try await AccountTestFixtures.makeAccount()
+        let receivingEntry = try await account.reserveNextReceivingEntry()
+        let changeEntry = try await account.selectNextEntry(for: .change)
+        let hash = AccountTestFixtures.makeHash(byte: 0x3B)
+        let unconfirmedEntry = OpalBase.Network.TransactionHistoryEntry(
+            transactionIdentifier: hash.reverseOrder.hexadecimalString,
+            blockHeight: -1,
+            fee: nil
+        )
+        let confirmedEntry = OpalBase.Network.TransactionHistoryEntry(
+            transactionIdentifier: hash.reverseOrder.hexadecimalString,
+            blockHeight: 7,
+            fee: nil
+        )
+        let addressReader = WalletAddressReaderTestActor(
+            historyByAddress: [
+                receivingEntry.address.string: [unconfirmedEntry],
+                changeEntry.address.string: [confirmedEntry]
+            ]
+        )
+        let fulcrum = OpalBase.Wallet.Fulcrum(
+            addressReader: addressReader,
+            transactionHandler: TransactionConfirmationClientTestActor()
+        )
+
+        do {
+            _ = try await fulcrum.refreshTransactionHistory(
+                for: account,
+                usage: nil,
+                includeUnconfirmed: true
+            )
+            Issue.record("Expected conflicting cross-usage history heights to fail")
+        } catch let error as OpalBase.Account.Error {
+            guard case .transactionHistoryRefreshFailed(_, let underlying) = error else {
+                Issue.record("Unexpected account error: \(error)")
+                return
+            }
+            let networkError = try #require(underlying as? OpalBase.Network.Error)
+            #expect(networkError.reason == .protocolViolation)
+            #expect(networkError.message == "History response contained conflicting transaction heights")
         }
 
         #expect(await account.loadTransactionHistory().isEmpty)
@@ -597,4 +673,8 @@ struct WalletFulcrumAddressValidator {
         let requestedHashes = Set(await confirmationClient.readConfirmationStatusRequests())
         #expect(requestedHashes == Set([hashA, hashB]))
     }
+}
+
+private enum BalanceRefreshTestFailure: Error {
+    case rejected
 }

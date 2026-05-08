@@ -40,16 +40,18 @@ extension _OpalBase.Account {
             }
             
             let usageBalances = Dictionary(uniqueKeysWithValues: usageResults)
-            
-            try await mapAddressBookError {
-                try await addressBook.updateCachedBalances(usageBalances, timestamp: refreshTimestamp)
-            }
             balancesByUsage[currentUsage] = usageBalances
         }
         
         let total = try balancesByUsage.values.reduce(OpalBase.Satoshi()) { partial, balances in
             let usageTotal = try balances.values.sumSatoshi(or: Error.paymentExceedsMaximumAmount)
             return try partial + usageTotal
+        }
+        
+        try await mapAddressBookError {
+            for balances in balancesByUsage.values where !balances.isEmpty {
+                try await addressBook.updateCachedBalances(balances, timestamp: refreshTimestamp)
+            }
         }
         
         return BalanceRefresh(balancesByUsage: balancesByUsage, total: total)

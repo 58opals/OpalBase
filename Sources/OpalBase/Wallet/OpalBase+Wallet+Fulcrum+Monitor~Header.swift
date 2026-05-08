@@ -5,12 +5,16 @@ import Foundation
 extension _OpalBase.Wallet.Fulcrum.Monitor {
     func startHeaderSubscription() async {
         guard headerTask == nil else { return }
-        headerTask = Self.makeHeaderTask(dependencies: dependencies)
+
+        let startupGate = StartupGate()
+        headerTask = Self.makeHeaderTask(dependencies: dependencies, startupGate: startupGate)
+        await startupGate.wait()
     }
 }
 
 extension _OpalBase.Wallet.Fulcrum.Monitor {
-    static func makeHeaderTask(dependencies: WorkerDependencies) -> Task<Void, Never> {
+    static func makeHeaderTask(dependencies: WorkerDependencies,
+                               startupGate: StartupGate? = nil) -> Task<Void, Never> {
         let reader = dependencies.blockHeaderReader
         let retryDelay = dependencies.retryDelay
 
@@ -18,16 +22,20 @@ extension _OpalBase.Wallet.Fulcrum.Monitor {
             while !Task.isCancelled {
                 do {
                     let stream = try await reader.subscribeToTip()
+                    await startupGate?.complete()
                     try await consumeHeaderStream(stream, dependencies: dependencies)
                     guard !Task.isCancelled else { return }
                     try? await Task.sleep(for: retryDelay)
                 } catch {
+                    await startupGate?.complete()
                     if error.isCancellationError { return }
                     await publishFailure(address: nil, error: error, eventHub: dependencies.eventHub)
                     guard !Task.isCancelled else { return }
                     try? await Task.sleep(for: retryDelay)
                 }
             }
+
+            await startupGate?.complete()
         }
     }
 

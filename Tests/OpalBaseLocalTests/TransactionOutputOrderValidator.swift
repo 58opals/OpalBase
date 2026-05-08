@@ -34,14 +34,15 @@ struct TransactionOutputOrderValidator {
         #expect(orderedOutputs == [smallerOutput, largerOutput])
     }
     
-    @Test("applyBIP69Ordering sorts non-fungible token data before category")
-    func applyBIP69OrderingSortsNonFungibleTokenData() throws {
+    @Test("applyBIP69Ordering sorts category before non-fungible token data")
+    func applyBIP69OrderingSortsCategoryBeforeNonFungibleTokenData() throws {
         let lockingScript = Data([0x51])
-        let category = try makeCategory(using: 0x01)
+        let smallerCategory = try makeCategory(using: 0x01)
+        let largerCategory = try makeCategory(using: 0x02)
         let noneCapability = try OpalBase.CashTokens.NFT(capability: .none, commitment: Data())
         let mintingCapability = try OpalBase.CashTokens.NFT(capability: .minting, commitment: Data())
-        let smallerToken = OpalBase.CashTokens.TokenData(category: category, amount: 1, nft: noneCapability)
-        let largerToken = OpalBase.CashTokens.TokenData(category: category, amount: 1, nft: mintingCapability)
+        let smallerToken = OpalBase.CashTokens.TokenData(category: smallerCategory, amount: 1, nft: mintingCapability)
+        let largerToken = OpalBase.CashTokens.TokenData(category: largerCategory, amount: 1, nft: noneCapability)
         let smallerOutput = OpalBase.Transaction.Output(value: 1_000, lockingScript: lockingScript, tokenData: smallerToken)
         let largerOutput = OpalBase.Transaction.Output(value: 1_000, lockingScript: lockingScript, tokenData: largerToken)
         
@@ -50,13 +51,13 @@ struct TransactionOutputOrderValidator {
         #expect(orderedOutputs == [smallerOutput, largerOutput])
     }
     
-    @Test("applyBIP69Ordering sorts category order after token metadata")
-    func applyBIP69OrderingSortsCategoryOrder() throws {
+    @Test("applyBIP69Ordering sorts category before token amount")
+    func applyBIP69OrderingSortsCategoryBeforeTokenAmount() throws {
         let lockingScript = Data([0x51])
         let smallerCategory = try makeCategory(using: 0x01)
         let largerCategory = try makeCategory(using: 0x02)
         let baseToken = try OpalBase.CashTokens.NFT(capability: .none, commitment: Data())
-        let smallerToken = OpalBase.CashTokens.TokenData(category: smallerCategory, amount: 1, nft: baseToken)
+        let smallerToken = OpalBase.CashTokens.TokenData(category: smallerCategory, amount: 2, nft: baseToken)
         let largerToken = OpalBase.CashTokens.TokenData(category: largerCategory, amount: 1, nft: baseToken)
         let smallerOutput = OpalBase.Transaction.Output(value: 1_000, lockingScript: lockingScript, tokenData: smallerToken)
         let largerOutput = OpalBase.Transaction.Output(value: 1_000, lockingScript: lockingScript, tokenData: largerToken)
@@ -70,4 +71,3 @@ struct TransactionOutputOrderValidator {
         try OpalBase.CashTokens.CategoryID(transactionOrderData: Data(repeating: byte, count: 32))
     }
 }
-

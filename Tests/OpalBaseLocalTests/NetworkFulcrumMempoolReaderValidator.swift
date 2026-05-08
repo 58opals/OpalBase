@@ -40,6 +40,36 @@ struct NetworkFulcrumMempoolReaderValidator {
 
         #expect(failure.reason == .decoding)
     }
+    
+    @Test("rejects invalid mempool info fee rates")
+    func fetchMempoolInfoRejectsInvalidFeeRates() async throws {
+        let client = try MempoolClientTestActor(
+            infoResponse: Self.makeInfoResponse(mempoolMinimumFee: -1)
+        )
+        let reader = OpalBase.Network.Fulcrum.MempoolReader(client: client)
+        
+        let failure = await Self.captureNetworkError {
+            _ = try await reader.fetchMempoolInfo()
+        }
+        
+        #expect(failure.reason == .decoding)
+        #expect(failure.message == "Invalid mempool minimum fee: -1.0")
+    }
+    
+    @Test("rejects invalid mempool info counts")
+    func fetchMempoolInfoRejectsInvalidCounts() async throws {
+        let client = try MempoolClientTestActor(
+            infoResponse: Self.makeInfoResponse(unbroadcastCount: -1)
+        )
+        let reader = OpalBase.Network.Fulcrum.MempoolReader(client: client)
+        
+        let failure = await Self.captureNetworkError {
+            _ = try await reader.fetchMempoolInfo()
+        }
+        
+        #expect(failure.reason == .decoding)
+        #expect(failure.message == "Invalid unbroadcast count: -1")
+    }
 }
 
 private actor MempoolClientTestActor: OpalBase.Network.Fulcrum.MempoolClient {
@@ -72,12 +102,17 @@ private actor MempoolClientTestActor: OpalBase.Network.Fulcrum.MempoolClient {
 }
 
 private extension NetworkFulcrumMempoolReaderValidator {
-    static func makeInfoResponse() throws -> SwiftFulcrum.Response.Mempool.GetInfo {
+    static func makeInfoResponse(
+        mempoolMinimumFee: Double = 0.00001,
+        minimumRelayTransactionFee: Double = 0.00002,
+        incrementalRelayFee: Double = 0.00003,
+        unbroadcastCount: Int = 7
+    ) throws -> SwiftFulcrum.Response.Mempool.GetInfo {
         let payload = try JSONSerialization.data(withJSONObject: [
-            "mempoolminfee": 0.00001,
-            "minrelaytxfee": 0.00002,
-            "incrementalrelayfee": 0.00003,
-            "unbroadcastcount": 7,
+            "mempoolminfee": mempoolMinimumFee,
+            "minrelaytxfee": minimumRelayTransactionFee,
+            "incrementalrelayfee": incrementalRelayFee,
+            "unbroadcastcount": unbroadcastCount,
             "fullrbf": true
         ])
         return try JSONDecoder().decode(SwiftFulcrum.Response.Mempool.GetInfo.self, from: payload)
