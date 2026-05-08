@@ -135,6 +135,44 @@ struct AccountTokenCommitmentMutationValidator {
         #expect(!transactionResult.transaction.outputs.isEmpty)
     }
 
+    @Test("prepareTokenCommitmentMutation rejects dust destination overrides before reservation")
+    func prepareTokenCommitmentMutationRejectsDustDestinationOverridesBeforeReservation() async throws {
+        let account = try await makeAccount()
+        let category = try OpalBase.CashTokens.CategoryID(transactionOrderData: Data(repeating: 0xD5, count: 32))
+        let mutableToken = try OpalBase.CashTokens.NFT(capability: .mutable, commitment: Data([0x09]))
+        let authorityTokenData = OpalBase.CashTokens.TokenData(category: category, amount: nil, nft: mutableToken)
+        let authorityOutput = try await addUnspentOutput(
+            to: account,
+            value: 25_000,
+            tokenData: authorityTokenData,
+            previousTransactionHash: OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0x30, count: 32)),
+            previousTransactionOutputIndex: 0
+        )
+        _ = try await addUnspentOutput(
+            to: account,
+            value: 120_000,
+            tokenData: nil,
+            previousTransactionHash: OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0x31, count: 32)),
+            previousTransactionOutputIndex: 0
+        )
+        let destinationAddress = try OpalBase.Address("bitcoincash:zpm2qsznhks23z7629mms6s4cwef74vcwvrqekrq9w")
+        let mutation = try OpalBase.Account.TokenCommitmentMutation(
+            target: .preferredInput(authorityOutput),
+            newCommitment: Data([0x0A]),
+            destination: destinationAddress,
+            bchAmount: try OpalBase.Satoshi(1)
+        )
+
+        do {
+            _ = try await account.prepareTokenCommitmentMutation(mutation)
+            Issue.record("Expected dust token mutation destination output to fail")
+        } catch let error as OpalBase.Account.Error {
+            #expect(error == .transactionBuildFailed(OpalBase.Transaction.Error.outputValueIsLessThanTheDustLimit))
+        }
+
+        #expect(await account.addressBook.readActiveSpendReservations().isEmpty)
+    }
+
     @Test("prepareTokenCommitmentMutation refreshes preserved fungible change when the selected change entry becomes stale")
     func prepareTokenCommitmentMutationRefreshesPreservedFungibleChangeWhenSelectedChangeEntryBecomesStale() async throws {
         let account = try await makeAccount()

@@ -94,6 +94,12 @@ extension _OpalBase.Account {
             mapDustError: { Error.tokenMutationCannotComputeDustThreshold($0) }
         )
         let plannedTokenOutputs = [mutatedTokenOutput, fungiblePreservationOutput].compactMap { $0 }
+        for output in plannedTokenOutputs {
+            let dustThreshold = try output.calculateDustThreshold(feeRate: OpalBase.Transaction.minimumRelayFeeRate)
+            guard output.value >= dustThreshold else {
+                throw Error.transactionBuildFailed(OpalBase.Transaction.Error.outputValueIsLessThanTheDustLimit)
+            }
+        }
         let organizedTokenOutputs = await privacyShaper.organizeOutputs(plannedTokenOutputs)
         
         let feeRate = feePolicy.recommendFeeRate(for: mutation.feeContext, override: mutation.feeOverride)

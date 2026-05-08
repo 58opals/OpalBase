@@ -102,6 +102,22 @@ struct PublicAPISmokeValidator {
         #expect(sessionStatus.round?.phase == .connecting)
         #expect(sessionStatus.lastError == nil)
         #expect(sessionStatus.lastErrorSummary == nil)
+        #expect(sessionStatus.completedLocalOutputs.isEmpty)
+
+        let completedSessionStatus = OpalBase.Account.CashFusionSessionStatus(
+            isConnected: true,
+            round: .init(
+                identifier: "round-completed-smoke",
+                phase: .completed,
+                participantCount: 3,
+                completionStatus: .success,
+                isTerminal: true
+            ),
+            lastError: nil,
+            completedLocalOutputs: [unspentOutput]
+        )
+
+        #expect(completedSessionStatus.completedLocalOutputs == [unspentOutput])
 
         let coordinatorStatus = OpalBase.Account.CashFusionSessionStatus.CoordinatorStatus(
             updateSequence: 4,

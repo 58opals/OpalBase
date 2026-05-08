@@ -794,6 +794,104 @@ struct SnapshotPersistenceValidator {
         #expect(try await book.readCachedBalance(for: entry.address) == OpalBase.Satoshi(1_234))
     }
 
+    @Test("address book restore canonicalizes uppercase transaction script hashes")
+    func addressBookRestoreCanonicalizesUppercaseTransactionScriptHashes() async throws {
+        let account = try await AccountTestFixtures.makeAccount()
+        let book = await account.addressBook
+        let entry = try #require(
+            await book.listEntries(for: .receiving).first { entry in
+                let scriptHash = entry.address.makeScriptHash().hexadecimalString
+                return scriptHash != scriptHash.uppercased()
+            }
+        )
+        let scriptHash = entry.address.makeScriptHash().hexadecimalString
+        let uppercaseScriptHash = scriptHash.uppercased()
+        let snapshot = await book.makeSnapshot()
+        let transaction = OpalBase.Address.Book.Snapshot.Transaction(
+            transactionHash: String(repeating: "1", count: 64),
+            height: 0,
+            fee: nil,
+            scriptHashes: [uppercaseScriptHash],
+            firstSeenAt: .now,
+            lastUpdatedAt: .now,
+            status: .pending,
+            confirmationHeight: nil,
+            confirmedAt: nil,
+            verificationStatus: .pending,
+            merkleProof: nil,
+            lastVerifiedHeight: nil,
+            lastCheckedAt: nil
+        )
+        let restoredSnapshot = OpalBase.Address.Book.Snapshot(
+            receivingEntries: snapshot.receivingEntries,
+            changeEntries: snapshot.changeEntries,
+            utxos: snapshot.utxos,
+            transactions: [transaction]
+        )
+
+        try await book.refresh(with: restoredSnapshot)
+
+        let record = try #require(await book.listTransactionRecords().first)
+        #expect(record.chainMetadata.scriptHashes == [scriptHash])
+    }
+
+    @Test("address book restore rejects duplicate transaction script hashes with different casing")
+    func addressBookRestoreRejectsDuplicateTransactionScriptHashesWithDifferentCasing() async throws {
+        let account = try await AccountTestFixtures.makeAccount()
+        let book = await account.addressBook
+        let entry = try #require(
+            await book.listEntries(for: .receiving).first { entry in
+                let scriptHash = entry.address.makeScriptHash().hexadecimalString
+                return scriptHash != scriptHash.uppercased()
+            }
+        )
+        try await book.updateCachedBalance(
+            for: entry.address,
+            balance: try OpalBase.Satoshi(1_234),
+            timestamp: .now
+        )
+
+        let snapshot = await book.makeSnapshot()
+        let alteredReceivingEntries = snapshot.receivingEntries.map { snapshotEntry in
+            OpalBase.Address.Book.Snapshot.Entry(
+                usage: snapshotEntry.usage,
+                index: snapshotEntry.index,
+                isUsed: snapshotEntry.isUsed,
+                isReserved: snapshotEntry.isReserved,
+                balance: snapshotEntry.index == entry.derivationPath.index ? 9_999 : snapshotEntry.balance,
+                lastUpdated: snapshotEntry.lastUpdated
+            )
+        }
+        let scriptHash = entry.address.makeScriptHash().hexadecimalString
+        let malformedTransaction = OpalBase.Address.Book.Snapshot.Transaction(
+            transactionHash: String(repeating: "1", count: 64),
+            height: 0,
+            fee: nil,
+            scriptHashes: [scriptHash, scriptHash.uppercased()],
+            firstSeenAt: .now,
+            lastUpdatedAt: .now,
+            status: .pending,
+            confirmationHeight: nil,
+            confirmedAt: nil,
+            verificationStatus: .pending,
+            merkleProof: nil,
+            lastVerifiedHeight: nil,
+            lastCheckedAt: nil
+        )
+        let malformedSnapshot = OpalBase.Address.Book.Snapshot(
+            receivingEntries: alteredReceivingEntries,
+            changeEntries: snapshot.changeEntries,
+            utxos: snapshot.utxos,
+            transactions: [malformedTransaction]
+        )
+
+        await #expect(throws: OpalBase.Address.Book.Error.invalidSnapshotDuplicateScriptHash(scriptHash)) {
+            try await book.refresh(with: malformedSnapshot)
+        }
+        #expect(try await book.readCachedBalance(for: entry.address) == OpalBase.Satoshi(1_234))
+        #expect(await book.listTransactionRecords().isEmpty)
+    }
+
     @Test("address book restore rejects untracked transaction script hashes before mutation")
     func addressBookRestoreRejectsUntrackedTransactionScriptHashesBeforeMutation() async throws {
         let account = try await AccountTestFixtures.makeAccount(unhardenedIndex: 0)

@@ -22,6 +22,12 @@ extension _OpalBase.Account {
                                address: recipient.address,
                                tokenData: nil)
         }
+        for output in rawRecipientOutputs {
+            let dustThreshold = try output.calculateDustThreshold(feeRate: OpalBase.Transaction.minimumRelayFeeRate)
+            guard output.value >= dustThreshold else {
+                throw Error.coinSelectionFailed(OpalBase.Transaction.Error.outputValueIsLessThanTheDustLimit)
+            }
+        }
         let organizedRecipientOutputs = await privacyShaper.organizeOutputs(rawRecipientOutputs)
         
         let changeEntry = try await addressBook.selectNextEntry(for: .change)

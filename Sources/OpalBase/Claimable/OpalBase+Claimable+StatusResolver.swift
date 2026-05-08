@@ -184,9 +184,9 @@ private extension _OpalBase.Claimable.StatusResolver {
         let rawFundingTransactionData = try await transactionReader.fetchRawTransaction(
             for: envelope.fundingTransactionHash
         )
-        guard let fundingTransaction = try? OpalBase.Transaction.decode(
+        guard let fundingTransaction = try? Self.decodeCompleteTransaction(
             from: rawFundingTransactionData
-        ).transaction else {
+        ) else {
             return .invalid
         }
         guard fundingTransaction.hasClaimableFundingOutput(envelope) else {
@@ -218,7 +218,7 @@ private extension _OpalBase.Claimable.StatusResolver {
             } catch {
                 continue
             }
-            guard let transaction = try? OpalBase.Transaction.decode(from: rawTransactionData).transaction else {
+            guard let transaction = try? Self.decodeCompleteTransaction(from: rawTransactionData) else {
                 continue
             }
 
@@ -233,6 +233,16 @@ private extension _OpalBase.Claimable.StatusResolver {
         }
 
         return .unknown
+    }
+
+    static func decodeCompleteTransaction(
+        from data: Data
+    ) throws -> OpalBase.Transaction {
+        let decodedTransaction = try OpalBase.Transaction.decode(from: data)
+        guard decodedTransaction.bytesRead == data.count else {
+            throw Data.Error.indexOutOfRange
+        }
+        return decodedTransaction.transaction
     }
 
     func validateUniqueUnspentOutpoints(

@@ -253,6 +253,44 @@ struct AccountTokenSpendValidator {
         #expect(await account.addressBook.readActiveSpendReservations().isEmpty)
     }
 
+    @Test("prepareTokenSpend rejects dust token recipients before reservation")
+    func prepareTokenSpendRejectsDustTokenRecipientsBeforeReservation() async throws {
+        let account = try await makeAccount()
+        let category = try OpalBase.CashTokens.CategoryID(transactionOrderData: Data(repeating: 0xA4, count: 32))
+        let tokenData = OpalBase.CashTokens.TokenData(category: category, amount: 20, nft: nil)
+        _ = try await addUnspentOutput(
+            to: account,
+            value: 15_000,
+            tokenData: tokenData,
+            previousTransactionHash: OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0x16, count: 32)),
+            previousTransactionOutputIndex: 0
+        )
+        _ = try await addUnspentOutput(
+            to: account,
+            value: 120_000,
+            tokenData: nil,
+            previousTransactionHash: OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0x17, count: 32)),
+            previousTransactionOutputIndex: 0
+        )
+        let recipientAddress = try OpalBase.Address("bitcoincash:zpm2qsznhks23z7629mms6s4cwef74vcwvrqekrq9w")
+        let transfer = OpalBase.Account.TokenTransfer(recipients: [
+            .init(
+                address: recipientAddress,
+                amount: try OpalBase.Satoshi(1),
+                tokenData: OpalBase.CashTokens.TokenData(category: category, amount: 10, nft: nil)
+            )
+        ])
+
+        do {
+            _ = try await account.prepareTokenSpend(transfer)
+            Issue.record("Expected dust token recipient output to fail")
+        } catch let error as OpalBase.Account.Error {
+            #expect(error == .tokenSelectionFailed(OpalBase.Transaction.Error.outputValueIsLessThanTheDustLimit))
+        }
+
+        #expect(await account.addressBook.readActiveSpendReservations().isEmpty)
+    }
+
     @Test("prepareTokenSpend refreshes wallet token change when the selected change entry becomes stale")
     func prepareTokenSpendRefreshesWalletTokenChangeWhenSelectedChangeEntryBecomesStale() async throws {
         let account = try await makeAccount()

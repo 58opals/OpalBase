@@ -395,6 +395,62 @@ struct WalletFulcrumAddressMonitorValidator {
         _ = await collector.result
     }
 
+    @Test("monitor reports subscription stream failures once")
+    func monitorReportsSubscriptionStreamFailuresOnce() async throws {
+        let account = try await AccountTestFixtures.makeAccount()
+        let targetEntry = try await account.selectNextEntry(for: .receiving)
+        let addressReader = WalletAddressReaderTestActor(
+            subscriptionErrorsByAddress: [
+                targetEntry.address.string: NetworkStubError.forced("subscription-stream")
+            ]
+        )
+        let confirmationClient = TransactionConfirmationClientTestActor()
+        let headerReader = BlockHeaderReaderTestActor(snapshots: .init())
+        let fulcrum = OpalBase.Wallet.Fulcrum(
+            addressReader: addressReader,
+            transactionHandler: confirmationClient
+        )
+        let monitor = await fulcrum.makeMonitor(
+            for: account,
+            blockHeaderReader: headerReader,
+            retryDelay: .seconds(600)
+        )
+        let stream = await monitor.makeEventStream(autoStart: true)
+        let recorder = WalletFulcrumAddressMonitorEventRecorderActor()
+        let collector = Task {
+            do {
+                for try await event in stream {
+                    await recorder.append(event)
+                }
+            } catch { }
+        }
+        do {
+            _ = try await WalletFulcrumAddressMonitorSupport.waitForEvents(
+                recorder,
+                description: "subscription stream failure recovery"
+            ) { events in
+                WalletFulcrumAddressMonitorSupport.hasFullRefresh(events)
+            }
+            try await Task.sleep(for: .milliseconds(50))
+
+            let events = await recorder.snapshot()
+            let failureCount = events.filter { event in
+                guard case .encounteredFailure(let failure) = event else { return false }
+                return failure.address == targetEntry.address
+            }.count
+            #expect(failureCount == 1)
+
+            await monitor.stop(reason: .cancelled)
+        } catch {
+            await monitor.stop(reason: .cancelled)
+            collector.cancel()
+            _ = await collector.result
+            throw error
+        }
+        collector.cancel()
+        _ = await collector.result
+    }
+
     @Test("convenience event stream retains its monitor until core events arrive")
     func convenienceEventStreamRetainsMonitorUntilCoreEventsArrive() async throws {
         let account = try await AccountTestFixtures.makeAccount()

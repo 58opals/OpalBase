@@ -84,6 +84,37 @@ struct AddressBookUnspentTransactionOutputRefreshValidator {
         #expect(try await book.readCachedBalance(for: entry.address) == OpalBase.Satoshi(9_000))
     }
 
+    @Test("refresh reports same-outpoint metadata replacements")
+    func refreshReportsSameOutpointMetadataReplacements() async throws {
+        let book = try await AddressBookCashTokensTestData.makeAddressBook()
+        let entry = try await book.selectNextEntry(for: .receiving)
+        let transactionHash = OpalBase.Transaction.Hash(
+            naturalOrder: Data(repeating: 0x43, count: 32)
+        )
+        let original = OpalBase.Transaction.Output.Unspent(
+            value: 1_000,
+            lockingScript: entry.address.lockingScript.data,
+            previousTransactionHash: transactionHash,
+            previousTransactionOutputIndex: 0
+        )
+        let replacement = OpalBase.Transaction.Output.Unspent(
+            value: 2_000,
+            lockingScript: entry.address.lockingScript.data,
+            previousTransactionHash: transactionHash,
+            previousTransactionOutputIndex: 0
+        )
+        await book.addUTXO(original)
+        let reader = AddressReaderClient(unspentByAddress: [entry.address.string: [replacement]])
+
+        let refresh = try await book.refreshUTXOSet(using: reader, usage: .receiving)
+        let changeSet = try #require(refresh.changeSets.first)
+
+        #expect(changeSet.inserted.map(\.value) == [replacement.value])
+        #expect(changeSet.removed.map(\.value) == [original.value])
+        #expect(changeSet.retained.isEmpty)
+        #expect(await book.listUTXOs(for: entry.address).map(\.value) == [replacement.value])
+    }
+
     @Test("refresh orders UTXOs by displayed transaction hash")
     func refreshOrdersUTXOsByDisplayedTransactionHash() async throws {
         let book = try await AddressBookCashTokensTestData.makeAddressBook()

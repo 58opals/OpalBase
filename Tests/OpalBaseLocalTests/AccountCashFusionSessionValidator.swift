@@ -572,6 +572,104 @@ struct AccountCashFusionSessionValidator {
         await session.stop()
     }
 
+    @Test("makePublicStatus exposes recorded local outputs for successful completed rounds")
+    func makePublicStatusExposesRecordedLocalOutputsForSuccessfulCompletedRounds() async throws {
+        let roundIdentifier = "round-completed-output"
+        let fixture = try await makeSessionWithRecordedCompletedOutput(
+            roundIdentifier: roundIdentifier,
+            hashByte: 0xE3
+        )
+        let recordedOutput = try #require(fixture.completedLocalOutputs.first)
+
+        await fixture.fakeSession.emit(
+            snapshot: CashFusionTestSupport.makeSnapshot(
+                identifier: roundIdentifier,
+                phase: .completed,
+                completionStatus: .success,
+                isConnected: true
+            )
+        )
+
+        let publicStatus = await fixture.session.makePublicStatus()
+
+        #expect(publicStatus.round?.completionStatus == .success)
+        #expect(publicStatus.completedLocalOutputs == [recordedOutput])
+    }
+
+    @Test("makePublicStatus hides recorded local outputs for non-success statuses")
+    func makePublicStatusHidesRecordedLocalOutputsForNonSuccessStatuses() async throws {
+        let rejectedRoundIdentifier = "round-rejected-output"
+        let rejectedFixture = try await makeSessionWithRecordedCompletedOutput(
+            roundIdentifier: rejectedRoundIdentifier,
+            hashByte: 0xE4
+        )
+
+        await rejectedFixture.fakeSession.emit(
+            snapshot: CashFusionTestSupport.makeSnapshot(
+                identifier: rejectedRoundIdentifier,
+                phase: .completed,
+                completionStatus: .hostRejected,
+                isConnected: true
+            )
+        )
+
+        let rejectedPublicStatus = await rejectedFixture.session.makePublicStatus()
+        #expect(rejectedPublicStatus.completedLocalOutputs.isEmpty)
+
+        let stoppedFixture = try await makeSessionWithRecordedCompletedOutput(
+            roundIdentifier: "round-stopped-output",
+            hashByte: 0xE5
+        )
+
+        await stoppedFixture.session.stop()
+
+        let stoppedPublicStatus = await stoppedFixture.session.makePublicStatus()
+        #expect(stoppedPublicStatus.completedLocalOutputs.isEmpty)
+
+        let retryingFixture = try await makeSessionWithRecordedCompletedOutput(
+            roundIdentifier: "round-retrying-output",
+            hashByte: 0xE6
+        )
+
+        await retryingFixture.fakeSession.emit(
+            snapshot: .init(
+                state: .init(
+                    isConnected: false,
+                    round: nil
+                ),
+                lastError: .transportUnavailable,
+                diagnostics: .init(
+                    activity: .retrying,
+                    retryAttempt: 1,
+                    nextRetryDelayMilliseconds: 10
+                )
+            )
+        )
+
+        let retryingPublicStatus = await retryingFixture.session.makePublicStatus()
+        #expect(retryingPublicStatus.completedLocalOutputs.isEmpty)
+        await retryingFixture.session.stop()
+
+        let activeRoundIdentifier = "round-active-output"
+        let activeFixture = try await makeSessionWithRecordedCompletedOutput(
+            roundIdentifier: activeRoundIdentifier,
+            hashByte: 0xE7
+        )
+
+        await activeFixture.fakeSession.emit(
+            snapshot: CashFusionTestSupport.makeSnapshot(
+                identifier: activeRoundIdentifier,
+                phase: .assemblingTransaction,
+                completionStatus: nil,
+                isConnected: true
+            )
+        )
+
+        let activePublicStatus = await activeFixture.session.makePublicStatus()
+        #expect(activePublicStatus.completedLocalOutputs.isEmpty)
+        await activeFixture.session.stop()
+    }
+
     @Test("makePublicStatus preserves last error values and summary")
     func makePublicStatusPreservesLastErrorValuesAndSummary() async throws {
         let account = try await AccountTestFixtures.makeAccount()
@@ -892,6 +990,83 @@ private extension AccountCashFusionSessionValidator {
         #expect(clientConfiguration.coordinatorRequiresTLS == requiresTLS)
 
         await session.stop()
+    }
+
+    func makeSessionWithRecordedCompletedOutput(
+        roundIdentifier: String,
+        hashByte: UInt8
+    ) async throws -> (
+        session: OpalBase.Account.CashFusionSession,
+        fakeSession: CashFusionFakeWrappedSession,
+        completedLocalOutputs: [OpalBase.Transaction.Output.Unspent]
+    ) {
+        let account = try await AccountTestFixtures.makeAccount()
+        let selectedInput = try await CashFusionTestSupport.makeWalletOwnedUnspentOutput(
+            to: account,
+            value: 170_000,
+            usage: .change,
+            hashByte: hashByte
+        )
+        let capture = CashFusionWrappedSessionCapture()
+        let session = try await makeSession(
+            account: account,
+            selectedInput: selectedInput,
+            capture: capture
+        )
+        let reservation = await session.reservation
+        let fakeSession = try #require(await capture.load())
+        let completedLocalOutputs = try await recordCompletedLocalOutputs(
+            roundIdentifier: .init(rawValue: roundIdentifier),
+            in: reservation,
+            value: 55_000
+        )
+
+        return (session, fakeSession, completedLocalOutputs)
+    }
+
+    func recordCompletedLocalOutputs(
+        roundIdentifier: OpalFusion.Round.Identifier,
+        in reservation: OpalBase.Account.CashFusionReservation,
+        value: UInt64
+    ) async throws -> [OpalBase.Transaction.Output.Unspent] {
+        _ = try await reservation.participantReservation(for: roundIdentifier)
+        let selectedInput = try #require(reservation.selectedInputs.first)
+        let localOutput = try makeLocalOutput(for: reservation, value: value)
+        let finalizedTransaction = OpalBase.Transaction(
+            version: 2,
+            inputs: [
+                .init(
+                    previousTransactionHash: selectedInput.previousTransactionHash,
+                    previousTransactionOutputIndex: selectedInput.previousTransactionOutputIndex,
+                    unlockingScript: Data()
+                )
+            ],
+            outputs: [localOutput],
+            lockTime: 0
+        )
+        let finalizedTransactionBytes = try finalizedTransaction.encode()
+        let finalizedTransactionHash = OpalBase.Transaction.Hash(
+            naturalOrder: OpalCryptoAdapter.hash256(finalizedTransactionBytes)
+        )
+
+        try await reservation.recordCompletedLocalOutputs(
+            for: roundIdentifier,
+            finalizedTransaction: finalizedTransaction,
+            finalizedTransactionHash: finalizedTransactionHash
+        )
+
+        return await reservation.completedLocalOutputs(for: roundIdentifier)
+    }
+
+    func makeLocalOutput(
+        for reservation: OpalBase.Account.CashFusionReservation,
+        value: UInt64
+    ) throws -> OpalBase.Transaction.Output {
+        let receivingEntry = try #require(reservation.reservedReceivingEntries.first)
+        return OpalBase.Transaction.Output(
+            value: value,
+            lockingScript: receivingEntry.address.lockingScript.data
+        )
     }
 
     func assertReceivingEntries(
