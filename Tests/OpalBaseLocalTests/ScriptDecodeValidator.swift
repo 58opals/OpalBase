@@ -49,6 +49,26 @@ struct ScriptDecodeValidator {
         }
     }
 
+    @Test("hashes invalid public P2MS values without serializing them")
+    func hashesInvalidPublicP2MSValuesWithoutSerializingThem() {
+        let invalid = OpalBase.Script.p2ms(
+            numberOfRequiredSignatures: 0,
+            publicKeys: []
+        )
+        let matchingInvalid = OpalBase.Script.p2ms(
+            numberOfRequiredSignatures: 0,
+            publicKeys: []
+        )
+        let distinctInvalid = OpalBase.Script.p2ms(
+            numberOfRequiredSignatures: 17,
+            publicKeys: []
+        )
+
+        #expect(invalid == matchingInvalid)
+        #expect(invalid != distinctInvalid)
+        #expect(Set([invalid, matchingInvalid, distinctInvalid]).count == 2)
+    }
+
     private func makeSlicedData(from data: Data) -> Data {
         var paddedData = Data([0x00])
         paddedData.append(data)

@@ -67,6 +67,12 @@ extension _OpalBase.Account {
                                address: recipient.address,
                                tokenData: recipient.tokenData)
         }
+        for output in rawRecipientOutputs {
+            let dustThreshold = try output.calculateDustThreshold(feeRate: OpalBase.Transaction.minimumRelayFeeRate)
+            guard output.value >= dustThreshold else {
+                throw Error.tokenSelectionFailed(OpalBase.Transaction.Error.outputValueIsLessThanTheDustLimit)
+            }
+        }
         let combinedTokenOutputs = rawRecipientOutputs + tokenChangeOutputs
         let organizedTokenOutputs = await privacyShaper.organizeOutputs(combinedTokenOutputs)
         

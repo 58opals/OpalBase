@@ -182,11 +182,43 @@ extension _OpalBase.Script {
 
 extension _OpalBase.Script: Hashable {
     public static func == (lhs: OpalBase.Script, rhs: OpalBase.Script) -> Bool {
-        lhs.data == rhs.data
+        switch (lhs, rhs) {
+        case (.p2pk(let lhsPublicKey), .p2pk(let rhsPublicKey)):
+            lhsPublicKey == rhsPublicKey
+        case (.p2pkh_OPCHECKSIG(let lhsHash), .p2pkh_OPCHECKSIG(let rhsHash)):
+            lhsHash == rhsHash
+        case (.p2pkh_OPCHECKDATASIG(let lhsHash), .p2pkh_OPCHECKDATASIG(let rhsHash)):
+            lhsHash == rhsHash
+        case (.p2ms(let lhsRequiredSignatures, let lhsPublicKeys),
+              .p2ms(let rhsRequiredSignatures, let rhsPublicKeys)):
+            lhsRequiredSignatures == rhsRequiredSignatures
+                && lhsPublicKeys == rhsPublicKeys
+        case (.p2sh(let lhsScriptHash), .p2sh(let rhsScriptHash)):
+            lhsScriptHash == rhsScriptHash
+        default:
+            false
+        }
     }
     
     public func hash(into hasher: inout Hasher) {
-        hasher.combine(data)
+        switch self {
+        case .p2pk(let publicKey):
+            hasher.combine(0)
+            hasher.combine(publicKey)
+        case .p2pkh_OPCHECKSIG(let hash):
+            hasher.combine(1)
+            hasher.combine(hash)
+        case .p2pkh_OPCHECKDATASIG(let hash):
+            hasher.combine(2)
+            hasher.combine(hash)
+        case .p2ms(let numberOfRequiredSignatures, let publicKeys):
+            hasher.combine(3)
+            hasher.combine(numberOfRequiredSignatures)
+            hasher.combine(publicKeys)
+        case .p2sh(let scriptHash):
+            hasher.combine(4)
+            hasher.combine(scriptHash)
+        }
     }
 }
 

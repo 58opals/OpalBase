@@ -95,6 +95,37 @@ struct AccountCommandValidator {
         #expect(await addressBook.readActiveSpendReservations().isEmpty)
     }
 
+    @Test("prepareSpend rejects dust recipients before reserving funds")
+    func prepareSpendRejectsDustRecipientsBeforeReservingFunds() async throws {
+        let account = try await AccountTestFixtures.makeAccount()
+        let addressBook = await account.addressBook
+        _ = try await AccountTestFixtures.addUnspentOutput(
+            to: account,
+            value: 25_000,
+            hashByte: 0x39
+        )
+
+        let recipientAddress = try OpalBase.Address(AccountTestFixtures.standardAddressString)
+        let payment = OpalBase.Account.Payment(
+            recipients: [.init(address: recipientAddress, amount: try OpalBase.Satoshi(1))]
+        )
+
+        do {
+            _ = try await account.prepareSpend(payment)
+            Issue.record("Expected prepareSpend to reject a dust recipient output")
+        } catch let error as OpalBase.Account.Error {
+            guard case .coinSelectionFailed(let underlyingError) = error,
+                  case OpalBase.Transaction.Error.outputValueIsLessThanTheDustLimit = underlyingError else {
+                Issue.record("Expected outputValueIsLessThanTheDustLimit but received \(error)")
+                return
+            }
+        } catch {
+            Issue.record("Unexpected error: \(error)")
+        }
+
+        #expect(await addressBook.readActiveSpendReservations().isEmpty)
+    }
+
     @Test("prepareSpend reserves spend resources until explicitly released")
     func prepareSpendReservesUntilReleased() async throws {
         let account = try await AccountTestFixtures.makeAccount()

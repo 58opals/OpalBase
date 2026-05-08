@@ -12,17 +12,22 @@ extension _OpalBase.Account {
         case componentCountLimitExceeded(required: Int, limit: UInt32)
         case insufficientSelectedInputValue(required: UInt64, available: UInt64)
         case outputAmountBelowMinimum(minimum: UInt64, actual: UInt64)
+        case localOutputMismatch
         case amountOverflow
     }
 
     struct CashFusionRoundReservation: Sendable {
         let roundIdentifier: OpalFusion.Round.Identifier
         let reservedReceivingEntries: [OpalBase.Address.Book.Entry]
+        let participantOutputs: [OpalFusion.Host.ParticipantOutput]
         let participantReservation: OpalFusion.Host.ParticipantReservation
     }
 
     actor CashFusionRoundReservationStore {
         private var roundReservationByIdentifier: [OpalFusion.Round.Identifier: CashFusionRoundReservation] = [:]
+        private var completedLocalOutputsByRoundIdentifier: [
+            OpalFusion.Round.Identifier: [OpalBase.Transaction.Output.Unspent]
+        ] = [:]
 
         func roundReservation(
             for roundIdentifier: OpalFusion.Round.Identifier
@@ -45,6 +50,23 @@ extension _OpalBase.Account {
             let roundReservations = Array(roundReservationByIdentifier.values)
             roundReservationByIdentifier.removeAll()
             return roundReservations
+        }
+
+        func recordCompletedLocalOutputs(
+            _ completedLocalOutputs: [OpalBase.Transaction.Output.Unspent],
+            for roundIdentifier: OpalFusion.Round.Identifier
+        ) {
+            completedLocalOutputsByRoundIdentifier[roundIdentifier] = completedLocalOutputs
+        }
+
+        func completedLocalOutputs(
+            for roundIdentifier: OpalFusion.Round.Identifier
+        ) -> [OpalBase.Transaction.Output.Unspent] {
+            completedLocalOutputsByRoundIdentifier[roundIdentifier] ?? []
+        }
+
+        func clearCompletedLocalOutputs() {
+            completedLocalOutputsByRoundIdentifier.removeAll()
         }
     }
 
@@ -145,14 +167,44 @@ extension _OpalBase.Account {
         }
 
         func cancel() async throws {
-            try await releaseReservations(inputOutcome: .released, shouldKeepUsed: false)
+            do {
+                try await releaseReservations(inputOutcome: .released, shouldKeepUsed: false)
+            } catch {
+                await roundReservations.clearCompletedLocalOutputs()
+                throw error
+            }
+
+            await roundReservations.clearCompletedLocalOutputs()
+        }
+
+        func recordCompletedLocalOutputs(
+            for roundIdentifier: OpalFusion.Round.Identifier,
+            finalizedTransaction: OpalBase.Transaction,
+            finalizedTransactionHash: OpalBase.Transaction.Hash
+        ) async throws {
+            let roundReservation = try await roundReservation(for: roundIdentifier)
+            let completedLocalOutputs = try makeCompletedLocalOutputs(
+                finalizedTransaction: finalizedTransaction,
+                finalizedTransactionHash: finalizedTransactionHash,
+                participantOutputs: roundReservation.participantOutputs
+            )
+            await roundReservations.recordCompletedLocalOutputs(
+                completedLocalOutputs,
+                for: roundIdentifier
+            )
+        }
+
+        func completedLocalOutputs(
+            for roundIdentifier: OpalFusion.Round.Identifier
+        ) async -> [OpalBase.Transaction.Output.Unspent] {
+            await roundReservations.completedLocalOutputs(for: roundIdentifier)
         }
 
         private func releaseReservations(
             inputOutcome: InputOutcome,
             shouldKeepUsed: Bool
         ) async throws {
-            let roundReservations = await roundReservations.drainRoundReservations()
+            let storedRoundReservations = await roundReservations.drainRoundReservations()
 
             switch inputOutcome {
             case .spent:
@@ -163,8 +215,42 @@ extension _OpalBase.Account {
                 await addressBook.releaseUTXOs(Set(selectedInputs))
             }
 
-            let receivingEntries = reservedReceivingEntries + roundReservations.flatMap(\.reservedReceivingEntries)
+            let receivingEntries = reservedReceivingEntries + storedRoundReservations.flatMap(\.reservedReceivingEntries)
             try await releaseReceivingEntries(receivingEntries, shouldKeepUsed: shouldKeepUsed)
+        }
+
+        private func makeCompletedLocalOutputs(
+            finalizedTransaction: OpalBase.Transaction,
+            finalizedTransactionHash: OpalBase.Transaction.Hash,
+            participantOutputs: [OpalFusion.Host.ParticipantOutput]
+        ) throws -> [OpalBase.Transaction.Output.Unspent] {
+            var usedOutputIndices = Set<Int>()
+            var completedLocalOutputs: [OpalBase.Transaction.Output.Unspent] = []
+            completedLocalOutputs.reserveCapacity(participantOutputs.count)
+
+            for participantOutput in participantOutputs {
+                guard let matchingOutput = finalizedTransaction.outputs.enumerated().first(where: {
+                    let outputIndex = $0.offset
+                    let output = $0.element
+                    return usedOutputIndices.contains(outputIndex) == false &&
+                        output.tokenData == nil &&
+                        output.value == participantOutput.amountSatoshis &&
+                        output.lockingScript == Data(participantOutput.lockingScriptBytes)
+                }) else {
+                    throw CashFusionRoundReservationError.localOutputMismatch
+                }
+
+                usedOutputIndices.insert(matchingOutput.offset)
+                completedLocalOutputs.append(
+                    OpalBase.Transaction.Output.Unspent(
+                        output: matchingOutput.element,
+                        previousTransactionHash: finalizedTransactionHash,
+                        previousTransactionOutputIndex: UInt32(matchingOutput.offset)
+                    )
+                )
+            }
+
+            return completedLocalOutputs
         }
 
         private func makeRoundReservation(
@@ -194,6 +280,7 @@ extension _OpalBase.Account {
             .init(
                 roundIdentifier: roundIdentifier,
                 reservedReceivingEntries: reservedReceivingEntries,
+                participantOutputs: participantOutputs,
                 participantReservation: .init(
                     inputs: participantInputs,
                     outputs: participantOutputs

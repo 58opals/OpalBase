@@ -23,7 +23,14 @@ extension _OpalBase.Wallet.Fulcrum.Monitor {
                 do {
                     let stream = try await reader.subscribeToTip()
                     await startupGate?.complete()
-                    try await consumeHeaderStream(stream, dependencies: dependencies)
+                    do {
+                        try await consumeHeaderStream(stream, dependencies: dependencies)
+                    } catch {
+                        if error.isCancellationError { return }
+                        guard !Task.isCancelled else { return }
+                        try? await Task.sleep(for: retryDelay)
+                        continue
+                    }
                     guard !Task.isCancelled else { return }
                     try? await Task.sleep(for: retryDelay)
                 } catch {

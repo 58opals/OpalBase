@@ -116,6 +116,7 @@ extension _OpalBase.Account {
         public let retryAttempt: Int?
         public let nextRetryDelayMilliseconds: Int?
         public let coordinatorStatus: CoordinatorStatus
+        public let completedLocalOutputs: [OpalBase.Transaction.Output.Unspent]
 
         public init(
             isConnected: Bool,
@@ -125,7 +126,8 @@ extension _OpalBase.Account {
             activity: Activity = .idle,
             retryAttempt: Int? = nil,
             nextRetryDelayMilliseconds: Int? = nil,
-            coordinatorStatus: CoordinatorStatus = .init()
+            coordinatorStatus: CoordinatorStatus = .init(),
+            completedLocalOutputs: [OpalBase.Transaction.Output.Unspent] = []
         ) {
             self.isConnected = isConnected
             self.round = round
@@ -135,12 +137,16 @@ extension _OpalBase.Account {
             self.retryAttempt = retryAttempt
             self.nextRetryDelayMilliseconds = nextRetryDelayMilliseconds
             self.coordinatorStatus = coordinatorStatus
+            self.completedLocalOutputs = completedLocalOutputs
         }
     }
 }
 
 extension _OpalBase.Account.CashFusionSessionStatus {
-    init(snapshot: OpalFusion.Client.Session.Snapshot) {
+    init(
+        snapshot: OpalFusion.Client.Session.Snapshot,
+        completedLocalOutputs: [OpalBase.Transaction.Output.Unspent] = []
+    ) {
         self.init(
             isConnected: snapshot.state.isConnected,
             round: snapshot.state.round.map(Self.makeRound(_:)),
@@ -149,7 +155,8 @@ extension _OpalBase.Account.CashFusionSessionStatus {
             activity: Self.makeActivity(snapshot.diagnostics.activity),
             retryAttempt: snapshot.diagnostics.retryAttempt,
             nextRetryDelayMilliseconds: snapshot.diagnostics.nextRetryDelayMilliseconds,
-            coordinatorStatus: Self.makeCoordinatorStatus(snapshot.coordinatorStatus)
+            coordinatorStatus: Self.makeCoordinatorStatus(snapshot.coordinatorStatus),
+            completedLocalOutputs: completedLocalOutputs
         )
     }
 
@@ -272,7 +279,24 @@ extension _OpalBase.Account.CashFusionSessionStatus {
 extension _OpalBase.Account.CashFusionSession {
     public func makePublicStatus() async -> OpalBase.Account.CashFusionSessionStatus {
         let sessionSnapshot = await snapshot()
-        return .init(snapshot: sessionSnapshot)
+        let completedLocalOutputs = await completedLocalOutputs(for: sessionSnapshot)
+        return .init(
+            snapshot: sessionSnapshot,
+            completedLocalOutputs: completedLocalOutputs
+        )
+    }
+
+    private func completedLocalOutputs(
+        for sessionSnapshot: OpalFusion.Client.Session.Snapshot
+    ) async -> [OpalBase.Transaction.Output.Unspent] {
+        guard let round = sessionSnapshot.state.round,
+              round.phase == .completed,
+              round.completionStatus == .success,
+              round.isTerminal else {
+            return []
+        }
+
+        return await reservation.completedLocalOutputs(for: round.identifier)
     }
 }
 #endif

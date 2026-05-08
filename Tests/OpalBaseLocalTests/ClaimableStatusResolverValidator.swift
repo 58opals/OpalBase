@@ -479,6 +479,38 @@ struct ClaimableStatusResolverValidator {
         #expect(status.fundingState == .invalid)
     }
 
+    @Test("reports invalid funding state when raw funding transaction has trailing bytes")
+    func reportsInvalidFundingStateWhenRawFundingTransactionHasTrailingBytes() async throws {
+        let (envelope, _) = try makeClaimableEnvelope(network: .chipnet)
+        let fundingTransaction = makeClaimableFundingTransaction(for: envelope)
+        var rawFundingTransaction = try fundingTransaction.encode()
+        rawFundingTransaction.append(0x00)
+        let resolver = OpalBase.Claimable.StatusResolver(
+            network: .chipnet,
+            scriptHashReader: makeClaimableScriptHashReader(
+                history: [
+                    makeClaimableHistoryEntry(
+                        transactionHash: envelope.fundingTransactionHash
+                    )
+                ],
+                unspentOutputs: []
+            ),
+            transactionReader: makeClaimableTransactionReader(
+                rawTransactionsByHash: [
+                    envelope.fundingTransactionHash: rawFundingTransaction
+                ]
+            )
+        )
+
+        let status = try await resolver.resolve(
+            for: envelope,
+            includeUnconfirmed: true,
+            currentBlockHeight: 700
+        )
+
+        #expect(status.fundingState == .invalid)
+    }
+
     @Test("reports claim spend path")
     func reportsClaimSpendPath() async throws {
         let (envelope, _) = try makeClaimableEnvelope(
@@ -519,6 +551,50 @@ struct ClaimableStatusResolverValidator {
         )
 
         #expect(status.fundingState == .spent(spendPath: .claim))
+    }
+
+    @Test("ignores spend path transactions with trailing bytes")
+    func ignoresSpendPathTransactionsWithTrailingBytes() async throws {
+        let (envelope, _) = try makeClaimableEnvelope(
+            network: .chipnet,
+            expiryBlockHeight: 500
+        )
+        let fundingTransaction = makeClaimableFundingTransaction(for: envelope)
+        let claimTransaction = try envelope.buildClaimTransaction(
+            destinationLockingScript: makeClaimableDestinationLockingScript(fillByte: 0x51),
+            currentBlockHeight: 499
+        )
+        var rawClaimTransaction = try claimTransaction.encode()
+        rawClaimTransaction.append(0x00)
+        let claimTransactionHash = OpalBase.Transaction.Hash(
+            naturalOrder: Data(repeating: 0x51, count: 32)
+        )
+        let resolver = OpalBase.Claimable.StatusResolver(
+            network: .chipnet,
+            scriptHashReader: makeClaimableScriptHashReader(
+                history: [
+                    makeClaimableHistoryEntry(
+                        transactionHash: envelope.fundingTransactionHash
+                    ),
+                    makeClaimableHistoryEntry(transactionHash: claimTransactionHash)
+                ],
+                unspentOutputs: []
+            ),
+            transactionReader: makeClaimableTransactionReader(
+                rawTransactionsByHash: [
+                    envelope.fundingTransactionHash: try fundingTransaction.encode(),
+                    claimTransactionHash: rawClaimTransaction
+                ]
+            )
+        )
+
+        let status = try await resolver.resolve(
+            for: envelope,
+            includeUnconfirmed: true,
+            currentBlockHeight: 700
+        )
+
+        #expect(status.fundingState == .spent(spendPath: .unknown))
     }
 
     @Test("continues spend path scan past malformed unrelated history transaction")

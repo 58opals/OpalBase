@@ -68,8 +68,18 @@ extension _OpalBase.Account {
                     )
                 }
 
+                let finalizedTransactionBytes = try finalizedTransaction.encode()
+                let finalizedTransactionHash = OpalBase.Transaction.Hash(
+                    naturalOrder: OpalCryptoAdapter.hash256(finalizedTransactionBytes)
+                )
+                try await reservation.recordCompletedLocalOutputs(
+                    for: roundIdentifier,
+                    finalizedTransaction: finalizedTransaction,
+                    finalizedTransactionHash: finalizedTransactionHash
+                )
+
                 return .init(
-                    transactionBytes: [UInt8](try finalizedTransaction.encode())
+                    transactionBytes: [UInt8](finalizedTransactionBytes)
                 )
             } catch let error as CancellationError {
                 throw error

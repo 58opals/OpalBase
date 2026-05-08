@@ -99,6 +99,49 @@ struct AccountTokenMintValidator {
         #expect(changeLockingScripts.contains(preservationOutput.lockingScript))
     }
 
+    @Test("prepareTokenMint rejects dust recipient overrides before reservation")
+    func prepareTokenMintRejectsDustRecipientOverridesBeforeReservation() async throws {
+        let account = try await makeAccount()
+        let category = try OpalBase.CashTokens.CategoryID(transactionOrderData: Data(repeating: 0xC3, count: 32))
+        let mintingNonFungibleToken = try OpalBase.CashTokens.NFT(capability: .minting, commitment: Data([0x06]))
+        let authorityTokenData = OpalBase.CashTokens.TokenData(category: category, amount: nil, nft: mintingNonFungibleToken)
+        _ = try await addUnspentOutput(
+            to: account,
+            value: 25_000,
+            tokenData: authorityTokenData,
+            previousTransactionHash: OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0x14, count: 32)),
+            previousTransactionOutputIndex: 0
+        )
+        _ = try await addUnspentOutput(
+            to: account,
+            value: 120_000,
+            tokenData: nil,
+            previousTransactionHash: OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0x15, count: 32)),
+            previousTransactionOutputIndex: 0
+        )
+
+        let recipientAddress = try OpalBase.Address("bitcoincash:zpm2qsznhks23z7629mms6s4cwef74vcwvrqekrq9w")
+        let mint = try OpalBase.Account.TokenMint(
+            category: category,
+            recipients: [
+                try .init(
+                    address: recipientAddress,
+                    bchAmount: try OpalBase.Satoshi(1),
+                    nft: OpalBase.CashTokens.NFT(capability: .none, commitment: Data([0x07]))
+                )
+            ]
+        )
+
+        do {
+            _ = try await account.prepareTokenMint(mint)
+            Issue.record("Expected dust token mint recipient output to fail")
+        } catch let error as OpalBase.Account.Error {
+            #expect(error == .transactionBuildFailed(OpalBase.Transaction.Error.outputValueIsLessThanTheDustLimit))
+        }
+
+        #expect(await account.addressBook.readActiveSpendReservations().isEmpty)
+    }
+
     @Test("prepareTokenMint refreshes wallet-owned token outputs when the selected change entry becomes stale")
     func prepareTokenMintRefreshesWalletOwnedTokenOutputsWhenSelectedChangeEntryBecomesStale() async throws {
         let account = try await makeAccount()

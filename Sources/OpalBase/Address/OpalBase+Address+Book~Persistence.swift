@@ -249,7 +249,7 @@ extension _OpalBase.Address.Book {
             guard seenTransactionHashes.insert(hash).inserted else {
                 throw OpalBase.Address.Book.Error.invalidSnapshotDuplicateTransaction(hash)
             }
-            try validateScriptHashes(
+            let scriptHashes = try validateScriptHashes(
                 in: transaction.scriptHashes,
                 restoredEntryScriptHashes: restoredEntryScriptHashes
             )
@@ -308,7 +308,7 @@ extension _OpalBase.Address.Book {
             }
             let chainMetadata = OpalBase.Transaction.History.Record.ChainMetadata(height: transaction.height,
                                                                          fee: transaction.fee,
-                                                                         scriptHashes: Set(transaction.scriptHashes),
+                                                                         scriptHashes: Set(scriptHashes),
                                                                          firstSeenAt: transaction.firstSeenAt,
                                                                          lastUpdatedAt: transaction.lastUpdatedAt)
             let confirmationMetadata = OpalBase.Transaction.History.Record.ConfirmationMetadata(height: transaction.confirmationHeight,
@@ -352,11 +352,13 @@ extension _OpalBase.Address.Book {
     private func validateScriptHashes(
         in scriptHashes: [String],
         restoredEntryScriptHashes: Set<String>
-    ) throws {
+    ) throws -> [String] {
         guard !scriptHashes.isEmpty else {
             throw OpalBase.Address.Book.Error.invalidSnapshotMissingScriptHashes
         }
         var seenScriptHashes: Set<String> = .init()
+        var validatedScriptHashes: [String] = .init()
+        validatedScriptHashes.reserveCapacity(scriptHashes.count)
         for scriptHash in scriptHashes {
             let data = try Data(hexadecimalString: scriptHash)
             guard data.count == OpalBase.Transaction.Hash.expectedByteCount else {
@@ -365,13 +367,16 @@ extension _OpalBase.Address.Book {
                     actual: data.count
                 )
             }
-            guard seenScriptHashes.insert(scriptHash).inserted else {
-                throw OpalBase.Address.Book.Error.invalidSnapshotDuplicateScriptHash(scriptHash)
+            let canonicalScriptHash = data.hexadecimalString
+            guard seenScriptHashes.insert(canonicalScriptHash).inserted else {
+                throw OpalBase.Address.Book.Error.invalidSnapshotDuplicateScriptHash(canonicalScriptHash)
             }
-            guard restoredEntryScriptHashes.contains(scriptHash) else {
-                throw OpalBase.Address.Book.Error.invalidSnapshotTransactionScriptHash(scriptHash)
+            guard restoredEntryScriptHashes.contains(canonicalScriptHash) else {
+                throw OpalBase.Address.Book.Error.invalidSnapshotTransactionScriptHash(canonicalScriptHash)
             }
+            validatedScriptHashes.append(canonicalScriptHash)
         }
+        return validatedScriptHashes
     }
 
     private func restore(entrySnapshots: [Snapshot.Entry], usage: OpalBase.Key.DerivationPath.Usage) async throws {

@@ -33,11 +33,13 @@ struct AccountCashFusionTransactionAssemblerValidator {
         let assembler = OpalBase.Account.CashFusionTransactionAssembler(
             reservation: reservation
         )
+        let localOutput = try makeLocalOutput(for: reservation, value: 60_000)
         let remoteInput = OpalBase.Transaction.Input(
             previousTransactionHash: AccountTestFixtures.makeHash(byte: 0xC3),
             previousTransactionOutputIndex: 0,
             unlockingScript: Data()
         )
+        let roundIdentifier = OpalFusion.Round.Identifier(rawValue: "round-success")
         let unsignedTransaction = OpalBase.Transaction(
             version: 2,
             inputs: [
@@ -55,23 +57,87 @@ struct AccountCashFusionTransactionAssemblerValidator {
             ],
             outputs: [
                 .init(value: 90_000, lockingScript: Data([0x51])),
+                localOutput,
                 .init(value: 120_000, lockingScript: Data([0x52]))
             ],
             lockTime: 0
         )
 
         let finalized = try await assembler.finalizeTransaction(
-            for: .init(rawValue: "round-success"),
+            for: roundIdentifier,
             proposal: CashFusionTestSupport.makeProposal(transaction: unsignedTransaction)
         )
         let decoded = try OpalBase.Transaction.decode(
             from: Data(finalized.transactionBytes)
         ).transaction
+        let finalizedTransactionHash = OpalBase.Transaction.Hash(
+            naturalOrder: OpalCryptoAdapter.hash256(Data(finalized.transactionBytes))
+        )
+        let completedLocalOutput = try #require(
+            await reservation.completedLocalOutputs(for: roundIdentifier).first
+        )
 
         #expect(decoded.outputs == unsignedTransaction.outputs)
         #expect(decoded.inputs[1].unlockingScript.isEmpty)
         #expect(decoded.inputs[0].unlockingScript.isEmpty == false)
         #expect(decoded.inputs[2].unlockingScript.isEmpty == false)
+        #expect(completedLocalOutput.previousTransactionHash == finalizedTransactionHash)
+        #expect(completedLocalOutput.previousTransactionOutputIndex == 1)
+        #expect(completedLocalOutput.value == localOutput.value)
+        #expect(completedLocalOutput.lockingScript == localOutput.lockingScript)
+        #expect(completedLocalOutput.tokenData == nil)
+
+        try await reservation.cancel()
+    }
+
+    @Test("duplicate finalized local output candidates choose the lowest unused output index")
+    func duplicateFinalizedLocalOutputCandidatesChooseTheLowestUnusedOutputIndex() async throws {
+        let account = try await AccountTestFixtures.makeAccount()
+        let selectedInput = try await CashFusionTestSupport.makeWalletOwnedUnspentOutput(
+            to: account,
+            value: 150_000,
+            usage: .change,
+            hashByte: 0xC8
+        )
+        let reservation = try await account.prepareCashFusionReservation(
+            request: .init(
+                selectedInputs: [selectedInput],
+                outputAmounts: [try OpalBase.Satoshi(50_000)]
+            )
+        )
+        let assembler = OpalBase.Account.CashFusionTransactionAssembler(
+            reservation: reservation
+        )
+        let localOutput = try makeLocalOutput(for: reservation, value: 50_000)
+        let roundIdentifier = OpalFusion.Round.Identifier(rawValue: "round-duplicate-output")
+        let unsignedTransaction = OpalBase.Transaction(
+            version: 2,
+            inputs: [
+                .init(
+                    previousTransactionHash: selectedInput.previousTransactionHash,
+                    previousTransactionOutputIndex: selectedInput.previousTransactionOutputIndex,
+                    unlockingScript: Data()
+                )
+            ],
+            outputs: [
+                localOutput,
+                localOutput,
+                .init(value: 30_000, lockingScript: Data([0x51]))
+            ],
+            lockTime: 0
+        )
+
+        _ = try await assembler.finalizeTransaction(
+            for: roundIdentifier,
+            proposal: CashFusionTestSupport.makeProposal(transaction: unsignedTransaction)
+        )
+        let completedLocalOutput = try #require(
+            await reservation.completedLocalOutputs(for: roundIdentifier).first
+        )
+
+        #expect(completedLocalOutput.previousTransactionOutputIndex == 0)
+        #expect(completedLocalOutput.value == localOutput.value)
+        #expect(completedLocalOutput.lockingScript == localOutput.lockingScript)
 
         try await reservation.cancel()
     }
@@ -100,6 +166,7 @@ struct AccountCashFusionTransactionAssemblerValidator {
         let assembler = OpalBase.Account.CashFusionTransactionAssembler(
             reservation: reservation
         )
+        let localOutput = try makeLocalOutput(for: reservation, value: 55_000)
         let remoteInput = OpalBase.Transaction.Input(
             previousTransactionHash: AccountTestFixtures.makeHash(byte: 0xD4),
             previousTransactionOutputIndex: 0,
@@ -120,7 +187,7 @@ struct AccountCashFusionTransactionAssemblerValidator {
                     unlockingScript: Data()
                 )
             ],
-            outputs: [.init(value: 80_000, lockingScript: Data([0x51]))],
+            outputs: [localOutput],
             lockTime: 0
         )
 
@@ -144,6 +211,102 @@ struct AccountCashFusionTransactionAssemblerValidator {
         #expect(decoded.inputs[1].unlockingScript.isEmpty)
         #expect(firstLocalUnlockingScript.publicKey == secondReservedInput.compressedPublicKey)
         #expect(secondLocalUnlockingScript.publicKey == firstReservedInput.compressedPublicKey)
+
+        try await reservation.cancel()
+    }
+
+    @Test("missing local finalized outputs are rejected as transaction assembly failures")
+    func missingLocalFinalizedOutputsAreRejectedAsTransactionAssemblyFailures() async throws {
+        let account = try await AccountTestFixtures.makeAccount()
+        let selectedInput = try await CashFusionTestSupport.makeWalletOwnedUnspentOutput(
+            to: account,
+            value: 130_000,
+            usage: .change,
+            hashByte: 0xC9
+        )
+        let reservation = try await account.prepareCashFusionReservation(
+            request: .init(
+                selectedInputs: [selectedInput],
+                outputAmounts: [try OpalBase.Satoshi(50_000)]
+            )
+        )
+        let assembler = OpalBase.Account.CashFusionTransactionAssembler(
+            reservation: reservation
+        )
+        let unsignedTransaction = OpalBase.Transaction(
+            version: 2,
+            inputs: [
+                .init(
+                    previousTransactionHash: selectedInput.previousTransactionHash,
+                    previousTransactionOutputIndex: selectedInput.previousTransactionOutputIndex,
+                    unlockingScript: Data()
+                )
+            ],
+            outputs: [.init(value: 80_000, lockingScript: Data([0x51]))],
+            lockTime: 0
+        )
+
+        await #expect(
+            throws: OpalFusion.Host.TransactionFinalizationFailure.transactionAssemblyFailed(
+                summary: "CashFusion transaction assembly failed"
+            )
+        ) {
+            _ = try await assembler.finalizeTransaction(
+                for: .init(rawValue: "round-missing-output"),
+                proposal: CashFusionTestSupport.makeProposal(transaction: unsignedTransaction)
+            )
+        }
+
+        try await reservation.cancel()
+    }
+
+    @Test("token-bearing local output candidates are rejected")
+    func tokenBearingLocalOutputCandidatesAreRejected() async throws {
+        let account = try await AccountTestFixtures.makeAccount()
+        let selectedInput = try await CashFusionTestSupport.makeWalletOwnedUnspentOutput(
+            to: account,
+            value: 130_000,
+            usage: .change,
+            hashByte: 0xCA
+        )
+        let reservation = try await account.prepareCashFusionReservation(
+            request: .init(
+                selectedInputs: [selectedInput],
+                outputAmounts: [try OpalBase.Satoshi(50_000)]
+            )
+        )
+        let assembler = OpalBase.Account.CashFusionTransactionAssembler(
+            reservation: reservation
+        )
+        let localOutput = try makeLocalOutput(for: reservation, value: 50_000)
+        let tokenBearingLocalOutput = OpalBase.Transaction.Output(
+            value: localOutput.value,
+            lockingScript: localOutput.lockingScript,
+            tokenData: try CashFusionTestSupport.makeTokenData()
+        )
+        let unsignedTransaction = OpalBase.Transaction(
+            version: 2,
+            inputs: [
+                .init(
+                    previousTransactionHash: selectedInput.previousTransactionHash,
+                    previousTransactionOutputIndex: selectedInput.previousTransactionOutputIndex,
+                    unlockingScript: Data()
+                )
+            ],
+            outputs: [tokenBearingLocalOutput],
+            lockTime: 0
+        )
+
+        await #expect(
+            throws: OpalFusion.Host.TransactionFinalizationFailure.transactionAssemblyFailed(
+                summary: "CashFusion transaction assembly failed"
+            )
+        ) {
+            _ = try await assembler.finalizeTransaction(
+                for: .init(rawValue: "round-token-output"),
+                proposal: CashFusionTestSupport.makeProposal(transaction: unsignedTransaction)
+            )
+        }
 
         try await reservation.cancel()
     }
@@ -327,6 +490,7 @@ struct AccountCashFusionTransactionAssemblerValidator {
         let assembler = OpalBase.Account.CashFusionTransactionAssembler(
             reservation: reservation
         )
+        let localOutput = try makeLocalOutput(for: reservation, value: 45_000)
         let unsignedTransaction = OpalBase.Transaction(
             version: 2,
             inputs: [
@@ -336,7 +500,7 @@ struct AccountCashFusionTransactionAssemblerValidator {
                     unlockingScript: Data()
                 )
             ],
-            outputs: [.init(value: 70_000, lockingScript: Data([0x51]))],
+            outputs: [localOutput],
             lockTime: 0
         )
 
@@ -364,7 +528,7 @@ struct AccountCashFusionTransactionAssemblerValidator {
         )
         let preimage = try decoded.generatePreimage(
             for: 0,
-            hashType: .makeAll(anyoneCanPay: false),
+            hashType: OpalBase.Transaction.HashType.makeAll(anyoneCanPay: false),
             outputBeingSpent: outputBeingSpent
         )
         let isValid = try OpalCrypto.Signature.Schnorr(rawRepresentation: signature).verify(
@@ -378,6 +542,19 @@ struct AccountCashFusionTransactionAssemblerValidator {
         #expect(isValid)
 
         try await reservation.cancel()
+    }
+}
+
+private extension AccountCashFusionTransactionAssemblerValidator {
+    func makeLocalOutput(
+        for reservation: OpalBase.Account.CashFusionReservation,
+        value: UInt64
+    ) throws -> OpalBase.Transaction.Output {
+        let receivingEntry = try #require(reservation.reservedReceivingEntries.first)
+        return OpalBase.Transaction.Output(
+            value: value,
+            lockingScript: receivingEntry.address.lockingScript.data
+        )
     }
 }
 #endif
