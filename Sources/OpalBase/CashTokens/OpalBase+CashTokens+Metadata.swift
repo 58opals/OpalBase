@@ -9,6 +9,11 @@ extension _OpalBase.CashTokens {
         public let symbol: String?
         public let decimals: Int?
         public let iconURL: URL?
+        public let description: String?
+        public let webURL: URL?
+        public let identity: String?
+        public let authbase: OpalBase.Transaction.Hash?
+        public let registryURL: URL?
         public let lastUpdated: Date
         public let source: Source
 
@@ -25,13 +30,23 @@ extension _OpalBase.CashTokens {
             decimals: Int?,
             iconURL: URL?,
             lastUpdated: Date,
-            source: Source
+            source: Source,
+            description: String? = nil,
+            webURL: URL? = nil,
+            identity: String? = nil,
+            authbase: OpalBase.Transaction.Hash? = nil,
+            registryURL: URL? = nil
         ) {
             self.category = category
             self.name = name
             self.symbol = symbol
             self.decimals = decimals
             self.iconURL = iconURL
+            self.description = description
+            self.webURL = webURL
+            self.identity = identity
+            self.authbase = authbase
+            self.registryURL = registryURL
             self.lastUpdated = lastUpdated
             self.source = source
         }

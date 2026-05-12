@@ -7,7 +7,8 @@ extension _OpalBase.Wallet {
         using transactionReader: OpalBase.Network.TransactionReader,
         addressReader: OpalBase.Network.AddressReader,
         scriptHashReader: OpalBase.Network.ScriptHashReader? = nil,
-        categories: Set<OpalBase.CashTokens.CategoryID>? = nil
+        categories: Set<OpalBase.CashTokens.CategoryID>? = nil,
+        registryFetcher: OpalBase.CashTokens.BCMR.Client.Fetcher? = nil
     ) async throws {
         let targetCategories = try await resolveTokenCategories(from: categories)
         guard !targetCategories.isEmpty else { return }
@@ -19,14 +20,19 @@ extension _OpalBase.Wallet {
                     let registries = Self.makeMetadataRegistries(
                         transactionReader: transactionReader,
                         addressReader: addressReader,
-                        scriptHashReader: scriptHashReader
+                        scriptHashReader: scriptHashReader,
+                        registryFetcher: registryFetcher
                     )
                     let authbase = OpalBase.Transaction.Hash(naturalOrder: category.transactionOrderData)
                     do {
                         let registry = try await registries.resolveChainRegistry(authbase: authbase)
-                        return registries.extractTokenMetadata(
+                        let metadata = registries.extractTokenMetadata(
                             from: registry.registry,
                             source: .chain(authbase)
+                        )
+                        return Self.applyDefaultRegistryURL(
+                            registry.registryFetchResult?.finalURL,
+                            to: metadata
                         )
                     } catch {
                         return .init()
@@ -38,7 +44,9 @@ extension _OpalBase.Wallet {
             for await registryMetadata in group {
                 aggregatedMetadata.merge(registryMetadata) { current, _ in current }
             }
-            return aggregatedMetadata
+            return aggregatedMetadata.filter { category, _ in
+                targetCategories.contains(category)
+            }
         }
         
         guard !metadataByCategory.isEmpty else { return }
@@ -58,6 +66,7 @@ private extension _OpalBase.Wallet {
         for account in accounts.values {
             let tokenInventory = try await account.loadTokenInventory()
             aggregatedCategories.formUnion(tokenInventory.fungibleAmountsByCategory.keys)
+            aggregatedCategories.formUnion(tokenInventory.nonFungibleTokensByGroup.keys.map(\.category))
         }
         
         return aggregatedCategories
@@ -66,7 +75,8 @@ private extension _OpalBase.Wallet {
     static func makeMetadataRegistries(
         transactionReader: OpalBase.Network.TransactionReader,
         addressReader: OpalBase.Network.AddressReader,
-        scriptHashReader: OpalBase.Network.ScriptHashReader?
+        scriptHashReader: OpalBase.Network.ScriptHashReader?,
+        registryFetcher: OpalBase.CashTokens.BCMR.Client.Fetcher?
     ) -> OpalBase.CashTokens.BCMR.Client {
         let authchainResolver = OpalBase.CashTokens.BCMR.Client.AuthchainResolver(
             transactionReader: transactionReader,
@@ -74,7 +84,7 @@ private extension _OpalBase.Wallet {
             scriptHashReader: scriptHashReader,
             maxDepth: 10
         )
-        let registryFetcher = OpalBase.CashTokens.BCMR.Client.Fetcher(
+        let registryFetcher = registryFetcher ?? OpalBase.CashTokens.BCMR.Client.Fetcher(
             urlSession: .shared,
             ipfsGateway: nil,
             maxBytes: 1_000_000
@@ -83,5 +93,29 @@ private extension _OpalBase.Wallet {
             authchainResolver: authchainResolver,
             registryFetcher: registryFetcher
         )
+    }
+
+    static func applyDefaultRegistryURL(
+        _ registryURL: URL?,
+        to metadataByCategory: [OpalBase.CashTokens.CategoryID: OpalBase.CashTokens.Metadata]
+    ) -> [OpalBase.CashTokens.CategoryID: OpalBase.CashTokens.Metadata] {
+        guard let registryURL else { return metadataByCategory }
+        return metadataByCategory.mapValues { metadata in
+            guard metadata.registryURL == nil else { return metadata }
+            return OpalBase.CashTokens.Metadata(
+                category: metadata.category,
+                name: metadata.name,
+                symbol: metadata.symbol,
+                decimals: metadata.decimals,
+                iconURL: metadata.iconURL,
+                lastUpdated: metadata.lastUpdated,
+                source: metadata.source,
+                description: metadata.description,
+                webURL: metadata.webURL,
+                identity: metadata.identity,
+                authbase: metadata.authbase,
+                registryURL: registryURL
+            )
+        }
     }
 }
