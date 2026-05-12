@@ -45,16 +45,28 @@ extension _OpalBase.CashTokens {
             _ metadata: OpalBase.CashTokens.Metadata,
             for category: OpalBase.CashTokens.CategoryID
         ) -> OpalBase.CashTokens.Metadata {
-            guard metadata.category != category else { return metadata }
             return OpalBase.CashTokens.Metadata(
                 category: category,
                 name: metadata.name,
                 symbol: metadata.symbol,
                 decimals: metadata.decimals,
-                iconURL: metadata.iconURL,
+                iconURL: makeSafeURL(metadata.iconURL),
                 lastUpdated: metadata.lastUpdated,
-                source: metadata.source
+                source: metadata.source,
+                description: metadata.description,
+                webURL: makeSafeURL(metadata.webURL),
+                identity: metadata.identity,
+                authbase: metadata.authbase,
+                registryURL: makeSafeURL(metadata.registryURL)
             )
+        }
+
+        private func makeSafeURL(_ url: URL?) -> URL? {
+            guard let url,
+                  let scheme = url.scheme?.lowercased(),
+                  ["https", "ipfs"].contains(scheme)
+            else { return nil }
+            return url
         }
     }
 }

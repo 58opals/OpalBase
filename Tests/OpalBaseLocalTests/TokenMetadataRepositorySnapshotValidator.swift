@@ -35,5 +35,34 @@ struct TokenMetadataRepositorySnapshotValidator {
         
         #expect(restoredMetadata == metadata)
     }
-}
 
+    @Test("applySnapshot removes unsafe metadata URLs")
+    func applySnapshotRemovesUnsafeMetadataURLs() async throws {
+        let store = OpalBase.CashTokens.MetadataRepository()
+        let metadata = OpalBase.CashTokens.Metadata(
+            category: BitcoinCashMetadataRegistryTestData.categoryIdentifier,
+            name: "Unsafe Token",
+            symbol: "UNSAFE",
+            decimals: 2,
+            iconURL: URL(string: "http://example.com/icon.png")!,
+            lastUpdated: Date(timeIntervalSince1970: 1_704_067_200),
+            source: .embedded,
+            webURL: URL(string: "javascript:alert(1)")!,
+            registryURL: URL(string: "file:///tmp/registry.json")!
+        )
+        let snapshot = OpalBase.CashTokens.MetadataRepository.Snapshot(
+            byCategory: [
+                BitcoinCashMetadataRegistryTestData.categoryIdentifier.hexForDisplay: metadata
+            ]
+        )
+
+        await store.applySnapshot(snapshot)
+
+        let restoredMetadata = try #require(
+            await store.fetchMetadata(for: BitcoinCashMetadataRegistryTestData.categoryIdentifier)
+        )
+        #expect(restoredMetadata.iconURL == nil)
+        #expect(restoredMetadata.webURL == nil)
+        #expect(restoredMetadata.registryURL == nil)
+    }
+}

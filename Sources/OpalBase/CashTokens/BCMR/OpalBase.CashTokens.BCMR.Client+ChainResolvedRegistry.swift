@@ -8,17 +8,20 @@ extension OpalBase.CashTokens.BCMR.Client {
         public let authhead: OpalBase.Transaction.Hash
         public let publication: Publication
         public let registry: Registry
+        public let registryFetchResult: Fetcher.RegistryFetchResult?
         
         public init(
             authbase: OpalBase.Transaction.Hash,
             authhead: OpalBase.Transaction.Hash,
             publication: Publication,
-            registry: Registry
+            registry: Registry,
+            registryFetchResult: Fetcher.RegistryFetchResult? = nil
         ) {
             self.authbase = authbase
             self.authhead = authhead
             self.publication = publication
             self.registry = registry
+            self.registryFetchResult = registryFetchResult
         }
     }
 
@@ -29,21 +32,14 @@ extension OpalBase.CashTokens.BCMR.Client {
             throw ChainRegistryResolverError.missingPublicationOutput(authhead)
         }
         
-        let registryBytes = try await fetchRegistryBytes(for: publication, authhead: authhead)
-        let registryHash = OpalCryptoAdapter.sha256(registryBytes)
-        guard registryHash == publication.sha256 else {
-            throw ChainRegistryResolverError.invalidRegistryHash(
-                expected: publication.sha256,
-                actual: registryHash
-            )
-        }
-        
-        let registry = try decodeRegistry(from: registryBytes)
+        let registryFetchResult = try await fetchRegistry(for: publication, authhead: authhead)
+        let registry = try decodeRegistry(from: registryFetchResult.bytes)
         return ChainResolvedRegistry(
             authbase: authbase,
             authhead: authhead,
             publication: publication,
-            registry: registry
+            registry: registry,
+            registryFetchResult: registryFetchResult
         )
     }
 }
@@ -69,19 +65,33 @@ private extension OpalBase.CashTokens.BCMR.Client {
         return nil
     }
     
-    func fetchRegistryBytes(
+    func fetchRegistry(
         for publication: Publication,
         authhead: OpalBase.Transaction.Hash
-    ) async throws -> Data {
-        guard let uri = publication.uris.first else {
+    ) async throws -> OpalBase.CashTokens.BCMR.Client.Fetcher.RegistryFetchResult {
+        guard !publication.uris.isEmpty else {
             throw ChainRegistryResolverError.noRegistryLocation(authhead)
         }
-        
-        do {
-            return try await registryFetcher.fetchRegistryBytes(from: uri)
-        } catch {
-            throw ChainRegistryResolverError.registryFetchingFailed(uri, error)
+
+        var lastError: ChainRegistryResolverError?
+        for uri in publication.uris {
+            do {
+                let registryFetchResult = try await registryFetcher.fetchRegistry(from: uri)
+                let registryHash = OpalCryptoAdapter.sha256(registryFetchResult.bytes)
+                guard registryHash == publication.sha256 else {
+                    lastError = ChainRegistryResolverError.invalidRegistryHash(
+                        expected: publication.sha256,
+                        actual: registryHash
+                    )
+                    continue
+                }
+                return registryFetchResult
+            } catch {
+                lastError = ChainRegistryResolverError.registryFetchingFailed(uri, error)
+            }
         }
+
+        throw lastError ?? ChainRegistryResolverError.noRegistryLocation(authhead)
     }
     
     func decodeRegistry(from registryBytes: Data) throws -> Registry {
