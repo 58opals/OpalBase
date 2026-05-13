@@ -4,7 +4,7 @@ import Foundation
 
 extension OpalBase {
     public struct Satoshi {
-        public var uint64: UInt64
+        public private(set) var uint64: UInt64
         public var bch: Decimal { Decimal(uint64) / Decimal(OpalBase.Satoshi.perBCH) }
         
         static let perBCH: UInt64 = 100_000_000

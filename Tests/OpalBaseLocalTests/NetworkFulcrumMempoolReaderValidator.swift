@@ -43,8 +43,8 @@ struct NetworkFulcrumMempoolReaderValidator {
     
     @Test("rejects invalid mempool info fee rates")
     func fetchMempoolInfoRejectsInvalidFeeRates() async throws {
-        let client = try MempoolClientTestActor(
-            infoResponse: Self.makeInfoResponse(mempoolMinimumFee: -1)
+        let client = MempoolClientTestActor(
+            infoError: try Self.makeInfoDecodeFailure(mempoolMinimumFee: -1)
         )
         let reader = OpalBase.Network.Fulcrum.MempoolReader(client: client)
         
@@ -58,8 +58,8 @@ struct NetworkFulcrumMempoolReaderValidator {
     
     @Test("rejects invalid mempool info counts")
     func fetchMempoolInfoRejectsInvalidCounts() async throws {
-        let client = try MempoolClientTestActor(
-            infoResponse: Self.makeInfoResponse(unbroadcastCount: -1)
+        let client = MempoolClientTestActor(
+            infoError: try Self.makeInfoDecodeFailure(unbroadcastCount: -1)
         )
         let reader = OpalBase.Network.Fulcrum.MempoolReader(client: client)
         
@@ -116,6 +116,26 @@ private extension NetworkFulcrumMempoolReaderValidator {
             "fullrbf": true
         ])
         return try JSONDecoder().decode(SwiftFulcrum.Response.Mempool.GetInfo.self, from: payload)
+    }
+
+    static func makeInfoDecodeFailure(
+        mempoolMinimumFee: Double = 0.00001,
+        minimumRelayTransactionFee: Double = 0.00002,
+        incrementalRelayFee: Double = 0.00003,
+        unbroadcastCount: Int = 7
+    ) throws -> SwiftFulcrum.Client.Error {
+        do {
+            _ = try makeInfoResponse(
+                mempoolMinimumFee: mempoolMinimumFee,
+                minimumRelayTransactionFee: minimumRelayTransactionFee,
+                incrementalRelayFee: incrementalRelayFee,
+                unbroadcastCount: unbroadcastCount
+            )
+            Issue.record("Expected invalid mempool info payload to fail decoding")
+            return SwiftFulcrum.Client.Error.coding(.decode(nil))
+        } catch {
+            return SwiftFulcrum.Client.Error.coding(.decode(error))
+        }
     }
 
     static func makeHistogramResponse() throws -> SwiftFulcrum.Response.Mempool.GetFeeHistogram {

@@ -4,7 +4,11 @@ import Foundation
 
 extension _OpalBase.Network {
     public struct Configuration: Sendable, Equatable {
-        public var serverURLs: [URL]
+        private var normalizedServerURLs: [URL]
+        public var serverURLs: [URL] {
+            get { normalizedServerURLs }
+            set { normalizedServerURLs = ServerCatalog.makeNormalizedServers(newValue) }
+        }
         public var serverCatalog: ServerCatalog
         /// Time allowed to establish the WebSocket connection.
         /// This does not cap the lifetime of an established socket.
@@ -21,7 +25,7 @@ extension _OpalBase.Network {
             reconnect: ReconnectConfiguration = .defaultValue,
             network: Environment = .mainnet
         ) {
-            self.serverURLs = ServerCatalog.makeNormalizedServers(serverURLs)
+            self.normalizedServerURLs = ServerCatalog.makeNormalizedServers(serverURLs)
             self.serverCatalog = serverCatalog
             self.connectTimeout = connectTimeout
             self.maximumMessageSize = maximumMessageSize

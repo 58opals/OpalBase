@@ -24,6 +24,33 @@ struct NetworkServerCatalogValidator {
         #expect(testnetServers.contains(URL(string: "wss://testnet.imaginary.cash:50004")!))
         #expect(!testnetServers.contains(where: { $0.host == "chipnet.imaginary.cash" }))
     }
+
+    @Test("catalog URL mutation preserves normalization")
+    func catalogURLMutationPreservesNormalization() {
+        var catalog = OpalBase.Network.ServerCatalog(
+            mainnetServers: .init(),
+            chipnetServers: .init(),
+            testnetServers: .init()
+        )
+
+        catalog.mainnetServers = [
+            URL(string: "https://main.example.com:443/")!,
+            URL(string: "wss://main.example.com")!,
+            URL(string: "ftp://main.example.com")!
+        ]
+        catalog.chipnetServers = [
+            URL(string: "http://chip.example.com:80/")!,
+            URL(string: "ws://chip.example.com")!
+        ]
+        catalog.testnetServers = [
+            URL(string: "wss://test.example.com:0")!,
+            URL(string: "wss://test.example.com:50004")!
+        ]
+
+        #expect(catalog.mainnetServers == [URL(string: "wss://main.example.com")!])
+        #expect(catalog.chipnetServers == [URL(string: "ws://chip.example.com")!])
+        #expect(catalog.testnetServers == [URL(string: "wss://test.example.com:50004")!])
+    }
     
     @Test("network environments map one-to-one to FulcrumClient networks")
     func environmentsMapOneToOneToFulcrumNetworks() {
