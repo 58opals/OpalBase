@@ -264,7 +264,7 @@ extension _OpalBase.Account.CashFusionSessionStatus {
     }
 
     private static func makeQueueStatus(
-        _ queueStatus: OpalFusion.Client.Session.Snapshot.CoordinatorStatus.TierQueue
+        _ queueStatus: OpalFusion.Client.Session.Snapshot.CoordinatorStatus.QueueStatus
     ) -> OpalBase.Account.CashFusionSessionStatus.CoordinatorStatus.QueueStatus {
         .init(
             tierSatoshis: queueStatus.tierSatoshis,
