@@ -123,21 +123,9 @@ extension _OpalBase.Transaction {
             }
         }
         
-        let orderedOutputs: [Output]
-        switch outputOrderingStrategy {
-        case .privacyRandomized:
-            orderedOutputs = privacyOutputShuffle(outputs)
-        case .canonicalBIP69:
-            orderedOutputs = Output.applyBIP69Ordering(outputs)
-        }
-        
-        let positiveValueOutputs = orderedOutputs.filter { $0.value > 0 }
-        guard !positiveValueOutputs.isEmpty else { throw Error.insufficientFunds(required: 0) }
-        _ = try sumValues(of: positiveValueOutputs) { $0.value }
-        for output in orderedOutputs where !output.isOpReturnScript {
-            let dustThreshold = try output.calculateDustThreshold(feeRate: minimumRelayFeeRate)
-            guard output.value >= dustThreshold else { throw Error.outputValueIsLessThanTheDustLimit }
-        }
+        let orderedOutputs = try orderAndValidateOutputs(outputs,
+                                                         outputOrderingStrategy: outputOrderingStrategy,
+                                                         privacyOutputShuffle: privacyOutputShuffle)
         
         let finalizedTransaction = OpalBase.Transaction(version: version,
                                                inputs: inputs,

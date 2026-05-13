@@ -30,9 +30,11 @@ extension _OpalBase.Address.Book {
             var currentIndex = 0
             
             while consecutiveUnused < gapLimit {
+                let remainingGap = gapLimit - consecutiveUnused
+                let queryCount = Swift.min(batchSize, remainingGap)
                 let entries = try await loadEntries(for: currentUsage,
                                                     startIndex: currentIndex,
-                                                    count: batchSize)
+                                                    count: queryCount)
                 guard !entries.isEmpty else { break }
                 
                 let usageResults = try await entries.mapConcurrently { entry in

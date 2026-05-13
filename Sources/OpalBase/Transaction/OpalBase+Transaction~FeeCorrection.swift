@@ -41,23 +41,9 @@ extension _OpalBase.Transaction {
                                  tokenData: changeOutputTemplate.tokenData))
         }
         
-        let orderedOutputs: [Output]
-        switch outputOrderingStrategy {
-        case .privacyRandomized:
-            orderedOutputs = privacyOutputShuffle(outputs)
-        case .canonicalBIP69:
-            orderedOutputs = Output.applyBIP69Ordering(outputs)
-        }
-        
-        let positiveValueOutputs = orderedOutputs.filter { $0.value > 0 }
-        guard !positiveValueOutputs.isEmpty else { throw Error.insufficientFunds(required: 0) }
-        _ = try sumValues(of: positiveValueOutputs) { $0.value }
-        for output in orderedOutputs where !output.isOpReturnScript {
-            let dustThreshold = try output.calculateDustThreshold(feeRate: minimumRelayFeeRate)
-            guard output.value >= dustThreshold else { throw Error.outputValueIsLessThanTheDustLimit }
-        }
-        
-        return orderedOutputs
+        return try orderAndValidateOutputs(outputs,
+                                           outputOrderingStrategy: outputOrderingStrategy,
+                                           privacyOutputShuffle: privacyOutputShuffle)
     }
     
     static func correctFeeAfterSigning(signedTransaction: OpalBase.Transaction,
@@ -113,7 +99,34 @@ extension _OpalBase.Transaction {
             try partial.addOrThrow(transform(value), overflowError: Error.cannotCreateTransaction)
         }
     }
-    
+
+    static func orderAndValidateOutputs(_ outputs: [Output],
+                                        outputOrderingStrategy: OutputOrderingStrategy,
+                                        privacyOutputShuffle: ([Output]) -> [Output]) throws -> [Output] {
+        let orderedOutputs: [Output]
+        switch outputOrderingStrategy {
+        case .privacyRandomized:
+            orderedOutputs = privacyOutputShuffle(outputs)
+        case .canonicalBIP69:
+            orderedOutputs = Output.applyBIP69Ordering(outputs)
+        }
+        guard orderedOutputs.containsSameOutputs(as: outputs) else {
+            throw Error.cannotCreateTransaction
+        }
+
+        var hasSpendableOutput = false
+        var totalValue: UInt64 = 0
+        for output in orderedOutputs where !output.isOpReturnScript {
+            hasSpendableOutput = true
+            totalValue = try totalValue.addOrThrow(output.value, overflowError: Error.cannotCreateTransaction)
+            let dustThreshold = try output.calculateDustThreshold(feeRate: minimumRelayFeeRate)
+            guard output.value >= dustThreshold else { throw Error.outputValueIsLessThanTheDustLimit }
+        }
+        guard hasSpendableOutput else { throw Error.insufficientFunds(required: 0) }
+
+        return orderedOutputs
+    }
+
     private static func calculateTotalValue(for outputs: [Output]) throws -> UInt64 {
         try sumValues(of: outputs) { $0.value }
     }
@@ -130,6 +143,21 @@ extension _OpalBase.Transaction {
         guard changeOutput.tokenData == nil else {
             throw Error.outputValueIsLessThanTheDustLimit
         }
+    }
+}
+
+private extension Array where Element == OpalBase.Transaction.Output {
+    func containsSameOutputs(as expectedOutputs: [Element]) -> Bool {
+        var remainingOutputs = expectedOutputs
+
+        for output in self {
+            guard let index = remainingOutputs.firstIndex(of: output) else {
+                return false
+            }
+            remainingOutputs.remove(at: index)
+        }
+
+        return remainingOutputs.isEmpty
     }
 }
 

@@ -67,6 +67,16 @@ extension _OpalBase.Transaction {
 
 extension _OpalBase.Transaction.Input: Sendable {}
 
+extension _OpalBase.Transaction.Input {
+    var isCoinbase: Bool {
+        previousTransactionHash.naturalOrder == Data(
+            repeating: 0x00,
+            count: OpalBase.Transaction.Hash.expectedByteCount
+        )
+        && previousTransactionOutputIndex == UInt32.max
+    }
+}
+
 extension _OpalBase.Transaction.Input: CustomStringConvertible {
     public var description: String {
         """

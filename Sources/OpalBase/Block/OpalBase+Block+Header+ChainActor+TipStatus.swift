@@ -8,6 +8,23 @@ extension _OpalBase.Block.Header.ChainActor {
             case fresh
             case stale(by: TimeInterval)
             case future(by: TimeInterval)
+
+            enum Category: Equatable, Sendable {
+                case fresh
+                case stale
+                case future
+            }
+
+            var category: Category {
+                switch self {
+                case .fresh:
+                    return .fresh
+                case .stale:
+                    return .stale
+                case .future:
+                    return .future
+                }
+            }
         }
         
         public let condition: Condition

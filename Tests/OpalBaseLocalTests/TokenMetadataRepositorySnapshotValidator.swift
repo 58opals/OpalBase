@@ -46,7 +46,7 @@ struct TokenMetadataRepositorySnapshotValidator {
             decimals: 2,
             iconURL: URL(string: "http://example.com/icon.png")!,
             lastUpdated: Date(timeIntervalSince1970: 1_704_067_200),
-            source: .embedded,
+            source: .dns(URL(string: "http://example.com/registry.json")!),
             webURL: URL(string: "javascript:alert(1)")!,
             registryURL: URL(string: "file:///tmp/registry.json")!
         )
@@ -64,5 +64,40 @@ struct TokenMetadataRepositorySnapshotValidator {
         #expect(restoredMetadata.iconURL == nil)
         #expect(restoredMetadata.webURL == nil)
         #expect(restoredMetadata.registryURL == nil)
+        #expect(restoredMetadata.source == .embedded)
+    }
+
+    @Test("applySnapshot removes hostless metadata URLs")
+    func applySnapshotRemovesHostlessMetadataURLs() async throws {
+        let store = OpalBase.CashTokens.MetadataRepository()
+        let iconURL = try #require(URL(string: "https:example.com/icon.png"))
+        let webURL = try #require(URL(string: "https:example.com/token"))
+        let registryURL = try #require(URL(string: "https:example.com/registry.json"))
+        let metadata = OpalBase.CashTokens.Metadata(
+            category: BitcoinCashMetadataRegistryTestData.categoryIdentifier,
+            name: "Hostless Token",
+            symbol: "HOSTLESS",
+            decimals: 2,
+            iconURL: iconURL,
+            lastUpdated: Date(timeIntervalSince1970: 1_704_067_200),
+            source: .dns(registryURL),
+            webURL: webURL,
+            registryURL: registryURL
+        )
+        let snapshot = OpalBase.CashTokens.MetadataRepository.Snapshot(
+            byCategory: [
+                BitcoinCashMetadataRegistryTestData.categoryIdentifier.hexForDisplay: metadata
+            ]
+        )
+
+        await store.applySnapshot(snapshot)
+
+        let restoredMetadata = try #require(
+            await store.fetchMetadata(for: BitcoinCashMetadataRegistryTestData.categoryIdentifier)
+        )
+        #expect(restoredMetadata.iconURL == nil)
+        #expect(restoredMetadata.webURL == nil)
+        #expect(restoredMetadata.registryURL == nil)
+        #expect(restoredMetadata.source == .embedded)
     }
 }

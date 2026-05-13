@@ -24,6 +24,7 @@ extension _OpalBase.Address.Book {
         case cacheInvalid
         case cacheUpdateFailed(OpalBase.Address, Swift.Error)
         case invalidSnapshotBalance(value: UInt64, reason: Swift.Error)
+        case invalidSnapshotFee(value: UInt64, reason: Swift.Error)
         case invalidSnapshotEntryUsage(
             expected: OpalBase.Key.DerivationPath.Usage,
             actual: OpalBase.Key.DerivationPath.Usage,
@@ -90,6 +91,9 @@ extension _OpalBase.Address.Book.Error: Equatable {
             return leftAddress == rightAddress && OpalBase.Network.checkFailureEquivalence(leftError, rightError)
         case (.invalidSnapshotBalance(let leftValue, let leftError),
               .invalidSnapshotBalance(let rightValue, let rightError)):
+            return leftValue == rightValue && OpalBase.Network.checkFailureEquivalence(leftError, rightError)
+        case (.invalidSnapshotFee(let leftValue, let leftError),
+              .invalidSnapshotFee(let rightValue, let rightError)):
             return leftValue == rightValue && OpalBase.Network.checkFailureEquivalence(leftError, rightError)
         case (.invalidSnapshotEntryUsage(let leftExpected, let leftActual, let leftIndex),
               .invalidSnapshotEntryUsage(let rightExpected, let rightActual, let rightIndex)):

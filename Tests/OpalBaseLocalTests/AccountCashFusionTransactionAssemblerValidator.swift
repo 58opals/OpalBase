@@ -1,6 +1,6 @@
-#if os(macOS)
 // AccountCashFusionTransactionAssemblerValidator.swift
 
+#if os(macOS)
 import Foundation
 import OpalCrypto
 import OpalFusion

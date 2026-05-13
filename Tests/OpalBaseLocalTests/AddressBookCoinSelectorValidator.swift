@@ -136,8 +136,35 @@ struct AddressBookCoinSelectorValidator {
             total: 1_000 + feeWithoutChange + 100,
             inputCount: 1,
             targetAmount: 1_000,
+            minimumRelayFeeRate: 1,
+            feePerByte: 1
+        )
+
+        #expect(evaluation == nil)
+    }
+
+    @Test("evaluation rejects excess without a change output")
+    func evaluationRejectsExcessWithoutChangeOutput() throws {
+        let recipientOutputs = [
+            OpalBase.Transaction.Output(value: 1_000, lockingScript: Data([0x51]))
+        ]
+        let configuration = OpalBase.Address.Book.CoinSelection.Configuration(
             recipientOutputs: recipientOutputs,
-            outputsWithChange: outputsWithChange,
+            changeLockingScript: nil,
+            strategy: .greedyLargestFirst,
+            shouldAllowDustDonation: false
+        )
+        let feeWithoutChange = try OpalBase.Transaction.estimateFee(
+            inputCount: 1,
+            outputs: recipientOutputs,
+            feePerByte: 1
+        )
+
+        let evaluation = try OpalBase.Address.Book.CoinSelection.evaluate(
+            configuration: configuration,
+            total: 1_000 + feeWithoutChange + 1,
+            inputCount: 1,
+            targetAmount: 1_000,
             minimumRelayFeeRate: 1,
             feePerByte: 1
         )

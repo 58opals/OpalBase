@@ -228,6 +228,20 @@ struct NetworkFulcrumServerInfoReaderValidator {
         
         #expect(failure.reason == .decoding)
         #expect(failure.message == "Invalid server feature genesis hash length: expected 32 bytes, got 1")
+        
+        let genesisHash = String(repeating: "a", count: 64)
+        let prefixedReader = OpalBase.Network.Fulcrum.ServerInfoReader(
+            client: ServerInfoClientTestActor(
+                featuresResponse: try Self.makeFeaturesResponse(genesisHash: "0x\(genesisHash)")
+            )
+        )
+        
+        let prefixedFailure = await Self.captureNetworkError {
+            _ = try await prefixedReader.fetchServerFeatures()
+        }
+        
+        #expect(prefixedFailure.reason == .decoding)
+        #expect(prefixedFailure.message == "Cannot decode server feature genesis hash: 0x\(genesisHash)")
     }
     
     @Test("rejects unsupported server feature hash functions")

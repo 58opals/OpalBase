@@ -60,8 +60,6 @@ extension _OpalBase.Address.Book.CoinSelector {
                                                 total: sum,
                                                 inputCount: selection.count,
                                                 targetAmount: targetAmount,
-                                                recipientOutputs: configuration.recipientOutputs,
-                                                outputsWithChange: configuration.outputsWithChange,
                                                 minimumRelayFeeRate: minimumRelayFeeRate,
                                                 feePerByte: feePerByte)
     }

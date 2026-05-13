@@ -86,16 +86,14 @@ extension _OpalBase.Address.Book.CoinSelection {
                          total: UInt64,
                          inputCount: Int,
                          targetAmount: UInt64,
-                         recipientOutputs: [OpalBase.Transaction.Output],
-                         outputsWithChange: [OpalBase.Transaction.Output],
                          minimumRelayFeeRate: UInt64,
                          feePerByte: UInt64) throws -> Evaluation? {
-        let changeOutputTemplate: OpalBase.Transaction.Output? = outputsWithChange.count > recipientOutputs.count
-        ? outputsWithChange.last
-        : nil
+        let changeOutputTemplate: OpalBase.Transaction.Output? = configuration.outputsWithChange.count > configuration.recipientOutputs.count
+            ? configuration.outputsWithChange.last
+            : nil
         let changeDustThreshold = try changeOutputTemplate?.calculateDustThreshold(feeRate: minimumRelayFeeRate) ?? 0
         let feeWithoutChange = try OpalBase.Transaction.estimateFee(inputCount: inputCount,
-                                                           outputs: recipientOutputs,
+                                                           outputs: configuration.recipientOutputs,
                                                            feePerByte: feePerByte)
         let requiredWithoutChange = try targetAmount.addOrThrow(
             feeWithoutChange,
@@ -113,9 +111,11 @@ extension _OpalBase.Address.Book.CoinSelection {
                 return Evaluation(excess: excess)
             }
         }
+
+        guard changeOutputTemplate != nil else { return nil }
         
         let feeWithChange = try OpalBase.Transaction.estimateFee(inputCount: inputCount,
-                                                        outputs: outputsWithChange,
+                                                        outputs: configuration.outputsWithChange,
                                                         feePerByte: feePerByte)
         let requiredWithChange = try targetAmount.addOrThrow(
             feeWithChange,

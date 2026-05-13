@@ -1,6 +1,6 @@
-#if os(macOS)
 // AccountCashFusionRequestValidator.swift
 
+#if os(macOS)
 import Foundation
 import Testing
 @testable import OpalBase

@@ -13,7 +13,7 @@ extension _OpalBase.Account {
         var remainingNonFungible = requirements.nonFungibleTokens
         var selected: [OpalBase.Transaction.Output.Unspent] = .init()
 
-        func hasSatisfiedRequirements() -> Bool {
+        var hasSatisfiedRequirements: Bool {
             remainingFungible == 0 && !remainingNonFungible.values.contains { $0 > 0 }
         }
 
@@ -58,7 +58,7 @@ extension _OpalBase.Account {
                         remainingNonFungible[group] = remainingCount - 1
                     }
                 }
-                if hasSatisfiedRequirements() {
+                if hasSatisfiedRequirements {
                     return true
                 }
             }
@@ -105,8 +105,6 @@ extension _OpalBase.Account {
                                                     total: total,
                                                     inputCount: inputCount,
                                                     targetAmount: targetAmount,
-                                                    recipientOutputs: configuration.recipientOutputs,
-                                                    outputsWithChange: configuration.outputsWithChange,
                                                     minimumRelayFeeRate: minimumRelayFeeRate,
                                                     feePerByte: feeRate)
         }

@@ -1,3 +1,5 @@
+// NetworkFulcrumTransactionReaderValidator.swift
+
 import Foundation
 import Testing
 import SwiftFulcrum
@@ -133,6 +135,32 @@ struct NetworkFulcrumTransactionReaderValidator {
             transactionHash: fixture.transactionHash.reverseOrder.hexadecimalString,
             rawTransactionHexadecimal: fixture.rawTransactionHexadecimal,
             blockHashHexadecimal: "aa",
+            blockTime: fixture.blockTime,
+            confirmations: fixture.confirmations,
+            transactionTime: fixture.transactionTime,
+            size: fixture.rawTransactionData.count
+        )
+        let client = TransactionReaderClientTestActor(
+            rawTransactionHex: fixture.rawTransactionHexadecimal,
+            verboseTransaction: verboseResponse
+        )
+        let reader = OpalBase.Network.Fulcrum.TransactionReader(client: client)
+
+        let detail = try await reader.fetchDetailedTransaction(for: fixture.transactionHash)
+
+        #expect(detail.rawTransactionData == fixture.rawTransactionData)
+        #expect(detail.blockHash == nil)
+        #expect(await client.readVerboseFetchCount() == 1)
+        #expect(await client.readRawFetchCount() == 1)
+    }
+
+    @Test("falls back to raw transaction fetch when verbose block hash is prefixed")
+    func fetchDetailedTransactionFallsBackToRawAfterPrefixedVerboseBlockHash() async throws {
+        let fixture = try TransactionFixture.make()
+        let verboseResponse = try TransactionFixture.makeVerboseResponse(
+            transactionHash: fixture.transactionHash.reverseOrder.hexadecimalString,
+            rawTransactionHexadecimal: fixture.rawTransactionHexadecimal,
+            blockHashHexadecimal: "0x" + fixture.blockHashData.hexadecimalString,
             blockTime: fixture.blockTime,
             confirmations: fixture.confirmations,
             transactionTime: fixture.transactionTime,

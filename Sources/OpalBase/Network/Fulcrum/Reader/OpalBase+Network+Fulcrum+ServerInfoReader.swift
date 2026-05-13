@@ -168,21 +168,7 @@ extension _OpalBase.Network.Fulcrum {
         }
         
         private static func validateFeatureHash(_ hash: String, fieldName: String) throws -> String {
-            let data: Data
-            do {
-                data = try Data(hexadecimalString: hash)
-            } catch {
-                throw OpalBase.Network.Error(
-                    reason: .decoding,
-                    message: "Cannot decode server feature \(fieldName): \(hash)"
-                )
-            }
-            guard data.count == OpalBase.Transaction.Hash.expectedByteCount else {
-                throw OpalBase.Network.Error(
-                    reason: .decoding,
-                    message: "Invalid server feature \(fieldName) length: expected \(OpalBase.Transaction.Hash.expectedByteCount) bytes, got \(data.count)"
-                )
-            }
+            _ = try OpalBase.Network.decodeHashData(from: hash, label: "server feature \(fieldName)")
             return hash
         }
         

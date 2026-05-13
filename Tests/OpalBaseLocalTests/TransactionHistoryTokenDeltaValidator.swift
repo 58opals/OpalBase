@@ -78,6 +78,37 @@ struct TransactionHistoryTokenDeltaValidator {
         #expect(record.tokenDelta.bchLockedInTokenOutputDelta == 150)
     }
 
+    @Test("skips coinbase inputs when computing token deltas")
+    func tokenDeltaSkipsCoinbaseInputs() async throws {
+        let book = try await makeAddressBook()
+        let receivingEntry = await book.listEntries(for: .receiving).first
+        let walletAddress = try #require(receivingEntry?.address)
+        let coinbaseInput = OpalBase.Transaction.Input(
+            previousTransactionHash: OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0x00, count: 32)),
+            previousTransactionOutputIndex: UInt32.max,
+            unlockingScript: Data([0x01])
+        )
+        let transaction = OpalBase.Transaction(
+            version: 2,
+            inputs: [coinbaseInput],
+            outputs: [
+                .init(value: 6_250_000_000, lockingScript: walletAddress.lockingScript.data)
+            ],
+            lockTime: 0
+        )
+        let transactionReader = OpalBase.Network.TransactionReader(
+            TransactionReaderClient(rawTransactionsByHash: [:])
+        )
+
+        let tokenDelta = try await book.makeTokenDelta(
+            from: transaction,
+            transactionReader: transactionReader,
+            walletScriptHashes: [walletAddress.makeScriptHash().hexadecimalString]
+        )
+
+        #expect(tokenDelta == .init())
+    }
+
     @Test("throws instead of overflowing large fungible token deltas")
     func tokenDeltaOverflowThrows() async throws {
         let book = try await makeAddressBook()

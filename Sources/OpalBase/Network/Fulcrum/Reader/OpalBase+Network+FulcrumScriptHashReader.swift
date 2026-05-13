@@ -41,13 +41,12 @@ extension _OpalBase.Network.Fulcrum {
                     options: .init(timeout: timeouts.scriptHashHistory)
                 )
                 
-                return try result.transactions.map { transaction in
-                    OpalBase.Network.TransactionHistoryEntry(
-                        transactionIdentifier: transaction.transactionHash,
-                        blockHeight: transaction.height,
-                        fee: try OpalBase.Network.Fulcrum.resolveFee(transaction.fee)
-                    )
-                }
+                return try OpalBase.Network.Fulcrum.mapHistoryTransactions(
+                    result.transactions,
+                    transactionIdentifier: \.transactionHash,
+                    blockHeight: \.height,
+                    fee: \.fee
+                )
             }
         }
         
@@ -66,7 +65,7 @@ extension _OpalBase.Network.Fulcrum {
                 )
                 
                 let unspentOutputs = try await result.items.mapConcurrently { item in
-                    try await makeUnspentOutput(from: item)
+                    try await makeUnspentOutput(from: item, scriptHashHex: validatedScriptHash)
                 }
                 
                 return unspentOutputs.sorted { $0.compareOrder(before: $1) }
@@ -74,31 +73,65 @@ extension _OpalBase.Network.Fulcrum {
         }
         
         private func makeUnspentOutput(
-            from item: SwiftFulcrum.Response.Blockchain.ScriptHash.ListUnspent.Item
+            from item: SwiftFulcrum.Response.Blockchain.ScriptHash.ListUnspent.Item,
+            scriptHashHex: String
         ) async throws -> OpalBase.Transaction.Output.Unspent {
-            guard let index = UInt32(exactly: item.transactionPosition) else {
-                throw OpalBase.Network.Error(reason: .decoding, message: "OpalBase.Transaction position overflow")
-            }
-            
             let hash = try OpalBase.Network.decodeTransactionHash(
                 from: item.transactionHash,
                 label: "script hash unspent transaction hash"
             )
             let rawTransactionData = try await transactionReader.fetchRawTransaction(for: hash)
-            let (transaction, _) = try OpalBase.Transaction.decode(from: rawTransactionData)
+            return try Self.makeUnspentOutput(
+                transactionHash: hash,
+                transactionIdentifier: item.transactionHash,
+                transactionPosition: item.transactionPosition,
+                rawTransactionData: rawTransactionData,
+                scriptHashHex: scriptHashHex
+            )
+        }
+
+        static func makeUnspentOutput(
+            transactionHash: OpalBase.Transaction.Hash,
+            transactionIdentifier: String,
+            transactionPosition: UInt,
+            rawTransactionData: Data,
+            scriptHashHex: String
+        ) throws -> OpalBase.Transaction.Output.Unspent {
+            guard let index = UInt32(exactly: transactionPosition) else {
+                throw OpalBase.Network.Error(reason: .decoding, message: "OpalBase.Transaction position overflow")
+            }
+            
+            let (transaction, bytesRead) = try OpalBase.Transaction.decode(from: rawTransactionData)
+            guard bytesRead == rawTransactionData.count else {
+                throw OpalBase.Network.Error(reason: .decoding, message: "Transaction payload has trailing bytes")
+            }
             let outputIndex = Int(index)
             
             guard transaction.outputs.indices.contains(outputIndex) else {
                 throw OpalBase.Network.Error(
                     reason: .decoding,
-                    message: "Missing transaction output at index \(index) for transaction \(item.transactionHash)"
+                    message: "Missing transaction output at index \(index) for transaction \(transactionIdentifier)"
                 )
             }
             
             let output = transaction.outputs[outputIndex]
+            let outputScriptHash = OpalCryptoAdapter.sha256(output.lockingScript).reversedData.hexadecimalString
+            guard outputScriptHash.caseInsensitiveCompare(scriptHashHex) == .orderedSame else {
+                throw OpalBase.Network.Error(
+                    reason: .protocolViolation,
+                    message: "Unspent transaction output script hash mismatch",
+                    metadata: [
+                        "expected": scriptHashHex,
+                        "actual": outputScriptHash,
+                        "transaction": transactionIdentifier,
+                        "outputIndex": index.description
+                    ]
+                )
+            }
+            
             return OpalBase.Transaction.Output.Unspent(
                 output: output,
-                previousTransactionHash: hash,
+                previousTransactionHash: transactionHash,
                 previousTransactionOutputIndex: index
             )
         }

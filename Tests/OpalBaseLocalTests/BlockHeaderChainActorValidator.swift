@@ -172,10 +172,11 @@ struct BlockHeaderChainActorValidator {
         _ = try await chain.apply(header: checkpointHeader, at: 0)
 
         let now = Date(timeIntervalSince1970: 1_700_000_000 + (3 * 60 * 60))
+        let later = Date(timeIntervalSince1970: 1_700_000_000 + (4 * 60 * 60))
         await chain.updateTipStatus(now: now, staleInterval: 60 * 60)
         let firstEvents = await chain.dequeueMaintenanceEvents()
 
-        await chain.updateTipStatus(now: now, staleInterval: 60 * 60)
+        await chain.updateTipStatus(now: later, staleInterval: 60 * 60)
         let secondEvents = await chain.dequeueMaintenanceEvents()
 
         #expect(firstEvents.count == 1)

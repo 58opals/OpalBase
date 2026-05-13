@@ -1,6 +1,6 @@
-#if os(macOS)
 // OpalBase+Account+CashFusionSessionStatus.swift
 
+#if os(macOS)
 import Foundation
 import OpalFusion
 
@@ -264,7 +264,7 @@ extension _OpalBase.Account.CashFusionSessionStatus {
     }
 
     private static func makeQueueStatus(
-        _ queueStatus: OpalFusion.Client.Session.Snapshot.CoordinatorStatus.QueueStatus
+        _ queueStatus: OpalFusion.Client.Session.Snapshot.CoordinatorStatus.TierQueue
     ) -> OpalBase.Account.CashFusionSessionStatus.CoordinatorStatus.QueueStatus {
         .init(
             tierSatoshis: queueStatus.tierSatoshis,

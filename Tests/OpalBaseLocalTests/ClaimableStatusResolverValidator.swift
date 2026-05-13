@@ -327,6 +327,56 @@ struct ClaimableStatusResolverValidator {
         }
     }
 
+    @Test("rejects confirmation status with confirmed height but missing count")
+    func rejectsConfirmedHeightWithoutConfirmationCount() async throws {
+        let (envelope, _) = try makeClaimableEnvelope(network: .chipnet)
+        let unspentOutput = OpalBase.Transaction.Output.Unspent(
+            output: .init(
+                value: envelope.fundingValue,
+                lockingScript: envelope.contract.fundingLockingScriptData
+            ),
+            previousTransactionHash: envelope.fundingTransactionHash,
+            previousTransactionOutputIndex: envelope.fundingOutputIndex
+        )
+        let confirmationStatus = OpalBase.Network.TransactionConfirmationStatus(
+            transactionHash: envelope.fundingTransactionHash,
+            transactionHeight: 490,
+            tipHeight: 500,
+            confirmations: nil
+        )
+        let resolver = OpalBase.Claimable.StatusResolver(
+            network: .chipnet,
+            scriptHashReader: .init(
+                fetchHistory: { _, _ in
+                    [
+                        makeClaimableHistoryEntry(
+                            transactionHash: envelope.fundingTransactionHash,
+                            blockHeight: 490
+                        )
+                    ]
+                },
+                fetchUnspent: { _, _ in [unspentOutput] }
+            ),
+            transactionClient: .init(
+                broadcastTransaction: { _ in "" },
+                fetchConfirmations: { _ in 0 },
+                fetchConfirmationStatus: { _ in confirmationStatus }
+            )
+        )
+
+        do {
+            _ = try await resolver.resolve(
+                for: envelope,
+                includeUnconfirmed: true,
+                currentBlockHeight: 400
+            )
+            Issue.record("Expected missing confirmation count to fail")
+        } catch let error as OpalBase.Network.Error {
+            #expect(error.reason == .protocolViolation)
+            #expect(error.message == "Confirmed transaction height requires confirmation count")
+        }
+    }
+
     @Test("rejects duplicate unspent funding outpoints")
     func rejectsDuplicateUnspentFundingOutpoints() async throws {
         let (envelope, _) = try makeClaimableEnvelope(network: .chipnet)

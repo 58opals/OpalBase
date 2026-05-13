@@ -48,31 +48,38 @@ extension _OpalBase.Network.Fulcrum {
                 let transactionHeight = transactionHeightResult.height
                 let tipHeight = tipHeightResult.height
                 
-                let confirmationCount = Self.calculateConfirmationCount(
+                return try Self.makeConfirmationStatus(
+                    transactionHash: transactionHash,
                     transactionHeight: transactionHeight,
                     tipHeight: tipHeight
                 )
-                
-                let resolvedHeight = try Self.resolveTransactionHeight(transactionHeight)
-                let resolvedTipHeight = try Self.resolveTipHeight(tipHeight)
-                
-                return OpalBase.Network.TransactionConfirmationStatus(transactionHash: transactionHash,
-                                                             transactionHeight: resolvedHeight,
-                                                             tipHeight: resolvedTipHeight,
-                                                             confirmations: confirmationCount)
             }
         }
-        
-        static func calculateConfirmationCount<Height: BinaryInteger>(
+
+        static func makeConfirmationStatus<Height: BinaryInteger>(
+            transactionHash: OpalBase.Transaction.Hash,
             transactionHeight: Height?,
             tipHeight: Height
-        ) -> UInt? {
-            guard let transactionHeight else { return nil }
-            guard transactionHeight > 0 else { return nil }
-            guard tipHeight >= transactionHeight else { return nil }
+        ) throws -> OpalBase.Network.TransactionConfirmationStatus {
+            let resolvedHeight = try Self.resolveTransactionHeight(transactionHeight)
+            let resolvedTipHeight = try Self.resolveTipHeight(tipHeight)
             
-            let confirmationCount = tipHeight - transactionHeight + 1
-            return UInt(confirmationCount)
+            if let resolvedHeight, UInt64(resolvedHeight) > resolvedTipHeight {
+                throw OpalBase.Network.Error(
+                    reason: .protocolViolation,
+                    message: "Transaction height exceeds tip height: transaction \(resolvedHeight), tip \(resolvedTipHeight)"
+                )
+            }
+            let confirmationCount = resolvedHeight.map { resolvedHeight in
+                UInt(resolvedTipHeight - UInt64(resolvedHeight) + 1)
+            }
+            
+            return OpalBase.Network.TransactionConfirmationStatus(
+                transactionHash: transactionHash,
+                transactionHeight: resolvedHeight,
+                tipHeight: resolvedTipHeight,
+                confirmations: confirmationCount
+            )
         }
         
         static func resolveTransactionHeight<Height: BinaryInteger>(_ height: Height?) throws -> Int? {
@@ -118,8 +125,13 @@ extension _OpalBase.Network.Fulcrum {
         fee: KeyPath<TransactionValue, UInt?>
     ) throws -> [OpalBase.Network.TransactionHistoryEntry] {
         try transactions.map { transaction in
-            OpalBase.Network.TransactionHistoryEntry(
-                transactionIdentifier: transaction[keyPath: transactionIdentifier],
+            let identifier = transaction[keyPath: transactionIdentifier]
+            _ = try OpalBase.Network.decodeTransactionHash(
+                from: identifier,
+                label: "history transaction hash"
+            )
+            return OpalBase.Network.TransactionHistoryEntry(
+                transactionIdentifier: identifier,
                 blockHeight: transaction[keyPath: blockHeight],
                 fee: try resolveFee(transaction[keyPath: fee])
             )

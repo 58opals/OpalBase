@@ -51,6 +51,7 @@ extension _OpalBase.Storage {
                     policy == .legacyFallbackToPlaintext
                 )
                 if policy == .requireSecureEnclave, protectionMode != .secureEnclave {
+                    try? await deleteMnemonic(generation)
                     throw OpalBase.Storage.Security.Error.insufficientProtection(
                         required: .secureEnclave,
                         actual: protectionMode
@@ -131,15 +132,11 @@ extension _OpalBase.Storage {
     }
 
     public func makeStoredMnemonicStore() -> StoredMnemonicStore {
-        let recoverableLoadFailure: @Sendable (Swift.Error) -> Bool = { error in
-            isRecoverableStoredMnemonicLoadFailure(error)
-        }
-
         return StoredMnemonicStore(
             saveMnemonicWithPolicy: saveMnemonic(_:generation:policy:),
             loadMnemonicState: loadMnemonicState(generation:),
             deleteMnemonic: deleteMnemonic(generation:),
-            recoverableLoadFailure: recoverableLoadFailure
+            recoverableLoadFailure: isRecoverableStoredMnemonicLoadFailure
         )
     }
 }

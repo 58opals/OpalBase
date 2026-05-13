@@ -149,6 +149,53 @@ struct BitcoinCashMetadataRegistryValidator {
         #expect(metadata.registryURL == registryURL)
     }
 
+    @Test("importRegistry rejects prefixed registry identities")
+    func importRegistryRejectsPrefixedRegistryIdentities() async throws {
+        let registryIdentity = "0x\(String(repeating: "11", count: 32))"
+        let registryData = Data(
+            #"{"version":"1","registryIdentity":"\#(registryIdentity)","identities":{}}"#.utf8
+        )
+        let (session, _) = makeRegistryTestSession { request in
+            let url = try #require(request.url)
+            let response = try #require(HTTPURLResponse(
+                url: url,
+                statusCode: 200,
+                httpVersion: nil,
+                headerFields: nil
+            ))
+            return (response, registryData)
+        }
+        defer {
+            RegistryRedirectURLProtocol.requestHandler = nil
+            session.invalidateAndCancel()
+        }
+        let transactionReader = OpalBase.Network.TransactionReader { _ in
+            throw RegistryValidatorPlaceholderError.unused
+        }
+        let authchainResolver = OpalBase.CashTokens.BCMR.Client.AuthchainResolver(
+            transactionReader: transactionReader,
+            addressReader: makeUnusedAddressReader(),
+            maxDepth: 0
+        )
+        let client = OpalBase.CashTokens.BCMR.Client(
+            authchainResolver: authchainResolver,
+            registryFetcher: .init(urlSession: session, maxBytes: 1_024)
+        )
+
+        do {
+            _ = try await client.importRegistry(from: "https://registry.example/registry.json")
+            Issue.record("Expected prefixed registry identity to be rejected")
+        } catch let error as OpalBase.CashTokens.BCMR.Client.Error {
+            guard case .invalidRegistryIdentity(let failedIdentity, _) = error else {
+                Issue.record("Expected invalidRegistryIdentity, got \(error)")
+                return
+            }
+            #expect(failedIdentity == registryIdentity)
+        } catch {
+            Issue.record("Unexpected error: \(error)")
+        }
+    }
+
     @Test("metadata extraction ignores relative URI values")
     func metadataExtractionIgnoresRelativeURIValues() throws {
         let registries = BitcoinCashMetadataRegistryTestClient.makeRegistries()
@@ -448,6 +495,85 @@ struct BitcoinCashMetadataRegistryValidator {
                 return
             }
             #expect(failedHash == transactionHash)
+            let networkError = try #require(underlying as? OpalBase.Network.Error)
+            #expect(networkError.reason == .decoding)
+            #expect(networkError.message == "Transaction payload has trailing bytes")
+        } catch {
+            Issue.record("Unexpected error: \(error)")
+        }
+    }
+
+    @Test("chain registry resolution rejects trailing authhead payload bytes")
+    func chainRegistryResolutionRejectsTrailingAuthheadPayloadBytes() async throws {
+        let registryURI = "https://registry.example/registry.json"
+        let publicationScript = makePublicationScript(
+            sha256: BitcoinCashMetadataRegistryTestData.registryHash,
+            uris: [registryURI]
+        )
+        let authbase = OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0x63, count: 32))
+        let input = OpalBase.Transaction.Input(
+            previousTransactionHash: OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0x62, count: 32)),
+            previousTransactionOutputIndex: 0,
+            unlockingScript: Data()
+        )
+        let output = OpalBase.Transaction.Output(value: 0, lockingScript: publicationScript)
+        let transaction = OpalBase.Transaction(
+            version: 1,
+            inputs: [input],
+            outputs: [output],
+            lockTime: 0
+        )
+        let rawTransactionData = try transaction.encode()
+        let rawTransactions = RawTransactionSequence([
+            rawTransactionData,
+            rawTransactionData + Data([0x00])
+        ])
+        let transactionReader = OpalBase.Network.TransactionReader { _ in
+            try rawTransactions.next()
+        }
+        let addressReader = makeUnusedAddressReader()
+        let scriptHashReader = OpalBase.Network.ScriptHashReader(
+            fetchHistory: { _, _ in [] },
+            fetchUnspent: { _, _ in [] }
+        )
+        let authchainResolver = OpalBase.CashTokens.BCMR.Client.AuthchainResolver(
+            transactionReader: transactionReader,
+            addressReader: addressReader,
+            scriptHashReader: scriptHashReader,
+            maxDepth: 0
+        )
+        let (session, _) = makeRegistryTestSession { request in
+            let url = try #require(request.url)
+            let response = try #require(HTTPURLResponse(
+                url: url,
+                statusCode: 200,
+                httpVersion: nil,
+                headerFields: nil
+            ))
+            return (response, BitcoinCashMetadataRegistryTestData.registryData)
+        }
+        defer {
+            RegistryRedirectURLProtocol.requestHandler = nil
+            session.invalidateAndCancel()
+        }
+        let registryFetcher = OpalBase.CashTokens.BCMR.Client.Fetcher(
+            urlSession: session,
+            maxBytes: 1_024
+        )
+        let client = OpalBase.CashTokens.BCMR.Client(
+            authchainResolver: authchainResolver,
+            registryFetcher: registryFetcher
+        )
+
+        do {
+            _ = try await client.resolveChainRegistry(authbase: authbase)
+            Issue.record("Expected chain registry resolution to reject trailing transaction bytes")
+        } catch let error as OpalBase.CashTokens.BCMR.Client.AuthchainResolver.Error {
+            guard case .transactionDecodingFailed(let failedHash, let underlying) = error else {
+                Issue.record("Expected transactionDecodingFailed, got \(error)")
+                return
+            }
+            #expect(failedHash == authbase)
             let networkError = try #require(underlying as? OpalBase.Network.Error)
             #expect(networkError.reason == .decoding)
             #expect(networkError.message == "Transaction payload has trailing bytes")
@@ -967,6 +1093,26 @@ private func makePublicationScript(sha256: Data, uris: [String]) -> Data {
 
 private enum RegistryValidatorPlaceholderError: Swift.Error {
     case unused
+}
+
+private final class RawTransactionSequence: @unchecked Sendable {
+    enum Error: Swift.Error {
+        case exhausted
+    }
+
+    private let lock = NSLock()
+    private var values: [Data]
+
+    init(_ values: [Data]) {
+        self.values = values
+    }
+
+    func next() throws -> Data {
+        lock.lock()
+        defer { lock.unlock() }
+        guard !values.isEmpty else { throw Error.exhausted }
+        return values.removeFirst()
+    }
 }
 
 private func makeUnusedAddressReader() -> OpalBase.Network.AddressReader {

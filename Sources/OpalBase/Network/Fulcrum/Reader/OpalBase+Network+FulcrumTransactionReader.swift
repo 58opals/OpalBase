@@ -81,14 +81,7 @@ extension _OpalBase.Network.Fulcrum {
 
         private func decodeBlockHash(_ hexadecimalString: String?) throws -> Data? {
             guard let hexadecimalString else { return nil }
-            let blockHash = try Data(hexadecimalString: hexadecimalString)
-            guard blockHash.count == OpalBase.Transaction.Hash.expectedByteCount else {
-                throw OpalBase.Network.Error(
-                    reason: .decoding,
-                    message: "Invalid block hash length: expected \(OpalBase.Transaction.Hash.expectedByteCount) bytes, got \(blockHash.count)"
-                )
-            }
-            return blockHash
+            return try OpalBase.Network.decodeHashData(from: hexadecimalString, label: "block hash")
         }
 
         private func validatePayloadHash(
@@ -123,8 +116,6 @@ extension _OpalBase.Network.Fulcrum {
                 let detailed = try await fetchDetailedTransactionUsingRawResponse(for: transactionHash)
                 await cache.put(detailed, at: transactionHash)
                 return detailed
-            } catch let failure as OpalBase.Network.Error {
-                throw failure
             }
         }
         
@@ -157,38 +148,36 @@ extension _OpalBase.Network.Fulcrum {
         private func fetchVerboseTransaction(for transactionHash: OpalBase.Transaction.Hash) async throws -> TransactionGetVerbose {
             let identifier = transactionHash.reverseOrder.hexadecimalString
             
-            return try await OpalBase.Network.performWithFailureTranslation {
-                let result = try await client.fetchVerboseTransaction(
-                    transactionHash: identifier,
-                    options: .init(timeout: timeouts.transactionConfirmations)
+            let result = try await client.fetchVerboseTransaction(
+                transactionHash: identifier,
+                options: .init(timeout: timeouts.transactionConfirmations)
+            )
+            guard let size = UInt32(exactly: result.size) else {
+                throw OpalBase.Network.Error(
+                    reason: .decoding,
+                    message: "Invalid transaction size: \(result.size)"
                 )
-                guard let size = UInt32(exactly: result.size) else {
-                    throw OpalBase.Network.Error(
-                        reason: .decoding,
-                        message: "Invalid transaction size: \(result.size)"
-                    )
-                }
-                guard result.hash.caseInsensitiveCompare(identifier) == .orderedSame,
-                      result.transactionID.caseInsensitiveCompare(identifier) == .orderedSame else {
-                    throw OpalBase.Network.Error(
-                        reason: .protocolViolation,
-                        message: "Verbose transaction identifier mismatch",
-                        metadata: [
-                            "expected": identifier,
-                            "hash": result.hash,
-                            "txid": result.transactionID
-                        ]
-                    )
-                }
-                return .init(hex: result.hex,
-                             blockhash: result.blockHash,
-                             hash: result.hash,
-                             blocktime: try Self.makeOptionalUInt32(result.blocktime, fieldName: "blocktime"),
-                             confirmations: try Self.makeOptionalUInt32(result.confirmations, fieldName: "confirmations"),
-                             size: size,
-                             time: try Self.makeOptionalUInt32(result.time, fieldName: "time"),
-                             transactionID: result.transactionID)
             }
+            guard result.hash.caseInsensitiveCompare(identifier) == .orderedSame,
+                  result.transactionID.caseInsensitiveCompare(identifier) == .orderedSame else {
+                throw OpalBase.Network.Error(
+                    reason: .protocolViolation,
+                    message: "Verbose transaction identifier mismatch",
+                    metadata: [
+                        "expected": identifier,
+                        "hash": result.hash,
+                        "txid": result.transactionID
+                    ]
+                )
+            }
+            return .init(hex: result.hex,
+                         blockhash: result.blockHash,
+                         hash: result.hash,
+                         blocktime: try Self.makeOptionalUInt32(result.blocktime, fieldName: "blocktime"),
+                         confirmations: try Self.makeOptionalUInt32(result.confirmations, fieldName: "confirmations"),
+                         size: size,
+                         time: try Self.makeOptionalUInt32(result.time, fieldName: "time"),
+                         transactionID: result.transactionID)
         }
 
         private static func makeOptionalUInt32(

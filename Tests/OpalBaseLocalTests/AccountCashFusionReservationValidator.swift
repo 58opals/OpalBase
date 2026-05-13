@@ -1,6 +1,6 @@
-#if os(macOS)
 // AccountCashFusionReservationValidator.swift
 
+#if os(macOS)
 import Foundation
 import OpalFusion
 import Testing

@@ -77,7 +77,12 @@ extension _OpalBase.Block.Header.ChainActor {
                                assessedAt: now,
                                height: tipHeight)
         
-        guard lastTipStatus != status else { return }
+        if let lastTipStatus,
+           status.height == lastTipStatus.height,
+           status.condition.category == lastTipStatus.condition.category {
+            self.lastTipStatus = status
+            return
+        }
         lastTipStatus = status
         
         if case .stale = condition {

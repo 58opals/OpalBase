@@ -136,6 +136,45 @@ struct AddressValidator {
         }
     }
 
+    @Test("address derivation rejects P2PKH CHECKDATASIG scripts")
+    func rejectCheckDataSigScriptAddressDerivation() {
+        let hash = OpalBase.Key.PublicKey.Hash(Data(repeating: 0x42, count: 20))
+        let script = OpalBase.Script.p2pkh_OPCHECKDATASIG(hash: hash)
+
+        #expect(script.isDerivableFromAddress == false)
+        #expect(throws: OpalBase.Address.Legacy.Error.self) {
+            _ = try OpalBase.Address(script: script)
+        }
+        #expect(throws: OpalBase.Address.Legacy.Error.self) {
+            _ = try OpalBase.Address.Legacy(script)
+        }
+    }
+
+    @Test("legacy Base58 encodes P2SH scripts")
+    func legacyBase58EncodesP2SHScripts() throws {
+        let script = OpalBase.Script.p2sh(scriptHash: Data(repeating: 0x42, count: 20))
+        let legacyAddress = try OpalBase.Address.Legacy(script)
+        let parsedAddress = try OpalBase.Address(legacyAddress.string)
+
+        #expect(parsedAddress.lockingScript == script)
+        #expect(parsedAddress.format == .standard)
+        #expect(parsedAddress.network == .mainnet)
+    }
+
+    @Test("address derivation rejects malformed P2PKH hash length")
+    func rejectMalformedP2PKHHashLengthAddressDerivation() {
+        let script = OpalBase.Script.p2pkh_OPCHECKSIG(
+            hash: .init(Data(repeating: 0x42, count: 19))
+        )
+
+        #expect(throws: OpalBase.Address.Legacy.Error.self) {
+            _ = try OpalBase.Address(script: script)
+        }
+        #expect(throws: OpalBase.Address.Legacy.Error.self) {
+            _ = try OpalBase.Address.Legacy(script)
+        }
+    }
+
     @Test("CashAddr accepts uppercase payload")
     func decodeCashAddrWithUppercasePayload() throws {
         let cashAddr = "QPM2QSZNHKS23Z7629MMS6S4CWEF74VCWVY22GDX6A"
@@ -282,5 +321,31 @@ struct AddressValidator {
         let changeEntry = try #require(await book.listEntries(for: OpalBase.Key.DerivationPath.Usage.change).first)
 
         #expect(receivingEntry.address != changeEntry.address)
+    }
+
+    @Test("address usage scan does not query beyond the remaining gap")
+    func addressUsageScanDoesNotQueryBeyondRemainingGap() async throws {
+        let rootExtendedPrivateKey = try OpalCrypto.Key.ExtendedPrivate.root(
+            seed: AccountTestFixtures.makeMnemonic().deriveSeed()
+        )
+        let account = try OpalBase.Key.DerivationPath.Account(rawIndexInteger: 0)
+        let book = try await OpalBase.Address.Book(
+            rootExtendedPrivateKey: rootExtendedPrivateKey,
+            purpose: .bip44,
+            coinType: .bitcoinCash,
+            account: account,
+            gapLimit: 1
+        )
+        let reader = WalletAddressReaderTestActor()
+
+        let scan = try await book.scanForUsedAddresses(
+            using: reader,
+            usage: .receiving,
+            includeUnconfirmed: true
+        )
+
+        let requests = await reader.readHistoryRequests()
+        #expect(requests.count == 1)
+        #expect(scan.totalScannedPerUsage[.receiving] == 1)
     }
 }

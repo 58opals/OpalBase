@@ -1,6 +1,6 @@
-#if os(macOS)
 // OpalBase+Account+CashFusionReadiness.swift
 
+#if os(macOS)
 import Foundation
 
 extension _OpalBase.Account {
