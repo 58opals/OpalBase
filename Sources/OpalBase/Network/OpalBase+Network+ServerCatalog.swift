@@ -4,18 +4,31 @@ import Foundation
 
 extension _OpalBase.Network {
     public struct ServerCatalog: Sendable, Equatable {
-        public var mainnetServers: [URL]
-        public var chipnetServers: [URL]
-        public var testnetServers: [URL]
+        private var normalizedMainnetServers: [URL]
+        private var normalizedChipnetServers: [URL]
+        private var normalizedTestnetServers: [URL]
+
+        public var mainnetServers: [URL] {
+            get { normalizedMainnetServers }
+            set { normalizedMainnetServers = Self.makeNormalizedServers(newValue) }
+        }
+        public var chipnetServers: [URL] {
+            get { normalizedChipnetServers }
+            set { normalizedChipnetServers = Self.makeNormalizedServers(newValue) }
+        }
+        public var testnetServers: [URL] {
+            get { normalizedTestnetServers }
+            set { normalizedTestnetServers = Self.makeNormalizedServers(newValue) }
+        }
         
         public init(
             mainnetServers: [URL] = Self.defaultMainnetServers,
             chipnetServers: [URL] = Self.defaultChipnetServers,
             testnetServers: [URL] = Self.defaultTestnetServers
         ) {
-            self.mainnetServers = Self.makeNormalizedServers(mainnetServers)
-            self.chipnetServers = Self.makeNormalizedServers(chipnetServers)
-            self.testnetServers = Self.makeNormalizedServers(testnetServers)
+            self.normalizedMainnetServers = Self.makeNormalizedServers(mainnetServers)
+            self.normalizedChipnetServers = Self.makeNormalizedServers(chipnetServers)
+            self.normalizedTestnetServers = Self.makeNormalizedServers(testnetServers)
         }
         
         public func listServers(for environment: OpalBase.Network.Environment) -> [URL] {

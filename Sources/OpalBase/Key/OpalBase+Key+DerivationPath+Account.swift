@@ -13,7 +13,7 @@ extension _OpalBase.Key.DerivationPath {
             self.unhardenedIndex = unhardenedIndex
         }
 
-        public var unhardenedIndex: UInt32
+        public private(set) var unhardenedIndex: UInt32
 
         public func deriveHardenedIndex() throws -> UInt32 { try unhardenedIndex.harden() }
 

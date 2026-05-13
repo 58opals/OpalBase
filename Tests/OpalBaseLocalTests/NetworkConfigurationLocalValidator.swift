@@ -20,6 +20,20 @@ struct NetworkConfigurationLocalValidator {
         #expect(configuration.reconnectConfiguration == .defaultValue)
         #expect(configuration.network == .mainnet)
     }
+
+    @Test("server URL mutation preserves normalization")
+    func serverURLMutationPreservesNormalization() {
+        var configuration = OpalBase.Network.Configuration(serverURLs: [Self.primaryServerAddress])
+        let normalizedServer = URL(string: "wss://example.com")!
+
+        configuration.serverURLs = [
+            URL(string: "https://example.com:443/")!,
+            normalizedServer,
+            URL(string: "ftp://example.com")!
+        ]
+
+        #expect(configuration.serverURLs == [normalizedServer])
+    }
     
     @Test("Provides wallet-friendly defaults")
     func defaultsProvideWalletFriendlySettings() throws {
