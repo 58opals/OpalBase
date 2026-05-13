@@ -570,6 +570,62 @@ struct SnapshotPersistenceValidator {
         #expect(try await book.readCachedBalance(for: entry.address) == OpalBase.Satoshi(1_234))
     }
 
+    @Test("address book restore rejects transaction fees above maximum supply before mutation")
+    func addressBookRestoreRejectsOversizedTransactionFeesBeforeMutation() async throws {
+        let account = try await AccountTestFixtures.makeAccount()
+        let book = await account.addressBook
+        let entry = try #require(await book.listEntries(for: .receiving).first)
+        try await book.updateCachedBalance(
+            for: entry.address,
+            balance: try OpalBase.Satoshi(1_234),
+            timestamp: .now
+        )
+
+        let snapshot = await book.makeSnapshot()
+        let alteredReceivingEntries = snapshot.receivingEntries.map { snapshotEntry in
+            OpalBase.Address.Book.Snapshot.Entry(
+                usage: snapshotEntry.usage,
+                index: snapshotEntry.index,
+                isUsed: snapshotEntry.isUsed,
+                isReserved: snapshotEntry.isReserved,
+                balance: snapshotEntry.index == entry.derivationPath.index ? 9_999 : snapshotEntry.balance,
+                lastUpdated: snapshotEntry.lastUpdated
+            )
+        }
+        let oversizedFee = OpalBase.Satoshi.maximumSatoshi + 1
+        let malformedTransaction = OpalBase.Address.Book.Snapshot.Transaction(
+            transactionHash: String(repeating: "1", count: 64),
+            height: 1,
+            fee: oversizedFee,
+            scriptHashes: [entry.address.makeScriptHash().hexadecimalString],
+            firstSeenAt: .now,
+            lastUpdatedAt: .now,
+            status: .confirmed,
+            confirmationHeight: 1,
+            confirmedAt: .now,
+            verificationStatus: .pending,
+            merkleProof: nil,
+            lastVerifiedHeight: nil,
+            lastCheckedAt: nil
+        )
+        let malformedSnapshot = OpalBase.Address.Book.Snapshot(
+            receivingEntries: alteredReceivingEntries,
+            changeEntries: snapshot.changeEntries,
+            utxos: snapshot.utxos,
+            transactions: [malformedTransaction]
+        )
+
+        await #expect(
+            throws: OpalBase.Address.Book.Error.invalidSnapshotFee(
+                value: oversizedFee,
+                reason: OpalBase.Satoshi.Error.exceedsMaximumAmount
+            )
+        ) {
+            try await book.refresh(with: malformedSnapshot)
+        }
+        #expect(try await book.readCachedBalance(for: entry.address) == OpalBase.Satoshi(1_234))
+    }
+
     @Test("address book restore rejects duplicate transaction hashes before mutation")
     func addressBookRestoreRejectsDuplicateTransactionHashesBeforeMutation() async throws {
         let account = try await AccountTestFixtures.makeAccount()

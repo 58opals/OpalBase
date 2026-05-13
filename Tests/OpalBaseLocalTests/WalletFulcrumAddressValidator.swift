@@ -588,6 +588,59 @@ struct WalletFulcrumAddressValidator {
         #expect(record.confirmationMetadata.height == nil)
     }
 
+    @Test("updateTransactionConfirmations rejects confirmed heights without confirmation counts")
+    func updateTransactionConfirmationsRejectsConfirmedHeightsWithoutConfirmationCounts() async throws {
+        let account = try await AccountTestFixtures.makeAccount()
+        let targetEntry = try await account.selectNextEntry(for: .receiving)
+        let hash = AccountTestFixtures.makeHash(byte: 0x36)
+        let historyEntry = OpalBase.Network.TransactionHistoryEntry(
+            transactionIdentifier: hash.reverseOrder.hexadecimalString,
+            blockHeight: -1,
+            fee: nil
+        )
+
+        let addressReader = WalletAddressReaderTestActor(
+            historyByAddress: [targetEntry.address.string: [historyEntry]]
+        )
+        let confirmationClient = TransactionConfirmationClientTestActor(
+            statusesByHash: [
+                hash: .init(
+                    transactionHash: hash,
+                    transactionHeight: 10,
+                    tipHeight: 20,
+                    confirmations: nil
+                )
+            ]
+        )
+        let fulcrum = OpalBase.Wallet.Fulcrum(
+            addressReader: addressReader,
+            transactionHandler: confirmationClient
+        )
+
+        _ = try await fulcrum.refreshTransactionHistory(for: account, usage: .receiving, includeUnconfirmed: true)
+
+        do {
+            _ = try await fulcrum.updateTransactionConfirmations(
+                for: account,
+                transactionHashes: [hash]
+            )
+            Issue.record("Expected confirmed height without confirmation count to fail")
+        } catch let error as OpalBase.Account.Error {
+            guard case .transactionConfirmationRefreshFailed(let failedHash, let underlying) = error else {
+                Issue.record("Unexpected account error: \(error)")
+                return
+            }
+            #expect(failedHash == hash)
+            let networkError = try #require(underlying as? OpalBase.Network.Error)
+            #expect(networkError.reason == .protocolViolation)
+            #expect(networkError.message == "Confirmed transaction height requires confirmation count")
+        }
+
+        let record = try #require(await account.loadTransactionHistory().first { $0.transactionHash == hash })
+        #expect(record.status == .discovered)
+        #expect(record.confirmationMetadata.height == nil)
+    }
+
     @Test("updateTransactionConfirmations rejects confirmation counts that do not match height and tip")
     func updateTransactionConfirmationsRejectsMismatchedConfirmationCounts() async throws {
         let account = try await AccountTestFixtures.makeAccount()

@@ -187,6 +187,23 @@ extension TransactionUnspentTransactionOutputValidator {
         #expect(transaction.outputs.first?.lockingScript == components.changeOutput.lockingScript)
         #expect(transaction.outputs.last?.lockingScript != components.changeOutput.lockingScript)
     }
+
+    @Test("build rejects privacy shufflers that drop outputs")
+    func buildRejectsPrivacyShufflersThatDropOutputs() throws {
+        let components = try makeTransactionBuilderComponents()
+
+        #expect(throws: OpalBase.Transaction.Error.cannotCreateTransaction) {
+            _ = try OpalBase.Transaction.build(
+                utxoPrivateKeyPairs: components.privateKeys,
+                recipientOutputs: components.recipientOutputs,
+                changeOutput: components.changeOutput,
+                outputOrderingStrategy: .privacyRandomized,
+                signatureFormat: .schnorr,
+                feePerByte: 0,
+                privacyOutputShuffle: { Array($0.dropLast()) }
+            )
+        }
+    }
     
     @Test("build corrects fee to match the signed transaction size")
     func buildCorrectsFeeToSignedTransactionSize() throws {

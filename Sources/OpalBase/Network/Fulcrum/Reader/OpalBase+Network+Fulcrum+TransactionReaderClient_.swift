@@ -1,3 +1,5 @@
+// OpalBase+Network+Fulcrum+TransactionReaderClient_.swift
+
 import Foundation
 import SwiftFulcrum
 

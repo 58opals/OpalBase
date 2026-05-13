@@ -159,13 +159,23 @@ extension _OpalBase.Transaction.History.Record {
                                                 entryHeight: Int,
                                                 timestamp: Date) {
         status = transition.status
-        updateConfirmation(for: transition, entryHeight: entryHeight, timestamp: timestamp)
-        updateVerification(afterStatusChange: transition.status, timestamp: timestamp)
+        let didChangeConfirmationHeight = updateConfirmation(
+            for: transition,
+            entryHeight: entryHeight,
+            timestamp: timestamp
+        )
+        verificationMetadata.synchronize(
+            with: transition.status,
+            timestamp: timestamp,
+            shouldResetExistingVerification: didChangeConfirmationHeight
+        )
     }
 
+    @discardableResult
     private mutating func updateConfirmation(for transition: OpalBase.Transaction.History.Status.Transition,
                                              entryHeight: Int,
-                                             timestamp: Date) {
+                                             timestamp: Date) -> Bool {
+        let previousHeight = confirmationMetadata.height
         if let newHeight = transition.resolveConfirmationHeight(forHeight: entryHeight) {
             if let existingHeight = confirmationMetadata.height, existingHeight != newHeight {
                 confirmationMetadata.confirmedAt = timestamp
@@ -177,12 +187,6 @@ extension _OpalBase.Transaction.History.Record {
             confirmationMetadata.height = nil
             confirmationMetadata.confirmedAt = nil
         }
-    }
-
-    private mutating func updateVerification(afterStatusChange status: OpalBase.Transaction.History.Status,
-                                             timestamp: Date) {
-        verificationMetadata.synchronize(with: status,
-                                         timestamp: timestamp,
-                                         shouldResetExistingVerification: false)
+        return previousHeight != confirmationMetadata.height
     }
 }

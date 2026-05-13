@@ -1,6 +1,6 @@
-#if os(macOS)
 // OpalBase+Account+CashFusionReservation.swift
 
+#if os(macOS)
 import Foundation
 import OpalFusion
 
@@ -23,7 +23,7 @@ extension _OpalBase.Account {
         let participantReservation: OpalFusion.Host.ParticipantReservation
     }
 
-    actor CashFusionRoundReservationStore {
+    actor CashFusionRoundReservationRegistry {
         private var roundReservationByIdentifier: [OpalFusion.Round.Identifier: CashFusionRoundReservation] = [:]
         private var completedLocalOutputsByRoundIdentifier: [
             OpalFusion.Round.Identifier: [OpalBase.Transaction.Output.Unspent]
@@ -90,14 +90,14 @@ extension _OpalBase.Account {
         let reservedInputs: [ReservedInput]
         let reservedReceivingEntries: [OpalBase.Address.Book.Entry]
         let outputStrategy: OutputStrategy
-        let roundReservations: CashFusionRoundReservationStore
+        let roundReservations: CashFusionRoundReservationRegistry
 
         init(
             addressBook: OpalBase.Address.Book,
             reservedInputs: [ReservedInput],
             reservedReceivingEntries: [OpalBase.Address.Book.Entry],
             outputStrategy: OutputStrategy,
-            roundReservations: CashFusionRoundReservationStore = CashFusionRoundReservationStore()
+            roundReservations: CashFusionRoundReservationRegistry = CashFusionRoundReservationRegistry()
         ) {
             self.addressBook = addressBook
             self.reservedInputs = reservedInputs

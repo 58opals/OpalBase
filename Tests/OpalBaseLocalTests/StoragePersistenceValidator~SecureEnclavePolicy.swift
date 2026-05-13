@@ -90,6 +90,44 @@ extension StoragePersistenceValidator {
         #expect(try await storage.loadWalletSnapshot() == nil)
     }
 
+    @Test("legacy mnemonic store rolls back weaker writes for strict Secure Enclave policy")
+    func legacyMnemonicStoreRollsBackWeakerWritesForStrictSecureEnclavePolicy() async throws {
+        let state = LegacyStoredMnemonicStoreState()
+        let store = OpalBase.Storage.StoredMnemonicStore(
+            saveMnemonic: { mnemonic, generation, _ in
+                await state.saveMnemonic(
+                    mnemonic,
+                    generation: generation,
+                    protectionMode: .software
+                )
+            },
+            loadMnemonicState: { generation in
+                await state.loadMnemonicState(generation: generation)
+            },
+            deleteMnemonic: { generation in
+                await state.deleteMnemonic(generation: generation)
+            }
+        )
+        let generation = "strict-generation"
+
+        do {
+            _ = try await store.saveMnemonic(
+                Self.makeStoredMnemonic(passphrase: "legacy-strict"),
+                generation: generation,
+                policy: .requireSecureEnclave
+            )
+            Issue.record("Expected strict Secure Enclave policy to reject software protection.")
+        } catch OpalBase.Storage.Security.Error.insufficientProtection(
+            required: .secureEnclave,
+            actual: .software
+        ) {
+        } catch {
+            Issue.record("Unexpected error: \(error)")
+        }
+
+        #expect(try await store.loadMnemonicState(generation: generation) == nil)
+    }
+
     @Test("Secure Enclave factory encrypts with secureEnclave mode when hardware is available")
     func secureEnclaveFactoryEncryptsOrFailsWithProtectionUnavailable() async throws {
         let configuration = OpalBase.Storage.Security.SecureEnclaveConfiguration(
@@ -108,6 +146,37 @@ extension StoragePersistenceValidator {
         } catch {
             Self.expectProtectionUnavailable(error)
         }
+    }
+}
+
+private actor LegacyStoredMnemonicStoreState {
+    private var states: [
+        String: (
+            mnemonic: OpalBase.Storage.StoredMnemonic,
+            protectionMode: OpalBase.Storage.Security.ProtectionMode
+        )
+    ] = [:]
+
+    func saveMnemonic(
+        _ mnemonic: OpalBase.Storage.StoredMnemonic,
+        generation: String,
+        protectionMode: OpalBase.Storage.Security.ProtectionMode
+    ) -> OpalBase.Storage.Security.ProtectionMode {
+        states[generation] = (mnemonic, protectionMode)
+        return protectionMode
+    }
+
+    func loadMnemonicState(
+        generation: String
+    ) -> (
+        mnemonic: OpalBase.Storage.StoredMnemonic,
+        protectionMode: OpalBase.Storage.Security.ProtectionMode
+    )? {
+        states[generation]
+    }
+
+    func deleteMnemonic(generation: String) {
+        states[generation] = nil
     }
 }
 

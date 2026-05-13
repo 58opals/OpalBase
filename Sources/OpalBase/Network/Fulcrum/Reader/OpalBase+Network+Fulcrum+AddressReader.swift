@@ -66,13 +66,12 @@ extension _OpalBase.Network.Fulcrum {
                     options: .init(timeout: timeouts.addressHistory)
                 )
                 
-                return try result.transactions.map { transaction in
-                    OpalBase.Network.TransactionHistoryEntry(
-                        transactionIdentifier: transaction.transactionHash,
-                        blockHeight: transaction.height,
-                        fee: try OpalBase.Network.Fulcrum.resolveFee(transaction.fee)
-                    )
-                }
+                return try OpalBase.Network.Fulcrum.mapHistoryTransactions(
+                    result.transactions,
+                    transactionIdentifier: \.transactionHash,
+                    blockHeight: \.height,
+                    fee: \.fee
+                )
             }
         }
         
@@ -84,16 +83,10 @@ extension _OpalBase.Network.Fulcrum {
                     options: .init(timeout: timeouts.addressFirstUse)
                 )
                 
-                guard let blockHash = result.blockHash,
-                      let blockHeight = result.height,
-                      let transactionHash = result.transactionHash else {
-                    return nil
-                }
-                
                 return try Self.makeFirstUse(
-                    blockHeight: blockHeight,
-                    blockHash: blockHash,
-                    transactionIdentifier: transactionHash
+                    blockHeight: result.height,
+                    blockHash: result.blockHash,
+                    transactionIdentifier: result.transactionHash
                 )
             }
         }
@@ -106,24 +99,23 @@ extension _OpalBase.Network.Fulcrum {
                     options: .init(timeout: timeouts.addressMempool)
                 )
                 
-                return try result.transactions.map { transaction in
-                    OpalBase.Network.TransactionHistoryEntry(
-                        transactionIdentifier: transaction.transactionHash,
-                        blockHeight: transaction.height,
-                        fee: try OpalBase.Network.Fulcrum.resolveFee(transaction.fee)
-                    )
-                }
+                return try OpalBase.Network.Fulcrum.mapHistoryTransactions(
+                    result.transactions,
+                    transactionIdentifier: \.transactionHash,
+                    blockHeight: \.height,
+                    fee: \.fee
+                )
             }
         }
         
         public func fetchScriptHash(for address: String) async throws -> String {
             try await OpalBase.Network.performWithFailureTranslation {
-                _ = try validateAddress(address)
+                let validatedAddress = try validateAddress(address)
                 let result = try await client.request(
                     .blockchain.address.getScriptHash(address: address),
                     options: .init(timeout: timeouts.addressScriptHash)
                 )
-                return try Self.validateScriptHash(result.scriptHash)
+                return try Self.validateScriptHash(result.scriptHash, matches: validatedAddress)
             }
         }
         
@@ -167,26 +159,32 @@ extension _OpalBase.Network.Fulcrum {
         }
         
         static func makeFirstUse(
+            blockHeight: UInt?,
+            blockHash: String?,
+            transactionIdentifier: String?
+        ) throws -> OpalBase.Network.AddressFirstUse? {
+            guard blockHeight != nil || blockHash != nil || transactionIdentifier != nil else {
+                return nil
+            }
+            guard let blockHeight, let blockHash, let transactionIdentifier else {
+                throw OpalBase.Network.Error(
+                    reason: .protocolViolation,
+                    message: "Incomplete first-use response"
+                )
+            }
+            return try makeFirstUse(
+                blockHeight: blockHeight,
+                blockHash: blockHash,
+                transactionIdentifier: transactionIdentifier
+            )
+        }
+        
+        static func makeFirstUse(
             blockHeight: UInt,
             blockHash: String,
             transactionIdentifier: String
         ) throws -> OpalBase.Network.AddressFirstUse {
-            let blockHashData: Data
-            do {
-                blockHashData = try Data(hexadecimalString: blockHash)
-            } catch {
-                throw OpalBase.Network.Error(
-                    reason: .decoding,
-                    message: "Cannot decode first-use block hash: \(blockHash)"
-                )
-            }
-            
-            guard blockHashData.count == OpalBase.Transaction.Hash.expectedByteCount else {
-                throw OpalBase.Network.Error(
-                    reason: .decoding,
-                    message: "Invalid first-use block hash length: expected \(OpalBase.Transaction.Hash.expectedByteCount) bytes, got \(blockHashData.count)"
-                )
-            }
+            _ = try OpalBase.Network.decodeHashData(from: blockHash, label: "first-use block hash")
             
             _ = try OpalBase.Network.decodeTransactionHash(
                 from: transactionIdentifier,
@@ -201,24 +199,24 @@ extension _OpalBase.Network.Fulcrum {
         }
         
         static func validateScriptHash(_ scriptHash: String) throws -> String {
-            let scriptHashData: Data
-            do {
-                scriptHashData = try Data(hexadecimalString: scriptHash)
-            } catch {
-                throw OpalBase.Network.Error(
-                    reason: .decoding,
-                    message: "Cannot decode script hash: \(scriptHash)"
-                )
-            }
-            
-            guard scriptHashData.count == OpalBase.Transaction.Hash.expectedByteCount else {
-                throw OpalBase.Network.Error(
-                    reason: .decoding,
-                    message: "Invalid script hash length: expected \(OpalBase.Transaction.Hash.expectedByteCount) bytes, got \(scriptHashData.count)"
-                )
-            }
-            
+            _ = try OpalBase.Network.decodeHashData(from: scriptHash, label: "script hash")
             return scriptHash
+        }
+
+        static func validateScriptHash(_ scriptHash: String, matches address: OpalBase.Address) throws -> String {
+            let validatedScriptHash = try validateScriptHash(scriptHash)
+            let expectedScriptHash = address.makeScriptHash().hexadecimalString
+            guard validatedScriptHash.caseInsensitiveCompare(expectedScriptHash) == .orderedSame else {
+                throw OpalBase.Network.Error(
+                    reason: .protocolViolation,
+                    message: "Address script hash mismatch",
+                    metadata: [
+                        "expected": expectedScriptHash,
+                        "actual": validatedScriptHash
+                    ]
+                )
+            }
+            return validatedScriptHash
         }
 
         private func validateAddress(_ address: String) throws -> OpalBase.Address {

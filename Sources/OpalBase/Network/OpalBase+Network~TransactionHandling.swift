@@ -7,25 +7,42 @@ extension _OpalBase.Network {
 }
 
 extension _OpalBase.Network {
-    static func decodeTransactionHash(
-        from identifier: String,
-        label: String = "transaction identifier"
-    ) throws -> OpalBase.Transaction.Hash {
+    static func decodeHashData(
+        from hexadecimalString: String,
+        label: String
+    ) throws -> Data {
+        guard !hexadecimalString.hasPrefix("0x"), !hexadecimalString.hasPrefix("0X") else {
+            throw OpalBase.Network.Error(
+                reason: .decoding,
+                message: "Cannot decode \(label): \(hexadecimalString)"
+            )
+        }
+
         let data: Data
         do {
-            data = try Data(hexadecimalString: identifier)
+            data = try Data(hexadecimalString: hexadecimalString)
         } catch {
-            throw OpalBase.Network.Error(reason: .decoding,
-                                message: "Cannot decode \(label): \(identifier)")
+            throw OpalBase.Network.Error(
+                reason: .decoding,
+                message: "Cannot decode \(label): \(hexadecimalString)"
+            )
         }
-        
+
         guard data.count == OpalBase.Transaction.Hash.expectedByteCount else {
             throw OpalBase.Network.Error(
                 reason: .decoding,
                 message: "Invalid \(label) length: expected \(OpalBase.Transaction.Hash.expectedByteCount) bytes, got \(data.count)"
             )
         }
-        
+
+        return data
+    }
+
+    static func decodeTransactionHash(
+        from identifier: String,
+        label: String = "transaction identifier"
+    ) throws -> OpalBase.Transaction.Hash {
+        let data = try decodeHashData(from: identifier, label: label)
         return OpalBase.Transaction.Hash(dataFromRPC: data)
     }
 

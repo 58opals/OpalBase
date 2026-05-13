@@ -49,11 +49,7 @@ private extension OpalBase.CashTokens.BCMR.Client {
         let rawTransactionData = try await authchainResolver.transactionReader.fetchRawTransaction(
             for: transactionHash
         )
-        do {
-            return try OpalBase.Transaction.decode(from: rawTransactionData).transaction
-        } catch {
-            throw AuthchainResolver.Error.transactionDecodingFailed(transactionHash, error)
-        }
+        return try AuthchainResolver.decodeTransaction(rawTransactionData, transactionHash: transactionHash)
     }
     
     func findPublication(in transaction: OpalBase.Transaction) -> Publication? {

@@ -127,6 +127,15 @@ struct CashTokensTokenPrefixValidator {
         #expect(encodedCategoryBytes == category.transactionOrderData)
     }
     
+    @Test("category identifiers reject prefixed RPC hex")
+    func categoryIdentifiersRejectPrefixedRPCHex() {
+        let categoryHexadecimal = String(repeating: "a", count: 64)
+        
+        #expect(throws: OpalBase.CashTokens.Error.invalidHexadecimalString) {
+            _ = try OpalBase.CashTokens.CategoryID(hexFromRPC: "0x\(categoryHexadecimal)")
+        }
+    }
+    
     @Test("commitment length bounds are enforced")
     func commitmentLengthBounds() throws {
         let commitmentLengths = [0, 1, 40]

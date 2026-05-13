@@ -1,6 +1,6 @@
-#if os(macOS)
 // OpalBase+Account+CashFusionSession.swift
 
+#if os(macOS)
 import Foundation
 import OpalFusion
 

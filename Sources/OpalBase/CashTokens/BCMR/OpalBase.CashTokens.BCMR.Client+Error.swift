@@ -46,24 +46,14 @@ private extension OpalBase.CashTokens.BCMR.Client {
     }
     
     func parseRegistryIdentityHash(from registryIdentity: String) throws -> OpalBase.Transaction.Hash {
-        let data: Data
         do {
-            data = try Data(hexadecimalString: registryIdentity)
+            return try OpalBase.Network.decodeTransactionHash(
+                from: registryIdentity,
+                label: "registry identity"
+            )
         } catch {
             throw Error.invalidRegistryIdentity(registryIdentity, error)
         }
-        
-        guard data.count == OpalBase.Transaction.Hash.expectedByteCount else {
-            throw Error.invalidRegistryIdentity(
-                registryIdentity,
-                RegistryIdentityHashValidationError.invalidByteCount(
-                    expected: OpalBase.Transaction.Hash.expectedByteCount,
-                    actual: data.count
-                )
-            )
-        }
-        
-        return OpalBase.Transaction.Hash(dataFromRPC: data)
     }
 
     func applyDefaultRegistryURL(
@@ -89,8 +79,4 @@ private extension OpalBase.CashTokens.BCMR.Client {
             )
         }
     }
-}
-
-private enum RegistryIdentityHashValidationError: Swift.Error {
-    case invalidByteCount(expected: Int, actual: Int)
 }

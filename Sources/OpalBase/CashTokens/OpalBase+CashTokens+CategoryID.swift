@@ -17,14 +17,12 @@ extension _OpalBase.CashTokens {
         }
         
         public init(hexFromRPC hexadecimalString: String) throws {
-            let rawData: Data
-            do {
-                rawData = try Data(hexadecimalString: hexadecimalString)
-            } catch {
+            guard !hexadecimalString.hasPrefix("0x"),
+                  !hexadecimalString.hasPrefix("0X"),
+                  let rawData = try? Data(hexadecimalString: hexadecimalString) else {
                 throw Error.invalidHexadecimalString
             }
-            let transactionOrderData = rawData.reversedData
-            try self.init(transactionOrderData: transactionOrderData)
+            try self.init(transactionOrderData: rawData.reversedData)
         }
         
         public var hexForDisplay: String {

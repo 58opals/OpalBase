@@ -9,7 +9,7 @@ import OpalBaseTestSupport
 @Suite("OpalBase.Network.Fulcrum.TransactionProofReader", .tags(.unit, .network))
 struct NetworkFulcrumTransactionProofReaderValidator {
     @Test("maps merkle proof and position responses")
-    func fetchTransactionProofResponsesMapToOpalBaseTypes() async throws {
+    func validateTransactionProofResponsesMapToOpalBaseTypes() async throws {
         let merkleResponse = try Self.makeMerkleResponse()
         let identifierResponse = try Self.makeIdentifierResponse()
         let client = TransactionProofClientTestActor(
@@ -26,7 +26,7 @@ struct NetworkFulcrumTransactionProofReaderValidator {
         #expect(resolution == .init(
             blockHeight: 12,
             transactionIdentifier: String(repeating: "c", count: 64),
-            merkle: [String(repeating: "d", count: 64)]
+            merkle: [String(repeating: "d", count: 64), String(repeating: "e", count: 64)]
         ))
         #expect(await client.readRequestedTransactionHash() == transactionHash.reverseOrder.hexadecimalString)
         #expect(await client.readRequestedMerkleBlockHeight() == 12)
@@ -81,6 +81,36 @@ struct NetworkFulcrumTransactionProofReaderValidator {
 
         #expect(failure.reason == .protocolViolation)
         #expect(failure.message?.contains("Merkle proof branch hash length") == true)
+        
+        let prefixedHash = "0x\(String(repeating: "a", count: 64))"
+        let prefixedClient = TransactionProofClientTestActor(
+            merkleResponse: try Self.makeMerkleResponse(merkle: [prefixedHash]),
+            heightResponse: try Self.makeHeightResponse(blockHeight: 12)
+        )
+        let prefixedReader = OpalBase.Network.Fulcrum.TransactionProofReader(client: prefixedClient)
+        
+        let prefixedFailure = await Self.captureNetworkError {
+            _ = try await prefixedReader.fetchMerkleProof(for: .init(naturalOrder: Data(repeating: 0x01, count: 32)))
+        }
+        
+        #expect(prefixedFailure.reason == .protocolViolation)
+        #expect(prefixedFailure.message == "Cannot decode merkle proof branch hash at index 0.")
+    }
+
+    @Test("rejects merkle proof positions outside the branch depth")
+    func fetchMerkleProofRejectsPositionOutsideBranchDepth() async throws {
+        let client = TransactionProofClientTestActor(
+            merkleResponse: try Self.makeMerkleResponse(merkle: [], position: 1),
+            heightResponse: try Self.makeHeightResponse(blockHeight: 12)
+        )
+        let reader = OpalBase.Network.Fulcrum.TransactionProofReader(client: client)
+
+        let failure = await Self.captureNetworkError {
+            _ = try await reader.fetchMerkleProof(for: .init(naturalOrder: Data(repeating: 0x01, count: 32)))
+        }
+
+        #expect(failure.reason == .protocolViolation)
+        #expect(failure.message?.contains("Merkle proof position out of range") == true)
     }
 
     @Test("rejects malformed transaction identifiers from position resolution")
@@ -171,16 +201,18 @@ private extension NetworkFulcrumTransactionProofReaderValidator {
     static let validMerkleBranch = [String(repeating: "a", count: 64), String(repeating: "b", count: 64)]
 
     static func makeMerkleResponse(
-        merkle: [String] = validMerkleBranch
+        merkle: [String] = validMerkleBranch,
+        position: UInt = 3
     ) throws -> SwiftFulcrum.Response.Blockchain.Transaction.GetMerkle {
-        try makeMerkleResponse(blockHeight: 12, merkle: merkle)
+        try makeMerkleResponse(blockHeight: 12, merkle: merkle, position: position)
     }
 
     static func makeMerkleResponse(
         blockHeight: UInt,
-        merkle: [String] = validMerkleBranch
+        merkle: [String] = validMerkleBranch,
+        position: UInt = 3
     ) throws -> SwiftFulcrum.Response.Blockchain.Transaction.GetMerkle {
-        let payload = try JSONSerialization.data(withJSONObject: ["merkle": merkle, "block_height": blockHeight, "pos": 3])
+        let payload = try JSONSerialization.data(withJSONObject: ["merkle": merkle, "block_height": blockHeight, "pos": position])
         return try JSONDecoder().decode(SwiftFulcrum.Response.Blockchain.Transaction.GetMerkle.self, from: payload)
     }
 
@@ -195,7 +227,7 @@ private extension NetworkFulcrumTransactionProofReaderValidator {
         transactionHash: String = String(repeating: "c", count: 64)
     ) throws -> SwiftFulcrum.Response.Blockchain.Transaction.IDFromPos {
         let payload = try JSONSerialization.data(
-            withJSONObject: ["merkle": [String(repeating: "d", count: 64)], "tx_hash": transactionHash]
+            withJSONObject: ["merkle": [String(repeating: "d", count: 64), String(repeating: "e", count: 64)], "tx_hash": transactionHash]
         )
         return try JSONDecoder().decode(SwiftFulcrum.Response.Blockchain.Transaction.IDFromPos.self, from: payload)
     }

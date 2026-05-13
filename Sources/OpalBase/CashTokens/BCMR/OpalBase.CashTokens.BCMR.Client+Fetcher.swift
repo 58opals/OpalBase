@@ -269,18 +269,15 @@ private extension OpalBase.CashTokens.BCMR.Client.Fetcher {
     
     func parseCacheExpiration(from response: HTTPURLResponse, now: Date) -> Date? {
         guard let cacheControl = response.value(forHTTPHeaderField: "Cache-Control") else { return nil }
-        let directives = cacheControl.split(separator: ",")
-        let normalizedDirectives = directives.map {
+        let directives = cacheControl.split(separator: ",").map {
             $0.trimmingCharacters(in: .whitespaces).lowercased()
         }
-        guard !normalizedDirectives.contains("no-store") else { return nil }
-        guard !normalizedDirectives.contains("no-cache") else { return nil }
+        guard !directives.contains("no-store") else { return nil }
+        guard !directives.contains("no-cache") else { return nil }
 
         for directive in directives {
-            let trimmed = directive.trimmingCharacters(in: .whitespaces)
-            let lowercased = trimmed.lowercased()
-            if lowercased.hasPrefix("max-age=") {
-                let valueString = trimmed.dropFirst("max-age=".count)
+            if directive.hasPrefix("max-age=") {
+                let valueString = directive.dropFirst("max-age=".count)
                 if let seconds = TimeInterval(String(valueString)), seconds >= 0 {
                     return now.addingTimeInterval(seconds)
                 }

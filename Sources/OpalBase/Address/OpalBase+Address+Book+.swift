@@ -52,7 +52,8 @@ extension _OpalBase.Address.Book {
         transactionReader: OpalBase.Network.TransactionReader,
         walletScriptHashes: Set<String>
     ) async throws -> OpalBase.Transaction.History.Record.TokenDelta {
-        let previousHashes = transaction.inputs.map(\.previousTransactionHash).deduplicate()
+        let spendingInputs = transaction.inputs.filter { !$0.isCoinbase }
+        let previousHashes = spendingInputs.map(\.previousTransactionHash).deduplicate()
         let previousTransactions = try await previousHashes.mapConcurrently { hash in
             let rawTransactionData = try await transactionReader.fetchRawTransaction(for: hash)
             let previousTransaction = try Self.decodeCompleteTransaction(from: rawTransactionData)
@@ -76,7 +77,7 @@ extension _OpalBase.Address.Book {
             try addLockedBCHDelta(output.value, sign: 1, into: &lockedBCHDelta)
         }
         
-        for input in transaction.inputs {
+        for input in spendingInputs {
             guard let previousTransaction = previousTransactionsByHash[input.previousTransactionHash] else {
                 throw OpalBase.Transaction.Error.transactionNotFound
             }

@@ -73,8 +73,6 @@ extension _OpalBase.Account {
                 total: totalSelectedAmount.uint64,
                 inputCount: heuristicallyOrderedInputs.count,
                 targetAmount: targetAmount.uint64,
-                recipientOutputs: organizedRecipientOutputs,
-                outputsWithChange: coinSelectionConfiguration.outputsWithChange,
                 minimumRelayFeeRate: OpalBase.Transaction.minimumRelayFeeRate,
                 feePerByte: feeRate
             )

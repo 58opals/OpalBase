@@ -270,29 +270,34 @@ extension _OpalBase.Address.Book {
     }
 
     private static func validateConfirmationStatus(_ status: OpalBase.Network.TransactionConfirmationStatus) throws {
-        if let confirmations = status.confirmations, confirmations > 0 {
-            guard let transactionHeight = status.transactionHeight, transactionHeight > 0 else {
+        guard let transactionHeight = status.transactionHeight, transactionHeight > 0 else {
+            if let confirmations = status.confirmations, confirmations > 0 {
                 throw OpalBase.Network.Error(
                     reason: .protocolViolation,
                     message: "Confirmation count requires a confirmed transaction height"
                 )
             }
+            return
         }
-        guard let transactionHeight = status.transactionHeight, transactionHeight > 0 else { return }
+
         guard UInt64(transactionHeight) <= status.tipHeight else {
             throw OpalBase.Network.Error(
                 reason: .protocolViolation,
                 message: "Confirmation status height exceeds tip height"
             )
         }
-        if let confirmations = status.confirmations {
-            let expectedConfirmations = status.tipHeight - UInt64(transactionHeight) + 1
-            guard UInt64(confirmations) == expectedConfirmations else {
-                throw OpalBase.Network.Error(
-                    reason: .protocolViolation,
-                    message: "Confirmation status count does not match height and tip"
-                )
-            }
+        guard let confirmations = status.confirmations else {
+            throw OpalBase.Network.Error(
+                reason: .protocolViolation,
+                message: "Confirmed transaction height requires confirmation count"
+            )
+        }
+        let expectedConfirmations = status.tipHeight - UInt64(transactionHeight) + 1
+        guard UInt64(confirmations) == expectedConfirmations else {
+            throw OpalBase.Network.Error(
+                reason: .protocolViolation,
+                message: "Confirmation status count does not match height and tip"
+            )
         }
     }
 }

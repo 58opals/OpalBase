@@ -57,6 +57,16 @@ struct NetworkAddressReaderLocalValidator {
         #expect(blockHashFailure.reason == .decoding)
         #expect(blockHashFailure.message == "Invalid first-use block hash length: expected 32 bytes, got 1")
         
+        let prefixedBlockHashFailure = Self.captureNetworkError {
+            _ = try OpalBase.Network.Fulcrum.AddressReader.makeFirstUse(
+                blockHeight: 1,
+                blockHash: "0x\(blockHash)",
+                transactionIdentifier: transactionIdentifier
+            )
+        }
+        #expect(prefixedBlockHashFailure.reason == .decoding)
+        #expect(prefixedBlockHashFailure.message == "Cannot decode first-use block hash: 0x\(blockHash)")
+        
         let transactionHashFailure = Self.captureNetworkError {
             _ = try OpalBase.Network.Fulcrum.AddressReader.makeFirstUse(
                 blockHeight: 1,
@@ -66,6 +76,27 @@ struct NetworkAddressReaderLocalValidator {
         }
         #expect(transactionHashFailure.reason == .decoding)
         #expect(transactionHashFailure.message == "Invalid first-use transaction hash length: expected 32 bytes, got 1")
+    }
+
+    @Test("first-use results reject partial responses")
+    func firstUseResultsRejectPartialResponses() throws {
+        let unused = try OpalBase.Network.Fulcrum.AddressReader.makeFirstUse(
+            blockHeight: nil,
+            blockHash: nil,
+            transactionIdentifier: nil
+        )
+        #expect(unused == nil)
+        
+        let failure = Self.captureNetworkError {
+            _ = try OpalBase.Network.Fulcrum.AddressReader.makeFirstUse(
+                blockHeight: 1,
+                blockHash: nil,
+                transactionIdentifier: String(repeating: "b", count: 64)
+            )
+        }
+
+        #expect(failure.reason == .protocolViolation)
+        #expect(failure.message == "Incomplete first-use response")
     }
     
     @Test("script hash results require valid hashes")
@@ -79,6 +110,28 @@ struct NetworkAddressReaderLocalValidator {
         }
         #expect(failure.reason == .decoding)
         #expect(failure.message == "Invalid script hash length: expected 32 bytes, got 1")
+        
+        let prefixedFailure = Self.captureNetworkError {
+            _ = try OpalBase.Network.Fulcrum.AddressReader.validateScriptHash("0x\(scriptHash)")
+        }
+        #expect(prefixedFailure.reason == .decoding)
+        #expect(prefixedFailure.message == "Cannot decode script hash: 0x\(scriptHash)")
+    }
+
+    @Test("script hash results must match the requested address")
+    func scriptHashResultsMustMatchRequestedAddress() throws {
+        let address = try OpalBase.Address("bitcoincash:qpm2qsznhks23z7629mms6s4cwef74vcwvy22gdx6a")
+        let mismatchedScriptHash = String(repeating: "c", count: 64)
+
+        let failure = Self.captureNetworkError {
+            _ = try OpalBase.Network.Fulcrum.AddressReader.validateScriptHash(
+                mismatchedScriptHash,
+                matches: address
+            )
+        }
+
+        #expect(failure.reason == .protocolViolation)
+        #expect(failure.message == "Address script hash mismatch")
     }
     
     private static func captureNetworkError(_ work: () throws -> Void) -> OpalBase.Network.Error {

@@ -128,17 +128,22 @@ extension _OpalBase.Address {
         format: Format,
         network: OpalBase.Network.Environment
     ) throws -> String {
-        let versionByte = try makeVersionByte(for: script, format: format)
+        let versionByte: UInt8
+        let payloadData: Data
         let payload: Data
         switch script {
-        case .p2pkh_OPCHECKSIG(let hash), .p2pkh_OPCHECKDATASIG(hash: let hash):
-            payload = Data([versionByte]) + hash.data
+        case .p2pkh_OPCHECKSIG(let hash):
+            guard hash.data.count == 20 else { throw OpalBase.Address.Legacy.Error.invalidScriptType }
+            versionByte = format == .tokenAware ? 0x10 : 0x00
+            payloadData = hash.data
         case .p2sh(let scriptHash):
             guard scriptHash.count == 20 else { throw OpalBase.Address.Legacy.Error.invalidScriptType }
-            payload = Data([versionByte]) + scriptHash
+            versionByte = format == .tokenAware ? 0x18 : 0x08
+            payloadData = scriptHash
         default:
             throw OpalBase.Address.Legacy.Error.invalidScriptType
         }
+        payload = Data([versionByte]) + payloadData
 
         let payload5BitValues = try OpalBase.Address.convertPayloadToFiveBitValues(payload: payload)
         let checksum = try OpalBase.Address.generateChecksum(
@@ -147,17 +152,6 @@ extension _OpalBase.Address {
         )
         let combined = payload5BitValues + checksum
         return try OpalCryptoAdapter.encodeBase32(Data(combined), interpretedAsFiveBitValues: true)
-    }
-
-    private static func makeVersionByte(for script: OpalBase.Script, format: Format) throws -> UInt8 {
-        switch script {
-        case .p2pkh_OPCHECKSIG, .p2pkh_OPCHECKDATASIG:
-            return format == .tokenAware ? 0x10 : 0x00
-        case .p2sh:
-            return format == .tokenAware ? 0x18 : 0x08
-        default:
-            throw OpalBase.Address.Legacy.Error.invalidScriptType
-        }
     }
 }
 

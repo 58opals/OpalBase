@@ -44,10 +44,12 @@ struct NetworkFulcrumTransactionClientReaderValidator {
                 forTransactionIdentifier: confirmedEntry.transactionHash
             )
 
-            let expectedConfirmations = OpalBase.Network.Fulcrum.TransactionClient.calculateConfirmationCount(
+            let transactionHash = try OpalBase.Network.decodeTransactionHash(from: confirmedEntry.transactionHash)
+            let expectedConfirmations = try OpalBase.Network.Fulcrum.TransactionClient.makeConfirmationStatus(
+                transactionHash: transactionHash,
                 transactionHeight: UInt(confirmedEntry.height),
                 tipHeight: tip.height
-            )
+            ).confirmations
 
             #expect(confirmations == expectedConfirmations)
             #expect(confirmations ?? 0 > 0)
@@ -74,10 +76,12 @@ struct NetworkFulcrumTransactionClientReaderValidator {
                 .blockchain.headers.getTip
             )
 
-            let expectedConfirmations = OpalBase.Network.Fulcrum.TransactionClient.calculateConfirmationCount(
-                transactionHeight: resolvedTransactionHeight,
+            let transactionHash = try OpalBase.Network.decodeTransactionHash(from: confirmedEntry.transactionIdentifier)
+            let expectedConfirmations = try OpalBase.Network.Fulcrum.TransactionClient.makeConfirmationStatus(
+                transactionHash: transactionHash,
+                transactionHeight: UInt(resolvedTransactionHeight),
                 tipHeight: tipHeight.height
-            )
+            ).confirmations
 
             let confirmations = try await handler.fetchConfirmations(forTransactionIdentifier: confirmedEntry.transactionIdentifier)
             #expect(confirmations == expectedConfirmations)

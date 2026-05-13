@@ -4,6 +4,7 @@ import Foundation
 
 extension _OpalBase.CashTokens {
     public actor MetadataRepository {
+        private static let safeMetadataURLSchemes: Set<String> = ["https", "ipfs"]
         private var byCategory: [OpalBase.CashTokens.CategoryID: OpalBase.CashTokens.Metadata] = .init()
 
         public init() {}
@@ -52,7 +53,7 @@ extension _OpalBase.CashTokens {
                 decimals: metadata.decimals,
                 iconURL: makeSafeURL(metadata.iconURL),
                 lastUpdated: metadata.lastUpdated,
-                source: metadata.source,
+                source: makeSafeSource(metadata.source),
                 description: metadata.description,
                 webURL: makeSafeURL(metadata.webURL),
                 identity: metadata.identity,
@@ -64,9 +65,21 @@ extension _OpalBase.CashTokens {
         private func makeSafeURL(_ url: URL?) -> URL? {
             guard let url,
                   let scheme = url.scheme?.lowercased(),
-                  ["https", "ipfs"].contains(scheme)
+                  Self.safeMetadataURLSchemes.contains(scheme),
+                  let host = url.host,
+                  !host.isEmpty
             else { return nil }
             return url
+        }
+
+        private func makeSafeSource(_ source: OpalBase.CashTokens.Metadata.Source) -> OpalBase.CashTokens.Metadata.Source {
+            switch source {
+            case .dns(let url):
+                guard let safeURL = makeSafeURL(url) else { return .embedded }
+                return .dns(safeURL)
+            case .embedded, .chain:
+                return source
+            }
         }
     }
 }

@@ -88,14 +88,15 @@ extension _OpalBase.Address.Book {
     }
 
     func refresh(with snapshot: Snapshot) async throws {
+        let entrySnapshots = snapshot.receivingEntries + snapshot.changeEntries
         try validateEntryUsage(in: snapshot.receivingEntries, expected: .receiving)
         try validateEntryUsage(in: snapshot.changeEntries, expected: .change)
-        try validateEntryReservationState(in: snapshot.receivingEntries + snapshot.changeEntries)
+        try validateEntryReservationState(in: entrySnapshots)
         try validateUniqueEntryIndices(in: snapshot.receivingEntries, usage: .receiving)
         try validateUniqueEntryIndices(in: snapshot.changeEntries, usage: .change)
-        try validateEntryBalances(in: snapshot.receivingEntries + snapshot.changeEntries)
+        let restoredEntryBalances = try makeRestoredEntryBalances(in: entrySnapshots)
         let restoredEntryReferences = try makeRestoredEntryReferences(
-            from: snapshot.receivingEntries + snapshot.changeEntries
+            from: entrySnapshots
         )
         let restoredUTXOs = try makeRestoredUTXOs(
             from: snapshot.utxos,
@@ -107,8 +108,16 @@ extension _OpalBase.Address.Book {
         )
 
         inventory = .init(cacheValidityDuration: inventory.cacheValidityDuration)
-        try await restore(entrySnapshots: snapshot.receivingEntries, usage: .receiving)
-        try await restore(entrySnapshots: snapshot.changeEntries, usage: .change)
+        try await restore(
+            entrySnapshots: snapshot.receivingEntries,
+            usage: .receiving,
+            restoredEntryBalances: restoredEntryBalances[.receiving] ?? [:]
+        )
+        try await restore(
+            entrySnapshots: snapshot.changeEntries,
+            usage: .change,
+            restoredEntryBalances: restoredEntryBalances[.change] ?? [:]
+        )
 
         utxoStore.replace(with: Set(restoredUTXOs))
         clearSpendReservationState()
@@ -119,15 +128,19 @@ extension _OpalBase.Address.Book {
         }
     }
 
-    private func validateEntryBalances(in entries: [Snapshot.Entry]) throws {
+    private func makeRestoredEntryBalances(in entries: [Snapshot.Entry]) throws -> RestoredEntryBalances {
+        var restoredEntryBalances: RestoredEntryBalances = [:]
+
         for entry in entries {
             guard let balanceValue = entry.balance else { continue }
             do {
-                _ = try OpalBase.Satoshi(balanceValue)
+                restoredEntryBalances[entry.usage, default: [:]][entry.index] = try OpalBase.Satoshi(balanceValue)
             } catch {
                 throw OpalBase.Address.Book.Error.invalidSnapshotBalance(value: balanceValue, reason: error)
             }
         }
+
+        return restoredEntryBalances
     }
 
     private func validateEntryUsage(
@@ -248,6 +261,16 @@ extension _OpalBase.Address.Book {
             let hash = OpalBase.Transaction.Hash(naturalOrder: hashData)
             guard seenTransactionHashes.insert(hash).inserted else {
                 throw OpalBase.Address.Book.Error.invalidSnapshotDuplicateTransaction(hash)
+            }
+            if let fee = transaction.fee {
+                do {
+                    _ = try OpalBase.Satoshi(fee)
+                } catch {
+                    throw OpalBase.Address.Book.Error.invalidSnapshotFee(
+                        value: fee,
+                        reason: error
+                    )
+                }
             }
             let scriptHashes = try validateScriptHashes(
                 in: transaction.scriptHashes,
@@ -379,7 +402,11 @@ extension _OpalBase.Address.Book {
         return validatedScriptHashes
     }
 
-    private func restore(entrySnapshots: [Snapshot.Entry], usage: OpalBase.Key.DerivationPath.Usage) async throws {
+    private func restore(
+        entrySnapshots: [Snapshot.Entry],
+        usage: OpalBase.Key.DerivationPath.Usage,
+        restoredEntryBalances: [UInt32: OpalBase.Satoshi]
+    ) async throws {
         if let highestIndex = entrySnapshots.map(\.index).max() {
             let entryCount = Int(highestIndex) + 1
             try await generateEntries(for: usage,
@@ -389,21 +416,10 @@ extension _OpalBase.Address.Book {
         }
 
         for snapshotEntry in entrySnapshots {
-            let restoredBalance: OpalBase.Satoshi?
-            if let balanceValue = snapshotEntry.balance {
-                do {
-                    restoredBalance = try OpalBase.Satoshi(balanceValue)
-                } catch {
-                    throw OpalBase.Address.Book.Error.invalidSnapshotBalance(value: balanceValue, reason: error)
-                }
-            } else {
-                restoredBalance = nil
-            }
-
             inventory.updateEntry(at: Int(snapshotEntry.index), usage: usage) { entry in
                 entry.isUsed = snapshotEntry.isUsed
                 entry.isReserved = false
-                entry.cache.balance = restoredBalance
+                entry.cache.balance = restoredEntryBalances[snapshotEntry.index]
                 entry.cache.lastUpdated = snapshotEntry.lastUpdated
             }
         }
@@ -417,3 +433,7 @@ extension _OpalBase.Address.Book {
         }
     }
 }
+
+private typealias RestoredEntryBalances = [
+    OpalBase.Key.DerivationPath.Usage: [UInt32: OpalBase.Satoshi]
+]

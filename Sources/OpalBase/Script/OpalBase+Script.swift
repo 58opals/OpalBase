@@ -174,8 +174,8 @@ extension _OpalBase.Script {
 extension _OpalBase.Script {
     var isDerivableFromAddress: Bool {
         switch self {
-        case .p2pkh_OPCHECKSIG, .p2pkh_OPCHECKDATASIG, .p2sh: true
-        case .p2pk, .p2ms: false
+        case .p2pkh_OPCHECKSIG, .p2sh: true
+        case .p2pkh_OPCHECKDATASIG, .p2pk, .p2ms: false
         }
     }
 }

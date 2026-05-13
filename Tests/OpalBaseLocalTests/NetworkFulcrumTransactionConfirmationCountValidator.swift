@@ -1,5 +1,6 @@
 // NetworkFulcrumTransactionConfirmationCountValidator.swift
 
+import Foundation
 import Testing
 import OpalBaseTestSupport
 @testable import OpalBase
@@ -7,57 +8,35 @@ import OpalBaseTestSupport
 @Suite("OpalBase.Network.Fulcrum.TransactionClient confirmation count", .tags(.unit))
 struct NetworkFulcrumTransactionConfirmationCountValidator {
     @Test("calculates confirmation counts across edge conditions")
-    func calculateConfirmationCountHandlesBoundaries() {
-        let direct = OpalBase.Network.Fulcrum.TransactionClient.calculateConfirmationCount(
+    func confirmationStatusHandlesBoundaries() throws {
+        let transactionHash = OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0x11, count: 32))
+        let direct = try OpalBase.Network.Fulcrum.TransactionClient.makeConfirmationStatus(
+            transactionHash: transactionHash,
             transactionHeight: 100,
             tipHeight: 100
         )
-        #expect(direct == 1)
+        #expect(direct.confirmations == 1)
 
-        let advanced = OpalBase.Network.Fulcrum.TransactionClient.calculateConfirmationCount(
+        let advanced = try OpalBase.Network.Fulcrum.TransactionClient.makeConfirmationStatus(
+            transactionHash: transactionHash,
             transactionHeight: 98,
             tipHeight: 102
         )
-        #expect(advanced == 5)
+        #expect(advanced.confirmations == 5)
 
-        let negativeHeight = OpalBase.Network.Fulcrum.TransactionClient.calculateConfirmationCount(
+        let negativeHeight = try OpalBase.Network.Fulcrum.TransactionClient.makeConfirmationStatus(
+            transactionHash: transactionHash,
             transactionHeight: -1,
             tipHeight: 10
         )
-        #expect(negativeHeight == nil)
+        #expect(negativeHeight.confirmations == nil)
 
-        let zeroHeight = OpalBase.Network.Fulcrum.TransactionClient.calculateConfirmationCount(
+        let zeroHeight = try OpalBase.Network.Fulcrum.TransactionClient.makeConfirmationStatus(
+            transactionHash: transactionHash,
             transactionHeight: 0,
             tipHeight: 10
         )
-        #expect(zeroHeight == nil)
-
-        let futureTransaction = OpalBase.Network.Fulcrum.TransactionClient.calculateConfirmationCount(
-            transactionHeight: 150,
-            tipHeight: 140
-        )
-        #expect(futureTransaction == nil)
-    }
-
-    @Test("calculates confirmation counts for edge cases")
-    func calculateConfirmationCountEdgeCases() {
-        let expectedConfirmations = OpalBase.Network.Fulcrum.TransactionClient.calculateConfirmationCount(
-            transactionHeight: 100_000,
-            tipHeight: 100_010
-        )
-        #expect(expectedConfirmations == 11)
-
-        let futureBlock = OpalBase.Network.Fulcrum.TransactionClient.calculateConfirmationCount(
-            transactionHeight: 100_011,
-            tipHeight: 100_010
-        )
-        #expect(futureBlock == nil)
-
-        let negativeHeight = OpalBase.Network.Fulcrum.TransactionClient.calculateConfirmationCount(
-            transactionHeight: -1,
-            tipHeight: 100_010
-        )
-        #expect(negativeHeight == nil)
+        #expect(zeroHeight.confirmations == nil)
     }
 
     @Test("resolveFee rejects negative fee values instead of treating them as missing")
@@ -67,6 +46,45 @@ struct NetworkFulcrumTransactionConfirmationCountValidator {
 
         #expect(throws: OpalBase.Network.Error(reason: .decoding, message: "Invalid transaction fee: -1")) {
             _ = try OpalBase.Network.Fulcrum.resolveFee(Optional(-1))
+        }
+    }
+
+    @Test("history mapping rejects malformed transaction identifiers")
+    func historyMappingRejectsMalformedTransactionIdentifiers() throws {
+        let transactions = [
+            HistoryTransactionFixture(transactionIdentifier: "aa", blockHeight: 1, fee: nil)
+        ]
+
+        #expect(throws: OpalBase.Network.Error(
+            reason: .decoding,
+            message: "Invalid history transaction hash length: expected 32 bytes, got 1"
+        )) {
+            _ = try OpalBase.Network.Fulcrum.mapHistoryTransactions(
+                transactions,
+                transactionIdentifier: \.transactionIdentifier,
+                blockHeight: \.blockHeight,
+                fee: \.fee
+            )
+        }
+    }
+
+    @Test("history mapping rejects prefixed transaction identifiers")
+    func historyMappingRejectsPrefixedTransactionIdentifiers() throws {
+        let transactionIdentifier = "0x" + String(repeating: "a", count: 64)
+        let transactions = [
+            HistoryTransactionFixture(transactionIdentifier: transactionIdentifier, blockHeight: 1, fee: nil)
+        ]
+
+        #expect(throws: OpalBase.Network.Error(
+            reason: .decoding,
+            message: "Cannot decode history transaction hash: \(transactionIdentifier)"
+        )) {
+            _ = try OpalBase.Network.Fulcrum.mapHistoryTransactions(
+                transactions,
+                transactionIdentifier: \.transactionIdentifier,
+                blockHeight: \.blockHeight,
+                fee: \.fee
+            )
         }
     }
 
@@ -85,5 +103,27 @@ struct NetworkFulcrumTransactionConfirmationCountValidator {
         #expect(throws: OpalBase.Network.Error(reason: .decoding, message: "Invalid tip height: -1")) {
             _ = try OpalBase.Network.Fulcrum.TransactionClient.resolveTipHeight(-1)
         }
+    }
+
+    @Test("confirmation status rejects transaction heights beyond the tip")
+    func confirmationStatusRejectsFutureTransactionHeights() throws {
+        let transactionHash = OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0x11, count: 32))
+
+        #expect(throws: OpalBase.Network.Error(
+            reason: .protocolViolation,
+            message: "Transaction height exceeds tip height: transaction 150, tip 140"
+        )) {
+            _ = try OpalBase.Network.Fulcrum.TransactionClient.makeConfirmationStatus(
+                transactionHash: transactionHash,
+                transactionHeight: Optional(150),
+                tipHeight: 140
+            )
+        }
+    }
+
+    private struct HistoryTransactionFixture {
+        let transactionIdentifier: String
+        let blockHeight: Int
+        let fee: UInt?
     }
 }
