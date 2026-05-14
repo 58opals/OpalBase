@@ -55,9 +55,8 @@ extension _OpalBase.Transaction {
                                        feePerByte: UInt64,
                                        lockTime: UInt32,
                                        shouldAllowDustDonation: Bool,
-                                       privacyOutputShuffle: ([Output]) -> [Output] = defaultPrivacyOutputShuffle) throws -> OpalBase.Transaction {
+        privacyOutputShuffle: ([Output]) -> [Output] = defaultPrivacyOutputShuffle) throws -> OpalBase.Transaction {
         let inputTotal = try sumValues(of: builder.orderedUnspentOutputs) { $0.value }
-        let firstSignedTransaction = signedTransaction
         var correctedTransaction = signedTransaction
         let maximumPasses = 8
         
@@ -88,7 +87,19 @@ extension _OpalBase.Transaction {
         let finalOutputTotal = try calculateTotalValue(for: correctedTransaction.outputs)
         let finalFeePaid = try calculateFeePaid(inputTotal: inputTotal, outputTotal: finalOutputTotal)
         
-        guard finalFeePaid >= finalRequiredFee else { return firstSignedTransaction }
+        guard finalFeePaid >= finalRequiredFee else {
+            throw Error.insufficientFunds(required: finalRequiredFee - finalFeePaid)
+        }
+        
+        let finalOutputs = try computeOutputsForTargetFee(recipientOutputs: recipientOutputs,
+                                                          changeOutputTemplate: changeOutput,
+                                                          outputOrderingStrategy: outputOrderingStrategy,
+                                                          targetFee: finalRequiredFee,
+                                                          shouldAllowDustDonation: shouldAllowDustDonation,
+                                                          privacyOutputShuffle: privacyOutputShuffle)
+        guard finalOutputs == correctedTransaction.outputs else {
+            throw Error.cannotCreateTransaction
+        }
         
         return correctedTransaction
     }

@@ -16,7 +16,7 @@ extension _OpalBase.Network.Fulcrum {
         public func fetchTip() async throws -> OpalBase.Network.BlockHeaderSnapshot {
             try await OpalBase.Network.performWithFailureTranslation {
                 let result = try await client.request(
-                    .blockchain.headers.getTip,
+                    SwiftFulcrum.API.blockchain.headers.tip,
                     options: .init(timeout: timeouts.headersTip)
                 )
                 return try Self.makeSnapshot(height: result.height, headerHexadecimal: result.hex)
@@ -26,7 +26,7 @@ extension _OpalBase.Network.Fulcrum {
         public func subscribeToTip() async throws -> AsyncThrowingStream<OpalBase.Network.BlockHeaderSnapshot, any Swift.Error> {
             try await OpalBase.Network.performWithFailureTranslation {
                 let (initial, updates, cancel) = try await client.subscribe(
-                    .blockchain.headers.subscribe,
+                    SwiftFulcrum.API.blockchain.headers.subscribe,
                     options: .init(timeout: timeouts.headersSubscription)
                 )
                 

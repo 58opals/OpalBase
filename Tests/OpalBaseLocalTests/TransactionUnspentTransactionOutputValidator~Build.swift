@@ -257,6 +257,41 @@ extension TransactionUnspentTransactionOutputValidator {
         }
     }
     
+    @Test("build rejects non-converging dust-boundary fee correction")
+    func buildRejectsNonConvergingDustBoundaryFeeCorrection() throws {
+        let privateKey = Data(repeating: 0x02, count: 32)
+        let lockingScript = Data([
+            ScriptOperationCode._DUP.rawValue,
+            ScriptOperationCode._HASH160.rawValue,
+            0x14
+        ] + Array(repeating: 0x01, count: 20) + [
+            ScriptOperationCode._EQUALVERIFY.rawValue,
+            ScriptOperationCode._CHECKSIG.rawValue
+        ])
+        let unspent = OpalBase.Transaction.Output.Unspent(
+            value: 1_720,
+            lockingScript: lockingScript,
+            previousTransactionHash: OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0x00, count: 32)),
+            previousTransactionOutputIndex: 0
+        )
+        let privateKeys: [OpalBase.Transaction.Output.Unspent: Data] = [unspent: privateKey]
+        let recipientOutputs = [OpalBase.Transaction.Output(value: 1_000, lockingScript: Data([0x51]))]
+        let changeOutput = OpalBase.Transaction.Output(value: 720, lockingScript: lockingScript)
+        
+        #expect(throws: OpalBase.Transaction.Error.cannotCreateTransaction) {
+            _ = try OpalBase.Transaction.build(
+                utxoPrivateKeyPairs: privateKeys,
+                recipientOutputs: recipientOutputs,
+                changeOutput: changeOutput,
+                outputOrderingStrategy: .privacyRandomized,
+                signatureFormat: .schnorr,
+                feePerByte: 1,
+                shouldAllowDustDonation: true,
+                privacyOutputShuffle: { $0 }
+            )
+        }
+    }
+    
     @Test("build rejects overstated change pool with insufficient funds")
     func buildRejectsOverstatedChangePool() throws {
         let components = try makeTransactionBuilderComponents()

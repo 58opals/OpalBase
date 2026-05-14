@@ -466,6 +466,45 @@ struct BitcoinCashMetadataRegistryValidator {
         #expect(metadata.symbol == "NEWER")
     }
     
+    @Test("duplicate category metadata uses migrated dates for freshness")
+    func duplicateCategoryMetadataUsesMigratedDatesForFreshness() throws {
+        let registries = BitcoinCashMetadataRegistryTestClient.makeRegistries()
+        let category = try makeCategoryIdentifier(byte: 0x71)
+        let migratedDate = try makeDate("2026-01-01T00:00:00Z")
+        let registry = OpalBase.CashTokens.BCMR.Client.Registry(
+            version: "1",
+            registryIdentity: nil,
+            identities: [
+                "identity-a": [
+                    "2024-01-01T00:00:00Z": makeIdentitySnapshot(
+                        name: "Migrated Token",
+                        migrated: "2026-01-01T00:00:00Z",
+                        category: category,
+                        symbol: "MIGRATED"
+                    )
+                ],
+                "identity-b": [
+                    "2025-01-01T00:00:00Z": makeIdentitySnapshot(
+                        name: "Stale Token",
+                        category: category,
+                        symbol: "STALE"
+                    )
+                ]
+            ]
+        )
+
+        let metadata = try #require(
+            registries.extractTokenMetadata(
+                from: registry,
+                asOf: try makeDate("2027-01-01T00:00:00Z")
+            )[category]
+        )
+
+        #expect(metadata.name == "Migrated Token")
+        #expect(metadata.symbol == "MIGRATED")
+        #expect(metadata.lastUpdated == migratedDate)
+    }
+    
     @Test("authchain transaction decode rejects trailing payload bytes")
     func authchainTransactionDecodeRejectsTrailingPayloadBytes() throws {
         let transactionHash = OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0x44, count: 32))

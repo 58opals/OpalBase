@@ -117,6 +117,9 @@ private extension _OpalBase.Claimable.Envelope {
             value: sweepValue,
             lockingScript: destinationLockingScript
         )
+        guard !destinationOutput.isOpReturnScript else {
+            throw OpalBase.Claimable.Error.invalidDestinationOutput
+        }
         let dustThreshold = try destinationOutput.calculateDustThreshold(
             feeRate: OpalBase.Transaction.minimumRelayFeeRate
         )

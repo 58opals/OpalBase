@@ -39,6 +39,10 @@ extension _OpalBase.Network {
                 return OpalBase.Network.Error(reason: .encoding, message: String(describing: encodingError))
             }
             
+            if let decodeMessage = normalizeSwiftFulcrumResultDecodeMessage(String(describing: error)) {
+                return OpalBase.Network.Error(reason: .decoding, message: decodeMessage)
+            }
+            
             if error is CancellationError {
                 return OpalBase.Network.Error(reason: .cancelled, message: "Operation cancelled")
             }
@@ -111,8 +115,51 @@ extension _OpalBase.Network {
             case .encode(let underlying):
                 return OpalBase.Network.Error(reason: .encoding, message: describe(underlying))
             case .decode(let underlying):
-                return OpalBase.Network.Error(reason: .decoding, message: describe(underlying))
+                return OpalBase.Network.Error(
+                    reason: .decoding,
+                    message: describe(underlying).flatMap(normalizeSwiftFulcrumResultDecodeMessage) ?? describe(underlying)
+                )
             }
+        }
+        
+        private static func normalizeSwiftFulcrumResultDecodeMessage(_ description: String) -> String? {
+            let prefixes = [".unexpectedFormat(\"", "unexpectedFormat(\""]
+            guard let prefix = prefixes.first(where: { description.hasPrefix($0) }),
+                  description.hasSuffix("\")") else {
+                return nil
+            }
+            
+            let start = description.index(description.startIndex, offsetBy: prefix.count)
+            let end = description.index(description.endIndex, offsetBy: -2)
+            let message = String(description[start..<end])
+            
+            return normalizeSwiftFulcrumDecodeMessage(message) ?? message
+        }
+        
+        private static func normalizeSwiftFulcrumDecodeMessage(_ message: String) -> String? {
+            let mappings = [
+                ("Invalid mempoolminfee: ", "Invalid mempool minimum fee: "),
+                ("Invalid minrelaytxfee: ", "Invalid minimum relay transaction fee: "),
+                ("Invalid incrementalrelayfee: ", "Invalid incremental relay fee: "),
+                ("Invalid unbroadcastcount: ", "Invalid unbroadcast count: "),
+                ("Invalid server.features pruning: ", "Invalid server feature pruning limit: "),
+                ("Invalid server.features host ssl_port: ", "Invalid server feature ssl port: "),
+                ("Invalid server.features host tcp_port: ", "Invalid server feature tcp port: "),
+                ("Invalid server.features host ws_port: ", "Invalid server feature websocket port: "),
+                ("Invalid server.features host wss_port: ", "Invalid server feature secure websocket port: "),
+                ("Invalid server.features rpa history_block_limit: ", "Invalid server feature rpa history block limit: "),
+                ("Invalid server.features rpa max_history: ", "Invalid server feature rpa maximum history items: "),
+                ("Invalid server.features rpa prefix_bits: ", "Invalid server feature rpa indexed prefix bits: "),
+                ("Invalid server.features rpa prefix_bits_min: ", "Invalid server feature rpa minimum prefix bits: "),
+                ("Invalid server.features rpa starting_height: ", "Invalid server feature rpa starting height: ")
+            ]
+            
+            for (wirePrefix, publicPrefix) in mappings {
+                guard message.hasPrefix(wirePrefix) else { continue }
+                return publicPrefix + message.dropFirst(wirePrefix.count)
+            }
+            
+            return nil
         }
         
         private static func translateClient(_ client: SwiftFulcrum.Client.Error.ClientIssue) -> OpalBase.Network.Error {

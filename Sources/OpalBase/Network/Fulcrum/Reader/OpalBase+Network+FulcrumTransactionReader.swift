@@ -59,7 +59,7 @@ extension _OpalBase.Network.Fulcrum {
                     message: "Invalid transaction size: \(rawTransactionData.count)"
                 )
             }
-            if let verboseSize = isVerbose?.size, verboseSize != rawTransactionSize {
+            if let isVerbose, isVerbose.size != rawTransactionSize {
                 throw OpalBase.Network.Error(
                     reason: .decoding,
                     message: "Verbose transaction size mismatch"
@@ -172,12 +172,10 @@ extension _OpalBase.Network.Fulcrum {
             }
             return .init(hex: result.hex,
                          blockhash: result.blockHash,
-                         hash: result.hash,
                          blocktime: try Self.makeOptionalUInt32(result.blocktime, fieldName: "blocktime"),
                          confirmations: try Self.makeOptionalUInt32(result.confirmations, fieldName: "confirmations"),
                          size: size,
-                         time: try Self.makeOptionalUInt32(result.time, fieldName: "time"),
-                         transactionID: result.transactionID)
+                         time: try Self.makeOptionalUInt32(result.time, fieldName: "time"))
         }
 
         private static func makeOptionalUInt32(
@@ -221,15 +219,13 @@ extension _OpalBase.Network.Fulcrum {
             }
         }
         
-        private struct TransactionGetVerbose: Codable, Sendable {
+        private struct TransactionGetVerbose: Sendable {
             let hex: String
             let blockhash: String?
-            let hash: String
             let blocktime: UInt32?
             let confirmations: UInt32?
-            let size: UInt32?
+            let size: UInt32
             let time: UInt32?
-            let transactionID: String
         }
     }
 }

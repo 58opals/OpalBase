@@ -14,6 +14,7 @@ extension _OpalBase.Account {
                         bchAmount: OpalBase.Satoshi? = nil,
                         fungibleAmount: UInt64? = nil,
                         nft: OpalBase.CashTokens.NFT? = nil) throws {
+                try TokenGenesisValidation.validateTokenData(fungibleAmount: fungibleAmount, nft: nft)
                 try TokenGenesisValidation.validateFungibleAmount(fungibleAmount)
                 try TokenGenesisValidation.validateCommitment(nft)
                 self.address = address
@@ -50,6 +51,7 @@ extension _OpalBase.Account {
 private enum TokenGenesisValidation {
     static func validateRecipients(_ recipients: [OpalBase.Account.TokenGenesis.Recipient]) throws {
         for recipient in recipients {
+            try validateTokenData(fungibleAmount: recipient.fungibleAmount, nft: recipient.nft)
             try validateFungibleAmount(recipient.fungibleAmount)
             try validateCommitment(recipient.nft)
         }
@@ -58,6 +60,12 @@ private enum TokenGenesisValidation {
     static func validateReservedSupply(_ reservedSupply: OpalBase.Account.ReservedSupply) throws {
         try validateFungibleAmount(reservedSupply.fungibleAmount)
         try validateCommitment(reservedSupply.commitment)
+    }
+    
+    static func validateTokenData(fungibleAmount: UInt64?, nft: OpalBase.CashTokens.NFT?) throws {
+        guard fungibleAmount != nil || nft != nil else {
+            throw OpalBase.Account.Error.tokenGenesisRecipientHasNoTokenData
+        }
     }
     
     static func validateFungibleAmount(_ amount: UInt64?) throws {

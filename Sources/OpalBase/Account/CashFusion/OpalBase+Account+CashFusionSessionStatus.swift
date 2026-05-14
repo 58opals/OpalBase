@@ -264,7 +264,7 @@ extension _OpalBase.Account.CashFusionSessionStatus {
     }
 
     private static func makeQueueStatus(
-        _ queueStatus: OpalFusion.Client.Session.Snapshot.CoordinatorStatus.QueueStatus
+        _ queueStatus: OpalFusion.Client.Session.Snapshot.CoordinatorStatus.TierQueue
     ) -> OpalBase.Account.CashFusionSessionStatus.CoordinatorStatus.QueueStatus {
         .init(
             tierSatoshis: queueStatus.tierSatoshis,
@@ -278,12 +278,20 @@ extension _OpalBase.Account.CashFusionSessionStatus {
 
 extension _OpalBase.Account.CashFusionSession {
     public func makePublicStatus() async -> OpalBase.Account.CashFusionSessionStatus {
-        let sessionSnapshot = await snapshot()
+        let sessionSnapshot = await publicStatusSnapshot()
         let completedLocalOutputs = await completedLocalOutputs(for: sessionSnapshot)
         return .init(
             snapshot: sessionSnapshot,
             completedLocalOutputs: completedLocalOutputs
         )
+    }
+    
+    private func publicStatusSnapshot() async -> OpalFusion.Client.Session.Snapshot {
+        if terminalOutcome == .success, let successfulTerminalSnapshot {
+            return successfulTerminalSnapshot
+        }
+        
+        return await snapshot()
     }
 
     private func completedLocalOutputs(

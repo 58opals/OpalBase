@@ -54,9 +54,9 @@ extension _OpalBase.Transaction.History.Status {
         }
         
         switch previousStatus {
-        case .confirmed, .discovered:
+        case .confirmed, .discovered, .failed:
             return Transition(status: .pending, confirmationHeight: nil)
-        case .pending, .failed:
+        case .pending:
             return Transition(status: previousStatus, confirmationHeight: nil)
         }
     }

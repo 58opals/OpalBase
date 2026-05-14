@@ -91,7 +91,7 @@ struct NetworkFulcrumServerInfoReaderValidator {
     func rejectsNegativeServerFeeRates() async throws {
         let relayReader = OpalBase.Network.Fulcrum.ServerInfoReader(
             client: ServerInfoClientTestActor(
-                relayFeeResponse: try Self.makeRelayFeeResponse(fee: -0.00001)
+                relayFeeError: Self.makeDecodeError("Invalid relay fee: -1e-05")
             )
         )
         let relayFailure = await Self.captureNetworkError {
@@ -102,7 +102,7 @@ struct NetworkFulcrumServerInfoReaderValidator {
 
         let estimateReader = OpalBase.Network.Fulcrum.ServerInfoReader(
             client: ServerInfoClientTestActor(
-                estimatedFeeResponse: try Self.makeEstimateFeeResponse(fee: -1)
+                estimatedFeeError: Self.makeDecodeError("Invalid estimated fee: -1.0")
             )
         )
         let estimateFailure = await Self.captureNetworkError {
@@ -152,9 +152,7 @@ struct NetworkFulcrumServerInfoReaderValidator {
     func fetchServerFeaturesRejectsInvalidHostPorts() async throws {
         let reader = OpalBase.Network.Fulcrum.ServerInfoReader(
             client: ServerInfoClientTestActor(
-                featuresResponse: try Self.makeFeaturesResponse(
-                    hosts: ["fulcrum.example.com": ["ssl_port": -1, "tcp_port": 50001]]
-                )
+                featuresError: Self.makeDecodeError("Invalid server.features host ssl_port: -1")
             )
         )
         
@@ -170,15 +168,7 @@ struct NetworkFulcrumServerInfoReaderValidator {
     func fetchServerFeaturesRejectsNegativeReusablePaymentAddressMetadata() async throws {
         let reader = OpalBase.Network.Fulcrum.ServerInfoReader(
             client: ServerInfoClientTestActor(
-                featuresResponse: try Self.makeFeaturesResponse(
-                    reusablePaymentAddress: [
-                        "history_block_limit": -1,
-                        "max_history": 100,
-                        "prefix_bits": 16,
-                        "prefix_bits_min": 8,
-                        "starting_height": 800_000
-                    ]
-                )
+                featuresError: Self.makeDecodeError("Invalid server.features rpa history_block_limit: -1")
             )
         )
         
@@ -263,6 +253,9 @@ struct NetworkFulcrumServerInfoReaderValidator {
 
 private actor ServerInfoClientTestActor: OpalBase.Network.Fulcrum.ServerInfoClient {
     private let pingError: Swift.Error?
+    private let featuresError: Swift.Error?
+    private let relayFeeError: Swift.Error?
+    private let estimatedFeeError: Swift.Error?
     private let versionResponse: SwiftFulcrum.Response.Server.Version
     private let featuresResponse: SwiftFulcrum.Response.Server.Features
     private let relayFeeResponse: SwiftFulcrum.Response.Blockchain.RelayFee
@@ -271,12 +264,18 @@ private actor ServerInfoClientTestActor: OpalBase.Network.Fulcrum.ServerInfoClie
 
     init(
         pingError: Swift.Error? = nil,
+        featuresError: Swift.Error? = nil,
+        relayFeeError: Swift.Error? = nil,
+        estimatedFeeError: Swift.Error? = nil,
         versionResponse: SwiftFulcrum.Response.Server.Version? = nil,
         featuresResponse: SwiftFulcrum.Response.Server.Features? = nil,
         relayFeeResponse: SwiftFulcrum.Response.Blockchain.RelayFee? = nil,
         estimatedFeeResponse: SwiftFulcrum.Response.Blockchain.EstimateFee? = nil
     ) {
         self.pingError = pingError
+        self.featuresError = featuresError
+        self.relayFeeError = relayFeeError
+        self.estimatedFeeError = estimatedFeeError
         self.versionResponse = versionResponse ?? (
             try! NetworkFulcrumServerInfoReaderValidator.makeVersionResponse(
                 serverVersion: "Fulcrum",
@@ -303,11 +302,17 @@ private actor ServerInfoClientTestActor: OpalBase.Network.Fulcrum.ServerInfoClie
     }
 
     func fetchServerFeatures(options _: SwiftFulcrum.Client.Call.Options) async throws -> SwiftFulcrum.Response.Server.Features {
-        featuresResponse
+        if let featuresError {
+            throw featuresError
+        }
+        return featuresResponse
     }
 
     func fetchRelayFee(options _: SwiftFulcrum.Client.Call.Options) async throws -> SwiftFulcrum.Response.Blockchain.RelayFee {
-        relayFeeResponse
+        if let relayFeeError {
+            throw relayFeeError
+        }
+        return relayFeeResponse
     }
 
     func estimateFee(
@@ -315,6 +320,9 @@ private actor ServerInfoClientTestActor: OpalBase.Network.Fulcrum.ServerInfoClie
         options _: SwiftFulcrum.Client.Call.Options
     ) async throws -> SwiftFulcrum.Response.Blockchain.EstimateFee {
         estimateFeeTargets.append(numberOfBlocks)
+        if let estimatedFeeError {
+            throw estimatedFeeError
+        }
         return estimatedFeeResponse
     }
     
@@ -324,6 +332,14 @@ private actor ServerInfoClientTestActor: OpalBase.Network.Fulcrum.ServerInfoClie
 }
 
 private extension NetworkFulcrumServerInfoReaderValidator {
+    struct DecodeFailure: Swift.Error, CustomStringConvertible {
+        let description: String
+    }
+    
+    static func makeDecodeError(_ message: String) -> SwiftFulcrum.Client.Error {
+        .coding(.decode(DecodeFailure(description: ".unexpectedFormat(\"\(message)\")")))
+    }
+    
     static func makeVersionResponse(
         serverVersion: String,
         protocolVersion: String

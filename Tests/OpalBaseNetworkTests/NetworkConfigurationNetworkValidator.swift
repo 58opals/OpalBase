@@ -97,8 +97,8 @@ struct NetworkConfigurationNetworkValidator {
         try await NetworkTestClient.withClient(configuration: configuration) { client in
             try await Task.sleep(for: .seconds(4))
 
-            let tip: SwiftFulcrum.Response.Blockchain.Headers.GetTip = try await client.request(
-                .blockchain.headers.getTip,
+            let tip: SwiftFulcrum.Response.Blockchain.Headers.Tip = try await client.request(
+                SwiftFulcrum.API.blockchain.headers.tip,
                 options: .init(timeout: .seconds(15))
             )
 

@@ -34,7 +34,7 @@ extension _OpalBase.Network.Fulcrum {
             try await OpalBase.Network.performWithFailureTranslation {
                 let validatedScriptHash = try Self.validateScriptHash(scriptHashHex)
                 let result = try await client.request(
-                    .blockchain.scriptHash.getHistory(
+                    SwiftFulcrum.API.blockchain.scriptHash.history(
                         scriptHash: validatedScriptHash,
                         shouldIncludeUnconfirmed: includeUnconfirmed
                     ),
@@ -57,7 +57,7 @@ extension _OpalBase.Network.Fulcrum {
             try await OpalBase.Network.performWithFailureTranslation {
                 let validatedScriptHash = try Self.validateScriptHash(scriptHashHex)
                 let result = try await client.request(
-                    .blockchain.scriptHash.listUnspent(
+                    SwiftFulcrum.API.blockchain.scriptHash.listUnspent(
                         scriptHash: validatedScriptHash,
                         tokenFilter: tokenFilter.fulcrumTokenFilter
                     ),

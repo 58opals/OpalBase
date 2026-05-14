@@ -12,7 +12,7 @@ extension _OpalBase.Network.Fulcrum {
         func fetchVerboseTransaction(
             transactionHash: String,
             options: SwiftFulcrum.Client.Call.Options
-        ) async throws -> SwiftFulcrum.Response.Blockchain.Transaction.Get
+        ) async throws -> SwiftFulcrum.Response.Blockchain.Transaction.Verbose
     }
 }
 
@@ -22,7 +22,7 @@ extension _OpalBase.Network.Fulcrum.Client: _OpalBase.Network.Fulcrum.Transactio
         options: SwiftFulcrum.Client.Call.Options
     ) async throws -> String {
         try await request(
-            .blockchain.transaction.get(transactionHash: transactionHash),
+            SwiftFulcrum.API.blockchain.transaction.raw(transactionHash: transactionHash),
             options: options
         )
     }
@@ -30,9 +30,9 @@ extension _OpalBase.Network.Fulcrum.Client: _OpalBase.Network.Fulcrum.Transactio
     func fetchVerboseTransaction(
         transactionHash: String,
         options: SwiftFulcrum.Client.Call.Options
-    ) async throws -> SwiftFulcrum.Response.Blockchain.Transaction.Get {
+    ) async throws -> SwiftFulcrum.Response.Blockchain.Transaction.Verbose {
         try await request(
-            .blockchain.transaction.getVerbose(transactionHash: transactionHash),
+            SwiftFulcrum.API.blockchain.transaction.verbose(transactionHash: transactionHash),
             options: options
         )
     }

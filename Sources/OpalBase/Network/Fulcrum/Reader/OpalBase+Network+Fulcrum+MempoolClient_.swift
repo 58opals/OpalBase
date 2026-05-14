@@ -5,26 +5,26 @@ import SwiftFulcrum
 
 extension _OpalBase.Network.Fulcrum {
     protocol MempoolClient: Sendable {
-        func fetchMempoolInfo(options: SwiftFulcrum.Client.Call.Options) async throws -> SwiftFulcrum.Response.Mempool.GetInfo
+        func fetchMempoolInfo(options: SwiftFulcrum.Client.Call.Options) async throws -> SwiftFulcrum.Response.Mempool.Info
         func fetchMempoolFeeHistogram(
             options: SwiftFulcrum.Client.Call.Options
-        ) async throws -> SwiftFulcrum.Response.Mempool.GetFeeHistogram
+        ) async throws -> SwiftFulcrum.Response.Mempool.FeeHistogram
     }
 }
 
 extension _OpalBase.Network.Fulcrum.Client: _OpalBase.Network.Fulcrum.MempoolClient {
-    func fetchMempoolInfo(options: SwiftFulcrum.Client.Call.Options) async throws -> SwiftFulcrum.Response.Mempool.GetInfo {
+    func fetchMempoolInfo(options: SwiftFulcrum.Client.Call.Options) async throws -> SwiftFulcrum.Response.Mempool.Info {
         try await request(
-            .mempool.getInfo,
+            SwiftFulcrum.API.mempool.info,
             options: options
         )
     }
 
     func fetchMempoolFeeHistogram(
         options: SwiftFulcrum.Client.Call.Options
-    ) async throws -> SwiftFulcrum.Response.Mempool.GetFeeHistogram {
+    ) async throws -> SwiftFulcrum.Response.Mempool.FeeHistogram {
         try await request(
-            .mempool.getFeeHistogram,
+            SwiftFulcrum.API.mempool.feeHistogram,
             options: options
         )
     }

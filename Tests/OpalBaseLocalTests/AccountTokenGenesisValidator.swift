@@ -7,6 +7,15 @@ import OpalBaseTestSupport
 
 @Suite("OpalBase.Account Token Genesis", .tags(.unit, .wallet, .cashTokens))
 struct AccountTokenGenesisValidator {
+    @Test("token genesis recipients must include token data")
+    func tokenGenesisRecipientsMustIncludeTokenData() throws {
+        let recipientAddress = try OpalBase.Address("bitcoincash:zpm2qsznhks23z7629mms6s4cwef74vcwvrqekrq9w")
+        
+        #expect(throws: OpalBase.Account.Error.tokenGenesisRecipientHasNoTokenData) {
+            _ = try OpalBase.Account.TokenGenesis.Recipient(address: recipientAddress)
+        }
+    }
+    
     @Test("rejects genesis input with non-zero output index")
     func rejectsGenesisInputWithNonZeroOutputIndex() async throws {
         let account = try await makeAccount()

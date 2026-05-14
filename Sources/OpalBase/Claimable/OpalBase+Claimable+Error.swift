@@ -20,6 +20,7 @@ extension _OpalBase.Claimable {
         case invalidExpiryBlockHeight
         case invalidFundingReference
         case invalidFundingOutput
+        case invalidDestinationOutput
         case claimRequiresPreExpiry
         case refundRequiresExpiry
         case insufficientFundingValue(required: UInt64)

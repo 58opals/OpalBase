@@ -16,7 +16,7 @@ extension _OpalBase.Network.Fulcrum {
         public func broadcastTransaction(rawTransactionHexadecimal: String) async throws -> String {
             try await OpalBase.Network.performWithFailureTranslation {
                 let response = try await client.request(
-                    .blockchain.transaction.broadcast(rawTransaction: rawTransactionHexadecimal),
+                    SwiftFulcrum.API.blockchain.transaction.broadcast(rawTransaction: rawTransactionHexadecimal),
                     options: .init(timeout: timeouts.transactionBroadcast)
                 )
                 return response.transactionHash.hexadecimalString
@@ -34,11 +34,11 @@ extension _OpalBase.Network.Fulcrum {
             
             return try await OpalBase.Network.performWithFailureTranslation {
                 async let transactionHeightResponse = client.request(
-                    .blockchain.transaction.getHeight(transactionHash: identifier),
+                    SwiftFulcrum.API.blockchain.transaction.height(transactionHash: identifier),
                     options: .init(timeout: timeouts.transactionConfirmations)
                 )
                 async let tipHeightResponse = client.request(
-                    .blockchain.headers.getTip,
+                    SwiftFulcrum.API.blockchain.headers.tip,
                     options: .init(timeout: timeouts.headersTip)
                 )
                 

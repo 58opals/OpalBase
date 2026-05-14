@@ -51,23 +51,23 @@ private extension OpalBase.CashTokens.BCMR.Client {
     struct SnapshotSelection {
         let key: String
         let snapshot: IdentitySnapshot
-        let date: Date?
-        let migratedDate: Date?
+        let effectiveDate: Date?
     }
     
     func makeSnapshotTimeline(
         from snapshots: [String: IdentitySnapshot]
     ) -> [SnapshotSelection] {
         snapshots.map { snapshotKey, snapshot in
-            SnapshotSelection(
+            let snapshotDate = parseSnapshotDate(from: snapshotKey)
+            let migratedDate = snapshot.migrated.flatMap(parseSnapshotDate(from:))
+            return SnapshotSelection(
                 key: snapshotKey,
                 snapshot: snapshot,
-                date: parseSnapshotDate(from: snapshotKey),
-                migratedDate: snapshot.migrated.flatMap(parseSnapshotDate(from:))
+                effectiveDate: makeEffectiveDate(snapshotDate: snapshotDate, migratedDate: migratedDate)
             )
         }
         .sorted { left, right in
-            switch (left.date, right.date) {
+            switch (left.effectiveDate, right.effectiveDate) {
             case (.some(let leftDate), .some(let rightDate)):
                 if leftDate == rightDate {
                     return left.key < right.key
@@ -87,30 +87,27 @@ private extension OpalBase.CashTokens.BCMR.Client {
         from timeline: [SnapshotSelection],
         asOf: Date
     ) -> SnapshotSelection? {
-        let datedSnapshots = timeline.compactMap { selection -> (selection: SnapshotSelection, effectiveDate: Date)? in
-            guard let effectiveDate = effectiveDate(for: selection) else { return nil }
-            return (selection, effectiveDate)
-        }
-        .sorted {
-            if $0.effectiveDate == $1.effectiveDate {
-                return $0.selection.key < $1.selection.key
-            }
-            return $0.effectiveDate < $1.effectiveDate
+        let datedSnapshots = timeline.filter { $0.effectiveDate != nil }
+
+        if let latestReached = datedSnapshots.last(where: { selection in
+            guard let effectiveDate = selection.effectiveDate else { return false }
+            return effectiveDate <= asOf
+        }) {
+            return latestReached
         }
 
-        if let latestReached = datedSnapshots.last(where: { $0.effectiveDate <= asOf }) {
-            return latestReached.selection
-        }
-
-        if let oldestFuture = datedSnapshots.first(where: { $0.effectiveDate > asOf }) {
-            return oldestFuture.selection
+        if let oldestFuture = datedSnapshots.first(where: { selection in
+            guard let effectiveDate = selection.effectiveDate else { return false }
+            return effectiveDate > asOf
+        }) {
+            return oldestFuture
         }
 
         return timeline.last
     }
 
-    func effectiveDate(for selection: SnapshotSelection) -> Date? {
-        switch (selection.date, selection.migratedDate) {
+    func makeEffectiveDate(snapshotDate: Date?, migratedDate: Date?) -> Date? {
+        switch (snapshotDate, migratedDate) {
         case (.some(let date), .some(let migratedDate)):
             return max(date, migratedDate)
         case (.some(let date), .none):
@@ -126,9 +123,9 @@ private extension OpalBase.CashTokens.BCMR.Client {
         from timeline: [SnapshotSelection],
         before currentSnapshot: SnapshotSelection
     ) -> [SnapshotSelection] {
-        guard let currentDate = effectiveDate(for: currentSnapshot) else { return .init() }
+        guard let currentDate = currentSnapshot.effectiveDate else { return .init() }
         return timeline.filter { selection in
-            guard let date = effectiveDate(for: selection) else { return false }
+            guard let date = selection.effectiveDate else { return false }
             return date < currentDate
         }
     }
@@ -147,7 +144,7 @@ private extension OpalBase.CashTokens.BCMR.Client {
         let webURL = makeURL(from: selection.snapshot.uris?["web"])
         let registryURL = makeURL(from: selection.snapshot.uris?["registry"])
         let authbase = parseAuthbase(from: identity)
-        let lastUpdated = selection.date ?? Date.distantPast
+        let lastUpdated = selection.effectiveDate ?? Date.distantPast
 
         return OpalBase.CashTokens.Metadata(
             category: categoryIdentifier,

@@ -420,7 +420,7 @@ struct NetworkFulcrumTransactionReaderValidator {
 
 private actor TransactionReaderClientTestActor: OpalBase.Network.Fulcrum.TransactionReaderClient {
     private let rawTransactionHex: String
-    private let verboseTransaction: SwiftFulcrum.Response.Blockchain.Transaction.Get
+    private let verboseTransaction: SwiftFulcrum.Response.Blockchain.Transaction.Verbose
     private let rawError: Swift.Error?
     private let verboseError: Swift.Error?
     private var rawRequests: [String] = []
@@ -428,7 +428,7 @@ private actor TransactionReaderClientTestActor: OpalBase.Network.Fulcrum.Transac
 
     init(
         rawTransactionHex: String,
-        verboseTransaction: SwiftFulcrum.Response.Blockchain.Transaction.Get,
+        verboseTransaction: SwiftFulcrum.Response.Blockchain.Transaction.Verbose,
         rawError: Swift.Error? = nil,
         verboseError: Swift.Error? = nil
     ) {
@@ -452,7 +452,7 @@ private actor TransactionReaderClientTestActor: OpalBase.Network.Fulcrum.Transac
     func fetchVerboseTransaction(
         transactionHash: String,
         options _: SwiftFulcrum.Client.Call.Options
-    ) async throws -> SwiftFulcrum.Response.Blockchain.Transaction.Get {
+    ) async throws -> SwiftFulcrum.Response.Blockchain.Transaction.Verbose {
         verboseRequests.append(transactionHash)
         if let verboseError {
             throw verboseError
@@ -481,7 +481,7 @@ private struct TransactionFixture {
     let transactionHash: OpalBase.Transaction.Hash
     let rawTransactionData: Data
     let rawTransactionHexadecimal: String
-    let verboseResponse: SwiftFulcrum.Response.Blockchain.Transaction.Get
+    let verboseResponse: SwiftFulcrum.Response.Blockchain.Transaction.Verbose
     let blockHashData: Data
     let blockTime: UInt32
     let confirmations: UInt32
@@ -542,7 +542,7 @@ private struct TransactionFixture {
         confirmations: UInt32?,
         transactionTime: UInt32?,
         size: Int
-    ) throws -> SwiftFulcrum.Response.Blockchain.Transaction.Get {
+    ) throws -> SwiftFulcrum.Response.Blockchain.Transaction.Verbose {
         try makeVerboseResponseWithUnsignedMetadata(
             transactionHash: transactionHash,
             rawTransactionHexadecimal: rawTransactionHexadecimal,
@@ -562,7 +562,7 @@ private struct TransactionFixture {
         confirmations: UInt?,
         transactionTime: UInt?,
         size: Int
-    ) throws -> SwiftFulcrum.Response.Blockchain.Transaction.Get {
+    ) throws -> SwiftFulcrum.Response.Blockchain.Transaction.Verbose {
         var payload: [String: Any] = [
             "blockhash": blockHashHexadecimal,
             "hash": transactionHash,
@@ -607,7 +607,7 @@ private struct TransactionFixture {
         }
         let payloadData = try JSONSerialization.data(withJSONObject: payload)
         return try JSONDecoder().decode(
-            SwiftFulcrum.Response.Blockchain.Transaction.Get.self,
+            SwiftFulcrum.Response.Blockchain.Transaction.Verbose.self,
             from: payloadData
         )
     }

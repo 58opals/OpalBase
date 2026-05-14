@@ -84,7 +84,7 @@ extension _OpalBase.Account {
         }
 
         private static let valuePreservingOutputCount = 1
-        private static let minimumP2PKHOutputAmountSatoshis: UInt64 = 10_000
+        static let minimumP2PKHOutputAmountSatoshis: UInt64 = 10_000
 
         let addressBook: OpalBase.Address.Book
         let reservedInputs: [ReservedInput]

@@ -36,19 +36,19 @@ struct NetworkFulcrumClientFailoverValidator {
         try await NetworkTestClient.withClient(configuration: configuration) { client in
             try await client.reconnect()
             
-            let tip: SwiftFulcrum.Response.Blockchain.Headers.GetTip = try await client.request(
-                .blockchain.headers.getTip
+            let tip: SwiftFulcrum.Response.Blockchain.Headers.Tip = try await client.request(
+                SwiftFulcrum.API.blockchain.headers.tip
             )
             #expect(tip.height > 0)
             #expect(!tip.hex.isEmpty)
             
-            let balance: SwiftFulcrum.Response.Blockchain.Address.GetBalance = try await client.request(
-                .blockchain.address.getBalance(address: Self.sampleCashAddr, tokenFilter: .include)
+            let balance: SwiftFulcrum.Response.Blockchain.Address.Balance = try await client.request(
+                SwiftFulcrum.API.blockchain.address.balance(address: Self.sampleCashAddr, tokenFilter: .include)
             )
             _ = balance
 
-            let history: SwiftFulcrum.Response.Blockchain.Address.GetHistory = try await client.request(
-                .blockchain.address.getHistory(
+            let history: SwiftFulcrum.Response.Blockchain.Address.History = try await client.request(
+                SwiftFulcrum.API.blockchain.address.history(
                     address: Self.sampleCashAddr,
                     shouldIncludeUnconfirmed: true
                 )
@@ -73,21 +73,21 @@ struct NetworkFulcrumClientFailoverValidator {
         )
         
         try await NetworkTestClient.withClient(configuration: configuration) { client in
-            let tip: SwiftFulcrum.Response.Blockchain.Headers.GetTip = try await client.request(
-                .blockchain.headers.getTip
+            let tip: SwiftFulcrum.Response.Blockchain.Headers.Tip = try await client.request(
+                SwiftFulcrum.API.blockchain.headers.tip
             )
             #expect(tip.height > 0)
             #expect(!tip.hex.isEmpty)
             
-            let balance: SwiftFulcrum.Response.Blockchain.Address.GetBalance = try await client.request(
-                .blockchain.address.getBalance(address: Self.sampleCashAddr, tokenFilter: .include)
+            let balance: SwiftFulcrum.Response.Blockchain.Address.Balance = try await client.request(
+                SwiftFulcrum.API.blockchain.address.balance(address: Self.sampleCashAddr, tokenFilter: .include)
             )
             _ = balance
             
             try await client.reconnect()
             
-            let history: SwiftFulcrum.Response.Blockchain.Address.GetHistory = try await client.request(
-                .blockchain.address.getHistory(
+            let history: SwiftFulcrum.Response.Blockchain.Address.History = try await client.request(
+                SwiftFulcrum.API.blockchain.address.history(
                     address: Self.sampleCashAddr,
                     shouldIncludeUnconfirmed: true
                 )
@@ -112,13 +112,13 @@ struct NetworkFulcrumClientFailoverValidator {
         )
         
         try await NetworkTestClient.withClient(configuration: configuration) { client in
-            let balance: SwiftFulcrum.Response.Blockchain.Address.GetBalance = try await client.request(
-                .blockchain.address.getBalance(address: Self.sampleCashAddr, tokenFilter: .include)
+            let balance: SwiftFulcrum.Response.Blockchain.Address.Balance = try await client.request(
+                SwiftFulcrum.API.blockchain.address.balance(address: Self.sampleCashAddr, tokenFilter: .include)
             )
             _ = balance
             
-            let history: SwiftFulcrum.Response.Blockchain.Address.GetHistory = try await client.request(
-                .blockchain.address.getHistory(
+            let history: SwiftFulcrum.Response.Blockchain.Address.History = try await client.request(
+                SwiftFulcrum.API.blockchain.address.history(
                     address: Self.sampleCashAddr,
                     shouldIncludeUnconfirmed: true
                 )

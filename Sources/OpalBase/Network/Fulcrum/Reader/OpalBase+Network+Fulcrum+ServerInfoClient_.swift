@@ -23,7 +23,7 @@ extension _OpalBase.Network.Fulcrum {
 extension _OpalBase.Network.Fulcrum.Client: _OpalBase.Network.Fulcrum.ServerInfoClient {
     func pingServer(options: SwiftFulcrum.Client.Call.Options) async throws {
         _ = try await request(
-            .server.ping,
+            SwiftFulcrum.API.server.ping,
             options: options
         )
     }
@@ -34,21 +34,21 @@ extension _OpalBase.Network.Fulcrum.Client: _OpalBase.Network.Fulcrum.ServerInfo
         options: SwiftFulcrum.Client.Call.Options
     ) async throws -> SwiftFulcrum.Response.Server.Version {
         try await request(
-            .server.version(clientName: clientName, protocolNegotiation: protocolNegotiation),
+            SwiftFulcrum.API.server.version(clientName: clientName, protocolNegotiation: protocolNegotiation),
             options: options
         )
     }
 
     func fetchServerFeatures(options: SwiftFulcrum.Client.Call.Options) async throws -> SwiftFulcrum.Response.Server.Features {
         try await request(
-            .server.features,
+            SwiftFulcrum.API.server.features,
             options: options
         )
     }
 
     func fetchRelayFee(options: SwiftFulcrum.Client.Call.Options) async throws -> SwiftFulcrum.Response.Blockchain.RelayFee {
         try await request(
-            .blockchain.relayFee,
+            SwiftFulcrum.API.blockchain.relayFee,
             options: options
         )
     }
@@ -58,7 +58,7 @@ extension _OpalBase.Network.Fulcrum.Client: _OpalBase.Network.Fulcrum.ServerInfo
         options: SwiftFulcrum.Client.Call.Options
     ) async throws -> SwiftFulcrum.Response.Blockchain.EstimateFee {
         try await request(
-            .blockchain.estimateFee(numberOfBlocks: numberOfBlocks),
+            SwiftFulcrum.API.blockchain.estimateFee(numberOfBlocks: numberOfBlocks),
             options: options
         )
     }

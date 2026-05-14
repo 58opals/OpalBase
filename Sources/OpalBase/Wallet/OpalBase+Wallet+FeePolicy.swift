@@ -60,12 +60,6 @@ extension _OpalBase.Wallet {
                 self.preference = preference
                 self.targetConfirmationBlocks = targetConfirmationBlocks
             }
-            
-            func applyExplicitFeeRate(explicitFeeRate: UInt64) -> Override {
-                Override(explicitFeeRate: explicitFeeRate,
-                         preference: preference,
-                         targetConfirmationBlocks: targetConfirmationBlocks)
-            }
         }
         
         public struct EstimatorContext: Sendable {
@@ -99,7 +93,7 @@ extension _OpalBase.Wallet {
         public func recommendFeeRate(for context: RecommendationContext = .init(),
                                      override: Override? = nil) -> UInt64 {
             if let explicitFeeRate = override?.explicitFeeRate {
-                return explicitFeeRate
+                return resolveMinimumRelayFeeRate(explicitFeeRate)
             }
             
             let effectivePreference = override?.preference ?? preference
@@ -112,13 +106,13 @@ extension _OpalBase.Wallet {
                                                         preference: effectivePreference,
                                                         networkConditions: context.networkConditions)
                 if let estimatedRate = estimator(estimatorContext) {
-                    return estimatedRate
+                    return resolveMinimumRelayFeeRate(estimatedRate)
                 }
             }
             
             if let networkConditions = context.networkConditions,
                let networkRate = networkConditions.rate(for: effectivePreference) {
-                return networkRate
+                return resolveMinimumRelayFeeRate(networkRate)
             }
             
             return determineFallbackRate(for: effectivePreference)
@@ -151,16 +145,20 @@ private extension _OpalBase.Wallet.FeePolicy {
     func determineFallbackRate(for preference: Preference) -> UInt64 {
         switch preference {
         case .economy:
-            return defaultFeeRate
+            return resolveMinimumRelayFeeRate(defaultFeeRate)
         case .standard:
-            return multiplySafely(defaultFeeRate, by: 2)
+            return resolveMinimumRelayFeeRate(multiplySafely(defaultFeeRate, by: 2))
         case .priority:
-            return multiplySafely(defaultFeeRate, by: 3)
+            return resolveMinimumRelayFeeRate(multiplySafely(defaultFeeRate, by: 3))
         }
     }
     
     func multiplySafely(_ value: UInt64, by multiplier: UInt64) -> UInt64 {
         let (product, didOverflow) = value.multipliedReportingOverflow(by: multiplier)
         return didOverflow ? UInt64.max : product
+    }
+    
+    func resolveMinimumRelayFeeRate(_ feeRate: UInt64) -> UInt64 {
+        max(feeRate, OpalBase.Transaction.minimumRelayFeeRate)
     }
 }

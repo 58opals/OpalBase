@@ -187,6 +187,22 @@ struct ClaimableTransactionBuilderValidator {
             )
         }
     }
+    
+    @Test("rejects unspendable OP_RETURN sweep outputs")
+    func rejectsUnspendableOpReturnSweepOutputs() throws {
+        let (envelope, _) = try makeClaimableEnvelope(
+            expiryBlockHeight: 500,
+            fundingValue: 50_000
+        )
+        
+        #expect(throws: OpalBase.Claimable.Error.invalidDestinationOutput) {
+            try envelope.buildClaimTransaction(
+                destinationLockingScript: Data([ScriptOperationCode._RETURN.rawValue]),
+                feePerByte: 1,
+                currentBlockHeight: 499
+            )
+        }
+    }
 
     @Test("rejects funding value that cannot cover the fee")
     func rejectsFundingValueThatCannotCoverTheFee() throws {

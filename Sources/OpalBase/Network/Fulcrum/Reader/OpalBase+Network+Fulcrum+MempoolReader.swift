@@ -19,15 +19,7 @@ extension _OpalBase.Network.Fulcrum {
         
         public func fetchMempoolInfo() async throws -> OpalBase.Network.MempoolInfo {
             try await OpalBase.Network.performWithFailureTranslation {
-                let response: SwiftFulcrum.Response.Mempool.GetInfo
-                do {
-                    response = try await client.fetchMempoolInfo(options: .init(timeout: timeouts.mempoolInfo))
-                } catch {
-                    if let normalizedError = Self.normalizedMempoolInfoDecodeError(from: error) {
-                        throw normalizedError
-                    }
-                    throw error
-                }
+                let response = try await client.fetchMempoolInfo(options: .init(timeout: timeouts.mempoolInfo))
                 
                 return OpalBase.Network.MempoolInfo(
                     mempoolMinimumFee: try Self.validateMempoolInfoFeeRate(
@@ -66,53 +58,6 @@ extension _OpalBase.Network.Fulcrum {
                     return lhs.fee < rhs.fee
                 }
             }
-        }
-
-        private static func normalizedMempoolInfoDecodeError(
-            from error: Swift.Error
-        ) -> OpalBase.Network.Error? {
-            guard let fulcrumError = error as? SwiftFulcrum.Client.Error,
-                  case .coding(.decode(let underlying?)) = fulcrumError else {
-                return nil
-            }
-
-            let description = String(describing: underlying)
-            let fieldNames = [
-                ("mempoolminfee", "mempool minimum fee"),
-                ("minrelaytxfee", "minimum relay transaction fee"),
-                ("incrementalrelayfee", "incremental relay fee"),
-                ("unbroadcastcount", "unbroadcast count")
-            ]
-
-            for (wireField, displayField) in fieldNames {
-                guard let value = invalidMempoolInfoValue(
-                    in: description,
-                    wireField: wireField
-                ) else { continue }
-
-                return OpalBase.Network.Error(
-                    reason: .decoding,
-                    message: "Invalid \(displayField): \(value)"
-                )
-            }
-
-            return nil
-        }
-
-        private static func invalidMempoolInfoValue(
-            in description: String,
-            wireField: String
-        ) -> String? {
-            let marker = "Invalid \(wireField): "
-            guard let markerRange = description.range(of: marker) else { return nil }
-
-            var value = String(description[markerRange.upperBound...])
-            if value.hasSuffix("\")") {
-                value.removeLast(2)
-            } else if value.hasSuffix("\"") {
-                value.removeLast()
-            }
-            return value
         }
         
         private static func validateMempoolInfoFeeRate(_ feeRate: Double?, fieldName: String) throws -> Double? {

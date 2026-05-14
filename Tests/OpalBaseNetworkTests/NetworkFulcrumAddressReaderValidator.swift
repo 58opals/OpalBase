@@ -24,8 +24,8 @@ struct NetworkFulcrumAddressReaderValidator {
             let reader = OpalBase.Network.Fulcrum.AddressReader(client: client)
             let balance = try await reader.fetchBalance(for: Self.sampleCashAddr, tokenFilter: .include)
 
-            let rpcBalance: SwiftFulcrum.Response.Blockchain.Address.GetBalance = try await client.request(
-                .blockchain.address.getBalance(address: Self.sampleCashAddr, tokenFilter: .include)
+            let rpcBalance: SwiftFulcrum.Response.Blockchain.Address.Balance = try await client.request(
+                SwiftFulcrum.API.blockchain.address.balance(address: Self.sampleCashAddr, tokenFilter: .include)
             )
             #expect(rpcBalance.confirmed == balance.confirmed)
             #expect(rpcBalance.unconfirmed == balance.unconfirmed)
@@ -50,8 +50,8 @@ struct NetworkFulcrumAddressReaderValidator {
         try await NetworkTestClient.withClient(configuration: configuration) { client in
             let reader = OpalBase.Network.Fulcrum.AddressReader(client: client)
             let balance = try await reader.fetchBalance(for: Self.sampleCashAddr, tokenFilter: .include)
-            let rpcBalance: SwiftFulcrum.Response.Blockchain.Address.GetBalance = try await client.request(
-                .blockchain.address.getBalance(address: Self.sampleCashAddr, tokenFilter: .include)
+            let rpcBalance: SwiftFulcrum.Response.Blockchain.Address.Balance = try await client.request(
+                SwiftFulcrum.API.blockchain.address.balance(address: Self.sampleCashAddr, tokenFilter: .include)
             )
             #expect(rpcBalance.confirmed == balance.confirmed)
             #expect(rpcBalance.unconfirmed == balance.unconfirmed)
@@ -130,7 +130,7 @@ struct NetworkFulcrumAddressReaderValidator {
         try await NetworkTestClient.withClient(configuration: configuration) { client in
             let reader = OpalBase.Network.Fulcrum.AddressReader(client: client)
             let rawUnspent: SwiftFulcrum.Response.Blockchain.Address.ListUnspent = try await client.request(
-                .blockchain.address.listUnspent(address: Self.sampleCashAddr, tokenFilter: .include)
+                SwiftFulcrum.API.blockchain.address.listUnspent(address: Self.sampleCashAddr, tokenFilter: .include)
             )
 
             let walletUnspent = try await reader.fetchUnspentOutputs(for: Self.sampleCashAddr, tokenFilter: .include)

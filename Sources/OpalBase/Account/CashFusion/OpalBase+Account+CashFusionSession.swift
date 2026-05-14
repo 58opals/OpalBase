@@ -19,6 +19,7 @@ extension _OpalBase.Account {
         var hasStarted = false
         var hasStoppedWrappedSession = false
         var terminalOutcome: TerminalOutcome?
+        var successfulTerminalSnapshot: OpalFusion.Client.Session.Snapshot?
 
         init(
             reservation: CashFusionReservation,
@@ -68,6 +69,7 @@ extension _OpalBase.Account {
 
             switch round.completionStatus {
             case .success?:
+                successfulTerminalSnapshot = snapshot
                 await finalize(with: .success)
             case .none:
                 await finalize(with: .failed)

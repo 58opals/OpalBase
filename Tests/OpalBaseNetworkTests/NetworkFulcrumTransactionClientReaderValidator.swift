@@ -23,8 +23,8 @@ struct NetworkFulcrumTransactionClientReaderValidator {
         let configuration = OpalBase.Network.Configuration(serverURLs: [Self.primaryServerAddress, Self.backupServerAddress])
         try await NetworkTestClient.withClient(configuration: configuration) { client in
             let handler = OpalBase.Network.Fulcrum.TransactionClient(client: client)
-            let history: SwiftFulcrum.Response.Blockchain.Address.GetHistory = try await client.request(
-                .blockchain.address.getHistory(
+            let history: SwiftFulcrum.Response.Blockchain.Address.History = try await client.request(
+                SwiftFulcrum.API.blockchain.address.history(
                     address: Self.sampleCashAddr,
                     shouldIncludeUnconfirmed: true
                 )
@@ -36,8 +36,8 @@ struct NetworkFulcrumTransactionClientReaderValidator {
                 return
             }
 
-            let tip: SwiftFulcrum.Response.Blockchain.Headers.GetTip = try await client.request(
-                .blockchain.headers.getTip
+            let tip: SwiftFulcrum.Response.Blockchain.Headers.Tip = try await client.request(
+                SwiftFulcrum.API.blockchain.headers.tip
             )
 
             let confirmations = try await handler.fetchConfirmations(
@@ -66,14 +66,14 @@ struct NetworkFulcrumTransactionClientReaderValidator {
             let confirmedHistory = try await addressReader.fetchHistory(for: Self.sampleCashAddr, includeUnconfirmed: false)
             let confirmedEntry = try #require(confirmedHistory.first(where: { $0.blockHeight > 0 }))
 
-            let transactionHeight: SwiftFulcrum.Response.Blockchain.Transaction.GetHeight = try await client.request(
-                .blockchain.transaction.getHeight(transactionHash: confirmedEntry.transactionIdentifier)
+            let transactionHeight: SwiftFulcrum.Response.Blockchain.Transaction.Height = try await client.request(
+                SwiftFulcrum.API.blockchain.transaction.height(transactionHash: confirmedEntry.transactionIdentifier)
             )
             let resolvedTransactionHeight = try #require(transactionHeight.height)
             #expect(resolvedTransactionHeight == confirmedEntry.blockHeight)
 
-            let tipHeight: SwiftFulcrum.Response.Blockchain.Headers.GetTip = try await client.request(
-                .blockchain.headers.getTip
+            let tipHeight: SwiftFulcrum.Response.Blockchain.Headers.Tip = try await client.request(
+                SwiftFulcrum.API.blockchain.headers.tip
             )
 
             let transactionHash = try OpalBase.Network.decodeTransactionHash(from: confirmedEntry.transactionIdentifier)

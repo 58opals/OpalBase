@@ -58,6 +58,33 @@ struct AccountCashFusionReservationValidator {
             _ = try await account.prepareCashFusionReservation(request: request)
         }
     }
+    
+    @Test("explicit output amounts below the local minimum are rejected")
+    func explicitOutputAmountsBelowLocalMinimumAreRejected() async throws {
+        let account = try await AccountTestFixtures.makeAccount()
+        let selectedInput = try await CashFusionTestSupport.makeWalletOwnedUnspentOutput(
+            to: account,
+            value: 120_000,
+            usage: .change,
+            hashByte: 0xBA
+        )
+        let request = OpalBase.Account.CashFusionRequest(
+            selectedInputs: [selectedInput],
+            outputAmounts: [try OpalBase.Satoshi(9_999)]
+        )
+        
+        await #expect(
+            throws: OpalBase.Account.Error.cashFusionOutputAmountBelowMinimum(
+                minimum: 10_000,
+                actual: 9_999
+            )
+        ) {
+            _ = try await account.prepareCashFusionReservation(request: request)
+        }
+        
+        let addressBook = await account.addressBook
+        #expect(await addressBook.listSpendableUTXOs().contains(selectedInput))
+    }
 
     @Test("duplicate selected inputs are rejected before reservation")
     func duplicateSelectedInputsAreRejectedBeforeReservation() async throws {

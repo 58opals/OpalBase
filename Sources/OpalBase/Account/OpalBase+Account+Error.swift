@@ -16,6 +16,7 @@ extension _OpalBase.Account {
         case cashFusionHasNoOutputAmounts
         case cashFusionCannotSpendTokenUTXOs
         case cashFusionUnsupportedSelectedInputs
+        case cashFusionOutputAmountBelowMinimum(minimum: UInt64, actual: UInt64)
         case cashFusionReservationFailed(Swift.Error)
         case cashFusionOutputReservationFailed(Swift.Error)
         case paymentDoesNotSupportTokensUseTokenTransfer
@@ -34,6 +35,7 @@ extension _OpalBase.Account {
         case tokenGenesisCannotComputeDustThreshold(Swift.Error)
         case tokenGenesisTransactionBuildFailed(Swift.Error)
         case tokenGenesisBroadcastFailed(Swift.Error)
+        case tokenGenesisRecipientHasNoTokenData
         case tokenGenesisFungibleAmountIsZero
         case tokenGenesisNonFungibleTokenCommitmentTooLong(maximum: Int, actual: Int)
         case tokenMintHasNoRecipientsAndAuthorityReturnToWalletChange
@@ -71,6 +73,9 @@ extension _OpalBase.Account.Error: Equatable {
             (.paymentDoesNotSupportTokensUseTokenTransfer, .paymentDoesNotSupportTokensUseTokenTransfer),
             (.paymentCannotSpendTokenUTXOs, .paymentCannotSpendTokenUTXOs):
             return true
+        case (.cashFusionOutputAmountBelowMinimum(let leftMinimum, let leftActual),
+              .cashFusionOutputAmountBelowMinimum(let rightMinimum, let rightActual)):
+            return leftMinimum == rightMinimum && leftActual == rightActual
         case (.tokenSendRequiresTokenAwareAddress(let leftAddresses),
               .tokenSendRequiresTokenAwareAddress(let rightAddresses)):
             return leftAddresses == rightAddresses
@@ -80,6 +85,7 @@ extension _OpalBase.Account.Error: Equatable {
             (.tokenGenesisHasNoRecipients, .tokenGenesisHasNoRecipients),
             (.tokenGenesisNoEligibleGenesisInput, .tokenGenesisNoEligibleGenesisInput),
             (.tokenGenesisInvalidGenesisInput, .tokenGenesisInvalidGenesisInput),
+            (.tokenGenesisRecipientHasNoTokenData, .tokenGenesisRecipientHasNoTokenData),
             (.tokenGenesisFungibleAmountIsZero, .tokenGenesisFungibleAmountIsZero),
             (.tokenMintHasNoRecipientsAndAuthorityReturnToWalletChange,
              .tokenMintHasNoRecipientsAndAuthorityReturnToWalletChange),

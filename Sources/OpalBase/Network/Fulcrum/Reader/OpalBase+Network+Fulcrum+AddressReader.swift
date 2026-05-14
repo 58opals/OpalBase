@@ -17,7 +17,7 @@ extension _OpalBase.Network.Fulcrum {
             try await OpalBase.Network.performWithFailureTranslation {
                 _ = try validateAddress(address)
                 let result = try await client.request(
-                    .blockchain.address.getBalance(address: address, tokenFilter: tokenFilter.fulcrumTokenFilter),
+                    SwiftFulcrum.API.blockchain.address.balance(address: address, tokenFilter: tokenFilter.fulcrumTokenFilter),
                     options: .init(timeout: timeouts.addressBalance)
                 )
                 return OpalBase.Network.AddressBalance(confirmed: result.confirmed, unconfirmed: result.unconfirmed)
@@ -29,7 +29,7 @@ extension _OpalBase.Network.Fulcrum {
                 let lockingScriptData = try validateAddress(address).lockingScript.data
                 
                 let result = try await client.request(
-                    .blockchain.address.listUnspent(address: address, tokenFilter: tokenFilter.fulcrumTokenFilter),
+                    SwiftFulcrum.API.blockchain.address.listUnspent(address: address, tokenFilter: tokenFilter.fulcrumTokenFilter),
                     options: .init(timeout: timeouts.addressUnspent)
                 )
                 
@@ -59,7 +59,7 @@ extension _OpalBase.Network.Fulcrum {
             try await OpalBase.Network.performWithFailureTranslation {
                 _ = try validateAddress(address)
                 let result = try await client.request(
-                    .blockchain.address.getHistory(
+                    SwiftFulcrum.API.blockchain.address.history(
                         address: address,
                         shouldIncludeUnconfirmed: includeUnconfirmed
                     ),
@@ -79,7 +79,7 @@ extension _OpalBase.Network.Fulcrum {
             try await OpalBase.Network.performWithFailureTranslation {
                 _ = try validateAddress(address)
                 let result = try await client.request(
-                    .blockchain.address.getFirstUse(address: address),
+                    SwiftFulcrum.API.blockchain.address.firstUse(address: address),
                     options: .init(timeout: timeouts.addressFirstUse)
                 )
                 
@@ -95,7 +95,7 @@ extension _OpalBase.Network.Fulcrum {
             try await OpalBase.Network.performWithFailureTranslation {
                 _ = try validateAddress(address)
                 let result = try await client.request(
-                    .blockchain.address.getMempool(address: address),
+                    SwiftFulcrum.API.blockchain.address.mempool(address: address),
                     options: .init(timeout: timeouts.addressMempool)
                 )
                 
@@ -112,7 +112,7 @@ extension _OpalBase.Network.Fulcrum {
             try await OpalBase.Network.performWithFailureTranslation {
                 let validatedAddress = try validateAddress(address)
                 let result = try await client.request(
-                    .blockchain.address.getScriptHash(address: address),
+                    SwiftFulcrum.API.blockchain.address.scriptHash(address: address),
                     options: .init(timeout: timeouts.addressScriptHash)
                 )
                 return try Self.validateScriptHash(result.scriptHash, matches: validatedAddress)
@@ -123,7 +123,7 @@ extension _OpalBase.Network.Fulcrum {
             try await OpalBase.Network.performWithFailureTranslation {
                 _ = try validateAddress(address)
                 let (initial, updates, cancel) = try await client.subscribe(
-                    .blockchain.address.subscribe(address: address),
+                    SwiftFulcrum.API.blockchain.address.subscribe(address: address),
                     options: .init(timeout: timeouts.addressSubscription)
                 )
                 

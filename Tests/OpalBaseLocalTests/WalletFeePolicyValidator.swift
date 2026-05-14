@@ -92,5 +92,16 @@ struct WalletFeePolicyValidator {
         #expect(rate == UInt64.max)
     }
     
+    @Test("clamps zero fee recommendations to minimum relay rate")
+    func zeroFeeRecommendationsClampToMinimumRelayRate() {
+        let policy = OpalBase.Wallet.FeePolicy(defaultFeeRate: 0, preference: .economy) { _ in 0 }
+        let context = OpalBase.Wallet.FeePolicy.RecommendationContext(
+            networkConditions: .init(recommendedRates: [.economy: 0], fallbackRate: 0)
+        )
+        
+        #expect(policy.recommendFeeRate(override: .init(explicitFeeRate: 0)) == OpalBase.Transaction.minimumRelayFeeRate)
+        #expect(policy.recommendFeeRate(for: context) == OpalBase.Transaction.minimumRelayFeeRate)
+        #expect(OpalBase.Wallet.FeePolicy(defaultFeeRate: 0, estimator: nil).recommendFeeRate() == OpalBase.Transaction.minimumRelayFeeRate)
+    }
+    
 }
-

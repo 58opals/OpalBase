@@ -105,6 +105,14 @@ extension _OpalBase.Account {
             guard outputAmounts.allSatisfy({ $0.uint64 > 0 }) else {
                 throw Error.cashFusionHasNoOutputAmounts
             }
+            if let outputAmountBelowMinimum = outputAmounts.first(where: {
+                $0.uint64 < CashFusionReservation.minimumP2PKHOutputAmountSatoshis
+            }) {
+                throw Error.cashFusionOutputAmountBelowMinimum(
+                    minimum: CashFusionReservation.minimumP2PKHOutputAmountSatoshis,
+                    actual: outputAmountBelowMinimum.uint64
+                )
+            }
         case .valuePreserving:
             break
         }

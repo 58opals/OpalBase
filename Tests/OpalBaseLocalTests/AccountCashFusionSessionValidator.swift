@@ -595,6 +595,40 @@ struct AccountCashFusionSessionValidator {
         #expect(publicStatus.round?.completionStatus == .success)
         #expect(publicStatus.completedLocalOutputs == [recordedOutput])
     }
+    
+    @Test("makePublicStatus preserves terminal success after wrapped snapshot resets")
+    func makePublicStatusPreservesTerminalSuccessAfterWrappedSnapshotResets() async throws {
+        let roundIdentifier = "round-success-reset-output"
+        let fixture = try await makeSessionWithRecordedCompletedOutput(
+            roundIdentifier: roundIdentifier,
+            hashByte: 0xE8
+        )
+        let recordedOutput = try #require(fixture.completedLocalOutputs.first)
+        
+        await fixture.fakeSession.emit(
+            snapshot: CashFusionTestSupport.makeSnapshot(
+                identifier: roundIdentifier,
+                phase: .completed,
+                completionStatus: .success,
+                isConnected: true
+            )
+        )
+        await fixture.fakeSession.emit(
+            snapshot: .init(
+                state: .init(
+                    isConnected: false,
+                    round: nil
+                ),
+                diagnostics: .init(activity: .stopped)
+            )
+        )
+        
+        let publicStatus = await fixture.session.makePublicStatus()
+        
+        #expect(publicStatus.round?.identifier == roundIdentifier)
+        #expect(publicStatus.round?.completionStatus == .success)
+        #expect(publicStatus.completedLocalOutputs == [recordedOutput])
+    }
 
     @Test("makePublicStatus hides recorded local outputs for non-success statuses")
     func makePublicStatusHidesRecordedLocalOutputsForNonSuccessStatuses() async throws {
