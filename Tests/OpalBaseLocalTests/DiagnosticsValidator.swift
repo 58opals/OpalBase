@@ -100,6 +100,52 @@ struct DiagnosticsValidator {
         #expect(records.contains { $0.event == OpalBase.Diagnostics.Events.walletAccountCreateSucceeded })
     }
 
+    @Test("default diagnostic levels classify routine and outcome events")
+    func defaultDiagnosticLevelsClassifyRoutineAndOutcomeEvents() {
+        let records = OpalBase.Diagnostics.withConfiguration(diagnosticsConfiguration()) {
+            recordLevelFixtureDiagnostics()
+            return OpalBase.Diagnostics.recentRecords(category: OpalBase.Diagnostics.Categories.wallet) +
+                OpalBase.Diagnostics.recentRecords(category: OpalBase.Diagnostics.Categories.cashFusion)
+        }
+
+        #expect(records.first {
+            $0.event == OpalBase.Diagnostics.Events.walletCreateStarted
+        }?.level == .debug)
+        #expect(records.first {
+            $0.event == OpalBase.Diagnostics.Events.walletCreateSucceeded
+        }?.level == .debug)
+        #expect(records.first {
+            $0.event == OpalBase.Diagnostics.Events.walletCreateFailed
+        }?.level == .error)
+        #expect(records.first {
+            $0.event == OpalBase.Diagnostics.Events.cashFusionSessionFinalized
+        }?.level == .notice)
+
+        let noticeRecords = OpalBase.Diagnostics.withConfiguration(
+            diagnosticsConfiguration(minimumLevel: .notice)
+        ) {
+            recordLevelFixtureDiagnostics()
+            return OpalBase.Diagnostics.recentRecords
+        }
+        let visibleEvents = Set(noticeRecords.map { $0.event })
+
+        #expect(!visibleEvents.contains(OpalBase.Diagnostics.Events.walletCreateStarted))
+        #expect(!visibleEvents.contains(OpalBase.Diagnostics.Events.walletCreateSucceeded))
+        #expect(visibleEvents.contains(OpalBase.Diagnostics.Events.walletCreateFailed))
+        #expect(visibleEvents.contains(OpalBase.Diagnostics.Events.cashFusionSessionFinalized))
+    }
+
+    @Test("Fulcrum logging toggle suppresses OpalBase network diagnostics", .timeLimit(.minutes(1)))
+    func fulcrumLoggingToggleSuppressesOpalBaseNetworkDiagnostics() async {
+        let enabledRecords = await failedFulcrumStartupBridgeRecords(isLoggingEnabled: true)
+        #expect(enabledRecords.contains {
+            $0.event == OpalBase.Diagnostics.Events.networkFulcrumClientFailed
+        })
+
+        let disabledRecords = await failedFulcrumStartupBridgeRecords(isLoggingEnabled: false)
+        #expect(disabledRecords.isEmpty)
+    }
+
     @Test("wallet operations propagate trace IDs into lower diagnostics")
     func walletOperationsPropagateTraceIDsIntoLowerDiagnostics() async throws {
         let traceID = OpalBase.Diagnostics.TraceID()
@@ -572,13 +618,74 @@ struct DiagnosticsValidator {
 }
 
 private func diagnosticsConfiguration(
+    minimumLevel: OpalBase.Diagnostics.Level = .debug,
     categoryFilter: OpalBase.Diagnostics.CategoryFilter = .all
 ) -> OpalBase.Diagnostics.Configuration {
     OpalBase.Diagnostics.Configuration(
-        minimumLevel: .debug,
+        minimumLevel: minimumLevel,
         categoryFilter: categoryFilter,
         bufferPolicy: .enabled(capacity: 512)
     )
+}
+
+private func recordLevelFixtureDiagnostics() {
+    OpalBaseDiagnostics.record(
+        OpalBase.Diagnostics.Events.walletCreateStarted,
+        category: OpalBase.Diagnostics.Categories.wallet
+    )
+    OpalBaseDiagnostics.record(
+        OpalBase.Diagnostics.Events.walletCreateSucceeded,
+        category: OpalBase.Diagnostics.Categories.wallet
+    )
+    OpalBaseDiagnostics.record(
+        OpalBase.Diagnostics.Events.walletCreateFailed,
+        category: OpalBase.Diagnostics.Categories.wallet
+    )
+    OpalBaseDiagnostics.record(
+        OpalBase.Diagnostics.Events.cashFusionSessionFinalized,
+        category: OpalBase.Diagnostics.Categories.cashFusion
+    )
+}
+
+private func failedFulcrumStartupBridgeRecords(
+    isLoggingEnabled: Bool
+) async -> [OpalBase.Diagnostics.Record] {
+    await OpalBase.Diagnostics.withConfiguration(diagnosticsConfiguration()) {
+        let configuration = OpalBase.Network.Configuration(
+            serverURLs: [URL(string: "ws://127.0.0.1:1")!],
+            serverCatalog: .init(mainnetServers: [], chipnetServers: [], testnetServers: []),
+            connectTimeout: .milliseconds(50),
+            reconnect: .init(
+                maximumAttempts: 1,
+                initialDelay: .milliseconds(1),
+                maximumDelay: .milliseconds(1),
+                jitterMultiplierRange: 1.0 ... 1.0
+            )
+        )
+
+        do {
+            _ = try await OpalBase.Network.Fulcrum.Client(
+                configuration: configuration,
+                metrics: OpalBase.Network.Metrics(),
+                isLoggingEnabled: isLoggingEnabled
+            )
+            Issue.record("Expected Fulcrum client startup to fail against a closed local port.")
+        } catch {
+            // Expected: the local closed port gives the client a deterministic startup failure.
+        }
+
+        return OpalBase.Diagnostics.recentRecords.filter(isOpalBaseNetworkBridgeRecord)
+    }
+}
+
+private func isOpalBaseNetworkBridgeRecord(_ record: OpalBase.Diagnostics.Record) -> Bool {
+    guard record.category == OpalBase.Diagnostics.Categories.network else { return false }
+    return [
+        OpalBase.Diagnostics.Events.networkFulcrumClientStarted,
+        OpalBase.Diagnostics.Events.networkFulcrumClientFailed,
+        OpalBase.Diagnostics.Events.networkDiagnosticsSnapshotRecorded,
+        OpalBase.Diagnostics.Events.networkDiagnosticsSubscriptionsRecorded
+    ].contains(record.event)
 }
 
 private func makeDiagnosticsHedgeFundingRequest(

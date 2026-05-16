@@ -8,6 +8,7 @@ extension _OpalBase.Network.Fulcrum {
         private static let fallbackDiagnosticsURL = URL(string: "wss://fulcrum.invalid")!
 
         private let fulcrum: SwiftFulcrum.Client
+        private let isLoggingEnabled: Bool
         public let configuration: OpalBase.Network.Configuration
         private var diagnosticsURL: URL {
             configuration.serverURLs.first ?? Self.fallbackDiagnosticsURL
@@ -20,7 +21,8 @@ extension _OpalBase.Network.Fulcrum {
             isLoggingEnabled: Bool = true
         ) async throws {
             self.configuration = configuration
-            _ = (logger, isLoggingEnabled)
+            self.isLoggingEnabled = isLoggingEnabled
+            _ = logger
             let diagnosticsURL = configuration.serverURLs.first ?? Self.fallbackDiagnosticsURL
             
             let reconnectConfiguration = SwiftFulcrum.Client.Configuration.ReconnectPolicy(
@@ -44,16 +46,18 @@ extension _OpalBase.Network.Fulcrum {
                 do {
                     let fulcrum = try await SwiftFulcrum.Client(configuration: fulcrumConfiguration)
                     try await fulcrum.start()
-                    OpalBaseDiagnostics.record(
-                        OpalBase.Diagnostics.Events.networkFulcrumClientStarted,
-                        category: OpalBase.Diagnostics.Categories.network,
-                        fields: [
-                            OpalBaseDiagnostics.operationField("fulcrum_client_start"),
-                            OpalBaseDiagnostics.moduleField(),
-                            OpalBaseDiagnostics.networkField(configuration.network)
-                        ]
-                    )
-                    if let metrics {
+                    if isLoggingEnabled {
+                        OpalBaseDiagnostics.record(
+                            OpalBase.Diagnostics.Events.networkFulcrumClientStarted,
+                            category: OpalBase.Diagnostics.Categories.network,
+                            fields: [
+                                OpalBaseDiagnostics.operationField("fulcrum_client_start"),
+                                OpalBaseDiagnostics.moduleField(),
+                                OpalBaseDiagnostics.networkField(configuration.network)
+                            ]
+                        )
+                    }
+                    if isLoggingEnabled, let metrics {
                         let snapshot = OpalBase.Network.DiagnosticsSnapshot(await fulcrum.makeDiagnosticsSnapshot())
                         await metrics.recordDiagnosticsSnapshot(url: diagnosticsURL, snapshot: snapshot)
                         await metrics.recordSubscriptionRegistryUpdate(
@@ -63,15 +67,17 @@ extension _OpalBase.Network.Fulcrum {
                     }
                     return fulcrum
                 } catch {
-                    OpalBaseDiagnostics.record(
-                        OpalBase.Diagnostics.Events.networkFulcrumClientFailed,
-                        category: OpalBase.Diagnostics.Categories.network,
-                        fields: [
-                            OpalBaseDiagnostics.operationField("fulcrum_client_start"),
-                            OpalBaseDiagnostics.moduleField(),
-                            OpalBaseDiagnostics.networkField(configuration.network)
-                        ] + OpalBaseDiagnostics.errorFields(for: error)
-                    )
+                    if isLoggingEnabled {
+                        OpalBaseDiagnostics.record(
+                            OpalBase.Diagnostics.Events.networkFulcrumClientFailed,
+                            category: OpalBase.Diagnostics.Categories.network,
+                            fields: [
+                                OpalBaseDiagnostics.operationField("fulcrum_client_start"),
+                                OpalBaseDiagnostics.moduleField(),
+                                OpalBaseDiagnostics.networkField(configuration.network)
+                            ] + OpalBaseDiagnostics.errorFields(for: error)
+                        )
+                    }
                     throw error
                 }
             }
@@ -92,24 +98,28 @@ extension _OpalBase.Network.Fulcrum {
 
         public func makeDiagnosticsSnapshot() async -> OpalBase.Network.DiagnosticsSnapshot {
             let snapshot = OpalBase.Network.DiagnosticsSnapshot(await fulcrum.makeDiagnosticsSnapshot())
-            OpalBaseDiagnostics.record(
-                OpalBase.Diagnostics.Events.networkDiagnosticsSnapshotRecorded,
-                category: OpalBase.Diagnostics.Categories.network,
-                fields: OpalBaseDiagnostics.networkDiagnosticsFields(snapshot: snapshot)
-            )
+            if isLoggingEnabled {
+                OpalBaseDiagnostics.record(
+                    OpalBase.Diagnostics.Events.networkDiagnosticsSnapshotRecorded,
+                    category: OpalBase.Diagnostics.Categories.network,
+                    fields: OpalBaseDiagnostics.networkDiagnosticsFields(snapshot: snapshot)
+                )
+            }
             return snapshot
         }
 
         public func listDiagnosticsSubscriptions() async -> [OpalBase.Network.DiagnosticsSubscription] {
             let subscriptions = await fulcrum.listSubscriptions().map(OpalBase.Network.DiagnosticsSubscription.init)
-            OpalBaseDiagnostics.record(
-                OpalBase.Diagnostics.Events.networkDiagnosticsSubscriptionsRecorded,
-                category: OpalBase.Diagnostics.Categories.network,
-                fields: OpalBaseDiagnostics.networkSubscriptionFields(
-                    subscriptions: subscriptions,
-                    operation: "list_network_diagnostics_subscriptions"
+            if isLoggingEnabled {
+                OpalBaseDiagnostics.record(
+                    OpalBase.Diagnostics.Events.networkDiagnosticsSubscriptionsRecorded,
+                    category: OpalBase.Diagnostics.Categories.network,
+                    fields: OpalBaseDiagnostics.networkSubscriptionFields(
+                        subscriptions: subscriptions,
+                        operation: "list_network_diagnostics_subscriptions"
+                    )
                 )
-            )
+            }
             return subscriptions
         }
         

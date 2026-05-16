@@ -162,7 +162,13 @@ enum OpalBaseDiagnostics {
     }
 
     private static func defaultLevel(for event: OpalDiagnostics.Event) -> OpalDiagnostics.Level {
-        event.rawValue.hasSuffix(".failed") ? .error : .notice
+        if event.rawValue.hasSuffix(".failed") {
+            return .error
+        }
+        if event.rawValue.hasSuffix(".started") || event.rawValue.hasSuffix(".succeeded") {
+            return .debug
+        }
+        return .notice
     }
 
     private static func errorCode(for error: OpalBase.Wallet.Error) -> String {
