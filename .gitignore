@@ -12,4 +12,3 @@ configuration/registries.json
 # Machine-local files
 .DS_Store
 .netrc
-Package.resolved

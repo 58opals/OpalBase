@@ -70,7 +70,7 @@ struct NetworkFulcrumTransactionProofReaderValidator {
     @Test("rejects malformed merkle proof branch hashes")
     func fetchMerkleProofRejectsMalformedBranchHashes() async throws {
         let client = TransactionProofClientTestActor(
-            merkleResponse: try Self.makeMerkleResponse(merkle: ["aa"]),
+            merkleResponse: try Self.makeMerkleResponse(merkle: [String(repeating: "g", count: 64)]),
             heightResponse: try Self.makeHeightResponse(blockHeight: 12)
         )
         let reader = OpalBase.Network.Fulcrum.TransactionProofReader(client: client)
@@ -80,9 +80,9 @@ struct NetworkFulcrumTransactionProofReaderValidator {
         }
 
         #expect(failure.reason == .protocolViolation)
-        #expect(failure.message?.contains("Merkle proof branch hash length") == true)
+        #expect(failure.message == "Cannot decode merkle proof branch hash at index 0.")
         
-        let prefixedHash = "0x\(String(repeating: "a", count: 64))"
+        let prefixedHash = "0x\(String(repeating: "a", count: 62))"
         let prefixedClient = TransactionProofClientTestActor(
             merkleResponse: try Self.makeMerkleResponse(merkle: [prefixedHash]),
             heightResponse: try Self.makeHeightResponse(blockHeight: 12)
@@ -116,7 +116,7 @@ struct NetworkFulcrumTransactionProofReaderValidator {
     @Test("rejects malformed transaction identifiers from position resolution")
     func fetchTransactionIdentifierRejectsMalformedIdentifier() async throws {
         let client = TransactionProofClientTestActor(
-            identifierResponse: try Self.makeIdentifierResponse(transactionHash: "aa")
+            identifierResponse: try Self.makeIdentifierResponse(transactionHash: String(repeating: "g", count: 64))
         )
         let reader = OpalBase.Network.Fulcrum.TransactionProofReader(client: client)
 
@@ -129,7 +129,7 @@ struct NetworkFulcrumTransactionProofReaderValidator {
         }
 
         #expect(failure.reason == .decoding)
-        #expect(failure.message?.contains("Invalid position transaction identifier length") == true)
+        #expect(failure.message?.contains("Cannot decode position transaction identifier") == true)
     }
 }
 

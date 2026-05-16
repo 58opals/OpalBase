@@ -1,0 +1,60 @@
+{
+  "originHash" : "fb57b2e45f94348690c5e8254b8d4ac0e90d8cc33a49d6d64bc656f0fb29cd55",
+  "pins" : [
+    {
+      "identity" : "opalcrypto",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/58opals/OpalCrypto.git",
+      "state" : {
+        "branch" : "develop",
+        "revision" : "bfc09d71358ceb5a5fa80bc2ee83c2b0165440ef"
+      }
+    },
+    {
+      "identity" : "opaldiagnostics",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/58opals/OpalDiagnostics.git",
+      "state" : {
+        "branch" : "develop",
+        "revision" : "81aa6b4d758afcb91bc5bd7d75032c6d96ccbedb"
+      }
+    },
+    {
+      "identity" : "opalfusion",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/58opals/OpalFusion.git",
+      "state" : {
+        "branch" : "develop",
+        "revision" : "6526b2f6738f8e6d0130f4062999f652d3b8e1a6"
+      }
+    },
+    {
+      "identity" : "opalhedge",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/58opals/OpalHedge.git",
+      "state" : {
+        "branch" : "develop",
+        "revision" : "e02394da88ab6ad42eaca978fed49a1dfae1f253"
+      }
+    },
+    {
+      "identity" : "swift-protobuf",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/apple/swift-protobuf.git",
+      "state" : {
+        "branch" : "main",
+        "revision" : "f6506eaa86ed2e01cb0ae14a75035b7fdbf0918f"
+      }
+    },
+    {
+      "identity" : "swiftfulcrum",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/58opals/SwiftFulcrum.git",
+      "state" : {
+        "branch" : "develop",
+        "revision" : "fa72478af769f22b0f167833fb2413e8bebbc002"
+      }
+    }
+  ],
+  "version" : 3
+}
