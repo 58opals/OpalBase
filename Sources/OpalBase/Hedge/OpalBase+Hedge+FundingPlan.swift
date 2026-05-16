@@ -47,11 +47,47 @@ extension _OpalBase.Hedge {
             signatureFormat: OpalBase.Transaction.SignatureFormat = .schnorr,
             unlockers: [OpalBase.Transaction.Output.Unspent: OpalBase.Transaction.Unlocker] = .init()
         ) throws -> FundingReview {
-            let result = try spendPlan.buildTransaction(
-                signatureFormat: signatureFormat,
-                unlockers: unlockers
-            )
-            return try makeReview(from: result)
+            try OpalBase.Diagnostics.withTraceID {
+                let traceID = OpalBase.Diagnostics.currentTraceID ?? OpalBase.Diagnostics.TraceID()
+                return try OpalBaseHedgeDiagnostics.withTraceID(traceID) {
+                    let fields = [
+                        OpalBaseDiagnostics.operationField("hedge_funding_build"),
+                        OpalBaseDiagnostics.moduleField(),
+                        OpalBaseDiagnostics.networkField(network)
+                    ]
+                    OpalBaseDiagnostics.record(
+                        OpalBase.Diagnostics.Events.hedgeFundingBuildStarted,
+                        category: OpalBase.Diagnostics.Categories.hedge,
+                        fields: fields
+                    )
+                    do {
+                        let result = try spendPlan.buildTransaction(
+                            signatureFormat: signatureFormat,
+                            unlockers: unlockers
+                        )
+                        let review = try makeReview(from: result)
+                        OpalBaseDiagnostics.record(
+                            OpalBase.Diagnostics.Events.hedgeFundingBuildSucceeded,
+                            category: OpalBase.Diagnostics.Categories.hedge,
+                            fields: fields + [
+                                OpalBaseDiagnostics.publicField(OpalBase.Diagnostics.Fields.outputCount, review.transaction.outputs.count),
+                                OpalBaseDiagnostics.publicField(OpalBase.Diagnostics.Fields.byteCount, review.rawTransactionByteCount)
+                            ]
+                        )
+                        return review
+                    } catch {
+                        OpalBaseDiagnostics.record(
+                            OpalBase.Diagnostics.Events.hedgeFundingBuildFailed,
+                            category: OpalBase.Diagnostics.Categories.hedge,
+                            fields: fields + OpalBaseDiagnostics.errorFields(
+                                for: error,
+                                fallback: OpalBase.Diagnostics.ErrorCodes.hedgeFundingFailed
+                            )
+                        )
+                        throw error
+                    }
+                }
+            }
         }
 
         public func buildTransaction(
@@ -73,17 +109,52 @@ extension _OpalBase.Hedge {
             review: FundingReview,
             fundingRecord: FundingRecord
         ) {
-            let broadcast = try await spendPlan.buildAndBroadcast(
-                via: handler,
-                signatureFormat: signatureFormat,
-                unlockers: unlockers
-            )
-            let review = try makeReview(from: broadcast.result)
-            let fundingRecord = try makeFundingRecord(
-                fundingTransactionHash: broadcast.hash,
-                fundingOutputIndex: review.fundingOutputIndex
-            )
-            return (broadcast.hash, review, fundingRecord)
+            try await OpalBase.Diagnostics.withTraceID {
+                let traceID = OpalBase.Diagnostics.currentTraceID ?? OpalBase.Diagnostics.TraceID()
+                return try await OpalBaseHedgeDiagnostics.withTraceID(traceID) {
+                    let fields = [
+                        OpalBaseDiagnostics.operationField("hedge_funding_broadcast"),
+                        OpalBaseDiagnostics.moduleField(),
+                        OpalBaseDiagnostics.networkField(network)
+                    ]
+                    OpalBaseDiagnostics.record(
+                        OpalBase.Diagnostics.Events.hedgeFundingBroadcastStarted,
+                        category: OpalBase.Diagnostics.Categories.hedge,
+                        fields: fields
+                    )
+                    do {
+                        let broadcast = try await spendPlan.buildAndBroadcast(
+                            via: handler,
+                            signatureFormat: signatureFormat,
+                            unlockers: unlockers
+                        )
+                        let review = try makeReview(from: broadcast.result)
+                        let fundingRecord = try makeFundingRecord(
+                            fundingTransactionHash: broadcast.hash,
+                            fundingOutputIndex: review.fundingOutputIndex
+                        )
+                        OpalBaseDiagnostics.record(
+                            OpalBase.Diagnostics.Events.hedgeFundingBroadcastSucceeded,
+                            category: OpalBase.Diagnostics.Categories.hedge,
+                            fields: fields + [
+                                OpalBaseDiagnostics.publicField(OpalBase.Diagnostics.Fields.outputCount, review.transaction.outputs.count),
+                                OpalBaseDiagnostics.publicField(OpalBase.Diagnostics.Fields.byteCount, review.rawTransactionByteCount)
+                            ]
+                        )
+                        return (broadcast.hash, review, fundingRecord)
+                    } catch {
+                        OpalBaseDiagnostics.record(
+                            OpalBase.Diagnostics.Events.hedgeFundingBroadcastFailed,
+                            category: OpalBase.Diagnostics.Categories.hedge,
+                            fields: fields + OpalBaseDiagnostics.errorFields(
+                                for: error,
+                                fallback: OpalBase.Diagnostics.ErrorCodes.hedgeFundingFailed
+                            )
+                        )
+                        throw error
+                    }
+                }
+            }
         }
 
         func buildAndBroadcast(
@@ -168,4 +239,3 @@ extension _OpalBase.Hedge {
         }
     }
 }
-

@@ -51,10 +51,24 @@ extension _OpalBase.Network {
         }
 
         func recordDiagnosticsSnapshot(url: URL, snapshot: DiagnosticsSnapshot) async {
+            OpalBaseDiagnostics.record(
+                OpalBase.Diagnostics.Events.networkDiagnosticsSnapshotRecorded,
+                category: OpalBase.Diagnostics.Categories.network,
+                fields: OpalBaseDiagnostics.networkDiagnosticsFields(url: url, snapshot: snapshot)
+            )
             await recordDiagnosticsSnapshotHandler(url, snapshot)
         }
 
         func recordSubscriptionRegistryUpdate(url: URL, subscriptions: [DiagnosticsSubscription]) async {
+            OpalBaseDiagnostics.record(
+                OpalBase.Diagnostics.Events.networkDiagnosticsSubscriptionsRecorded,
+                category: OpalBase.Diagnostics.Categories.network,
+                fields: [
+                    OpalBaseDiagnostics.operationField("record_network_diagnostics_subscriptions"),
+                    OpalBaseDiagnostics.moduleField(),
+                    OpalBaseDiagnostics.publicField("active_subscription_count", subscriptions.count)
+                ]
+            )
             await recordSubscriptionRegistryUpdateHandler(url, subscriptions)
         }
     }

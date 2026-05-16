@@ -15,6 +15,7 @@ extension _OpalBase.Account {
         let reservation: CashFusionReservation
         let wrappedSession: any CashFusionWrappedSession
         let observerSink: CashFusionObserverSink
+        let traceID: OpalBase.Diagnostics.TraceID
 
         var hasStarted = false
         var hasStoppedWrappedSession = false
@@ -24,20 +25,32 @@ extension _OpalBase.Account {
         init(
             reservation: CashFusionReservation,
             wrappedSession: any CashFusionWrappedSession,
-            observerSink: CashFusionObserverSink
+            observerSink: CashFusionObserverSink,
+            traceID: OpalBase.Diagnostics.TraceID
         ) {
             self.reservation = reservation
             self.wrappedSession = wrappedSession
             self.observerSink = observerSink
+            self.traceID = traceID
         }
 
         public func start() async {
-            guard terminalOutcome == nil, hasStarted == false else {
-                return
-            }
+            await OpalBase.Diagnostics.withTraceID(traceID) {
+                guard terminalOutcome == nil, hasStarted == false else {
+                    return
+                }
 
-            hasStarted = true
-            await wrappedSession.start()
+                hasStarted = true
+                OpalBaseDiagnostics.record(
+                    OpalBase.Diagnostics.Events.cashFusionSessionStarted,
+                    category: OpalBase.Diagnostics.Categories.cashFusion,
+                    fields: [
+                        OpalBaseDiagnostics.operationField("cash_fusion_session_start"),
+                        OpalBaseDiagnostics.moduleField()
+                    ]
+                )
+                await wrappedSession.start()
+            }
         }
 
         public func stop() async {
@@ -86,23 +99,47 @@ extension _OpalBase.Account {
         }
 
         private func finalize(with outcome: TerminalOutcome) async {
-            guard terminalOutcome == nil else {
-                return
-            }
-
-            terminalOutcome = outcome
-            await observerSink.unbind()
-            await stopWrappedSessionIfNeeded()
-
-            do {
-                switch outcome {
-                case .success:
-                    try await reservation.complete()
-                case .stopped, .failed:
-                    try await reservation.cancel()
+            await OpalBase.Diagnostics.withTraceID(traceID) {
+                guard terminalOutcome == nil else {
+                    return
                 }
-            } catch {
-                assertionFailure("CashFusion reservation cleanup failed: \(error)")
+
+                terminalOutcome = outcome
+                await observerSink.unbind()
+                await stopWrappedSessionIfNeeded()
+
+                do {
+                    switch outcome {
+                    case .success:
+                        try await reservation.complete()
+                    case .stopped, .failed:
+                        try await reservation.cancel()
+                    }
+                    OpalBaseDiagnostics.record(
+                        OpalBase.Diagnostics.Events.cashFusionSessionFinalized,
+                        category: OpalBase.Diagnostics.Categories.cashFusion,
+                        fields: [
+                            OpalBaseDiagnostics.operationField("cash_fusion_session_finalize"),
+                            OpalBaseDiagnostics.moduleField(),
+                            OpalBaseDiagnostics.publicField(OpalBase.Diagnostics.Fields.outcome, outcome.diagnosticsName)
+                        ]
+                    )
+                } catch {
+                    OpalBaseDiagnostics.record(
+                        OpalBase.Diagnostics.Events.cashFusionSessionFinalized,
+                        category: OpalBase.Diagnostics.Categories.cashFusion,
+                        level: .error,
+                        fields: [
+                            OpalBaseDiagnostics.operationField("cash_fusion_session_finalize"),
+                            OpalBaseDiagnostics.moduleField(),
+                            OpalBaseDiagnostics.publicField(OpalBase.Diagnostics.Fields.outcome, outcome.diagnosticsName)
+                        ] + OpalBaseDiagnostics.errorFields(
+                            for: error,
+                            fallback: OpalBase.Diagnostics.ErrorCodes.cashFusionSessionFailed
+                        )
+                    )
+                    assertionFailure("CashFusion reservation cleanup failed: \(error)")
+                }
             }
         }
 
@@ -113,6 +150,19 @@ extension _OpalBase.Account {
 
             hasStoppedWrappedSession = true
             await wrappedSession.stop()
+        }
+    }
+}
+
+private extension _OpalBase.Account.CashFusionSession.TerminalOutcome {
+    var diagnosticsName: String {
+        switch self {
+        case .success:
+            return "success"
+        case .stopped:
+            return "stopped"
+        case .failed:
+            return "failed"
         }
     }
 }

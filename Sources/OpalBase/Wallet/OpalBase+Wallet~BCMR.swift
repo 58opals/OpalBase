@@ -10,47 +10,107 @@ extension _OpalBase.Wallet {
         categories: Set<OpalBase.CashTokens.CategoryID>? = nil,
         registryFetcher: OpalBase.CashTokens.BCMR.Client.Fetcher? = nil
     ) async throws {
-        let targetCategories = try await resolveTokenCategories(from: categories)
-        guard !targetCategories.isEmpty else { return }
-        let metadataByCategory = await withTaskGroup(
-            of: [OpalBase.CashTokens.CategoryID: OpalBase.CashTokens.Metadata].self
-        ) { group in
-            for category in targetCategories {
-                group.addTask {
-                    let registries = Self.makeMetadataRegistries(
-                        transactionReader: transactionReader,
-                        addressReader: addressReader,
-                        scriptHashReader: scriptHashReader,
-                        registryFetcher: registryFetcher
+        try await OpalBase.Diagnostics.withTraceID {
+            OpalBaseDiagnostics.record(
+                OpalBase.Diagnostics.Events.tokenMetadataSyncStarted,
+                category: OpalBase.Diagnostics.Categories.tokenMetadata,
+                fields: [
+                    OpalBaseDiagnostics.operationField("token_metadata_sync"),
+                    OpalBaseDiagnostics.moduleField()
+                ]
+            )
+
+            do {
+                let targetCategories = try await resolveTokenCategories(from: categories)
+                guard !targetCategories.isEmpty else {
+                    OpalBaseDiagnostics.record(
+                        OpalBase.Diagnostics.Events.tokenMetadataSyncSucceeded,
+                        category: OpalBase.Diagnostics.Categories.tokenMetadata,
+                        fields: [
+                            OpalBaseDiagnostics.operationField("token_metadata_sync"),
+                            OpalBaseDiagnostics.moduleField(),
+                            OpalBaseDiagnostics.publicField(OpalBase.Diagnostics.Fields.tokenCategoryCount, 0),
+                            OpalBaseDiagnostics.publicField(OpalBase.Diagnostics.Fields.tokenMetadataCount, 0)
+                        ]
                     )
-                    let authbase = OpalBase.Transaction.Hash(naturalOrder: category.transactionOrderData)
-                    do {
-                        let registry = try await registries.resolveChainRegistry(authbase: authbase)
-                        let metadata = registries.extractTokenMetadata(
-                            from: registry.registry,
-                            source: .chain(authbase)
-                        )
-                        return Self.applyDefaultRegistryURL(
-                            registry.registryFetchResult?.finalURL,
-                            to: metadata
-                        )
-                    } catch {
-                        return .init()
+                    return
+                }
+                let metadataByCategory = await withTaskGroup(
+                    of: [OpalBase.CashTokens.CategoryID: OpalBase.CashTokens.Metadata].self
+                ) { group in
+                    for category in targetCategories {
+                        group.addTask {
+                            let registries = Self.makeMetadataRegistries(
+                                transactionReader: transactionReader,
+                                addressReader: addressReader,
+                                scriptHashReader: scriptHashReader,
+                                registryFetcher: registryFetcher
+                            )
+                            let authbase = OpalBase.Transaction.Hash(naturalOrder: category.transactionOrderData)
+                            do {
+                                let registry = try await registries.resolveChainRegistry(authbase: authbase)
+                                let metadata = registries.extractTokenMetadata(
+                                    from: registry.registry,
+                                    source: .chain(authbase)
+                                )
+                                return Self.applyDefaultRegistryURL(
+                                    registry.registryFetchResult?.finalURL,
+                                    to: metadata
+                                )
+                            } catch {
+                                return .init()
+                            }
+                        }
+                    }
+
+                    var aggregatedMetadata: [OpalBase.CashTokens.CategoryID: OpalBase.CashTokens.Metadata] = .init()
+                    for await registryMetadata in group {
+                        aggregatedMetadata.merge(registryMetadata) { current, _ in current }
+                    }
+                    return aggregatedMetadata.filter { category, _ in
+                        targetCategories.contains(category)
                     }
                 }
-            }
-            
-            var aggregatedMetadata: [OpalBase.CashTokens.CategoryID: OpalBase.CashTokens.Metadata] = .init()
-            for await registryMetadata in group {
-                aggregatedMetadata.merge(registryMetadata) { current, _ in current }
-            }
-            return aggregatedMetadata.filter { category, _ in
-                targetCategories.contains(category)
+
+                guard !metadataByCategory.isEmpty else {
+                    OpalBaseDiagnostics.record(
+                        OpalBase.Diagnostics.Events.tokenMetadataSyncSucceeded,
+                        category: OpalBase.Diagnostics.Categories.tokenMetadata,
+                        fields: [
+                            OpalBaseDiagnostics.operationField("token_metadata_sync"),
+                            OpalBaseDiagnostics.moduleField(),
+                            OpalBaseDiagnostics.publicField(OpalBase.Diagnostics.Fields.tokenCategoryCount, targetCategories.count),
+                            OpalBaseDiagnostics.publicField(OpalBase.Diagnostics.Fields.tokenMetadataCount, 0)
+                        ]
+                    )
+                    return
+                }
+                await tokenMetadataStore.upsert(metadataByCategory)
+                OpalBaseDiagnostics.record(
+                    OpalBase.Diagnostics.Events.tokenMetadataSyncSucceeded,
+                    category: OpalBase.Diagnostics.Categories.tokenMetadata,
+                    fields: [
+                        OpalBaseDiagnostics.operationField("token_metadata_sync"),
+                        OpalBaseDiagnostics.moduleField(),
+                        OpalBaseDiagnostics.publicField(OpalBase.Diagnostics.Fields.tokenCategoryCount, targetCategories.count),
+                        OpalBaseDiagnostics.publicField(OpalBase.Diagnostics.Fields.tokenMetadataCount, metadataByCategory.count)
+                    ]
+                )
+            } catch {
+                OpalBaseDiagnostics.record(
+                    OpalBase.Diagnostics.Events.tokenMetadataSyncFailed,
+                    category: OpalBase.Diagnostics.Categories.tokenMetadata,
+                    fields: [
+                        OpalBaseDiagnostics.operationField("token_metadata_sync"),
+                        OpalBaseDiagnostics.moduleField()
+                    ] + OpalBaseDiagnostics.errorFields(
+                        for: error,
+                        fallback: OpalBase.Diagnostics.ErrorCodes.tokenMetadataSyncFailed
+                    )
+                )
+                throw error
             }
         }
-        
-        guard !metadataByCategory.isEmpty else { return }
-        await tokenMetadataStore.upsert(metadataByCategory)
     }
 }
 

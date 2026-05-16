@@ -48,21 +48,50 @@ extension OpalBase {
             account: OpalBase.Key.DerivationPath.Account,
             privacyConfiguration: PrivacyShaperActor.Configuration = .standard
         ) async throws {
-            let addressBook = try await OpalBase.Address.Book(
-                rootExtendedPrivateKey: rootExtendedPrivateKey,
-                purpose: purpose,
-                coinType: coinType,
-                account: account
-            )
+            let fields = [
+                OpalBaseDiagnostics.operationField("account_create"),
+                OpalBaseDiagnostics.moduleField(),
+                OpalBaseDiagnostics.accountIndexField(account.unhardenedIndex)
+            ]
+            let traceID = OpalBase.Diagnostics.currentTraceID ?? OpalBase.Diagnostics.TraceID()
+            do {
+                let addressBook = try await OpalBase.Diagnostics.withTraceID(traceID) {
+                    OpalBaseDiagnostics.record(
+                        OpalBase.Diagnostics.Events.accountCreateStarted,
+                        category: OpalBase.Diagnostics.Categories.account,
+                        fields: fields
+                    )
+                    return try await OpalBase.Address.Book(
+                        rootExtendedPrivateKey: rootExtendedPrivateKey,
+                        purpose: purpose,
+                        coinType: coinType,
+                        account: account
+                    )
+                }
 
-            try self.init(
-                rootExtendedPrivateKey: rootExtendedPrivateKey,
-                purpose: purpose,
-                coinType: coinType,
-                account: account,
-                addressBook: addressBook,
-                privacyConfiguration: privacyConfiguration
-            )
+                try self.init(
+                    rootExtendedPrivateKey: rootExtendedPrivateKey,
+                    purpose: purpose,
+                    coinType: coinType,
+                    account: account,
+                    addressBook: addressBook,
+                    privacyConfiguration: privacyConfiguration
+                )
+                OpalBaseDiagnostics.record(
+                    OpalBase.Diagnostics.Events.accountCreateSucceeded,
+                    category: OpalBase.Diagnostics.Categories.account,
+                    traceID: traceID,
+                    fields: fields
+                )
+            } catch {
+                OpalBaseDiagnostics.record(
+                    OpalBase.Diagnostics.Events.accountCreateFailed,
+                    category: OpalBase.Diagnostics.Categories.account,
+                    traceID: traceID,
+                    fields: fields + OpalBaseDiagnostics.errorFields(for: error)
+                )
+                throw error
+            }
         }
 
         init(
@@ -147,7 +176,37 @@ extension _OpalBase.Account {
     /// Selects the next derived address for the requested usage without exposing
     /// the underlying address-book entry.
     public func selectNextDerivedAddress(for usage: OpalBase.Key.DerivationPath.Usage) async throws -> DerivedAddress {
-        try await DerivedAddress(selectNextEntry(for: usage))
+        try await OpalBase.Diagnostics.withTraceID {
+            let fields = [
+                OpalBaseDiagnostics.operationField("address_select"),
+                OpalBaseDiagnostics.moduleField(),
+                OpalBaseDiagnostics.usageField(usage)
+            ]
+            OpalBaseDiagnostics.record(
+                OpalBase.Diagnostics.Events.addressSelectStarted,
+                category: OpalBase.Diagnostics.Categories.addressBook,
+                fields: fields
+            )
+            do {
+                let address = try await DerivedAddress(selectNextEntry(for: usage))
+                OpalBaseDiagnostics.record(
+                    OpalBase.Diagnostics.Events.addressSelectSucceeded,
+                    category: OpalBase.Diagnostics.Categories.addressBook,
+                    fields: fields
+                )
+                return address
+            } catch {
+                OpalBaseDiagnostics.record(
+                    OpalBase.Diagnostics.Events.addressSelectFailed,
+                    category: OpalBase.Diagnostics.Categories.addressBook,
+                    fields: fields + OpalBaseDiagnostics.errorFields(
+                        for: error,
+                        fallback: OpalBase.Diagnostics.ErrorCodes.addressReservationFailed
+                    )
+                )
+                throw error
+            }
+        }
     }
 
     func selectNextEntry(for usage: OpalBase.Key.DerivationPath.Usage) async throws -> OpalBase.Address.Book.Entry {

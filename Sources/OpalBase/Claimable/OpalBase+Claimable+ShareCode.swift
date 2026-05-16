@@ -10,20 +10,58 @@ extension _OpalBase.Claimable {
         private static let base32Alphabet = Array("ABCDEFGHIJKLMNOPQRSTUVWXYZ234567")
 
         public static func encode(envelope: OpalBase.Claimable.Envelope) throws -> String {
-            [
-                prefix,
-                version,
-                networkToken(for: envelope.contract.network),
-                encodeBase32(envelope.encode())
-            ].joined(separator: String(separator))
+            OpalBase.Diagnostics.withTraceID {
+                let code = [
+                    prefix,
+                    version,
+                    networkToken(for: envelope.contract.network),
+                    encodeBase32(envelope.encode())
+                ].joined(separator: String(separator))
+                OpalBaseDiagnostics.record(
+                    OpalBase.Diagnostics.Events.claimableShareCodeEncoded,
+                    category: OpalBase.Diagnostics.Categories.claimable,
+                    fields: [
+                        OpalBaseDiagnostics.operationField("claimable_share_code_encode"),
+                        OpalBaseDiagnostics.moduleField(),
+                        OpalBaseDiagnostics.networkField(envelope.contract.network),
+                        OpalBaseDiagnostics.publicField(OpalBase.Diagnostics.Fields.byteCount, code.utf8.count)
+                    ]
+                )
+                return code
+            }
         }
 
         public static func decode(_ text: String) throws -> OpalBase.Claimable.Envelope {
-            let parsedCode = try parse(text)
-            return try OpalBase.Claimable.Envelope.decode(
-                from: parsedCode.envelopeData,
-                on: parsedCode.network
-            )
+            try OpalBase.Diagnostics.withTraceID {
+                let fields = [
+                    OpalBaseDiagnostics.operationField("claimable_share_code_decode"),
+                    OpalBaseDiagnostics.moduleField(),
+                    OpalBaseDiagnostics.publicField(OpalBase.Diagnostics.Fields.byteCount, text.utf8.count)
+                ]
+                do {
+                    let parsedCode = try parse(text)
+                    let envelope = try OpalBase.Claimable.Envelope.decode(
+                        from: parsedCode.envelopeData,
+                        on: parsedCode.network
+                    )
+                    OpalBaseDiagnostics.record(
+                        OpalBase.Diagnostics.Events.claimableShareCodeDecodeSucceeded,
+                        category: OpalBase.Diagnostics.Categories.claimable,
+                        fields: fields + [OpalBaseDiagnostics.networkField(parsedCode.network)]
+                    )
+                    return envelope
+                } catch {
+                    OpalBaseDiagnostics.record(
+                        OpalBase.Diagnostics.Events.claimableShareCodeDecodeFailed,
+                        category: OpalBase.Diagnostics.Categories.claimable,
+                        fields: fields + OpalBaseDiagnostics.errorFields(
+                            for: error,
+                            fallback: OpalBase.Diagnostics.ErrorCodes.claimableInvalidShareCode
+                        )
+                    )
+                    throw error
+                }
+            }
         }
 
         public static func decodeEnvelopeData(_ text: String) throws -> Data {

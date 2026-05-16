@@ -20,7 +20,8 @@ let package = Package(
         .package(url: "https://github.com/58opals/SwiftFulcrum.git", branch: "develop"),
         .package(url: "https://github.com/58opals/OpalCrypto.git", branch: "develop"),
         .package(url: "https://github.com/58opals/OpalFusion.git", branch: "develop"),
-        .package(url: "https://github.com/58opals/OpalHedge.git", branch: "develop")
+        .package(url: "https://github.com/58opals/OpalHedge.git", branch: "develop"),
+        .package(url: "https://github.com/58opals/OpalDiagnostics.git", branch: "develop")
     ],
     targets: [
         .target(name: "OpalBase",
@@ -32,7 +33,8 @@ let package = Package(
                         package: "OpalFusion",
                         condition: .when(platforms: [.macOS])
                     ),
-                    .product(name: "OpalHedge", package: "OpalHedge")
+                    .product(name: "OpalHedge", package: "OpalHedge"),
+                    .product(name: "OpalDiagnostics", package: "OpalDiagnostics")
                 ]
                ),
         .target(

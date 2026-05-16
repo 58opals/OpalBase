@@ -21,31 +21,58 @@ extension _OpalBase.Account {
         request: OpalBase.Account.CashFusionRequest,
         sessionFactory: CashFusionWrappedSessionFactory
     ) async throws -> OpalBase.Account.CashFusionSession {
-        let reservation = try await prepareCashFusionReservation(request: request)
-        let participantReservationSource = CashFusionParticipantReservationSource(
-            reservation: reservation
-        )
-        let transactionAssembler = CashFusionTransactionAssembler(
-            reservation: reservation
-        )
-        let observerSink = CashFusionObserverSink()
-        let wrappedSession = await sessionFactory(
-            configuration.makeClientConfiguration(),
-            configuration.genesisHash,
-            configuration.joinPools.makeJoinPools(),
-            participantReservationSource,
-            transactionAssembler,
-            nil,
-            observerSink,
-            .walletDefault
-        )
-        let session = CashFusionSession(
-            reservation: reservation,
-            wrappedSession: wrappedSession,
-            observerSink: observerSink
-        )
-        await observerSink.bind(to: session)
-        return session
+        try await OpalBase.Diagnostics.withTraceID {
+            let traceID = OpalBase.Diagnostics.currentTraceID ?? OpalBase.Diagnostics.TraceID()
+            let fields = [
+                OpalBaseDiagnostics.operationField("cash_fusion_session_prepare"),
+                OpalBaseDiagnostics.moduleField(),
+                OpalBaseDiagnostics.publicField(OpalBase.Diagnostics.Fields.inputCount, request.selectedInputs.count)
+            ]
+            do {
+                let reservation = try await prepareCashFusionReservation(request: request)
+                let participantReservationSource = CashFusionParticipantReservationSource(
+                    reservation: reservation
+                )
+                let transactionAssembler = CashFusionTransactionAssembler(
+                    reservation: reservation
+                )
+                let observerSink = CashFusionObserverSink()
+                let wrappedSession = await sessionFactory(
+                    configuration.makeClientConfiguration(),
+                    configuration.genesisHash,
+                    configuration.joinPools.makeJoinPools(),
+                    participantReservationSource,
+                    transactionAssembler,
+                    nil,
+                    observerSink,
+                    .walletDefault
+                )
+                let session = CashFusionSession(
+                    reservation: reservation,
+                    wrappedSession: wrappedSession,
+                    observerSink: observerSink,
+                    traceID: traceID
+                )
+                await observerSink.bind(to: session)
+                OpalBaseDiagnostics.record(
+                    OpalBase.Diagnostics.Events.cashFusionSessionPrepared,
+                    category: OpalBase.Diagnostics.Categories.cashFusion,
+                    fields: fields
+                )
+                return session
+            } catch {
+                OpalBaseDiagnostics.record(
+                    OpalBase.Diagnostics.Events.cashFusionSessionPrepareFailed,
+                    category: OpalBase.Diagnostics.Categories.cashFusion,
+                    level: .error,
+                    fields: fields + OpalBaseDiagnostics.errorFields(
+                        for: error,
+                        fallback: OpalBase.Diagnostics.ErrorCodes.cashFusionReservationFailed
+                    )
+                )
+                throw error
+            }
+        }
     }
 
     func prepareCashFusionReservation(

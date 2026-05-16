@@ -15,7 +15,7 @@ extension _OpalBase.Network.Fulcrum {
             isLoggingEnabled: Bool = true
         ) async throws {
             self.configuration = configuration
-            _ = (metrics, logger, isLoggingEnabled)
+            _ = (logger, isLoggingEnabled)
             
             let reconnectConfiguration = SwiftFulcrum.Client.Configuration.ReconnectPolicy(
                 maximumReconnectionAttempts: configuration.reconnectConfiguration.maximumAttempts,
@@ -34,8 +34,41 @@ extension _OpalBase.Network.Fulcrum {
                 network: configuration.network.fulcrumNetwork
             )
             
-            self.fulcrum = try await SwiftFulcrum.Client(configuration: fulcrumConfiguration)
-            try await self.fulcrum.start()
+            self.fulcrum = try await OpalBase.Diagnostics.withTraceID {
+                do {
+                    let fulcrum = try await SwiftFulcrum.Client(configuration: fulcrumConfiguration)
+                    try await fulcrum.start()
+                    OpalBaseDiagnostics.record(
+                        OpalBase.Diagnostics.Events.networkFulcrumClientStarted,
+                        category: OpalBase.Diagnostics.Categories.network,
+                        fields: [
+                            OpalBaseDiagnostics.operationField("fulcrum_client_start"),
+                            OpalBaseDiagnostics.moduleField(),
+                            OpalBaseDiagnostics.networkField(configuration.network)
+                        ]
+                    )
+                    if let metrics {
+                        let snapshot = OpalBase.Network.DiagnosticsSnapshot(await fulcrum.makeDiagnosticsSnapshot())
+                        await metrics.recordDiagnosticsSnapshot(url: configuration.serverURLs.first ?? URL(string: "wss://fulcrum.invalid")!, snapshot: snapshot)
+                        await metrics.recordSubscriptionRegistryUpdate(
+                            url: configuration.serverURLs.first ?? URL(string: "wss://fulcrum.invalid")!,
+                            subscriptions: await fulcrum.listSubscriptions().map(OpalBase.Network.DiagnosticsSubscription.init)
+                        )
+                    }
+                    return fulcrum
+                } catch {
+                    OpalBaseDiagnostics.record(
+                        OpalBase.Diagnostics.Events.networkFulcrumClientFailed,
+                        category: OpalBase.Diagnostics.Categories.network,
+                        fields: [
+                            OpalBaseDiagnostics.operationField("fulcrum_client_start"),
+                            OpalBaseDiagnostics.moduleField(),
+                            OpalBaseDiagnostics.networkField(configuration.network)
+                        ] + OpalBaseDiagnostics.errorFields(for: error)
+                    )
+                    throw error
+                }
+            }
         }
         
         deinit {
@@ -49,6 +82,30 @@ extension _OpalBase.Network.Fulcrum {
         
         public func reconnect() async throws {
             try await fulcrum.reconnect()
+        }
+
+        public func makeDiagnosticsSnapshot() async -> OpalBase.Network.DiagnosticsSnapshot {
+            let snapshot = OpalBase.Network.DiagnosticsSnapshot(await fulcrum.makeDiagnosticsSnapshot())
+            OpalBaseDiagnostics.record(
+                OpalBase.Diagnostics.Events.networkDiagnosticsSnapshotRecorded,
+                category: OpalBase.Diagnostics.Categories.network,
+                fields: OpalBaseDiagnostics.networkDiagnosticsFields(url: configuration.serverURLs.first ?? URL(string: "wss://fulcrum.invalid")!, snapshot: snapshot)
+            )
+            return snapshot
+        }
+
+        public func listDiagnosticsSubscriptions() async -> [OpalBase.Network.DiagnosticsSubscription] {
+            let subscriptions = await fulcrum.listSubscriptions().map(OpalBase.Network.DiagnosticsSubscription.init)
+            OpalBaseDiagnostics.record(
+                OpalBase.Diagnostics.Events.networkDiagnosticsSubscriptionsRecorded,
+                category: OpalBase.Diagnostics.Categories.network,
+                fields: [
+                    OpalBaseDiagnostics.operationField("list_network_diagnostics_subscriptions"),
+                    OpalBaseDiagnostics.moduleField(),
+                    OpalBaseDiagnostics.publicField("active_subscription_count", subscriptions.count)
+                ]
+            )
+            return subscriptions
         }
         
         func request<Result: Decodable & Sendable>(

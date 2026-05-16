@@ -202,16 +202,44 @@ extension _OpalBase.Hedge {
         fundingIndex: Int = 0,
         network: OpalBase.Network.Environment = .mainnet
     ) throws -> FundingRecord {
-        let dataDocument = try OpalHedge.Core.ContractDataDocument(
-            jsonText: dataDocumentJSON
-        )
-        let record = try OpalHedge.Client.Context()
-            .createAnyHedgeContractFundingRecord(
-                from: dataDocument,
-                fundingIndex: fundingIndex,
-                network: opalHedgeNetwork(for: network)
-            )
-        return try makeFundingRecord(from: record, network: network)
+        try OpalBase.Diagnostics.withTraceID {
+            let traceID = OpalBase.Diagnostics.currentTraceID ?? OpalBase.Diagnostics.TraceID()
+            return try OpalBaseHedgeDiagnostics.withTraceID(traceID) {
+                let fields = [
+                    OpalBaseDiagnostics.operationField("hedge_funding_record_make"),
+                    OpalBaseDiagnostics.moduleField(),
+                    OpalBaseDiagnostics.networkField(network)
+                ]
+                do {
+                    let dataDocument = try OpalHedge.Core.ContractDataDocument(
+                        jsonText: dataDocumentJSON
+                    )
+                    let record = try OpalHedge.Client.Context()
+                        .createAnyHedgeContractFundingRecord(
+                            from: dataDocument,
+                            fundingIndex: fundingIndex,
+                            network: opalHedgeNetwork(for: network)
+                        )
+                    let fundingRecord = try makeFundingRecord(from: record, network: network)
+                    OpalBaseDiagnostics.record(
+                        OpalBase.Diagnostics.Events.hedgeFundingBuildSucceeded,
+                        category: OpalBase.Diagnostics.Categories.hedge,
+                        fields: fields
+                    )
+                    return fundingRecord
+                } catch {
+                    OpalBaseDiagnostics.record(
+                        OpalBase.Diagnostics.Events.hedgeFundingBuildFailed,
+                        category: OpalBase.Diagnostics.Categories.hedge,
+                        fields: fields + OpalBaseDiagnostics.errorFields(
+                            for: error,
+                            fallback: OpalBase.Diagnostics.ErrorCodes.hedgeFundingFailed
+                        )
+                    )
+                    throw error
+                }
+            }
+        }
     }
 
     public static func makeSettlementSummary(
@@ -222,47 +250,80 @@ extension _OpalBase.Hedge {
         settlementTransactionHash: OpalBase.Transaction.Hash,
         network: OpalBase.Network.Environment = .mainnet
     ) throws -> SettlementSummary {
-        let dataDocument = try OpalHedge.Core.ContractDataDocument(
-            jsonText: fundingDataDocumentJSON
-        )
-        let fundingRecord = try OpalHedge.Client.Context()
-            .createAnyHedgeContractFundingRecord(
-                from: dataDocument,
-                fundingIndex: fundingIndex,
-                network: opalHedgeNetwork(for: network)
-            )
-        try validateSettlementOraclePublicKey(
-            fundingRecord.draftData.parameters.oraclePublicKeyHex,
-            matches: previousOracleProof
-        )
-        try validateSettlementOraclePublicKey(
-            fundingRecord.draftData.parameters.oraclePublicKeyHex,
-            matches: settlementOracleProof
-        )
-        let previousProof = try OpalHedge.Oracle.verifySettlementOracleProof(
-            messageHex: previousOracleProof.messageHex,
-            signatureHex: previousOracleProof.signatureHex,
-            publicKeyHex: previousOracleProof.publicKeyHex
-        )
-        let settlementProof = try OpalHedge.Oracle.verifySettlementOracleProof(
-            messageHex: settlementOracleProof.messageHex,
-            signatureHex: settlementOracleProof.signatureHex,
-            publicKeyHex: settlementOracleProof.publicKeyHex
-        )
-        let settlementRecord = try fundingRecord
-            .createSettlementRequest(
-                previousOracleProof: previousProof,
-                settlementOracleProof: settlementProof
-            )
-            .createSettlementRecord(
-                settlementTransactionHash: settlementTransactionHash.reverseOrder
-                    .hexadecimalString
-            )
+        try OpalBase.Diagnostics.withTraceID {
+            let traceID = OpalBase.Diagnostics.currentTraceID ?? OpalBase.Diagnostics.TraceID()
+            return try OpalBaseHedgeDiagnostics.withTraceID(traceID) {
+                let fields = [
+                    OpalBaseDiagnostics.operationField("hedge_settlement_summary_make"),
+                    OpalBaseDiagnostics.moduleField(),
+                    OpalBaseDiagnostics.networkField(network)
+                ]
+                OpalBaseDiagnostics.record(
+                    OpalBase.Diagnostics.Events.hedgeSettlementResolveStarted,
+                    category: OpalBase.Diagnostics.Categories.hedge,
+                    fields: fields
+                )
+                do {
+                    let dataDocument = try OpalHedge.Core.ContractDataDocument(
+                        jsonText: fundingDataDocumentJSON
+                    )
+                    let fundingRecord = try OpalHedge.Client.Context()
+                        .createAnyHedgeContractFundingRecord(
+                            from: dataDocument,
+                            fundingIndex: fundingIndex,
+                            network: opalHedgeNetwork(for: network)
+                        )
+                    try validateSettlementOraclePublicKey(
+                        fundingRecord.draftData.parameters.oraclePublicKeyHex,
+                        matches: previousOracleProof
+                    )
+                    try validateSettlementOraclePublicKey(
+                        fundingRecord.draftData.parameters.oraclePublicKeyHex,
+                        matches: settlementOracleProof
+                    )
+                    let previousProof = try OpalHedge.Oracle.verifySettlementOracleProof(
+                        messageHex: previousOracleProof.messageHex,
+                        signatureHex: previousOracleProof.signatureHex,
+                        publicKeyHex: previousOracleProof.publicKeyHex
+                    )
+                    let settlementProof = try OpalHedge.Oracle.verifySettlementOracleProof(
+                        messageHex: settlementOracleProof.messageHex,
+                        signatureHex: settlementOracleProof.signatureHex,
+                        publicKeyHex: settlementOracleProof.publicKeyHex
+                    )
+                    let settlementRecord = try fundingRecord
+                        .createSettlementRequest(
+                            previousOracleProof: previousProof,
+                            settlementOracleProof: settlementProof
+                        )
+                        .createSettlementRecord(
+                            settlementTransactionHash: settlementTransactionHash.reverseOrder
+                                .hexadecimalString
+                        )
 
-        return try makeSettlementSummary(
-            from: settlementRecord.settlementSummary,
-            network: network
-        )
+                    let summary = try makeSettlementSummary(
+                        from: settlementRecord.settlementSummary,
+                        network: network
+                    )
+                    OpalBaseDiagnostics.record(
+                        OpalBase.Diagnostics.Events.hedgeSettlementResolveSucceeded,
+                        category: OpalBase.Diagnostics.Categories.hedge,
+                        fields: fields
+                    )
+                    return summary
+                } catch {
+                    OpalBaseDiagnostics.record(
+                        OpalBase.Diagnostics.Events.hedgeSettlementResolveFailed,
+                        category: OpalBase.Diagnostics.Categories.hedge,
+                        fields: fields + OpalBaseDiagnostics.errorFields(
+                            for: error,
+                            fallback: OpalBase.Diagnostics.ErrorCodes.hedgeSettlementFailed
+                        )
+                    )
+                    throw error
+                }
+            }
+        }
     }
 
     static func validateSettlementOraclePublicKey(

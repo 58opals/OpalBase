@@ -6,10 +6,38 @@ import Foundation
 extension _OpalBase.Account {
     public func broadcast(_ transaction: OpalBase.Transaction,
                           via handler: OpalBase.Network.TransactionClient) async throws -> OpalBase.Transaction.Hash {
-        do {
-            return try await handler.broadcast(transaction: transaction)
-        } catch {
-            throw OpalBase.Account.Error.broadcastFailed(error)
+        try await OpalBase.Diagnostics.withTraceID {
+            let fields = [
+                OpalBaseDiagnostics.operationField("transaction_broadcast"),
+                OpalBaseDiagnostics.moduleField(),
+                OpalBaseDiagnostics.publicField(OpalBase.Diagnostics.Fields.inputCount, transaction.inputs.count),
+                OpalBaseDiagnostics.publicField(OpalBase.Diagnostics.Fields.outputCount, transaction.outputs.count)
+            ]
+            OpalBaseDiagnostics.record(
+                OpalBase.Diagnostics.Events.transactionBroadcastStarted,
+                category: OpalBase.Diagnostics.Categories.transaction,
+                fields: fields
+            )
+            do {
+                let hash = try await handler.broadcast(transaction: transaction)
+                OpalBaseDiagnostics.record(
+                    OpalBase.Diagnostics.Events.transactionBroadcastSucceeded,
+                    category: OpalBase.Diagnostics.Categories.transaction,
+                    fields: fields
+                )
+                return hash
+            } catch {
+                let accountError = OpalBase.Account.Error.broadcastFailed(error)
+                OpalBaseDiagnostics.record(
+                    OpalBase.Diagnostics.Events.transactionBroadcastFailed,
+                    category: OpalBase.Diagnostics.Categories.transaction,
+                    fields: fields + OpalBaseDiagnostics.errorFields(
+                        for: accountError,
+                        fallback: OpalBase.Diagnostics.ErrorCodes.accountBroadcastFailed
+                    )
+                )
+                throw accountError
+            }
         }
     }
     

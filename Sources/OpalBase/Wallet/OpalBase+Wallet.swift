@@ -21,19 +21,54 @@ extension OpalBase {
                     passphrase: String = "",
                     purpose: OpalBase.Key.DerivationPath.Purpose = .bip44,
                     coinType: OpalBase.Key.DerivationPath.CoinType = .bitcoinCash) throws {
+            let rootContext = try OpalBase.Diagnostics.withTraceID {
+                OpalBaseDiagnostics.record(
+                    OpalBase.Diagnostics.Events.walletCreateStarted,
+                    category: OpalBase.Diagnostics.Categories.wallet,
+                    fields: [
+                        OpalBaseDiagnostics.operationField("wallet_create"),
+                        OpalBaseDiagnostics.moduleField()
+                    ]
+                )
+
+                do {
+                    let rootExtendedPrivateKey = try OpalCrypto.Key.ExtendedPrivate.root(
+                        seed: OpalCrypto.Key.Seed(rawRepresentation: mnemonic.deriveSeed(passphrase: passphrase))
+                    )
+                    let id = [
+                        OpalCryptoAdapter.serializedExtendedKeyData(rootExtendedPrivateKey.serialize()),
+                        purpose.hardenedIndex.data,
+                        coinType.hardenedIndex.data,
+                    ].generateID()
+                    OpalBaseDiagnostics.record(
+                        OpalBase.Diagnostics.Events.walletCreateSucceeded,
+                        category: OpalBase.Diagnostics.Categories.wallet,
+                        fields: [
+                            OpalBaseDiagnostics.operationField("wallet_create"),
+                            OpalBaseDiagnostics.moduleField()
+                        ]
+                    )
+                    return (rootExtendedPrivateKey: rootExtendedPrivateKey, id: id)
+                } catch {
+                    OpalBaseDiagnostics.record(
+                        OpalBase.Diagnostics.Events.walletCreateFailed,
+                        category: OpalBase.Diagnostics.Categories.wallet,
+                        fields: [
+                            OpalBaseDiagnostics.operationField("wallet_create"),
+                            OpalBaseDiagnostics.moduleField()
+                        ] + OpalBaseDiagnostics.errorFields(for: error)
+                    )
+                    throw error
+                }
+            }
+
             self.mnemonic = mnemonic
             self.passphrase = passphrase
             self.tokenMetadataStore = OpalBase.CashTokens.MetadataRepository()
-            self.rootExtendedPrivateKey = try OpalCrypto.Key.ExtendedPrivate.root(
-                seed: OpalCrypto.Key.Seed(rawRepresentation: mnemonic.deriveSeed(passphrase: passphrase))
-            )
+            self.rootExtendedPrivateKey = rootContext.rootExtendedPrivateKey
             self.purpose = purpose
             self.coinType = coinType
-            self.id = [
-                OpalCryptoAdapter.serializedExtendedKeyData(self.rootExtendedPrivateKey.serialize()),
-                self.purpose.hardenedIndex.data,
-                self.coinType.hardenedIndex.data,
-            ].generateID()
+            self.id = rootContext.id
         }
 
         init(mnemonic: OpalCrypto.Key.Mnemonic,
@@ -70,18 +105,45 @@ extension _OpalBase.Wallet: Equatable {
 
 extension _OpalBase.Wallet {
     public func addAccount(unhardenedIndex: UInt32) async throws {
-        guard accounts[unhardenedIndex] == nil else {
-            throw Error.accountAlreadyExists(index: unhardenedIndex)
-        }
+        try await OpalBase.Diagnostics.withTraceID {
+            let fields = [
+                OpalBaseDiagnostics.operationField("wallet_account_create"),
+                OpalBaseDiagnostics.moduleField(),
+                OpalBaseDiagnostics.accountIndexField(unhardenedIndex)
+            ]
+            OpalBaseDiagnostics.record(
+                OpalBase.Diagnostics.Events.walletAccountCreateStarted,
+                category: OpalBase.Diagnostics.Categories.wallet,
+                fields: fields
+            )
 
-        let derivationPathAccount = try OpalBase.Key.DerivationPath.Account(rawIndexInteger: unhardenedIndex)
-        
-        let account = try await OpalBase.Account(rootExtendedPrivateKey: rootExtendedPrivateKey,
-                                                 purpose: purpose,
-                                                 coinType: coinType,
-                                                 account: derivationPathAccount)
-        let index = await account.unhardenedIndex
-        self.accounts[index] = account
+            do {
+                guard accounts[unhardenedIndex] == nil else {
+                    throw Error.accountAlreadyExists(index: unhardenedIndex)
+                }
+
+                let derivationPathAccount = try OpalBase.Key.DerivationPath.Account(rawIndexInteger: unhardenedIndex)
+
+                let account = try await OpalBase.Account(rootExtendedPrivateKey: rootExtendedPrivateKey,
+                                                         purpose: purpose,
+                                                         coinType: coinType,
+                                                         account: derivationPathAccount)
+                let index = await account.unhardenedIndex
+                self.accounts[index] = account
+                OpalBaseDiagnostics.record(
+                    OpalBase.Diagnostics.Events.walletAccountCreateSucceeded,
+                    category: OpalBase.Diagnostics.Categories.wallet,
+                    fields: fields
+                )
+            } catch {
+                OpalBaseDiagnostics.record(
+                    OpalBase.Diagnostics.Events.walletAccountCreateFailed,
+                    category: OpalBase.Diagnostics.Categories.wallet,
+                    fields: fields + OpalBaseDiagnostics.errorFields(for: error)
+                )
+                throw error
+            }
+        }
     }
 }
 
@@ -128,11 +190,32 @@ extension _OpalBase.Wallet {
     }
     
     public func fetchAccount(at unhardenedIndex: UInt32) async throws -> OpalBase.Account {
-        guard let account = accounts[unhardenedIndex] else {
-            throw Error.cannotFetchAccount(index: unhardenedIndex)
+        try OpalBase.Diagnostics.withTraceID {
+            let fields = [
+                OpalBaseDiagnostics.operationField("wallet_account_fetch"),
+                OpalBaseDiagnostics.moduleField(),
+                OpalBaseDiagnostics.accountIndexField(unhardenedIndex)
+            ]
+            do {
+                guard let account = accounts[unhardenedIndex] else {
+                    throw Error.cannotFetchAccount(index: unhardenedIndex)
+                }
+
+                OpalBaseDiagnostics.record(
+                    OpalBase.Diagnostics.Events.walletAccountFetchSucceeded,
+                    category: OpalBase.Diagnostics.Categories.wallet,
+                    fields: fields
+                )
+                return account
+            } catch {
+                OpalBaseDiagnostics.record(
+                    OpalBase.Diagnostics.Events.walletAccountFetchFailed,
+                    category: OpalBase.Diagnostics.Categories.wallet,
+                    fields: fields + OpalBaseDiagnostics.errorFields(for: error)
+                )
+                throw error
+            }
         }
-        
-        return account
     }
 }
 
@@ -148,24 +231,59 @@ extension _OpalBase.Wallet {
     }
     
     public func calculateBalance(loader: @escaping @Sendable (OpalBase.Address) async throws -> OpalBase.Satoshi) async throws -> OpalBase.Satoshi {
-        guard !accounts.isEmpty else { return try OpalBase.Satoshi(0) }
-        
-        let total: OpalBase.Satoshi = try await withThrowingTaskGroup(of: OpalBase.Satoshi.self) { group in
-            for account in accounts.values {
-                group.addTask {
-                    let refresh = try await account.refreshBalances(loader: loader)
-                    return refresh.total
+        try await OpalBase.Diagnostics.withTraceID {
+            let fields = [
+                OpalBaseDiagnostics.operationField("wallet_balance_refresh"),
+                OpalBaseDiagnostics.moduleField(),
+                OpalBaseDiagnostics.publicField(OpalBase.Diagnostics.Fields.accountCount, accounts.count)
+            ]
+            OpalBaseDiagnostics.record(
+                OpalBase.Diagnostics.Events.walletBalanceRefreshStarted,
+                category: OpalBase.Diagnostics.Categories.wallet,
+                fields: fields
+            )
+
+            do {
+                guard !accounts.isEmpty else {
+                    let zero = try OpalBase.Satoshi(0)
+                    OpalBaseDiagnostics.record(
+                        OpalBase.Diagnostics.Events.walletBalanceRefreshSucceeded,
+                        category: OpalBase.Diagnostics.Categories.wallet,
+                        fields: fields
+                    )
+                    return zero
                 }
+
+                let total: OpalBase.Satoshi = try await withThrowingTaskGroup(of: OpalBase.Satoshi.self) { group in
+                    for account in accounts.values {
+                        group.addTask {
+                            let refresh = try await account.refreshBalances(loader: loader)
+                            return refresh.total
+                        }
+                    }
+
+                    var aggregate: OpalBase.Satoshi = .init()
+                    for try await partial in group {
+                        aggregate = try aggregate + partial
+                    }
+
+                    return aggregate
+                }
+
+                OpalBaseDiagnostics.record(
+                    OpalBase.Diagnostics.Events.walletBalanceRefreshSucceeded,
+                    category: OpalBase.Diagnostics.Categories.wallet,
+                    fields: fields
+                )
+                return total
+            } catch {
+                OpalBaseDiagnostics.record(
+                    OpalBase.Diagnostics.Events.walletBalanceRefreshFailed,
+                    category: OpalBase.Diagnostics.Categories.wallet,
+                    fields: fields + OpalBaseDiagnostics.errorFields(for: error)
+                )
+                throw error
             }
-            
-            var aggregate: OpalBase.Satoshi = .init()
-            for try await partial in group {
-                aggregate = try aggregate + partial
-            }
-            
-            return aggregate
         }
-        
-        return total
     }
 }

@@ -124,7 +124,9 @@ extension _OpalBase.Wallet {
 private extension _OpalBase.Wallet {
     func performWithAccount<T>(at unhardenedIndex: UInt32,
                                _ work: (OpalBase.Account) async throws -> T) async throws -> T {
-        let account = try await fetchAccount(at: unhardenedIndex)
-        return try await work(account)
+        try await OpalBase.Diagnostics.withTraceID {
+            let account = try await fetchAccount(at: unhardenedIndex)
+            return try await work(account)
+        }
     }
 }

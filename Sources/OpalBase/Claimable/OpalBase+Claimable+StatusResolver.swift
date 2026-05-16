@@ -26,60 +26,94 @@ extension _OpalBase.Claimable {
             includeUnconfirmed: Bool,
             currentBlockHeight: UInt32
         ) async throws -> OpalBase.Claimable.NetworkStatus {
-            guard envelope.contract.network == network else {
-                throw OpalBase.Claimable.Error.networkMismatch(
-                    expected: network,
-                    actual: envelope.contract.network
+            try await OpalBase.Diagnostics.withTraceID {
+                let fields = [
+                    OpalBaseDiagnostics.operationField("claimable_status_resolve"),
+                    OpalBaseDiagnostics.moduleField(),
+                    OpalBaseDiagnostics.networkField(network),
+                    OpalBaseDiagnostics.publicField(OpalBase.Diagnostics.Fields.includeUnconfirmed, includeUnconfirmed)
+                ]
+                OpalBaseDiagnostics.record(
+                    OpalBase.Diagnostics.Events.claimableStatusResolveStarted,
+                    category: OpalBase.Diagnostics.Categories.claimable,
+                    fields: fields
                 )
-            }
 
-            let scriptHashHex = makeClaimableQueryScriptHashHex(
-                from: envelope.contract.fundingLockingScriptData
-            )
-            let history = try await scriptHashReader.fetchHistory(
-                forScriptHash: scriptHashHex,
-                includeUnconfirmed: includeUnconfirmed
-            )
-            try Self.validateHistoryResponse(history, includeUnconfirmed: includeUnconfirmed)
-            let unspentOutputs = try await scriptHashReader.fetchUnspent(
-                forScriptHash: scriptHashHex,
-                tokenFilter: .include
-            )
+                do {
+                    guard envelope.contract.network == network else {
+                        throw OpalBase.Claimable.Error.networkMismatch(
+                            expected: network,
+                            actual: envelope.contract.network
+                        )
+                    }
 
-            let fundingState = try await makeFundingState(
-                for: envelope,
-                history: history,
-                unspentOutputs: unspentOutputs
-            )
-
-            var confirmations: UInt?
-            var tipHeight: UInt64?
-            if fundingState != .missing, let transactionClient {
-                let confirmationStatus = try await transactionClient.fetchConfirmationStatus(
-                    for: envelope.fundingTransactionHash
-                )
-                guard confirmationStatus.transactionHash == envelope.fundingTransactionHash else {
-                    throw OpalBase.Network.Error(
-                        reason: .protocolViolation,
-                        message: "Confirmation status hash mismatch"
+                    let scriptHashHex = makeClaimableQueryScriptHashHex(
+                        from: envelope.contract.fundingLockingScriptData
                     )
-                }
-                try Self.validateConfirmationStatus(confirmationStatus)
-                try Self.validateConfirmationStatus(
-                    confirmationStatus,
-                    against: history,
-                    envelope: envelope
-                )
-                confirmations = confirmationStatus.confirmations
-                tipHeight = confirmationStatus.tipHeight
-            }
+                    let history = try await scriptHashReader.fetchHistory(
+                        forScriptHash: scriptHashHex,
+                        includeUnconfirmed: includeUnconfirmed
+                    )
+                    try Self.validateHistoryResponse(history, includeUnconfirmed: includeUnconfirmed)
+                    let unspentOutputs = try await scriptHashReader.fetchUnspent(
+                        forScriptHash: scriptHashHex,
+                        tokenFilter: .include
+                    )
 
-            return OpalBase.Claimable.NetworkStatus(
-                localStatus: envelope.makeLocalStatus(currentBlockHeight: currentBlockHeight),
-                fundingState: fundingState,
-                confirmations: confirmations,
-                tipHeight: tipHeight
-            )
+                    let fundingState = try await makeFundingState(
+                        for: envelope,
+                        history: history,
+                        unspentOutputs: unspentOutputs
+                    )
+
+                    var confirmations: UInt?
+                    var tipHeight: UInt64?
+                    if fundingState != .missing, let transactionClient {
+                        let confirmationStatus = try await transactionClient.fetchConfirmationStatus(
+                            for: envelope.fundingTransactionHash
+                        )
+                        guard confirmationStatus.transactionHash == envelope.fundingTransactionHash else {
+                            throw OpalBase.Network.Error(
+                                reason: .protocolViolation,
+                                message: "Confirmation status hash mismatch"
+                            )
+                        }
+                        try Self.validateConfirmationStatus(confirmationStatus)
+                        try Self.validateConfirmationStatus(
+                            confirmationStatus,
+                            against: history,
+                            envelope: envelope
+                        )
+                        confirmations = confirmationStatus.confirmations
+                        tipHeight = confirmationStatus.tipHeight
+                    }
+
+                    let status = OpalBase.Claimable.NetworkStatus(
+                        localStatus: envelope.makeLocalStatus(currentBlockHeight: currentBlockHeight),
+                        fundingState: fundingState,
+                        confirmations: confirmations,
+                        tipHeight: tipHeight
+                    )
+                    OpalBaseDiagnostics.record(
+                        OpalBase.Diagnostics.Events.claimableStatusResolveSucceeded,
+                        category: OpalBase.Diagnostics.Categories.claimable,
+                        fields: fields + [
+                            OpalBaseDiagnostics.publicField(OpalBase.Diagnostics.Fields.status, status.fundingState.diagnosticsName)
+                        ]
+                    )
+                    return status
+                } catch {
+                    OpalBaseDiagnostics.record(
+                        OpalBase.Diagnostics.Events.claimableStatusResolveFailed,
+                        category: OpalBase.Diagnostics.Categories.claimable,
+                        fields: fields + OpalBaseDiagnostics.errorFields(
+                            for: error,
+                            fallback: OpalBase.Diagnostics.ErrorCodes.claimableStatusFailed
+                        )
+                    )
+                    throw error
+                }
+            }
         }
     }
 }
@@ -310,6 +344,34 @@ private extension OpalBase.Transaction {
         return output.value == envelope.fundingValue
             && output.lockingScript == envelope.contract.fundingLockingScriptData
             && output.tokenData == nil
+    }
+}
+
+private extension OpalBase.Claimable.FundingState {
+    var diagnosticsName: String {
+        switch self {
+        case .missing:
+            return "missing"
+        case .unspent:
+            return "unspent"
+        case .spent(let spendPath):
+            return "spent.\(spendPath.diagnosticsName)"
+        case .invalid:
+            return "invalid"
+        }
+    }
+}
+
+private extension OpalBase.Claimable.SpendPath {
+    var diagnosticsName: String {
+        switch self {
+        case .claim:
+            return "claim"
+        case .refund:
+            return "refund"
+        case .unknown:
+            return "unknown"
+        }
     }
 }
 
