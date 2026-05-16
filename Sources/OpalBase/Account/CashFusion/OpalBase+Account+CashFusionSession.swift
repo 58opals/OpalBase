@@ -58,7 +58,9 @@ extension _OpalBase.Account {
         }
 
         func snapshot() async -> OpalFusion.Client.Session.Snapshot {
-            await wrappedSession.snapshot()
+            await OpalBase.Diagnostics.withTraceID(traceID) {
+                await wrappedSession.snapshot()
+            }
         }
 
         func receiveCashFusionSnapshot(
@@ -118,6 +120,7 @@ extension _OpalBase.Account {
                     OpalBaseDiagnostics.record(
                         OpalBase.Diagnostics.Events.cashFusionSessionFinalized,
                         category: OpalBase.Diagnostics.Categories.cashFusion,
+                        level: outcome.diagnosticsLevel,
                         fields: [
                             OpalBaseDiagnostics.operationField("cash_fusion_session_finalize"),
                             OpalBaseDiagnostics.moduleField(),
@@ -164,6 +167,10 @@ private extension _OpalBase.Account.CashFusionSession.TerminalOutcome {
         case .failed:
             return "failed"
         }
+    }
+
+    var diagnosticsLevel: OpalBase.Diagnostics.Level? {
+        self == .failed ? .error : nil
     }
 }
 #endif

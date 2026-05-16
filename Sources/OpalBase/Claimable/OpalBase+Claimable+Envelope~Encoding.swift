@@ -35,57 +35,16 @@ extension _OpalBase.Claimable.Envelope {
 
     public static func decode(from data: Data) throws -> Self {
         try OpalBase.Diagnostics.withTraceID {
-            let fields = [
-                OpalBaseDiagnostics.operationField("claimable_envelope_decode"),
-                OpalBaseDiagnostics.moduleField(),
-                OpalBaseDiagnostics.publicField(OpalBase.Diagnostics.Fields.byteCount, data.count)
-            ]
+            let fields = makeDecodeDiagnosticsFields(byteCount: data.count)
             do {
-                guard data.count == Self.encodedByteCount else {
-                    throw OpalBase.Claimable.Error.invalidEnvelopeLength(
-                        expected: Self.encodedByteCount,
-                        actual: data.count
-                    )
-                }
-
-                var reader = Data.Reader(data)
-
-                let version: UInt8 = try reader.readLittleEndian()
-                guard version == Self.version else {
-                    throw OpalBase.Claimable.Error.unsupportedVersion(version)
-                }
-
-                let networkTag: UInt8 = try reader.readLittleEndian()
-                let network = try makeClaimableNetwork(from: networkTag)
-                let expiryBlockHeight: UInt32 = try reader.readLittleEndian()
-                let refundPublicKeyHash = try reader.readData(count: 20)
-                let claimPrivateKey = try reader.readData(count: 32)
-                let fundingTransactionHashData = try reader.readData(count: 32)
-                let fundingOutputIndex: UInt32 = try reader.readLittleEndian()
-                let fundingValue: UInt64 = try reader.readLittleEndian()
-
-                let claimPublicKeyHash = try makeClaimablePublicKeyHash(
-                    from: claimPrivateKey,
-                    invalidError: .invalidClaimPrivateKey
-                )
-                let contract = try OpalBase.Claimable.Contract(
-                    network: network,
-                    claimPublicKeyHash: claimPublicKeyHash,
-                    refundPublicKeyHash: refundPublicKeyHash,
-                    expiryBlockHeight: expiryBlockHeight
-                )
-
-                let envelope = try Self(
-                    contract: contract,
-                    claimPrivateKey: claimPrivateKey,
-                    fundingTransactionHash: .init(naturalOrder: fundingTransactionHashData),
-                    fundingOutputIndex: fundingOutputIndex,
-                    fundingValue: fundingValue
-                )
+                let envelope = try decodeEnvelope(from: data)
                 OpalBaseDiagnostics.record(
                     OpalBase.Diagnostics.Events.claimableEnvelopeDecodeSucceeded,
                     category: OpalBase.Diagnostics.Categories.claimable,
-                    fields: fields + [OpalBaseDiagnostics.networkField(network)]
+                    fields: makeDecodeDiagnosticsFields(
+                        byteCount: data.count,
+                        network: envelope.contract.network
+                    )
                 )
                 return envelope
             } catch {
@@ -106,14 +65,95 @@ extension _OpalBase.Claimable.Envelope {
         from data: Data,
         on network: OpalBase.Network.Environment
     ) throws -> Self {
-        let envelope = try decode(from: data)
-        guard envelope.contract.network == network else {
-            throw OpalBase.Claimable.Error.networkMismatch(
-                expected: network,
-                actual: envelope.contract.network
+        try OpalBase.Diagnostics.withTraceID {
+            do {
+                let envelope = try decodeEnvelope(from: data)
+                guard envelope.contract.network == network else {
+                    throw OpalBase.Claimable.Error.networkMismatch(
+                        expected: network,
+                        actual: envelope.contract.network
+                    )
+                }
+                OpalBaseDiagnostics.record(
+                    OpalBase.Diagnostics.Events.claimableEnvelopeDecodeSucceeded,
+                    category: OpalBase.Diagnostics.Categories.claimable,
+                    fields: makeDecodeDiagnosticsFields(
+                        byteCount: data.count,
+                        network: network
+                    )
+                )
+                return envelope
+            } catch {
+                OpalBaseDiagnostics.record(
+                    OpalBase.Diagnostics.Events.claimableEnvelopeDecodeFailed,
+                    category: OpalBase.Diagnostics.Categories.claimable,
+                    fields: makeDecodeDiagnosticsFields(
+                        byteCount: data.count,
+                        network: network
+                    ) + OpalBaseDiagnostics.errorFields(
+                        for: error,
+                        fallback: OpalBase.Diagnostics.ErrorCodes.claimableInvalidEnvelope
+                    )
+                )
+                throw error
+            }
+        }
+    }
+
+    private static func decodeEnvelope(from data: Data) throws -> Self {
+        guard data.count == Self.encodedByteCount else {
+            throw OpalBase.Claimable.Error.invalidEnvelopeLength(
+                expected: Self.encodedByteCount,
+                actual: data.count
             )
         }
-        return envelope
+
+        var reader = Data.Reader(data)
+
+        let version: UInt8 = try reader.readLittleEndian()
+        guard version == Self.version else {
+            throw OpalBase.Claimable.Error.unsupportedVersion(version)
+        }
+
+        let networkTag: UInt8 = try reader.readLittleEndian()
+        let network = try makeClaimableNetwork(from: networkTag)
+        let expiryBlockHeight: UInt32 = try reader.readLittleEndian()
+        let refundPublicKeyHash = try reader.readData(count: 20)
+        let claimPrivateKey = try reader.readData(count: 32)
+        let fundingTransactionHashData = try reader.readData(count: 32)
+        let fundingOutputIndex: UInt32 = try reader.readLittleEndian()
+        let fundingValue: UInt64 = try reader.readLittleEndian()
+
+        let claimPublicKeyHash = try makeClaimablePublicKeyHash(
+            from: claimPrivateKey,
+            invalidError: .invalidClaimPrivateKey
+        )
+        let contract = try OpalBase.Claimable.Contract(
+            network: network,
+            claimPublicKeyHash: claimPublicKeyHash,
+            refundPublicKeyHash: refundPublicKeyHash,
+            expiryBlockHeight: expiryBlockHeight
+        )
+
+        return try Self(
+            contract: contract,
+            claimPrivateKey: claimPrivateKey,
+            fundingTransactionHash: .init(naturalOrder: fundingTransactionHashData),
+            fundingOutputIndex: fundingOutputIndex,
+            fundingValue: fundingValue
+        )
+    }
+
+    private static func makeDecodeDiagnosticsFields(
+        byteCount: Int,
+        network: OpalBase.Network.Environment? = nil
+    ) -> [OpalBase.Diagnostics.Field] {
+        [
+            OpalBaseDiagnostics.operationField("claimable_envelope_decode"),
+            OpalBaseDiagnostics.moduleField(),
+            network.map(OpalBaseDiagnostics.networkField),
+            OpalBaseDiagnostics.publicField(OpalBase.Diagnostics.Fields.byteCount, byteCount)
+        ].compactMap { $0 }
     }
 }
 

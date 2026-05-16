@@ -106,9 +106,9 @@ extension _OpalBase.Claimable {
                     OpalBaseDiagnostics.record(
                         OpalBase.Diagnostics.Events.claimableStatusResolveFailed,
                         category: OpalBase.Diagnostics.Categories.claimable,
-                        fields: fields + OpalBaseDiagnostics.errorFields(
+                        fields: fields + OpalBaseDiagnostics.contextErrorFields(
                             for: error,
-                            fallback: OpalBase.Diagnostics.ErrorCodes.claimableStatusFailed
+                            errorCode: OpalBase.Diagnostics.ErrorCodes.claimableStatusFailed
                         )
                     )
                     throw error

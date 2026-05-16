@@ -47,9 +47,7 @@ extension _OpalBase.Hedge {
             signatureFormat: OpalBase.Transaction.SignatureFormat = .schnorr,
             unlockers: [OpalBase.Transaction.Output.Unspent: OpalBase.Transaction.Unlocker] = .init()
         ) throws -> FundingReview {
-            try OpalBase.Diagnostics.withTraceID {
-                let traceID = OpalBase.Diagnostics.currentTraceID ?? OpalBase.Diagnostics.TraceID()
-                return try OpalBaseHedgeDiagnostics.withTraceID(traceID) {
+            try OpalBaseHedgeDiagnostics.withCurrentTraceID {
                     let fields = [
                         OpalBaseDiagnostics.operationField("hedge_funding_build"),
                         OpalBaseDiagnostics.moduleField(),
@@ -86,7 +84,6 @@ extension _OpalBase.Hedge {
                         )
                         throw error
                     }
-                }
             }
         }
 
@@ -109,9 +106,7 @@ extension _OpalBase.Hedge {
             review: FundingReview,
             fundingRecord: FundingRecord
         ) {
-            try await OpalBase.Diagnostics.withTraceID {
-                let traceID = OpalBase.Diagnostics.currentTraceID ?? OpalBase.Diagnostics.TraceID()
-                return try await OpalBaseHedgeDiagnostics.withTraceID(traceID) {
+            try await OpalBaseHedgeDiagnostics.withCurrentTraceID {
                     let fields = [
                         OpalBaseDiagnostics.operationField("hedge_funding_broadcast"),
                         OpalBaseDiagnostics.moduleField(),
@@ -144,16 +139,15 @@ extension _OpalBase.Hedge {
                         return (broadcast.hash, review, fundingRecord)
                     } catch {
                         OpalBaseDiagnostics.record(
-                            OpalBase.Diagnostics.Events.hedgeFundingBroadcastFailed,
-                            category: OpalBase.Diagnostics.Categories.hedge,
-                            fields: fields + OpalBaseDiagnostics.errorFields(
+                        OpalBase.Diagnostics.Events.hedgeFundingBroadcastFailed,
+                        category: OpalBase.Diagnostics.Categories.hedge,
+                            fields: fields + OpalBaseDiagnostics.contextErrorFields(
                                 for: error,
-                                fallback: OpalBase.Diagnostics.ErrorCodes.hedgeFundingFailed
+                                errorCode: OpalBase.Diagnostics.ErrorCodes.hedgeFundingFailed
                             )
                         )
                         throw error
                     }
-                }
             }
         }
 

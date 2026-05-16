@@ -195,10 +195,6 @@ struct WalletTokenMetadataSyncValidator {
     }
 }
 
-private enum TokenMetadataSyncStubError: Swift.Error {
-    case notImplemented
-}
-
 private func makeTokenMetadataSyncCategory(byte: UInt8) throws -> OpalBase.CashTokens.CategoryID {
     try OpalBase.CashTokens.CategoryID(
         hexFromRPC: Data(repeating: byte, count: 32).hexadecimalString
@@ -272,51 +268,4 @@ private func makeTokenMetadataSyncRegistrySession(
         return try handler(request)
     }
     return (session, recorder)
-}
-
-private final class TokenMetadataSyncRequestRecorder: @unchecked Sendable {
-    private let lock = NSLock()
-    private var requestedURLs: [URL] = .init()
-
-    var values: [URL] {
-        lock.lock()
-        defer { lock.unlock() }
-        return requestedURLs
-    }
-
-    func append(_ url: URL) {
-        lock.lock()
-        requestedURLs.append(url)
-        lock.unlock()
-    }
-}
-
-private final class TokenMetadataSyncRegistryURLProtocol: URLProtocol {
-    nonisolated(unsafe) static var requestHandler: (@Sendable (URLRequest) throws -> (HTTPURLResponse, Data))?
-
-    override class func canInit(with request: URLRequest) -> Bool {
-        true
-    }
-
-    override class func canonicalRequest(for request: URLRequest) -> URLRequest {
-        request
-    }
-
-    override func startLoading() {
-        guard let requestHandler = Self.requestHandler else {
-            client?.urlProtocol(self, didFailWithError: URLError(.badServerResponse))
-            return
-        }
-
-        do {
-            let (response, data) = try requestHandler(request)
-            client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
-            client?.urlProtocol(self, didLoad: data)
-            client?.urlProtocolDidFinishLoading(self)
-        } catch {
-            client?.urlProtocol(self, didFailWithError: error)
-        }
-    }
-
-    override func stopLoading() {}
 }

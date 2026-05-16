@@ -50,26 +50,34 @@ extension _OpalBase.Network {
             await recordPingHandler(url, error)
         }
 
-        func recordDiagnosticsSnapshot(url: URL, snapshot: DiagnosticsSnapshot) async {
-            OpalBaseDiagnostics.record(
+        public func recordDiagnosticsSnapshot(url: URL, snapshot: DiagnosticsSnapshot) async {
+            recordNetworkDiagnostics(
                 OpalBase.Diagnostics.Events.networkDiagnosticsSnapshotRecorded,
-                category: OpalBase.Diagnostics.Categories.network,
-                fields: OpalBaseDiagnostics.networkDiagnosticsFields(url: url, snapshot: snapshot)
+                fields: OpalBaseDiagnostics.networkDiagnosticsFields(snapshot: snapshot)
             )
             await recordDiagnosticsSnapshotHandler(url, snapshot)
         }
 
-        func recordSubscriptionRegistryUpdate(url: URL, subscriptions: [DiagnosticsSubscription]) async {
-            OpalBaseDiagnostics.record(
+        public func recordSubscriptionRegistryUpdate(url: URL, subscriptions: [DiagnosticsSubscription]) async {
+            recordNetworkDiagnostics(
                 OpalBase.Diagnostics.Events.networkDiagnosticsSubscriptionsRecorded,
-                category: OpalBase.Diagnostics.Categories.network,
-                fields: [
-                    OpalBaseDiagnostics.operationField("record_network_diagnostics_subscriptions"),
-                    OpalBaseDiagnostics.moduleField(),
-                    OpalBaseDiagnostics.publicField("active_subscription_count", subscriptions.count)
-                ]
+                fields: OpalBaseDiagnostics.networkSubscriptionFields(
+                    subscriptions: subscriptions,
+                    operation: "record_network_diagnostics_subscriptions"
+                )
             )
             await recordSubscriptionRegistryUpdateHandler(url, subscriptions)
+        }
+
+        private func recordNetworkDiagnostics(
+            _ event: OpalBase.Diagnostics.Event,
+            fields: [OpalBase.Diagnostics.Field]
+        ) {
+            OpalBaseDiagnostics.record(
+                event,
+                category: OpalBase.Diagnostics.Categories.network,
+                fields: fields
+            )
         }
     }
 }

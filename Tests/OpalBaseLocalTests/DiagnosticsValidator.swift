@@ -3,6 +3,7 @@
 import Foundation
 import Testing
 import OpalBaseTestSupport
+import SwiftFulcrum
 @testable import OpalBase
 
 @Suite("OpalBase.Diagnostics", .tags(.unit, .wallet))
@@ -27,6 +28,7 @@ struct DiagnosticsValidator {
         #expect(OpalBase.Diagnostics.Events.all.contains(OpalBase.Diagnostics.Events.utxoRefreshFailed))
         #expect(OpalBase.Diagnostics.Events.all.contains(OpalBase.Diagnostics.Events.spendPrepareStarted))
         #expect(OpalBase.Diagnostics.Events.all.contains(OpalBase.Diagnostics.Events.cashFusionSessionFinalized))
+        #expect(OpalBase.Diagnostics.Events.all.contains(OpalBase.Diagnostics.Events.hedgeParticipantMaterialReserveStarted))
         #expect(OpalBase.Diagnostics.Events.all.contains(OpalBase.Diagnostics.Events.hedgeFundingBroadcastFailed))
         #expect(OpalBase.Diagnostics.Events.all.contains(OpalBase.Diagnostics.Events.claimableShareCodeDecodeFailed))
         #expect(OpalBase.Diagnostics.Events.all.contains(OpalBase.Diagnostics.Events.tokenMetadataSyncSucceeded))
@@ -36,12 +38,21 @@ struct DiagnosticsValidator {
         #expect(OpalBase.Diagnostics.Fields.accountIndex == "account_index")
         #expect(OpalBase.Diagnostics.Fields.accountCount == "account_count")
         #expect(OpalBase.Diagnostics.Fields.tokenMetadataCount == "token_metadata_count")
+        #expect(OpalBase.Diagnostics.Fields.all.contains(OpalBase.Diagnostics.Fields.reconnectionAttemptCount))
+        #expect(OpalBase.Diagnostics.Fields.all.contains(OpalBase.Diagnostics.Fields.activeSubscriptionCount))
         #expect(OpalBase.Diagnostics.Fields.all.contains(OpalBase.Diagnostics.Fields.errorType))
 
-        #expect(OpalBase.Diagnostics.ErrorCodes.walletAccountAlreadyExists == "wallet.account_already_exists")
-        #expect(OpalBase.Diagnostics.ErrorCodes.walletAccountNotFound == "wallet.account_not_found")
-        #expect(OpalBase.Diagnostics.ErrorCodes.claimableInvalidShareCode == "claimable.invalid_share_code")
-        #expect(OpalBase.Diagnostics.ErrorCodes.hedgeFundingFailed == "hedge.funding_failed")
+        let stableErrorCodes = [
+            OpalBase.Diagnostics.ErrorCodes.walletAccountAlreadyExists: "wallet.account_already_exists",
+            OpalBase.Diagnostics.ErrorCodes.walletAccountNotFound: "wallet.account_not_found",
+            OpalBase.Diagnostics.ErrorCodes.accountBalanceRefreshFailed: "account.balance_refresh_failed",
+            OpalBase.Diagnostics.ErrorCodes.accountTransactionHistoryRefreshFailed: "account.transaction_history_refresh_failed",
+            OpalBase.Diagnostics.ErrorCodes.claimableInvalidShareCode: "claimable.invalid_share_code",
+            OpalBase.Diagnostics.ErrorCodes.hedgeFundingFailed: "hedge.funding_failed"
+        ]
+        for (actual, expected) in stableErrorCodes {
+            #expect(actual == expected)
+        }
         #expect(OpalBase.Diagnostics.ErrorCodes.all.contains(OpalBase.Diagnostics.ErrorCodes.cashFusionReservationFailed))
     }
 
@@ -109,6 +120,84 @@ struct DiagnosticsValidator {
         #expect(records.contains { $0.event == OpalBase.Diagnostics.Events.walletAccountFetchSucceeded })
         #expect(records.contains { $0.event.rawValue.hasPrefix("opalcrypto.") })
         #expect(records.allSatisfy { $0.traceID == traceID })
+    }
+
+    @Test("hedge participant reservation emits boundary diagnostics")
+    func hedgeParticipantReservationEmitsBoundaryDiagnostics() async throws {
+        let records = try await OpalBase.Diagnostics.withConfiguration(diagnosticsConfiguration()) {
+            let account = try await AccountTestFixtures.makeAccount()
+            _ = try await account.reserveHedgeParticipantMaterial(network: .chipnet)
+
+            return OpalBase.Diagnostics.recentRecords(
+                category: OpalBase.Diagnostics.Categories.hedge
+            )
+        }
+
+        #expect(records.contains {
+            $0.event == OpalBase.Diagnostics.Events.hedgeParticipantMaterialReserveStarted
+        })
+        #expect(records.contains {
+            $0.event == OpalBase.Diagnostics.Events.hedgeParticipantMaterialReserved
+        })
+    }
+
+    @Test("hedge funding prepare failures use the hedge error code")
+    func hedgeFundingPrepareFailuresUseHedgeErrorCode() async throws {
+        let records = try await OpalBase.Diagnostics.withConfiguration(diagnosticsConfiguration()) {
+            let account = try await AccountTestFixtures.makeAccount()
+            let request = try await makeDiagnosticsHedgeFundingRequest(for: account)
+
+            await #expect(throws: OpalBase.Account.Error.self) {
+                _ = try await account.prepareHedgeFunding(request)
+            }
+
+            return OpalBase.Diagnostics.recentRecords(category: OpalBase.Diagnostics.Categories.hedge)
+        }
+
+        #expect(recordsContain(
+            records,
+            event: OpalBase.Diagnostics.Events.hedgeFundingPrepareFailed,
+            errorCode: OpalBase.Diagnostics.ErrorCodes.hedgeFundingFailed
+        ))
+    }
+
+    @Test("hedge funding broadcast failures use the hedge error code")
+    func hedgeFundingBroadcastFailuresUseHedgeErrorCode() async throws {
+        let records = try await OpalBase.Diagnostics.withConfiguration(diagnosticsConfiguration()) {
+            let account = try await AccountTestFixtures.makeAccount()
+            _ = try await AccountTestFixtures.addUnspentOutput(
+                to: account,
+                value: 6_000_000,
+                hashByte: 0x53
+            )
+            let request = try await makeDiagnosticsHedgeFundingRequest(for: account)
+            let plan = try await account.prepareHedgeFunding(request)
+            let client = OpalBase.Network.TransactionClient(
+                broadcastTransaction: { _ in throw NetworkStubError.forced("hedge-broadcast") },
+                fetchConfirmations: { _ in nil },
+                fetchConfirmationStatus: { transactionHash in
+                    .init(
+                        transactionHash: transactionHash,
+                        transactionHeight: nil,
+                        tipHeight: 0,
+                        confirmations: nil
+                    )
+                }
+            )
+
+            await #expect(throws: OpalBase.Account.Error.self) {
+                _ = try await plan.buildAndBroadcast(via: client)
+            }
+            try await plan.cancelReservation()
+
+            return OpalBase.Diagnostics.recentRecords(category: OpalBase.Diagnostics.Categories.hedge)
+        }
+
+        #expect(recordsContain(
+            records,
+            event: OpalBase.Diagnostics.Events.hedgeFundingBroadcastFailed,
+            errorCode: OpalBase.Diagnostics.ErrorCodes.hedgeFundingFailed
+        ))
     }
 
     @Test("recent diagnostics redact sensitive values and use safe field names")
@@ -185,6 +274,239 @@ struct DiagnosticsValidator {
         #expect(errorCodes(in: records).contains(OpalBase.Diagnostics.ErrorCodes.claimableInvalidShareCode))
     }
 
+    @Test("SwiftFulcrum errors use stable network error codes")
+    func swiftFulcrumErrorsUseStableNetworkErrorCodes() {
+        #expect(OpalBaseDiagnostics.errorCode(
+            for: SwiftFulcrum.Client.Error.client(.timeout(.seconds(3)))
+        ) == OpalBase.Diagnostics.ErrorCodes.networkTimeout)
+        #expect(OpalBaseDiagnostics.errorCode(
+            for: SwiftFulcrum.Client.Error.transport(.heartbeatTimeout)
+        ) == OpalBase.Diagnostics.ErrorCodes.networkTransport)
+        #expect(OpalBaseDiagnostics.errorCode(
+            for: SwiftFulcrum.Client.Error.coding(.decode(nil))
+        ) == OpalBase.Diagnostics.ErrorCodes.networkDecoding)
+    }
+
+    @Test("balance refresh failures use a stable error code")
+    func balanceRefreshFailuresUseStableErrorCode() async throws {
+        let records = try await OpalBase.Diagnostics.withConfiguration(
+            diagnosticsConfiguration()
+        ) {
+            let wallet = try OpalBase.Wallet(mnemonic: AccountTestFixtures.makeMnemonic())
+            try await wallet.addAccount(unhardenedIndex: 0)
+
+            await #expect(throws: OpalBase.Account.Error.self) {
+                _ = try await wallet.calculateBalance { _ in
+                    throw NetworkStubError.forced("balance-refresh")
+                }
+            }
+
+            return OpalBase.Diagnostics.recentRecords
+        }
+
+        #expect(recordsContain(
+            records,
+            event: OpalBase.Diagnostics.Events.walletBalanceRefreshFailed,
+            errorCode: OpalBase.Diagnostics.ErrorCodes.accountBalanceRefreshFailed
+        ))
+    }
+
+    @Test("transaction history failures use a stable error code")
+    func transactionHistoryFailuresUseStableErrorCode() async throws {
+        let records = try await OpalBase.Diagnostics.withConfiguration(
+            diagnosticsConfiguration()
+        ) {
+            let account = try await AccountTestFixtures.makeAccount()
+            let reader = makeDiagnosticsAddressReader { _, _ in
+                throw NetworkStubError.forced("history-refresh")
+            }
+
+            await #expect(throws: OpalBase.Account.Error.self) {
+                _ = try await account.refreshTransactionHistory(using: reader)
+            }
+
+            return OpalBase.Diagnostics.recentRecords
+        }
+
+        #expect(recordsContain(
+            records,
+            event: OpalBase.Diagnostics.Events.transactionHistoryRefreshFailed,
+            errorCode: OpalBase.Diagnostics.ErrorCodes.accountTransactionHistoryRefreshFailed
+        ))
+    }
+
+    @Test("transaction detail refresh failures use a stable error code")
+    func transactionDetailRefreshFailuresUseStableErrorCode() async throws {
+        let records = try await OpalBase.Diagnostics.withConfiguration(
+            diagnosticsConfiguration()
+        ) {
+            let account = try await AccountTestFixtures.makeAccount()
+            let entry = try await account.reserveNextReceivingDerivedAddress()
+            let historyEntry = AccountTestFixtures.makeHistoryEntry(hashByte: 0x52)
+            let reader = makeDiagnosticsAddressReader { address, _ in
+                address == entry.address.string ? [historyEntry] : []
+            }
+            let transactionReader = OpalBase.Network.TransactionReader { _ in
+                throw NetworkStubError.forced("transaction-detail-refresh")
+            }
+
+            await #expect(throws: OpalBase.Account.Error.self) {
+                _ = try await account.refreshTransactionHistory(
+                    using: reader,
+                    transactionReader: transactionReader
+                )
+            }
+
+            return OpalBase.Diagnostics.recentRecords
+        }
+
+        #expect(recordsContain(
+            records,
+            event: OpalBase.Diagnostics.Events.transactionHistoryRefreshFailed,
+            errorCode: OpalBase.Diagnostics.ErrorCodes.accountTransactionDetailsRefreshFailed
+        ))
+    }
+
+    @Test("insufficient funds use the stable insufficient funds error code")
+    func insufficientFundsUseStableInsufficientFundsErrorCode() async throws {
+        let records = try await OpalBase.Diagnostics.withConfiguration(
+            diagnosticsConfiguration()
+        ) {
+            let account = try await AccountTestFixtures.makeAccount()
+            let recipientAddress = try await account.reserveNextReceivingAddress()
+            let payment = OpalBase.Account.Payment(
+                recipients: [
+                    .init(address: recipientAddress, amount: try OpalBase.Satoshi(1_000))
+                ]
+            )
+
+            await #expect(throws: OpalBase.Account.Error.self) {
+                _ = try await account.prepareSpend(payment)
+            }
+
+            return OpalBase.Diagnostics.recentRecords
+        }
+
+        #expect(recordsContain(
+            records,
+            event: OpalBase.Diagnostics.Events.spendPrepareFailed,
+            errorCode: OpalBase.Diagnostics.ErrorCodes.accountInsufficientFunds
+        ))
+    }
+
+    @Test("empty confirmation refresh records diagnostics")
+    func emptyConfirmationRefreshRecordsDiagnostics() async throws {
+        let records = try await OpalBase.Diagnostics.withConfiguration(
+            diagnosticsConfiguration()
+        ) {
+            let account = try await AccountTestFixtures.makeAccount()
+            let client = OpalBase.Network.TransactionClient(
+                broadcastTransaction: { _ in
+                    throw OpalBase.Network.Error(reason: .protocolViolation)
+                },
+                fetchConfirmations: { _ in nil },
+                fetchConfirmationStatus: { transactionHash in
+                    .init(
+                        transactionHash: transactionHash,
+                        transactionHeight: nil,
+                        tipHeight: 0,
+                        confirmations: nil
+                    )
+                }
+            )
+
+            let changeSet = try await account.refreshTransactionConfirmations(using: client)
+            #expect(changeSet.isEmpty)
+
+            return OpalBase.Diagnostics.recentRecords
+        }
+
+        #expect(records.contains {
+            $0.event == OpalBase.Diagnostics.Events.transactionConfirmationRefreshStarted
+        })
+        let succeededRecords = records.filter {
+            $0.event == OpalBase.Diagnostics.Events.transactionConfirmationRefreshSucceeded
+        }
+        #expect(succeededRecords.contains { record in
+            record.fields.contains {
+                $0.name == OpalBase.Diagnostics.Fields.transactionCount &&
+                    $0.value == "0"
+            }
+        })
+    }
+
+    @Test("claimable envelope network mismatches record failure diagnostics")
+    func claimableEnvelopeNetworkMismatchesRecordFailureDiagnostics() throws {
+        let records = try OpalBase.Diagnostics.withConfiguration(diagnosticsConfiguration()) {
+            let (envelope, _) = try makeClaimableEnvelope(network: .chipnet)
+            let encodedEnvelope = envelope.encode()
+
+            #expect(
+                throws: OpalBase.Claimable.Error.networkMismatch(expected: .mainnet, actual: .chipnet)
+            ) {
+                try OpalBase.Claimable.Envelope.decode(from: encodedEnvelope, on: .mainnet)
+            }
+
+            return OpalBase.Diagnostics.recentRecords
+        }
+
+        #expect(recordsContain(
+            records,
+            event: OpalBase.Diagnostics.Events.claimableEnvelopeDecodeFailed,
+            errorCode: OpalBase.Diagnostics.ErrorCodes.claimableInvalidEnvelope
+        ))
+        #expect(records.contains {
+            $0.event == OpalBase.Diagnostics.Events.claimableEnvelopeDecodeSucceeded
+        } == false)
+    }
+
+    @Test("claimable share code envelope data failures record diagnostics")
+    func claimableShareCodeEnvelopeDataFailuresRecordDiagnostics() {
+        let records = OpalBase.Diagnostics.withConfiguration(diagnosticsConfiguration()) {
+            #expect(throws: OpalBase.Claimable.Error.invalidShareCodeFormat) {
+                _ = try OpalBase.Claimable.ShareCode.decodeEnvelopeData("not-a-share-code")
+            }
+
+            return OpalBase.Diagnostics.recentRecords
+        }
+
+        #expect(recordsContain(
+            records,
+            event: OpalBase.Diagnostics.Events.claimableShareCodeDecodeFailed,
+            errorCode: OpalBase.Diagnostics.ErrorCodes.claimableInvalidShareCode
+        ))
+    }
+
+    @Test("claimable status failures use the status error code")
+    func claimableStatusFailuresUseStatusErrorCode() async throws {
+        let records = try await OpalBase.Diagnostics.withConfiguration(diagnosticsConfiguration()) {
+            let (envelope, _) = try makeClaimableEnvelope(network: .chipnet)
+            let resolver = OpalBase.Claimable.StatusResolver(
+                network: .chipnet,
+                scriptHashReader: .init(
+                    fetchHistory: { _, _ in throw OpalBase.Network.Error(reason: .timeout) },
+                    fetchUnspent: { _, _ in [] }
+                )
+            )
+
+            await #expect(throws: OpalBase.Network.Error.self) {
+                _ = try await resolver.resolve(
+                    for: envelope,
+                    includeUnconfirmed: true,
+                    currentBlockHeight: 499
+                )
+            }
+
+            return OpalBase.Diagnostics.recentRecords(category: OpalBase.Diagnostics.Categories.claimable)
+        }
+
+        #expect(recordsContain(
+            records,
+            event: OpalBase.Diagnostics.Events.claimableStatusResolveFailed,
+            errorCode: OpalBase.Diagnostics.ErrorCodes.claimableStatusFailed
+        ))
+    }
+
     @Test("legacy network logger and metrics remain compatible")
     func legacyNetworkLoggerAndMetricsRemainCompatible() async {
         let capture = LegacyNetworkLogCapture()
@@ -225,12 +547,26 @@ struct DiagnosticsValidator {
                     activeSubscriptionCount: 4
                 )
             )
+            await metrics.recordSubscriptionRegistryUpdate(
+                url: URL(string: "wss://fulcrum.example.com:50004")!,
+                subscriptions: [
+                    .init(methodPath: "blockchain.address.subscribe", identifier: "abc")
+                ]
+            )
             return OpalBase.Diagnostics.recentRecords
         }
 
         #expect(records.contains { record in
             record.category == OpalBase.Diagnostics.Categories.network &&
                 record.event == OpalBase.Diagnostics.Events.networkDiagnosticsSnapshotRecorded
+        })
+        #expect(records.contains { record in
+            record.category == OpalBase.Diagnostics.Categories.network &&
+                record.event == OpalBase.Diagnostics.Events.networkDiagnosticsSubscriptionsRecorded &&
+                record.fields.contains {
+                    $0.name == OpalBase.Diagnostics.Fields.activeSubscriptionCount &&
+                        $0.value == "1"
+                }
         })
     }
 }
@@ -245,6 +581,27 @@ private func diagnosticsConfiguration(
     )
 }
 
+private func makeDiagnosticsHedgeFundingRequest(
+    for account: OpalBase.Account
+) async throws -> OpalBase.Hedge.USDThirtyDaySimpleHedgeRequest {
+    let walletMaterial = try await account.reserveHedgeParticipantMaterial()
+    return try HedgeFixtureData.betaRequest(walletParticipant: walletMaterial)
+}
+
+private func makeDiagnosticsAddressReader(
+    fetchHistory: @escaping @Sendable (String, Bool) async throws -> [OpalBase.Network.TransactionHistoryEntry]
+) -> OpalBase.Network.AddressReader {
+    OpalBase.Network.AddressReader(
+        fetchBalance: { _, _ in .init(confirmed: 0, unconfirmed: 0) },
+        fetchUnspentOutputs: { _, _ in [] },
+        fetchHistory: fetchHistory,
+        fetchFirstUse: { _ in nil },
+        fetchMempoolTransactions: { _ in [] },
+        fetchScriptHash: { address in address },
+        subscribeToAddress: { _ in AsyncThrowingStream { $0.finish() } }
+    )
+}
+
 private func errorCodes(in records: [OpalBase.Diagnostics.Record]) -> Set<String> {
     Set(
         records
@@ -254,49 +611,29 @@ private func errorCodes(in records: [OpalBase.Diagnostics.Record]) -> Set<String
     )
 }
 
+private func recordsContain(
+    _ records: [OpalBase.Diagnostics.Record],
+    event: OpalBase.Diagnostics.Event,
+    errorCode: String
+) -> Bool {
+    records.contains { record in
+        record.event == event && recordContains(record, errorCode: errorCode)
+    }
+}
+
+private func recordContains(
+    _ record: OpalBase.Diagnostics.Record,
+    errorCode: String
+) -> Bool {
+    record.fields.contains {
+        $0.name == OpalBase.Diagnostics.Fields.errorCode &&
+            $0.value == errorCode
+    }
+}
+
 private func render(_ records: [OpalBase.Diagnostics.Record]) -> String {
     records.map { record in
         let fields = record.fields.map { "\($0.name)=\($0.value)" }.joined(separator: " ")
         return "\(record.category.rawValue) \(record.event.rawValue) \(fields)"
     }.joined(separator: "\n")
-}
-
-private final class LegacyNetworkLogCapture: @unchecked Sendable {
-    struct Entry {
-        let level: OpalBase.Network.LogLevel
-        let message: String
-        let metadata: [String: String]?
-        let file: String
-        let function: String
-        let line: UInt
-    }
-
-    private let lock = NSLock()
-    private var recordedEntries: [Entry] = []
-
-    func append(
-        level: OpalBase.Network.LogLevel,
-        message: String,
-        metadata: [String: String]?,
-        file: String,
-        function: String,
-        line: UInt
-    ) {
-        lock.withLock {
-            recordedEntries.append(
-                .init(
-                    level: level,
-                    message: message,
-                    metadata: metadata,
-                    file: file,
-                    function: function,
-                    line: line
-                )
-            )
-        }
-    }
-
-    func entries() -> [Entry] {
-        lock.withLock { recordedEntries }
-    }
 }

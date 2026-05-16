@@ -200,10 +200,10 @@ struct AccountCashFusionTransactionAssemblerValidator {
         ).transaction
         let firstReservedInput = try #require(reservation.reservedInputs.first)
         let secondReservedInput = try #require(reservation.reservedInputs.dropFirst().first)
-        let firstLocalUnlockingScript = try decodeCashFusionP2PKHUnlockingScript(
+        let firstLocalUnlockingScript = try CashFusionTestSupport.decodePayToPublicKeyHashUnlockingScript(
             decoded.inputs[0].unlockingScript
         )
-        let secondLocalUnlockingScript = try decodeCashFusionP2PKHUnlockingScript(
+        let secondLocalUnlockingScript = try CashFusionTestSupport.decodePayToPublicKeyHashUnlockingScript(
             decoded.inputs[2].unlockingScript
         )
 
@@ -511,7 +511,7 @@ struct AccountCashFusionTransactionAssemblerValidator {
         let decoded = try OpalBase.Transaction.decode(
             from: Data(finalized.transactionBytes)
         ).transaction
-        let unlockingScript = try decodeCashFusionP2PKHUnlockingScript(
+        let unlockingScript = try CashFusionTestSupport.decodePayToPublicKeyHashUnlockingScript(
             decoded.inputs[0].unlockingScript
         )
         let reservedInput = try #require(reservation.reservedInputs.first)

@@ -367,12 +367,6 @@ extension TransactionUnspentTransactionOutputValidator {
     }
 }
 
-private enum P2PKHUnlockingScriptDecodingError: Error {
-    case truncated
-    case unsupportedPushOpcode(UInt8)
-    case trailingBytes
-}
-
 private func decodeP2PKHUnlockingScript(
     _ unlockingScript: Data
 ) throws -> (signatureWithHashType: Data, publicKey: Data) {

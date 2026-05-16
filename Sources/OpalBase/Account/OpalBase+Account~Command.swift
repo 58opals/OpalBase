@@ -203,7 +203,6 @@ extension _OpalBase.Account {
     public func refreshTransactionConfirmations(using handler: OpalBase.Network.TransactionClient) async throws -> OpalBase.Transaction.History.ChangeSet {
         let records = await addressBook.listTransactionRecords()
         let hashes = records.map(\.transactionHash)
-        guard !hashes.isEmpty else { return .init() }
         return try await updateTransactionConfirmations(using: handler, for: hashes)
     }
 

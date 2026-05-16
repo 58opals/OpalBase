@@ -202,9 +202,7 @@ extension _OpalBase.Hedge {
         fundingIndex: Int = 0,
         network: OpalBase.Network.Environment = .mainnet
     ) throws -> FundingRecord {
-        try OpalBase.Diagnostics.withTraceID {
-            let traceID = OpalBase.Diagnostics.currentTraceID ?? OpalBase.Diagnostics.TraceID()
-            return try OpalBaseHedgeDiagnostics.withTraceID(traceID) {
+        try OpalBaseHedgeDiagnostics.withCurrentTraceID {
                 let fields = [
                     OpalBaseDiagnostics.operationField("hedge_funding_record_make"),
                     OpalBaseDiagnostics.moduleField(),
@@ -238,7 +236,6 @@ extension _OpalBase.Hedge {
                     )
                     throw error
                 }
-            }
         }
     }
 
@@ -250,9 +247,7 @@ extension _OpalBase.Hedge {
         settlementTransactionHash: OpalBase.Transaction.Hash,
         network: OpalBase.Network.Environment = .mainnet
     ) throws -> SettlementSummary {
-        try OpalBase.Diagnostics.withTraceID {
-            let traceID = OpalBase.Diagnostics.currentTraceID ?? OpalBase.Diagnostics.TraceID()
-            return try OpalBaseHedgeDiagnostics.withTraceID(traceID) {
+        try OpalBaseHedgeDiagnostics.withCurrentTraceID {
                 let fields = [
                     OpalBaseDiagnostics.operationField("hedge_settlement_summary_make"),
                     OpalBaseDiagnostics.moduleField(),
@@ -322,7 +317,6 @@ extension _OpalBase.Hedge {
                     )
                     throw error
                 }
-            }
         }
     }
 

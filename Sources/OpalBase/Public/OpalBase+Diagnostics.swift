@@ -236,7 +236,9 @@ public extension OpalBase {
             public static let cashFusionSessionStarted = OpalDiagnostics.Event(rawValue: "opalbase.cash_fusion.session.started")
             public static let cashFusionSessionFinalized = OpalDiagnostics.Event(rawValue: "opalbase.cash_fusion.session.finalized")
 
+            public static let hedgeParticipantMaterialReserveStarted = OpalDiagnostics.Event(rawValue: "opalbase.hedge.participant_material.reserve.started")
             public static let hedgeParticipantMaterialReserved = OpalDiagnostics.Event(rawValue: "opalbase.hedge.participant_material.reserved")
+            public static let hedgeParticipantMaterialReserveFailed = OpalDiagnostics.Event(rawValue: "opalbase.hedge.participant_material.reserve.failed")
             public static let hedgeFundingPrepareStarted = OpalDiagnostics.Event(rawValue: "opalbase.hedge.funding.prepare.started")
             public static let hedgeFundingPrepareSucceeded = OpalDiagnostics.Event(rawValue: "opalbase.hedge.funding.prepare.succeeded")
             public static let hedgeFundingPrepareFailed = OpalDiagnostics.Event(rawValue: "opalbase.hedge.funding.prepare.failed")
@@ -285,7 +287,9 @@ public extension OpalBase {
                 transactionBroadcastStarted, transactionBroadcastSucceeded, transactionBroadcastFailed,
                 cashFusionReadinessEvaluated, cashFusionSessionPrepared, cashFusionSessionPrepareFailed,
                 cashFusionSessionStarted, cashFusionSessionFinalized,
+                hedgeParticipantMaterialReserveStarted,
                 hedgeParticipantMaterialReserved,
+                hedgeParticipantMaterialReserveFailed,
                 hedgeFundingPrepareStarted, hedgeFundingPrepareSucceeded, hedgeFundingPrepareFailed,
                 hedgeFundingBuildStarted, hedgeFundingBuildSucceeded, hedgeFundingBuildFailed,
                 hedgeFundingBroadcastStarted, hedgeFundingBroadcastSucceeded, hedgeFundingBroadcastFailed,
@@ -323,6 +327,10 @@ public extension OpalBase {
             public static let confirmationCount = "confirmation_count"
             public static let roundTraceID = "round_trace_id"
             public static let baseTraceID = "base_trace_id"
+            public static let reconnectionAttemptCount = "reconnection_attempt_count"
+            public static let reconnectSuccessCount = "reconnect_success_count"
+            public static let inflightUnaryCallCount = "inflight_unary_call_count"
+            public static let activeSubscriptionCount = "active_subscription_count"
             public static let errorCode = "error_code"
             public static let errorType = "error_type"
 
@@ -330,7 +338,10 @@ public extension OpalBase {
                 operation, module, accountIndex, accountCount, usage, network, outcome, status,
                 recipientCount, inputCount, outputCount, utxoCount, addressCount,
                 transactionCount, tokenCategoryCount, tokenMetadataCount, includeUnconfirmed,
-                byteCount, confirmationCount, roundTraceID, baseTraceID, errorCode, errorType
+                byteCount, confirmationCount, roundTraceID, baseTraceID,
+                reconnectionAttemptCount, reconnectSuccessCount,
+                inflightUnaryCallCount, activeSubscriptionCount,
+                errorCode, errorType
             ]
         }
 
@@ -341,8 +352,11 @@ public extension OpalBase {
             public static let walletAccountNotFound = "wallet.account_not_found"
             public static let accountSnapshotMismatch = "account.snapshot_mismatch"
             public static let accountPaymentInvalid = "account.payment_invalid"
+            public static let accountBalanceRefreshFailed = "account.balance_refresh_failed"
             public static let accountInsufficientFunds = "account.insufficient_funds"
             public static let accountCoinSelectionFailed = "account.coin_selection_failed"
+            public static let accountTransactionHistoryRefreshFailed = "account.transaction_history_refresh_failed"
+            public static let accountTransactionDetailsRefreshFailed = "account.transaction_details_refresh_failed"
             public static let accountTransactionBuildFailed = "account.transaction_build_failed"
             public static let accountBroadcastFailed = "account.broadcast_failed"
             public static let accountConfirmationQueryFailed = "account.confirmation_query_failed"
@@ -368,9 +382,9 @@ public extension OpalBase {
             public static let all: [String] = [
                 unknown, cancelled,
                 walletAccountAlreadyExists, walletAccountNotFound,
-                accountSnapshotMismatch, accountPaymentInvalid, accountInsufficientFunds,
-                accountCoinSelectionFailed, accountTransactionBuildFailed,
-                accountBroadcastFailed, accountConfirmationQueryFailed,
+                accountSnapshotMismatch, accountPaymentInvalid, accountBalanceRefreshFailed, accountInsufficientFunds,
+                accountCoinSelectionFailed, accountTransactionHistoryRefreshFailed, accountTransactionDetailsRefreshFailed,
+                accountTransactionBuildFailed, accountBroadcastFailed, accountConfirmationQueryFailed,
                 addressReservationFailed,
                 networkTransport, networkServer, networkTimeout, networkEncoding,
                 networkDecoding, networkProtocolViolation,

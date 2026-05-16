@@ -227,6 +227,31 @@ struct AccountCashFusionSessionValidator {
         #expect(await addressBook.listSpendableUTXOs().contains(selectedInput))
     }
 
+    @Test("snapshot preserves the session trace identifier")
+    func snapshotPreservesTheSessionTraceIdentifier() async throws {
+        let traceID = OpalBase.Diagnostics.TraceID()
+        let account = try await AccountTestFixtures.makeAccount()
+        let selectedInput = try await CashFusionTestSupport.makeWalletOwnedUnspentOutput(
+            to: account,
+            value: 170_000,
+            usage: .change,
+            hashByte: 0xD9
+        )
+        let capture = CashFusionWrappedSessionCapture()
+        let session = try await OpalBase.Diagnostics.withTraceID(traceID) {
+            try await makeSession(
+                account: account,
+                selectedInput: selectedInput,
+                capture: capture
+            )
+        }
+        let fakeSession = try #require(await capture.load())
+
+        _ = await session.snapshot()
+
+        #expect(await fakeSession.readSnapshotTraceIDs() == [traceID])
+    }
+
     @Test("post-terminal snapshots do not rewrite successful cleanup")
     func postTerminalSnapshotsDoNotRewriteSuccessfulCleanup() async throws {
         let account = try await AccountTestFixtures.makeAccount()
@@ -367,6 +392,45 @@ struct AccountCashFusionSessionValidator {
         )
         let addressBook = await account.addressBook
         #expect(await addressBook.listSpendableUTXOs().contains(selectedInput))
+    }
+
+    @Test("failed terminal snapshots record error diagnostics")
+    func failedTerminalSnapshotsRecordErrorDiagnostics() async throws {
+        let records = try await OpalBase.Diagnostics.withConfiguration(cashFusionDiagnosticsConfiguration()) {
+            let account = try await AccountTestFixtures.makeAccount()
+            let selectedInput = try await CashFusionTestSupport.makeWalletOwnedUnspentOutput(
+                to: account,
+                value: 150_000,
+                usage: .change,
+                hashByte: 0xE3
+            )
+            let capture = CashFusionWrappedSessionCapture()
+            let session = try await makeSession(
+                account: account,
+                selectedInput: selectedInput,
+                capture: capture
+            )
+            let fakeSession = try #require(await capture.load())
+
+            await session.start()
+            await fakeSession.emit(
+                snapshot: CashFusionTestSupport.makeSnapshot(
+                    phase: .completed,
+                    completionStatus: .hostRejected
+                )
+            )
+
+            return OpalBase.Diagnostics.recentRecords
+        }
+
+        let failedFinalRecord = try #require(records.last { record in
+            record.event == OpalBase.Diagnostics.Events.cashFusionSessionFinalized &&
+                record.fields.contains {
+                    $0.name == OpalBase.Diagnostics.Fields.outcome &&
+                        $0.value == "failed"
+                }
+        })
+        #expect(failedFinalRecord.level == .error)
     }
 
     @Test("makePublicStatus maps every terminal completion status")
@@ -911,6 +975,14 @@ struct AccountCashFusionSessionValidator {
 }
 
 private extension AccountCashFusionSessionValidator {
+    func cashFusionDiagnosticsConfiguration() -> OpalBase.Diagnostics.Configuration {
+        OpalBase.Diagnostics.Configuration(
+            minimumLevel: .debug,
+            categoryFilter: .all,
+            bufferPolicy: .enabled(capacity: 128)
+        )
+    }
+
     func assertPreRoundFatalFailureReleasesReservation(
         lastError: OpalFusion.Client.Error,
         diagnostics: OpalFusion.Client.Diagnostics = .init(),

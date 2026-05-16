@@ -5,8 +5,13 @@ import SwiftFulcrum
 
 extension _OpalBase.Network.Fulcrum {
     public actor Client {
+        private static let fallbackDiagnosticsURL = URL(string: "wss://fulcrum.invalid")!
+
         private let fulcrum: SwiftFulcrum.Client
         public let configuration: OpalBase.Network.Configuration
+        private var diagnosticsURL: URL {
+            configuration.serverURLs.first ?? Self.fallbackDiagnosticsURL
+        }
         
         public init(
             configuration: OpalBase.Network.Configuration,
@@ -16,6 +21,7 @@ extension _OpalBase.Network.Fulcrum {
         ) async throws {
             self.configuration = configuration
             _ = (logger, isLoggingEnabled)
+            let diagnosticsURL = configuration.serverURLs.first ?? Self.fallbackDiagnosticsURL
             
             let reconnectConfiguration = SwiftFulcrum.Client.Configuration.ReconnectPolicy(
                 maximumReconnectionAttempts: configuration.reconnectConfiguration.maximumAttempts,
@@ -49,9 +55,9 @@ extension _OpalBase.Network.Fulcrum {
                     )
                     if let metrics {
                         let snapshot = OpalBase.Network.DiagnosticsSnapshot(await fulcrum.makeDiagnosticsSnapshot())
-                        await metrics.recordDiagnosticsSnapshot(url: configuration.serverURLs.first ?? URL(string: "wss://fulcrum.invalid")!, snapshot: snapshot)
+                        await metrics.recordDiagnosticsSnapshot(url: diagnosticsURL, snapshot: snapshot)
                         await metrics.recordSubscriptionRegistryUpdate(
-                            url: configuration.serverURLs.first ?? URL(string: "wss://fulcrum.invalid")!,
+                            url: diagnosticsURL,
                             subscriptions: await fulcrum.listSubscriptions().map(OpalBase.Network.DiagnosticsSubscription.init)
                         )
                     }
@@ -89,7 +95,7 @@ extension _OpalBase.Network.Fulcrum {
             OpalBaseDiagnostics.record(
                 OpalBase.Diagnostics.Events.networkDiagnosticsSnapshotRecorded,
                 category: OpalBase.Diagnostics.Categories.network,
-                fields: OpalBaseDiagnostics.networkDiagnosticsFields(url: configuration.serverURLs.first ?? URL(string: "wss://fulcrum.invalid")!, snapshot: snapshot)
+                fields: OpalBaseDiagnostics.networkDiagnosticsFields(snapshot: snapshot)
             )
             return snapshot
         }
@@ -99,11 +105,10 @@ extension _OpalBase.Network.Fulcrum {
             OpalBaseDiagnostics.record(
                 OpalBase.Diagnostics.Events.networkDiagnosticsSubscriptionsRecorded,
                 category: OpalBase.Diagnostics.Categories.network,
-                fields: [
-                    OpalBaseDiagnostics.operationField("list_network_diagnostics_subscriptions"),
-                    OpalBaseDiagnostics.moduleField(),
-                    OpalBaseDiagnostics.publicField("active_subscription_count", subscriptions.count)
-                ]
+                fields: OpalBaseDiagnostics.networkSubscriptionFields(
+                    subscriptions: subscriptions,
+                    operation: "list_network_diagnostics_subscriptions"
+                )
             )
             return subscriptions
         }

@@ -176,20 +176,10 @@ extension _OpalBase.Address.Book {
             candidateEntry = try await selectNextEntry(for: changeEntry.derivationPath.usage)
         }
 
-        let reservedEntry = try reserveEntry(address: candidateEntry.address)
-
-        do {
-            try await generateEntriesIfNeeded(for: reservedEntry.derivationPath.usage)
-            return (
-                entry: reservedEntry,
-                hasBeenUsedPreviously: candidateEntry.isUsed
-            )
-        } catch {
-            _ = try? releaseReservation(
-                address: reservedEntry.address,
-                shouldKeepUsed: candidateEntry.isUsed
-            )
-            throw error
-        }
+        let reservedEntry = try await reserveEntryMaintainingGap(candidateEntry)
+        return (
+            entry: reservedEntry,
+            hasBeenUsedPreviously: candidateEntry.isUsed
+        )
     }
 }

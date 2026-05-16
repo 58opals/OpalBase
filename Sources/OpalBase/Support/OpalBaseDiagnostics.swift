@@ -2,6 +2,7 @@
 
 import Foundation
 import OpalDiagnostics
+import SwiftFulcrum
 
 enum OpalBaseDiagnostics {
     typealias Diagnostics = OpalBase.Diagnostics
@@ -75,6 +76,16 @@ enum OpalBaseDiagnostics {
         ]
     }
 
+    static func contextErrorFields(
+        for error: Swift.Error,
+        errorCode: String
+    ) -> [OpalDiagnostics.Field] {
+        [
+            errorCodeField(errorCode),
+            publicField(Diagnostics.Fields.errorType, String(describing: type(of: error)))
+        ]
+    }
+
     static func errorCode(
         for error: Swift.Error,
         fallback: String = OpalBase.Diagnostics.ErrorCodes.unknown
@@ -95,28 +106,38 @@ enum OpalBaseDiagnostics {
             return errorCode(for: networkError)
         }
 
-        if let claimableError = error as? OpalBase.Claimable.Error {
-            return errorCode(for: claimableError, fallback: fallback)
+        if let fulcrumError = error as? SwiftFulcrum.Client.Error {
+            return errorCode(for: fulcrumError)
         }
 
-        if error is OpalBase.Hedge.Error {
-            return fallback
+        if let claimableError = error as? OpalBase.Claimable.Error {
+            return errorCode(for: claimableError, fallback: fallback)
         }
 
         return fallback
     }
 
     static func networkDiagnosticsFields(
-        url _: URL,
         snapshot: OpalBase.Network.DiagnosticsSnapshot
     ) -> [OpalDiagnostics.Field] {
         [
             operationField("record_network_diagnostics_snapshot"),
             moduleField(),
-            publicField("reconnection_attempt_count", snapshot.reconnectionAttemptCount),
-            publicField("reconnect_success_count", snapshot.reconnectSuccesses),
-            publicField("inflight_unary_call_count", snapshot.inflightUnaryCallCount),
-            publicField("active_subscription_count", snapshot.activeSubscriptionCount)
+            publicField(Diagnostics.Fields.reconnectionAttemptCount, snapshot.reconnectionAttemptCount),
+            publicField(Diagnostics.Fields.reconnectSuccessCount, snapshot.reconnectSuccesses),
+            publicField(Diagnostics.Fields.inflightUnaryCallCount, snapshot.inflightUnaryCallCount),
+            publicField(Diagnostics.Fields.activeSubscriptionCount, snapshot.activeSubscriptionCount)
+        ]
+    }
+
+    static func networkSubscriptionFields(
+        subscriptions: [OpalBase.Network.DiagnosticsSubscription],
+        operation: String
+    ) -> [OpalDiagnostics.Field] {
+        [
+            operationField(operation),
+            moduleField(),
+            publicField(Diagnostics.Fields.activeSubscriptionCount, subscriptions.count)
         ]
     }
 
@@ -191,8 +212,12 @@ enum OpalBaseDiagnostics {
              .tokenMutationNonFungibleTokenCommitmentTooLong,
              .tokenMutationRequiresTokenAwareAddress:
             Diagnostics.ErrorCodes.accountPaymentInvalid
-        case .coinSelectionFailed:
-            Diagnostics.ErrorCodes.accountCoinSelectionFailed
+        case .coinSelectionFailed(let error):
+            if isInsufficientFundsError(error) {
+                Diagnostics.ErrorCodes.accountInsufficientFunds
+            } else {
+                Diagnostics.ErrorCodes.accountCoinSelectionFailed
+            }
         case .transactionBuildFailed,
              .tokenGenesisCannotComputeDustThreshold,
              .tokenGenesisTransactionBuildFailed,
@@ -207,10 +232,13 @@ enum OpalBaseDiagnostics {
              .transactionConfirmationRefreshFailed:
             Diagnostics.ErrorCodes.accountConfirmationQueryFailed
         case .balanceFetchTimeout,
-             .balanceRefreshFailed,
-             .transactionHistoryRefreshFailed,
-             .transactionDetailsRefreshFailed,
-             .feePreferenceUnavailable,
+             .balanceRefreshFailed:
+            Diagnostics.ErrorCodes.accountBalanceRefreshFailed
+        case .transactionHistoryRefreshFailed:
+            Diagnostics.ErrorCodes.accountTransactionHistoryRefreshFailed
+        case .transactionDetailsRefreshFailed:
+            Diagnostics.ErrorCodes.accountTransactionDetailsRefreshFailed
+        case .feePreferenceUnavailable,
              .tokenSelectionFailed:
             fallback
         case .cashFusionHasNoSelectedInputs,
@@ -245,6 +273,51 @@ enum OpalBaseDiagnostics {
         case .unknown:
             Diagnostics.ErrorCodes.unknown
         }
+    }
+
+    private static func errorCode(for error: SwiftFulcrum.Client.Error) -> String {
+        switch error {
+        case .transport:
+            Diagnostics.ErrorCodes.networkTransport
+        case .rpc:
+            Diagnostics.ErrorCodes.networkServer
+        case .coding(.encode):
+            Diagnostics.ErrorCodes.networkEncoding
+        case .coding(.decode):
+            Diagnostics.ErrorCodes.networkDecoding
+        case .client(let issue):
+            errorCode(for: issue)
+        }
+    }
+
+    private static func errorCode(for issue: SwiftFulcrum.Client.Error.ClientIssue) -> String {
+        switch issue {
+        case .cancelled:
+            Diagnostics.ErrorCodes.cancelled
+        case .timeout:
+            Diagnostics.ErrorCodes.networkTimeout
+        case .protocolMismatch,
+             .invalidProtocolNegotiationRange,
+             .emptyResponse:
+            Diagnostics.ErrorCodes.networkProtocolViolation
+        case .urlNotFound,
+             .invalidURL,
+             .duplicateHandler,
+             .unknown:
+            Diagnostics.ErrorCodes.networkTransport
+        }
+    }
+
+    private static func isInsufficientFundsError(_ error: Swift.Error) -> Bool {
+        if case OpalBase.Transaction.Error.insufficientFunds = error {
+            return true
+        }
+
+        if case OpalBase.Address.Book.Error.insufficientFunds = error {
+            return true
+        }
+
+        return false
     }
 
     private static func errorCode(

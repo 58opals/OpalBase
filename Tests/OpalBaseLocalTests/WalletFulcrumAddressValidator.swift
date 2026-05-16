@@ -727,7 +727,3 @@ struct WalletFulcrumAddressValidator {
         #expect(requestedHashes == Set([hashA, hashB]))
     }
 }
-
-private enum BalanceRefreshTestFailure: Error {
-    case rejected
-}

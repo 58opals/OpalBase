@@ -14,6 +14,11 @@ extension _OpalBase.Account {
                 OpalBaseDiagnostics.moduleField(),
                 OpalBaseDiagnostics.networkField(network)
             ]
+            OpalBaseDiagnostics.record(
+                OpalBase.Diagnostics.Events.hedgeParticipantMaterialReserveStarted,
+                category: OpalBase.Diagnostics.Categories.hedge,
+                fields: fields
+            )
             do {
                 let entry = try await reserveNextReceivingEntry()
                 let privateKeyData = try await addressBook.generatePrivateKey(
@@ -45,7 +50,7 @@ extension _OpalBase.Account {
                 return material
             } catch {
                 OpalBaseDiagnostics.record(
-                    OpalBase.Diagnostics.Events.addressReserveFailed,
+                    OpalBase.Diagnostics.Events.hedgeParticipantMaterialReserveFailed,
                     category: OpalBase.Diagnostics.Categories.hedge,
                     fields: fields + OpalBaseDiagnostics.errorFields(
                         for: error,
@@ -61,9 +66,7 @@ extension _OpalBase.Account {
         _ request: OpalBase.Hedge.USDThirtyDaySimpleHedgeRequest,
         feePolicy: OpalBase.Wallet.FeePolicy = .init()
     ) async throws -> OpalBase.Hedge.FundingPlan {
-        try await OpalBase.Diagnostics.withTraceID {
-            let traceID = OpalBase.Diagnostics.currentTraceID ?? OpalBase.Diagnostics.TraceID()
-            return try await OpalBaseHedgeDiagnostics.withTraceID(traceID) {
+        try await OpalBaseHedgeDiagnostics.withCurrentTraceID {
                 let fields = [
                     OpalBaseDiagnostics.operationField("hedge_funding_prepare"),
                     OpalBaseDiagnostics.moduleField(),
@@ -118,14 +121,13 @@ extension _OpalBase.Account {
                     OpalBaseDiagnostics.record(
                         OpalBase.Diagnostics.Events.hedgeFundingPrepareFailed,
                         category: OpalBase.Diagnostics.Categories.hedge,
-                        fields: fields + OpalBaseDiagnostics.errorFields(
+                        fields: fields + OpalBaseDiagnostics.contextErrorFields(
                             for: error,
-                            fallback: OpalBase.Diagnostics.ErrorCodes.hedgeFundingFailed
+                            errorCode: OpalBase.Diagnostics.ErrorCodes.hedgeFundingFailed
                         )
                     )
                     throw error
                 }
-            }
         }
     }
 }

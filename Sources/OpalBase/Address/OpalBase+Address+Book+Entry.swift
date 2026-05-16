@@ -155,10 +155,19 @@ extension _OpalBase.Address.Book {
     
     func reserveNextEntry(for usage: OpalBase.Key.DerivationPath.Usage) async throws -> Entry {
         let nextEntry = try await selectNextEntry(for: usage)
-        let reservedEntry = try reserveEntry(address: nextEntry.address)
-        try await generateEntriesIfNeeded(for: reservedEntry.derivationPath.usage)
-        
-        return reservedEntry
+        return try await reserveEntryMaintainingGap(nextEntry)
+    }
+
+    func reserveEntryMaintainingGap(_ candidateEntry: Entry) async throws -> Entry {
+        let reservedEntry = try reserveEntry(address: candidateEntry.address)
+        do {
+            try await generateEntriesIfNeeded(for: reservedEntry.derivationPath.usage)
+            return reservedEntry
+        } catch {
+            _ = try? releaseReservation(address: reservedEntry.address,
+                                        shouldKeepUsed: candidateEntry.isUsed)
+            throw error
+        }
     }
 }
 

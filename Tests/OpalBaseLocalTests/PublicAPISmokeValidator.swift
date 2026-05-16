@@ -51,6 +51,65 @@ struct PublicAPISmokeValidator {
         await monitor.stop()
     }
 
+    @Test("legacy network logger facade is publicly callable")
+    func legacyNetworkLoggerFacadeIsPubliclyCallable() {
+        let capture = LegacyNetworkLogCapture()
+        let logger = OpalBase.Network.Logger { level, message, metadata, file, function, line in
+            capture.append(
+                level: level,
+                message: message,
+                metadata: metadata,
+                file: file,
+                function: function,
+                line: line
+            )
+        }
+
+        logger.log(
+            .notice,
+            "public-logger-smoke",
+            metadata: ["surface": "public"],
+            file: "PublicAPISmokeValidator.swift",
+            function: "legacyNetworkLoggerFacadeIsPubliclyCallable",
+            line: 1
+        )
+
+        let entry = capture.entries().first
+        #expect(entry?.level == .notice)
+        #expect(entry?.message == "public-logger-smoke")
+        #expect(entry?.metadata?["surface"] == "public")
+    }
+
+    @Test("network metrics diagnostics bridge is publicly callable")
+    func networkMetricsDiagnosticsBridgeIsPubliclyCallable() async {
+        let records = await OpalBase.Diagnostics.withConfiguration(
+            smokeDiagnosticsConfiguration()
+        ) {
+            let metrics = OpalBase.Network.Metrics()
+            let url = URL(string: "wss://fulcrum.example.com:50004")!
+            await metrics.recordDiagnosticsSnapshot(
+                url: url,
+                snapshot: .init(
+                    reconnectionAttemptCount: 1,
+                    reconnectSuccesses: 1,
+                    inflightUnaryCallCount: 0,
+                    activeSubscriptionCount: 0
+                )
+            )
+            await metrics.recordSubscriptionRegistryUpdate(url: url, subscriptions: [])
+            return OpalBase.Diagnostics.recentRecords
+        }
+
+        #expect(recordsContain(
+            records,
+            event: OpalBase.Diagnostics.Events.networkDiagnosticsSnapshotRecorded
+        ))
+        #expect(recordsContain(
+            records,
+            event: OpalBase.Diagnostics.Events.networkDiagnosticsSubscriptionsRecorded
+        ))
+    }
+
     #if os(macOS)
     @Test("cash fusion readiness and status wrappers compose from OpalBase only")
     func cashFusionReadinessAndStatusWrappersComposeFromOpalBaseOnly() async throws {
@@ -589,4 +648,19 @@ private func makeSmokeStoredMnemonicStore(state: SmokeStoredMnemonicStoreState) 
             await state.deleteMnemonic(generation: generation)
         }
     )
+}
+
+private func smokeDiagnosticsConfiguration() -> OpalBase.Diagnostics.Configuration {
+    OpalBase.Diagnostics.Configuration(
+        minimumLevel: .debug,
+        categoryFilter: .all,
+        bufferPolicy: .enabled(capacity: 64)
+    )
+}
+
+private func recordsContain(
+    _ records: [OpalBase.Diagnostics.Record],
+    event: OpalBase.Diagnostics.Event
+) -> Bool {
+    records.contains { $0.event == event }
 }

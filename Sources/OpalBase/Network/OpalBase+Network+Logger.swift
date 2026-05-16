@@ -12,12 +12,12 @@ extension _OpalBase.Network {
             self.logHandler = log
         }
 
-        func log(_ level: LogLevel,
-                 _ message: @autoclosure () -> String,
-                 metadata: [String: String]?,
-                 file: String,
-                 function: String,
-                 line: UInt) {
+        public func log(_ level: LogLevel,
+                        _ message: @autoclosure () -> String,
+                        metadata: [String: String]?,
+                        file: String,
+                        function: String,
+                        line: UInt) {
             logHandler(level, message(), metadata, file, function, line)
         }
     }

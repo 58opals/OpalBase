@@ -153,169 +153,75 @@ enum CashFusionTestSupport {
             throw OpalBase.CashTokens.Error.invalidTokenPrefixCapability
         }
     }
-}
 
-actor CashFusionWrappedSessionCapture {
-    private var session: CashFusionFakeWrappedSession?
-    private var configuration: OpalFusion.Client.Configuration?
-    private var genesisHash: [UInt8]?
-    private var joinPools: OpalFusion.ProtocolModel.JoinPools?
-    private var participantReservationSource: (any OpalFusion.Host.ParticipantReservationSource)?
-    private var reconnectPolicy: OpalFusion.Client.ReconnectPolicy?
+    static func decodePayToPublicKeyHashUnlockingScript(
+        _ unlockingScript: Data
+    ) throws -> (signatureWithHashType: Data, publicKey: Data) {
+        let bytes = Array(unlockingScript)
+        var offset = 0
+        let signatureWithHashType = try Data(
+            readPushedElement(from: bytes, offset: &offset)
+        )
+        let publicKey = try Data(
+            readPushedElement(from: bytes, offset: &offset)
+        )
 
-    func store(
-        _ session: CashFusionFakeWrappedSession,
-        configuration: OpalFusion.Client.Configuration,
-        genesisHash: [UInt8]?,
-        joinPools: OpalFusion.ProtocolModel.JoinPools,
-        participantReservationSource: any OpalFusion.Host.ParticipantReservationSource,
-        reconnectPolicy: OpalFusion.Client.ReconnectPolicy
-    ) {
-        self.session = session
-        self.configuration = configuration
-        self.genesisHash = genesisHash
-        self.joinPools = joinPools
-        self.participantReservationSource = participantReservationSource
-        self.reconnectPolicy = reconnectPolicy
+        guard offset == bytes.count else {
+            throw CashFusionUnlockingScriptDecodingError.trailingBytes
+        }
+
+        return (signatureWithHashType, publicKey)
     }
 
-    func load() -> CashFusionFakeWrappedSession? {
-        session
-    }
-
-    func loadConfiguration() -> OpalFusion.Client.Configuration? {
-        configuration
-    }
-
-    func loadGenesisHash() -> [UInt8]? {
-        genesisHash
-    }
-
-    func loadJoinPools() -> OpalFusion.ProtocolModel.JoinPools? {
-        joinPools
-    }
-
-    func loadParticipantReservationSource() -> (any OpalFusion.Host.ParticipantReservationSource)? {
-        participantReservationSource
-    }
-
-    func loadReconnectPolicy() -> OpalFusion.Client.ReconnectPolicy? {
-        reconnectPolicy
-    }
-}
-
-actor CashFusionFakeWrappedSession: OpalBase.Account.CashFusionWrappedSession {
-    private let stateObserver: (any OpalFusion.Client.StateObserver)?
-
-    private var startCount = 0
-    private var stopCount = 0
-    private var currentSnapshot: OpalFusion.Client.Session.Snapshot = .init()
-
-    init(
-        stateObserver: (any OpalFusion.Client.StateObserver)?
-    ) {
-        self.stateObserver = stateObserver
-    }
-
-    func start() async {
-        startCount += 1
-    }
-
-    func stop() async {
-        stopCount += 1
-    }
-
-    func snapshot() async -> OpalFusion.Client.Session.Snapshot {
-        currentSnapshot
-    }
-
-    func emit(snapshot: OpalFusion.Client.Session.Snapshot) async {
-        currentSnapshot = snapshot
-        await stateObserver?.receive(snapshot)
-    }
-
-    func readStartCount() -> Int {
-        startCount
-    }
-
-    func readStopCount() -> Int {
-        stopCount
-    }
-}
-
-private enum CashFusionUnlockingScriptDecodingError: Error {
-    case truncated
-    case unsupportedPushOpcode(UInt8)
-    case trailingBytes
-}
-
-func decodeCashFusionP2PKHUnlockingScript(
-    _ unlockingScript: Data
-) throws -> (signatureWithHashType: Data, publicKey: Data) {
-    let bytes = Array(unlockingScript)
-    var offset = 0
-    let signatureWithHashType = try Data(
-        readCashFusionPushedElement(from: bytes, offset: &offset)
-    )
-    let publicKey = try Data(
-        readCashFusionPushedElement(from: bytes, offset: &offset)
-    )
-
-    guard offset == bytes.count else {
-        throw CashFusionUnlockingScriptDecodingError.trailingBytes
-    }
-
-    return (signatureWithHashType, publicKey)
-}
-
-private func readCashFusionPushedElement(
-    from bytes: [UInt8],
-    offset: inout Int
-) throws -> [UInt8] {
-    guard offset < bytes.count else {
-        throw CashFusionUnlockingScriptDecodingError.truncated
-    }
-
-    let opcode = bytes[offset]
-    offset += 1
-
-    let count: Int
-    switch opcode {
-    case 0 ... 75:
-        count = Int(opcode)
-    case ScriptOperationCode._PUSHDATA1.rawValue:
+    private static func readPushedElement(
+        from bytes: [UInt8],
+        offset: inout Int
+    ) throws -> [UInt8] {
         guard offset < bytes.count else {
             throw CashFusionUnlockingScriptDecodingError.truncated
         }
-        count = Int(bytes[offset])
+
+        let opcode = bytes[offset]
         offset += 1
-    case ScriptOperationCode._PUSHDATA2.rawValue:
-        guard offset + 1 < bytes.count else {
+
+        let count: Int
+        switch opcode {
+        case 0 ... 75:
+            count = Int(opcode)
+        case ScriptOperationCode._PUSHDATA1.rawValue:
+            guard offset < bytes.count else {
+                throw CashFusionUnlockingScriptDecodingError.truncated
+            }
+            count = Int(bytes[offset])
+            offset += 1
+        case ScriptOperationCode._PUSHDATA2.rawValue:
+            guard offset + 1 < bytes.count else {
+                throw CashFusionUnlockingScriptDecodingError.truncated
+            }
+            count = Int(UInt16(bytes[offset]) | (UInt16(bytes[offset + 1]) << 8))
+            offset += 2
+        case ScriptOperationCode._PUSHDATA4.rawValue:
+            guard offset + 3 < bytes.count else {
+                throw CashFusionUnlockingScriptDecodingError.truncated
+            }
+            count = Int(
+                UInt32(bytes[offset]) |
+                    (UInt32(bytes[offset + 1]) << 8) |
+                    (UInt32(bytes[offset + 2]) << 16) |
+                    (UInt32(bytes[offset + 3]) << 24)
+            )
+            offset += 4
+        default:
+            throw CashFusionUnlockingScriptDecodingError.unsupportedPushOpcode(opcode)
+        }
+
+        guard offset + count <= bytes.count else {
             throw CashFusionUnlockingScriptDecodingError.truncated
         }
-        count = Int(UInt16(bytes[offset]) | (UInt16(bytes[offset + 1]) << 8))
-        offset += 2
-    case ScriptOperationCode._PUSHDATA4.rawValue:
-        guard offset + 3 < bytes.count else {
-            throw CashFusionUnlockingScriptDecodingError.truncated
-        }
-        count = Int(
-            UInt32(bytes[offset]) |
-                (UInt32(bytes[offset + 1]) << 8) |
-                (UInt32(bytes[offset + 2]) << 16) |
-                (UInt32(bytes[offset + 3]) << 24)
-        )
-        offset += 4
-    default:
-        throw CashFusionUnlockingScriptDecodingError.unsupportedPushOpcode(opcode)
-    }
 
-    guard offset + count <= bytes.count else {
-        throw CashFusionUnlockingScriptDecodingError.truncated
+        let element = Array(bytes[offset ..< offset + count])
+        offset += count
+        return element
     }
-
-    let element = Array(bytes[offset ..< offset + count])
-    offset += count
-    return element
 }
 #endif
