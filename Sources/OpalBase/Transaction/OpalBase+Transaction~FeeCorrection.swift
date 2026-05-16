@@ -59,6 +59,10 @@ extension _OpalBase.Transaction {
         let inputTotal = try sumValues(of: builder.orderedUnspentOutputs) { $0.value }
         var correctedTransaction = signedTransaction
         let maximumPasses = 8
+        let feeOverpaymentTolerance = makeFeeOverpaymentTolerance(
+            feePerByte: feePerByte,
+            inputCount: builder.orderedUnspentOutputs.count
+        )
         
         for _ in 0..<maximumPasses {
             let requiredFee = try correctedTransaction.calculateRequiredFee(feePerByte: feePerByte)
@@ -66,6 +70,9 @@ extension _OpalBase.Transaction {
             let feePaid = try calculateFeePaid(inputTotal: inputTotal, outputTotal: outputTotal)
             
             guard feePaid != requiredFee else { return correctedTransaction }
+            if feePaid > requiredFee, feePaid - requiredFee <= feeOverpaymentTolerance {
+                return correctedTransaction
+            }
             
             let correctedOutputs = try computeOutputsForTargetFee(recipientOutputs: recipientOutputs,
                                                                   changeOutputTemplate: changeOutput,
@@ -89,6 +96,9 @@ extension _OpalBase.Transaction {
         
         guard finalFeePaid >= finalRequiredFee else {
             throw Error.insufficientFunds(required: finalRequiredFee - finalFeePaid)
+        }
+        if finalFeePaid - finalRequiredFee <= feeOverpaymentTolerance {
+            return correctedTransaction
         }
         
         let finalOutputs = try computeOutputsForTargetFee(recipientOutputs: recipientOutputs,
@@ -148,6 +158,12 @@ extension _OpalBase.Transaction {
         }
         
         return inputTotal - outputTotal
+    }
+
+    private static func makeFeeOverpaymentTolerance(feePerByte: UInt64, inputCount: Int) -> UInt64 {
+        let variableInputCount = UInt64(max(1, inputCount))
+        let tolerance = feePerByte.multipliedReportingOverflow(by: variableInputCount)
+        return max(1, tolerance.overflow ? UInt64.max : tolerance.partialValue)
     }
 
     static func validateDustDonationAllowed(for changeOutput: Output) throws {

@@ -5,10 +5,13 @@ import OpalCrypto
 @testable import OpalBase
 
 extension TransactionUnspentTransactionOutputValidator {
-    func makeTransactionBuilderComponents() throws -> (privateKeys: [OpalBase.Transaction.Output.Unspent: Data],
-                                                       recipientOutputs: [OpalBase.Transaction.Output],
-                                                       changeOutput: OpalBase.Transaction.Output,
-                                                       inputTotal: UInt64) {
+    func makeTransactionBuilderComponents(
+        inputValue: UInt64 = 10_000,
+        changeValue: UInt64 = 3_000
+    ) throws -> (privateKeys: [OpalBase.Transaction.Output.Unspent: Data],
+                 recipientOutputs: [OpalBase.Transaction.Output],
+                 changeOutput: OpalBase.Transaction.Output,
+                 inputTotal: UInt64) {
         let privateKey = Data(repeating: 0x02, count: 32)
         let lockingScript = Data([
             ScriptOperationCode._DUP.rawValue,
@@ -21,7 +24,7 @@ extension TransactionUnspentTransactionOutputValidator {
         
         let previousTransactionHash = OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0x00, count: 32))
         let unspent = OpalBase.Transaction.Output.Unspent(
-            value: 10_000,
+            value: inputValue,
             lockingScript: lockingScript,
             previousTransactionHash: previousTransactionHash,
             previousTransactionOutputIndex: 0
@@ -42,7 +45,7 @@ extension TransactionUnspentTransactionOutputValidator {
             ScriptOperationCode._EQUALVERIFY.rawValue,
             ScriptOperationCode._CHECKSIG.rawValue
         ])
-        let changeOutput = OpalBase.Transaction.Output(value: 3_000, lockingScript: changeScript)
+        let changeOutput = OpalBase.Transaction.Output(value: changeValue, lockingScript: changeScript)
         
         return (privateKeys: privateKeys,
                 recipientOutputs: recipientOutputs,

@@ -16,7 +16,7 @@ struct NetworkFulcrumBlockHeaderReaderValidator {
     private static let invalidCashAddr = "bitcoincash:qpm2qsznhks23z7629mms6s4cwef74vcwvy22gdx6z"
     
     @Test("fetches tip snapshot consistent with fulcrum RPC", .timeLimit(.minutes(1)))
-    func fetchTipMatchesServerResponse1() async throws {
+    func fetchTipPreservesRPCHeaderLength() async throws {
         guard NetworkTestClient.isExtendedLiveNetworkEnabled else { return }
         let configuration = OpalBase.Network.Configuration(serverURLs: [Self.primaryServerAddress, Self.backupServerAddress])
         try await NetworkTestClient.withClient(configuration: configuration) { client in
@@ -34,7 +34,7 @@ struct NetworkFulcrumBlockHeaderReaderValidator {
     }
     
     @Test("fetches the current block tip and mirrors raw headers response", .timeLimit(.minutes(1)))
-    func fetchTipMatchesServerResponse2() async throws {
+    func fetchTipMirrorsRawHeaderResponse() async throws {
         guard NetworkTestClient.isExtendedLiveNetworkEnabled else { return }
         let configuration = OpalBase.Network.Configuration(serverURLs: [Self.primaryServerAddress, Self.backupServerAddress])
         try await NetworkTestClient.withClient(configuration: configuration) { client in

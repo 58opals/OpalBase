@@ -298,6 +298,43 @@ struct AccountCommandValidator {
         try await addressBook.releaseSpendReservation(firstReservation, outcome: .cancelled)
     }
 
+    @Test("stale spend reservation handles cannot release refreshed reservations")
+    func staleSpendReservationHandlesCannotReleaseRefreshedReservations() async throws {
+        let account = try await AccountTestFixtures.makeAccount()
+        let addressBook = await account.addressBook
+        let utxo = try await AccountTestFixtures.addUnspentOutput(
+            to: account,
+            value: 25_000,
+            hashByte: 0x47
+        )
+        let changeEntry = try await addressBook.selectNextEntry(for: .change)
+
+        let firstReservation = try await addressBook.reserveSpend(
+            utxos: [utxo],
+            changeEntry: changeEntry,
+            tokenSelectionPolicy: .excludeTokenUTXOs
+        )
+        try await Task.sleep(for: .milliseconds(10))
+        let refreshedReservation = try await addressBook.reserveSpend(
+            utxos: [utxo],
+            changeEntry: changeEntry,
+            tokenSelectionPolicy: .excludeTokenUTXOs
+        )
+
+        #expect(firstReservation.id == refreshedReservation.id)
+        #expect(firstReservation.reservationDate != refreshedReservation.reservationDate)
+
+        try await addressBook.releaseSpendReservation(firstReservation, outcome: .cancelled)
+
+        #expect(await addressBook.readActiveSpendReservations().count == 1)
+        #expect(await addressBook.listSpendableUTXOs().contains(utxo) == false)
+
+        try await addressBook.releaseSpendReservation(refreshedReservation, outcome: .cancelled)
+
+        #expect(await addressBook.readActiveSpendReservations().isEmpty)
+        #expect(await addressBook.listSpendableUTXOs().contains(utxo))
+    }
+
     @Test("reserveSpend rejects empty input sets before reserving change")
     func reserveSpendRejectsEmptyInputSetsBeforeReservingChange() async throws {
         let account = try await AccountTestFixtures.makeAccount()

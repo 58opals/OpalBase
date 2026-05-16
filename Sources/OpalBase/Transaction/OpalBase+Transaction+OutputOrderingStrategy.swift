@@ -28,6 +28,42 @@ extension _OpalBase.Transaction {
                       shouldAllowDustDonation: Bool = false,
                       privacyOutputShuffle: ([Output]) -> [Output] = defaultPrivacyOutputShuffle,
                       unlockers: [OpalBase.Transaction.Output.Unspent: Unlocker] = .init()) throws -> OpalBase.Transaction {
+        var privacyOutputShuffleCache: [[Output.Fingerprint]: [Output]] = .init()
+        var privacyOutputOrder: [Output.OrderingFingerprint]?
+        let stablePrivacyOutputShuffle: ([Output]) -> [Output] = { outputs in
+            let fingerprint = outputs.map(\.fingerprint)
+            if let cachedOutputs = privacyOutputShuffleCache[fingerprint] {
+                return cachedOutputs
+            }
+
+            let shuffledOutputs: [Output]
+            if let privacyOutputOrder {
+                var consumedIndexes: Set<Int> = .init()
+                var orderedOutputs: [Output] = .init()
+                orderedOutputs.reserveCapacity(outputs.count)
+
+                for orderingFingerprint in privacyOutputOrder {
+                    guard let index = outputs.indices.first(where: { index in
+                        !consumedIndexes.contains(index) && outputs[index].orderingFingerprint == orderingFingerprint
+                    }) else {
+                        continue
+                    }
+                    consumedIndexes.insert(index)
+                    orderedOutputs.append(outputs[index])
+                }
+
+                let remainingOutputs = outputs.indices.compactMap { index in
+                    consumedIndexes.contains(index) ? nil : outputs[index]
+                }
+                shuffledOutputs = orderedOutputs + remainingOutputs
+            } else {
+                shuffledOutputs = privacyOutputShuffle(outputs)
+                privacyOutputOrder = shuffledOutputs.map(\.orderingFingerprint)
+            }
+
+            privacyOutputShuffleCache[fingerprint] = shuffledOutputs
+            return shuffledOutputs
+        }
         let builder = Builder(utxoPrivateKeyPairs: utxoPrivateKeyPairs,
                               signatureFormat: signatureFormat,
                               sequence: sequence,
@@ -44,7 +80,7 @@ extension _OpalBase.Transaction {
                                                     feePerByte: feePerByte,
                                                     lockTime: lockTime,
                                                     shouldAllowDustDonation: shouldAllowDustDonation,
-                                                    privacyOutputShuffle: privacyOutputShuffle)
+                                                    privacyOutputShuffle: stablePrivacyOutputShuffle)
         
         let unsignedTransaction = OpalBase.Transaction(version: version, inputs: inputs, outputs: outputs, lockTime: lockTime)
         let signedTransaction = try signTransaction(unsignedTransaction, using: builder)
@@ -58,7 +94,7 @@ extension _OpalBase.Transaction {
                                           feePerByte: feePerByte,
                                           lockTime: lockTime,
                                           shouldAllowDustDonation: shouldAllowDustDonation,
-                                          privacyOutputShuffle: privacyOutputShuffle)
+                                          privacyOutputShuffle: stablePrivacyOutputShuffle)
     }
     
     private static func computeOutputsAndFee(version: UInt32,

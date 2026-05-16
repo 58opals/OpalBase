@@ -233,6 +233,33 @@ extension TransactionUnspentTransactionOutputValidator {
             #expect(feeOverpayment <= overpaymentTolerance)
         }
     }
+
+    @Test("build reuses privacy output order during fee correction")
+    func buildReusesPrivacyOutputOrderDuringFeeCorrection() throws {
+        let components = try makeTransactionBuilderComponents(inputValue: 12_000, changeValue: 5_000)
+        var shuffleCallCount = 0
+
+        let transaction = try OpalBase.Transaction.build(
+            utxoPrivateKeyPairs: components.privateKeys,
+            recipientOutputs: components.recipientOutputs,
+            changeOutput: components.changeOutput,
+            outputOrderingStrategy: .privacyRandomized,
+            signatureFormat: .ecdsa(.der),
+            feePerByte: 1,
+            privacyOutputShuffle: { outputs in
+                defer { shuffleCallCount += 1 }
+                guard shuffleCallCount == 0 else { return Array(outputs.reversed()) }
+                return outputs
+            }
+        )
+
+        let requiredFee = try transaction.calculateRequiredFee(feePerByte: 1)
+        let outputTotal = transaction.outputs.map(\.value).reduce(0, +)
+        let feePaid = components.inputTotal - outputTotal
+
+        #expect(feePaid >= requiredFee)
+        #expect(shuffleCallCount == 1)
+    }
     
     @Test("build correction respects output ordering strategies")
     func buildCorrectionRespectsOutputOrderingStrategies() throws {
@@ -253,7 +280,11 @@ extension TransactionUnspentTransactionOutputValidator {
             let outputTotal = transaction.outputs.map(\.value).reduce(0, +)
             let feePaid = components.inputTotal - outputTotal
             
-            #expect(feePaid == requiredFee)
+            #expect(feePaid >= requiredFee)
+            if feePaid >= requiredFee {
+                let feeOverpayment = feePaid - requiredFee
+                #expect(feeOverpayment <= 2)
+            }
         }
     }
     

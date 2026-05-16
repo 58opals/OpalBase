@@ -948,15 +948,15 @@ struct BitcoinCashMetadataRegistryValidator {
         #expect(result.cacheExpiration ?? .distantPast > beforeFetch)
     }
 
-    @Test("registry fetcher does not return cache expiry for no-store responses")
-    func registryFetcherDoesNotReturnCacheExpiryForNoStoreResponses() async throws {
+    @Test("registry fetcher parses max-age with optional whitespace")
+    func registryFetcherParsesMaxAgeWithOptionalWhitespace() async throws {
         let (session, _) = makeRegistryTestSession { request in
             let url = try #require(request.url)
             let response = try #require(HTTPURLResponse(
                 url: url,
                 statusCode: 200,
                 httpVersion: nil,
-                headerFields: ["Cache-Control": "no-store, max-age=60"]
+                headerFields: ["Cache-Control": "public, max-age = 60"]
             ))
             return (response, Data("{}".utf8))
         }
@@ -969,20 +969,65 @@ struct BitcoinCashMetadataRegistryValidator {
             maxBytes: 1_024
         )
 
+        let beforeFetch = Date()
         let result = try await fetcher.fetchRegistry(from: "https://registry.example/metadata.json")
 
-        #expect(result.cacheExpiration == nil)
+        #expect(result.cacheExpiration ?? .distantPast > beforeFetch)
     }
 
-    @Test("registry fetcher does not return cache expiry for no-cache responses")
-    func registryFetcherDoesNotReturnCacheExpiryForNoCacheResponses() async throws {
+    @Test("registry fetcher follows temporary preserve-method redirects")
+    func registryFetcherFollowsTemporaryPreserveMethodRedirects() async throws {
+        let (session, _) = makeRegistryTestSession { request in
+            let url = try #require(request.url)
+            if url.path == "/start" {
+                let response = try #require(HTTPURLResponse(
+                    url: url,
+                    statusCode: 307,
+                    httpVersion: nil,
+                    headerFields: ["Location": "https://registry.example/temporary"]
+                ))
+                return (response, Data())
+            }
+            let response = try #require(HTTPURLResponse(
+                url: url,
+                statusCode: 200,
+                httpVersion: nil,
+                headerFields: nil
+            ))
+            return (response, Data("{\"version\":\"1\"}".utf8))
+        }
+        defer {
+            RegistryRedirectURLProtocol.requestHandler = nil
+            session.invalidateAndCancel()
+        }
+        let fetcher = OpalBase.CashTokens.BCMR.Client.Fetcher(
+            urlSession: session,
+            maxBytes: 1_024
+        )
+
+        let result = try await fetcher.fetchRegistry(from: "https://registry.example/start")
+
+        #expect(result.bytes == Data("{\"version\":\"1\"}".utf8))
+        #expect(result.finalURL.absoluteString == "https://registry.example/temporary")
+        #expect(result.permanentRedirectLocation == nil)
+    }
+
+    @Test(
+        "registry fetcher does not return cache expiry for revalidation directives",
+        arguments: [
+            "no-store, max-age=60",
+            "no-cache, max-age=60",
+            #"no-cache="Set-Cookie", max-age=60"#
+        ]
+    )
+    func registryFetcherDoesNotReturnCacheExpiryForRevalidationDirectives(cacheControl: String) async throws {
         let (session, _) = makeRegistryTestSession { request in
             let url = try #require(request.url)
             let response = try #require(HTTPURLResponse(
                 url: url,
                 statusCode: 200,
                 httpVersion: nil,
-                headerFields: ["Cache-Control": "no-cache, max-age=60"]
+                headerFields: ["Cache-Control": cacheControl]
             ))
             return (response, Data("{}".utf8))
         }

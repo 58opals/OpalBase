@@ -92,10 +92,12 @@ extension _OpalBase.Address.Book {
     }
     
     func releaseSpendReservation(_ reservation: SpendReservation, outcome: SpendReservation.Outcome) async throws {
-        guard let state = removeReservationState(for: reservation.id) else {
+        guard let state = spendReservationStates[reservation.id],
+              state.reservedAt == reservation.reservationDate else {
             return
         }
-        
+
+        _ = removeReservationState(for: reservation.id)
         try await finalizeRelease(for: state, outcome: outcome)
     }
     

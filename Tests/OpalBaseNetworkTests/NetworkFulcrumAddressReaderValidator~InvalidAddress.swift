@@ -21,7 +21,7 @@ extension NetworkFulcrumAddressReaderValidator {
     }
 
     @Test("rejects invalid addresses before network usage", .timeLimit(.minutes(1)))
-    func fetchUnspentOutputsRejectsInvalidAddress1() async throws {
+    func fetchUnspentOutputsRejectsMalformedAddressText() async throws {
         guard NetworkTestClient.isExtendedLiveNetworkEnabled else { return }
         let configuration = OpalBase.Network.Configuration(serverURLs: [Self.primaryServerAddress, Self.backupServerAddress])
         try await NetworkTestClient.withClient(configuration: configuration) { client in
@@ -42,7 +42,7 @@ extension NetworkFulcrumAddressReaderValidator {
     }
 
     @Test("rejects invalid addresses before reaching the network", .timeLimit(.minutes(1)))
-    func fetchUnspentOutputsRejectsInvalidAddress2() async throws {
+    func fetchUnspentOutputsRejectsInvalidAddressBeforeNetworkUse() async throws {
         guard NetworkTestClient.isExtendedLiveNetworkEnabled else { return }
         let configuration = OpalBase.Network.Configuration(serverURLs: [Self.primaryServerAddress, Self.backupServerAddress])
         try await NetworkTestClient.withClient(configuration: configuration) { client in

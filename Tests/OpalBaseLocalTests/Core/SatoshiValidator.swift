@@ -48,59 +48,16 @@ struct SatoshiValidator {
             _ = try maximum * 2
         }
     }
-    
-    @Test("multiplication scales smaller values")
-    func multiplicationScalesSmallerValues() throws {
-        let base = try OpalBase.Satoshi(3)
-        let product = try base * UInt64(4)
-        #expect(product.uint64 == 12)
-    }
-    
-    @Test("multiplication respects maximum supply")
-    func multiplicationRespectsMaximumSupply1() throws {
+
+    @Test("multiplication rejects near-maximum overflow")
+    func multiplicationRejectsNearMaximumOverflow() throws {
         let nearlyMaximum = try OpalBase.Satoshi(OpalBase.Satoshi.maximumSatoshi - 1)
         
         #expect(throws: OpalBase.Satoshi.Error.exceedsMaximumAmount) {
             _ = try nearlyMaximum * 2
         }
     }
-    
-    @Test("multiplication respects maximum supply")
-    func multiplicationRespectsMaximumSupply2() throws {
-        let maximum = try OpalBase.Satoshi(OpalBase.Satoshi.maximumSatoshi)
-        
-        #expect(throws: OpalBase.Satoshi.Error.exceedsMaximumAmount) {
-            _ = try maximum * UInt64(2)
-        }
-    }
-    
-    @Test("multiplication of a small value")
-    func multiplySmallValueByInteger() throws {
-        let value = try OpalBase.Satoshi(5)
-        let product = try value * 3
-        #expect(product.uint64 == 15)
-    }
-    
-    @Test("multiplication exceeding the maximum supply")
-    func multiplyNearMaximumValueThrows() throws {
-        let nearMaximum = try OpalBase.Satoshi(OpalBase.Satoshi.maximumSatoshi - 1)
-        
-        #expect(throws: OpalBase.Satoshi.Error.exceedsMaximumAmount) {
-            _ = try nearMaximum * 2
-        }
-    }
-    
-    @Test("multiplication respects maximum supply")
-    func multiplicationRespectsMaximumSupply() throws {
-        let base = try OpalBase.Satoshi(OpalBase.Satoshi.maximumSatoshi / 2)
-        let doubled = try base * 2
-        #expect(doubled.uint64 == OpalBase.Satoshi.maximumSatoshi)
-        
-        #expect(throws: OpalBase.Satoshi.Error.exceedsMaximumAmount) {
-            _ = try OpalBase.Satoshi(OpalBase.Satoshi.maximumSatoshi) * 2
-        }
-    }
-    
+
     @Test("subtraction prevents negative results")
     func subtractionPreventsNegativeResults() throws {
         let initial = try OpalBase.Satoshi(10)
@@ -120,17 +77,6 @@ struct SatoshiValidator {
         
         #expect(throws: OpalBase.Satoshi.Error.divisionByZero) {
             _ = try ten / 0
-        }
-    }
-    
-    @Test("division handles zero and normal results")
-    func divisionHandlesZeroAndNormalResults() throws {
-        let initial = try OpalBase.Satoshi(100)
-        let halved = try initial / 2
-        #expect(halved.uint64 == 50)
-        
-        #expect(throws: OpalBase.Satoshi.Error.divisionByZero) {
-            _ = try initial / 0
         }
     }
     

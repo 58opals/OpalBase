@@ -85,22 +85,14 @@ private extension OpalBase.CashTokens.BCMR.Client.Fetcher {
             }
             try validateFetchScheme(for: response.url ?? currentResourceLocation)
             
-            if response.statusCode == 301 {
-                let location = try resolveRedirectLocation(from: response, currentResourceLocation: currentResourceLocation)
-                permanentRedirectLocation = permanentRedirectLocation ?? location
-                guard redirectsRemaining > 0 else {
-                    throw Error.unexpectedResponseStatus(response.statusCode)
-                }
-                redirectsRemaining -= 1
-                currentResourceLocation = location
-                continue
-            }
-            
-            if response.statusCode == 302 {
+            if let redirectKind = RedirectKind(statusCode: response.statusCode) {
                 guard redirectsRemaining > 0 else {
                     throw Error.unexpectedResponseStatus(response.statusCode)
                 }
                 let location = try resolveRedirectLocation(from: response, currentResourceLocation: currentResourceLocation)
+                if redirectKind.recordsPermanentLocation {
+                    permanentRedirectLocation = permanentRedirectLocation ?? location
+                }
                 redirectsRemaining -= 1
                 currentResourceLocation = location
                 continue
@@ -272,18 +264,50 @@ private extension OpalBase.CashTokens.BCMR.Client.Fetcher {
         let directives = cacheControl.split(separator: ",").map {
             $0.trimmingCharacters(in: .whitespaces).lowercased()
         }
-        guard !directives.contains("no-store") else { return nil }
-        guard !directives.contains("no-cache") else { return nil }
+        let parsedDirectives = directives.map(parseCacheControlDirective)
+        guard !parsedDirectives.contains(where: { $0.name == "no-store" }) else { return nil }
+        guard !parsedDirectives.contains(where: { $0.name == "no-cache" }) else { return nil }
 
-        for directive in directives {
-            if directive.hasPrefix("max-age=") {
-                let valueString = directive.dropFirst("max-age=".count)
-                if let seconds = TimeInterval(String(valueString)), seconds >= 0 {
+        for directive in parsedDirectives where directive.name == "max-age" {
+            if let value = directive.value {
+                if let seconds = TimeInterval(value), seconds >= 0 {
                     return now.addingTimeInterval(seconds)
                 }
             }
         }
         return nil
+    }
+
+    func parseCacheControlDirective(_ directive: String) -> (name: String, value: String?) {
+        let parts = directive.split(separator: "=", maxSplits: 1, omittingEmptySubsequences: false)
+        let name = parts.first?.trimmingCharacters(in: .whitespaces) ?? directive
+        let value = parts.dropFirst().first?.trimmingCharacters(in: .whitespaces)
+        return (name: name, value: value)
+    }
+
+    enum RedirectKind {
+        case permanent
+        case temporary
+
+        init?(statusCode: Int) {
+            switch statusCode {
+            case 301, 308:
+                self = .permanent
+            case 302, 303, 307:
+                self = .temporary
+            default:
+                return nil
+            }
+        }
+
+        var recordsPermanentLocation: Bool {
+            switch self {
+            case .permanent:
+                return true
+            case .temporary:
+                return false
+            }
+        }
     }
 }
 
