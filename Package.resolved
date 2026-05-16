@@ -7,7 +7,7 @@
       "location" : "https://github.com/58opals/OpalCrypto.git",
       "state" : {
         "branch" : "develop",
-        "revision" : "bfc09d71358ceb5a5fa80bc2ee83c2b0165440ef"
+        "revision" : "e317205fc7441859b3510a29032d50d8993805e5"
       }
     },
     {
@@ -25,7 +25,7 @@
       "location" : "https://github.com/58opals/OpalFusion.git",
       "state" : {
         "branch" : "develop",
-        "revision" : "6526b2f6738f8e6d0130f4062999f652d3b8e1a6"
+        "revision" : "ad2b3d27cea98a7e6f32332af7e921bfc1ea04b8"
       }
     },
     {
@@ -34,7 +34,7 @@
       "location" : "https://github.com/58opals/OpalHedge.git",
       "state" : {
         "branch" : "develop",
-        "revision" : "e02394da88ab6ad42eaca978fed49a1dfae1f253"
+        "revision" : "76ad925ef0e5fc8819bbf5e6427477b2bbd9baa4"
       }
     },
     {
@@ -52,7 +52,7 @@
       "location" : "https://github.com/58opals/SwiftFulcrum.git",
       "state" : {
         "branch" : "develop",
-        "revision" : "fa72478af769f22b0f167833fb2413e8bebbc002"
+        "revision" : "97af465732b4cf8af594fd68d8363b8326ad4c77"
       }
     }
   ],
