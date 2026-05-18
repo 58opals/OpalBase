@@ -106,16 +106,12 @@ extension _OpalBase.Network.ProtocolVersion {
 }
 
 extension _OpalBase.Network.ProtocolVersion {
-    var swiftFulcrumProtocolVersion: SwiftFulcrum.ProtocolVersion {
-        guard let protocolVersion = SwiftFulcrum.ProtocolVersion(
+    var swiftFulcrumProtocolVersion: SwiftFulcrum.ProtocolVersion? {
+        SwiftFulcrum.ProtocolVersion(
             major: major,
             minor: minor,
             patch: patch,
             isPatchComponentIncluded: isPatchComponentIncluded
-        ) else {
-            preconditionFailure("OpalBase.Network.ProtocolVersion must remain valid.")
-        }
-        
-        return protocolVersion
+        )
     }
 }

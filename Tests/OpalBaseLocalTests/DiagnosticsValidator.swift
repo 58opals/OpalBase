@@ -33,7 +33,17 @@ struct DiagnosticsValidator {
         #expect(OpalDiagnostics.Event.all.contains(OpalDiagnostics.Event.hedgeFundingBroadcastFailed))
         #expect(OpalDiagnostics.Event.all.contains(OpalDiagnostics.Event.claimableShareCodeDecodeFailed))
         #expect(OpalDiagnostics.Event.all.contains(OpalDiagnostics.Event.tokenMetadataSyncSucceeded))
-        #expect(OpalDiagnostics.Event.all.contains(OpalDiagnostics.Event.networkDiagnosticsSnapshotRecorded))
+        #expect(OpalDiagnostics.Event.all.contains(OpalDiagnostics.Event.networkDiagnosticsCountersRecorded))
+        #expect(OpalDiagnostics.Event.all.contains(OpalDiagnostics.Event.networkDiagnosticsRegistryUpdateRecorded))
+
+        #expect(
+            OpalDiagnostics.Event.networkDiagnosticsCountersRecorded.rawValue ==
+                "opalbase.network.diagnostics.snapshot.recorded"
+        )
+        #expect(
+            OpalDiagnostics.Event.networkDiagnosticsRegistryUpdateRecorded.rawValue ==
+                "opalbase.network.diagnostics.subscriptions.recorded"
+        )
 
         #expect(OpalDiagnostics.Field.Name.errorCode == "error_code")
         #expect(OpalDiagnostics.Field.Name.accountIndex == "account_index")
@@ -555,23 +565,28 @@ struct DiagnosticsValidator {
         ))
     }
 
-    @Test("network metrics bridge records through OpalDiagnostics")
-    func networkMetricsBridgeRecordsThroughOpalDiagnostics() async {
-        let records = await OpalDiagnostics.withConfiguration(diagnosticsConfiguration()) {
-            let metrics = OpalBase.Network.Metrics()
-            await metrics.recordDiagnosticsSnapshot(
-                url: URL(string: "wss://fulcrum.example.com:50004")!,
-                snapshot: .init(
-                    reconnectionAttemptCount: 2,
-                    reconnectSuccesses: 1,
-                    inflightUnaryCallCount: 3,
-                    activeSubscriptionCount: 4
-                )
+    @Test("network diagnostic events record through OpalDiagnostics")
+    func networkDiagnosticEventsRecordThroughOpalDiagnostics() {
+        let records = OpalDiagnostics.withConfiguration(diagnosticsConfiguration()) {
+            OpalDiagnostics.record(
+                OpalDiagnostics.Event.networkDiagnosticsCountersRecorded,
+                category: OpalDiagnostics.Category.network,
+                fields: [
+                    OpalDiagnostics.Field.operation("record_network_diagnostics_snapshot"),
+                    OpalDiagnostics.Field.module(),
+                    OpalDiagnostics.Field.publicValue(OpalDiagnostics.Field.Name.reconnectionAttemptCount, 2),
+                    OpalDiagnostics.Field.publicValue(OpalDiagnostics.Field.Name.reconnectSuccessCount, 1),
+                    OpalDiagnostics.Field.publicValue(OpalDiagnostics.Field.Name.inflightUnaryCallCount, 3),
+                    OpalDiagnostics.Field.publicValue(OpalDiagnostics.Field.Name.activeSubscriptionCount, 4)
+                ]
             )
-            await metrics.recordSubscriptionRegistryUpdate(
-                url: URL(string: "wss://fulcrum.example.com:50004")!,
-                subscriptions: [
-                    .init(methodPath: "blockchain.address.subscribe", identifier: "abc")
+            OpalDiagnostics.record(
+                OpalDiagnostics.Event.networkDiagnosticsRegistryUpdateRecorded,
+                category: OpalDiagnostics.Category.network,
+                fields: [
+                    OpalDiagnostics.Field.operation("record_network_diagnostics_subscriptions"),
+                    OpalDiagnostics.Field.module(),
+                    OpalDiagnostics.Field.publicValue(OpalDiagnostics.Field.Name.activeSubscriptionCount, 1)
                 ]
             )
             return OpalDiagnostics.recentRecords
@@ -579,11 +594,11 @@ struct DiagnosticsValidator {
 
         #expect(records.contains { record in
             record.category == OpalDiagnostics.Category.network &&
-                record.event == OpalDiagnostics.Event.networkDiagnosticsSnapshotRecorded
+                record.event == OpalDiagnostics.Event.networkDiagnosticsCountersRecorded
         })
         #expect(records.contains { record in
             record.category == OpalDiagnostics.Category.network &&
-                record.event == OpalDiagnostics.Event.networkDiagnosticsSubscriptionsRecorded &&
+                record.event == OpalDiagnostics.Event.networkDiagnosticsRegistryUpdateRecorded &&
                 record.fields.contains {
                     $0.name == OpalDiagnostics.Field.Name.activeSubscriptionCount &&
                         $0.value == "1"
@@ -640,8 +655,7 @@ private func failedFulcrumStartupBridgeRecords(
 
         do {
             _ = try await OpalBase.Network.Fulcrum.Client(
-                configuration: networkConfiguration,
-                metrics: OpalBase.Network.Metrics()
+                configuration: networkConfiguration
             )
             Issue.record("Expected Fulcrum client startup to fail against a closed local port.")
         } catch {
@@ -656,9 +670,7 @@ private func isOpalBaseNetworkBridgeRecord(_ record: OpalDiagnostics.Record) -> 
     guard record.category == OpalDiagnostics.Category.network else { return false }
     return [
         OpalDiagnostics.Event.networkFulcrumClientStarted,
-        OpalDiagnostics.Event.networkFulcrumClientFailed,
-        OpalDiagnostics.Event.networkDiagnosticsSnapshotRecorded,
-        OpalDiagnostics.Event.networkDiagnosticsSubscriptionsRecorded
+        OpalDiagnostics.Event.networkFulcrumClientFailed
     ].contains(record.event)
 }
 

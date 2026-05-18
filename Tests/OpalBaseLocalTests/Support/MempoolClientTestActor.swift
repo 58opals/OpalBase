@@ -13,9 +13,9 @@ actor MempoolClientTestActor: OpalBase.Network.Fulcrum.MempoolClient {
         infoResponse: SwiftFulcrum.Response.Mempool.Info? = nil,
         histogramResponse: SwiftFulcrum.Response.Mempool.FeeHistogram? = nil,
         infoError: Swift.Error? = nil
-    ) {
-        self.infoResponse = infoResponse ?? (try! NetworkFulcrumMempoolReaderValidator.makeInfoResponse())
-        self.histogramResponse = histogramResponse ?? (try! NetworkFulcrumMempoolReaderValidator.makeHistogramResponse())
+    ) throws {
+        self.infoResponse = try infoResponse ?? NetworkFulcrumMempoolReaderValidator.makeInfoResponse()
+        self.histogramResponse = try histogramResponse ?? NetworkFulcrumMempoolReaderValidator.makeHistogramResponse()
         self.infoError = infoError
     }
 

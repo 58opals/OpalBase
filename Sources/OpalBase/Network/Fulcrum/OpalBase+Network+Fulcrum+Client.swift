@@ -1,26 +1,17 @@
 // OpalBase+Network+Fulcrum+Client.swift
 
-import Foundation
 import OpalDiagnostics
 import SwiftFulcrum
 
 extension _OpalBase.Network.Fulcrum {
     public actor Client {
-        private static let fallbackDiagnosticsURL = URL(string: "wss://fulcrum.invalid")!
-        private static let reconnectAttemptsField = "reconnect_attempts"
-        private static let reconnectSuccessesField = "reconnect_successes"
-        private static let inflightUnaryCallCountField = "inflight_unary_call_count"
-        private static let activeSubscriptionCountField = "active_subscription_count"
-
         private let fulcrum: SwiftFulcrum.Client
         public let configuration: OpalBase.Network.Configuration
         
         public init(
-            configuration: OpalBase.Network.Configuration,
-            metrics: OpalBase.Network.Metrics? = nil
+            configuration: OpalBase.Network.Configuration
         ) async throws {
             self.configuration = configuration
-            let diagnosticsURL = configuration.serverURLs.first ?? Self.fallbackDiagnosticsURL
             
             let reconnectConfiguration = SwiftFulcrum.Client.Configuration.ReconnectPolicy(
                 maximumReconnectionAttempts: configuration.reconnectConfiguration.maximumAttempts,
@@ -52,14 +43,6 @@ extension _OpalBase.Network.Fulcrum {
                             OpalDiagnostics.Field.network(configuration.network)
                         ]
                     )
-                    if let metrics {
-                        let snapshot = Self.makeDiagnosticsSnapshotFromRecentRecords()
-                        await metrics.recordDiagnosticsSnapshot(url: diagnosticsURL, snapshot: snapshot)
-                        await metrics.recordSubscriptionRegistryUpdate(
-                            url: diagnosticsURL,
-                            subscriptions: []
-                        )
-                    }
                     return fulcrum
                 } catch {
                     OpalDiagnostics.record(
@@ -88,29 +71,6 @@ extension _OpalBase.Network.Fulcrum {
         public func reconnect() async throws {
             try await fulcrum.reconnect()
         }
-
-        public func makeDiagnosticsSnapshot() async -> OpalBase.Network.DiagnosticsSnapshot {
-            let snapshot = Self.makeDiagnosticsSnapshotFromRecentRecords()
-            OpalDiagnostics.record(
-                OpalDiagnostics.Event.networkDiagnosticsSnapshotRecorded,
-                category: OpalDiagnostics.Category.network,
-                fields: OpalDiagnostics.Field.networkDiagnostics(snapshot: snapshot)
-            )
-            return snapshot
-        }
-
-        public func listDiagnosticsSubscriptions() async -> [OpalBase.Network.DiagnosticsSubscription] {
-            let subscriptions: [OpalBase.Network.DiagnosticsSubscription] = []
-            OpalDiagnostics.record(
-                OpalDiagnostics.Event.networkDiagnosticsSubscriptionsRecorded,
-                category: OpalDiagnostics.Category.network,
-                fields: OpalDiagnostics.Field.networkSubscriptions(
-                    subscriptions: subscriptions,
-                    operation: "list_network_diagnostics_subscriptions"
-                )
-            )
-            return subscriptions
-        }
         
         func request<Result: Decodable & Sendable>(
             _ endpoint: SwiftFulcrum.API.Request<Result>,
@@ -136,37 +96,5 @@ extension _OpalBase.Network.Fulcrum {
                 { await subscription.cancel() }
             )
         }
-    }
-}
-
-private extension _OpalBase.Network.Fulcrum.Client {
-    static func makeDiagnosticsSnapshotFromRecentRecords() -> OpalBase.Network.DiagnosticsSnapshot {
-        let records = OpalDiagnostics.recentRecords(
-            category: .fulcrum,
-            event: .swiftFulcrumClientStateUpdated
-        )
-        guard let record = records.last else {
-            return OpalBase.Network.DiagnosticsSnapshot(
-                reconnectionAttemptCount: 0,
-                reconnectSuccesses: 0,
-                inflightUnaryCallCount: 0,
-                activeSubscriptionCount: 0
-            )
-        }
-
-        return OpalBase.Network.DiagnosticsSnapshot(
-            reconnectionAttemptCount: integerField(reconnectAttemptsField, in: record),
-            reconnectSuccesses: integerField(reconnectSuccessesField, in: record),
-            inflightUnaryCallCount: integerField(inflightUnaryCallCountField, in: record),
-            activeSubscriptionCount: integerField(activeSubscriptionCountField, in: record)
-        )
-    }
-
-    static func integerField(_ name: String, in record: OpalDiagnostics.Record) -> Int {
-        guard let value = record.fields.first(where: { $0.name == name })?.value else {
-            return 0
-        }
-
-        return Int(value) ?? 0
     }
 }

@@ -52,36 +52,6 @@ struct PublicAPISmokeValidator {
         await monitor.stop()
     }
 
-    @Test("network metrics diagnostics bridge is publicly callable")
-    func networkMetricsDiagnosticsBridgeIsPubliclyCallable() async {
-        let records = await OpalDiagnostics.withConfiguration(
-            smokeDiagnosticsConfiguration()
-        ) {
-            let metrics = OpalBase.Network.Metrics()
-            let url = URL(string: "wss://fulcrum.example.com:50004")!
-            await metrics.recordDiagnosticsSnapshot(
-                url: url,
-                snapshot: .init(
-                    reconnectionAttemptCount: 1,
-                    reconnectSuccesses: 1,
-                    inflightUnaryCallCount: 0,
-                    activeSubscriptionCount: 0
-                )
-            )
-            await metrics.recordSubscriptionRegistryUpdate(url: url, subscriptions: [])
-            return OpalDiagnostics.recentRecords
-        }
-
-        #expect(recordsContain(
-            records,
-            event: OpalDiagnostics.Event.networkDiagnosticsSnapshotRecorded
-        ))
-        #expect(recordsContain(
-            records,
-            event: OpalDiagnostics.Event.networkDiagnosticsSubscriptionsRecorded
-        ))
-    }
-
     #if os(macOS)
     @Test("cash fusion readiness and status wrappers compose from OpalBase only")
     func cashFusionReadinessAndStatusWrappersComposeFromOpalBaseOnly() async throws {

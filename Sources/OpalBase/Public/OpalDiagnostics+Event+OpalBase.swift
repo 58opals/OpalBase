@@ -82,8 +82,8 @@ public extension OpalDiagnostics.Event {
 
     static let networkFulcrumClientStarted = Self(rawValue: "opalbase.network.fulcrum.client.started")
     static let networkFulcrumClientFailed = Self(rawValue: "opalbase.network.fulcrum.client.failed")
-    static let networkDiagnosticsSnapshotRecorded = Self(rawValue: "opalbase.network.diagnostics.snapshot.recorded")
-    static let networkDiagnosticsSubscriptionsRecorded = Self(rawValue: "opalbase.network.diagnostics.subscriptions.recorded")
+    static let networkDiagnosticsCountersRecorded = Self(rawValue: "opalbase.network.diagnostics.snapshot.recorded")
+    static let networkDiagnosticsRegistryUpdateRecorded = Self(rawValue: "opalbase.network.diagnostics.subscriptions.recorded")
 
     static let all: [Self] = [
         walletCreateStarted, walletCreateSucceeded, walletCreateFailed,
@@ -115,6 +115,6 @@ public extension OpalDiagnostics.Event {
         claimableStatusResolveStarted, claimableStatusResolveSucceeded, claimableStatusResolveFailed,
         tokenMetadataSyncStarted, tokenMetadataSyncSucceeded, tokenMetadataSyncFailed,
         networkFulcrumClientStarted, networkFulcrumClientFailed,
-        networkDiagnosticsSnapshotRecorded, networkDiagnosticsSubscriptionsRecorded
+        networkDiagnosticsCountersRecorded, networkDiagnosticsRegistryUpdateRecorded
     ]
 }

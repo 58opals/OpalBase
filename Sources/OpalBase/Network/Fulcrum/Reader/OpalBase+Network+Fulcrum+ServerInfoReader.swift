@@ -29,9 +29,17 @@ extension _OpalBase.Network.Fulcrum {
             maximumProtocolVersion: OpalBase.Network.ProtocolVersion
         ) async throws -> OpalBase.Network.FulcrumServerVersion {
             try await OpalBase.Network.performWithFailureTranslation {
+                guard let minimumVersion = minimumProtocolVersion.swiftFulcrumProtocolVersion,
+                      let maximumVersion = maximumProtocolVersion.swiftFulcrumProtocolVersion else {
+                    throw OpalBase.Network.Error(
+                        reason: .protocolViolation,
+                        message: "Invalid protocol version"
+                    )
+                }
+
                 let protocolNegotiation = try SwiftFulcrum.Client.Configuration.ProtocolNegotiation.Argument(
-                    minimumVersion: minimumProtocolVersion.swiftFulcrumProtocolVersion,
-                    maximumVersion: maximumProtocolVersion.swiftFulcrumProtocolVersion
+                    minimumVersion: minimumVersion,
+                    maximumVersion: maximumVersion
                 )
                 
                 let result = try await client.fetchServerVersion(

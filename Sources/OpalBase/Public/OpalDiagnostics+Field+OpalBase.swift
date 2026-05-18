@@ -106,30 +106,6 @@ public extension OpalDiagnostics.Field {
         ]
     }
 
-    static func networkDiagnostics(
-        snapshot: OpalBase.Network.DiagnosticsSnapshot
-    ) -> [Self] {
-        [
-            .operation("record_network_diagnostics_snapshot"),
-            .module(),
-            .publicValue(Name.reconnectionAttemptCount, snapshot.reconnectionAttemptCount),
-            .publicValue(Name.reconnectSuccessCount, snapshot.reconnectSuccesses),
-            .publicValue(Name.inflightUnaryCallCount, snapshot.inflightUnaryCallCount),
-            .publicValue(Name.activeSubscriptionCount, snapshot.activeSubscriptionCount)
-        ]
-    }
-
-    static func networkSubscriptions(
-        subscriptions: [OpalBase.Network.DiagnosticsSubscription],
-        operation: String
-    ) -> [Self] {
-        [
-            .operation(operation),
-            .module(),
-            .publicValue(Name.activeSubscriptionCount, subscriptions.count)
-        ]
-    }
-
     private static func diagnosticsName(
         for usage: OpalBase.Key.DerivationPath.Usage
     ) -> String {

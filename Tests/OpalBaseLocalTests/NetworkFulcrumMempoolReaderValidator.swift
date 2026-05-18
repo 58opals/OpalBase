@@ -29,7 +29,7 @@ struct NetworkFulcrumMempoolReaderValidator {
 
     @Test("translates decoding failures for mempool requests")
     func fetchMempoolInfoTranslatesDecodingFailures() async throws {
-        let client = MempoolClientTestActor(
+        let client = try MempoolClientTestActor(
             infoError: SwiftFulcrum.Client.Error.coding(.decode(nil))
         )
         let reader = OpalBase.Network.Fulcrum.MempoolReader(client: client)
@@ -43,7 +43,7 @@ struct NetworkFulcrumMempoolReaderValidator {
     
     @Test("rejects invalid mempool info fee rates")
     func fetchMempoolInfoRejectsInvalidFeeRates() async throws {
-        let client = MempoolClientTestActor(
+        let client = try MempoolClientTestActor(
             infoError: try Self.makeInfoDecodeFailure(mempoolMinimumFee: -1)
         )
         let reader = OpalBase.Network.Fulcrum.MempoolReader(client: client)
@@ -58,7 +58,7 @@ struct NetworkFulcrumMempoolReaderValidator {
     
     @Test("rejects invalid mempool info counts")
     func fetchMempoolInfoRejectsInvalidCounts() async throws {
-        let client = MempoolClientTestActor(
+        let client = try MempoolClientTestActor(
             infoError: try Self.makeInfoDecodeFailure(unbroadcastCount: -1)
         )
         let reader = OpalBase.Network.Fulcrum.MempoolReader(client: client)
