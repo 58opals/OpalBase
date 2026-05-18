@@ -152,9 +152,9 @@ extension _OpalBase.Account.CashFusionSessionStatus {
             round: snapshot.state.round.map(Self.makeRound(_:)),
             lastError: snapshot.lastError.map(Self.makeLastError(_:)),
             lastErrorSummary: snapshot.lastErrorSummary,
-            activity: Self.makeActivity(snapshot.diagnostics.activity),
-            retryAttempt: snapshot.diagnostics.retryAttempt,
-            nextRetryDelayMilliseconds: snapshot.diagnostics.nextRetryDelayMilliseconds,
+            activity: Self.makeActivity(snapshot),
+            retryAttempt: nil,
+            nextRetryDelayMilliseconds: nil,
             coordinatorStatus: Self.makeCoordinatorStatus(snapshot.coordinatorStatus),
             completedLocalOutputs: completedLocalOutputs
         )
@@ -234,22 +234,21 @@ extension _OpalBase.Account.CashFusionSessionStatus {
     }
 
     private static func makeActivity(
-        _ activity: OpalFusion.Client.Diagnostics.Activity
+        _ snapshot: OpalFusion.Client.Session.Snapshot
     ) -> OpalBase.Account.CashFusionSessionStatus.Activity {
-        switch activity {
-        case .idle:
-            return .idle
-        case .connecting:
-            return .connecting
-        case .running:
-            return .running
-        case .retrying:
-            return .retrying
-        case .failed:
+        if snapshot.lastError != nil {
             return .failed
-        case .stopped:
-            return .stopped
         }
+
+        if snapshot.state.round != nil {
+            return .running
+        }
+
+        if snapshot.state.isConnected {
+            return .idle
+        }
+
+        return .idle
     }
 
     private static func makeCoordinatorStatus(

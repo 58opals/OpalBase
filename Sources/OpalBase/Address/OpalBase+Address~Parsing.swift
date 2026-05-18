@@ -58,7 +58,10 @@ extension _OpalBase.Address {
         let payload5BitValues = payload5BitValuesWithChecksum.dropLast(8)
         let checksumValues = payload5BitValuesWithChecksum.suffix(8)
         let checksumInput = try OpalBase.Address.convertPrefixToFiveBitValues(prefix: prefix) + [0x00] + Array(payload5BitValues) + Array(checksumValues)
-        guard OpalCryptoAdapter.computePolymod(checksumInput) == 0 else { throw Error.invalidChecksum }
+        guard let polymod = try? OpalCryptoAdapter.computePolymod(checksumInput),
+              polymod == 0 else {
+            throw Error.invalidChecksum
+        }
         let payload: Data
         do {
             payload = try OpalBase.Address.convertFiveBitValuesToData(fiveBitValues: Array(payload5BitValues))

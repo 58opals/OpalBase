@@ -1,195 +1,197 @@
 // DiagnosticsValidator.swift
 
 import Foundation
+import OpalDiagnostics
 import Testing
 import OpalBaseTestSupport
 import SwiftFulcrum
 @testable import OpalBase
 
-@Suite("OpalBase.Diagnostics", .tags(.unit, .wallet))
+@Suite("OpalDiagnostics", .tags(.unit, .wallet))
 struct DiagnosticsValidator {
     @Test("public diagnostics catalog exposes stable names")
     func publicDiagnosticsCatalogExposesStableNames() {
-        #expect(Set(OpalBase.Diagnostics.Categories.all) == [
-            OpalBase.Diagnostics.Categories.wallet,
-            OpalBase.Diagnostics.Categories.account,
-            OpalBase.Diagnostics.Categories.addressBook,
-            OpalBase.Diagnostics.Categories.network,
-            OpalBase.Diagnostics.Categories.cashFusion,
-            OpalBase.Diagnostics.Categories.hedge,
-            OpalBase.Diagnostics.Categories.transaction,
-            OpalBase.Diagnostics.Categories.claimable,
-            OpalBase.Diagnostics.Categories.tokenMetadata,
-            OpalBase.Diagnostics.Categories.storage
+        #expect(Set(OpalDiagnostics.Category.all) == [
+            OpalDiagnostics.Category.wallet,
+            OpalDiagnostics.Category.account,
+            OpalDiagnostics.Category.addressBook,
+            OpalDiagnostics.Category.network,
+            OpalDiagnostics.Category.cashFusion,
+            OpalDiagnostics.Category.hedge,
+            OpalDiagnostics.Category.transaction,
+            OpalDiagnostics.Category.claimable,
+            OpalDiagnostics.Category.tokenMetadata,
+            OpalDiagnostics.Category.storage
         ])
 
-        #expect(OpalBase.Diagnostics.Events.all.contains(OpalBase.Diagnostics.Events.walletCreateStarted))
-        #expect(OpalBase.Diagnostics.Events.all.contains(OpalBase.Diagnostics.Events.addressReserveSucceeded))
-        #expect(OpalBase.Diagnostics.Events.all.contains(OpalBase.Diagnostics.Events.utxoRefreshFailed))
-        #expect(OpalBase.Diagnostics.Events.all.contains(OpalBase.Diagnostics.Events.spendPrepareStarted))
-        #expect(OpalBase.Diagnostics.Events.all.contains(OpalBase.Diagnostics.Events.cashFusionSessionFinalized))
-        #expect(OpalBase.Diagnostics.Events.all.contains(OpalBase.Diagnostics.Events.hedgeParticipantMaterialReserveStarted))
-        #expect(OpalBase.Diagnostics.Events.all.contains(OpalBase.Diagnostics.Events.hedgeFundingBroadcastFailed))
-        #expect(OpalBase.Diagnostics.Events.all.contains(OpalBase.Diagnostics.Events.claimableShareCodeDecodeFailed))
-        #expect(OpalBase.Diagnostics.Events.all.contains(OpalBase.Diagnostics.Events.tokenMetadataSyncSucceeded))
-        #expect(OpalBase.Diagnostics.Events.all.contains(OpalBase.Diagnostics.Events.networkDiagnosticsSnapshotRecorded))
+        #expect(OpalDiagnostics.Event.all.contains(OpalDiagnostics.Event.walletCreateStarted))
+        #expect(OpalDiagnostics.Event.all.contains(OpalDiagnostics.Event.addressReserveSucceeded))
+        #expect(OpalDiagnostics.Event.all.contains(OpalDiagnostics.Event.utxoRefreshFailed))
+        #expect(OpalDiagnostics.Event.all.contains(OpalDiagnostics.Event.spendPrepareStarted))
+        #expect(OpalDiagnostics.Event.all.contains(OpalDiagnostics.Event.cashFusionSessionFinalized))
+        #expect(OpalDiagnostics.Event.all.contains(OpalDiagnostics.Event.hedgeParticipantMaterialReserveStarted))
+        #expect(OpalDiagnostics.Event.all.contains(OpalDiagnostics.Event.hedgeFundingBroadcastFailed))
+        #expect(OpalDiagnostics.Event.all.contains(OpalDiagnostics.Event.claimableShareCodeDecodeFailed))
+        #expect(OpalDiagnostics.Event.all.contains(OpalDiagnostics.Event.tokenMetadataSyncSucceeded))
+        #expect(OpalDiagnostics.Event.all.contains(OpalDiagnostics.Event.networkDiagnosticsSnapshotRecorded))
 
-        #expect(OpalBase.Diagnostics.Fields.errorCode == "error_code")
-        #expect(OpalBase.Diagnostics.Fields.accountIndex == "account_index")
-        #expect(OpalBase.Diagnostics.Fields.accountCount == "account_count")
-        #expect(OpalBase.Diagnostics.Fields.tokenMetadataCount == "token_metadata_count")
-        #expect(OpalBase.Diagnostics.Fields.all.contains(OpalBase.Diagnostics.Fields.reconnectionAttemptCount))
-        #expect(OpalBase.Diagnostics.Fields.all.contains(OpalBase.Diagnostics.Fields.activeSubscriptionCount))
-        #expect(OpalBase.Diagnostics.Fields.all.contains(OpalBase.Diagnostics.Fields.errorType))
+        #expect(OpalDiagnostics.Field.Name.errorCode == "error_code")
+        #expect(OpalDiagnostics.Field.Name.accountIndex == "account_index")
+        #expect(OpalDiagnostics.Field.Name.accountCount == "account_count")
+        #expect(OpalDiagnostics.Field.Name.tokenMetadataCount == "token_metadata_count")
+        #expect(OpalDiagnostics.Field.Name.all.contains(OpalDiagnostics.Field.Name.reconnectionAttemptCount))
+        #expect(OpalDiagnostics.Field.Name.all.contains(OpalDiagnostics.Field.Name.activeSubscriptionCount))
+        #expect(OpalDiagnostics.Field.Name.all.contains(OpalDiagnostics.Field.Name.errorType))
+        #expect(OpalDiagnostics.Field.Name.all.contains(OpalDiagnostics.Field.Name.errorMessage))
 
         let stableErrorCodes = [
-            OpalBase.Diagnostics.ErrorCodes.walletAccountAlreadyExists: "wallet.account_already_exists",
-            OpalBase.Diagnostics.ErrorCodes.walletAccountNotFound: "wallet.account_not_found",
-            OpalBase.Diagnostics.ErrorCodes.accountBalanceRefreshFailed: "account.balance_refresh_failed",
-            OpalBase.Diagnostics.ErrorCodes.accountTransactionHistoryRefreshFailed: "account.transaction_history_refresh_failed",
-            OpalBase.Diagnostics.ErrorCodes.claimableInvalidShareCode: "claimable.invalid_share_code",
-            OpalBase.Diagnostics.ErrorCodes.hedgeFundingFailed: "hedge.funding_failed"
+            OpalDiagnostics.ErrorCode.walletAccountAlreadyExists: "wallet.account_already_exists",
+            OpalDiagnostics.ErrorCode.walletAccountNotFound: "wallet.account_not_found",
+            OpalDiagnostics.ErrorCode.accountBalanceRefreshFailed: "account.balance_refresh_failed",
+            OpalDiagnostics.ErrorCode.accountTransactionHistoryRefreshFailed: "account.transaction_history_refresh_failed",
+            OpalDiagnostics.ErrorCode.claimableInvalidShareCode: "claimable.invalid_share_code",
+            OpalDiagnostics.ErrorCode.hedgeFundingFailed: "hedge.funding_failed"
         ]
         for (actual, expected) in stableErrorCodes {
-            #expect(actual == expected)
+            #expect(actual.rawValue == expected)
         }
-        #expect(OpalBase.Diagnostics.ErrorCodes.all.contains(OpalBase.Diagnostics.ErrorCodes.cashFusionReservationFailed))
+        #expect(OpalDiagnostics.ErrorCode.all.contains(OpalDiagnostics.ErrorCode.cashFusionReservationFailed))
     }
 
     @Test("recent record filtering respects categories and trace identifiers")
     func recentRecordFilteringRespectsCategoriesAndTraceIdentifiers() async throws {
-        let traceID = OpalBase.Diagnostics.TraceID()
-        let result = try await OpalBase.Diagnostics.withConfiguration(
+        let traceID = OpalDiagnostics.TraceID()
+        let result = try await OpalDiagnostics.withConfiguration(
             diagnosticsConfiguration()
         ) {
-            try await OpalBase.Diagnostics.withTraceID(traceID) {
+            try await OpalDiagnostics.withTraceID(traceID) {
                 let wallet = try OpalBase.Wallet(mnemonic: AccountTestFixtures.makeMnemonic())
                 try await wallet.addAccount(unhardenedIndex: 0)
             }
 
             return (
-                records: OpalBase.Diagnostics.recentRecords,
-                filteredWalletRecords: OpalBase.Diagnostics.recentRecords(
-                    category: OpalBase.Diagnostics.Categories.wallet,
+                records: OpalDiagnostics.recentRecords,
+                filteredWalletRecords: OpalDiagnostics.recentRecords(
+                    category: OpalDiagnostics.Category.wallet,
                     traceID: traceID
                 )
             )
         }
 
-        let walletRecords = result.records.filter { $0.category == OpalBase.Diagnostics.Categories.wallet }
-        let accountRecords = result.records.filter { $0.category == OpalBase.Diagnostics.Categories.account }
+        let walletRecords = result.records.filter { $0.category == OpalDiagnostics.Category.wallet }
+        let accountRecords = result.records.filter { $0.category == OpalDiagnostics.Category.account }
 
         #expect(walletRecords.isEmpty == false)
         #expect(accountRecords.isEmpty == false)
-        #expect(Set(result.filteredWalletRecords.map(\.category)) == [OpalBase.Diagnostics.Categories.wallet])
+        #expect(Set(result.filteredWalletRecords.map(\.category)) == [OpalDiagnostics.Category.wallet])
         #expect(result.filteredWalletRecords.allSatisfy { $0.traceID == traceID })
     }
 
     @Test("category filters retain only enabled categories")
     func categoryFiltersRetainOnlyEnabledCategories() async throws {
-        let records = try await OpalBase.Diagnostics.withConfiguration(
-            diagnosticsConfiguration(categoryFilter: .enabled([OpalBase.Diagnostics.Categories.wallet]))
+        let records = try await OpalDiagnostics.withConfiguration(
+            diagnosticsConfiguration(categoryFilter: .enabled([OpalDiagnostics.Category.wallet]))
         ) {
             let wallet = try OpalBase.Wallet(mnemonic: AccountTestFixtures.makeMnemonic())
             try await wallet.addAccount(unhardenedIndex: 0)
-            return OpalBase.Diagnostics.recentRecords
+            return OpalDiagnostics.recentRecords
         }
 
         #expect(records.isEmpty == false)
-        #expect(records.allSatisfy { $0.category == OpalBase.Diagnostics.Categories.wallet })
-        #expect(records.contains { $0.event == OpalBase.Diagnostics.Events.walletAccountCreateSucceeded })
+        #expect(records.allSatisfy { $0.category == OpalDiagnostics.Category.wallet })
+        #expect(records.contains { $0.event == OpalDiagnostics.Event.walletAccountCreateSucceeded })
     }
 
     @Test("default diagnostic levels classify routine and outcome events")
     func defaultDiagnosticLevelsClassifyRoutineAndOutcomeEvents() {
-        let records = OpalBase.Diagnostics.withConfiguration(diagnosticsConfiguration()) {
+        let records = OpalDiagnostics.withConfiguration(diagnosticsConfiguration()) {
             recordLevelFixtureDiagnostics()
-            return OpalBase.Diagnostics.recentRecords(category: OpalBase.Diagnostics.Categories.wallet) +
-                OpalBase.Diagnostics.recentRecords(category: OpalBase.Diagnostics.Categories.cashFusion)
+            return OpalDiagnostics.recentRecords(category: OpalDiagnostics.Category.wallet) +
+                OpalDiagnostics.recentRecords(category: OpalDiagnostics.Category.cashFusion)
         }
 
         #expect(records.first {
-            $0.event == OpalBase.Diagnostics.Events.walletCreateStarted
+            $0.event == OpalDiagnostics.Event.walletCreateStarted
         }?.level == .debug)
         #expect(records.first {
-            $0.event == OpalBase.Diagnostics.Events.walletCreateSucceeded
+            $0.event == OpalDiagnostics.Event.walletCreateSucceeded
         }?.level == .debug)
         #expect(records.first {
-            $0.event == OpalBase.Diagnostics.Events.walletCreateFailed
+            $0.event == OpalDiagnostics.Event.walletCreateFailed
         }?.level == .error)
         #expect(records.first {
-            $0.event == OpalBase.Diagnostics.Events.cashFusionSessionFinalized
+            $0.event == OpalDiagnostics.Event.cashFusionSessionFinalized
         }?.level == .notice)
 
-        let noticeRecords = OpalBase.Diagnostics.withConfiguration(
+        let noticeRecords = OpalDiagnostics.withConfiguration(
             diagnosticsConfiguration(minimumLevel: .notice)
         ) {
             recordLevelFixtureDiagnostics()
-            return OpalBase.Diagnostics.recentRecords
+            return OpalDiagnostics.recentRecords
         }
         let visibleEvents = Set(noticeRecords.map { $0.event })
 
-        #expect(!visibleEvents.contains(OpalBase.Diagnostics.Events.walletCreateStarted))
-        #expect(!visibleEvents.contains(OpalBase.Diagnostics.Events.walletCreateSucceeded))
-        #expect(visibleEvents.contains(OpalBase.Diagnostics.Events.walletCreateFailed))
-        #expect(visibleEvents.contains(OpalBase.Diagnostics.Events.cashFusionSessionFinalized))
+        #expect(!visibleEvents.contains(OpalDiagnostics.Event.walletCreateStarted))
+        #expect(!visibleEvents.contains(OpalDiagnostics.Event.walletCreateSucceeded))
+        #expect(visibleEvents.contains(OpalDiagnostics.Event.walletCreateFailed))
+        #expect(visibleEvents.contains(OpalDiagnostics.Event.cashFusionSessionFinalized))
     }
 
-    @Test("Fulcrum logging toggle suppresses OpalBase network diagnostics", .timeLimit(.minutes(1)))
-    func fulcrumLoggingToggleSuppressesOpalBaseNetworkDiagnostics() async {
-        let enabledRecords = await failedFulcrumStartupBridgeRecords(isLoggingEnabled: true)
-        #expect(enabledRecords.contains {
-            $0.event == OpalBase.Diagnostics.Events.networkFulcrumClientFailed
+    @Test("Fulcrum diagnostics follow OpalDiagnostics configuration", .timeLimit(.minutes(1)))
+    func fulcrumDiagnosticsFollowOpalDiagnosticsConfiguration() async {
+        let configuredRecords = await failedFulcrumStartupBridgeRecords(configuration: diagnosticsConfiguration())
+        #expect(configuredRecords.contains {
+            $0.event == OpalDiagnostics.Event.networkFulcrumClientFailed
         })
 
-        let disabledRecords = await failedFulcrumStartupBridgeRecords(isLoggingEnabled: false)
-        #expect(disabledRecords.isEmpty)
+        let defaultRecords = await failedFulcrumStartupBridgeRecords(configuration: .init())
+        #expect(defaultRecords.isEmpty)
     }
 
     @Test("wallet operations propagate trace IDs into lower diagnostics")
     func walletOperationsPropagateTraceIDsIntoLowerDiagnostics() async throws {
-        let traceID = OpalBase.Diagnostics.TraceID()
-        let records = try await OpalBase.Diagnostics.withConfiguration(
+        let traceID = OpalDiagnostics.TraceID()
+        let records = try await OpalDiagnostics.withConfiguration(
             diagnosticsConfiguration()
         ) {
-            try await OpalBase.Diagnostics.withTraceID(traceID) {
+            try await OpalDiagnostics.withTraceID(traceID) {
                 let wallet = try OpalBase.Wallet(mnemonic: AccountTestFixtures.makeMnemonic())
                 try await wallet.addAccount(unhardenedIndex: 0)
                 _ = try await wallet.fetchAccount(at: 0)
             }
 
-            return OpalBase.Diagnostics.recentRecords.filter { $0.traceID == traceID }
+            return OpalDiagnostics.recentRecords.filter { $0.traceID == traceID }
         }
 
-        #expect(records.contains { $0.event == OpalBase.Diagnostics.Events.walletCreateStarted })
-        #expect(records.contains { $0.event == OpalBase.Diagnostics.Events.walletAccountCreateSucceeded })
-        #expect(records.contains { $0.event == OpalBase.Diagnostics.Events.walletAccountFetchSucceeded })
+        #expect(records.contains { $0.event == OpalDiagnostics.Event.walletCreateStarted })
+        #expect(records.contains { $0.event == OpalDiagnostics.Event.walletAccountCreateSucceeded })
+        #expect(records.contains { $0.event == OpalDiagnostics.Event.walletAccountFetchSucceeded })
         #expect(records.contains { $0.event.rawValue.hasPrefix("opalcrypto.") })
         #expect(records.allSatisfy { $0.traceID == traceID })
     }
 
     @Test("hedge participant reservation emits boundary diagnostics")
     func hedgeParticipantReservationEmitsBoundaryDiagnostics() async throws {
-        let records = try await OpalBase.Diagnostics.withConfiguration(diagnosticsConfiguration()) {
+        let records = try await OpalDiagnostics.withConfiguration(diagnosticsConfiguration()) {
             let account = try await AccountTestFixtures.makeAccount()
             _ = try await account.reserveHedgeParticipantMaterial(network: .chipnet)
 
-            return OpalBase.Diagnostics.recentRecords(
-                category: OpalBase.Diagnostics.Categories.hedge
+            return OpalDiagnostics.recentRecords(
+                category: OpalDiagnostics.Category.hedge
             )
         }
 
         #expect(records.contains {
-            $0.event == OpalBase.Diagnostics.Events.hedgeParticipantMaterialReserveStarted
+            $0.event == OpalDiagnostics.Event.hedgeParticipantMaterialReserveStarted
         })
         #expect(records.contains {
-            $0.event == OpalBase.Diagnostics.Events.hedgeParticipantMaterialReserved
+            $0.event == OpalDiagnostics.Event.hedgeParticipantMaterialReserved
         })
     }
 
     @Test("hedge funding prepare failures use the hedge error code")
     func hedgeFundingPrepareFailuresUseHedgeErrorCode() async throws {
-        let records = try await OpalBase.Diagnostics.withConfiguration(diagnosticsConfiguration()) {
+        let records = try await OpalDiagnostics.withConfiguration(diagnosticsConfiguration()) {
             let account = try await AccountTestFixtures.makeAccount()
             let request = try await makeDiagnosticsHedgeFundingRequest(for: account)
 
@@ -197,19 +199,19 @@ struct DiagnosticsValidator {
                 _ = try await account.prepareHedgeFunding(request)
             }
 
-            return OpalBase.Diagnostics.recentRecords(category: OpalBase.Diagnostics.Categories.hedge)
+            return OpalDiagnostics.recentRecords(category: OpalDiagnostics.Category.hedge)
         }
 
         #expect(recordsContain(
             records,
-            event: OpalBase.Diagnostics.Events.hedgeFundingPrepareFailed,
-            errorCode: OpalBase.Diagnostics.ErrorCodes.hedgeFundingFailed
+            event: OpalDiagnostics.Event.hedgeFundingPrepareFailed,
+            errorCode: OpalDiagnostics.ErrorCode.hedgeFundingFailed
         ))
     }
 
     @Test("hedge funding broadcast failures use the hedge error code")
     func hedgeFundingBroadcastFailuresUseHedgeErrorCode() async throws {
-        let records = try await OpalBase.Diagnostics.withConfiguration(diagnosticsConfiguration()) {
+        let records = try await OpalDiagnostics.withConfiguration(diagnosticsConfiguration()) {
             let account = try await AccountTestFixtures.makeAccount()
             _ = try await AccountTestFixtures.addUnspentOutput(
                 to: account,
@@ -236,20 +238,20 @@ struct DiagnosticsValidator {
             }
             try await plan.cancelReservation()
 
-            return OpalBase.Diagnostics.recentRecords(category: OpalBase.Diagnostics.Categories.hedge)
+            return OpalDiagnostics.recentRecords(category: OpalDiagnostics.Category.hedge)
         }
 
         #expect(recordsContain(
             records,
-            event: OpalBase.Diagnostics.Events.hedgeFundingBroadcastFailed,
-            errorCode: OpalBase.Diagnostics.ErrorCodes.hedgeFundingFailed
+            event: OpalDiagnostics.Event.hedgeFundingBroadcastFailed,
+            errorCode: OpalDiagnostics.ErrorCode.hedgeFundingFailed
         ))
     }
 
     @Test("recent diagnostics redact sensitive values and use safe field names")
     func recentDiagnosticsRedactSensitiveValuesAndUseSafeFieldNames() async throws {
         let mnemonic = try AccountTestFixtures.makeMnemonic()
-        let result = try await OpalBase.Diagnostics.withConfiguration(diagnosticsConfiguration()) {
+        let result = try await OpalDiagnostics.withConfiguration(diagnosticsConfiguration()) {
             let wallet = try OpalBase.Wallet(mnemonic: mnemonic)
             try await wallet.addAccount(unhardenedIndex: 0)
             let account = try await wallet.fetchAccount(at: 0)
@@ -269,15 +271,15 @@ struct DiagnosticsValidator {
                 "raw proof material payload"
             ]
 
-            OpalBaseDiagnostics.record(
-                OpalBase.Diagnostics.Events.walletCreateStarted,
-                category: OpalBase.Diagnostics.Categories.wallet,
+            OpalDiagnostics.record(
+                OpalDiagnostics.Event.walletCreateStarted,
+                category: OpalDiagnostics.Category.wallet,
                 fields: sensitiveValues.enumerated().map { index, value in
-                    OpalBaseDiagnostics.privateField("private_payload_\(index)", value)
+                    OpalDiagnostics.Field.privateValue("private_payload_\(index)", value)
                 }
             )
 
-            return (records: OpalBase.Diagnostics.recentRecords, sensitiveValues: sensitiveValues)
+            return (records: OpalDiagnostics.recentRecords, sensitiveValues: sensitiveValues)
         }
 
         let renderedRecords = render(result.records)
@@ -285,7 +287,7 @@ struct DiagnosticsValidator {
             #expect(renderedRecords.contains(sensitiveValue) == false)
         }
 
-        let fieldNames = OpalBase.Diagnostics.Fields.all.joined(separator: " ")
+        let fieldNames = OpalDiagnostics.Field.Name.all.joined(separator: " ")
         for forbiddenNameFragment in [
             "mnemonic", "seed", "private_key", "wif", "full_address", "raw_transaction",
             "contract_json", "oracle_message", "oracle_signature", "redeem_script", "raw_proof"
@@ -296,7 +298,7 @@ struct DiagnosticsValidator {
 
     @Test("error code fields remain stable")
     func errorCodeFieldsRemainStable() async throws {
-        let records = try await OpalBase.Diagnostics.withConfiguration(
+        let records = try await OpalDiagnostics.withConfiguration(
             diagnosticsConfiguration()
         ) {
             let wallet = try OpalBase.Wallet(mnemonic: AccountTestFixtures.makeMnemonic())
@@ -312,30 +314,30 @@ struct DiagnosticsValidator {
                 _ = try OpalBase.Claimable.ShareCode.decode("not-a-share-code")
             }
 
-            return OpalBase.Diagnostics.recentRecords
+            return OpalDiagnostics.recentRecords
         }
 
-        #expect(errorCodes(in: records).contains(OpalBase.Diagnostics.ErrorCodes.walletAccountAlreadyExists))
-        #expect(errorCodes(in: records).contains(OpalBase.Diagnostics.ErrorCodes.walletAccountNotFound))
-        #expect(errorCodes(in: records).contains(OpalBase.Diagnostics.ErrorCodes.claimableInvalidShareCode))
+        #expect(errorCodes(in: records).contains(OpalDiagnostics.ErrorCode.walletAccountAlreadyExists))
+        #expect(errorCodes(in: records).contains(OpalDiagnostics.ErrorCode.walletAccountNotFound))
+        #expect(errorCodes(in: records).contains(OpalDiagnostics.ErrorCode.claimableInvalidShareCode))
     }
 
     @Test("SwiftFulcrum errors use stable network error codes")
     func swiftFulcrumErrorsUseStableNetworkErrorCodes() {
-        #expect(OpalBaseDiagnostics.errorCode(
+        #expect(OpalDiagnostics.ErrorCode.opalBaseCode(
             for: SwiftFulcrum.Client.Error.client(.timeout(.seconds(3)))
-        ) == OpalBase.Diagnostics.ErrorCodes.networkTimeout)
-        #expect(OpalBaseDiagnostics.errorCode(
+        ) == OpalDiagnostics.ErrorCode.networkTimeout)
+        #expect(OpalDiagnostics.ErrorCode.opalBaseCode(
             for: SwiftFulcrum.Client.Error.transport(.heartbeatTimeout)
-        ) == OpalBase.Diagnostics.ErrorCodes.networkTransport)
-        #expect(OpalBaseDiagnostics.errorCode(
+        ) == OpalDiagnostics.ErrorCode.networkTransport)
+        #expect(OpalDiagnostics.ErrorCode.opalBaseCode(
             for: SwiftFulcrum.Client.Error.coding(.decode(nil))
-        ) == OpalBase.Diagnostics.ErrorCodes.networkDecoding)
+        ) == OpalDiagnostics.ErrorCode.networkDecoding)
     }
 
     @Test("balance refresh failures use a stable error code")
     func balanceRefreshFailuresUseStableErrorCode() async throws {
-        let records = try await OpalBase.Diagnostics.withConfiguration(
+        let records = try await OpalDiagnostics.withConfiguration(
             diagnosticsConfiguration()
         ) {
             let wallet = try OpalBase.Wallet(mnemonic: AccountTestFixtures.makeMnemonic())
@@ -347,19 +349,19 @@ struct DiagnosticsValidator {
                 }
             }
 
-            return OpalBase.Diagnostics.recentRecords
+            return OpalDiagnostics.recentRecords
         }
 
         #expect(recordsContain(
             records,
-            event: OpalBase.Diagnostics.Events.walletBalanceRefreshFailed,
-            errorCode: OpalBase.Diagnostics.ErrorCodes.accountBalanceRefreshFailed
+            event: OpalDiagnostics.Event.walletBalanceRefreshFailed,
+            errorCode: OpalDiagnostics.ErrorCode.accountBalanceRefreshFailed
         ))
     }
 
     @Test("transaction history failures use a stable error code")
     func transactionHistoryFailuresUseStableErrorCode() async throws {
-        let records = try await OpalBase.Diagnostics.withConfiguration(
+        let records = try await OpalDiagnostics.withConfiguration(
             diagnosticsConfiguration()
         ) {
             let account = try await AccountTestFixtures.makeAccount()
@@ -371,19 +373,19 @@ struct DiagnosticsValidator {
                 _ = try await account.refreshTransactionHistory(using: reader)
             }
 
-            return OpalBase.Diagnostics.recentRecords
+            return OpalDiagnostics.recentRecords
         }
 
         #expect(recordsContain(
             records,
-            event: OpalBase.Diagnostics.Events.transactionHistoryRefreshFailed,
-            errorCode: OpalBase.Diagnostics.ErrorCodes.accountTransactionHistoryRefreshFailed
+            event: OpalDiagnostics.Event.transactionHistoryRefreshFailed,
+            errorCode: OpalDiagnostics.ErrorCode.accountTransactionHistoryRefreshFailed
         ))
     }
 
     @Test("transaction detail refresh failures use a stable error code")
     func transactionDetailRefreshFailuresUseStableErrorCode() async throws {
-        let records = try await OpalBase.Diagnostics.withConfiguration(
+        let records = try await OpalDiagnostics.withConfiguration(
             diagnosticsConfiguration()
         ) {
             let account = try await AccountTestFixtures.makeAccount()
@@ -403,19 +405,19 @@ struct DiagnosticsValidator {
                 )
             }
 
-            return OpalBase.Diagnostics.recentRecords
+            return OpalDiagnostics.recentRecords
         }
 
         #expect(recordsContain(
             records,
-            event: OpalBase.Diagnostics.Events.transactionHistoryRefreshFailed,
-            errorCode: OpalBase.Diagnostics.ErrorCodes.accountTransactionDetailsRefreshFailed
+            event: OpalDiagnostics.Event.transactionHistoryRefreshFailed,
+            errorCode: OpalDiagnostics.ErrorCode.accountTransactionDetailsRefreshFailed
         ))
     }
 
     @Test("insufficient funds use the stable insufficient funds error code")
     func insufficientFundsUseStableInsufficientFundsErrorCode() async throws {
-        let records = try await OpalBase.Diagnostics.withConfiguration(
+        let records = try await OpalDiagnostics.withConfiguration(
             diagnosticsConfiguration()
         ) {
             let account = try await AccountTestFixtures.makeAccount()
@@ -430,19 +432,19 @@ struct DiagnosticsValidator {
                 _ = try await account.prepareSpend(payment)
             }
 
-            return OpalBase.Diagnostics.recentRecords
+            return OpalDiagnostics.recentRecords
         }
 
         #expect(recordsContain(
             records,
-            event: OpalBase.Diagnostics.Events.spendPrepareFailed,
-            errorCode: OpalBase.Diagnostics.ErrorCodes.accountInsufficientFunds
+            event: OpalDiagnostics.Event.spendPrepareFailed,
+            errorCode: OpalDiagnostics.ErrorCode.accountInsufficientFunds
         ))
     }
 
     @Test("empty confirmation refresh records diagnostics")
     func emptyConfirmationRefreshRecordsDiagnostics() async throws {
-        let records = try await OpalBase.Diagnostics.withConfiguration(
+        let records = try await OpalDiagnostics.withConfiguration(
             diagnosticsConfiguration()
         ) {
             let account = try await AccountTestFixtures.makeAccount()
@@ -464,18 +466,18 @@ struct DiagnosticsValidator {
             let changeSet = try await account.refreshTransactionConfirmations(using: client)
             #expect(changeSet.isEmpty)
 
-            return OpalBase.Diagnostics.recentRecords
+            return OpalDiagnostics.recentRecords
         }
 
         #expect(records.contains {
-            $0.event == OpalBase.Diagnostics.Events.transactionConfirmationRefreshStarted
+            $0.event == OpalDiagnostics.Event.transactionConfirmationRefreshStarted
         })
         let succeededRecords = records.filter {
-            $0.event == OpalBase.Diagnostics.Events.transactionConfirmationRefreshSucceeded
+            $0.event == OpalDiagnostics.Event.transactionConfirmationRefreshSucceeded
         }
         #expect(succeededRecords.contains { record in
             record.fields.contains {
-                $0.name == OpalBase.Diagnostics.Fields.transactionCount &&
+                $0.name == OpalDiagnostics.Field.Name.transactionCount &&
                     $0.value == "0"
             }
         })
@@ -483,7 +485,7 @@ struct DiagnosticsValidator {
 
     @Test("claimable envelope network mismatches record failure diagnostics")
     func claimableEnvelopeNetworkMismatchesRecordFailureDiagnostics() throws {
-        let records = try OpalBase.Diagnostics.withConfiguration(diagnosticsConfiguration()) {
+        let records = try OpalDiagnostics.withConfiguration(diagnosticsConfiguration()) {
             let (envelope, _) = try makeClaimableEnvelope(network: .chipnet)
             let encodedEnvelope = envelope.encode()
 
@@ -493,39 +495,39 @@ struct DiagnosticsValidator {
                 try OpalBase.Claimable.Envelope.decode(from: encodedEnvelope, on: .mainnet)
             }
 
-            return OpalBase.Diagnostics.recentRecords
+            return OpalDiagnostics.recentRecords
         }
 
         #expect(recordsContain(
             records,
-            event: OpalBase.Diagnostics.Events.claimableEnvelopeDecodeFailed,
-            errorCode: OpalBase.Diagnostics.ErrorCodes.claimableInvalidEnvelope
+            event: OpalDiagnostics.Event.claimableEnvelopeDecodeFailed,
+            errorCode: OpalDiagnostics.ErrorCode.claimableInvalidEnvelope
         ))
         #expect(records.contains {
-            $0.event == OpalBase.Diagnostics.Events.claimableEnvelopeDecodeSucceeded
+            $0.event == OpalDiagnostics.Event.claimableEnvelopeDecodeSucceeded
         } == false)
     }
 
     @Test("claimable share code envelope data failures record diagnostics")
     func claimableShareCodeEnvelopeDataFailuresRecordDiagnostics() {
-        let records = OpalBase.Diagnostics.withConfiguration(diagnosticsConfiguration()) {
+        let records = OpalDiagnostics.withConfiguration(diagnosticsConfiguration()) {
             #expect(throws: OpalBase.Claimable.Error.invalidShareCodeFormat) {
                 _ = try OpalBase.Claimable.ShareCode.decodeEnvelopeData("not-a-share-code")
             }
 
-            return OpalBase.Diagnostics.recentRecords
+            return OpalDiagnostics.recentRecords
         }
 
         #expect(recordsContain(
             records,
-            event: OpalBase.Diagnostics.Events.claimableShareCodeDecodeFailed,
-            errorCode: OpalBase.Diagnostics.ErrorCodes.claimableInvalidShareCode
+            event: OpalDiagnostics.Event.claimableShareCodeDecodeFailed,
+            errorCode: OpalDiagnostics.ErrorCode.claimableInvalidShareCode
         ))
     }
 
     @Test("claimable status failures use the status error code")
     func claimableStatusFailuresUseStatusErrorCode() async throws {
-        let records = try await OpalBase.Diagnostics.withConfiguration(diagnosticsConfiguration()) {
+        let records = try await OpalDiagnostics.withConfiguration(diagnosticsConfiguration()) {
             let (envelope, _) = try makeClaimableEnvelope(network: .chipnet)
             let resolver = OpalBase.Claimable.StatusResolver(
                 network: .chipnet,
@@ -543,46 +545,19 @@ struct DiagnosticsValidator {
                 )
             }
 
-            return OpalBase.Diagnostics.recentRecords(category: OpalBase.Diagnostics.Categories.claimable)
+            return OpalDiagnostics.recentRecords(category: OpalDiagnostics.Category.claimable)
         }
 
         #expect(recordsContain(
             records,
-            event: OpalBase.Diagnostics.Events.claimableStatusResolveFailed,
-            errorCode: OpalBase.Diagnostics.ErrorCodes.claimableStatusFailed
+            event: OpalDiagnostics.Event.claimableStatusResolveFailed,
+            errorCode: OpalDiagnostics.ErrorCode.claimableStatusFailed
         ))
     }
 
-    @Test("legacy network logger and metrics remain compatible")
-    func legacyNetworkLoggerAndMetricsRemainCompatible() async {
-        let capture = LegacyNetworkLogCapture()
-        let logger = OpalBase.Network.Logger { level, message, metadata, file, function, line in
-            capture.append(
-                level: level,
-                message: message,
-                metadata: metadata,
-                file: file,
-                function: function,
-                line: line
-            )
-        }
-
-        logger.log(
-            .info,
-            "legacy-network-message",
-            metadata: ["component": "fulcrum"],
-            file: "DiagnosticsValidator.swift",
-            function: "legacyNetworkLoggerAndMetricsRemainCompatible",
-            line: 1
-        )
-
-        let legacyEntries = capture.entries()
-        #expect(legacyEntries.count == 1)
-        #expect(legacyEntries.first?.level == .info)
-        #expect(legacyEntries.first?.message == "legacy-network-message")
-        #expect(legacyEntries.first?.metadata?["component"] == "fulcrum")
-
-        let records = await OpalBase.Diagnostics.withConfiguration(diagnosticsConfiguration()) {
+    @Test("network metrics bridge records through OpalDiagnostics")
+    func networkMetricsBridgeRecordsThroughOpalDiagnostics() async {
+        let records = await OpalDiagnostics.withConfiguration(diagnosticsConfiguration()) {
             let metrics = OpalBase.Network.Metrics()
             await metrics.recordDiagnosticsSnapshot(
                 url: URL(string: "wss://fulcrum.example.com:50004")!,
@@ -599,18 +574,18 @@ struct DiagnosticsValidator {
                     .init(methodPath: "blockchain.address.subscribe", identifier: "abc")
                 ]
             )
-            return OpalBase.Diagnostics.recentRecords
+            return OpalDiagnostics.recentRecords
         }
 
         #expect(records.contains { record in
-            record.category == OpalBase.Diagnostics.Categories.network &&
-                record.event == OpalBase.Diagnostics.Events.networkDiagnosticsSnapshotRecorded
+            record.category == OpalDiagnostics.Category.network &&
+                record.event == OpalDiagnostics.Event.networkDiagnosticsSnapshotRecorded
         })
         #expect(records.contains { record in
-            record.category == OpalBase.Diagnostics.Categories.network &&
-                record.event == OpalBase.Diagnostics.Events.networkDiagnosticsSubscriptionsRecorded &&
+            record.category == OpalDiagnostics.Category.network &&
+                record.event == OpalDiagnostics.Event.networkDiagnosticsSubscriptionsRecorded &&
                 record.fields.contains {
-                    $0.name == OpalBase.Diagnostics.Fields.activeSubscriptionCount &&
+                    $0.name == OpalDiagnostics.Field.Name.activeSubscriptionCount &&
                         $0.value == "1"
                 }
         })
@@ -618,10 +593,10 @@ struct DiagnosticsValidator {
 }
 
 private func diagnosticsConfiguration(
-    minimumLevel: OpalBase.Diagnostics.Level = .debug,
-    categoryFilter: OpalBase.Diagnostics.CategoryFilter = .all
-) -> OpalBase.Diagnostics.Configuration {
-    OpalBase.Diagnostics.Configuration(
+    minimumLevel: OpalDiagnostics.Level = .debug,
+    categoryFilter: OpalDiagnostics.CategoryFilter = .all
+) -> OpalDiagnostics.Configuration {
+    OpalDiagnostics.Configuration(
         minimumLevel: minimumLevel,
         categoryFilter: categoryFilter,
         bufferPolicy: .enabled(capacity: 512)
@@ -629,29 +604,29 @@ private func diagnosticsConfiguration(
 }
 
 private func recordLevelFixtureDiagnostics() {
-    OpalBaseDiagnostics.record(
-        OpalBase.Diagnostics.Events.walletCreateStarted,
-        category: OpalBase.Diagnostics.Categories.wallet
+    OpalDiagnostics.record(
+        OpalDiagnostics.Event.walletCreateStarted,
+        category: OpalDiagnostics.Category.wallet
     )
-    OpalBaseDiagnostics.record(
-        OpalBase.Diagnostics.Events.walletCreateSucceeded,
-        category: OpalBase.Diagnostics.Categories.wallet
+    OpalDiagnostics.record(
+        OpalDiagnostics.Event.walletCreateSucceeded,
+        category: OpalDiagnostics.Category.wallet
     )
-    OpalBaseDiagnostics.record(
-        OpalBase.Diagnostics.Events.walletCreateFailed,
-        category: OpalBase.Diagnostics.Categories.wallet
+    OpalDiagnostics.record(
+        OpalDiagnostics.Event.walletCreateFailed,
+        category: OpalDiagnostics.Category.wallet
     )
-    OpalBaseDiagnostics.record(
-        OpalBase.Diagnostics.Events.cashFusionSessionFinalized,
-        category: OpalBase.Diagnostics.Categories.cashFusion
+    OpalDiagnostics.record(
+        OpalDiagnostics.Event.cashFusionSessionFinalized,
+        category: OpalDiagnostics.Category.cashFusion
     )
 }
 
 private func failedFulcrumStartupBridgeRecords(
-    isLoggingEnabled: Bool
-) async -> [OpalBase.Diagnostics.Record] {
-    await OpalBase.Diagnostics.withConfiguration(diagnosticsConfiguration()) {
-        let configuration = OpalBase.Network.Configuration(
+    configuration: OpalDiagnostics.Configuration
+) async -> [OpalDiagnostics.Record] {
+    await OpalDiagnostics.withConfiguration(configuration) {
+        let networkConfiguration = OpalBase.Network.Configuration(
             serverURLs: [URL(string: "ws://127.0.0.1:1")!],
             serverCatalog: .init(mainnetServers: [], chipnetServers: [], testnetServers: []),
             connectTimeout: .milliseconds(50),
@@ -665,26 +640,25 @@ private func failedFulcrumStartupBridgeRecords(
 
         do {
             _ = try await OpalBase.Network.Fulcrum.Client(
-                configuration: configuration,
-                metrics: OpalBase.Network.Metrics(),
-                isLoggingEnabled: isLoggingEnabled
+                configuration: networkConfiguration,
+                metrics: OpalBase.Network.Metrics()
             )
             Issue.record("Expected Fulcrum client startup to fail against a closed local port.")
         } catch {
             // Expected: the local closed port gives the client a deterministic startup failure.
         }
 
-        return OpalBase.Diagnostics.recentRecords.filter(isOpalBaseNetworkBridgeRecord)
+        return OpalDiagnostics.recentRecords.filter(isOpalBaseNetworkBridgeRecord)
     }
 }
 
-private func isOpalBaseNetworkBridgeRecord(_ record: OpalBase.Diagnostics.Record) -> Bool {
-    guard record.category == OpalBase.Diagnostics.Categories.network else { return false }
+private func isOpalBaseNetworkBridgeRecord(_ record: OpalDiagnostics.Record) -> Bool {
+    guard record.category == OpalDiagnostics.Category.network else { return false }
     return [
-        OpalBase.Diagnostics.Events.networkFulcrumClientStarted,
-        OpalBase.Diagnostics.Events.networkFulcrumClientFailed,
-        OpalBase.Diagnostics.Events.networkDiagnosticsSnapshotRecorded,
-        OpalBase.Diagnostics.Events.networkDiagnosticsSubscriptionsRecorded
+        OpalDiagnostics.Event.networkFulcrumClientStarted,
+        OpalDiagnostics.Event.networkFulcrumClientFailed,
+        OpalDiagnostics.Event.networkDiagnosticsSnapshotRecorded,
+        OpalDiagnostics.Event.networkDiagnosticsSubscriptionsRecorded
     ].contains(record.event)
 }
 
@@ -709,19 +683,19 @@ private func makeDiagnosticsAddressReader(
     )
 }
 
-private func errorCodes(in records: [OpalBase.Diagnostics.Record]) -> Set<String> {
+private func errorCodes(in records: [OpalDiagnostics.Record]) -> Set<OpalDiagnostics.ErrorCode> {
     Set(
         records
             .flatMap(\.fields)
-            .filter { $0.name == OpalBase.Diagnostics.Fields.errorCode }
-            .map(\.value)
+            .filter { $0.name == OpalDiagnostics.Field.Name.errorCode }
+            .map { OpalDiagnostics.ErrorCode(rawValue: $0.value) }
     )
 }
 
 private func recordsContain(
-    _ records: [OpalBase.Diagnostics.Record],
-    event: OpalBase.Diagnostics.Event,
-    errorCode: String
+    _ records: [OpalDiagnostics.Record],
+    event: OpalDiagnostics.Event,
+    errorCode: OpalDiagnostics.ErrorCode
 ) -> Bool {
     records.contains { record in
         record.event == event && recordContains(record, errorCode: errorCode)
@@ -729,16 +703,16 @@ private func recordsContain(
 }
 
 private func recordContains(
-    _ record: OpalBase.Diagnostics.Record,
-    errorCode: String
+    _ record: OpalDiagnostics.Record,
+    errorCode: OpalDiagnostics.ErrorCode
 ) -> Bool {
     record.fields.contains {
-        $0.name == OpalBase.Diagnostics.Fields.errorCode &&
-            $0.value == errorCode
+        $0.name == OpalDiagnostics.Field.Name.errorCode &&
+            $0.value == errorCode.rawValue
     }
 }
 
-private func render(_ records: [OpalBase.Diagnostics.Record]) -> String {
+private func render(_ records: [OpalDiagnostics.Record]) -> String {
     records.map { record in
         let fields = record.fields.map { "\($0.name)=\($0.value)" }.joined(separator: " ")
         return "\(record.category.rawValue) \(record.event.rawValue) \(fields)"

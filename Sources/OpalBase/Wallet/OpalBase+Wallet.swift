@@ -1,6 +1,7 @@
 // OpalBase+Wallet.swift
 
 import Foundation
+import OpalDiagnostics
 import OpalCrypto
 
 extension OpalBase {
@@ -21,13 +22,13 @@ extension OpalBase {
                     passphrase: String = "",
                     purpose: OpalBase.Key.DerivationPath.Purpose = .bip44,
                     coinType: OpalBase.Key.DerivationPath.CoinType = .bitcoinCash) throws {
-            let rootContext = try OpalBase.Diagnostics.withTraceID {
-                OpalBaseDiagnostics.record(
-                    OpalBase.Diagnostics.Events.walletCreateStarted,
-                    category: OpalBase.Diagnostics.Categories.wallet,
+            let rootContext = try OpalDiagnostics.withTraceID {
+                OpalDiagnostics.record(
+                    OpalDiagnostics.Event.walletCreateStarted,
+                    category: OpalDiagnostics.Category.wallet,
                     fields: [
-                        OpalBaseDiagnostics.operationField("wallet_create"),
-                        OpalBaseDiagnostics.moduleField()
+                        OpalDiagnostics.Field.operation("wallet_create"),
+                        OpalDiagnostics.Field.module()
                     ]
                 )
 
@@ -36,27 +37,27 @@ extension OpalBase {
                         seed: OpalCrypto.Key.Seed(rawRepresentation: mnemonic.deriveSeed(passphrase: passphrase))
                     )
                     let id = [
-                        OpalCryptoAdapter.serializedExtendedKeyData(rootExtendedPrivateKey.serialize()),
+                        try OpalCryptoAdapter.serializedExtendedKeyData(rootExtendedPrivateKey.serialize()),
                         purpose.hardenedIndex.data,
                         coinType.hardenedIndex.data,
                     ].generateID()
-                    OpalBaseDiagnostics.record(
-                        OpalBase.Diagnostics.Events.walletCreateSucceeded,
-                        category: OpalBase.Diagnostics.Categories.wallet,
+                    OpalDiagnostics.record(
+                        OpalDiagnostics.Event.walletCreateSucceeded,
+                        category: OpalDiagnostics.Category.wallet,
                         fields: [
-                            OpalBaseDiagnostics.operationField("wallet_create"),
-                            OpalBaseDiagnostics.moduleField()
+                            OpalDiagnostics.Field.operation("wallet_create"),
+                            OpalDiagnostics.Field.module()
                         ]
                     )
                     return (rootExtendedPrivateKey: rootExtendedPrivateKey, id: id)
                 } catch {
-                    OpalBaseDiagnostics.record(
-                        OpalBase.Diagnostics.Events.walletCreateFailed,
-                        category: OpalBase.Diagnostics.Categories.wallet,
+                    OpalDiagnostics.record(
+                        OpalDiagnostics.Event.walletCreateFailed,
+                        category: OpalDiagnostics.Category.wallet,
                         fields: [
-                            OpalBaseDiagnostics.operationField("wallet_create"),
-                            OpalBaseDiagnostics.moduleField()
-                        ] + OpalBaseDiagnostics.errorFields(for: error)
+                            OpalDiagnostics.Field.operation("wallet_create"),
+                            OpalDiagnostics.Field.module()
+                        ] + OpalDiagnostics.Field.errorFields(for: error)
                     )
                     throw error
                 }
@@ -105,15 +106,15 @@ extension _OpalBase.Wallet: Equatable {
 
 extension _OpalBase.Wallet {
     public func addAccount(unhardenedIndex: UInt32) async throws {
-        try await OpalBase.Diagnostics.withTraceID {
+        try await OpalDiagnostics.withTraceID {
             let fields = [
-                OpalBaseDiagnostics.operationField("wallet_account_create"),
-                OpalBaseDiagnostics.moduleField(),
-                OpalBaseDiagnostics.accountIndexField(unhardenedIndex)
+                OpalDiagnostics.Field.operation("wallet_account_create"),
+                OpalDiagnostics.Field.module(),
+                OpalDiagnostics.Field.accountIndex(unhardenedIndex)
             ]
-            OpalBaseDiagnostics.record(
-                OpalBase.Diagnostics.Events.walletAccountCreateStarted,
-                category: OpalBase.Diagnostics.Categories.wallet,
+            OpalDiagnostics.record(
+                OpalDiagnostics.Event.walletAccountCreateStarted,
+                category: OpalDiagnostics.Category.wallet,
                 fields: fields
             )
 
@@ -130,16 +131,16 @@ extension _OpalBase.Wallet {
                                                          account: derivationPathAccount)
                 let index = await account.unhardenedIndex
                 self.accounts[index] = account
-                OpalBaseDiagnostics.record(
-                    OpalBase.Diagnostics.Events.walletAccountCreateSucceeded,
-                    category: OpalBase.Diagnostics.Categories.wallet,
+                OpalDiagnostics.record(
+                    OpalDiagnostics.Event.walletAccountCreateSucceeded,
+                    category: OpalDiagnostics.Category.wallet,
                     fields: fields
                 )
             } catch {
-                OpalBaseDiagnostics.record(
-                    OpalBase.Diagnostics.Events.walletAccountCreateFailed,
-                    category: OpalBase.Diagnostics.Categories.wallet,
-                    fields: fields + OpalBaseDiagnostics.errorFields(for: error)
+                OpalDiagnostics.record(
+                    OpalDiagnostics.Event.walletAccountCreateFailed,
+                    category: OpalDiagnostics.Category.wallet,
+                    fields: fields + OpalDiagnostics.Field.errorFields(for: error)
                 )
                 throw error
             }
@@ -190,28 +191,28 @@ extension _OpalBase.Wallet {
     }
     
     public func fetchAccount(at unhardenedIndex: UInt32) async throws -> OpalBase.Account {
-        try OpalBase.Diagnostics.withTraceID {
+        try OpalDiagnostics.withTraceID {
             let fields = [
-                OpalBaseDiagnostics.operationField("wallet_account_fetch"),
-                OpalBaseDiagnostics.moduleField(),
-                OpalBaseDiagnostics.accountIndexField(unhardenedIndex)
+                OpalDiagnostics.Field.operation("wallet_account_fetch"),
+                OpalDiagnostics.Field.module(),
+                OpalDiagnostics.Field.accountIndex(unhardenedIndex)
             ]
             do {
                 guard let account = accounts[unhardenedIndex] else {
                     throw Error.cannotFetchAccount(index: unhardenedIndex)
                 }
 
-                OpalBaseDiagnostics.record(
-                    OpalBase.Diagnostics.Events.walletAccountFetchSucceeded,
-                    category: OpalBase.Diagnostics.Categories.wallet,
+                OpalDiagnostics.record(
+                    OpalDiagnostics.Event.walletAccountFetchSucceeded,
+                    category: OpalDiagnostics.Category.wallet,
                     fields: fields
                 )
                 return account
             } catch {
-                OpalBaseDiagnostics.record(
-                    OpalBase.Diagnostics.Events.walletAccountFetchFailed,
-                    category: OpalBase.Diagnostics.Categories.wallet,
-                    fields: fields + OpalBaseDiagnostics.errorFields(for: error)
+                OpalDiagnostics.record(
+                    OpalDiagnostics.Event.walletAccountFetchFailed,
+                    category: OpalDiagnostics.Category.wallet,
+                    fields: fields + OpalDiagnostics.Field.errorFields(for: error)
                 )
                 throw error
             }
@@ -231,24 +232,24 @@ extension _OpalBase.Wallet {
     }
     
     public func calculateBalance(loader: @escaping @Sendable (OpalBase.Address) async throws -> OpalBase.Satoshi) async throws -> OpalBase.Satoshi {
-        try await OpalBase.Diagnostics.withTraceID {
+        try await OpalDiagnostics.withTraceID {
             let fields = [
-                OpalBaseDiagnostics.operationField("wallet_balance_refresh"),
-                OpalBaseDiagnostics.moduleField(),
-                OpalBaseDiagnostics.publicField(OpalBase.Diagnostics.Fields.accountCount, accounts.count)
+                OpalDiagnostics.Field.operation("wallet_balance_refresh"),
+                OpalDiagnostics.Field.module(),
+                OpalDiagnostics.Field.publicValue(OpalDiagnostics.Field.Name.accountCount, accounts.count)
             ]
-            OpalBaseDiagnostics.record(
-                OpalBase.Diagnostics.Events.walletBalanceRefreshStarted,
-                category: OpalBase.Diagnostics.Categories.wallet,
+            OpalDiagnostics.record(
+                OpalDiagnostics.Event.walletBalanceRefreshStarted,
+                category: OpalDiagnostics.Category.wallet,
                 fields: fields
             )
 
             do {
                 guard !accounts.isEmpty else {
                     let zero = try OpalBase.Satoshi(0)
-                    OpalBaseDiagnostics.record(
-                        OpalBase.Diagnostics.Events.walletBalanceRefreshSucceeded,
-                        category: OpalBase.Diagnostics.Categories.wallet,
+                    OpalDiagnostics.record(
+                        OpalDiagnostics.Event.walletBalanceRefreshSucceeded,
+                        category: OpalDiagnostics.Category.wallet,
                         fields: fields
                     )
                     return zero
@@ -270,17 +271,17 @@ extension _OpalBase.Wallet {
                     return aggregate
                 }
 
-                OpalBaseDiagnostics.record(
-                    OpalBase.Diagnostics.Events.walletBalanceRefreshSucceeded,
-                    category: OpalBase.Diagnostics.Categories.wallet,
+                OpalDiagnostics.record(
+                    OpalDiagnostics.Event.walletBalanceRefreshSucceeded,
+                    category: OpalDiagnostics.Category.wallet,
                     fields: fields
                 )
                 return total
             } catch {
-                OpalBaseDiagnostics.record(
-                    OpalBase.Diagnostics.Events.walletBalanceRefreshFailed,
-                    category: OpalBase.Diagnostics.Categories.wallet,
-                    fields: fields + OpalBaseDiagnostics.errorFields(for: error)
+                OpalDiagnostics.record(
+                    OpalDiagnostics.Event.walletBalanceRefreshFailed,
+                    category: OpalDiagnostics.Category.wallet,
+                    fields: fields + OpalDiagnostics.Field.errorFields(for: error)
                 )
                 throw error
             }

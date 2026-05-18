@@ -4,6 +4,10 @@ import Foundation
 import OpalCrypto
 
 enum OpalCryptoAdapter {
+    enum Error: Swift.Error, Equatable {
+        case invalidSerializedExtendedKey
+    }
+
     static let cashAddrCharacters: Set<Character> = Set("qpzry9x8gf2tvdw0s3jn54khce6mua7l")
 
     static func sha256(_ data: Data) -> Data {
@@ -42,8 +46,8 @@ enum OpalCryptoAdapter {
         return try OpalCrypto.Encoding.decodeBase32Bytes(text)
     }
 
-    static func computePolymod(_ values: [UInt8]) -> UInt64 {
-        let fiveBitValues = try! OpalCrypto.Encoding.FiveBitValues(rawRepresentation: Data(values))
+    static func computePolymod(_ values: [UInt8]) throws -> UInt64 {
+        let fiveBitValues = try OpalCrypto.Encoding.FiveBitValues(rawRepresentation: Data(values))
         return OpalCrypto.Encoding.computePolymodChecksum(fiveBitValues)
     }
 
@@ -70,9 +74,9 @@ enum OpalCryptoAdapter {
         Data(hash160(compressedPublicKeyData).prefix(4))
     }
 
-    static func serializedExtendedKeyData(_ serialized: String) -> Data {
+    static func serializedExtendedKeyData(_ serialized: String) throws -> Data {
         guard let data = decodeBase58(serialized) else {
-            preconditionFailure("Serialized extended keys must remain valid base58-check strings.")
+            throw Error.invalidSerializedExtendedKey
         }
         return data
     }

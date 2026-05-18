@@ -1,6 +1,7 @@
 // OpalBase+Hedge+FundingPlan.swift
 
 import Foundation
+import OpalDiagnostics
 import OpalHedge
 
 extension _OpalBase.Hedge {
@@ -47,43 +48,43 @@ extension _OpalBase.Hedge {
             signatureFormat: OpalBase.Transaction.SignatureFormat = .schnorr,
             unlockers: [OpalBase.Transaction.Output.Unspent: OpalBase.Transaction.Unlocker] = .init()
         ) throws -> FundingReview {
-            try OpalBaseHedgeDiagnostics.withCurrentTraceID {
-                    let fields = [
-                        OpalBaseDiagnostics.operationField("hedge_funding_build"),
-                        OpalBaseDiagnostics.moduleField(),
-                        OpalBaseDiagnostics.networkField(network)
-                    ]
-                    OpalBaseDiagnostics.record(
-                        OpalBase.Diagnostics.Events.hedgeFundingBuildStarted,
-                        category: OpalBase.Diagnostics.Categories.hedge,
-                        fields: fields
+            try OpalDiagnostics.withTraceID {
+                let fields = [
+                    OpalDiagnostics.Field.operation("hedge_funding_build"),
+                    OpalDiagnostics.Field.module(),
+                    OpalDiagnostics.Field.network(network)
+                ]
+                OpalDiagnostics.record(
+                    OpalDiagnostics.Event.hedgeFundingBuildStarted,
+                    category: OpalDiagnostics.Category.hedge,
+                    fields: fields
+                )
+                do {
+                    let result = try spendPlan.buildTransaction(
+                        signatureFormat: signatureFormat,
+                        unlockers: unlockers
                     )
-                    do {
-                        let result = try spendPlan.buildTransaction(
-                            signatureFormat: signatureFormat,
-                            unlockers: unlockers
+                    let review = try makeReview(from: result)
+                    OpalDiagnostics.record(
+                        OpalDiagnostics.Event.hedgeFundingBuildSucceeded,
+                        category: OpalDiagnostics.Category.hedge,
+                        fields: fields + [
+                            OpalDiagnostics.Field.publicValue(OpalDiagnostics.Field.Name.outputCount, review.transaction.outputs.count),
+                            OpalDiagnostics.Field.publicValue(OpalDiagnostics.Field.Name.byteCount, review.rawTransactionByteCount)
+                        ]
+                    )
+                    return review
+                } catch {
+                    OpalDiagnostics.record(
+                        OpalDiagnostics.Event.hedgeFundingBuildFailed,
+                        category: OpalDiagnostics.Category.hedge,
+                        fields: fields + OpalDiagnostics.Field.errorFields(
+                            for: error,
+                            fallback: OpalDiagnostics.ErrorCode.hedgeFundingFailed
                         )
-                        let review = try makeReview(from: result)
-                        OpalBaseDiagnostics.record(
-                            OpalBase.Diagnostics.Events.hedgeFundingBuildSucceeded,
-                            category: OpalBase.Diagnostics.Categories.hedge,
-                            fields: fields + [
-                                OpalBaseDiagnostics.publicField(OpalBase.Diagnostics.Fields.outputCount, review.transaction.outputs.count),
-                                OpalBaseDiagnostics.publicField(OpalBase.Diagnostics.Fields.byteCount, review.rawTransactionByteCount)
-                            ]
-                        )
-                        return review
-                    } catch {
-                        OpalBaseDiagnostics.record(
-                            OpalBase.Diagnostics.Events.hedgeFundingBuildFailed,
-                            category: OpalBase.Diagnostics.Categories.hedge,
-                            fields: fields + OpalBaseDiagnostics.errorFields(
-                                for: error,
-                                fallback: OpalBase.Diagnostics.ErrorCodes.hedgeFundingFailed
-                            )
-                        )
-                        throw error
-                    }
+                    )
+                    throw error
+                }
             }
         }
 
@@ -106,48 +107,48 @@ extension _OpalBase.Hedge {
             review: FundingReview,
             fundingRecord: FundingRecord
         ) {
-            try await OpalBaseHedgeDiagnostics.withCurrentTraceID {
-                    let fields = [
-                        OpalBaseDiagnostics.operationField("hedge_funding_broadcast"),
-                        OpalBaseDiagnostics.moduleField(),
-                        OpalBaseDiagnostics.networkField(network)
-                    ]
-                    OpalBaseDiagnostics.record(
-                        OpalBase.Diagnostics.Events.hedgeFundingBroadcastStarted,
-                        category: OpalBase.Diagnostics.Categories.hedge,
-                        fields: fields
+            try await OpalDiagnostics.withTraceID {
+                let fields = [
+                    OpalDiagnostics.Field.operation("hedge_funding_broadcast"),
+                    OpalDiagnostics.Field.module(),
+                    OpalDiagnostics.Field.network(network)
+                ]
+                OpalDiagnostics.record(
+                    OpalDiagnostics.Event.hedgeFundingBroadcastStarted,
+                    category: OpalDiagnostics.Category.hedge,
+                    fields: fields
+                )
+                do {
+                    let broadcast = try await spendPlan.buildAndBroadcast(
+                        via: handler,
+                        signatureFormat: signatureFormat,
+                        unlockers: unlockers
                     )
-                    do {
-                        let broadcast = try await spendPlan.buildAndBroadcast(
-                            via: handler,
-                            signatureFormat: signatureFormat,
-                            unlockers: unlockers
+                    let review = try makeReview(from: broadcast.result)
+                    let fundingRecord = try makeFundingRecord(
+                        fundingTransactionHash: broadcast.hash,
+                        fundingOutputIndex: review.fundingOutputIndex
+                    )
+                    OpalDiagnostics.record(
+                        OpalDiagnostics.Event.hedgeFundingBroadcastSucceeded,
+                        category: OpalDiagnostics.Category.hedge,
+                        fields: fields + [
+                            OpalDiagnostics.Field.publicValue(OpalDiagnostics.Field.Name.outputCount, review.transaction.outputs.count),
+                            OpalDiagnostics.Field.publicValue(OpalDiagnostics.Field.Name.byteCount, review.rawTransactionByteCount)
+                        ]
+                    )
+                    return (broadcast.hash, review, fundingRecord)
+                } catch {
+                    OpalDiagnostics.record(
+                        OpalDiagnostics.Event.hedgeFundingBroadcastFailed,
+                        category: OpalDiagnostics.Category.hedge,
+                        fields: fields + OpalDiagnostics.Field.errorFields(
+                            for: error,
+                            errorCode: OpalDiagnostics.ErrorCode.hedgeFundingFailed
                         )
-                        let review = try makeReview(from: broadcast.result)
-                        let fundingRecord = try makeFundingRecord(
-                            fundingTransactionHash: broadcast.hash,
-                            fundingOutputIndex: review.fundingOutputIndex
-                        )
-                        OpalBaseDiagnostics.record(
-                            OpalBase.Diagnostics.Events.hedgeFundingBroadcastSucceeded,
-                            category: OpalBase.Diagnostics.Categories.hedge,
-                            fields: fields + [
-                                OpalBaseDiagnostics.publicField(OpalBase.Diagnostics.Fields.outputCount, review.transaction.outputs.count),
-                                OpalBaseDiagnostics.publicField(OpalBase.Diagnostics.Fields.byteCount, review.rawTransactionByteCount)
-                            ]
-                        )
-                        return (broadcast.hash, review, fundingRecord)
-                    } catch {
-                        OpalBaseDiagnostics.record(
-                        OpalBase.Diagnostics.Events.hedgeFundingBroadcastFailed,
-                        category: OpalBase.Diagnostics.Categories.hedge,
-                            fields: fields + OpalBaseDiagnostics.contextErrorFields(
-                                for: error,
-                                errorCode: OpalBase.Diagnostics.ErrorCodes.hedgeFundingFailed
-                            )
-                        )
-                        throw error
-                    }
+                    )
+                    throw error
+                }
             }
         }
 

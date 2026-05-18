@@ -136,7 +136,7 @@ struct NetworkFulcrumServerInfoReaderValidator {
     func fetchServerFeaturesRejectsNegativePruningLimits() async throws {
         let reader = OpalBase.Network.Fulcrum.ServerInfoReader(
             client: ServerInfoClientTestActor(
-                featuresResponse: try Self.makeFeaturesResponse(pruningLimit: -1)
+                featuresError: Self.makeDecodeError("Invalid server.features pruning: -1")
             )
         )
         

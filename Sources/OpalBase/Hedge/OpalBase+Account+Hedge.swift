@@ -1,6 +1,7 @@
 // OpalBase+Account+Hedge.swift
 
 import Foundation
+import OpalDiagnostics
 import OpalHedge
 
 extension _OpalBase.Account {
@@ -8,15 +9,15 @@ extension _OpalBase.Account {
         side: OpalBase.Hedge.Side = .hedge,
         network: OpalBase.Network.Environment = .mainnet
     ) async throws -> OpalBase.Hedge.ParticipantMaterial {
-        try await OpalBase.Diagnostics.withTraceID {
+        try await OpalDiagnostics.withTraceID {
             let fields = [
-                OpalBaseDiagnostics.operationField("hedge_participant_material_reserve"),
-                OpalBaseDiagnostics.moduleField(),
-                OpalBaseDiagnostics.networkField(network)
+                OpalDiagnostics.Field.operation("hedge_participant_material_reserve"),
+                OpalDiagnostics.Field.module(),
+                OpalDiagnostics.Field.network(network)
             ]
-            OpalBaseDiagnostics.record(
-                OpalBase.Diagnostics.Events.hedgeParticipantMaterialReserveStarted,
-                category: OpalBase.Diagnostics.Categories.hedge,
+            OpalDiagnostics.record(
+                OpalDiagnostics.Event.hedgeParticipantMaterialReserveStarted,
+                category: OpalDiagnostics.Category.hedge,
                 fields: fields
             )
             do {
@@ -42,19 +43,19 @@ extension _OpalBase.Account {
                         createdAt: entry.createdAt
                     )
                 )
-                OpalBaseDiagnostics.record(
-                    OpalBase.Diagnostics.Events.hedgeParticipantMaterialReserved,
-                    category: OpalBase.Diagnostics.Categories.hedge,
+                OpalDiagnostics.record(
+                    OpalDiagnostics.Event.hedgeParticipantMaterialReserved,
+                    category: OpalDiagnostics.Category.hedge,
                     fields: fields
                 )
                 return material
             } catch {
-                OpalBaseDiagnostics.record(
-                    OpalBase.Diagnostics.Events.hedgeParticipantMaterialReserveFailed,
-                    category: OpalBase.Diagnostics.Categories.hedge,
-                    fields: fields + OpalBaseDiagnostics.errorFields(
+                OpalDiagnostics.record(
+                    OpalDiagnostics.Event.hedgeParticipantMaterialReserveFailed,
+                    category: OpalDiagnostics.Category.hedge,
+                    fields: fields + OpalDiagnostics.Field.errorFields(
                         for: error,
-                        fallback: OpalBase.Diagnostics.ErrorCodes.hedgeFundingFailed
+                        fallback: OpalDiagnostics.ErrorCode.hedgeFundingFailed
                     )
                 )
                 throw error
@@ -66,68 +67,68 @@ extension _OpalBase.Account {
         _ request: OpalBase.Hedge.USDThirtyDaySimpleHedgeRequest,
         feePolicy: OpalBase.Wallet.FeePolicy = .init()
     ) async throws -> OpalBase.Hedge.FundingPlan {
-        try await OpalBaseHedgeDiagnostics.withCurrentTraceID {
-                let fields = [
-                    OpalBaseDiagnostics.operationField("hedge_funding_prepare"),
-                    OpalBaseDiagnostics.moduleField(),
-                    OpalBaseDiagnostics.networkField(request.network)
-                ]
-                OpalBaseDiagnostics.record(
-                    OpalBase.Diagnostics.Events.hedgeFundingPrepareStarted,
-                    category: OpalBase.Diagnostics.Categories.hedge,
+        try await OpalDiagnostics.withTraceID {
+            let fields = [
+                OpalDiagnostics.Field.operation("hedge_funding_prepare"),
+                OpalDiagnostics.Field.module(),
+                OpalDiagnostics.Field.network(request.network)
+            ]
+            OpalDiagnostics.record(
+                OpalDiagnostics.Event.hedgeFundingPrepareStarted,
+                category: OpalDiagnostics.Category.hedge,
+                fields: fields
+            )
+
+            do {
+                let contractPlan = try OpalBase.Hedge.buildOpalHedgePlan(from: request)
+                let fundingRequest = try OpalHedge.Client.Context()
+                    .createAnyHedgeContractFundingRequest(
+                        from: contractPlan,
+                        network: OpalBase.Hedge.opalHedgeNetwork(for: request.network)
+                    )
+                let quote = try OpalBase.Hedge.makeFundingQuote(
+                    from: fundingRequest,
+                    network: request.network
+                )
+                let payment = OpalBase.Account.Payment(
+                    recipients: [
+                        .init(
+                            address: quote.fundingAddress,
+                            amount: quote.fundingAmount
+                        )
+                    ],
+                    feeOverride: request.feeOverride,
+                    feeContext: request.feeContext,
+                    coinSelection: request.coinSelection,
+                    tokenInputPolicy: .excludeTokenUTXOs,
+                    shouldAllowDustDonation: false,
+                    shouldAllowUnsafeTokenTransfers: false
+                )
+                let spendPlan = try await prepareSpend(payment, feePolicy: feePolicy)
+
+                let plan = OpalBase.Hedge.FundingPlan(
+                    quote: quote,
+                    spendPlan: spendPlan,
+                    contractPlan: contractPlan,
+                    network: request.network
+                )
+                OpalDiagnostics.record(
+                    OpalDiagnostics.Event.hedgeFundingPrepareSucceeded,
+                    category: OpalDiagnostics.Category.hedge,
                     fields: fields
                 )
-
-                do {
-                    let contractPlan = try OpalBase.Hedge.buildOpalHedgePlan(from: request)
-                    let fundingRequest = try OpalHedge.Client.Context()
-                        .createAnyHedgeContractFundingRequest(
-                            from: contractPlan,
-                            network: OpalBase.Hedge.opalHedgeNetwork(for: request.network)
-                        )
-                    let quote = try OpalBase.Hedge.makeFundingQuote(
-                        from: fundingRequest,
-                        network: request.network
+                return plan
+            } catch {
+                OpalDiagnostics.record(
+                    OpalDiagnostics.Event.hedgeFundingPrepareFailed,
+                    category: OpalDiagnostics.Category.hedge,
+                    fields: fields + OpalDiagnostics.Field.errorFields(
+                        for: error,
+                        errorCode: OpalDiagnostics.ErrorCode.hedgeFundingFailed
                     )
-                    let payment = OpalBase.Account.Payment(
-                        recipients: [
-                            .init(
-                                address: quote.fundingAddress,
-                                amount: quote.fundingAmount
-                            )
-                        ],
-                        feeOverride: request.feeOverride,
-                        feeContext: request.feeContext,
-                        coinSelection: request.coinSelection,
-                        tokenInputPolicy: .excludeTokenUTXOs,
-                        shouldAllowDustDonation: false,
-                        shouldAllowUnsafeTokenTransfers: false
-                    )
-                    let spendPlan = try await prepareSpend(payment, feePolicy: feePolicy)
-
-                    let plan = OpalBase.Hedge.FundingPlan(
-                        quote: quote,
-                        spendPlan: spendPlan,
-                        contractPlan: contractPlan,
-                        network: request.network
-                    )
-                    OpalBaseDiagnostics.record(
-                        OpalBase.Diagnostics.Events.hedgeFundingPrepareSucceeded,
-                        category: OpalBase.Diagnostics.Categories.hedge,
-                        fields: fields
-                    )
-                    return plan
-                } catch {
-                    OpalBaseDiagnostics.record(
-                        OpalBase.Diagnostics.Events.hedgeFundingPrepareFailed,
-                        category: OpalBase.Diagnostics.Categories.hedge,
-                        fields: fields + OpalBaseDiagnostics.contextErrorFields(
-                            for: error,
-                            errorCode: OpalBase.Diagnostics.ErrorCodes.hedgeFundingFailed
-                        )
-                    )
-                    throw error
-                }
+                )
+                throw error
+            }
         }
     }
 }

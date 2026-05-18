@@ -12,20 +12,13 @@ extension _OpalBase.Transaction {
 
 extension _OpalBase.Transaction.Unlocker {
     func makePlaceholderUnlockingScript(signatureFormat: OpalBase.Transaction.SignatureFormat) -> Data {
-        if case .ecdsa(.raw) = signatureFormat {
-            assertionFailure("OP_CHECKSIG or OP_CHECKDATASIG requires DER-encoded ECDSA. Use .ecdsa(.der) or .schnorr.")
-        }
-        
         let publicKeyLength: Int = 33
         let coreSignatureLength: Int = {
             switch signatureFormat {
-            case .ecdsa(.der):
+            case .ecdsa:
                 return 72
             case .schnorr:
                 return 64
-            case .ecdsa(.raw):
-                assertionFailure("Unsupported raw ECDSA format. Use .ecdsa(.der) or .schnorr.")
-                return 72
             }
         }()
         

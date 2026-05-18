@@ -1,6 +1,7 @@
 // OpalBase+Wallet~Command.swift
 
 import Foundation
+import OpalDiagnostics
 
 extension _OpalBase.Wallet {
     public func prepareSpend(forAccountAt unhardenedIndex: UInt32,
@@ -124,7 +125,7 @@ extension _OpalBase.Wallet {
 private extension _OpalBase.Wallet {
     func performWithAccount<T>(at unhardenedIndex: UInt32,
                                _ work: (OpalBase.Account) async throws -> T) async throws -> T {
-        try await OpalBase.Diagnostics.withTraceID {
+        try await OpalDiagnostics.withTraceID {
             let account = try await fetchAccount(at: unhardenedIndex)
             return try await work(account)
         }

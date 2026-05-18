@@ -2,6 +2,7 @@
 
 #if os(macOS)
 import Foundation
+import OpalDiagnostics
 
 extension _OpalBase.Account {
     public struct CashFusionReadiness: Sendable, Equatable {
@@ -23,10 +24,10 @@ extension _OpalBase.Account {
 
 extension _OpalBase.Account {
     public func evaluateCashFusionReadiness() async throws -> OpalBase.Account.CashFusionReadiness {
-        try await OpalBase.Diagnostics.withTraceID {
+        try await OpalDiagnostics.withTraceID {
             let fields = [
-                OpalBaseDiagnostics.operationField("cash_fusion_readiness_evaluate"),
-                OpalBaseDiagnostics.moduleField()
+                OpalDiagnostics.Field.operation("cash_fusion_readiness_evaluate"),
+                OpalDiagnostics.Field.module()
             ]
             let spendableUTXOs = await addressBook.listSpendableUTXOs()
             let classifications = try await classifyCashFusionSelectedInputs(spendableUTXOs)
@@ -35,12 +36,12 @@ extension _OpalBase.Account {
                 ? .ready
                 : .blocked(.noEligibleUTXOs)
 
-            OpalBaseDiagnostics.record(
-                OpalBase.Diagnostics.Events.cashFusionReadinessEvaluated,
-                category: OpalBase.Diagnostics.Categories.cashFusion,
+            OpalDiagnostics.record(
+                OpalDiagnostics.Event.cashFusionReadinessEvaluated,
+                category: OpalDiagnostics.Category.cashFusion,
                 fields: fields + [
-                    OpalBaseDiagnostics.publicField(OpalBase.Diagnostics.Fields.utxoCount, spendableUTXOs.count),
-                    OpalBaseDiagnostics.publicField(OpalBase.Diagnostics.Fields.status, accountStatus.diagnosticsName)
+                    OpalDiagnostics.Field.publicValue(OpalDiagnostics.Field.Name.utxoCount, spendableUTXOs.count),
+                    OpalDiagnostics.Field.publicValue(OpalDiagnostics.Field.Name.status, accountStatus.diagnosticsName)
                 ]
             )
 

@@ -1,6 +1,7 @@
 // OpalBase+Claimable+StatusResolver.swift
 
 import Foundation
+import OpalDiagnostics
 
 extension _OpalBase.Claimable {
     public struct StatusResolver {
@@ -26,16 +27,16 @@ extension _OpalBase.Claimable {
             includeUnconfirmed: Bool,
             currentBlockHeight: UInt32
         ) async throws -> OpalBase.Claimable.NetworkStatus {
-            try await OpalBase.Diagnostics.withTraceID {
+            try await OpalDiagnostics.withTraceID {
                 let fields = [
-                    OpalBaseDiagnostics.operationField("claimable_status_resolve"),
-                    OpalBaseDiagnostics.moduleField(),
-                    OpalBaseDiagnostics.networkField(network),
-                    OpalBaseDiagnostics.publicField(OpalBase.Diagnostics.Fields.includeUnconfirmed, includeUnconfirmed)
+                    OpalDiagnostics.Field.operation("claimable_status_resolve"),
+                    OpalDiagnostics.Field.module(),
+                    OpalDiagnostics.Field.network(network),
+                    OpalDiagnostics.Field.publicValue(OpalDiagnostics.Field.Name.includeUnconfirmed, includeUnconfirmed)
                 ]
-                OpalBaseDiagnostics.record(
-                    OpalBase.Diagnostics.Events.claimableStatusResolveStarted,
-                    category: OpalBase.Diagnostics.Categories.claimable,
+                OpalDiagnostics.record(
+                    OpalDiagnostics.Event.claimableStatusResolveStarted,
+                    category: OpalDiagnostics.Category.claimable,
                     fields: fields
                 )
 
@@ -94,21 +95,21 @@ extension _OpalBase.Claimable {
                         confirmations: confirmations,
                         tipHeight: tipHeight
                     )
-                    OpalBaseDiagnostics.record(
-                        OpalBase.Diagnostics.Events.claimableStatusResolveSucceeded,
-                        category: OpalBase.Diagnostics.Categories.claimable,
+                    OpalDiagnostics.record(
+                        OpalDiagnostics.Event.claimableStatusResolveSucceeded,
+                        category: OpalDiagnostics.Category.claimable,
                         fields: fields + [
-                            OpalBaseDiagnostics.publicField(OpalBase.Diagnostics.Fields.status, status.fundingState.diagnosticsName)
+                            OpalDiagnostics.Field.publicValue(OpalDiagnostics.Field.Name.status, status.fundingState.diagnosticsName)
                         ]
                     )
                     return status
                 } catch {
-                    OpalBaseDiagnostics.record(
-                        OpalBase.Diagnostics.Events.claimableStatusResolveFailed,
-                        category: OpalBase.Diagnostics.Categories.claimable,
-                        fields: fields + OpalBaseDiagnostics.contextErrorFields(
+                    OpalDiagnostics.record(
+                        OpalDiagnostics.Event.claimableStatusResolveFailed,
+                        category: OpalDiagnostics.Category.claimable,
+                        fields: fields + OpalDiagnostics.Field.errorFields(
                             for: error,
-                            errorCode: OpalBase.Diagnostics.ErrorCodes.claimableStatusFailed
+                            errorCode: OpalDiagnostics.ErrorCode.claimableStatusFailed
                         )
                     )
                     throw error

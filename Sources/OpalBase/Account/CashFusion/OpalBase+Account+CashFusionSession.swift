@@ -2,6 +2,7 @@
 
 #if os(macOS)
 import Foundation
+import OpalDiagnostics
 import OpalFusion
 
 extension _OpalBase.Account {
@@ -15,38 +16,42 @@ extension _OpalBase.Account {
         let reservation: CashFusionReservation
         let wrappedSession: any CashFusionWrappedSession
         let observerSink: CashFusionObserverSink
-        let traceID: OpalBase.Diagnostics.TraceID
+        let traceID: OpalDiagnostics.TraceID
+        let reconnectPolicy: OpalFusion.Client.ReconnectPolicy
 
         var hasStarted = false
         var hasStoppedWrappedSession = false
         var terminalOutcome: TerminalOutcome?
         var successfulTerminalSnapshot: OpalFusion.Client.Session.Snapshot?
+        var preRoundTransportFailureRetryAttempt = 0
 
         init(
             reservation: CashFusionReservation,
             wrappedSession: any CashFusionWrappedSession,
             observerSink: CashFusionObserverSink,
-            traceID: OpalBase.Diagnostics.TraceID
+            traceID: OpalDiagnostics.TraceID,
+            reconnectPolicy: OpalFusion.Client.ReconnectPolicy
         ) {
             self.reservation = reservation
             self.wrappedSession = wrappedSession
             self.observerSink = observerSink
             self.traceID = traceID
+            self.reconnectPolicy = reconnectPolicy
         }
 
         public func start() async {
-            await OpalBase.Diagnostics.withTraceID(traceID) {
+            await OpalDiagnostics.withTraceID(traceID) {
                 guard terminalOutcome == nil, hasStarted == false else {
                     return
                 }
 
                 hasStarted = true
-                OpalBaseDiagnostics.record(
-                    OpalBase.Diagnostics.Events.cashFusionSessionStarted,
-                    category: OpalBase.Diagnostics.Categories.cashFusion,
+                OpalDiagnostics.record(
+                    OpalDiagnostics.Event.cashFusionSessionStarted,
+                    category: OpalDiagnostics.Category.cashFusion,
                     fields: [
-                        OpalBaseDiagnostics.operationField("cash_fusion_session_start"),
-                        OpalBaseDiagnostics.moduleField()
+                        OpalDiagnostics.Field.operation("cash_fusion_session_start"),
+                        OpalDiagnostics.Field.module()
                     ]
                 )
                 await wrappedSession.start()
@@ -58,7 +63,7 @@ extension _OpalBase.Account {
         }
 
         func snapshot() async -> OpalFusion.Client.Session.Snapshot {
-            await OpalBase.Diagnostics.withTraceID(traceID) {
+            await OpalDiagnostics.withTraceID(traceID) {
                 await wrappedSession.snapshot()
             }
         }
@@ -68,6 +73,10 @@ extension _OpalBase.Account {
         ) async {
             guard terminalOutcome == nil else {
                 return
+            }
+
+            if snapshot.lastError == nil || snapshot.state.isConnected {
+                preRoundTransportFailureRetryAttempt = 0
             }
 
             if snapshot.lastError != nil,
@@ -96,12 +105,21 @@ extension _OpalBase.Account {
         private func isRetryingPreRoundTransportFailure(
             _ snapshot: OpalFusion.Client.Session.Snapshot
         ) -> Bool {
-            snapshot.lastError == .transportUnavailable &&
-                snapshot.diagnostics.activity == .retrying
+            guard snapshot.lastError == .transportUnavailable else {
+                return false
+            }
+
+            let nextAttempt = preRoundTransportFailureRetryAttempt + 1
+            guard reconnectPolicy.allowsRetry(forAttempt: nextAttempt) else {
+                return false
+            }
+
+            preRoundTransportFailureRetryAttempt = nextAttempt
+            return true
         }
 
         private func finalize(with outcome: TerminalOutcome) async {
-            await OpalBase.Diagnostics.withTraceID(traceID) {
+            await OpalDiagnostics.withTraceID(traceID) {
                 guard terminalOutcome == nil else {
                     return
                 }
@@ -117,31 +135,30 @@ extension _OpalBase.Account {
                     case .stopped, .failed:
                         try await reservation.cancel()
                     }
-                    OpalBaseDiagnostics.record(
-                        OpalBase.Diagnostics.Events.cashFusionSessionFinalized,
-                        category: OpalBase.Diagnostics.Categories.cashFusion,
+                    OpalDiagnostics.record(
+                        OpalDiagnostics.Event.cashFusionSessionFinalized,
+                        category: OpalDiagnostics.Category.cashFusion,
                         level: outcome.diagnosticsLevel,
                         fields: [
-                            OpalBaseDiagnostics.operationField("cash_fusion_session_finalize"),
-                            OpalBaseDiagnostics.moduleField(),
-                            OpalBaseDiagnostics.publicField(OpalBase.Diagnostics.Fields.outcome, outcome.diagnosticsName)
+                            OpalDiagnostics.Field.operation("cash_fusion_session_finalize"),
+                            OpalDiagnostics.Field.module(),
+                            OpalDiagnostics.Field.publicValue(OpalDiagnostics.Field.Name.outcome, outcome.diagnosticsName)
                         ]
                     )
                 } catch {
-                    OpalBaseDiagnostics.record(
-                        OpalBase.Diagnostics.Events.cashFusionSessionFinalized,
-                        category: OpalBase.Diagnostics.Categories.cashFusion,
+                    OpalDiagnostics.record(
+                        OpalDiagnostics.Event.cashFusionSessionFinalized,
+                        category: OpalDiagnostics.Category.cashFusion,
                         level: .error,
                         fields: [
-                            OpalBaseDiagnostics.operationField("cash_fusion_session_finalize"),
-                            OpalBaseDiagnostics.moduleField(),
-                            OpalBaseDiagnostics.publicField(OpalBase.Diagnostics.Fields.outcome, outcome.diagnosticsName)
-                        ] + OpalBaseDiagnostics.errorFields(
+                            OpalDiagnostics.Field.operation("cash_fusion_session_finalize"),
+                            OpalDiagnostics.Field.module(),
+                            OpalDiagnostics.Field.publicValue(OpalDiagnostics.Field.Name.outcome, outcome.diagnosticsName)
+                        ] + OpalDiagnostics.Field.errorFields(
                             for: error,
-                            fallback: OpalBase.Diagnostics.ErrorCodes.cashFusionSessionFailed
+                            fallback: OpalDiagnostics.ErrorCode.cashFusionSessionFailed
                         )
                     )
-                    assertionFailure("CashFusion reservation cleanup failed: \(error)")
                 }
             }
         }
@@ -157,6 +174,24 @@ extension _OpalBase.Account {
     }
 }
 
+private extension OpalFusion.Client.ReconnectPolicy {
+    func allowsRetry(forAttempt attempt: Int) -> Bool {
+        guard maximumAttempts != 0, attempt > 0 else {
+            return false
+        }
+
+        guard maximumAttempts != nil || initialDelay > .zero else {
+            return false
+        }
+
+        if let maximumAttempts, attempt > maximumAttempts {
+            return false
+        }
+
+        return true
+    }
+}
+
 private extension _OpalBase.Account.CashFusionSession.TerminalOutcome {
     var diagnosticsName: String {
         switch self {
@@ -169,7 +204,7 @@ private extension _OpalBase.Account.CashFusionSession.TerminalOutcome {
         }
     }
 
-    var diagnosticsLevel: OpalBase.Diagnostics.Level? {
+    var diagnosticsLevel: OpalDiagnostics.Level? {
         self == .failed ? .error : nil
     }
 }

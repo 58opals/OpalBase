@@ -1,13 +1,14 @@
 // OpalBase+Claimable+Envelope~Encoding.swift
 
 import Foundation
+import OpalDiagnostics
 
 extension _OpalBase.Claimable.Envelope {
     private static let version: UInt8 = 1
     private static let encodedByteCount = 102
 
     public func encode() -> Data {
-        OpalBase.Diagnostics.withTraceID {
+        OpalDiagnostics.withTraceID {
             var writer = Data.Writer()
             writer.reserveCapacity(Self.encodedByteCount)
             writer.writeByte(Self.version)
@@ -19,14 +20,14 @@ extension _OpalBase.Claimable.Envelope {
             writer.writeLittleEndian(fundingOutputIndex)
             writer.writeLittleEndian(fundingValue)
             let data = writer.data
-            OpalBaseDiagnostics.record(
-                OpalBase.Diagnostics.Events.claimableEnvelopeEncoded,
-                category: OpalBase.Diagnostics.Categories.claimable,
+            OpalDiagnostics.record(
+                OpalDiagnostics.Event.claimableEnvelopeEncoded,
+                category: OpalDiagnostics.Category.claimable,
                 fields: [
-                    OpalBaseDiagnostics.operationField("claimable_envelope_encode"),
-                    OpalBaseDiagnostics.moduleField(),
-                    OpalBaseDiagnostics.networkField(contract.network),
-                    OpalBaseDiagnostics.publicField(OpalBase.Diagnostics.Fields.byteCount, data.count)
+                    OpalDiagnostics.Field.operation("claimable_envelope_encode"),
+                    OpalDiagnostics.Field.module(),
+                    OpalDiagnostics.Field.network(contract.network),
+                    OpalDiagnostics.Field.publicValue(OpalDiagnostics.Field.Name.byteCount, data.count)
                 ]
             )
             return data
@@ -34,13 +35,13 @@ extension _OpalBase.Claimable.Envelope {
     }
 
     public static func decode(from data: Data) throws -> Self {
-        try OpalBase.Diagnostics.withTraceID {
+        try OpalDiagnostics.withTraceID {
             let fields = makeDecodeDiagnosticsFields(byteCount: data.count)
             do {
                 let envelope = try decodeEnvelope(from: data)
-                OpalBaseDiagnostics.record(
-                    OpalBase.Diagnostics.Events.claimableEnvelopeDecodeSucceeded,
-                    category: OpalBase.Diagnostics.Categories.claimable,
+                OpalDiagnostics.record(
+                    OpalDiagnostics.Event.claimableEnvelopeDecodeSucceeded,
+                    category: OpalDiagnostics.Category.claimable,
                     fields: makeDecodeDiagnosticsFields(
                         byteCount: data.count,
                         network: envelope.contract.network
@@ -48,12 +49,12 @@ extension _OpalBase.Claimable.Envelope {
                 )
                 return envelope
             } catch {
-                OpalBaseDiagnostics.record(
-                    OpalBase.Diagnostics.Events.claimableEnvelopeDecodeFailed,
-                    category: OpalBase.Diagnostics.Categories.claimable,
-                    fields: fields + OpalBaseDiagnostics.errorFields(
+                OpalDiagnostics.record(
+                    OpalDiagnostics.Event.claimableEnvelopeDecodeFailed,
+                    category: OpalDiagnostics.Category.claimable,
+                    fields: fields + OpalDiagnostics.Field.errorFields(
                         for: error,
-                        fallback: OpalBase.Diagnostics.ErrorCodes.claimableInvalidEnvelope
+                        fallback: OpalDiagnostics.ErrorCode.claimableInvalidEnvelope
                     )
                 )
                 throw error
@@ -65,7 +66,7 @@ extension _OpalBase.Claimable.Envelope {
         from data: Data,
         on network: OpalBase.Network.Environment
     ) throws -> Self {
-        try OpalBase.Diagnostics.withTraceID {
+        try OpalDiagnostics.withTraceID {
             do {
                 let envelope = try decodeEnvelope(from: data)
                 guard envelope.contract.network == network else {
@@ -74,9 +75,9 @@ extension _OpalBase.Claimable.Envelope {
                         actual: envelope.contract.network
                     )
                 }
-                OpalBaseDiagnostics.record(
-                    OpalBase.Diagnostics.Events.claimableEnvelopeDecodeSucceeded,
-                    category: OpalBase.Diagnostics.Categories.claimable,
+                OpalDiagnostics.record(
+                    OpalDiagnostics.Event.claimableEnvelopeDecodeSucceeded,
+                    category: OpalDiagnostics.Category.claimable,
                     fields: makeDecodeDiagnosticsFields(
                         byteCount: data.count,
                         network: network
@@ -84,15 +85,15 @@ extension _OpalBase.Claimable.Envelope {
                 )
                 return envelope
             } catch {
-                OpalBaseDiagnostics.record(
-                    OpalBase.Diagnostics.Events.claimableEnvelopeDecodeFailed,
-                    category: OpalBase.Diagnostics.Categories.claimable,
+                OpalDiagnostics.record(
+                    OpalDiagnostics.Event.claimableEnvelopeDecodeFailed,
+                    category: OpalDiagnostics.Category.claimable,
                     fields: makeDecodeDiagnosticsFields(
                         byteCount: data.count,
                         network: network
-                    ) + OpalBaseDiagnostics.errorFields(
+                    ) + OpalDiagnostics.Field.errorFields(
                         for: error,
-                        fallback: OpalBase.Diagnostics.ErrorCodes.claimableInvalidEnvelope
+                        fallback: OpalDiagnostics.ErrorCode.claimableInvalidEnvelope
                     )
                 )
                 throw error
@@ -147,12 +148,12 @@ extension _OpalBase.Claimable.Envelope {
     private static func makeDecodeDiagnosticsFields(
         byteCount: Int,
         network: OpalBase.Network.Environment? = nil
-    ) -> [OpalBase.Diagnostics.Field] {
+    ) -> [OpalDiagnostics.Field] {
         [
-            OpalBaseDiagnostics.operationField("claimable_envelope_decode"),
-            OpalBaseDiagnostics.moduleField(),
-            network.map(OpalBaseDiagnostics.networkField),
-            OpalBaseDiagnostics.publicField(OpalBase.Diagnostics.Fields.byteCount, byteCount)
+            OpalDiagnostics.Field.operation("claimable_envelope_decode"),
+            OpalDiagnostics.Field.module(),
+            network.map(OpalDiagnostics.Field.network),
+            OpalDiagnostics.Field.publicValue(OpalDiagnostics.Field.Name.byteCount, byteCount)
         ].compactMap { $0 }
     }
 }

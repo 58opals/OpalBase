@@ -1,6 +1,7 @@
 // OpalBase+Wallet~BCMR.swift
 
 import Foundation
+import OpalDiagnostics
 
 extension _OpalBase.Wallet {
     public func syncTokenMetadata(
@@ -10,27 +11,27 @@ extension _OpalBase.Wallet {
         categories: Set<OpalBase.CashTokens.CategoryID>? = nil,
         registryFetcher: OpalBase.CashTokens.BCMR.Client.Fetcher? = nil
     ) async throws {
-        try await OpalBase.Diagnostics.withTraceID {
-            OpalBaseDiagnostics.record(
-                OpalBase.Diagnostics.Events.tokenMetadataSyncStarted,
-                category: OpalBase.Diagnostics.Categories.tokenMetadata,
+        try await OpalDiagnostics.withTraceID {
+            OpalDiagnostics.record(
+                OpalDiagnostics.Event.tokenMetadataSyncStarted,
+                category: OpalDiagnostics.Category.tokenMetadata,
                 fields: [
-                    OpalBaseDiagnostics.operationField("token_metadata_sync"),
-                    OpalBaseDiagnostics.moduleField()
+                    OpalDiagnostics.Field.operation("token_metadata_sync"),
+                    OpalDiagnostics.Field.module()
                 ]
             )
 
             do {
                 let targetCategories = try await resolveTokenCategories(from: categories)
                 guard !targetCategories.isEmpty else {
-                    OpalBaseDiagnostics.record(
-                        OpalBase.Diagnostics.Events.tokenMetadataSyncSucceeded,
-                        category: OpalBase.Diagnostics.Categories.tokenMetadata,
+                    OpalDiagnostics.record(
+                        OpalDiagnostics.Event.tokenMetadataSyncSucceeded,
+                        category: OpalDiagnostics.Category.tokenMetadata,
                         fields: [
-                            OpalBaseDiagnostics.operationField("token_metadata_sync"),
-                            OpalBaseDiagnostics.moduleField(),
-                            OpalBaseDiagnostics.publicField(OpalBase.Diagnostics.Fields.tokenCategoryCount, 0),
-                            OpalBaseDiagnostics.publicField(OpalBase.Diagnostics.Fields.tokenMetadataCount, 0)
+                            OpalDiagnostics.Field.operation("token_metadata_sync"),
+                            OpalDiagnostics.Field.module(),
+                            OpalDiagnostics.Field.publicValue(OpalDiagnostics.Field.Name.tokenCategoryCount, 0),
+                            OpalDiagnostics.Field.publicValue(OpalDiagnostics.Field.Name.tokenMetadataCount, 0)
                         ]
                     )
                     return
@@ -73,39 +74,39 @@ extension _OpalBase.Wallet {
                 }
 
                 guard !metadataByCategory.isEmpty else {
-                    OpalBaseDiagnostics.record(
-                        OpalBase.Diagnostics.Events.tokenMetadataSyncSucceeded,
-                        category: OpalBase.Diagnostics.Categories.tokenMetadata,
+                    OpalDiagnostics.record(
+                        OpalDiagnostics.Event.tokenMetadataSyncSucceeded,
+                        category: OpalDiagnostics.Category.tokenMetadata,
                         fields: [
-                            OpalBaseDiagnostics.operationField("token_metadata_sync"),
-                            OpalBaseDiagnostics.moduleField(),
-                            OpalBaseDiagnostics.publicField(OpalBase.Diagnostics.Fields.tokenCategoryCount, targetCategories.count),
-                            OpalBaseDiagnostics.publicField(OpalBase.Diagnostics.Fields.tokenMetadataCount, 0)
+                            OpalDiagnostics.Field.operation("token_metadata_sync"),
+                            OpalDiagnostics.Field.module(),
+                            OpalDiagnostics.Field.publicValue(OpalDiagnostics.Field.Name.tokenCategoryCount, targetCategories.count),
+                            OpalDiagnostics.Field.publicValue(OpalDiagnostics.Field.Name.tokenMetadataCount, 0)
                         ]
                     )
                     return
                 }
                 await tokenMetadataStore.upsert(metadataByCategory)
-                OpalBaseDiagnostics.record(
-                    OpalBase.Diagnostics.Events.tokenMetadataSyncSucceeded,
-                    category: OpalBase.Diagnostics.Categories.tokenMetadata,
+                OpalDiagnostics.record(
+                    OpalDiagnostics.Event.tokenMetadataSyncSucceeded,
+                    category: OpalDiagnostics.Category.tokenMetadata,
                     fields: [
-                        OpalBaseDiagnostics.operationField("token_metadata_sync"),
-                        OpalBaseDiagnostics.moduleField(),
-                        OpalBaseDiagnostics.publicField(OpalBase.Diagnostics.Fields.tokenCategoryCount, targetCategories.count),
-                        OpalBaseDiagnostics.publicField(OpalBase.Diagnostics.Fields.tokenMetadataCount, metadataByCategory.count)
+                        OpalDiagnostics.Field.operation("token_metadata_sync"),
+                        OpalDiagnostics.Field.module(),
+                        OpalDiagnostics.Field.publicValue(OpalDiagnostics.Field.Name.tokenCategoryCount, targetCategories.count),
+                        OpalDiagnostics.Field.publicValue(OpalDiagnostics.Field.Name.tokenMetadataCount, metadataByCategory.count)
                     ]
                 )
             } catch {
-                OpalBaseDiagnostics.record(
-                    OpalBase.Diagnostics.Events.tokenMetadataSyncFailed,
-                    category: OpalBase.Diagnostics.Categories.tokenMetadata,
+                OpalDiagnostics.record(
+                    OpalDiagnostics.Event.tokenMetadataSyncFailed,
+                    category: OpalDiagnostics.Category.tokenMetadata,
                     fields: [
-                        OpalBaseDiagnostics.operationField("token_metadata_sync"),
-                        OpalBaseDiagnostics.moduleField()
-                    ] + OpalBaseDiagnostics.errorFields(
+                        OpalDiagnostics.Field.operation("token_metadata_sync"),
+                        OpalDiagnostics.Field.module()
+                    ] + OpalDiagnostics.Field.errorFields(
                         for: error,
-                        fallback: OpalBase.Diagnostics.ErrorCodes.tokenMetadataSyncFailed
+                        fallback: OpalDiagnostics.ErrorCode.tokenMetadataSyncFailed
                     )
                 )
                 throw error

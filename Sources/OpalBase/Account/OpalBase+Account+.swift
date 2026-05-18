@@ -1,6 +1,7 @@
 // OpalBase+Account+.swift
 
 import Foundation
+import OpalDiagnostics
 import OpalCrypto
 
 extension OpalBase {
@@ -31,7 +32,7 @@ extension OpalBase {
             self.account = account
 
             self.id = try [
-                OpalCryptoAdapter.serializedExtendedKeyData(self.rootExtendedPrivateKey.serialize()),
+                try OpalCryptoAdapter.serializedExtendedKeyData(self.rootExtendedPrivateKey.serialize()),
                 self.purpose.hardenedIndex.data,
                 self.coinType.hardenedIndex.data,
                 self.account.deriveHardenedIndex().data,
@@ -49,16 +50,16 @@ extension OpalBase {
             privacyConfiguration: PrivacyShaperActor.Configuration = .standard
         ) async throws {
             let fields = [
-                OpalBaseDiagnostics.operationField("account_create"),
-                OpalBaseDiagnostics.moduleField(),
-                OpalBaseDiagnostics.accountIndexField(account.unhardenedIndex)
+                OpalDiagnostics.Field.operation("account_create"),
+                OpalDiagnostics.Field.module(),
+                OpalDiagnostics.Field.accountIndex(account.unhardenedIndex)
             ]
-            let traceID = OpalBase.Diagnostics.currentTraceID ?? OpalBase.Diagnostics.TraceID()
+            let traceID = OpalDiagnostics.currentTraceID ?? OpalDiagnostics.TraceID()
             do {
-                let addressBook = try await OpalBase.Diagnostics.withTraceID(traceID) {
-                    OpalBaseDiagnostics.record(
-                        OpalBase.Diagnostics.Events.accountCreateStarted,
-                        category: OpalBase.Diagnostics.Categories.account,
+                let addressBook = try await OpalDiagnostics.withTraceID(traceID) {
+                    OpalDiagnostics.record(
+                        OpalDiagnostics.Event.accountCreateStarted,
+                        category: OpalDiagnostics.Category.account,
                         fields: fields
                     )
                     return try await OpalBase.Address.Book(
@@ -77,18 +78,18 @@ extension OpalBase {
                     addressBook: addressBook,
                     privacyConfiguration: privacyConfiguration
                 )
-                OpalBaseDiagnostics.record(
-                    OpalBase.Diagnostics.Events.accountCreateSucceeded,
-                    category: OpalBase.Diagnostics.Categories.account,
+                OpalDiagnostics.record(
+                    OpalDiagnostics.Event.accountCreateSucceeded,
+                    category: OpalDiagnostics.Category.account,
                     traceID: traceID,
                     fields: fields
                 )
             } catch {
-                OpalBaseDiagnostics.record(
-                    OpalBase.Diagnostics.Events.accountCreateFailed,
-                    category: OpalBase.Diagnostics.Categories.account,
+                OpalDiagnostics.record(
+                    OpalDiagnostics.Event.accountCreateFailed,
+                    category: OpalDiagnostics.Category.account,
                     traceID: traceID,
-                    fields: fields + OpalBaseDiagnostics.errorFields(for: error)
+                    fields: fields + OpalDiagnostics.Field.errorFields(for: error)
                 )
                 throw error
             }
@@ -176,32 +177,32 @@ extension _OpalBase.Account {
     /// Selects the next derived address for the requested usage without exposing
     /// the underlying address-book entry.
     public func selectNextDerivedAddress(for usage: OpalBase.Key.DerivationPath.Usage) async throws -> DerivedAddress {
-        try await OpalBase.Diagnostics.withTraceID {
+        try await OpalDiagnostics.withTraceID {
             let fields = [
-                OpalBaseDiagnostics.operationField("address_select"),
-                OpalBaseDiagnostics.moduleField(),
-                OpalBaseDiagnostics.usageField(usage)
+                OpalDiagnostics.Field.operation("address_select"),
+                OpalDiagnostics.Field.module(),
+                OpalDiagnostics.Field.usage(usage)
             ]
-            OpalBaseDiagnostics.record(
-                OpalBase.Diagnostics.Events.addressSelectStarted,
-                category: OpalBase.Diagnostics.Categories.addressBook,
+            OpalDiagnostics.record(
+                OpalDiagnostics.Event.addressSelectStarted,
+                category: OpalDiagnostics.Category.addressBook,
                 fields: fields
             )
             do {
                 let address = try await DerivedAddress(selectNextEntry(for: usage))
-                OpalBaseDiagnostics.record(
-                    OpalBase.Diagnostics.Events.addressSelectSucceeded,
-                    category: OpalBase.Diagnostics.Categories.addressBook,
+                OpalDiagnostics.record(
+                    OpalDiagnostics.Event.addressSelectSucceeded,
+                    category: OpalDiagnostics.Category.addressBook,
                     fields: fields
                 )
                 return address
             } catch {
-                OpalBaseDiagnostics.record(
-                    OpalBase.Diagnostics.Events.addressSelectFailed,
-                    category: OpalBase.Diagnostics.Categories.addressBook,
-                    fields: fields + OpalBaseDiagnostics.errorFields(
+                OpalDiagnostics.record(
+                    OpalDiagnostics.Event.addressSelectFailed,
+                    category: OpalDiagnostics.Category.addressBook,
+                    fields: fields + OpalDiagnostics.Field.errorFields(
                         for: error,
-                        fallback: OpalBase.Diagnostics.ErrorCodes.addressReservationFailed
+                        fallback: OpalDiagnostics.ErrorCode.addressReservationFailed
                     )
                 )
                 throw error

@@ -112,7 +112,7 @@ extension _OpalBase.Address {
         values += payload5BitValues
         let templateForChecksum: [UInt8] = [0, 0, 0, 0, 0, 0, 0, 0]
         values += templateForChecksum
-        let polymod = OpalCryptoAdapter.computePolymod(values)
+        let polymod = try OpalCryptoAdapter.computePolymod(values)
         var checksum = [UInt8]()
 
         for index in 0..<8 {

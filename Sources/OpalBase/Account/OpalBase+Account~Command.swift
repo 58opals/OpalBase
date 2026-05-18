@@ -1,37 +1,38 @@
 // OpalBase+Account~Command.swift
 
 import Foundation
+import OpalDiagnostics
 
 // MARK: - UTXO
 extension _OpalBase.Account {
     /// Refreshes wallet-owned UTXOs through a public address reader.
     public func refreshUTXOSet(using service: OpalBase.Network.AddressReader, usage: OpalBase.Key.DerivationPath.Usage? = nil) async throws -> UTXORefresh {
-        try await OpalBase.Diagnostics.withTraceID {
+        try await OpalDiagnostics.withTraceID {
             let fields = [
-                OpalBaseDiagnostics.operationField("utxo_refresh"),
-                OpalBaseDiagnostics.moduleField()
-            ] + (usage.map { [OpalBaseDiagnostics.usageField($0)] } ?? [])
-            OpalBaseDiagnostics.record(
-                OpalBase.Diagnostics.Events.utxoRefreshStarted,
-                category: OpalBase.Diagnostics.Categories.addressBook,
+                OpalDiagnostics.Field.operation("utxo_refresh"),
+                OpalDiagnostics.Field.module()
+            ] + (usage.map { [OpalDiagnostics.Field.usage($0)] } ?? [])
+            OpalDiagnostics.record(
+                OpalDiagnostics.Event.utxoRefreshStarted,
+                category: OpalDiagnostics.Category.addressBook,
                 fields: fields
             )
             do {
                 let refresh = try await addressBook.refreshUTXOSet(using: service, usage: usage)
-                OpalBaseDiagnostics.record(
-                    OpalBase.Diagnostics.Events.utxoRefreshSucceeded,
-                    category: OpalBase.Diagnostics.Categories.addressBook,
+                OpalDiagnostics.record(
+                    OpalDiagnostics.Event.utxoRefreshSucceeded,
+                    category: OpalDiagnostics.Category.addressBook,
                     fields: fields + [
-                        OpalBaseDiagnostics.publicField(OpalBase.Diagnostics.Fields.addressCount, refresh.utxosByAddress.count),
-                        OpalBaseDiagnostics.publicField(OpalBase.Diagnostics.Fields.utxoCount, refresh.utxosByAddress.values.reduce(0) { $0 + $1.count })
+                        OpalDiagnostics.Field.publicValue(OpalDiagnostics.Field.Name.addressCount, refresh.utxosByAddress.count),
+                        OpalDiagnostics.Field.publicValue(OpalDiagnostics.Field.Name.utxoCount, refresh.utxosByAddress.values.reduce(0) { $0 + $1.count })
                     ]
                 )
                 return UTXORefresh(refresh)
             } catch {
-                OpalBaseDiagnostics.record(
-                    OpalBase.Diagnostics.Events.utxoRefreshFailed,
-                    category: OpalBase.Diagnostics.Categories.addressBook,
-                    fields: fields + OpalBaseDiagnostics.errorFields(for: error)
+                OpalDiagnostics.record(
+                    OpalDiagnostics.Event.utxoRefreshFailed,
+                    category: OpalDiagnostics.Category.addressBook,
+                    fields: fields + OpalDiagnostics.Field.errorFields(for: error)
                 )
                 throw error
             }
@@ -48,32 +49,32 @@ extension _OpalBase.Account {
 extension _OpalBase.Account {
     /// Reserves the next receiving address for handing out to a payer.
     public func reserveNextReceivingDerivedAddress() async throws -> DerivedAddress {
-        try await OpalBase.Diagnostics.withTraceID {
+        try await OpalDiagnostics.withTraceID {
             let fields = [
-                OpalBaseDiagnostics.operationField("address_reserve"),
-                OpalBaseDiagnostics.moduleField(),
-                OpalBaseDiagnostics.usageField(.receiving)
+                OpalDiagnostics.Field.operation("address_reserve"),
+                OpalDiagnostics.Field.module(),
+                OpalDiagnostics.Field.usage(.receiving)
             ]
-            OpalBaseDiagnostics.record(
-                OpalBase.Diagnostics.Events.addressReserveStarted,
-                category: OpalBase.Diagnostics.Categories.addressBook,
+            OpalDiagnostics.record(
+                OpalDiagnostics.Event.addressReserveStarted,
+                category: OpalDiagnostics.Category.addressBook,
                 fields: fields
             )
             do {
                 let address = try await DerivedAddress(reserveNextReceivingEntry())
-                OpalBaseDiagnostics.record(
-                    OpalBase.Diagnostics.Events.addressReserveSucceeded,
-                    category: OpalBase.Diagnostics.Categories.addressBook,
+                OpalDiagnostics.record(
+                    OpalDiagnostics.Event.addressReserveSucceeded,
+                    category: OpalDiagnostics.Category.addressBook,
                     fields: fields
                 )
                 return address
             } catch {
-                OpalBaseDiagnostics.record(
-                    OpalBase.Diagnostics.Events.addressReserveFailed,
-                    category: OpalBase.Diagnostics.Categories.addressBook,
-                    fields: fields + OpalBaseDiagnostics.errorFields(
+                OpalDiagnostics.record(
+                    OpalDiagnostics.Event.addressReserveFailed,
+                    category: OpalDiagnostics.Category.addressBook,
+                    fields: fields + OpalDiagnostics.Field.errorFields(
                         for: error,
-                        fallback: OpalBase.Diagnostics.ErrorCodes.addressReservationFailed
+                        fallback: OpalDiagnostics.ErrorCode.addressReservationFailed
                     )
                 )
                 throw error
@@ -111,15 +112,15 @@ extension _OpalBase.Account {
                                           usage: OpalBase.Key.DerivationPath.Usage? = nil,
                                           includeUnconfirmed: Bool = true,
                                           transactionReader: OpalBase.Network.TransactionReader? = nil) async throws -> OpalBase.Transaction.History.ChangeSet {
-        try await OpalBase.Diagnostics.withTraceID {
+        try await OpalDiagnostics.withTraceID {
             let fields = [
-                OpalBaseDiagnostics.operationField("transaction_history_refresh"),
-                OpalBaseDiagnostics.moduleField(),
-                OpalBaseDiagnostics.publicField(OpalBase.Diagnostics.Fields.includeUnconfirmed, includeUnconfirmed)
-            ] + (usage.map { [OpalBaseDiagnostics.usageField($0)] } ?? [])
-            OpalBaseDiagnostics.record(
-                OpalBase.Diagnostics.Events.transactionHistoryRefreshStarted,
-                category: OpalBase.Diagnostics.Categories.transaction,
+                OpalDiagnostics.Field.operation("transaction_history_refresh"),
+                OpalDiagnostics.Field.module(),
+                OpalDiagnostics.Field.publicValue(OpalDiagnostics.Field.Name.includeUnconfirmed, includeUnconfirmed)
+            ] + (usage.map { [OpalDiagnostics.Field.usage($0)] } ?? [])
+            OpalDiagnostics.record(
+                OpalDiagnostics.Event.transactionHistoryRefreshStarted,
+                category: OpalDiagnostics.Category.transaction,
                 fields: fields
             )
             do {
@@ -129,19 +130,19 @@ extension _OpalBase.Account {
                                                                     includeUnconfirmed: includeUnconfirmed,
                                                                     transactionReader: transactionReader)
                 }
-                OpalBaseDiagnostics.record(
-                    OpalBase.Diagnostics.Events.transactionHistoryRefreshSucceeded,
-                    category: OpalBase.Diagnostics.Categories.transaction,
+                OpalDiagnostics.record(
+                    OpalDiagnostics.Event.transactionHistoryRefreshSucceeded,
+                    category: OpalDiagnostics.Category.transaction,
                     fields: fields + [
-                        OpalBaseDiagnostics.publicField(OpalBase.Diagnostics.Fields.transactionCount, changeSet.inserted.count + changeSet.updated.count)
+                        OpalDiagnostics.Field.publicValue(OpalDiagnostics.Field.Name.transactionCount, changeSet.inserted.count + changeSet.updated.count)
                     ]
                 )
                 return changeSet
             } catch {
-                OpalBaseDiagnostics.record(
-                    OpalBase.Diagnostics.Events.transactionHistoryRefreshFailed,
-                    category: OpalBase.Diagnostics.Categories.transaction,
-                    fields: fields + OpalBaseDiagnostics.errorFields(for: error)
+                OpalDiagnostics.record(
+                    OpalDiagnostics.Event.transactionHistoryRefreshFailed,
+                    category: OpalDiagnostics.Category.transaction,
+                    fields: fields + OpalDiagnostics.Field.errorFields(for: error)
                 )
                 throw error
             }
@@ -160,15 +161,15 @@ extension _OpalBase.Account {
     
     public func updateTransactionConfirmations(using handler: OpalBase.Network.TransactionClient,
                                                for transactionHashes: [OpalBase.Transaction.Hash]) async throws -> OpalBase.Transaction.History.ChangeSet {
-        try await OpalBase.Diagnostics.withTraceID {
+        try await OpalDiagnostics.withTraceID {
             let fields = [
-                OpalBaseDiagnostics.operationField("transaction_confirmation_update"),
-                OpalBaseDiagnostics.moduleField(),
-                OpalBaseDiagnostics.publicField(OpalBase.Diagnostics.Fields.transactionCount, transactionHashes.count)
+                OpalDiagnostics.Field.operation("transaction_confirmation_update"),
+                OpalDiagnostics.Field.module(),
+                OpalDiagnostics.Field.publicValue(OpalDiagnostics.Field.Name.transactionCount, transactionHashes.count)
             ]
-            OpalBaseDiagnostics.record(
-                OpalBase.Diagnostics.Events.transactionConfirmationRefreshStarted,
-                category: OpalBase.Diagnostics.Categories.transaction,
+            OpalDiagnostics.record(
+                OpalDiagnostics.Event.transactionConfirmationRefreshStarted,
+                category: OpalDiagnostics.Category.transaction,
                 fields: fields
             )
             do {
@@ -176,19 +177,19 @@ extension _OpalBase.Account {
                     try await addressBook.updateTransactionConfirmations(using: handler,
                                                                          for: transactionHashes)
                 }
-                OpalBaseDiagnostics.record(
-                    OpalBase.Diagnostics.Events.transactionConfirmationRefreshSucceeded,
-                    category: OpalBase.Diagnostics.Categories.transaction,
+                OpalDiagnostics.record(
+                    OpalDiagnostics.Event.transactionConfirmationRefreshSucceeded,
+                    category: OpalDiagnostics.Category.transaction,
                     fields: fields + [
-                        OpalBaseDiagnostics.publicField(OpalBase.Diagnostics.Fields.confirmationCount, changeSet.updated.count)
+                        OpalDiagnostics.Field.publicValue(OpalDiagnostics.Field.Name.confirmationCount, changeSet.updated.count)
                     ]
                 )
                 return changeSet
             } catch {
-                OpalBaseDiagnostics.record(
-                    OpalBase.Diagnostics.Events.transactionConfirmationRefreshFailed,
-                    category: OpalBase.Diagnostics.Categories.transaction,
-                    fields: fields + OpalBaseDiagnostics.errorFields(for: error)
+                OpalDiagnostics.record(
+                    OpalDiagnostics.Event.transactionConfirmationRefreshFailed,
+                    category: OpalDiagnostics.Category.transaction,
+                    fields: fields + OpalDiagnostics.Field.errorFields(for: error)
                 )
                 throw error
             }

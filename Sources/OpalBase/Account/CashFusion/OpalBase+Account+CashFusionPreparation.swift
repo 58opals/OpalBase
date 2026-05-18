@@ -2,6 +2,7 @@
 
 #if os(macOS)
 import Foundation
+import OpalDiagnostics
 import OpalFusion
 
 extension _OpalBase.Account {
@@ -21,12 +22,12 @@ extension _OpalBase.Account {
         request: OpalBase.Account.CashFusionRequest,
         sessionFactory: CashFusionWrappedSessionFactory
     ) async throws -> OpalBase.Account.CashFusionSession {
-        try await OpalBase.Diagnostics.withTraceID {
-            let traceID = OpalBase.Diagnostics.currentTraceID ?? OpalBase.Diagnostics.TraceID()
+        try await OpalDiagnostics.withTraceID {
+            let traceID = OpalDiagnostics.currentTraceID ?? OpalDiagnostics.TraceID()
             let fields = [
-                OpalBaseDiagnostics.operationField("cash_fusion_session_prepare"),
-                OpalBaseDiagnostics.moduleField(),
-                OpalBaseDiagnostics.publicField(OpalBase.Diagnostics.Fields.inputCount, request.selectedInputs.count)
+                OpalDiagnostics.Field.operation("cash_fusion_session_prepare"),
+                OpalDiagnostics.Field.module(),
+                OpalDiagnostics.Field.publicValue(OpalDiagnostics.Field.Name.inputCount, request.selectedInputs.count)
             ]
             do {
                 let reservation = try await prepareCashFusionReservation(request: request)
@@ -37,6 +38,7 @@ extension _OpalBase.Account {
                     reservation: reservation
                 )
                 let observerSink = CashFusionObserverSink()
+                let reconnectPolicy = OpalFusion.Client.ReconnectPolicy.walletDefault
                 let wrappedSession = await sessionFactory(
                     configuration.makeClientConfiguration(),
                     configuration.genesisHash,
@@ -45,29 +47,30 @@ extension _OpalBase.Account {
                     transactionAssembler,
                     nil,
                     observerSink,
-                    .walletDefault
+                    reconnectPolicy
                 )
                 let session = CashFusionSession(
                     reservation: reservation,
                     wrappedSession: wrappedSession,
                     observerSink: observerSink,
-                    traceID: traceID
+                    traceID: traceID,
+                    reconnectPolicy: reconnectPolicy
                 )
                 await observerSink.bind(to: session)
-                OpalBaseDiagnostics.record(
-                    OpalBase.Diagnostics.Events.cashFusionSessionPrepared,
-                    category: OpalBase.Diagnostics.Categories.cashFusion,
+                OpalDiagnostics.record(
+                    OpalDiagnostics.Event.cashFusionSessionPrepared,
+                    category: OpalDiagnostics.Category.cashFusion,
                     fields: fields
                 )
                 return session
             } catch {
-                OpalBaseDiagnostics.record(
-                    OpalBase.Diagnostics.Events.cashFusionSessionPrepareFailed,
-                    category: OpalBase.Diagnostics.Categories.cashFusion,
+                OpalDiagnostics.record(
+                    OpalDiagnostics.Event.cashFusionSessionPrepareFailed,
+                    category: OpalDiagnostics.Category.cashFusion,
                     level: .error,
-                    fields: fields + OpalBaseDiagnostics.errorFields(
+                    fields: fields + OpalDiagnostics.Field.errorFields(
                         for: error,
-                        fallback: OpalBase.Diagnostics.ErrorCodes.cashFusionReservationFailed
+                        fallback: OpalDiagnostics.ErrorCode.cashFusionReservationFailed
                     )
                 )
                 throw error

@@ -1,20 +1,21 @@
 // OpalBase+Account~Command~SpendPreparation.swift
 
 import Foundation
+import OpalDiagnostics
 
 // MARK: - Spend
 extension _OpalBase.Account {
     public func prepareSpend(_ payment: Payment,
                              feePolicy: OpalBase.Wallet.FeePolicy = .init()) async throws -> SpendPlan {
-        try await OpalBase.Diagnostics.withTraceID {
+        try await OpalDiagnostics.withTraceID {
             let fields = [
-                OpalBaseDiagnostics.operationField("spend_prepare"),
-                OpalBaseDiagnostics.moduleField(),
-                OpalBaseDiagnostics.publicField(OpalBase.Diagnostics.Fields.recipientCount, payment.recipients.count)
+                OpalDiagnostics.Field.operation("spend_prepare"),
+                OpalDiagnostics.Field.module(),
+                OpalDiagnostics.Field.publicValue(OpalDiagnostics.Field.Name.recipientCount, payment.recipients.count)
             ]
-            OpalBaseDiagnostics.record(
-                OpalBase.Diagnostics.Events.spendPrepareStarted,
-                category: OpalBase.Diagnostics.Categories.account,
+            OpalDiagnostics.record(
+                OpalDiagnostics.Event.spendPrepareStarted,
+                category: OpalDiagnostics.Category.account,
                 fields: fields
             )
 
@@ -138,20 +139,20 @@ extension _OpalBase.Account {
                                      recipientOutputs: organizedRecipientOutputs,
                                      privateKeys: privateKeys,
                                      shouldRandomizeRecipientOrdering: privacyConfiguration.shouldRandomizeRecipientOrdering)
-                OpalBaseDiagnostics.record(
-                    OpalBase.Diagnostics.Events.spendPrepareSucceeded,
-                    category: OpalBase.Diagnostics.Categories.account,
+                OpalDiagnostics.record(
+                    OpalDiagnostics.Event.spendPrepareSucceeded,
+                    category: OpalDiagnostics.Category.account,
                     fields: fields + [
-                        OpalBaseDiagnostics.publicField(OpalBase.Diagnostics.Fields.inputCount, heuristicallyOrderedInputs.count),
-                        OpalBaseDiagnostics.publicField(OpalBase.Diagnostics.Fields.outputCount, organizedRecipientOutputs.count)
+                        OpalDiagnostics.Field.publicValue(OpalDiagnostics.Field.Name.inputCount, heuristicallyOrderedInputs.count),
+                        OpalDiagnostics.Field.publicValue(OpalDiagnostics.Field.Name.outputCount, organizedRecipientOutputs.count)
                     ]
                 )
                 return plan
             } catch {
-                OpalBaseDiagnostics.record(
-                    OpalBase.Diagnostics.Events.spendPrepareFailed,
-                    category: OpalBase.Diagnostics.Categories.account,
-                    fields: fields + OpalBaseDiagnostics.errorFields(for: error)
+                OpalDiagnostics.record(
+                    OpalDiagnostics.Event.spendPrepareFailed,
+                    category: OpalDiagnostics.Category.account,
+                    fields: fields + OpalDiagnostics.Field.errorFields(for: error)
                 )
                 throw error
             }

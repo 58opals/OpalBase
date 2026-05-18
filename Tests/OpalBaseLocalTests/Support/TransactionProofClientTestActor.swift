@@ -9,6 +9,7 @@ actor TransactionProofClientTestActor: OpalBase.Network.Fulcrum.TransactionProof
     private let heightResponse: SwiftFulcrum.Response.Blockchain.Transaction.Height
     private let identifierResponse: SwiftFulcrum.Response.Blockchain.Transaction.IDFromPos
     private let merkleError: Swift.Error?
+    private let identifierError: Swift.Error?
     private var requestedTransactionHash: String?
     private var requestedMerkleBlockHeight: UInt?
     private var requestedPositionResolution: (UInt, UInt, Bool)?
@@ -17,12 +18,14 @@ actor TransactionProofClientTestActor: OpalBase.Network.Fulcrum.TransactionProof
         merkleResponse: SwiftFulcrum.Response.Blockchain.Transaction.Merkle? = nil,
         heightResponse: SwiftFulcrum.Response.Blockchain.Transaction.Height? = nil,
         identifierResponse: SwiftFulcrum.Response.Blockchain.Transaction.IDFromPos? = nil,
-        merkleError: Swift.Error? = nil
+        merkleError: Swift.Error? = nil,
+        identifierError: Swift.Error? = nil
     ) {
         self.merkleResponse = merkleResponse ?? (try! Self.makeEmptyMerkleResponse())
         self.heightResponse = heightResponse ?? (try! Self.makeHeightResponse(blockHeight: 12))
         self.identifierResponse = identifierResponse ?? (try! Self.makeEmptyIdentifierResponse())
         self.merkleError = merkleError
+        self.identifierError = identifierError
     }
 
     func fetchTransactionMerkleProof(
@@ -52,6 +55,9 @@ actor TransactionProofClientTestActor: OpalBase.Network.Fulcrum.TransactionProof
         options _: SwiftFulcrum.Client.Call.Options
     ) async throws -> SwiftFulcrum.Response.Blockchain.Transaction.IDFromPos {
         requestedPositionResolution = (blockHeight, transactionPosition, shouldIncludeMerkleProof)
+        if let identifierError {
+            throw identifierError
+        }
         return identifierResponse
     }
 

@@ -1,39 +1,40 @@
 // OpalBase+Account~Command~BroadcastAndConfirmation.swift
 
 import Foundation
+import OpalDiagnostics
 
 // MARK: - Broadcast
 extension _OpalBase.Account {
     public func broadcast(_ transaction: OpalBase.Transaction,
                           via handler: OpalBase.Network.TransactionClient) async throws -> OpalBase.Transaction.Hash {
-        try await OpalBase.Diagnostics.withTraceID {
+        try await OpalDiagnostics.withTraceID {
             let fields = [
-                OpalBaseDiagnostics.operationField("transaction_broadcast"),
-                OpalBaseDiagnostics.moduleField(),
-                OpalBaseDiagnostics.publicField(OpalBase.Diagnostics.Fields.inputCount, transaction.inputs.count),
-                OpalBaseDiagnostics.publicField(OpalBase.Diagnostics.Fields.outputCount, transaction.outputs.count)
+                OpalDiagnostics.Field.operation("transaction_broadcast"),
+                OpalDiagnostics.Field.module(),
+                OpalDiagnostics.Field.publicValue(OpalDiagnostics.Field.Name.inputCount, transaction.inputs.count),
+                OpalDiagnostics.Field.publicValue(OpalDiagnostics.Field.Name.outputCount, transaction.outputs.count)
             ]
-            OpalBaseDiagnostics.record(
-                OpalBase.Diagnostics.Events.transactionBroadcastStarted,
-                category: OpalBase.Diagnostics.Categories.transaction,
+            OpalDiagnostics.record(
+                OpalDiagnostics.Event.transactionBroadcastStarted,
+                category: OpalDiagnostics.Category.transaction,
                 fields: fields
             )
             do {
                 let hash = try await handler.broadcast(transaction: transaction)
-                OpalBaseDiagnostics.record(
-                    OpalBase.Diagnostics.Events.transactionBroadcastSucceeded,
-                    category: OpalBase.Diagnostics.Categories.transaction,
+                OpalDiagnostics.record(
+                    OpalDiagnostics.Event.transactionBroadcastSucceeded,
+                    category: OpalDiagnostics.Category.transaction,
                     fields: fields
                 )
                 return hash
             } catch {
                 let accountError = OpalBase.Account.Error.broadcastFailed(error)
-                OpalBaseDiagnostics.record(
-                    OpalBase.Diagnostics.Events.transactionBroadcastFailed,
-                    category: OpalBase.Diagnostics.Categories.transaction,
-                    fields: fields + OpalBaseDiagnostics.errorFields(
+                OpalDiagnostics.record(
+                    OpalDiagnostics.Event.transactionBroadcastFailed,
+                    category: OpalDiagnostics.Category.transaction,
+                    fields: fields + OpalDiagnostics.Field.errorFields(
                         for: accountError,
-                        fallback: OpalBase.Diagnostics.ErrorCodes.accountBroadcastFailed
+                        fallback: OpalDiagnostics.ErrorCode.accountBroadcastFailed
                     )
                 )
                 throw accountError

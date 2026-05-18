@@ -2,6 +2,7 @@
 
 #if os(macOS)
 import Foundation
+import OpalDiagnostics
 import OpalFusion
 import Testing
 @testable import OpalBase
@@ -16,29 +17,16 @@ struct AccountCashFusionSessionValidator {
         )
     }
 
-    @Test("transport failure releases reservations before a round starts")
-    func transportFailureReleasesReservationsBeforeARoundStarts() async throws {
-        try await assertPreRoundFatalFailureReleasesReservation(
-            lastError: .transportUnavailable,
-            hashByte: 0xD6
-        )
-    }
-
-    @Test("retrying non-transport pre-round failure releases reservations")
-    func retryingNonTransportPreRoundFailureReleasesReservations() async throws {
+    @Test("non-transport pre-round failure releases reservations")
+    func nonTransportPreRoundFailureReleasesReservations() async throws {
         try await assertPreRoundFatalFailureReleasesReservation(
             lastError: .invalidConfiguration,
-            diagnostics: .init(
-                activity: .retrying,
-                retryAttempt: 1,
-                nextRetryDelayMilliseconds: 10
-            ),
             hashByte: 0xE1
         )
     }
 
-    @Test("retrying pre-round transport failure keeps reservations active")
-    func retryingPreRoundTransportFailureKeepsReservationsActive() async throws {
+    @Test("pre-round transport failure keeps reservations active while reconnect is enabled")
+    func preRoundTransportFailureKeepsReservationsActiveWhileReconnectIsEnabled() async throws {
         let account = try await AccountTestFixtures.makeAccount()
         let selectedInput = try await CashFusionTestSupport.makeWalletOwnedUnspentOutput(
             to: account,
@@ -63,14 +51,7 @@ struct AccountCashFusionSessionValidator {
                     round: nil
                 ),
                 lastError: .transportUnavailable,
-                lastErrorSummary: "Primary connection failed",
-                diagnostics: .init(
-                    activity: .retrying,
-                    retryAttempt: 1,
-                    nextRetryDelayMilliseconds: 10,
-                    primaryFailureCategory: .transportUnavailable,
-                    primaryFailureSummary: "Primary connection failed"
-                )
+                lastErrorSummary: "Primary connection failed"
             )
         )
 
@@ -90,8 +71,7 @@ struct AccountCashFusionSessionValidator {
                 state: .init(
                     isConnected: true,
                     round: nil
-                ),
-                diagnostics: .init(activity: .running)
+                )
             )
         )
 
@@ -106,8 +86,7 @@ struct AccountCashFusionSessionValidator {
         await fakeSession.emit(
             snapshot: CashFusionTestSupport.makeSnapshot(
                 phase: .completed,
-                completionStatus: .success,
-                diagnostics: .init(activity: .running)
+                completionStatus: .success
             )
         )
 
@@ -229,7 +208,7 @@ struct AccountCashFusionSessionValidator {
 
     @Test("snapshot preserves the session trace identifier")
     func snapshotPreservesTheSessionTraceIdentifier() async throws {
-        let traceID = OpalBase.Diagnostics.TraceID()
+        let traceID = OpalDiagnostics.TraceID()
         let account = try await AccountTestFixtures.makeAccount()
         let selectedInput = try await CashFusionTestSupport.makeWalletOwnedUnspentOutput(
             to: account,
@@ -238,7 +217,7 @@ struct AccountCashFusionSessionValidator {
             hashByte: 0xD9
         )
         let capture = CashFusionWrappedSessionCapture()
-        let session = try await OpalBase.Diagnostics.withTraceID(traceID) {
+        let session = try await OpalDiagnostics.withTraceID(traceID) {
             try await makeSession(
                 account: account,
                 selectedInput: selectedInput,
@@ -396,7 +375,7 @@ struct AccountCashFusionSessionValidator {
 
     @Test("failed terminal snapshots record error diagnostics")
     func failedTerminalSnapshotsRecordErrorDiagnostics() async throws {
-        let records = try await OpalBase.Diagnostics.withConfiguration(cashFusionDiagnosticsConfiguration()) {
+        let records = try await OpalDiagnostics.withConfiguration(cashFusionDiagnosticsConfiguration()) {
             let account = try await AccountTestFixtures.makeAccount()
             let selectedInput = try await CashFusionTestSupport.makeWalletOwnedUnspentOutput(
                 to: account,
@@ -420,13 +399,13 @@ struct AccountCashFusionSessionValidator {
                 )
             )
 
-            return OpalBase.Diagnostics.recentRecords
+            return OpalDiagnostics.recentRecords
         }
 
         let failedFinalRecord = try #require(records.last { record in
-            record.event == OpalBase.Diagnostics.Events.cashFusionSessionFinalized &&
+            record.event == OpalDiagnostics.Event.cashFusionSessionFinalized &&
                 record.fields.contains {
-                    $0.name == OpalBase.Diagnostics.Fields.outcome &&
+                    $0.name == OpalDiagnostics.Field.Name.outcome &&
                         $0.value == "failed"
                 }
         })
@@ -682,8 +661,7 @@ struct AccountCashFusionSessionValidator {
                 state: .init(
                     isConnected: false,
                     round: nil
-                ),
-                diagnostics: .init(activity: .stopped)
+                )
             )
         )
         
@@ -735,12 +713,7 @@ struct AccountCashFusionSessionValidator {
                     isConnected: false,
                     round: nil
                 ),
-                lastError: .transportUnavailable,
-                diagnostics: .init(
-                    activity: .retrying,
-                    retryAttempt: 1,
-                    nextRetryDelayMilliseconds: 10
-                )
+                lastError: .transportUnavailable
             )
         )
 
@@ -807,8 +780,8 @@ struct AccountCashFusionSessionValidator {
         await session.stop()
     }
 
-    @Test("makePublicStatus maps retry diagnostics")
-    func makePublicStatusMapsRetryDiagnostics() {
+    @Test("makePublicStatus maps failure activity without retry diagnostics")
+    func makePublicStatusMapsFailureActivityWithoutRetryDiagnostics() {
         let publicStatus = OpalBase.Account.CashFusionSessionStatus(
             snapshot: .init(
                 state: .init(
@@ -816,14 +789,7 @@ struct AccountCashFusionSessionValidator {
                     round: nil
                 ),
                 lastError: .transportUnavailable,
-                lastErrorSummary: "Primary connection failed",
-                diagnostics: .init(
-                    activity: .retrying,
-                    retryAttempt: 2,
-                    nextRetryDelayMilliseconds: 4_500,
-                    primaryFailureCategory: .transportUnavailable,
-                    primaryFailureSummary: "Primary connection failed"
-                )
+                lastErrorSummary: "Primary connection failed"
             )
         )
 
@@ -831,9 +797,9 @@ struct AccountCashFusionSessionValidator {
         #expect(publicStatus.round == nil)
         #expect(publicStatus.lastError == .transportUnavailable)
         #expect(publicStatus.lastErrorSummary == "Primary connection failed")
-        #expect(publicStatus.activity == .retrying)
-        #expect(publicStatus.retryAttempt == 2)
-        #expect(publicStatus.nextRetryDelayMilliseconds == 4_500)
+        #expect(publicStatus.activity == .failed)
+        #expect(publicStatus.retryAttempt == nil)
+        #expect(publicStatus.nextRetryDelayMilliseconds == nil)
     }
 
     @Test("makePublicStatus maps coordinator queue status")
@@ -975,8 +941,8 @@ struct AccountCashFusionSessionValidator {
 }
 
 private extension AccountCashFusionSessionValidator {
-    func cashFusionDiagnosticsConfiguration() -> OpalBase.Diagnostics.Configuration {
-        OpalBase.Diagnostics.Configuration(
+    func cashFusionDiagnosticsConfiguration() -> OpalDiagnostics.Configuration {
+        OpalDiagnostics.Configuration(
             minimumLevel: .debug,
             categoryFilter: .all,
             bufferPolicy: .enabled(capacity: 128)
@@ -985,7 +951,6 @@ private extension AccountCashFusionSessionValidator {
 
     func assertPreRoundFatalFailureReleasesReservation(
         lastError: OpalFusion.Client.Error,
-        diagnostics: OpalFusion.Client.Diagnostics = .init(),
         hashByte: UInt8
     ) async throws {
         let account = try await AccountTestFixtures.makeAccount()
@@ -1011,8 +976,7 @@ private extension AccountCashFusionSessionValidator {
                     isConnected: false,
                     round: nil
                 ),
-                lastError: lastError,
-                diagnostics: diagnostics
+                lastError: lastError
             )
         )
 

@@ -1,6 +1,7 @@
 // PublicAPISmokeValidator.swift
 
 import Foundation
+import OpalDiagnostics
 import Testing
 import OpalBaseTestSupport
 import OpalBase
@@ -51,38 +52,9 @@ struct PublicAPISmokeValidator {
         await monitor.stop()
     }
 
-    @Test("legacy network logger facade is publicly callable")
-    func legacyNetworkLoggerFacadeIsPubliclyCallable() {
-        let capture = LegacyNetworkLogCapture()
-        let logger = OpalBase.Network.Logger { level, message, metadata, file, function, line in
-            capture.append(
-                level: level,
-                message: message,
-                metadata: metadata,
-                file: file,
-                function: function,
-                line: line
-            )
-        }
-
-        logger.log(
-            .notice,
-            "public-logger-smoke",
-            metadata: ["surface": "public"],
-            file: "PublicAPISmokeValidator.swift",
-            function: "legacyNetworkLoggerFacadeIsPubliclyCallable",
-            line: 1
-        )
-
-        let entry = capture.entries().first
-        #expect(entry?.level == .notice)
-        #expect(entry?.message == "public-logger-smoke")
-        #expect(entry?.metadata?["surface"] == "public")
-    }
-
     @Test("network metrics diagnostics bridge is publicly callable")
     func networkMetricsDiagnosticsBridgeIsPubliclyCallable() async {
-        let records = await OpalBase.Diagnostics.withConfiguration(
+        let records = await OpalDiagnostics.withConfiguration(
             smokeDiagnosticsConfiguration()
         ) {
             let metrics = OpalBase.Network.Metrics()
@@ -97,16 +69,16 @@ struct PublicAPISmokeValidator {
                 )
             )
             await metrics.recordSubscriptionRegistryUpdate(url: url, subscriptions: [])
-            return OpalBase.Diagnostics.recentRecords
+            return OpalDiagnostics.recentRecords
         }
 
         #expect(recordsContain(
             records,
-            event: OpalBase.Diagnostics.Events.networkDiagnosticsSnapshotRecorded
+            event: OpalDiagnostics.Event.networkDiagnosticsSnapshotRecorded
         ))
         #expect(recordsContain(
             records,
-            event: OpalBase.Diagnostics.Events.networkDiagnosticsSubscriptionsRecorded
+            event: OpalDiagnostics.Event.networkDiagnosticsSubscriptionsRecorded
         ))
     }
 
@@ -650,8 +622,8 @@ private func makeSmokeStoredMnemonicStore(state: SmokeStoredMnemonicStoreState) 
     )
 }
 
-private func smokeDiagnosticsConfiguration() -> OpalBase.Diagnostics.Configuration {
-    OpalBase.Diagnostics.Configuration(
+private func smokeDiagnosticsConfiguration() -> OpalDiagnostics.Configuration {
+    OpalDiagnostics.Configuration(
         minimumLevel: .debug,
         categoryFilter: .all,
         bufferPolicy: .enabled(capacity: 64)
@@ -659,8 +631,8 @@ private func smokeDiagnosticsConfiguration() -> OpalBase.Diagnostics.Configurati
 }
 
 private func recordsContain(
-    _ records: [OpalBase.Diagnostics.Record],
-    event: OpalBase.Diagnostics.Event
+    _ records: [OpalDiagnostics.Record],
+    event: OpalDiagnostics.Event
 ) -> Bool {
     records.contains { $0.event == event }
 }

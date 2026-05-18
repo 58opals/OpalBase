@@ -1,5 +1,6 @@
 // CashFusionFakeWrappedSession.swift
 
+import OpalDiagnostics
 #if os(macOS)
 import OpalFusion
 @testable import OpalBase
@@ -10,7 +11,7 @@ actor CashFusionFakeWrappedSession: OpalBase.Account.CashFusionWrappedSession {
     private var startCount = 0
     private var stopCount = 0
     private var currentSnapshot: OpalFusion.Client.Session.Snapshot = .init()
-    private var snapshotTraceIDs: [OpalBase.Diagnostics.TraceID?] = []
+    private var snapshotTraceIDs: [OpalDiagnostics.TraceID?] = []
 
     init(
         stateObserver: (any OpalFusion.Client.StateObserver)?
@@ -27,7 +28,7 @@ actor CashFusionFakeWrappedSession: OpalBase.Account.CashFusionWrappedSession {
     }
 
     func snapshot() async -> OpalFusion.Client.Session.Snapshot {
-        snapshotTraceIDs.append(OpalBase.Diagnostics.currentTraceID)
+        snapshotTraceIDs.append(OpalDiagnostics.currentTraceID)
         return currentSnapshot
     }
 
@@ -44,7 +45,7 @@ actor CashFusionFakeWrappedSession: OpalBase.Account.CashFusionWrappedSession {
         stopCount
     }
 
-    func readSnapshotTraceIDs() -> [OpalBase.Diagnostics.TraceID?] {
+    func readSnapshotTraceIDs() -> [OpalDiagnostics.TraceID?] {
         snapshotTraceIDs
     }
 }

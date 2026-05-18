@@ -46,7 +46,6 @@ enum CashFusionTestSupport {
         isConnected: Bool = true,
         lastError: OpalFusion.Client.Error? = nil,
         lastErrorSummary: String? = nil,
-        diagnostics: OpalFusion.Client.Diagnostics = .init(),
         coordinatorStatus: OpalFusion.Client.Session.Snapshot.CoordinatorStatus = .init()
     ) -> OpalFusion.Client.Session.Snapshot {
         let round: OpalFusion.Round.State
@@ -71,7 +70,6 @@ enum CashFusionTestSupport {
             ),
             lastError: lastError,
             lastErrorSummary: lastErrorSummary,
-            diagnostics: diagnostics,
             coordinatorStatus: coordinatorStatus
         )
     }

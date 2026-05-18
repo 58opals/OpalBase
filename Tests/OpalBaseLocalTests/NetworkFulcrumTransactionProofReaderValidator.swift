@@ -70,8 +70,7 @@ struct NetworkFulcrumTransactionProofReaderValidator {
     @Test("rejects malformed merkle proof branch hashes")
     func fetchMerkleProofRejectsMalformedBranchHashes() async throws {
         let client = TransactionProofClientTestActor(
-            merkleResponse: try Self.makeMerkleResponse(merkle: [String(repeating: "g", count: 64)]),
-            heightResponse: try Self.makeHeightResponse(blockHeight: 12)
+            merkleError: Self.makeDecodeError("Expected merkle proof hash to contain only hex characters")
         )
         let reader = OpalBase.Network.Fulcrum.TransactionProofReader(client: client)
 
@@ -79,22 +78,8 @@ struct NetworkFulcrumTransactionProofReaderValidator {
             _ = try await reader.fetchMerkleProof(for: .init(naturalOrder: Data(repeating: 0x01, count: 32)))
         }
 
-        #expect(failure.reason == .protocolViolation)
-        #expect(failure.message == "Cannot decode merkle proof branch hash at index 0.")
-        
-        let prefixedHash = "0x\(String(repeating: "a", count: 62))"
-        let prefixedClient = TransactionProofClientTestActor(
-            merkleResponse: try Self.makeMerkleResponse(merkle: [prefixedHash]),
-            heightResponse: try Self.makeHeightResponse(blockHeight: 12)
-        )
-        let prefixedReader = OpalBase.Network.Fulcrum.TransactionProofReader(client: prefixedClient)
-        
-        let prefixedFailure = await Self.captureNetworkError {
-            _ = try await prefixedReader.fetchMerkleProof(for: .init(naturalOrder: Data(repeating: 0x01, count: 32)))
-        }
-        
-        #expect(prefixedFailure.reason == .protocolViolation)
-        #expect(prefixedFailure.message == "Cannot decode merkle proof branch hash at index 0.")
+        #expect(failure.reason == .decoding)
+        #expect(failure.message?.contains("Expected merkle proof hash to contain only hex characters") == true)
     }
 
     @Test("rejects merkle proof positions outside the branch depth")
@@ -116,7 +101,7 @@ struct NetworkFulcrumTransactionProofReaderValidator {
     @Test("rejects malformed transaction identifiers from position resolution")
     func fetchTransactionIdentifierRejectsMalformedIdentifier() async throws {
         let client = TransactionProofClientTestActor(
-            identifierResponse: try Self.makeIdentifierResponse(transactionHash: String(repeating: "g", count: 64))
+            identifierError: Self.makeDecodeError("Expected transaction hash to contain only hex characters")
         )
         let reader = OpalBase.Network.Fulcrum.TransactionProofReader(client: client)
 
@@ -129,12 +114,20 @@ struct NetworkFulcrumTransactionProofReaderValidator {
         }
 
         #expect(failure.reason == .decoding)
-        #expect(failure.message?.contains("Cannot decode position transaction identifier") == true)
+        #expect(failure.message?.contains("Expected transaction hash to contain only hex characters") == true)
     }
 }
 
 private extension NetworkFulcrumTransactionProofReaderValidator {
+    struct DecodeFailure: Swift.Error, CustomStringConvertible {
+        let description: String
+    }
+
     static let validMerkleBranch = [String(repeating: "a", count: 64), String(repeating: "b", count: 64)]
+
+    static func makeDecodeError(_ message: String) -> SwiftFulcrum.Client.Error {
+        .coding(.decode(DecodeFailure(description: ".unexpectedFormat(\"\(message)\")")))
+    }
 
     static func makeMerkleResponse(
         merkle: [String] = validMerkleBranch,
