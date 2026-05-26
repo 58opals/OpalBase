@@ -24,48 +24,60 @@ struct DiagnosticsValidator {
             OpalDiagnostics.Category.storage
         ])
 
-        #expect(OpalDiagnostics.Event.all.contains(OpalDiagnostics.Event.walletCreateStarted))
-        #expect(OpalDiagnostics.Event.all.contains(OpalDiagnostics.Event.addressReserveSucceeded))
-        #expect(OpalDiagnostics.Event.all.contains(OpalDiagnostics.Event.utxoRefreshFailed))
-        #expect(OpalDiagnostics.Event.all.contains(OpalDiagnostics.Event.spendPrepareStarted))
-        #expect(OpalDiagnostics.Event.all.contains(OpalDiagnostics.Event.cashFusionSessionFinalized))
-        #expect(OpalDiagnostics.Event.all.contains(OpalDiagnostics.Event.hedgeParticipantMaterialReserveStarted))
-        #expect(OpalDiagnostics.Event.all.contains(OpalDiagnostics.Event.hedgeFundingBroadcastFailed))
-        #expect(OpalDiagnostics.Event.all.contains(OpalDiagnostics.Event.claimableShareCodeDecodeFailed))
-        #expect(OpalDiagnostics.Event.all.contains(OpalDiagnostics.Event.tokenMetadataSyncSucceeded))
-        #expect(OpalDiagnostics.Event.all.contains(OpalDiagnostics.Event.networkDiagnosticsCountersRecorded))
-        #expect(OpalDiagnostics.Event.all.contains(OpalDiagnostics.Event.networkDiagnosticsRegistryUpdateRecorded))
-
-        #expect(
-            OpalDiagnostics.Event.networkDiagnosticsCountersRecorded.rawValue ==
-                "opalbase.network.diagnostics.snapshot.recorded"
-        )
-        #expect(
-            OpalDiagnostics.Event.networkDiagnosticsRegistryUpdateRecorded.rawValue ==
-                "opalbase.network.diagnostics.subscriptions.recorded"
-        )
-
-        #expect(OpalDiagnostics.Field.Name.errorCode == "error_code")
-        #expect(OpalDiagnostics.Field.Name.accountIndex == "account_index")
-        #expect(OpalDiagnostics.Field.Name.accountCount == "account_count")
-        #expect(OpalDiagnostics.Field.Name.tokenMetadataCount == "token_metadata_count")
-        #expect(OpalDiagnostics.Field.Name.all.contains(OpalDiagnostics.Field.Name.reconnectionAttemptCount))
-        #expect(OpalDiagnostics.Field.Name.all.contains(OpalDiagnostics.Field.Name.activeSubscriptionCount))
-        #expect(OpalDiagnostics.Field.Name.all.contains(OpalDiagnostics.Field.Name.errorType))
-        #expect(OpalDiagnostics.Field.Name.all.contains(OpalDiagnostics.Field.Name.errorMessage))
-
-        let stableErrorCodes = [
-            OpalDiagnostics.ErrorCode.walletAccountAlreadyExists: "wallet.account_already_exists",
-            OpalDiagnostics.ErrorCode.walletAccountNotFound: "wallet.account_not_found",
-            OpalDiagnostics.ErrorCode.accountBalanceRefreshFailed: "account.balance_refresh_failed",
-            OpalDiagnostics.ErrorCode.accountTransactionHistoryRefreshFailed: "account.transaction_history_refresh_failed",
-            OpalDiagnostics.ErrorCode.claimableInvalidShareCode: "claimable.invalid_share_code",
-            OpalDiagnostics.ErrorCode.hedgeFundingFailed: "hedge.funding_failed"
-        ]
-        for (actual, expected) in stableErrorCodes {
-            #expect(actual.rawValue == expected)
-        }
         #expect(OpalDiagnostics.ErrorCode.all.contains(OpalDiagnostics.ErrorCode.cashFusionReservationFailed))
+    }
+
+    @Test(
+        "public diagnostics catalog contains representative events",
+        arguments: DiagnosticsCatalogEventCase.allCases
+    )
+    func publicDiagnosticsCatalogContainsRepresentativeEvents(
+        eventCase: DiagnosticsCatalogEventCase
+    ) {
+        #expect(OpalDiagnostics.Event.all.contains(eventCase.event))
+    }
+
+    @Test(
+        "stable diagnostics event raw values",
+        arguments: StableDiagnosticsEventRawValueCase.allCases
+    )
+    func stableDiagnosticsEventRawValues(
+        eventCase: StableDiagnosticsEventRawValueCase
+    ) {
+        let expectation = eventCase.rawValueExpectation
+        #expect(expectation.event.rawValue == expectation.rawValue)
+    }
+
+    @Test(
+        "stable diagnostics field names",
+        arguments: StableDiagnosticsFieldNameCase.allCases
+    )
+    func stableDiagnosticsFieldNames(
+        fieldCase: StableDiagnosticsFieldNameCase
+    ) {
+        let expectation = fieldCase.rawValueExpectation
+        #expect(expectation.fieldName == expectation.rawValue)
+    }
+
+    @Test(
+        "public diagnostics catalog contains representative fields",
+        arguments: DiagnosticsCatalogFieldNameCase.allCases
+    )
+    func publicDiagnosticsCatalogContainsRepresentativeFields(
+        fieldCase: DiagnosticsCatalogFieldNameCase
+    ) {
+        #expect(OpalDiagnostics.Field.Name.all.contains(fieldCase.fieldName))
+    }
+
+    @Test(
+        "stable error code raw values",
+        arguments: StableErrorCodeRawValueCase.allCases
+    )
+    func stableErrorCodeRawValues(
+        rawValueCase: StableErrorCodeRawValueCase
+    ) {
+        let expectation = rawValueCase.rawValueExpectation
+        #expect(expectation.errorCode.rawValue == expectation.rawValue)
     }
 
     @Test("recent record filtering respects categories and trace identifiers")
@@ -332,17 +344,14 @@ struct DiagnosticsValidator {
         #expect(errorCodes(in: records).contains(OpalDiagnostics.ErrorCode.claimableInvalidShareCode))
     }
 
-    @Test("SwiftFulcrum errors use stable network error codes")
-    func swiftFulcrumErrorsUseStableNetworkErrorCodes() {
-        #expect(OpalDiagnostics.ErrorCode.opalBaseCode(
-            for: SwiftFulcrum.Client.Error.client(.timeout(.seconds(3)))
-        ) == OpalDiagnostics.ErrorCode.networkTimeout)
-        #expect(OpalDiagnostics.ErrorCode.opalBaseCode(
-            for: SwiftFulcrum.Client.Error.transport(.heartbeatTimeout)
-        ) == OpalDiagnostics.ErrorCode.networkTransport)
-        #expect(OpalDiagnostics.ErrorCode.opalBaseCode(
-            for: SwiftFulcrum.Client.Error.coding(.decode(nil))
-        ) == OpalDiagnostics.ErrorCode.networkDecoding)
+    @Test(
+        "SwiftFulcrum errors use stable network error codes",
+        arguments: SwiftFulcrumStableCodeCase.allCases
+    )
+    func swiftFulcrumErrorsUseStableNetworkErrorCodes(
+        stableCodeCase: SwiftFulcrumStableCodeCase
+    ) {
+        #expect(OpalDiagnostics.ErrorCode.opalBaseCode(for: stableCodeCase.error) == stableCodeCase.expectedCode)
     }
 
     @Test("balance refresh failures use a stable error code")
@@ -604,6 +613,199 @@ struct DiagnosticsValidator {
                         $0.value == "1"
                 }
         })
+    }
+
+    enum SwiftFulcrumStableCodeCase: CaseIterable, Sendable {
+        case clientTimeout
+        case heartbeatTimeout
+        case decode
+
+        var error: SwiftFulcrum.Client.Error {
+            switch self {
+            case .clientTimeout:
+                return .client(.timeout(.seconds(3)))
+            case .heartbeatTimeout:
+                return .transport(.heartbeatTimeout)
+            case .decode:
+                return .coding(.decode(nil))
+            }
+        }
+
+        var expectedCode: OpalDiagnostics.ErrorCode {
+            switch self {
+            case .clientTimeout,
+                 .heartbeatTimeout:
+                return .networkTimeout
+            case .decode:
+                return .networkDecoding
+            }
+        }
+    }
+
+    enum DiagnosticsCatalogEventCase: CaseIterable, Sendable {
+        case walletCreateStarted
+        case addressReserveSucceeded
+        case utxoRefreshFailed
+        case spendPrepareStarted
+        case cashFusionSessionFinalized
+        case hedgeParticipantMaterialReserveStarted
+        case hedgeFundingBroadcastFailed
+        case claimableShareCodeDecodeFailed
+        case tokenMetadataSyncSucceeded
+        case networkDiagnosticsCountersRecorded
+        case networkDiagnosticsRegistryUpdateRecorded
+
+        var event: OpalDiagnostics.Event {
+            switch self {
+            case .walletCreateStarted:
+                return .walletCreateStarted
+            case .addressReserveSucceeded:
+                return .addressReserveSucceeded
+            case .utxoRefreshFailed:
+                return .utxoRefreshFailed
+            case .spendPrepareStarted:
+                return .spendPrepareStarted
+            case .cashFusionSessionFinalized:
+                return .cashFusionSessionFinalized
+            case .hedgeParticipantMaterialReserveStarted:
+                return .hedgeParticipantMaterialReserveStarted
+            case .hedgeFundingBroadcastFailed:
+                return .hedgeFundingBroadcastFailed
+            case .claimableShareCodeDecodeFailed:
+                return .claimableShareCodeDecodeFailed
+            case .tokenMetadataSyncSucceeded:
+                return .tokenMetadataSyncSucceeded
+            case .networkDiagnosticsCountersRecorded:
+                return .networkDiagnosticsCountersRecorded
+            case .networkDiagnosticsRegistryUpdateRecorded:
+                return .networkDiagnosticsRegistryUpdateRecorded
+            }
+        }
+    }
+
+    enum StableDiagnosticsEventRawValueCase: CaseIterable, Sendable {
+        case networkDiagnosticsCountersRecorded
+        case networkDiagnosticsRegistryUpdateRecorded
+
+        var rawValueExpectation: (event: OpalDiagnostics.Event, rawValue: String) {
+            switch self {
+            case .networkDiagnosticsCountersRecorded:
+                return (
+                    .networkDiagnosticsCountersRecorded,
+                    "opalbase.network.diagnostics.snapshot.recorded"
+                )
+            case .networkDiagnosticsRegistryUpdateRecorded:
+                return (
+                    .networkDiagnosticsRegistryUpdateRecorded,
+                    "opalbase.network.diagnostics.subscriptions.recorded"
+                )
+            }
+        }
+    }
+
+    enum StableDiagnosticsFieldNameCase: CaseIterable, Sendable {
+        case errorCode
+        case accountIndex
+        case accountCount
+        case tokenMetadataCount
+        case errorReason
+        case serverCode
+        case closeCode
+        case timeoutSeconds
+        case minimumVersion
+        case maximumVersion
+        case privateErrorMetadata
+
+        var rawValueExpectation: (fieldName: String, rawValue: String) {
+            switch self {
+            case .errorCode:
+                return (OpalDiagnostics.Field.Name.errorCode, "error_code")
+            case .accountIndex:
+                return (OpalDiagnostics.Field.Name.accountIndex, "account_index")
+            case .accountCount:
+                return (OpalDiagnostics.Field.Name.accountCount, "account_count")
+            case .tokenMetadataCount:
+                return (OpalDiagnostics.Field.Name.tokenMetadataCount, "token_metadata_count")
+            case .errorReason:
+                return (OpalDiagnostics.Field.Name.errorReason, "error_reason")
+            case .serverCode:
+                return (OpalDiagnostics.Field.Name.serverCode, "server_code")
+            case .closeCode:
+                return (OpalDiagnostics.Field.Name.closeCode, "close_code")
+            case .timeoutSeconds:
+                return (OpalDiagnostics.Field.Name.timeoutSeconds, "timeout_seconds")
+            case .minimumVersion:
+                return (OpalDiagnostics.Field.Name.minimumVersion, "minimum_version")
+            case .maximumVersion:
+                return (OpalDiagnostics.Field.Name.maximumVersion, "maximum_version")
+            case .privateErrorMetadata:
+                return (OpalDiagnostics.Field.Name.privateErrorMetadata, "error_private_metadata")
+            }
+        }
+    }
+
+    enum DiagnosticsCatalogFieldNameCase: CaseIterable, Sendable {
+        case reconnectionAttemptCount
+        case activeSubscriptionCount
+        case errorType
+        case errorMessage
+
+        var fieldName: String {
+            switch self {
+            case .reconnectionAttemptCount:
+                return OpalDiagnostics.Field.Name.reconnectionAttemptCount
+            case .activeSubscriptionCount:
+                return OpalDiagnostics.Field.Name.activeSubscriptionCount
+            case .errorType:
+                return OpalDiagnostics.Field.Name.errorType
+            case .errorMessage:
+                return OpalDiagnostics.Field.Name.errorMessage
+            }
+        }
+    }
+
+    enum StableErrorCodeRawValueCase: CaseIterable, Sendable {
+        case walletAccountAlreadyExists
+        case walletAccountNotFound
+        case accountBalanceRefreshFailed
+        case accountTransactionHistoryRefreshFailed
+        case networkTransport
+        case networkServer
+        case networkTimeout
+        case networkEncoding
+        case networkDecoding
+        case networkProtocolViolation
+        case claimableInvalidShareCode
+        case hedgeFundingFailed
+
+        var rawValueExpectation: (errorCode: OpalDiagnostics.ErrorCode, rawValue: String) {
+            switch self {
+            case .walletAccountAlreadyExists:
+                return (.walletAccountAlreadyExists, "wallet.account_already_exists")
+            case .walletAccountNotFound:
+                return (.walletAccountNotFound, "wallet.account_not_found")
+            case .accountBalanceRefreshFailed:
+                return (.accountBalanceRefreshFailed, "account.balance_refresh_failed")
+            case .accountTransactionHistoryRefreshFailed:
+                return (.accountTransactionHistoryRefreshFailed, "account.transaction_history_refresh_failed")
+            case .networkTransport:
+                return (.networkTransport, "network.transport")
+            case .networkServer:
+                return (.networkServer, "network.server")
+            case .networkTimeout:
+                return (.networkTimeout, "network.timeout")
+            case .networkEncoding:
+                return (.networkEncoding, "network.encoding")
+            case .networkDecoding:
+                return (.networkDecoding, "network.decoding")
+            case .networkProtocolViolation:
+                return (.networkProtocolViolation, "network.protocol_violation")
+            case .claimableInvalidShareCode:
+                return (.claimableInvalidShareCode, "claimable.invalid_share_code")
+            case .hedgeFundingFailed:
+                return (.hedgeFundingFailed, "hedge.funding_failed")
+            }
+        }
     }
 }
 

@@ -31,12 +31,8 @@ extension _OpalBase.Network {
                 return OpalBase.Network.Error(reason: .decoding, message: describe(dataError))
             }
             
-            if let decodingError = error as? DecodingError {
-                return OpalBase.Network.Error(reason: .decoding, message: String(describing: decodingError))
-            }
-            
-            if let encodingError = error as? EncodingError {
-                return OpalBase.Network.Error(reason: .encoding, message: String(describing: encodingError))
+            if let codingFailure = translateFoundationCodingError(error) {
+                return codingFailure
             }
             
             if let decodeMessage = normalizeSwiftFulcrumResultDecodeMessage(String(describing: error)) {
@@ -58,7 +54,7 @@ extension _OpalBase.Network {
                 return OpalBase.Network.Error(
                     reason: .server(code: server.code),
                     message: server.message,
-                    metadata: ["serverIdentifier": server.id?.uuidString ?? "unknown"]
+                    metadata: [OpalBase.Network.Error.DiagnosticMetadataKey.serverIdentifier: server.id?.uuidString ?? "unknown"]
                 )
             case .coding(let coding):
                 return translateCoding(coding)
@@ -74,9 +70,15 @@ extension _OpalBase.Network {
         static func checkCancellation(_ error: Swift.Error) -> Bool {
             if error is CancellationError { return true }
             if let failure = error as? OpalBase.Network.Error { return failure.reason == .cancelled }
-            if let fulcrumError = error as? SwiftFulcrum.Client.Error,
-               case .client(.cancelled) = fulcrumError {
-                return true
+            if let fulcrumError = error as? SwiftFulcrum.Client.Error {
+                switch fulcrumError {
+                case .client(.cancelled):
+                    return true
+                case .client(.unknown(let underlying)) where underlying is CancellationError:
+                    return true
+                default:
+                    return false
+                }
             }
             return false
         }
@@ -89,7 +91,7 @@ extension _OpalBase.Network {
                 return OpalBase.Network.Error(
                     reason: .transport,
                     message: reason ?? "Connection closed",
-                    metadata: ["closeCode": String(code.rawValue)]
+                    metadata: [OpalBase.Network.Error.DiagnosticMetadataKey.closeCode: String(code.rawValue)]
                 )
             case .network(let networkError):
                 return translateNetwork(networkError)
@@ -167,21 +169,25 @@ extension _OpalBase.Network {
             case .urlNotFound:
                 return OpalBase.Network.Error(reason: .transport, message: "No server URL available")
             case .invalidURL(let string):
-                return OpalBase.Network.Error(reason: .transport, message: "Invalid server URL: \(string)")
+                return OpalBase.Network.Error(
+                    reason: .transport,
+                    message: "Invalid server URL",
+                    metadata: [OpalBase.Network.Error.DiagnosticMetadataKey.serverURL: string]
+                )
             case .duplicateHandler:
-                return OpalBase.Network.Error(reason: .unknown, message: "Duplicate handler registered")
+                return OpalBase.Network.Error(reason: .transport, message: "Duplicate handler registered")
             case .cancelled:
                 return OpalBase.Network.Error(reason: .cancelled, message: "Operation cancelled")
             case .timeout(let duration):
                 return OpalBase.Network.Error(
                     reason: .timeout,
                     message: "Operation timed out",
-                    metadata: ["timeoutSeconds": String(duration.totalSeconds)]
+                    metadata: [OpalBase.Network.Error.DiagnosticMetadataKey.timeoutSeconds: String(duration.totalSeconds)]
                 )
             case .emptyResponse(let identifier):
                 return OpalBase.Network.Error(reason: .protocolViolation,
                                        message: "Empty response from server",
-                                       metadata: identifier.map { ["requestIdentifier": $0.uuidString] } ?? .init())
+                                       metadata: identifier.map { [OpalBase.Network.Error.DiagnosticMetadataKey.requestIdentifier: $0.uuidString] } ?? .init())
             case .protocolMismatch(let message):
                 return OpalBase.Network.Error(reason: .protocolViolation, message: message)
             case .invalidProtocolNegotiationRange(minimumVersion: let min, maximumVersion: let max):
@@ -189,17 +195,21 @@ extension _OpalBase.Network {
                     reason: .protocolViolation,
                     message: "Invalid protocol negotiation range",
                     metadata: [
-                        "minimumVersion": min.description,
-                        "maximumVersion": max.description
+                        OpalBase.Network.Error.DiagnosticMetadataKey.minimumVersion: min.description,
+                        OpalBase.Network.Error.DiagnosticMetadataKey.maximumVersion: max.description
                     ]
                 )
             case .unknown(let underlying):
                 guard let underlying else {
                     return OpalBase.Network.Error(reason: .unknown, message: nil)
                 }
+
+                if underlying is CancellationError {
+                    return OpalBase.Network.Error(reason: .cancelled, message: "Operation cancelled")
+                }
                 
-                if underlying is DecodingError {
-                    return OpalBase.Network.Error(reason: .decoding, message: describe(underlying))
+                if let codingFailure = translateFoundationCodingError(underlying) {
+                    return codingFailure
                 }
                 
                 let cocoaError = underlying as NSError
@@ -209,6 +219,18 @@ extension _OpalBase.Network {
                 
                 return OpalBase.Network.Error(reason: .unknown, message: describe(underlying))
             }
+        }
+
+        private static func translateFoundationCodingError(_ error: Swift.Error) -> OpalBase.Network.Error? {
+            if let decodingError = error as? DecodingError {
+                return OpalBase.Network.Error(reason: .decoding, message: String(describing: decodingError))
+            }
+
+            if let encodingError = error as? EncodingError {
+                return OpalBase.Network.Error(reason: .encoding, message: String(describing: encodingError))
+            }
+
+            return nil
         }
     }
 }

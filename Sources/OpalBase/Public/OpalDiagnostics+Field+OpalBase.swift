@@ -32,6 +32,13 @@ public extension OpalDiagnostics.Field {
         public static let errorCode = "error_code"
         public static let errorType = "error_type"
         public static let errorMessage = "error_message"
+        public static let errorReason = "error_reason"
+        public static let serverCode = "server_code"
+        public static let closeCode = "close_code"
+        public static let timeoutSeconds = "timeout_seconds"
+        public static let minimumVersion = "minimum_version"
+        public static let maximumVersion = "maximum_version"
+        public static let privateErrorMetadata = "error_private_metadata"
 
         public static let all: [String] = [
             operation, module, accountIndex, accountCount, usage, network, outcome, status,
@@ -40,7 +47,8 @@ public extension OpalDiagnostics.Field {
             byteCount, confirmationCount, roundTraceID, baseTraceID,
             reconnectionAttemptCount, reconnectSuccessCount,
             inflightUnaryCallCount, activeSubscriptionCount,
-            errorCode, errorType, errorMessage
+            errorCode, errorType, errorMessage, errorReason, serverCode, closeCode,
+            timeoutSeconds, minimumVersion, maximumVersion, privateErrorMetadata
         ]
     }
 
@@ -88,22 +96,17 @@ public extension OpalDiagnostics.Field {
         for error: Swift.Error,
         fallback: OpalDiagnostics.ErrorCode = .unknown
     ) -> [Self] {
-        [
-            .errorCode(.opalBaseCode(for: error, fallback: fallback)),
-            .errorType(error),
-            .errorMessage(String(describing: error))
-        ]
+        OpalBaseDiagnosticsPresentation.fields(
+            for: error,
+            errorCode: .opalBaseCode(for: error, fallback: fallback)
+        )
     }
 
     static func errorFields(
         for error: Swift.Error,
         errorCode: OpalDiagnostics.ErrorCode
     ) -> [Self] {
-        [
-            .errorCode(errorCode),
-            .errorType(error),
-            .errorMessage(String(describing: error))
-        ]
+        OpalBaseDiagnosticsPresentation.fields(for: error, errorCode: errorCode)
     }
 
     private static func diagnosticsName(
