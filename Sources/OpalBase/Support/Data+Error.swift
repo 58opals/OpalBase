@@ -13,27 +13,19 @@ extension Data {
     init(hexadecimalString: String) throws {
         var byteArray = [UInt8]()
         let unicodeScalars = hexadecimalString.unicodeScalars
-        let hexadecimalStartIndex = hexadecimalString.hasPrefix("0x") || hexadecimalString.hasPrefix("0X")
+        let hasHexadecimalPrefix = hexadecimalString.hasPrefix("0x") || hexadecimalString.hasPrefix("0X")
+        let hexadecimalStartIndex = hasHexadecimalPrefix
             ? unicodeScalars.index(unicodeScalars.startIndex, offsetBy: 2)
             : unicodeScalars.startIndex
         let hexadecimalScalars = unicodeScalars[hexadecimalStartIndex...]
+        guard !hasHexadecimalPrefix || !hexadecimalScalars.isEmpty else {
+            throw Error.cannotConvertHexadecimalStringToData
+        }
         byteArray.reserveCapacity(hexadecimalScalars.lazy.underestimatedCount)
         
         var byteBuffer: UInt8?
         for unicodeScalar in hexadecimalScalars.lazy {
-            guard unicodeScalar.value >= 48 && unicodeScalar.value <= 102 else {
-                throw Error.cannotConvertHexadecimalStringToData
-            }
-            let currentValue: UInt8
-            let scalarValue: UInt8 = UInt8(unicodeScalar.value)
-            switch scalarValue {
-            case let scalarValue where scalarValue <= 57:
-                currentValue = scalarValue - 48
-            case let scalarValue where scalarValue >= 65 && scalarValue <= 70:
-                currentValue = scalarValue - 55
-            case let scalarValue where scalarValue >= 97:
-                currentValue = scalarValue - 87
-            default:
+            guard let currentValue = unicodeScalar.hexadecimalNibble else {
                 throw Error.cannotConvertHexadecimalStringToData
             }
             if let bufferedValue = byteBuffer {
@@ -73,11 +65,26 @@ extension Data {
         guard start >= self.startIndex, start + size <= self.endIndex else { throw Error.indexOutOfRange }
         var value: T = 0
         for i in 0..<size {
-            value |= T(self[start + i]) << (i * 8)
+            value |= T(truncatingIfNeeded: self[start + i]) << (i * 8)
         }
         let newIndex = start + size
         
         return (T(littleEndian: value), newIndex)
+    }
+}
+
+private extension Unicode.Scalar {
+    var hexadecimalNibble: UInt8? {
+        switch value {
+        case 48...57:
+            return UInt8(value - 48)
+        case 65...70:
+            return UInt8(value - 55)
+        case 97...102:
+            return UInt8(value - 87)
+        default:
+            return nil
+        }
     }
 }
 

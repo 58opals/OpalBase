@@ -129,7 +129,7 @@ extension _OpalBase.Transaction {
         case .privacyRandomized:
             orderedOutputs = privacyOutputShuffle(outputs)
         case .canonicalBIP69:
-            orderedOutputs = Output.applyBIP69Ordering(outputs)
+            orderedOutputs = try Output.applyBIP69Ordering(outputs)
         }
         guard orderedOutputs.containsSameOutputs(as: outputs) else {
             throw Error.cannotCreateTransaction
@@ -191,11 +191,8 @@ private extension Array where Element == OpalBase.Transaction.Output {
 extension _OpalBase.Transaction.Output {
     var isOpReturnScript: Bool {
         let returnOpcode = ScriptOperationCode._RETURN.rawValue
-        if lockingScript.starts(with: [returnOpcode]) {
-            return true
-        }
-        
-        return lockingScript.starts(
+        return lockingScript.starts(with: [returnOpcode])
+            || lockingScript.starts(
             with: [ScriptOperationCode._0.rawValue, returnOpcode]
         )
     }

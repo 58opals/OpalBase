@@ -42,6 +42,14 @@ struct DataExtensionsValidator {
         #expect(throws: Data.Error.cannotConvertHexadecimalStringToData) {
             _ = try Data(hexadecimalString: "abc")
         }
+
+        #expect(throws: Data.Error.cannotConvertHexadecimalStringToData) {
+            _ = try Data(hexadecimalString: "0x")
+        }
+
+        #expect(throws: Data.Error.cannotConvertHexadecimalStringToData) {
+            _ = try Data(hexadecimalString: "0X")
+        }
     }
 
     @Test("reader rejects negative read lengths")
@@ -51,6 +59,17 @@ struct DataExtensionsValidator {
         #expect(throws: Data.Reader.Error.negativeReadCount(-1)) {
             _ = try reader.readData(count: -1)
         }
+    }
+
+    @Test("reader decodes signed little-endian values without trapping")
+    func readerDecodesSignedLittleEndianValues() throws {
+        var int8Reader = Data.Reader(Data([0xff]))
+        let int8Value: Int8 = try int8Reader.readLittleEndian()
+        #expect(int8Value == -1)
+
+        var int32Reader = Data.Reader(Data([0xff, 0xff, 0xff, 0xff]))
+        let int32Value: Int32 = try int32Reader.readLittleEndian()
+        #expect(int32Value == -1)
     }
 
     @Test("reader remaining data is zero-based after consuming a slice")

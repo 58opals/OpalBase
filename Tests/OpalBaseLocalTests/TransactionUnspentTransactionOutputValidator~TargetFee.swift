@@ -87,7 +87,8 @@ extension TransactionUnspentTransactionOutputValidator {
         )
         
         #expect(outputs.map(\.value) == [3_000, 1_000, 6_000])
-        #expect(outputs.first?.lockingScript == changeOutput.lockingScript)
+        let firstOutput = try #require(outputs.first)
+        #expect(firstOutput.lockingScript == changeOutput.lockingScript)
     }
     
     @Test("computeOutputsForTargetFee preserves token metadata on change outputs")

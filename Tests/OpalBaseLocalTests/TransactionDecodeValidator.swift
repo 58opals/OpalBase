@@ -144,11 +144,8 @@ struct TransactionDecodeValidator {
         malformed.append(0x00) // output count
         malformed.append(contentsOf: [0x00, 0x00, 0x00, 0x00]) // lock time
 
-        do {
+        #expect(throws: CompactSize.Error.self) {
             _ = try OpalBase.Transaction.decode(from: malformed)
-            Issue.record("Expected non-minimal CompactSize decoding to fail")
-        } catch {
-            // Expected: CompactSize encodings must be minimal in transaction wire data.
         }
     }
 
@@ -247,6 +244,40 @@ struct TransactionDecodeValidator {
         }
         #expect(throws: OpalBase.Block.Error.emptyTransactionList) {
             _ = try OpalBase.Block.decode(from: encodedEmptyBlock)
+        }
+    }
+
+    @Test("block encode rejects malformed header hash lengths")
+    func blockEncodeRejectsMalformedHeaderHashLengths() throws {
+        let previousHash = OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 2, count: 32))
+        let input = OpalBase.Transaction.Input(previousTransactionHash: previousHash,
+                                      previousTransactionOutputIndex: 0,
+                                      unlockingScript: Data([0x51]))
+        let output = OpalBase.Transaction.Output(value: 600,
+                                        lockingScript: Data([0x51]))
+        let transaction = OpalBase.Transaction(version: 1,
+                                      inputs: [input],
+                                      outputs: [output],
+                                      lockTime: 0)
+
+        let shortPreviousHashHeader = OpalBase.Block.Header(version: 2,
+                                  previousBlockHash: Data(repeating: 0xaa, count: 31),
+                                  merkleRoot: Data(repeating: 0xbb, count: 32),
+                                  time: 1,
+                                  bits: 2,
+                                  nonce: 3)
+        let shortMerkleRootHeader = OpalBase.Block.Header(version: 2,
+                                  previousBlockHash: Data(repeating: 0xaa, count: 32),
+                                  merkleRoot: Data(repeating: 0xbb, count: 31),
+                                  time: 1,
+                                  bits: 2,
+                                  nonce: 3)
+
+        #expect(throws: OpalBase.Block.Error.invalidPreviousBlockHashLength(expected: 32, actual: 31)) {
+            try OpalBase.Block(header: shortPreviousHashHeader, transactions: [transaction]).encode()
+        }
+        #expect(throws: OpalBase.Block.Error.invalidMerkleRootLength(expected: 32, actual: 31)) {
+            try OpalBase.Block(header: shortMerkleRootHeader, transactions: [transaction]).encode()
         }
     }
 }

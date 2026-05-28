@@ -107,7 +107,7 @@ extension _OpalBase.Account {
             walletReservedSupplyOutput = reservedSupplyOutput
         }
         
-        let organizedOutputs = await privacyShaper.organizeOutputs(rawOutputs)
+        let organizedOutputs = try await privacyShaper.organizeOutputs(rawOutputs)
         let feeRate = feePolicy.recommendFeeRate(for: genesis.feeContext, override: genesis.feeOverride)
         let bchInputs = try selectBCHInputs(from: spendableOutputs,
                                                             existingInputs: [genesisInput],

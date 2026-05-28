@@ -100,7 +100,7 @@ extension _OpalBase.Account {
                 throw Error.transactionBuildFailed(OpalBase.Transaction.Error.outputValueIsLessThanTheDustLimit)
             }
         }
-        let organizedTokenOutputs = await privacyShaper.organizeOutputs(plannedTokenOutputs)
+        let organizedTokenOutputs = try await privacyShaper.organizeOutputs(plannedTokenOutputs)
         
         let feeRate = feePolicy.recommendFeeRate(for: mutation.feeContext, override: mutation.feeOverride)
         let bchInputs = try selectBCHInputs(from: spendableOutputs,
@@ -125,12 +125,15 @@ extension _OpalBase.Account {
         let resolvedOrganizedTokenOutputs: [OpalBase.Transaction.Output]
         let reservedTokenChangeAddress = try makeTokenAwareAddress(for: reservedSpendContext.changeEntry)
         if let fungiblePreservationOutput, reservedTokenChangeAddress != tokenChangeAddress {
-            resolvedFungiblePreservationOutput = makeRetargetedOutput(fungiblePreservationOutput,
-                                                                      for: reservedTokenChangeAddress)
+            let retargetedFungiblePreservationOutput = makeRetargetedOutput(
+                fungiblePreservationOutput,
+                for: reservedTokenChangeAddress
+            )
+            resolvedFungiblePreservationOutput = retargetedFungiblePreservationOutput
             resolvedOrganizedTokenOutputs = replacePlannedOutputs(
                 in: organizedTokenOutputs,
                 originals: [fungiblePreservationOutput],
-                replacements: [resolvedFungiblePreservationOutput!]
+                replacements: [retargetedFungiblePreservationOutput]
             )
         } else {
             resolvedFungiblePreservationOutput = fungiblePreservationOutput

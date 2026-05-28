@@ -147,9 +147,9 @@ struct AccountCommandValidator {
 
         let initialPlan = try await account.prepareSpend(payment)
         let initialChangeEntries = await addressBook.listEntries(for: OpalBase.Key.DerivationPath.Usage.change)
-        let initialFirstChange = initialChangeEntries.first { $0.derivationPath.index == 0 }
-        #expect(initialFirstChange?.isUsed == true)
-        #expect(initialFirstChange?.isReserved == true)
+        let initialFirstChange = try #require(initialChangeEntries.first { $0.derivationPath.index == 0 })
+        #expect(initialFirstChange.isUsed == true)
+        #expect(initialFirstChange.isReserved == true)
         let gapLimit = await addressBook.readGapLimit()
         let initialUnusedCount = initialChangeEntries.filter { !$0.isUsed }.count
         #expect(initialUnusedCount >= gapLimit)
@@ -162,9 +162,9 @@ struct AccountCommandValidator {
         try await initialPlan.cancelReservation()
 
         let afterCancellationEntries = await addressBook.listEntries(for: OpalBase.Key.DerivationPath.Usage.change)
-        let restoredFirstChange = afterCancellationEntries.first { $0.derivationPath.index == 0 }
-        #expect(restoredFirstChange?.isUsed == false)
-        #expect(restoredFirstChange?.isReserved == false)
+        let restoredFirstChange = try #require(afterCancellationEntries.first { $0.derivationPath.index == 0 })
+        #expect(restoredFirstChange.isUsed == false)
+        #expect(restoredFirstChange.isReserved == false)
         let afterCancellationUnusedCount = afterCancellationEntries.filter { !$0.isUsed }.count
         #expect(afterCancellationUnusedCount >= gapLimit)
 
@@ -172,9 +172,9 @@ struct AccountCommandValidator {
         try await completedPlan.completeReservation()
 
         let afterCompletionEntries = await addressBook.listEntries(for: OpalBase.Key.DerivationPath.Usage.change)
-        let completedFirstChange = afterCompletionEntries.first { $0.derivationPath.index == 0 }
-        #expect(completedFirstChange?.isUsed == true)
-        #expect(completedFirstChange?.isReserved == false)
+        let completedFirstChange = try #require(afterCompletionEntries.first { $0.derivationPath.index == 0 })
+        #expect(completedFirstChange.isUsed == true)
+        #expect(completedFirstChange.isReserved == false)
         let afterCompletionUnusedCount = afterCompletionEntries.filter { !$0.isUsed }.count
         #expect(afterCompletionUnusedCount >= gapLimit)
         #expect(await addressBook.listSpendableUTXOs().contains(utxo) == false)
@@ -350,8 +350,10 @@ struct AccountCommandValidator {
         }
 
         let changeEntries = await addressBook.listEntries(for: .change)
-        let firstChangeEntry = changeEntries.first { $0.derivationPath.index == changeEntry.derivationPath.index }
-        #expect(firstChangeEntry?.isReserved == false)
+        let firstChangeEntry = try #require(
+            changeEntries.first { $0.derivationPath.index == changeEntry.derivationPath.index }
+        )
+        #expect(firstChangeEntry.isReserved == false)
         #expect(await addressBook.readActiveSpendReservations().isEmpty)
     }
 
@@ -391,8 +393,9 @@ struct AccountCommandValidator {
         let completedChangeEntry = changeEntries.first {
             $0.derivationPath.index == staleChangeEntry.derivationPath.index
         }
-        #expect(completedChangeEntry?.isUsed == true)
-        #expect(completedChangeEntry?.isReserved == false)
+        let completedEntry = try #require(completedChangeEntry)
+        #expect(completedEntry.isUsed == true)
+        #expect(completedEntry.isReserved == false)
 
         try await addressBook.releaseSpendReservation(secondReservation, outcome: .cancelled)
     }

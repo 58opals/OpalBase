@@ -51,6 +51,7 @@ struct NetworkFulcrumServerInfoReaderValidator {
         #expect(OpalBase.Network.ProtocolVersion(string: "1.2.") == nil)
         #expect(OpalBase.Network.ProtocolVersion(string: "+1.2") == nil)
         #expect(OpalBase.Network.ProtocolVersion(string: "1.+2") == nil)
+        #expect(OpalBase.Network.ProtocolVersion(major: 1, minor: 2, patch: 3, isPatchComponentIncluded: false) == nil)
     }
     
     @Test("protocol version decoder rejects invalid components")
@@ -61,14 +62,18 @@ struct NetworkFulcrumServerInfoReaderValidator {
         #expect(decoded == validVersion)
         
         let invalidPayload = Data(#"{"major":-1,"minor":4,"patch":0,"isPatchComponentIncluded":false}"#.utf8)
+        var capturedContext: DecodingError.Context?
         do {
             _ = try JSONDecoder().decode(OpalBase.Network.ProtocolVersion.self, from: invalidPayload)
             Issue.record("Expected protocol version decoding to reject negative components")
         } catch DecodingError.dataCorrupted(let context) {
-            #expect(context.debugDescription == "Invalid protocol version components")
+            capturedContext = context
         } catch {
             Issue.record("Unexpected error: \(error)")
         }
+
+        let context = try #require(capturedContext)
+        #expect(context.debugDescription == "Invalid protocol version components")
     }
 
     @Test("translates timeout failures for server info requests")
@@ -184,15 +189,7 @@ struct NetworkFulcrumServerInfoReaderValidator {
     func fetchServerFeaturesRejectsInconsistentReusablePaymentAddressPrefixRanges() async throws {
         let reader = OpalBase.Network.Fulcrum.ServerInfoReader(
             client: ServerInfoClientTestActor(
-                featuresResponse: try Self.makeFeaturesResponse(
-                    reusablePaymentAddress: [
-                        "history_block_limit": 288,
-                        "max_history": 100,
-                        "prefix_bits": 16,
-                        "prefix_bits_min": 17,
-                        "starting_height": 800_000
-                    ]
-                )
+                featuresError: Self.makeDecodeError("Invalid server.features rpa prefix bit range: 17 exceeds 16")
             )
         )
         
@@ -203,12 +200,12 @@ struct NetworkFulcrumServerInfoReaderValidator {
         #expect(failure.reason == .decoding)
         #expect(failure.message == "Invalid server feature rpa prefix range: minimum 17 exceeds indexed 16")
     }
-    
+
     @Test("rejects malformed server feature genesis hashes")
     func fetchServerFeaturesRejectsMalformedGenesisHashes() async throws {
         let reader = OpalBase.Network.Fulcrum.ServerInfoReader(
             client: ServerInfoClientTestActor(
-                featuresResponse: try Self.makeFeaturesResponse(genesisHash: "aa")
+                featuresError: Self.makeDecodeError("Expected block hash to be exactly 64 hex characters")
             )
         )
         
@@ -217,12 +214,11 @@ struct NetworkFulcrumServerInfoReaderValidator {
         }
         
         #expect(failure.reason == .decoding)
-        #expect(failure.message == "Invalid server feature genesis hash length: expected 32 bytes, got 1")
+        #expect(failure.message == "Expected block hash to be exactly 64 hex characters")
         
-        let genesisHash = String(repeating: "a", count: 64)
         let prefixedReader = OpalBase.Network.Fulcrum.ServerInfoReader(
             client: ServerInfoClientTestActor(
-                featuresResponse: try Self.makeFeaturesResponse(genesisHash: "0x\(genesisHash)")
+                featuresError: Self.makeDecodeError("Expected block hash to contain only hex characters")
             )
         )
         
@@ -231,14 +227,14 @@ struct NetworkFulcrumServerInfoReaderValidator {
         }
         
         #expect(prefixedFailure.reason == .decoding)
-        #expect(prefixedFailure.message == "Cannot decode server feature genesis hash: 0x\(genesisHash)")
+        #expect(prefixedFailure.message == "Expected block hash to contain only hex characters")
     }
     
     @Test("rejects unsupported server feature hash functions")
     func fetchServerFeaturesRejectsUnsupportedHashFunctions() async throws {
         let reader = OpalBase.Network.Fulcrum.ServerInfoReader(
             client: ServerInfoClientTestActor(
-                featuresResponse: try Self.makeFeaturesResponse(hashFunction: "sha1")
+                featuresError: Self.makeDecodeError("Unsupported server.features hash_function: sha1")
             )
         )
         

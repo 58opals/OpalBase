@@ -11,7 +11,6 @@ extension _OpalBase.CashTokens {
         private static let fungibleAmountBit: UInt8 = 0x10
         private static let nonFungibleCapabilityMask: UInt8 = 0x0F
         private static let minimumPrefixLength = 34
-        private static let maximumFungibleAmount: UInt64 = 0x7fff_ffff_ffff_ffff
         private static let categoryIdentifierByteCount = 32
         
         public static func encode(tokenData: TokenData) throws -> Data {
@@ -35,7 +34,7 @@ extension _OpalBase.CashTokens {
             }
             
             if let amount = tokenData.amount {
-                guard amount >= 1, amount <= maximumFungibleAmount else {
+                guard amount >= 1, amount <= TokenData.maximumFungibleAmount else {
                     throw Error.invalidTokenPrefixFungibleAmount
                 }
                 tokenBitfield |= fungibleAmountBit
@@ -117,7 +116,7 @@ extension _OpalBase.CashTokens {
             var amount: UInt64?
             if hasFungibleAmount {
                 let parsedAmount = try readCanonicalCompactSize(from: &reader)
-                guard parsedAmount >= 1, parsedAmount <= maximumFungibleAmount else {
+                guard parsedAmount >= 1, parsedAmount <= TokenData.maximumFungibleAmount else {
                     throw Error.invalidTokenPrefixFungibleAmount
                 }
                 amount = parsedAmount
@@ -146,10 +145,6 @@ extension _OpalBase.CashTokens {
                 throw Error.invalidTokenPrefixCompactSize
             }
             
-            let canonicalLength = CompactSize(value: compactSize.value).encode().count
-            guard bytesRead == canonicalLength else {
-                throw Error.invalidTokenPrefixCompactSize
-            }
             try reader.advance(by: bytesRead)
             return compactSize.value
         }

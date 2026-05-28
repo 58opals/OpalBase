@@ -163,11 +163,12 @@ struct AccountTokenCommitmentMutationValidator {
             bchAmount: try OpalBase.Satoshi(1)
         )
 
-        do {
+        await #expect(
+            throws: OpalBase.Account.Error.transactionBuildFailed(
+                OpalBase.Transaction.Error.outputValueIsLessThanTheDustLimit
+            )
+        ) {
             _ = try await account.prepareTokenCommitmentMutation(mutation)
-            Issue.record("Expected dust token mutation destination output to fail")
-        } catch let error as OpalBase.Account.Error {
-            #expect(error == .transactionBuildFailed(OpalBase.Transaction.Error.outputValueIsLessThanTheDustLimit))
         }
 
         #expect(await account.addressBook.readActiveSpendReservations().isEmpty)

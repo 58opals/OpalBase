@@ -206,4 +206,13 @@ struct HedgeFundingFacadeValidator {
             HedgeFixtureData.expectedPayoutSatoshis)
         #expect(summary.dataDocumentJSON.contains(#""settlementType":"maturation""#))
     }
+
+    @Test("transaction hash parser rejects RPC-prefixed hex")
+    func transactionHashParserRejectsRPCPrefixedHex() {
+        let prefixedHash = "0x\(HedgeFixtureData.settlementTransactionHashHex)"
+
+        #expect(throws: OpalBase.Hedge.Error.invalidTransactionHash(prefixedHash)) {
+            _ = try OpalBase.Hedge.transactionHash(fromExternalHex: prefixedHash)
+        }
+    }
 }

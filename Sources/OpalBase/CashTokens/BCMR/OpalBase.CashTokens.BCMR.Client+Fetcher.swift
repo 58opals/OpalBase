@@ -48,13 +48,13 @@ extension OpalBase.CashTokens.BCMR.Client.Fetcher {
         case invalidMaximumBytes(Int)
     }
     
-    public func fetchRegistry(from uri: String) async throws -> RegistryFetchResult {
-        let resolvedResourceLocation = try resolveRegistryLocation(from: uri)
+    public func fetchRegistry(from resourceIdentifier: String) async throws -> RegistryFetchResult {
+        let resolvedResourceLocation = try resolveRegistryLocation(from: resourceIdentifier)
         return try await fetchRegistry(from: resolvedResourceLocation, remainingRedirects: 5)
     }
 
-    public func fetchRegistryBytes(from uri: String) async throws -> Data {
-        try await fetchRegistry(from: uri).bytes
+    public func fetchRegistryBytes(from resourceIdentifier: String) async throws -> Data {
+        try await fetchRegistry(from: resourceIdentifier).bytes
     }
 }
 
@@ -74,7 +74,7 @@ private extension OpalBase.CashTokens.BCMR.Client.Fetcher {
         var permanentRedirectLocation: URL?
         
         while true {
-            try validateFetchScheme(for: currentResourceLocation)
+            try validateFetchLocation(currentResourceLocation)
             let request = URLRequest(url: currentResourceLocation)
             let (bytes, response) = try await urlSession.bytes(
                 for: request,
@@ -83,14 +83,14 @@ private extension OpalBase.CashTokens.BCMR.Client.Fetcher {
             guard let response = response as? HTTPURLResponse else {
                 throw Error.unexpectedResponseStatus(-1)
             }
-            try validateFetchScheme(for: response.url ?? currentResourceLocation)
+            try validateFetchLocation(response.url ?? currentResourceLocation)
             
             if let redirectKind = RedirectKind(statusCode: response.statusCode) {
                 guard redirectsRemaining > 0 else {
                     throw Error.unexpectedResponseStatus(response.statusCode)
                 }
                 let location = try resolveRedirectLocation(from: response, currentResourceLocation: currentResourceLocation)
-                if redirectKind.recordsPermanentLocation {
+                if case .permanent = redirectKind {
                     permanentRedirectLocation = permanentRedirectLocation ?? location
                 }
                 redirectsRemaining -= 1
@@ -131,23 +131,28 @@ private extension OpalBase.CashTokens.BCMR.Client.Fetcher {
         }
     }
     
-    func resolveRegistryLocation(from uri: String) throws -> URL {
-        let trimmedURI = uri.trimmingCharacters(in: .whitespacesAndNewlines)
+    func resolveRegistryLocation(from resourceIdentifier: String) throws -> URL {
+        let trimmedURI = resourceIdentifier.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedURI.isEmpty else {
-            throw Error.invalidResourceIdentifier(uri)
+            throw Error.invalidResourceIdentifier(resourceIdentifier)
         }
 
         if let resourceComponents = URLComponents(string: trimmedURI),
            let scheme = resourceComponents.scheme?.lowercased() {
-            return try resolveRegistryLocation(
-                from: resourceComponents,
-                scheme: scheme,
-                originalURI: trimmedURI
-            )
+            if scheme == "https" || scheme == "ipfs" {
+                return try resolveRegistryLocation(
+                    from: resourceComponents,
+                    scheme: scheme,
+                    originalURI: trimmedURI
+                )
+            }
+            if trimmedURI.contains("://") {
+                throw Error.unsupportedScheme(scheme)
+            }
         }
 
         guard let bareComponents = URLComponents(string: "https://\(trimmedURI)") else {
-            throw Error.invalidResourceIdentifier(uri)
+            throw Error.invalidResourceIdentifier(resourceIdentifier)
         }
         return try resolveHTTPSRegistryLocation(from: bareComponents, originalURI: trimmedURI)
     }
@@ -176,7 +181,9 @@ private extension OpalBase.CashTokens.BCMR.Client.Fetcher {
     ) throws -> URL {
         guard resourceComponents.scheme?.lowercased() == "https",
               let host = resourceComponents.host,
-              !host.isEmpty
+              !host.isEmpty,
+              resourceComponents.user == nil,
+              resourceComponents.password == nil
         else {
             throw Error.invalidResourceIdentifier(originalURI)
         }
@@ -195,13 +202,19 @@ private extension OpalBase.CashTokens.BCMR.Client.Fetcher {
     func resolveInterPlanetaryFileSystemGatewayLocation(
         from interPlanetaryFileSystemLocation: URL
     ) throws -> URL {
+        guard interPlanetaryFileSystemLocation.user == nil,
+              interPlanetaryFileSystemLocation.password == nil else {
+            throw Error.invalidResourceIdentifier(interPlanetaryFileSystemLocation.absoluteString)
+        }
         guard let gateway = ipfsGateway else {
             throw Error.missingInterPlanetaryFileSystemGateway
         }
         guard let gatewayScheme = gateway.scheme,
               gatewayScheme.lowercased() == "https",
               let gatewayHost = gateway.host,
-              !gatewayHost.isEmpty else {
+              !gatewayHost.isEmpty,
+              gateway.user == nil,
+              gateway.password == nil else {
             throw Error.invalidInterPlanetaryFileSystemGateway(gateway)
         }
         
@@ -210,24 +223,26 @@ private extension OpalBase.CashTokens.BCMR.Client.Fetcher {
         gatewayComponents.host = gatewayHost
         gatewayComponents.port = gateway.port
         
-        var pathComponents: [String] = .init()
-        let gatewayPath = gateway.path.split(separator: "/").map(String.init)
-        pathComponents.append(contentsOf: gatewayPath)
-        pathComponents.append("ipfs")
-        
         let interPlanetaryPathComponents = interPlanetaryFileSystemLocation.path
             .split(separator: "/")
             .map(String.init)
+        guard !containsPathTraversal(interPlanetaryPathComponents) else {
+            throw Error.invalidResourceIdentifier(interPlanetaryFileSystemLocation.absoluteString)
+        }
+        let contentPathComponents: [String]
         if let host = interPlanetaryFileSystemLocation.host {
-            pathComponents.append(host)
-            pathComponents.append(contentsOf: interPlanetaryPathComponents)
-        } else if let firstComponent = interPlanetaryPathComponents.first {
-            pathComponents.append(firstComponent)
-            pathComponents.append(contentsOf: interPlanetaryPathComponents.dropFirst())
+            contentPathComponents = [host] + interPlanetaryPathComponents
+        } else if !interPlanetaryPathComponents.isEmpty {
+            contentPathComponents = interPlanetaryPathComponents
         } else {
             throw Error.invalidResourceIdentifier(interPlanetaryFileSystemLocation.absoluteString)
         }
         
+        let gatewayPathComponents = gateway.path.split(separator: "/").map(String.init)
+        guard !containsPathTraversal(gatewayPathComponents) else {
+            throw Error.invalidInterPlanetaryFileSystemGateway(gateway)
+        }
+        let pathComponents = gatewayPathComponents + ["ipfs"] + contentPathComponents
         gatewayComponents.path = "/" + pathComponents.joined(separator: "/")
         gatewayComponents.query = interPlanetaryFileSystemLocation.query
         
@@ -235,6 +250,10 @@ private extension OpalBase.CashTokens.BCMR.Client.Fetcher {
             throw Error.invalidInterPlanetaryFileSystemGateway(gateway)
         }
         return resolvedResourceLocation
+    }
+
+    func containsPathTraversal(_ pathComponents: [String]) -> Bool {
+        pathComponents.contains { $0 == "." || $0 == ".." }
     }
     
     func resolveRedirectLocation(
@@ -246,41 +265,56 @@ private extension OpalBase.CashTokens.BCMR.Client.Fetcher {
         }
         if let locationResource = URL(string: locationValue, relativeTo: currentResourceLocation) {
             let resolvedLocation = locationResource.absoluteURL
-            try validateFetchScheme(for: resolvedLocation)
+            try validateFetchLocation(resolvedLocation)
             return resolvedLocation
         }
         throw Error.missingRedirectLocation
     }
 
-    func validateFetchScheme(for resourceLocation: URL) throws {
+    func validateFetchLocation(_ resourceLocation: URL) throws {
         let scheme = resourceLocation.scheme?.lowercased()
         guard scheme == "https" else {
             throw Error.unsupportedScheme(scheme ?? "")
+        }
+        guard let host = resourceLocation.host, !host.isEmpty else {
+            throw Error.invalidResourceIdentifier(resourceLocation.absoluteString)
+        }
+        guard resourceLocation.user == nil, resourceLocation.password == nil else {
+            throw Error.invalidResourceIdentifier(resourceLocation.absoluteString)
         }
     }
     
     func parseCacheExpiration(from response: HTTPURLResponse, now: Date) -> Date? {
         guard let cacheControl = response.value(forHTTPHeaderField: "Cache-Control") else { return nil }
-        let directives = cacheControl.split(separator: ",").map {
-            $0.trimmingCharacters(in: .whitespaces).lowercased()
-        }
-        let parsedDirectives = directives.map(parseCacheControlDirective)
-        guard !parsedDirectives.contains(where: { $0.name == "no-store" }) else { return nil }
-        guard !parsedDirectives.contains(where: { $0.name == "no-cache" }) else { return nil }
+        var cacheExpiration: Date?
 
-        for directive in parsedDirectives where directive.name == "max-age" {
-            if let value = directive.value {
-                if let seconds = TimeInterval(value), seconds >= 0 {
-                    return now.addingTimeInterval(seconds)
+        for directive in cacheControl.split(separator: ",") {
+            let parsedDirective = parseCacheControlDirective(String(directive))
+            switch parsedDirective.name {
+            case "no-store", "no-cache":
+                return nil
+            case "max-age" where cacheExpiration == nil:
+                if let value = parsedDirective.value,
+                   isCacheControlDeltaSeconds(value),
+                   let seconds = TimeInterval(value),
+                   seconds.isFinite {
+                    cacheExpiration = now.addingTimeInterval(seconds)
                 }
+            default:
+                break
             }
         }
-        return nil
+
+        return cacheExpiration
+    }
+
+    func isCacheControlDeltaSeconds(_ value: String) -> Bool {
+        !value.isEmpty && value.utf8.allSatisfy { (0x30...0x39).contains($0) }
     }
 
     func parseCacheControlDirective(_ directive: String) -> (name: String, value: String?) {
         let parts = directive.split(separator: "=", maxSplits: 1, omittingEmptySubsequences: false)
-        let name = parts.first?.trimmingCharacters(in: .whitespaces) ?? directive
+        let name = (parts.first?.trimmingCharacters(in: .whitespaces) ?? directive).lowercased()
         let value = parts.dropFirst().first?.trimmingCharacters(in: .whitespaces)
         return (name: name, value: value)
     }
@@ -300,14 +334,6 @@ private extension OpalBase.CashTokens.BCMR.Client.Fetcher {
             }
         }
 
-        var recordsPermanentLocation: Bool {
-            switch self {
-            case .permanent:
-                return true
-            case .temporary:
-                return false
-            }
-        }
     }
 }
 

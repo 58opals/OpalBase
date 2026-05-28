@@ -13,40 +13,40 @@ extension _OpalBase.Network {
             throw FulcrumErrorTranslator.translate(error)
         }
     }
-    
-    static func checkFailureEquivalence(_ left: Swift.Error, _ right: Swift.Error) -> Bool {
-        FulcrumErrorTranslator.checkFailureEquivalence(left, right)
+
+    static func areFailuresEquivalent(_ left: Swift.Error, _ right: Swift.Error) -> Bool {
+        FulcrumErrorTranslator.areFailuresEquivalent(left, right)
     }
-    
+
     enum FulcrumErrorTranslator {
         private static func describe(_ error: Swift.Error?) -> String? {
             guard let error else { return nil }
             return String(describing: error)
         }
-        
+
         static func translate(_ error: Swift.Error) -> OpalBase.Network.Error {
             if let failure = error as? OpalBase.Network.Error { return failure }
-            
+
             if let dataError = error as? Data.Error {
                 return OpalBase.Network.Error(reason: .decoding, message: describe(dataError))
             }
-            
+
             if let codingFailure = translateFoundationCodingError(error) {
                 return codingFailure
             }
-            
-            if let decodeMessage = normalizeSwiftFulcrumResultDecodeMessage(String(describing: error)) {
-                return OpalBase.Network.Error(reason: .decoding, message: decodeMessage)
+
+            if let decodeFailure = translateSwiftFulcrumResultDecodeMessage(String(describing: error)) {
+                return OpalBase.Network.Error(reason: decodeFailure.reason, message: decodeFailure.message)
             }
-            
+
             if error is CancellationError {
                 return OpalBase.Network.Error(reason: .cancelled, message: "Operation cancelled")
             }
-            
+
             guard let fulcrumError = error as? SwiftFulcrum.Client.Error else {
                 return OpalBase.Network.Error(reason: .unknown, message: String(describing: error))
             }
-            
+
             switch fulcrumError {
             case .transport(let transport):
                 return translateTransport(transport)
@@ -62,12 +62,12 @@ extension _OpalBase.Network {
                 return translateClient(clientError)
             }
         }
-        
-        static func checkFailureEquivalence(_ left: Swift.Error, _ right: Swift.Error) -> Bool {
+
+        static func areFailuresEquivalent(_ left: Swift.Error, _ right: Swift.Error) -> Bool {
             translate(left) == translate(right)
         }
-        
-        static func checkCancellation(_ error: Swift.Error) -> Bool {
+
+        static func isCancellation(_ error: Swift.Error) -> Bool {
             if error is CancellationError { return true }
             if let failure = error as? OpalBase.Network.Error { return failure.reason == .cancelled }
             if let fulcrumError = error as? SwiftFulcrum.Client.Error {
@@ -82,7 +82,7 @@ extension _OpalBase.Network {
             }
             return false
         }
-        
+
         private static func translateTransport(_ transport: SwiftFulcrum.Client.Error.Transport) -> OpalBase.Network.Error {
             switch transport {
             case .setupFailed:
@@ -101,7 +101,7 @@ extension _OpalBase.Network {
                 return OpalBase.Network.Error(reason: .timeout, message: "Heartbeat timed out")
             }
         }
-        
+
         private static func translateNetwork(_ network: SwiftFulcrum.Client.Error.Network) -> OpalBase.Network.Error {
             switch network {
             case .tlsNegotiationFailed(let underlying):
@@ -111,34 +111,53 @@ extension _OpalBase.Network {
                 )
             }
         }
-        
+
         private static func translateCoding(_ coding: SwiftFulcrum.Client.Error.Coding) -> OpalBase.Network.Error {
             switch coding {
             case .encode(let underlying):
                 return OpalBase.Network.Error(reason: .encoding, message: describe(underlying))
             case .decode(let underlying):
-                return OpalBase.Network.Error(
-                    reason: .decoding,
-                    message: describe(underlying).flatMap(normalizeSwiftFulcrumResultDecodeMessage) ?? describe(underlying)
-                )
+                guard let description = describe(underlying) else {
+                    return OpalBase.Network.Error(reason: .decoding)
+                }
+                if let decodeFailure = translateSwiftFulcrumResultDecodeMessage(description) {
+                    return OpalBase.Network.Error(reason: decodeFailure.reason, message: decodeFailure.message)
+                }
+                return OpalBase.Network.Error(reason: .decoding, message: description)
             }
         }
-        
-        private static func normalizeSwiftFulcrumResultDecodeMessage(_ description: String) -> String? {
+
+        private struct TranslatedDecodeFailure {
+            let reason: OpalBase.Network.Error.Reason
+            let message: String
+        }
+
+        private static func translateSwiftFulcrumResultDecodeMessage(_ description: String) -> TranslatedDecodeFailure? {
             let prefixes = [".unexpectedFormat(\"", "unexpectedFormat(\""]
             guard let prefix = prefixes.first(where: { description.hasPrefix($0) }),
                   description.hasSuffix("\")") else {
                 return nil
             }
-            
+
             let start = description.index(description.startIndex, offsetBy: prefix.count)
             let end = description.index(description.endIndex, offsetBy: -2)
             let message = String(description[start..<end])
-            
-            return normalizeSwiftFulcrumDecodeMessage(message) ?? message
+
+            return translateSwiftFulcrumDecodeMessage(message)
         }
-        
-        private static func normalizeSwiftFulcrumDecodeMessage(_ message: String) -> String? {
+
+        private static func translateSwiftFulcrumDecodeMessage(_ message: String) -> TranslatedDecodeFailure {
+            if let hashFunction = value(in: message, after: "Unsupported server.features hash_function: ") {
+                return .init(
+                    reason: .protocolViolation,
+                    message: "Unsupported server feature hash function: \(hashFunction)"
+                )
+            }
+
+            if let prefixRangeMessage = translateReusablePaymentAddressPrefixRangeMessage(message) {
+                return .init(reason: .decoding, message: prefixRangeMessage)
+            }
+
             let mappings = [
                 ("Invalid mempoolminfee: ", "Invalid mempool minimum fee: "),
                 ("Invalid minrelaytxfee: ", "Invalid minimum relay transaction fee: "),
@@ -155,15 +174,31 @@ extension _OpalBase.Network {
                 ("Invalid server.features rpa prefix_bits_min: ", "Invalid server feature rpa minimum prefix bits: "),
                 ("Invalid server.features rpa starting_height: ", "Invalid server feature rpa starting height: ")
             ]
-            
+
             for (wirePrefix, publicPrefix) in mappings {
                 guard message.hasPrefix(wirePrefix) else { continue }
-                return publicPrefix + message.dropFirst(wirePrefix.count)
+                return .init(reason: .decoding, message: publicPrefix + message.dropFirst(wirePrefix.count))
             }
-            
-            return nil
+
+            return .init(reason: .decoding, message: message)
         }
-        
+
+        private static func translateReusablePaymentAddressPrefixRangeMessage(_ message: String) -> String? {
+            guard let suffix = value(in: message, after: "Invalid server.features rpa prefix bit range: "),
+                  let separatorRange = suffix.range(of: " exceeds ") else {
+                return nil
+            }
+
+            let minimum = suffix[..<separatorRange.lowerBound]
+            let indexed = suffix[separatorRange.upperBound...]
+            return "Invalid server feature rpa prefix range: minimum \(minimum) exceeds indexed \(indexed)"
+        }
+
+        private static func value(in message: String, after prefix: String) -> String? {
+            guard message.hasPrefix(prefix) else { return nil }
+            return String(message.dropFirst(prefix.count))
+        }
+
         private static func translateClient(_ client: SwiftFulcrum.Client.Error.ClientIssue) -> OpalBase.Network.Error {
             switch client {
             case .urlNotFound:
@@ -207,16 +242,16 @@ extension _OpalBase.Network {
                 if underlying is CancellationError {
                     return OpalBase.Network.Error(reason: .cancelled, message: "Operation cancelled")
                 }
-                
+
                 if let codingFailure = translateFoundationCodingError(underlying) {
                     return codingFailure
                 }
-                
+
                 let cocoaError = underlying as NSError
                 if cocoaError.domain == NSCocoaErrorDomain && cocoaError.code == 3840 {
                     return OpalBase.Network.Error(reason: .decoding, message: describe(underlying))
                 }
-                
+
                 return OpalBase.Network.Error(reason: .unknown, message: describe(underlying))
             }
         }
@@ -237,6 +272,6 @@ extension _OpalBase.Network {
 
 extension Swift.Error {
     var isCancellationError: Bool {
-        OpalBase.Network.FulcrumErrorTranslator.checkCancellation(self)
+        OpalBase.Network.FulcrumErrorTranslator.isCancellation(self)
     }
 }

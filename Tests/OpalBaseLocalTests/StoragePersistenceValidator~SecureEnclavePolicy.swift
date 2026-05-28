@@ -26,9 +26,9 @@ extension StoragePersistenceValidator {
 
         #expect(protectionMode == .software)
 
-        let restored = try await storage.loadMnemonicState()
-        #expect(restored?.mnemonic.passphrase == "software-mode")
-        #expect(restored?.protectionMode == .software)
+        let restored = try #require(try await storage.loadMnemonicState())
+        #expect(restored.mnemonic.passphrase == "software-mode")
+        #expect(restored.protectionMode == .software)
     }
 
     @Test("requireSecureEnclave fails closed when only plaintext protection is available")

@@ -4,7 +4,6 @@ import Foundation
 
 extension _OpalBase.CashTokens {
     public actor MetadataRepository {
-        private static let safeMetadataURLSchemes: Set<String> = ["https", "ipfs"]
         private var byCategory: [OpalBase.CashTokens.CategoryID: OpalBase.CashTokens.Metadata] = .init()
 
         public init() {}
@@ -51,31 +50,21 @@ extension _OpalBase.CashTokens {
                 name: metadata.name,
                 symbol: metadata.symbol,
                 decimals: metadata.decimals,
-                iconURL: makeSafeURL(metadata.iconURL),
+                iconURL: OpalBase.CashTokens.Metadata.makeSafeMetadataURL(metadata.iconURL),
                 lastUpdated: metadata.lastUpdated,
                 source: makeSafeSource(metadata.source),
                 description: metadata.description,
-                webURL: makeSafeURL(metadata.webURL),
+                webURL: OpalBase.CashTokens.Metadata.makeSafeMetadataURL(metadata.webURL),
                 identity: metadata.identity,
                 authbase: metadata.authbase,
-                registryURL: makeSafeURL(metadata.registryURL)
+                registryURL: OpalBase.CashTokens.Metadata.makeSafeMetadataURL(metadata.registryURL)
             )
-        }
-
-        private func makeSafeURL(_ url: URL?) -> URL? {
-            guard let url,
-                  let scheme = url.scheme?.lowercased(),
-                  Self.safeMetadataURLSchemes.contains(scheme),
-                  let host = url.host,
-                  !host.isEmpty
-            else { return nil }
-            return url
         }
 
         private func makeSafeSource(_ source: OpalBase.CashTokens.Metadata.Source) -> OpalBase.CashTokens.Metadata.Source {
             switch source {
             case .dns(let url):
-                guard let safeURL = makeSafeURL(url) else { return .embedded }
+                guard let safeURL = OpalBase.CashTokens.Metadata.makeSafeMetadataURL(url) else { return .embedded }
                 return .dns(safeURL)
             case .embedded, .chain:
                 return source

@@ -8,24 +8,26 @@ extension _OpalBase.Transaction.Output {
     /// - Returns: The outputs sorted by value, then by the serialized locking
     ///   bytecode field. Token-bearing outputs include their CashTokens prefix
     ///   in that bytecode field.
-    static func applyBIP69Ordering(_ outputs: [OpalBase.Transaction.Output]) -> [OpalBase.Transaction.Output] {
-        return outputs.sorted { lhs, rhs in
-            if lhs.value != rhs.value {
-                return lhs.value < rhs.value
+    static func applyBIP69Ordering(_ outputs: [OpalBase.Transaction.Output]) throws -> [OpalBase.Transaction.Output] {
+        let sortableOutputs = try outputs.map { output in
+            (output: output, serializedLockingBytecode: try output.serializedLockingBytecodeForOrdering())
+        }
+
+        return sortableOutputs.sorted(by: { lhs, rhs in
+            if lhs.output.value != rhs.output.value {
+                return lhs.output.value < rhs.output.value
             }
 
-            let lhsBytecode = lhs.serializedLockingBytecodeForOrdering
-            let rhsBytecode = rhs.serializedLockingBytecodeForOrdering
-            if lhsBytecode != rhsBytecode {
-                return lhsBytecode.lexicographicallyPrecedes(rhsBytecode)
+            if lhs.serializedLockingBytecode != rhs.serializedLockingBytecode {
+                return lhs.serializedLockingBytecode.lexicographicallyPrecedes(rhs.serializedLockingBytecode)
             }
 
             return false
-        }
+        }).map(\.output)
     }
 
-    private var serializedLockingBytecodeForOrdering: Data {
-        let tokenPrefixData = (try? makeTokenPrefixData()) ?? Data()
+    private func serializedLockingBytecodeForOrdering() throws -> Data {
+        let tokenPrefixData = try makeTokenPrefixData()
         return tokenPrefixData + lockingScript
     }
 }

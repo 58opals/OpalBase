@@ -3,7 +3,7 @@
 import Foundation
 
 extension _OpalBase.Script {
-    enum Error: Swift.Error {
+    enum Error: Swift.Error, Equatable {
         case cannotDecodeScript
         
         case invalidP2PKScript

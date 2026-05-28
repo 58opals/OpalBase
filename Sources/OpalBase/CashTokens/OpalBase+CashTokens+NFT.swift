@@ -31,6 +31,11 @@ extension _OpalBase.CashTokens {
             let commitmentString = try container.decode(String.self, forKey: .commitment)
             let commitment: Data
             do {
+                guard !commitmentString.hasPrefix("0x"),
+                      !commitmentString.hasPrefix("0X")
+                else {
+                    throw Error.invalidHexadecimalString
+                }
                 commitment = try Data(hexadecimalString: commitmentString)
             } catch {
                 throw Error.invalidHexadecimalString

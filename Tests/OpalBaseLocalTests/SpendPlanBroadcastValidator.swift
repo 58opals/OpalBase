@@ -30,8 +30,9 @@ struct SpendPlanBroadcastValidator {
         let expectedChange = selectedInput.value - paymentAmount.uint64 - result.fee.uint64
 
         #expect(expectedChange > paymentAmount.uint64)
-        #expect(result.change?.derivedAddress.address == firstChange.address)
-        #expect(result.change?.amount.uint64 == expectedChange)
+        let change = try #require(result.change)
+        #expect(change.derivedAddress.address == firstChange.address)
+        #expect(change.amount.uint64 == expectedChange)
     }
 
     @Test("buildAndBroadcast completes spend reservations on success")
@@ -63,9 +64,9 @@ struct SpendPlanBroadcastValidator {
         #expect(result.hash == expectedHash)
 
         let changeEntries = await account.addressBook.listEntries(for: .change)
-        let firstChange = changeEntries.first { $0.derivationPath.index == 0 }
-        #expect(firstChange?.isUsed == true)
-        #expect(firstChange?.isReserved == false)
+        let firstChange = try #require(changeEntries.first { $0.derivationPath.index == 0 })
+        #expect(firstChange.isUsed == true)
+        #expect(firstChange.isReserved == false)
         #expect(await account.addressBook.listUTXOs().contains(selectedInput) == false)
         #expect(await account.addressBook.listSpendableUTXOs().contains(selectedInput) == false)
     }
@@ -102,13 +103,13 @@ struct SpendPlanBroadcastValidator {
         }
 
         let changeEntries = await account.addressBook.listEntries(for: .change)
-        let firstChange = changeEntries.first { $0.derivationPath.index == 0 }
-        #expect(firstChange?.isReserved == true)
+        let firstChange = try #require(changeEntries.first { $0.derivationPath.index == 0 })
+        #expect(firstChange.isReserved == true)
 
         try await plan.cancelReservation()
         let afterCancelEntries = await account.addressBook.listEntries(for: .change)
-        let released = afterCancelEntries.first { $0.derivationPath.index == 0 }
-        #expect(released?.isReserved == false)
+        let released = try #require(afterCancelEntries.first { $0.derivationPath.index == 0 })
+        #expect(released.isReserved == false)
     }
 
     @Test("token spend buildAndBroadcast supports success and failure mapping")

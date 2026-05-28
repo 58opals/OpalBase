@@ -173,7 +173,7 @@ extension _OpalBase.Address.Book {
 
 // MARK: - Mark
 extension _OpalBase.Address.Book {
-    func checkUsageStatus(of address: OpalBase.Address) throws -> Bool {
+    func isAddressUsed(_ address: OpalBase.Address) throws -> Bool {
         guard let entry = inventory.findEntry(for: address) else { throw Error.addressNotFound }
         return entry.isUsed
     }

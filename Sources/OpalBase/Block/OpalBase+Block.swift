@@ -15,6 +15,19 @@ extension OpalBase {
         
         func encode() throws -> Data {
             guard !transactions.isEmpty else { throw Error.emptyTransactionList }
+            let expectedHeaderHashLength = 32
+            guard header.previousBlockHash.count == expectedHeaderHashLength else {
+                throw Error.invalidPreviousBlockHashLength(
+                    expected: expectedHeaderHashLength,
+                    actual: header.previousBlockHash.count
+                )
+            }
+            guard header.merkleRoot.count == expectedHeaderHashLength else {
+                throw Error.invalidMerkleRootLength(
+                    expected: expectedHeaderHashLength,
+                    actual: header.merkleRoot.count
+                )
+            }
             var writer = Data.Writer()
             writer.writeData(header.encode())
             writer.writeCompactSize(CompactSize(value: UInt64(transactions.count)))

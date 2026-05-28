@@ -74,14 +74,14 @@ extension _OpalBase.Account.PrivacyShaperActor {
         return utxos.shuffled(using: &generator)
     }
     
-    func organizeOutputs(_ outputs: [OpalBase.Transaction.Output]) -> [OpalBase.Transaction.Output] {
+    func organizeOutputs(_ outputs: [OpalBase.Transaction.Output]) throws -> [OpalBase.Transaction.Output] {
         guard outputs.count > 1 else { return outputs }
         
         if configuration.shouldRandomizeRecipientOrdering {
             return outputs.shuffled(using: &generator)
         }
         
-        return OpalBase.Transaction.Output.applyBIP69Ordering(outputs)
+        return try OpalBase.Transaction.Output.applyBIP69Ordering(outputs)
     }
     
     private func enqueueDecoys(_ decoys: [@Sendable () async -> Void]) {

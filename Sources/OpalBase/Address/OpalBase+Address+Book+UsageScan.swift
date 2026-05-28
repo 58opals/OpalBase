@@ -38,9 +38,9 @@ extension _OpalBase.Address.Book {
                 guard !entries.isEmpty else { break }
                 
                 let usageResults = try await entries.mapConcurrently { entry in
-                    try await self.checkIfAddressIsUsed(address: entry.address.string,
-                                                        using: service,
-                                                        includeUnconfirmed: includeUnconfirmed)
+                    try await self.isAddressUsed(entry.address.string,
+                                                 using: service,
+                                                 includeUnconfirmed: includeUnconfirmed)
                 }
                 
                 for (entry, isUsed) in zip(entries, usageResults) {
@@ -77,9 +77,9 @@ extension _OpalBase.Address.Book {
                                        includeUnconfirmed: includeUnconfirmed)
     }
     
-    private func checkIfAddressIsUsed(address: String,
-                                      using service: OpalBase.Network.AddressReader,
-                                      includeUnconfirmed: Bool) async throws -> Bool {
+    private func isAddressUsed(_ address: String,
+                               using service: OpalBase.Network.AddressReader,
+                               includeUnconfirmed: Bool) async throws -> Bool {
         let history = try await service.fetchHistory(for: address,
                                                      includeUnconfirmed: includeUnconfirmed)
         return !history.isEmpty

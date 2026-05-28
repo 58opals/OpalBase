@@ -12,7 +12,7 @@ extension _OpalBase.Address.Book.Entry {
 extension _OpalBase.Address.Book.Entry.Cache: Hashable {}
 
 extension _OpalBase.Address.Book.Entry.Cache {
-    func checkValidity(currentDate: Date, validityDuration: TimeInterval) -> Bool {
+    func isValid(currentDate: Date, validityDuration: TimeInterval) -> Bool {
         guard let lastUpdated else { return false }
         guard lastUpdated <= currentDate else { return false }
         return currentDate.timeIntervalSince(lastUpdated) < validityDuration

@@ -8,7 +8,7 @@ extension _OpalBase.Address.Book {
         
         cancelAutomaticSpendReservationRelease(for: identifier)
         
-        let nanoseconds = convertToNanoseconds(spendReservationExpirationInterval)
+        let nanoseconds = reservationReleaseDelayNanoseconds(from: spendReservationExpirationInterval)
         guard nanoseconds > 0 else { return }
         
         let releaseTask = Task<Void, Never> { [nanoseconds] in
@@ -25,7 +25,7 @@ extension _OpalBase.Address.Book {
         task.cancel()
     }
     
-    func convertToNanoseconds(_ interval: TimeInterval) -> UInt64 {
+    func reservationReleaseDelayNanoseconds(from interval: TimeInterval) -> UInt64 {
         guard interval > 0 else { return 0 }
         
         let nanosecondsPerSecond: Double = 1_000_000_000
@@ -37,4 +37,3 @@ extension _OpalBase.Address.Book {
         return UInt64(rawValue)
     }
 }
-

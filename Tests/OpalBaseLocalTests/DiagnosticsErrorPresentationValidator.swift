@@ -214,10 +214,22 @@ struct DiagnosticsErrorPresentationValidator {
         Set(findPrivateMetadataFields(in: fields).map(\.value))
     }
 
+    private struct DescribedError: Swift.Error, CustomStringConvertible {
+        let description: String
+    }
+
+    private struct LocalizedDescriptionError: LocalizedError {
+        let description: String
+
+        var errorDescription: String? { description }
+    }
+
     enum NetworkDisplayRedactionCase: CaseIterable, Sendable {
-        case url
+        case webSocketURL
+        case singleCharacterSchemeURL
         case unsupportedSchemeURL
         case hostEndpoint
+        case singleDigitPortEndpoint
         case localEndpoint
         case ipv4Endpoint
         case ipv6Endpoint
@@ -229,12 +241,16 @@ struct DiagnosticsErrorPresentationValidator {
 
         var displayRedactionExpectation: (sensitiveValue: String, expectedToken: String) {
             switch self {
-            case .url:
+            case .webSocketURL:
                 return ("wss://private.example/socket", "[redacted-url]")
+            case .singleCharacterSchemeURL:
+                return ("x://private.example/socket", "[redacted-url]")
             case .unsupportedSchemeURL:
                 return ("ftp://private.example/file", "[redacted-url]")
             case .hostEndpoint:
                 return ("private.example:50002", "[redacted-endpoint]")
+            case .singleDigitPortEndpoint:
+                return ("private.example:9", "[redacted-endpoint]")
             case .localEndpoint:
                 return ("localhost:50002", "[redacted-endpoint]")
             case .ipv4Endpoint:
@@ -728,14 +744,4 @@ struct DiagnosticsErrorPresentationValidator {
             }
         }
     }
-}
-
-private struct DescribedError: Swift.Error, CustomStringConvertible {
-    let description: String
-}
-
-private struct LocalizedDescriptionError: LocalizedError {
-    let description: String
-
-    var errorDescription: String? { description }
 }

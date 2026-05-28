@@ -87,16 +87,14 @@ private extension OpalBase.CashTokens.BCMR.Client {
         from timeline: [SnapshotSelection],
         asOf: Date
     ) -> SnapshotSelection? {
-        let datedSnapshots = timeline.filter { $0.effectiveDate != nil }
-
-        if let latestReached = datedSnapshots.last(where: { selection in
+        if let latestReached = timeline.last(where: { selection in
             guard let effectiveDate = selection.effectiveDate else { return false }
             return effectiveDate <= asOf
         }) {
             return latestReached
         }
 
-        if let oldestFuture = datedSnapshots.first(where: { selection in
+        if let oldestFuture = timeline.first(where: { selection in
             guard let effectiveDate = selection.effectiveDate else { return false }
             return effectiveDate > asOf
         }) {
@@ -140,9 +138,9 @@ private extension OpalBase.CashTokens.BCMR.Client {
               let categoryIdentifier = try? OpalBase.CashTokens.CategoryID(hexFromRPC: categoryHexadecimal)
         else { return nil }
 
-        let iconURL = makeURL(from: selection.snapshot.uris?["icon"])
-        let webURL = makeURL(from: selection.snapshot.uris?["web"])
-        let registryURL = makeURL(from: selection.snapshot.uris?["registry"])
+        let iconURL = makeMetadataURL(from: selection.snapshot.uris?["icon"])
+        let webURL = makeMetadataURL(from: selection.snapshot.uris?["web"])
+        let registryURL = makeMetadataURL(from: selection.snapshot.uris?["registry"])
         let authbase = parseAuthbase(from: identity)
         let lastUpdated = selection.effectiveDate ?? Date.distantPast
 
@@ -162,13 +160,9 @@ private extension OpalBase.CashTokens.BCMR.Client {
         )
     }
 
-    func makeURL(from value: String?) -> URL? {
-        guard let value,
-              let url = URL(string: value),
-              let scheme = url.scheme?.lowercased(),
-              ["https", "ipfs"].contains(scheme)
-        else { return nil }
-        return url
+    func makeMetadataURL(from value: String?) -> URL? {
+        guard let value else { return nil }
+        return OpalBase.CashTokens.Metadata.makeSafeMetadataURL(URL(string: value))
     }
 
     func parseAuthbase(from identity: String) -> OpalBase.Transaction.Hash? {

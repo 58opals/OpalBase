@@ -8,7 +8,7 @@ import OpalBaseTestSupport
 @Suite("OpalBase.Account PrivacyShaperActor", .tags(.unit, .wallet))
 struct AccountPrivacyShaperValidator {
     @Test("organizeOutputs canonicalizes ordering when randomization is disabled")
-    func organizeOutputsCanonicalizesWhenRandomizationDisabled() async {
+    func organizeOutputsCanonicalizesWhenRandomizationDisabled() async throws {
         let configuration = OpalBase.Account.PrivacyShaperActor.Configuration(shouldRandomizeRecipientOrdering: false)
         let shaper = OpalBase.Account.PrivacyShaperActor(configuration: configuration)
         
@@ -18,7 +18,7 @@ struct AccountPrivacyShaperValidator {
             OpalBase.Transaction.Output(value: 6_000, lockingScript: Data([0x01]))
         ]
         
-        let organizedOutputs = await shaper.organizeOutputs(outputs)
+        let organizedOutputs = try await shaper.organizeOutputs(outputs)
         
         #expect(organizedOutputs != outputs)
         #expect(organizedOutputs.map(\.value) == [1_000, 6_000, 6_000])
@@ -27,4 +27,3 @@ struct AccountPrivacyShaperValidator {
         #expect(organizedOutputs[2].lockingScript == Data([0x02]))
     }
 }
-

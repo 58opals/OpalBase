@@ -15,6 +15,9 @@ extension _OpalBase.CashTokens.TokenData {
         guard let amountValue = UInt64(amountString) else {
             throw OpalBase.CashTokens.Error.invalidFungibleAmountString(amountString)
         }
+        guard amountValue <= maximumFungibleAmount else {
+            throw OpalBase.CashTokens.Error.invalidFungibleAmountString(amountString)
+        }
         return amountValue == 0 ? nil : amountValue
     }
 }
@@ -22,6 +25,11 @@ extension _OpalBase.CashTokens.TokenData {
 private extension _OpalBase.CashTokens.NFT {
     init(swiftFulcrumNFT: SwiftFulcrum.CashTokens.TokenData.NFT) throws {
         let capability = OpalBase.CashTokens.NFT.Capability(swiftFulcrumCapability: swiftFulcrumNFT.capability)
+        guard !swiftFulcrumNFT.commitment.hasPrefix("0x"),
+              !swiftFulcrumNFT.commitment.hasPrefix("0X")
+        else {
+            throw OpalBase.CashTokens.Error.invalidHexadecimalString
+        }
         let commitment: Data
         do {
             commitment = try Data(hexadecimalString: swiftFulcrumNFT.commitment)

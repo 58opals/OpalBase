@@ -110,9 +110,10 @@ struct NetworkServerCatalogValidator {
         } catch let error as SwiftFulcrum.Client.Error {
             switch error {
             case .client(.protocolMismatch(let message)):
-                #expect(message?.contains("configuredEnvironment=mainnet") == true)
-                #expect(message?.contains("expectedFulcrumNetwork=mainnet") == true)
-                #expect(message?.contains("requestedFulcrumNetwork=testnet") == true)
+                let message = try #require(message)
+                #expect(message.contains("configuredEnvironment=mainnet"))
+                #expect(message.contains("expectedFulcrumNetwork=mainnet"))
+                #expect(message.contains("requestedFulcrumNetwork=testnet"))
             default:
                 Issue.record("Expected FulcrumClient.Error.client(.protocolMismatch), got \(error).")
             }
@@ -187,7 +188,7 @@ struct NetworkServerCatalogValidator {
     }
     
     @Test("normalizes schemes, removes invalid entries, and deduplicates")
-    func normalizationFiltersAndDeduplicatesServers() {
+    func normalizationFiltersAndDeduplicatesServers() throws {
         let rawServers = [
             URL(string: "wss://bch.imaginary.cash:50004")!,
             URL(string: "HTTPS://bch.imaginary.cash:50004")!,
@@ -197,7 +198,8 @@ struct NetworkServerCatalogValidator {
         
         let normalized = OpalBase.Network.ServerCatalog.makeNormalizedServers(rawServers)
         #expect(normalized.count == 2)
-        #expect(normalized.first?.scheme == "wss")
+        let firstServer = try #require(normalized.first)
+        #expect(firstServer.scheme == "wss")
         #expect(normalized.contains(where: { $0.scheme == "ws" && $0.host == "chipnet.imaginary.cash" }))
         #expect(!normalized.contains(where: { $0.scheme == "ftp" }))
     }
@@ -232,6 +234,19 @@ struct NetworkServerCatalogValidator {
         #expect(normalized == [URL(string: "wss://root-path.example.com")!])
     }
 
+    @Test("normalizes websocket fragments before deduplication")
+    func normalizationCollapsesWebSocketFragments() {
+        let rawServers = [
+            URL(string: "wss://fragment.example.com")!,
+            URL(string: "wss://fragment.example.com#ignored")!,
+            URL(string: "https://fragment.example.com:443/#also-ignored")!
+        ]
+
+        let normalized = OpalBase.Network.ServerCatalog.makeNormalizedServers(rawServers)
+
+        #expect(normalized == [URL(string: "wss://fragment.example.com")!])
+    }
+
     @Test("normalization rejects websocket URLs without hosts")
     func normalizationRejectsWebSocketURLsWithoutHosts() {
         let rawServers = [
@@ -255,6 +270,19 @@ struct NetworkServerCatalogValidator {
         
         let normalized = OpalBase.Network.ServerCatalog.makeNormalizedServers(rawServers)
         
+        #expect(normalized == [URL(string: "wss://valid.example.com:50004")!])
+    }
+
+    @Test("normalization rejects websocket URLs with embedded credentials")
+    func normalizationRejectsWebSocketURLsWithEmbeddedCredentials() {
+        let rawServers = [
+            URL(string: "wss://user:secret@credential.example.com:50004")!,
+            URL(string: "https://user@credential.example.com")!,
+            URL(string: "wss://valid.example.com:50004")!
+        ]
+
+        let normalized = OpalBase.Network.ServerCatalog.makeNormalizedServers(rawServers)
+
         #expect(normalized == [URL(string: "wss://valid.example.com:50004")!])
     }
     

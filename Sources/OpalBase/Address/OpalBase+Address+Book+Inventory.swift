@@ -22,8 +22,8 @@ extension _OpalBase.Address.Book {
             cacheValidityDurationValue
         }
         
-        func checkCacheValidity(_ cache: Entry.Cache, currentDate: Date) -> Bool {
-            cache.checkValidity(currentDate: currentDate, validityDuration: cacheValidityDurationValue)
+        func isCacheValid(_ cache: Entry.Cache, currentDate: Date) -> Bool {
+            cache.isValid(currentDate: currentDate, validityDuration: cacheValidityDurationValue)
         }
         
         func listEntries(for usage: OpalBase.Key.DerivationPath.Usage) -> [Entry] {

@@ -128,12 +128,11 @@ struct AddressValidator {
         #expect(address.string == cashAddr)
         #expect(address.network == .mainnet)
 
-        switch address.lockingScript {
-        case .p2pkh_OPCHECKSIG(let hash):
-            #expect(hash.data.count == 20)
-        default:
-            #expect(Bool(false), "Expected P2PKH locking script")
+        guard case .p2pkh_OPCHECKSIG(let hash) = address.lockingScript else {
+            Issue.record("Expected P2PKH locking script")
+            return
         }
+        #expect(hash.data.count == 20)
     }
 
     @Test("address derivation rejects P2PKH CHECKDATASIG scripts")
@@ -183,12 +182,11 @@ struct AddressValidator {
         #expect(address.generateString(withPrefix: true) == "bitcoincash:\(cashAddr.lowercased())")
         #expect(try OpalBase.Address(address.generateString(withPrefix: true)) == address)
 
-        switch address.lockingScript {
-        case .p2pkh_OPCHECKSIG(let hash):
-            #expect(hash.data.count == 20)
-        default:
-            #expect(Bool(false), "Expected P2PKH locking script")
+        guard case .p2pkh_OPCHECKSIG(let hash) = address.lockingScript else {
+            Issue.record("Expected P2PKH locking script")
+            return
         }
+        #expect(hash.data.count == 20)
     }
 
     @Test("mixed-case CashAddr payload is rejected")
@@ -222,12 +220,11 @@ struct AddressValidator {
         #expect(try OpalBase.Address(address.generateString(withPrefix: true)) == address)
         #expect(address.network == .mainnet)
 
-        switch address.lockingScript {
-        case .p2pkh_OPCHECKSIG(let hash):
-            #expect(hash.data.count == 20)
-        default:
-            #expect(Bool(false), "Expected P2PKH locking script")
+        guard case .p2pkh_OPCHECKSIG(let hash) = address.lockingScript else {
+            Issue.record("Expected P2PKH locking script")
+            return
         }
+        #expect(hash.data.count == 20)
     }
 
     @Test("mixed-case full CashAddr is rejected")

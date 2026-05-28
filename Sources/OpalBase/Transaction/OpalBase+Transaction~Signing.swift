@@ -162,11 +162,11 @@ extension _OpalBase.Transaction {
             )
             let typedSignatureDigest = try OpalCrypto.Signature.Digest(rawRepresentation: signatureDigest)
             let signature: Data = switch signatureFormat {
-            case .ecdsa:
+            case .ecdsa(let encoding):
                 try OpalCrypto.Signature.ECDSA.sign(
                     digest: typedSignatureDigest,
                     privateKey: opalPrivateKey,
-                    format: signatureFormat.opalCryptoECDSAFormat!
+                    format: encoding.opalCryptoFormat
                 ).rawRepresentation
             case .schnorr:
                 try OpalCrypto.Signature.Schnorr.sign(
@@ -186,11 +186,11 @@ extension _OpalBase.Transaction {
                 OpalCryptoAdapter.sha256(message)
             }
             let signature: Data = switch signatureFormat {
-            case .ecdsa:
+            case .ecdsa(let encoding):
                 try OpalCrypto.Signature.ECDSA.sign(
                     message: signatureMessage,
                     privateKey: opalPrivateKey,
-                    format: signatureFormat.opalCryptoECDSAFormat!
+                    format: encoding.opalCryptoFormat
                 ).rawRepresentation
             case .schnorr:
                 try OpalCrypto.Signature.Schnorr.sign(

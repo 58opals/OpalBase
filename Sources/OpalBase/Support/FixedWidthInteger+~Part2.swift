@@ -26,7 +26,7 @@ extension UInt32 {
     }
     
     func unharden() throws -> UInt32 {
-        guard Harden.checkHardened(self) else { throw OpalBase.Key.DerivationPath.Error.indexTooSmallForUnhardening }
+        guard Harden.isHardened(self) else { throw OpalBase.Key.DerivationPath.Error.indexTooSmallForUnhardening }
         return Harden.unharden(self)
     }
 }
@@ -34,8 +34,7 @@ extension UInt32 {
 enum Harden {
     static let bit: UInt32 = 0x8000_0000
     static let maxUnhardenedValue: UInt32 = bit &- 1
-    static func checkHardened(_ value: UInt32) -> Bool { (value & bit) != 0 }
+    static func isHardened(_ value: UInt32) -> Bool { (value & bit) != 0 }
     static func harden(_ value: UInt32) -> UInt32 { value | bit }
     static func unharden(_ value: UInt32) -> UInt32 { value & ~bit }
 }
-

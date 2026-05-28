@@ -14,12 +14,11 @@ extension OpalBase.CashTokens.BCMR.Client {
     }
     
     static func parsePublicationOutput(lockingScript: Data) -> Publication? {
-        let prefix = Data([0x42, 0x43, 0x4d, 0x52])
+        let publicationMarker = Data([0x42, 0x43, 0x4d, 0x52])
         var index = lockingScript.startIndex
         
         func readData(length: Int) -> Data? {
-            guard length >= 0,
-                  let nextIndex = lockingScript.index(index, offsetBy: length, limitedBy: lockingScript.endIndex)
+            guard let nextIndex = lockingScript.index(index, offsetBy: length, limitedBy: lockingScript.endIndex)
             else { return nil }
             defer { index = nextIndex }
             return Data(lockingScript[index..<nextIndex])
@@ -60,13 +59,16 @@ extension OpalBase.CashTokens.BCMR.Client {
         guard index < lockingScript.endIndex, lockingScript[index] == 0x6a else { return nil }
         index = lockingScript.index(after: index)
 
-        guard let tag = readPushData(), tag == prefix else { return nil }
+        guard let parsedPublicationMarker = readPushData(),
+              parsedPublicationMarker == publicationMarker
+        else { return nil }
         guard let sha256 = readPushData(), sha256.count == 32 else { return nil }
 
         var uris: [String] = .init()
         while index < lockingScript.endIndex {
             guard let uriData = readPushData() else { return nil }
             guard let uri = String(data: uriData, encoding: .utf8) else { return nil }
+            guard !uri.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
             uris.append(uri)
         }
         

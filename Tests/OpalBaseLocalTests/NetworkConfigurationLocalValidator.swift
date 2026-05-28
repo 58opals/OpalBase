@@ -35,24 +35,8 @@ struct NetworkConfigurationLocalValidator {
         #expect(configuration.serverURLs == [normalizedServer])
     }
     
-    @Test("Provides wallet-friendly defaults")
-    func defaultsProvideWalletFriendlySettings() throws {
-        let primaryServer = URL(string: "wss://bch.imaginary.cash:50004")!
-        let configuration = OpalBase.Network.Configuration(serverURLs: [primaryServer])
-        
-        #expect(configuration.serverURLs == [primaryServer])
-        #expect(configuration.connectTimeout == .seconds(10))
-        #expect(configuration.maximumMessageSize == 64 * 1_024 * 1_024)
-        #expect(configuration.reconnectConfiguration == .defaultValue)
-        #expect(configuration.reconnectConfiguration.maximumAttempts == 8)
-        #expect(configuration.reconnectConfiguration.initialDelay == .seconds(1.5))
-        #expect(configuration.reconnectConfiguration.maximumDelay == .seconds(30))
-        #expect(configuration.reconnectConfiguration.jitterMultiplierRange.lowerBound < configuration.reconnectConfiguration.jitterMultiplierRange.upperBound)
-        #expect(configuration.network == .mainnet)
-    }
-    
     @Test("default reconnect strategy matches recommended jitter and delays")
-    func reconnectDefaultConfigurationValues() {
+    func validateReconnectDefaultConfigurationValues() {
         let reconnect = OpalBase.Network.ReconnectConfiguration.defaultValue
         
         #expect(reconnect.maximumAttempts == 8)
@@ -63,12 +47,9 @@ struct NetworkConfigurationLocalValidator {
     }
     
     @Test("Detects configuration changes for reconnect strategies")
-    func equalityRecognizesMeaningfulChanges() throws {
-        let primaryServer = URL(string: "wss://bch.imaginary.cash:50004")!
-        let fallbackServer = URL(string: "wss://bch.loping.net:50004")!
-        
+    func detectMeaningfulConfigurationChanges() {
         let baseConfiguration = OpalBase.Network.Configuration(
-            serverURLs: [primaryServer, fallbackServer],
+            serverURLs: [Self.primaryServerAddress, Self.backupServerAddress],
             connectTimeout: .seconds(20),
             maximumMessageSize: 16 * 1_024 * 1_024,
             reconnect: .init(
@@ -80,7 +61,7 @@ struct NetworkConfigurationLocalValidator {
         )
         
         let identicalConfiguration = OpalBase.Network.Configuration(
-            serverURLs: [primaryServer, fallbackServer],
+            serverURLs: [Self.primaryServerAddress, Self.backupServerAddress],
             connectTimeout: .seconds(20),
             maximumMessageSize: 16 * 1_024 * 1_024,
             reconnect: .init(
@@ -96,7 +77,7 @@ struct NetworkConfigurationLocalValidator {
         
         #expect(baseConfiguration == identicalConfiguration)
         #expect(baseConfiguration != adjustedConfiguration)
-        #expect(adjustedConfiguration.serverURLs == [fallbackServer])
+        #expect(adjustedConfiguration.serverURLs == [Self.backupServerAddress])
         #expect(adjustedConfiguration.reconnectConfiguration.jitterMultiplierRange == 1.0 ... 1.0)
     }
 

@@ -86,30 +86,30 @@ extension _OpalBase.Transaction {
 /// Retained for documentation, this version of the fee utilities omits helper placeholders so readers can see the raw serialized-byte sizing logic. Use it together with the legacy serialization reference in `OpalBase+Transaction.swift` to follow how BCH fee sizing worked before the current helpers were introduced.
 
 private extension _OpalBase.Transaction {
-    func estimateSize_Legacy() -> Int {
+    func estimateLegacySize() -> Int {
         var size = 0
         
         size += 4 // version (4 bytes)
         size += 4 // locktime (4 bytes)
-        size += CompactSize(value: UInt64(inputs.count)).encodedSize_Legacy
-        size += CompactSize(value: UInt64(outputs.count)).encodedSize_Legacy
+        size += CompactSize(value: UInt64(inputs.count)).legacyEncodedSize
+        size += CompactSize(value: UInt64(outputs.count)).legacyEncodedSize
         
-        inputs.forEach { size += $0.estimateSize_Legacy() }
-        outputs.forEach { size += $0.estimateSize_Legacy() }
+        inputs.forEach { size += $0.estimateLegacySize() }
+        outputs.forEach { size += $0.estimateLegacySize() }
         
         return size
     }
 }
 
 private extension _OpalBase.Transaction.Input {
-    func estimateSize_Legacy() -> Int {
+    func estimateLegacySize() -> Int {
         var size = 0
         
         size += 32 // previous transaction hash (32 bytes)
         size += 4 // previous transaction output index (4 bytes)
         size += 4 // sequence (4 bytes)
         let unlockingScriptSize = unlockingScript.isEmpty ? (1 + 64 + 1 + 33) : unlockingScript.count
-        size += CompactSize(value: UInt64(unlockingScriptSize)).encodedSize_Legacy
+        size += CompactSize(value: UInt64(unlockingScriptSize)).legacyEncodedSize
         size += unlockingScriptSize
         
         return size
@@ -117,11 +117,11 @@ private extension _OpalBase.Transaction.Input {
 }
 
 private extension _OpalBase.Transaction.Output {
-    func estimateSize_Legacy() -> Int {
+    func estimateLegacySize() -> Int {
         var size = 0
         
         size += 8 // value (8 bytes)
-        size += CompactSize(value: UInt64(lockingScript.count)).encodedSize_Legacy
+        size += CompactSize(value: UInt64(lockingScript.count)).legacyEncodedSize
         size += lockingScript.count
         
         return size
@@ -129,7 +129,7 @@ private extension _OpalBase.Transaction.Output {
 }
 
 private extension CompactSize {
-    var encodedSize_Legacy: Int {
+    var legacyEncodedSize: Int {
         switch self {
         case .uint8: return 1
         case .uint16: return 3

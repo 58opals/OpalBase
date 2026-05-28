@@ -69,6 +69,20 @@ struct BitcoinCashMetadataRegistryValidator {
         
         #expect(publication == nil)
     }
+
+    @Test("rejects publication outputs with blank registry locations")
+    func rejectsPublicationOutputsWithBlankRegistryLocations() {
+        let script = makePublicationScript(
+            sha256: BitcoinCashMetadataRegistryTestData.publicationHash,
+            uris: [" \n"]
+        )
+
+        let publication = OpalBase.CashTokens.BCMR.Client.parsePublicationOutput(
+            lockingScript: script
+        )
+
+        #expect(publication == nil)
+    }
     
     @Test("verifies registry hash")
     func verifyRegistryHash() {
@@ -251,6 +265,111 @@ struct BitcoinCashMetadataRegistryValidator {
                             "icon": "http://example.com/icon.png",
                             "web": "javascript:alert(1)",
                             "registry": "file:///tmp/registry.json"
+                        ]
+                    )
+                ]
+            ]
+        )
+
+        let metadata = try #require(
+            registries.extractTokenMetadata(from: registry)[BitcoinCashMetadataRegistryTestData.categoryIdentifier]
+        )
+
+        #expect(metadata.iconURL == nil)
+        #expect(metadata.webURL == nil)
+        #expect(metadata.registryURL == nil)
+    }
+
+    @Test("metadata extraction ignores hostless HTTPS URI values")
+    func metadataExtractionIgnoresHostlessHTTPSURIValues() throws {
+        let registries = BitcoinCashMetadataRegistryTestClient.makeRegistries()
+        let registry = OpalBase.CashTokens.BCMR.Client.Registry(
+            version: "1",
+            registryIdentity: nil,
+            identities: [
+                "example.identity": [
+                    "2024-01-01T00:00:00Z": .init(
+                        name: "Hostless URI Token",
+                        description: nil,
+                        token: .init(
+                            category: BitcoinCashMetadataRegistryTestData.categoryHexadecimal,
+                            symbol: "HOSTLESS",
+                            decimals: 2
+                        ),
+                        uris: [
+                            "icon": "https:///icon.png",
+                            "web": "https:///token",
+                            "registry": "https:///registry.json"
+                        ]
+                    )
+                ]
+            ]
+        )
+
+        let metadata = try #require(
+            registries.extractTokenMetadata(from: registry)[BitcoinCashMetadataRegistryTestData.categoryIdentifier]
+        )
+
+        #expect(metadata.iconURL == nil)
+        #expect(metadata.webURL == nil)
+        #expect(metadata.registryURL == nil)
+    }
+
+    @Test("metadata extraction ignores URI values with embedded credentials")
+    func metadataExtractionIgnoresURIValuesWithEmbeddedCredentials() throws {
+        let registries = BitcoinCashMetadataRegistryTestClient.makeRegistries()
+        let registry = OpalBase.CashTokens.BCMR.Client.Registry(
+            version: "1",
+            registryIdentity: nil,
+            identities: [
+                "example.identity": [
+                    "2024-01-01T00:00:00Z": .init(
+                        name: "Credential URI Token",
+                        description: nil,
+                        token: .init(
+                            category: BitcoinCashMetadataRegistryTestData.categoryHexadecimal,
+                            symbol: "CRED",
+                            decimals: 2
+                        ),
+                        uris: [
+                            "icon": "https://user:secret@example.com/icon.png",
+                            "web": "https://user@example.com/token",
+                            "registry": "ipfs://user@bafybeigdyrzt/registry.json"
+                        ]
+                    )
+                ]
+            ]
+        )
+
+        let metadata = try #require(
+            registries.extractTokenMetadata(from: registry)[BitcoinCashMetadataRegistryTestData.categoryIdentifier]
+        )
+
+        #expect(metadata.iconURL == nil)
+        #expect(metadata.webURL == nil)
+        #expect(metadata.registryURL == nil)
+    }
+
+    @Test("metadata extraction ignores empty IPFS URI values")
+    func metadataExtractionIgnoresEmptyInterPlanetaryFileSystemURIValues() throws {
+        let registries = BitcoinCashMetadataRegistryTestClient.makeRegistries()
+        let registry = OpalBase.CashTokens.BCMR.Client.Registry(
+            version: "1",
+            registryIdentity: nil,
+            identities: [
+                "example.identity": [
+                    "2024-01-01T00:00:00Z": .init(
+                        name: "Empty IPFS URI Token",
+                        description: nil,
+                        token: .init(
+                            category: BitcoinCashMetadataRegistryTestData.categoryHexadecimal,
+                            symbol: "EMPTYIPFS",
+                            decimals: 2
+                        ),
+                        uris: [
+                            "icon": "ipfs:",
+                            "web": "ipfs://",
+                            "registry": "ipfs://?version=1"
                         ]
                     )
                 ]
@@ -787,6 +906,7 @@ struct BitcoinCashMetadataRegistryValidator {
 
         _ = try await fetcher.fetchRegistry(from: "otr.cash")
         _ = try await fetcher.fetchRegistry(from: "example.com")
+        _ = try await fetcher.fetchRegistry(from: "example.com:8443/registry.json")
         _ = try await fetcher.fetchRegistry(from: "https://example.com")
         _ = try await fetcher.fetchRegistry(from: "https://example.com/")
         _ = try await fetcher.fetchRegistry(from: "https://example.com/registry.json")
@@ -794,6 +914,7 @@ struct BitcoinCashMetadataRegistryValidator {
         #expect(requestedURLs.values.map(\.absoluteString) == [
             "https://otr.cash/.well-known/bitcoin-cash-metadata-registry.json",
             "https://example.com/.well-known/bitcoin-cash-metadata-registry.json",
+            "https://example.com:8443/registry.json",
             "https://example.com/.well-known/bitcoin-cash-metadata-registry.json",
             "https://example.com/.well-known/bitcoin-cash-metadata-registry.json",
             "https://example.com/registry.json"
@@ -833,19 +954,23 @@ struct BitcoinCashMetadataRegistryValidator {
     @Test("registry fetcher rejects IPFS without a gateway")
     func registryFetcherRejectsInterPlanetaryFileSystemWithoutGateway() async throws {
         let fetcher = OpalBase.CashTokens.BCMR.Client.Fetcher(maxBytes: 1_024)
+        var capturedError: OpalBase.CashTokens.BCMR.Client.Fetcher.Error?
 
         do {
             _ = try await fetcher.fetchRegistryBytes(from: "ipfs://bafybeigdyrzt")
             Issue.record("Expected missingInterPlanetaryFileSystemGateway.")
         } catch let error as OpalBase.CashTokens.BCMR.Client.Fetcher.Error {
-            switch error {
-            case .missingInterPlanetaryFileSystemGateway:
-                break
-            default:
-                Issue.record("Expected missingInterPlanetaryFileSystemGateway, got \(error).")
-            }
+            capturedError = error
         } catch {
             Issue.record("Unexpected error: \(error)")
+        }
+
+        let error = try #require(capturedError)
+        switch error {
+        case .missingInterPlanetaryFileSystemGateway:
+            break
+        default:
+            Issue.record("Expected missingInterPlanetaryFileSystemGateway, got \(error).")
         }
     }
     
@@ -856,19 +981,93 @@ struct BitcoinCashMetadataRegistryValidator {
             ipfsGateway: gateway,
             maxBytes: 1_024
         )
+        var capturedError: OpalBase.CashTokens.BCMR.Client.Fetcher.Error?
         
         do {
             _ = try await fetcher.fetchRegistryBytes(from: "ipfs://bafybeigdyrzt")
             Issue.record("Expected insecure IPFS gateway to be rejected before fetching")
         } catch let error as OpalBase.CashTokens.BCMR.Client.Fetcher.Error {
-            switch error {
-            case .invalidInterPlanetaryFileSystemGateway(gateway):
-                break
-            default:
-                Issue.record("Expected invalidInterPlanetaryFileSystemGateway, got \(error)")
-            }
+            capturedError = error
         } catch {
             Issue.record("Unexpected error: \(error)")
+        }
+
+        let error = try #require(capturedError)
+        switch error {
+        case .invalidInterPlanetaryFileSystemGateway(gateway):
+            break
+        default:
+            Issue.record("Expected invalidInterPlanetaryFileSystemGateway, got \(error)")
+        }
+    }
+
+    @Test("registry fetcher rejects resource identifiers with embedded credentials")
+    func registryFetcherRejectsResourceIdentifiersWithEmbeddedCredentials() async throws {
+        let gateway = try #require(URL(string: "https://gateway.example"))
+        let fetcher = OpalBase.CashTokens.BCMR.Client.Fetcher(
+            ipfsGateway: gateway,
+            maxBytes: 1_024
+        )
+
+        await #expect(throws: OpalBase.CashTokens.BCMR.Client.Fetcher.Error.self) {
+            _ = try await fetcher.fetchRegistryBytes(from: "https://user:secret@registry.example/metadata.json")
+        }
+
+        await #expect(throws: OpalBase.CashTokens.BCMR.Client.Fetcher.Error.self) {
+            _ = try await fetcher.fetchRegistryBytes(from: "ipfs://user@bafybeigdyrzt/metadata.json")
+        }
+    }
+
+    @Test("registry fetcher rejects IPFS gateways with embedded credentials")
+    func registryFetcherRejectsInterPlanetaryFileSystemGatewaysWithEmbeddedCredentials() async throws {
+        let gateway = try #require(URL(string: "https://user:secret@gateway.example"))
+        let fetcher = OpalBase.CashTokens.BCMR.Client.Fetcher(
+            ipfsGateway: gateway,
+            maxBytes: 1_024
+        )
+        var capturedError: OpalBase.CashTokens.BCMR.Client.Fetcher.Error?
+
+        do {
+            _ = try await fetcher.fetchRegistryBytes(from: "ipfs://bafybeigdyrzt")
+            Issue.record("Expected credentialed IPFS gateway to be rejected before fetching")
+        } catch let error as OpalBase.CashTokens.BCMR.Client.Fetcher.Error {
+            capturedError = error
+        } catch {
+            Issue.record("Unexpected error: \(error)")
+        }
+
+        let error = try #require(capturedError)
+        switch error {
+        case .invalidInterPlanetaryFileSystemGateway(gateway):
+            break
+        default:
+            Issue.record("Expected invalidInterPlanetaryFileSystemGateway, got \(error)")
+        }
+    }
+
+    @Test("registry fetcher rejects IPFS path traversal components")
+    func registryFetcherRejectsInterPlanetaryFileSystemPathTraversalComponents() async throws {
+        let gateway = try #require(URL(string: "https://gateway.example/base"))
+        let fetcher = OpalBase.CashTokens.BCMR.Client.Fetcher(
+            ipfsGateway: gateway,
+            maxBytes: 1_024
+        )
+
+        await #expect(throws: OpalBase.CashTokens.BCMR.Client.Fetcher.Error.self) {
+            _ = try await fetcher.fetchRegistryBytes(from: "ipfs://bafybeigdyrzt/../registry.json")
+        }
+    }
+
+    @Test("registry fetcher rejects IPFS gateways with path traversal components")
+    func registryFetcherRejectsInterPlanetaryFileSystemGatewaysWithPathTraversalComponents() async throws {
+        let gateway = try #require(URL(string: "https://gateway.example/base/.."))
+        let fetcher = OpalBase.CashTokens.BCMR.Client.Fetcher(
+            ipfsGateway: gateway,
+            maxBytes: 1_024
+        )
+
+        await #expect(throws: OpalBase.CashTokens.BCMR.Client.Fetcher.Error.self) {
+            _ = try await fetcher.fetchRegistryBytes(from: "ipfs://bafybeigdyrzt")
         }
     }
 
@@ -892,19 +1091,23 @@ struct BitcoinCashMetadataRegistryValidator {
             urlSession: session,
             maxBytes: 4
         )
+        var capturedError: OpalBase.CashTokens.BCMR.Client.Fetcher.Error?
 
         do {
             _ = try await fetcher.fetchRegistryBytes(from: "https://registry.example/metadata.json")
             Issue.record("Expected responseTooLarge.")
         } catch let error as OpalBase.CashTokens.BCMR.Client.Fetcher.Error {
-            switch error {
-            case .responseTooLarge(limit: 4, actual: 5):
-                break
-            default:
-                Issue.record("Expected responseTooLarge(limit: 4, actual: 5), got \(error).")
-            }
+            capturedError = error
         } catch {
             Issue.record("Unexpected error: \(error)")
+        }
+
+        let error = try #require(capturedError)
+        switch error {
+        case .responseTooLarge(limit: 4, actual: 5):
+            break
+        default:
+            Issue.record("Expected responseTooLarge(limit: 4, actual: 5), got \(error).")
         }
     }
 
@@ -973,6 +1176,64 @@ struct BitcoinCashMetadataRegistryValidator {
         let result = try await fetcher.fetchRegistry(from: "https://registry.example/metadata.json")
 
         #expect(result.cacheExpiration ?? .distantPast > beforeFetch)
+    }
+
+    @Test(
+        "registry fetcher ignores non-finite max-age values",
+        arguments: ["inf", "infinity", "1e309"]
+    )
+    func registryFetcherIgnoresNonFiniteMaxAge(cacheControlMaxAge: String) async throws {
+        let (session, _) = makeRegistryTestSession { request in
+            let url = try #require(request.url)
+            let response = try #require(HTTPURLResponse(
+                url: url,
+                statusCode: 200,
+                httpVersion: nil,
+                headerFields: ["Cache-Control": "public, max-age=\(cacheControlMaxAge)"]
+            ))
+            return (response, Data("{}".utf8))
+        }
+        defer {
+            RegistryRedirectURLProtocol.requestHandler = nil
+            session.invalidateAndCancel()
+        }
+        let fetcher = OpalBase.CashTokens.BCMR.Client.Fetcher(
+            urlSession: session,
+            maxBytes: 1_024
+        )
+
+        let result = try await fetcher.fetchRegistry(from: "https://registry.example/metadata.json")
+
+        #expect(result.cacheExpiration == nil)
+    }
+
+    @Test(
+        "registry fetcher ignores non-delta-seconds max-age values",
+        arguments: ["1.5", "1e2", "+60", "-1", ""]
+    )
+    func registryFetcherIgnoresNonDeltaSecondsMaxAge(cacheControlMaxAge: String) async throws {
+        let (session, _) = makeRegistryTestSession { request in
+            let url = try #require(request.url)
+            let response = try #require(HTTPURLResponse(
+                url: url,
+                statusCode: 200,
+                httpVersion: nil,
+                headerFields: ["Cache-Control": "public, max-age=\(cacheControlMaxAge)"]
+            ))
+            return (response, Data("{}".utf8))
+        }
+        defer {
+            RegistryRedirectURLProtocol.requestHandler = nil
+            session.invalidateAndCancel()
+        }
+        let fetcher = OpalBase.CashTokens.BCMR.Client.Fetcher(
+            urlSession: session,
+            maxBytes: 1_024
+        )
+
+        let result = try await fetcher.fetchRegistry(from: "https://registry.example/metadata.json")
+
+        #expect(result.cacheExpiration == nil)
     }
 
     @Test("registry fetcher follows temporary preserve-method redirects")
@@ -1105,20 +1366,66 @@ struct BitcoinCashMetadataRegistryValidator {
             maxBytes: 1_024
         )
 
+        var capturedError: OpalBase.CashTokens.BCMR.Client.Fetcher.Error?
         do {
             _ = try await fetcher.fetchRegistryBytes(
                 from: "https://registry.example/metadata.json"
             )
             Issue.record("Expected unsupportedScheme for HTTP redirect.")
         } catch let error as OpalBase.CashTokens.BCMR.Client.Fetcher.Error {
-            switch error {
-            case .unsupportedScheme("http"):
-                break
-            default:
-                Issue.record("Expected unsupportedScheme(\"http\"), got \(error).")
-            }
+            capturedError = error
         } catch {
             Issue.record("Unexpected error: \(error)")
+        }
+        let error = try #require(capturedError)
+        switch error {
+        case .unsupportedScheme("http"):
+            break
+        default:
+            Issue.record("Expected unsupportedScheme(\"http\"), got \(error).")
+        }
+    }
+
+    @Test("registry fetcher rejects redirects without a host")
+    func registryFetcherRejectsRedirectsWithoutHost() async throws {
+        let (session, _) = makeRegistryTestSession { request in
+            let url = try #require(request.url)
+
+            let response = try #require(HTTPURLResponse(
+                url: url,
+                statusCode: 302,
+                httpVersion: nil,
+                headerFields: ["Location": "https:///metadata.json"]
+            ))
+            return (response, Data())
+        }
+        defer {
+            RegistryRedirectURLProtocol.requestHandler = nil
+            session.invalidateAndCancel()
+        }
+
+        let fetcher = OpalBase.CashTokens.BCMR.Client.Fetcher(
+            urlSession: session,
+            maxBytes: 1_024
+        )
+
+        var capturedError: OpalBase.CashTokens.BCMR.Client.Fetcher.Error?
+        do {
+            _ = try await fetcher.fetchRegistryBytes(
+                from: "https://registry.example/metadata.json"
+            )
+            Issue.record("Expected invalidResourceIdentifier for hostless HTTPS redirect.")
+        } catch let error as OpalBase.CashTokens.BCMR.Client.Fetcher.Error {
+            capturedError = error
+        } catch {
+            Issue.record("Unexpected error: \(error)")
+        }
+        let error = try #require(capturedError)
+        switch error {
+        case .invalidResourceIdentifier("https:///metadata.json"):
+            break
+        default:
+            Issue.record("Expected invalidResourceIdentifier for hostless HTTPS redirect, got \(error).")
         }
     }
 }

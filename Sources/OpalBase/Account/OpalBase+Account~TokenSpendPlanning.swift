@@ -74,7 +74,7 @@ extension _OpalBase.Account {
             }
         }
         let combinedTokenOutputs = rawRecipientOutputs + tokenChangeOutputs
-        let organizedTokenOutputs = await privacyShaper.organizeOutputs(combinedTokenOutputs)
+        let organizedTokenOutputs = try await privacyShaper.organizeOutputs(combinedTokenOutputs)
         
         let feeRate = feePolicy.recommendFeeRate(for: transfer.feeContext, override: transfer.feeOverride)
         let bchInputs = try selectBCHInputs(from: spendableOutputs,

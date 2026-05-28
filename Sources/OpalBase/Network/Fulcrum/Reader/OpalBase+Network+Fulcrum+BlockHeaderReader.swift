@@ -58,14 +58,22 @@ extension _OpalBase.Network.Fulcrum {
         }
         
         static func makeSnapshot(height: UInt, headerHexadecimal: String) throws -> OpalBase.Network.BlockHeaderSnapshot {
+            func makeDecodeError() -> OpalBase.Network.Error {
+                OpalBase.Network.Error(
+                    reason: .decoding,
+                    message: "Cannot decode block header: \(headerHexadecimal)"
+                )
+            }
+
+            guard !headerHexadecimal.hasPrefix("0x"), !headerHexadecimal.hasPrefix("0X") else {
+                throw makeDecodeError()
+            }
+
             let headerData: Data
             do {
                 headerData = try Data(hexadecimalString: headerHexadecimal)
             } catch {
-                throw OpalBase.Network.Error(
-                    reason: .decoding,
-                    message: "Cannot decode block header: \(headerHexadecimal)"
-                )
+                throw makeDecodeError()
             }
             
             guard headerData.count == 80 else {

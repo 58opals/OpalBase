@@ -15,7 +15,7 @@ struct TransactionOutputOrderValidator {
         let tokenOutput = OpalBase.Transaction.Output(value: 1_000, lockingScript: lockingScript, tokenData: tokenData)
         let plainOutput = OpalBase.Transaction.Output(value: 1_000, lockingScript: lockingScript)
         
-        let orderedOutputs = OpalBase.Transaction.Output.applyBIP69Ordering([tokenOutput, plainOutput])
+        let orderedOutputs = try OpalBase.Transaction.Output.applyBIP69Ordering([tokenOutput, plainOutput])
         
         #expect(orderedOutputs == [plainOutput, tokenOutput])
     }
@@ -29,7 +29,7 @@ struct TransactionOutputOrderValidator {
         let smallerOutput = OpalBase.Transaction.Output(value: 1_000, lockingScript: lockingScript, tokenData: smallerAmount)
         let largerOutput = OpalBase.Transaction.Output(value: 1_000, lockingScript: lockingScript, tokenData: largerAmount)
         
-        let orderedOutputs = OpalBase.Transaction.Output.applyBIP69Ordering([largerOutput, smallerOutput])
+        let orderedOutputs = try OpalBase.Transaction.Output.applyBIP69Ordering([largerOutput, smallerOutput])
         
         #expect(orderedOutputs == [smallerOutput, largerOutput])
     }
@@ -46,7 +46,7 @@ struct TransactionOutputOrderValidator {
         let smallerOutput = OpalBase.Transaction.Output(value: 1_000, lockingScript: lockingScript, tokenData: smallerToken)
         let largerOutput = OpalBase.Transaction.Output(value: 1_000, lockingScript: lockingScript, tokenData: largerToken)
         
-        let orderedOutputs = OpalBase.Transaction.Output.applyBIP69Ordering([largerOutput, smallerOutput])
+        let orderedOutputs = try OpalBase.Transaction.Output.applyBIP69Ordering([largerOutput, smallerOutput])
         
         #expect(orderedOutputs == [smallerOutput, largerOutput])
     }
@@ -62,9 +62,24 @@ struct TransactionOutputOrderValidator {
         let smallerOutput = OpalBase.Transaction.Output(value: 1_000, lockingScript: lockingScript, tokenData: smallerToken)
         let largerOutput = OpalBase.Transaction.Output(value: 1_000, lockingScript: lockingScript, tokenData: largerToken)
         
-        let orderedOutputs = OpalBase.Transaction.Output.applyBIP69Ordering([largerOutput, smallerOutput])
+        let orderedOutputs = try OpalBase.Transaction.Output.applyBIP69Ordering([largerOutput, smallerOutput])
         
         #expect(orderedOutputs == [smallerOutput, largerOutput])
+    }
+
+    @Test("applyBIP69Ordering rejects invalid token prefix data")
+    func applyBIP69OrderingRejectsInvalidTokenPrefixData() throws {
+        let category = try makeCategory(using: 0x01)
+        let invalidTokenData = OpalBase.CashTokens.TokenData(category: category, amount: nil, nft: nil)
+        let invalidOutput = OpalBase.Transaction.Output(
+            value: 1_000,
+            lockingScript: Data([0x51]),
+            tokenData: invalidTokenData
+        )
+
+        #expect(throws: OpalBase.CashTokens.Error.invalidTokenPrefix) {
+            _ = try OpalBase.Transaction.Output.applyBIP69Ordering([invalidOutput])
+        }
     }
     
     private func makeCategory(using byte: UInt8) throws -> OpalBase.CashTokens.CategoryID {

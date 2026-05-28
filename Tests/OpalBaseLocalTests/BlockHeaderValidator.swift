@@ -106,4 +106,18 @@ struct BlockHeaderValidator {
         #expect(!header.isProofOfWorkSatisfied)
     }
 
+    @Test("proof-of-work validation rejects malformed hash field lengths")
+    func proofOfWorkValidationRejectsMalformedHashFieldLengths() {
+        let header = OpalBase.Block.Header(
+            version: 1,
+            previousBlockHash: Data(repeating: 0x00, count: 31),
+            merkleRoot: Data(repeating: 0x55, count: 32),
+            time: 1_700_000_100,
+            bits: 0x207fffff,
+            nonce: 4
+        )
+
+        #expect(!header.isProofOfWorkSatisfied)
+    }
+
 }

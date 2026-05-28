@@ -7,7 +7,7 @@ extension _OpalBase.Address.Book {
         let allEntries = listAllEntries()
         let validBalances = allEntries.compactMap { entry -> OpalBase.Satoshi? in
             guard let balance = entry.cache.balance,
-                  checkCacheValidity(entry.cache, currentDate: .now) else {
+                  isCacheValid(entry.cache, currentDate: .now) else {
                 return nil
             }
             return balance
@@ -19,7 +19,7 @@ extension _OpalBase.Address.Book {
     func readCachedBalance(for address: OpalBase.Address) throws -> OpalBase.Satoshi? {
         guard let entry = findEntry(for: address) else { throw Error.entryNotFound }
         
-        guard checkCacheValidity(entry.cache, currentDate: .now) else { return nil }
+        guard isCacheValid(entry.cache, currentDate: .now) else { return nil }
         guard let balance = entry.cache.balance else { return nil }
         
         return balance

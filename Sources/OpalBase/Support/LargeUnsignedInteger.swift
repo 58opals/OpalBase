@@ -39,10 +39,6 @@ struct LargeUnsignedInteger: Comparable, Sendable {
         normalize()
     }
     
-    var isZero: Bool {
-        words.isEmpty
-    }
-    
     func serialize() -> Data {
         guard !words.isEmpty else { return Data() }
         var data = Data()
@@ -92,56 +88,7 @@ struct LargeUnsignedInteger: Comparable, Sendable {
         }
         return false
     }
-    
-    mutating func add(_ addend: Int) {
-        precondition(addend >= 0, "Addend must be non-negative.")
-        var carry = UInt64(addend)
-        var index = 0
-        while carry > 0 {
-            if index == words.count {
-                words.append(0)
-            }
-            let sum = UInt64(words[index]) + carry
-            words[index] = UInt32(sum & 0xffff_ffff)
-            carry = sum >> 32
-            index += 1
-        }
-    }
-    
-    mutating func multiply(by multiplier: Int) {
-        precondition(multiplier >= 0, "Multiplier must be non-negative.")
-        guard !words.isEmpty, multiplier > 1 else {
-            if multiplier == 0 {
-                words = .init()
-            }
-            return
-        }
-        var carry: UInt64 = 0
-        for index in words.indices {
-            let product = UInt64(words[index]) * UInt64(multiplier) + carry
-            words[index] = UInt32(product & 0xffff_ffff)
-            carry = product >> 32
-        }
-        if carry > 0 {
-            words.append(UInt32(carry))
-        }
-    }
-    
-    mutating func divide(by divisor: Int) -> Int {
-        precondition(divisor > 0, "Divisor must be positive.")
-        guard !words.isEmpty else { return 0 }
-        var remainder: UInt64 = 0
-        var quotientWords = Array(repeating: UInt32(0), count: words.count)
-        for index in words.indices.reversed() {
-            let value = (remainder << 32) + UInt64(words[index])
-            let quotient = value / UInt64(divisor)
-            remainder = value % UInt64(divisor)
-            quotientWords[index] = UInt32(quotient)
-        }
-        self = LargeUnsignedInteger(words: quotientWords)
-        return Int(remainder)
-    }
-    
+
     private init(words: [UInt32]) {
         self.words = words
         normalize()

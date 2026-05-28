@@ -99,6 +99,10 @@ extension _OpalBase.Network.ServerCatalog {
         guard let host = components.host, host.isEmpty == false else {
             return nil
         }
+
+        guard components.user == nil, components.password == nil else {
+            return nil
+        }
         
         if let port = components.port, !(1...65_535).contains(port) {
             return nil
@@ -125,6 +129,7 @@ extension _OpalBase.Network.ServerCatalog {
         if components.path == "/" {
             components.path = ""
         }
+        components.fragment = nil
         return components.url ?? server
     }
 }

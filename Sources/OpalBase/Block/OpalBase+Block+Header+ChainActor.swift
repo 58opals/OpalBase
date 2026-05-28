@@ -36,7 +36,7 @@ extension _OpalBase.Block.Header {
 }
 
 extension _OpalBase.Block.Header.ChainActor {
-    enum Error: Swift.Error {
+    enum Error: Swift.Error, Equatable {
         case invalidProofOfWork(height: UInt32)
         case doesNotConnect(height: UInt32)
         case checkpointViolation(expected: Checkpoint, actual: Checkpoint?)

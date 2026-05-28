@@ -104,7 +104,7 @@ extension _OpalBase.Account.Error: Equatable {
                let rightTokenError = rightError as? OpalBase.CashTokens.Error {
                 return leftTokenError == rightTokenError
             }
-            return OpalBase.Network.checkFailureEquivalence(leftError, rightError)
+            return OpalBase.Network.areFailuresEquivalent(leftError, rightError)
         case (.tokenMintRequiresTokenAwareAddress(let leftAddresses),
               .tokenMintRequiresTokenAwareAddress(let rightAddresses)):
             return leftAddresses == rightAddresses
@@ -123,24 +123,24 @@ extension _OpalBase.Account.Error: Equatable {
               .tokenMutationNonFungibleTokenCommitmentTooLong(let rightMaximum, let rightActual)):
             return leftMaximum == rightMaximum && leftActual == rightActual
         case (.tokenSelectionFailed(let leftError), .tokenSelectionFailed(let rightError)):
-            return OpalBase.Network.checkFailureEquivalence(leftError, rightError)
+            return OpalBase.Network.areFailuresEquivalent(leftError, rightError)
         case (.balanceFetchTimeout(let leftAddress), .balanceFetchTimeout(let rightAddress)):
             return leftAddress == rightAddress
         case (.balanceRefreshFailed(let leftAddress, let leftError),
               .balanceRefreshFailed(let rightAddress, let rightError)):
-            return leftAddress == rightAddress && OpalBase.Network.checkFailureEquivalence(leftError, rightError)
+            return leftAddress == rightAddress && OpalBase.Network.areFailuresEquivalent(leftError, rightError)
         case (.transactionHistoryRefreshFailed(let leftAddress, let leftError),
               .transactionHistoryRefreshFailed(let rightAddress, let rightError)):
-            return leftAddress == rightAddress && OpalBase.Network.checkFailureEquivalence(leftError, rightError)
+            return leftAddress == rightAddress && OpalBase.Network.areFailuresEquivalent(leftError, rightError)
         case (.transactionDetailsRefreshFailed(let leftHash, let leftError),
               .transactionDetailsRefreshFailed(let rightHash, let rightError)):
-            return leftHash == rightHash && OpalBase.Network.checkFailureEquivalence(leftError, rightError)
+            return leftHash == rightHash && OpalBase.Network.areFailuresEquivalent(leftError, rightError)
         case (.transactionConfirmationRefreshFailed(let leftHash, let leftError),
               .transactionConfirmationRefreshFailed(let rightHash, let rightError)):
-            return leftHash == rightHash && OpalBase.Network.checkFailureEquivalence(leftError, rightError)
+            return leftHash == rightHash && OpalBase.Network.areFailuresEquivalent(leftError, rightError)
         case (.cashFusionReservationFailed(let leftError), .cashFusionReservationFailed(let rightError)),
             (.cashFusionOutputReservationFailed(let leftError), .cashFusionOutputReservationFailed(let rightError)):
-            return OpalBase.Network.checkFailureEquivalence(leftError, rightError)
+            return OpalBase.Network.areFailuresEquivalent(leftError, rightError)
         case (.coinSelectionFailed(let leftError), .coinSelectionFailed(let rightError)),
             (.tokenGenesisCannotComputeDustThreshold(let leftError), .tokenGenesisCannotComputeDustThreshold(let rightError)),
             (.tokenGenesisTransactionBuildFailed(let leftError), .tokenGenesisTransactionBuildFailed(let rightError)),
@@ -152,7 +152,7 @@ extension _OpalBase.Account.Error: Equatable {
             (.broadcastFailed(let leftError), .broadcastFailed(let rightError)),
             (.confirmationQueryFailed(let leftError), .confirmationQueryFailed(let rightError)),
             (.feePreferenceUnavailable(let leftError), .feePreferenceUnavailable(let rightError)):
-            return OpalBase.Network.checkFailureEquivalence(leftError, rightError)
+            return OpalBase.Network.areFailuresEquivalent(leftError, rightError)
         default:
             return false
         }

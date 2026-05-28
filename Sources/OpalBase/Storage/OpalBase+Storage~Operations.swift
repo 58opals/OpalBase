@@ -213,7 +213,7 @@ private extension _OpalBase.Storage {
                 storedCiphertext = ciphertext
             }
         } catch {
-            if policy == .legacyFallbackToPlaintext && checkCiphertextErrorRecoverability(error) {
+            if policy == .legacyFallbackToPlaintext && isCiphertextErrorRecoverable(error) {
                 storedCiphertext = .init(mode: .plaintext, payload: plaintext)
             } else {
                 throw Error.secureStoreFailure(error)
@@ -267,18 +267,16 @@ private extension _OpalBase.Storage {
 }
 
 private extension _OpalBase.Storage {
-    func checkCiphertextErrorRecoverability(_ error: Swift.Error) -> Bool {
+    func isCiphertextErrorRecoverable(_ error: Swift.Error) -> Bool {
         if security.checkSecureEnclaveErrorRecoverability(error) {
             return true
         }
         guard let securityError = error as? OpalBase.Storage.Security.Error else { return false }
         switch securityError {
-        case .protectionUnavailable:
-            return true
-        case .insufficientProtection:
+        case .protectionUnavailable, .insufficientProtection:
             return true
         case .encryptionFailure(let underlying):
-            return checkCiphertextErrorRecoverability(underlying)
+            return isCiphertextErrorRecoverable(underlying)
         case .decryptionFailure:
             return false
         }

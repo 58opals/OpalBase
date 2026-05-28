@@ -42,7 +42,7 @@ extension _OpalBase.Account {
                         throw Error.coinSelectionFailed(OpalBase.Transaction.Error.outputValueIsLessThanTheDustLimit)
                     }
                 }
-                let organizedRecipientOutputs = await privacyShaper.organizeOutputs(rawRecipientOutputs)
+                let organizedRecipientOutputs = try await privacyShaper.organizeOutputs(rawRecipientOutputs)
 
                 let changeEntry = try await addressBook.selectNextEntry(for: .change)
 

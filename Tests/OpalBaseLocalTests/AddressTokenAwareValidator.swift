@@ -22,12 +22,11 @@ struct AddressTokenAwareValidator {
         #expect(address.tokenAwareString == expectedPayload)
         #expect(address.generateString(withPrefix: true) == tokenAwareAddress)
 
-        switch address.lockingScript {
-        case .p2pkh_OPCHECKSIG(let hash):
-            #expect(hash.data.count == 20)
-        default:
-            #expect(Bool(false), "Expected P2PKH locking script")
+        guard case .p2pkh_OPCHECKSIG(let hash) = address.lockingScript else {
+            Issue.record("Expected P2PKH locking script")
+            return
         }
+        #expect(hash.data.count == 20)
     }
 
     @Test("token-aware P2SH CashAddr decodes")
@@ -40,12 +39,11 @@ struct AddressTokenAwareValidator {
         #expect(address.string == expectedPayload)
         #expect(address.generateString(withPrefix: true) == tokenAwareAddress)
 
-        switch address.lockingScript {
-        case .p2sh(let scriptHash):
-            #expect(scriptHash.count == 20)
-        default:
-            #expect(Bool(false), "Expected P2SH locking script")
+        guard case .p2sh(let scriptHash) = address.lockingScript else {
+            Issue.record("Expected P2SH locking script")
+            return
         }
+        #expect(scriptHash.count == 20)
     }
 
     @Test("token-aware string is derived from standard CashAddr")

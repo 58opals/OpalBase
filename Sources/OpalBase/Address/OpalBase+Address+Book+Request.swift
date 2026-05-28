@@ -20,7 +20,7 @@ extension _OpalBase.Address.Book {
                                       includeUnconfirmed: Bool)
         case refreshUsedStatus(usage: OpalBase.Key.DerivationPath.Usage? = nil)
         case updateAddressUsageStatus(usage: OpalBase.Key.DerivationPath.Usage? = nil)
-        case checkIfUsed(OpalBase.Address)
+        case isUsed(OpalBase.Address)
         case scanForUsedAddresses
     }
 }

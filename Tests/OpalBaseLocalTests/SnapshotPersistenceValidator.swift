@@ -69,16 +69,11 @@ struct SnapshotPersistenceValidator {
 
     @Test("address book snapshot rejects category-only token UTXOs")
     func addressBookSnapshotRejectsCategoryOnlyTokenUTXOs() throws {
-        let category = try OpalBase.CashTokens.CategoryID(transactionOrderData: Data(repeating: 0x01, count: 32))
-        let unspentOutputSnapshot = OpalBase.Address.Book.Snapshot.UTXO(
-            value: 500,
-            lockingScript: "51",
-            tokenCategory: category.hexForDisplay,
+        let unspentOutputSnapshot = try makeTokenUnspentOutputSnapshot(
+            categoryByte: 0x01,
             tokenAmount: nil,
             nftCapability: nil,
-            nftCommitment: nil,
-            transactionHash: String(repeating: "0", count: 64),
-            outputIndex: 1
+            nftCommitment: nil
         )
 
         #expect(
@@ -92,21 +87,34 @@ struct SnapshotPersistenceValidator {
 
     @Test("address book snapshot rejects zero fungible token amounts")
     func addressBookSnapshotRejectsZeroFungibleTokenAmounts() throws {
-        let category = try OpalBase.CashTokens.CategoryID(transactionOrderData: Data(repeating: 0x02, count: 32))
-        let unspentOutputSnapshot = OpalBase.Address.Book.Snapshot.UTXO(
-            value: 500,
-            lockingScript: "51",
-            tokenCategory: category.hexForDisplay,
+        let unspentOutputSnapshot = try makeTokenUnspentOutputSnapshot(
+            categoryByte: 0x02,
             tokenAmount: 0,
             nftCapability: nil,
-            nftCommitment: nil,
-            transactionHash: String(repeating: "0", count: 64),
-            outputIndex: 1
+            nftCommitment: nil
         )
 
         #expect(
             throws: OpalBase.Address.Book.Error.invalidSnapshotTokenData(
                 reason: OpalBase.CashTokens.Error.invalidTokenPrefixFungibleAmount
+            )
+        ) {
+            _ = try unspentOutputSnapshot.makeTokenData()
+        }
+    }
+
+    @Test("address book snapshot rejects prefixed NFT commitments")
+    func rejectPrefixedNonFungibleTokenCommitmentsInAddressBookSnapshot() throws {
+        let unspentOutputSnapshot = try makeTokenUnspentOutputSnapshot(
+            categoryByte: 0x03,
+            tokenAmount: nil,
+            nftCapability: OpalBase.CashTokens.NFT.Capability.none,
+            nftCommitment: "0x12"
+        )
+
+        #expect(
+            throws: OpalBase.Address.Book.Error.invalidSnapshotTokenData(
+                reason: OpalBase.CashTokens.Error.invalidHexadecimalString
             )
         ) {
             _ = try unspentOutputSnapshot.makeTokenData()
@@ -365,6 +373,54 @@ struct SnapshotPersistenceValidator {
         #expect(try await book.readCachedBalance(for: entry.address) == OpalBase.Satoshi(1_234))
     }
 
+    @Test("address book restore rejects prefixed UTXO transaction hashes before mutation")
+    func rejectPrefixedUnspentOutputTransactionHashesBeforeAddressBookRestoreMutation() async throws {
+        let account = try await AccountTestFixtures.makeAccount()
+        let book = await account.addressBook
+        let entry = try #require(await book.listEntries(for: .receiving).first)
+        try await book.updateCachedBalance(
+            for: entry.address,
+            balance: try OpalBase.Satoshi(1_234),
+            timestamp: .now
+        )
+
+        let snapshot = await book.makeSnapshot()
+        let alteredReceivingEntries = snapshot.receivingEntries.map { snapshotEntry in
+            OpalBase.Address.Book.Snapshot.Entry(
+                usage: snapshotEntry.usage,
+                index: snapshotEntry.index,
+                isUsed: snapshotEntry.isUsed,
+                isReserved: snapshotEntry.isReserved,
+                balance: snapshotEntry.index == entry.derivationPath.index ? 9_999 : snapshotEntry.balance,
+                lastUpdated: snapshotEntry.lastUpdated
+            )
+        }
+        let prefixedHash = "0x\(String(repeating: "0", count: 64))"
+        let malformedUTXO = OpalBase.Address.Book.Snapshot.UTXO(
+            value: 500,
+            lockingScript: entry.address.lockingScript.data.hexadecimalString,
+            tokenCategory: nil,
+            tokenAmount: nil,
+            nftCapability: nil,
+            nftCommitment: nil,
+            transactionHash: prefixedHash,
+            outputIndex: 0
+        )
+        let malformedSnapshot = OpalBase.Address.Book.Snapshot(
+            receivingEntries: alteredReceivingEntries,
+            changeEntries: snapshot.changeEntries,
+            utxos: [malformedUTXO],
+            transactions: snapshot.transactions
+        )
+
+        await #expect(
+            throws: OpalBase.Address.Book.Error.invalidSnapshotTransactionHash(prefixedHash)
+        ) {
+            try await book.refresh(with: malformedSnapshot)
+        }
+        #expect(try await book.readCachedBalance(for: entry.address) == OpalBase.Satoshi(1_234))
+    }
+
     @Test("address book restore rejects untracked UTXO locking scripts before mutation")
     func addressBookRestoreRejectsUntrackedUTXOLockingScriptsBeforeMutation() async throws {
         let account = try await AccountTestFixtures.makeAccount(unhardenedIndex: 0)
@@ -411,6 +467,55 @@ struct SnapshotPersistenceValidator {
             throws: OpalBase.Address.Book.Error.invalidSnapshotUTXOLockingScript(
                 foreignEntry.address.lockingScript.data
             )
+        ) {
+            try await book.refresh(with: malformedSnapshot)
+        }
+        #expect(try await book.readCachedBalance(for: entry.address) == OpalBase.Satoshi(1_234))
+        #expect(await book.listSpendableUTXOs().isEmpty)
+    }
+
+    @Test("address book restore rejects prefixed UTXO locking scripts before mutation")
+    func rejectPrefixedUnspentOutputLockingScriptsBeforeAddressBookRestoreMutation() async throws {
+        let account = try await AccountTestFixtures.makeAccount()
+        let book = await account.addressBook
+        let entry = try #require(await book.listEntries(for: .receiving).first)
+        try await book.updateCachedBalance(
+            for: entry.address,
+            balance: try OpalBase.Satoshi(1_234),
+            timestamp: .now
+        )
+
+        let snapshot = await book.makeSnapshot()
+        let alteredReceivingEntries = snapshot.receivingEntries.map { snapshotEntry in
+            OpalBase.Address.Book.Snapshot.Entry(
+                usage: snapshotEntry.usage,
+                index: snapshotEntry.index,
+                isUsed: snapshotEntry.isUsed,
+                isReserved: snapshotEntry.isReserved,
+                balance: snapshotEntry.index == entry.derivationPath.index ? 9_999 : snapshotEntry.balance,
+                lastUpdated: snapshotEntry.lastUpdated
+            )
+        }
+        let prefixedLockingScript = "0x\(entry.address.lockingScript.data.hexadecimalString)"
+        let malformedUTXO = OpalBase.Address.Book.Snapshot.UTXO(
+            value: 500,
+            lockingScript: prefixedLockingScript,
+            tokenCategory: nil,
+            tokenAmount: nil,
+            nftCapability: nil,
+            nftCommitment: nil,
+            transactionHash: String(repeating: "1", count: 64),
+            outputIndex: 0
+        )
+        let malformedSnapshot = OpalBase.Address.Book.Snapshot(
+            receivingEntries: alteredReceivingEntries,
+            changeEntries: snapshot.changeEntries,
+            utxos: [malformedUTXO],
+            transactions: snapshot.transactions
+        )
+
+        await #expect(
+            throws: OpalBase.Address.Book.Error.invalidSnapshotUTXOLockingScriptHex(prefixedLockingScript)
         ) {
             try await book.refresh(with: malformedSnapshot)
         }
@@ -564,6 +669,59 @@ struct SnapshotPersistenceValidator {
                 expected: OpalBase.Transaction.Hash.expectedByteCount,
                 actual: 2
             )
+        ) {
+            try await book.refresh(with: malformedSnapshot)
+        }
+        #expect(try await book.readCachedBalance(for: entry.address) == OpalBase.Satoshi(1_234))
+    }
+
+    @Test("address book restore rejects prefixed transaction hashes before mutation")
+    func addressBookRestoreRejectsPrefixedTransactionHashesBeforeMutation() async throws {
+        let account = try await AccountTestFixtures.makeAccount()
+        let book = await account.addressBook
+        let entry = try #require(await book.listEntries(for: .receiving).first)
+        try await book.updateCachedBalance(
+            for: entry.address,
+            balance: try OpalBase.Satoshi(1_234),
+            timestamp: .now
+        )
+
+        let snapshot = await book.makeSnapshot()
+        let alteredReceivingEntries = snapshot.receivingEntries.map { snapshotEntry in
+            OpalBase.Address.Book.Snapshot.Entry(
+                usage: snapshotEntry.usage,
+                index: snapshotEntry.index,
+                isUsed: snapshotEntry.isUsed,
+                isReserved: snapshotEntry.isReserved,
+                balance: snapshotEntry.index == entry.derivationPath.index ? 9_999 : snapshotEntry.balance,
+                lastUpdated: snapshotEntry.lastUpdated
+            )
+        }
+        let prefixedHash = "0x\(String(repeating: "1", count: 64))"
+        let malformedTransaction = OpalBase.Address.Book.Snapshot.Transaction(
+            transactionHash: prefixedHash,
+            height: 1,
+            fee: nil,
+            scriptHashes: [entry.address.makeScriptHash().hexadecimalString],
+            firstSeenAt: .now,
+            lastUpdatedAt: .now,
+            status: .confirmed,
+            confirmationHeight: 1,
+            confirmedAt: .now,
+            verificationStatus: .pending,
+            merkleProof: nil,
+            lastVerifiedHeight: nil,
+            lastCheckedAt: nil
+        )
+        let malformedSnapshot = OpalBase.Address.Book.Snapshot(
+            receivingEntries: alteredReceivingEntries,
+            changeEntries: snapshot.changeEntries,
+            utxos: snapshot.utxos,
+            transactions: [malformedTransaction]
+        )
+
+        await #expect(
+            throws: OpalBase.Address.Book.Error.invalidSnapshotTransactionHash(prefixedHash)
         ) {
             try await book.refresh(with: malformedSnapshot)
         }
@@ -744,6 +902,48 @@ struct SnapshotPersistenceValidator {
                 actual: 2
             )
         ) {
+            try await book.refresh(with: malformedSnapshot)
+        }
+        #expect(try await book.readCachedBalance(for: entry.address) == OpalBase.Satoshi(1_234))
+    }
+
+    @Test("address book restore rejects prefixed transaction script hashes before mutation")
+    func rejectPrefixedTransactionScriptHashesBeforeAddressBookRestoreMutation() async throws {
+        let account = try await AccountTestFixtures.makeAccount()
+        let book = await account.addressBook
+        let entry = try #require(await book.listEntries(for: .receiving).first)
+        try await book.updateCachedBalance(
+            for: entry.address,
+            balance: try OpalBase.Satoshi(1_234),
+            timestamp: .now
+        )
+
+        let snapshot = await book.makeSnapshot()
+        let alteredReceivingEntries = makeReceivingEntriesWithChangedBalance(from: snapshot, for: entry)
+        let prefixedScriptHash = "0x\(entry.address.makeScriptHash().hexadecimalString)"
+        let malformedTransaction = OpalBase.Address.Book.Snapshot.Transaction(
+            transactionHash: String(repeating: "1", count: 64),
+            height: 0,
+            fee: nil,
+            scriptHashes: [prefixedScriptHash],
+            firstSeenAt: .now,
+            lastUpdatedAt: .now,
+            status: .pending,
+            confirmationHeight: nil,
+            confirmedAt: nil,
+            verificationStatus: .pending,
+            merkleProof: nil,
+            lastVerifiedHeight: nil,
+            lastCheckedAt: nil
+        )
+        let malformedSnapshot = OpalBase.Address.Book.Snapshot(
+            receivingEntries: alteredReceivingEntries,
+            changeEntries: snapshot.changeEntries,
+            utxos: snapshot.utxos,
+            transactions: [malformedTransaction]
+        )
+
+        await #expect(throws: OpalBase.Address.Book.Error.invalidSnapshotScriptHash(prefixedScriptHash)) {
             try await book.refresh(with: malformedSnapshot)
         }
         #expect(try await book.readCachedBalance(for: entry.address) == OpalBase.Satoshi(1_234))
@@ -1067,16 +1267,7 @@ struct SnapshotPersistenceValidator {
         )
 
         let snapshot = await book.makeSnapshot()
-        let alteredReceivingEntries = snapshot.receivingEntries.map { snapshotEntry in
-            OpalBase.Address.Book.Snapshot.Entry(
-                usage: snapshotEntry.usage,
-                index: snapshotEntry.index,
-                isUsed: snapshotEntry.isUsed,
-                isReserved: snapshotEntry.isReserved,
-                balance: snapshotEntry.index == entry.derivationPath.index ? 9_999 : snapshotEntry.balance,
-                lastUpdated: snapshotEntry.lastUpdated
-            )
-        }
+        let alteredReceivingEntries = makeReceivingEntriesWithChangedBalance(from: snapshot, for: entry)
         let malformedTransaction = OpalBase.Address.Book.Snapshot.Transaction(
             transactionHash: String(repeating: "1", count: 64),
             height: 1,
@@ -1109,6 +1300,55 @@ struct SnapshotPersistenceValidator {
                 expected: OpalBase.Transaction.Hash.expectedByteCount,
                 actual: 2
             )
+        ) {
+            try await book.refresh(with: malformedSnapshot)
+        }
+        #expect(try await book.readCachedBalance(for: entry.address) == OpalBase.Satoshi(1_234))
+    }
+
+    @Test("address book restore rejects prefixed merkle proof branch hashes before mutation")
+    func rejectPrefixedMerkleProofBranchHashesBeforeAddressBookRestoreMutation() async throws {
+        let account = try await AccountTestFixtures.makeAccount()
+        let book = await account.addressBook
+        let entry = try #require(await book.listEntries(for: .receiving).first)
+        try await book.updateCachedBalance(
+            for: entry.address,
+            balance: try OpalBase.Satoshi(1_234),
+            timestamp: .now
+        )
+
+        let snapshot = await book.makeSnapshot()
+        let alteredReceivingEntries = makeReceivingEntriesWithChangedBalance(from: snapshot, for: entry)
+        let prefixedBranchHash = "0x\(String(repeating: "1", count: 64))"
+        let malformedTransaction = OpalBase.Address.Book.Snapshot.Transaction(
+            transactionHash: String(repeating: "1", count: 64),
+            height: 1,
+            fee: nil,
+            scriptHashes: [entry.address.makeScriptHash().hexadecimalString],
+            firstSeenAt: .now,
+            lastUpdatedAt: .now,
+            status: .confirmed,
+            confirmationHeight: 1,
+            confirmedAt: .now,
+            verificationStatus: .verified,
+            merkleProof: .init(
+                blockHeight: 1,
+                position: 0,
+                branch: [prefixedBranchHash],
+                blockHash: nil
+            ),
+            lastVerifiedHeight: 1,
+            lastCheckedAt: .now
+        )
+        let malformedSnapshot = OpalBase.Address.Book.Snapshot(
+            receivingEntries: alteredReceivingEntries,
+            changeEntries: snapshot.changeEntries,
+            utxos: snapshot.utxos,
+            transactions: [malformedTransaction]
+        )
+
+        await #expect(
+            throws: OpalBase.Address.Book.Error.invalidSnapshotMerkleProofHash(prefixedBranchHash)
         ) {
             try await book.refresh(with: malformedSnapshot)
         }
@@ -1169,6 +1409,55 @@ struct SnapshotPersistenceValidator {
                 expected: OpalBase.Transaction.Hash.expectedByteCount,
                 actual: 2
             )
+        ) {
+            try await book.refresh(with: malformedSnapshot)
+        }
+        #expect(try await book.readCachedBalance(for: entry.address) == OpalBase.Satoshi(1_234))
+    }
+
+    @Test("address book restore rejects prefixed merkle proof block hashes before mutation")
+    func rejectPrefixedMerkleProofBlockHashesBeforeAddressBookRestoreMutation() async throws {
+        let account = try await AccountTestFixtures.makeAccount()
+        let book = await account.addressBook
+        let entry = try #require(await book.listEntries(for: .receiving).first)
+        try await book.updateCachedBalance(
+            for: entry.address,
+            balance: try OpalBase.Satoshi(1_234),
+            timestamp: .now
+        )
+
+        let snapshot = await book.makeSnapshot()
+        let alteredReceivingEntries = makeReceivingEntriesWithChangedBalance(from: snapshot, for: entry)
+        let prefixedBlockHash = "0x\(String(repeating: "1", count: 64))"
+        let malformedTransaction = OpalBase.Address.Book.Snapshot.Transaction(
+            transactionHash: String(repeating: "1", count: 64),
+            height: 1,
+            fee: nil,
+            scriptHashes: [entry.address.makeScriptHash().hexadecimalString],
+            firstSeenAt: .now,
+            lastUpdatedAt: .now,
+            status: .confirmed,
+            confirmationHeight: 1,
+            confirmedAt: .now,
+            verificationStatus: .verified,
+            merkleProof: .init(
+                blockHeight: 1,
+                position: 0,
+                branch: [],
+                blockHash: prefixedBlockHash
+            ),
+            lastVerifiedHeight: 1,
+            lastCheckedAt: .now
+        )
+        let malformedSnapshot = OpalBase.Address.Book.Snapshot(
+            receivingEntries: alteredReceivingEntries,
+            changeEntries: snapshot.changeEntries,
+            utxos: snapshot.utxos,
+            transactions: [malformedTransaction]
+        )
+
+        await #expect(
+            throws: OpalBase.Address.Book.Error.invalidSnapshotMerkleProofHash(prefixedBlockHash)
         ) {
             try await book.refresh(with: malformedSnapshot)
         }
@@ -1590,6 +1879,44 @@ struct SnapshotPersistenceValidator {
             vector.data.nonFungibleToken != nil
         })
         return try makeTokenData(from: fixture.data)
+    }
+
+    private func makeTokenUnspentOutputSnapshot(
+        categoryByte: UInt8,
+        tokenAmount: UInt64?,
+        nftCapability: OpalBase.CashTokens.NFT.Capability?,
+        nftCommitment: String?
+    ) throws -> OpalBase.Address.Book.Snapshot.UTXO {
+        let category = try OpalBase.CashTokens.CategoryID(
+            transactionOrderData: Data(repeating: categoryByte, count: 32)
+        )
+        return OpalBase.Address.Book.Snapshot.UTXO(
+            value: 500,
+            lockingScript: "51",
+            tokenCategory: category.hexForDisplay,
+            tokenAmount: tokenAmount,
+            nftCapability: nftCapability,
+            nftCommitment: nftCommitment,
+            transactionHash: String(repeating: "0", count: 64),
+            outputIndex: 1
+        )
+    }
+
+    private func makeReceivingEntriesWithChangedBalance(
+        from snapshot: OpalBase.Address.Book.Snapshot,
+        for entry: OpalBase.Address.Book.Entry,
+        balance: UInt64 = 9_999
+    ) -> [OpalBase.Address.Book.Snapshot.Entry] {
+        snapshot.receivingEntries.map { snapshotEntry in
+            OpalBase.Address.Book.Snapshot.Entry(
+                usage: snapshotEntry.usage,
+                index: snapshotEntry.index,
+                isUsed: snapshotEntry.isUsed,
+                isReserved: snapshotEntry.isReserved,
+                balance: snapshotEntry.index == entry.derivationPath.index ? balance : snapshotEntry.balance,
+                lastUpdated: snapshotEntry.lastUpdated
+            )
+        }
     }
     
     private func makeTokenData(from fixture: TokenPrefixTokenData) throws -> OpalBase.CashTokens.TokenData {

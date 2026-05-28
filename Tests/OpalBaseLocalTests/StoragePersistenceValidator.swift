@@ -39,10 +39,10 @@ struct StoragePersistenceValidator {
         #expect([OpalBase.Storage.Security.ProtectionMode.plaintext, .software, .secureEnclave].contains(protectionMode))
 
         let restoredStorage = try OpalBase.Storage(valueClient: valueClient)
-        let restored = try await restoredStorage.loadMnemonicState()
+        let restored = try #require(try await restoredStorage.loadMnemonicState())
 
-        #expect(restored?.mnemonic.words == mnemonic.words)
-        #expect(restored?.mnemonic.passphrase == mnemonic.passphrase)
-        #expect(restored?.protectionMode == protectionMode)
+        #expect(restored.mnemonic.words == mnemonic.words)
+        #expect(restored.mnemonic.passphrase == mnemonic.passphrase)
+        #expect(restored.protectionMode == protectionMode)
     }
 }

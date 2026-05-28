@@ -12,6 +12,7 @@ extension _OpalBase.Network {
         
         public init?(major: Int, minor: Int, patch: Int = 0, isPatchComponentIncluded: Bool? = nil) {
             guard major >= 0, minor >= 0, patch >= 0 else { return nil }
+            guard patch == 0 || isPatchComponentIncluded != false else { return nil }
             self.major = major
             self.minor = minor
             self.patch = patch
@@ -19,20 +20,25 @@ extension _OpalBase.Network {
         }
         
         public init?(string: String) {
-            let rawComponents = string.split(separator: ".", omittingEmptySubsequences: false)
-            guard rawComponents.allSatisfy({ component in
+            let versionComponents = string.split(separator: ".", omittingEmptySubsequences: false)
+            guard versionComponents.allSatisfy({ component in
                 !component.isEmpty
                 && component.unicodeScalars.allSatisfy { scalar in
                     scalar.value >= 48 && scalar.value <= 57
                 }
             }) else { return nil }
-            let components = rawComponents.compactMap { Int($0) }
-            guard components.count == rawComponents.count else { return nil }
-            switch components.count {
+            switch versionComponents.count {
             case 2:
-                self.init(major: components[0], minor: components[1], patch: 0, isPatchComponentIncluded: false)
+                guard let major = Int(versionComponents[0]),
+                      let minor = Int(versionComponents[1])
+                else { return nil }
+                self.init(major: major, minor: minor, patch: 0, isPatchComponentIncluded: false)
             case 3:
-                self.init(major: components[0], minor: components[1], patch: components[2], isPatchComponentIncluded: true)
+                guard let major = Int(versionComponents[0]),
+                      let minor = Int(versionComponents[1]),
+                      let patch = Int(versionComponents[2])
+                else { return nil }
+                self.init(major: major, minor: minor, patch: patch, isPatchComponentIncluded: true)
             default:
                 return nil
             }

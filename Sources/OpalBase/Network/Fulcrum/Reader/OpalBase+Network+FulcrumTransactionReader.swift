@@ -43,7 +43,7 @@ extension _OpalBase.Network.Fulcrum {
         private func makeDetailed(
             transactionHash: OpalBase.Transaction.Hash,
             rawTransactionData: Data,
-            isVerbose: TransactionGetVerbose?
+            verboseTransaction: TransactionGetVerbose?
         ) throws -> OpalBase.Transaction.Detail {
             try validatePayloadHash(rawTransactionData, expected: transactionHash)
             let (transaction, bytesRead) = try OpalBase.Transaction.decode(from: rawTransactionData)
@@ -59,23 +59,23 @@ extension _OpalBase.Network.Fulcrum {
                     message: "Invalid transaction size: \(rawTransactionData.count)"
                 )
             }
-            if let isVerbose, isVerbose.size != rawTransactionSize {
+            if let verboseTransaction, verboseTransaction.size != rawTransactionSize {
                 throw OpalBase.Network.Error(
                     reason: .decoding,
                     message: "Verbose transaction size mismatch"
                 )
             }
-            let blockHash = try decodeBlockHash(isVerbose?.blockhash)
+            let blockHash = try decodeBlockHash(verboseTransaction?.blockHash)
             
             return OpalBase.Transaction.Detail(
                 transaction: transaction,
                 blockHash: blockHash,
-                blockTime: isVerbose?.blocktime,
-                confirmations: isVerbose?.confirmations,
+                blockTime: verboseTransaction?.blockTime,
+                confirmations: verboseTransaction?.confirmations,
                 hash: transactionHash,
                 rawTransactionData: rawTransactionData,
                 size: rawTransactionSize,
-                time: isVerbose?.time
+                time: verboseTransaction?.time
             )
         }
 
@@ -132,7 +132,7 @@ extension _OpalBase.Network.Fulcrum {
                     options: .init(timeout: timeouts.transactionConfirmations)
                 )
                 
-                let rawTransactionData = try Data(hexadecimalString: rawTransactionHex)
+                let rawTransactionData = try Self.decodeRawTransactionData(from: rawTransactionHex)
                 try validatePayloadHash(rawTransactionData, expected: transactionHash)
                 let (_, bytesRead) = try OpalBase.Transaction.decode(from: rawTransactionData)
                 guard bytesRead == rawTransactionData.count else {
@@ -171,14 +171,14 @@ extension _OpalBase.Network.Fulcrum {
                 )
             }
             return .init(hex: result.hex,
-                         blockhash: result.blockHash,
-                         blocktime: try Self.makeOptionalUInt32(result.blocktime, fieldName: "blocktime"),
-                         confirmations: try Self.makeOptionalUInt32(result.confirmations, fieldName: "confirmations"),
+                         blockHash: result.blockHash,
+                         blockTime: try Self.validatedUInt32Metadata(result.blocktime, fieldName: "blocktime"),
+                         confirmations: try Self.validatedUInt32Metadata(result.confirmations, fieldName: "confirmations"),
                          size: size,
-                         time: try Self.makeOptionalUInt32(result.time, fieldName: "time"))
+                         time: try Self.validatedUInt32Metadata(result.time, fieldName: "time"))
         }
 
-        private static func makeOptionalUInt32(
+        private static func validatedUInt32Metadata(
             _ value: UInt?,
             fieldName: String
         ) throws -> UInt32? {
@@ -197,11 +197,11 @@ extension _OpalBase.Network.Fulcrum {
         ) async throws -> OpalBase.Transaction.Detail {
             try await OpalBase.Network.performWithFailureTranslation {
                 let verbose = try await fetchVerboseTransaction(for: transactionHash)
-                let rawTransactionData = try Data(hexadecimalString: verbose.hex)
+                let rawTransactionData = try Self.decodeRawTransactionData(from: verbose.hex)
                 return try makeDetailed(
                     transactionHash: transactionHash,
                     rawTransactionData: rawTransactionData,
-                    isVerbose: verbose
+                    verboseTransaction: verbose
                 )
             }
         }
@@ -214,18 +214,35 @@ extension _OpalBase.Network.Fulcrum {
                 return try makeDetailed(
                     transactionHash: transactionHash,
                     rawTransactionData: rawTransactionData,
-                    isVerbose: nil
+                    verboseTransaction: nil
                 )
             }
         }
         
         private struct TransactionGetVerbose: Sendable {
             let hex: String
-            let blockhash: String?
-            let blocktime: UInt32?
+            let blockHash: String?
+            let blockTime: UInt32?
             let confirmations: UInt32?
             let size: UInt32
             let time: UInt32?
+        }
+
+        private static func decodeRawTransactionData(from rawTransactionHex: String) throws -> Data {
+            guard !rawTransactionHex.hasPrefix("0x"), !rawTransactionHex.hasPrefix("0X") else {
+                throw OpalBase.Network.Error(
+                    reason: .decoding,
+                    message: "Cannot decode raw transaction hex"
+                )
+            }
+            do {
+                return try Data(hexadecimalString: rawTransactionHex)
+            } catch {
+                throw OpalBase.Network.Error(
+                    reason: .decoding,
+                    message: "Cannot decode raw transaction hex"
+                )
+            }
         }
     }
 }

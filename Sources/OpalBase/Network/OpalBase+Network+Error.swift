@@ -52,11 +52,7 @@ extension _OpalBase.Network.Error: LocalizedError, CustomStringConvertible, Cust
 
     public var description: String {
         var text = "Network \(reason.displayName) error: \(message.map(Self.sanitizeMessage) ?? reason.defaultMessage)"
-        let metadata = displayMetadata
-
-        if !metadata.isEmpty {
-            text += " (" + metadata.map { "\($0.name)=\($0.value)" }.joined(separator: ", ") + ")"
-        }
+        text += " (" + displayMetadata.map { "\($0.name)=\($0.value)" }.joined(separator: ", ") + ")"
 
         return text
     }
@@ -132,10 +128,10 @@ extension _OpalBase.Network.Error {
         OpalBase.Network.ProtocolVersion(string: value)?.description
     }
 
-    private static let messageRedactions: [(pattern: String, replacement: String)] = [
-        (#"\b[a-z][a-z0-9+.-]{1,}://[^\s,;)]+(?:\)[^\s,;)]*)?"#, "[redacted-url]"),
-        (#"\[[0-9a-fA-F:]+\]:\d{2,5}\b"#, "[redacted-endpoint]"),
-        (#"\b(?:(?:[A-Za-z0-9-]+\.)+[A-Za-z]{2,}|localhost|(?:\d{1,3}\.){3}\d{1,3}):\d{2,5}\b"#, "[redacted-endpoint]"),
+    private static let sensitiveMessageRedactions: [(pattern: String, replacement: String)] = [
+        (#"\b[a-z][a-z0-9+.-]*://[^\s,;)]+(?:\)[^\s,;)]*)?"#, "[redacted-url]"),
+        (#"\[[0-9a-fA-F:]+\]:\d{1,5}\b"#, "[redacted-endpoint]"),
+        (#"\b(?:(?:[A-Za-z0-9-]+\.)+[A-Za-z]{2,}|localhost|(?:\d{1,3}\.){3}\d{1,3}):\d{1,5}\b"#, "[redacted-endpoint]"),
         (#"\b(?:bitcoincash|bchtest|bchreg):[qpzry9x8gf2tvdw0s3jn54khce6mua7l]{20,}\b"#, "[redacted-address]"),
         (#"\b[qpz][qpzry9x8gf2tvdw0s3jn54khce6mua7l]{41,}\b"#, "[redacted-address]"),
         (#"\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\b"#, "[redacted-identifier]"),
@@ -151,7 +147,7 @@ extension _OpalBase.Network.Error {
             options: .regularExpression
         )
 
-        return messageRedactions.reduce(singleLineMessage) { sanitized, redaction in
+        return sensitiveMessageRedactions.reduce(singleLineMessage) { sanitized, redaction in
             sanitized.replacingOccurrences(
                 of: redaction.pattern,
                 with: redaction.replacement,

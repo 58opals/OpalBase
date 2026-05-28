@@ -29,11 +29,13 @@ struct AddressBookUnspentTransactionOutputRefreshValidator {
 
         let refreshedOutputs = try #require(refresh.utxosByAddress[entry.address])
         #expect(refreshedOutputs.count == 1)
-        #expect(refreshedOutputs.first?.tokenData == tokenData)
+        let refreshedOutput = try #require(refreshedOutputs.first)
+        #expect(refreshedOutput.tokenData == tokenData)
 
         let storedOutputs = await book.listUTXOs(for: entry.address)
         #expect(storedOutputs.count == 1)
-        #expect(storedOutputs.first?.tokenData == tokenData)
+        let storedOutput = try #require(storedOutputs.first)
+        #expect(storedOutput.tokenData == tokenData)
     }
 
     @Test("refresh stores token data from unspent outputs (all usages)")
@@ -58,11 +60,13 @@ struct AddressBookUnspentTransactionOutputRefreshValidator {
 
         let refreshedOutputs = try #require(refresh.utxosByAddress[entry.address])
         #expect(refreshedOutputs.count == 1)
-        #expect(refreshedOutputs.first?.tokenData == tokenData)
+        let refreshedOutput = try #require(refreshedOutputs.first)
+        #expect(refreshedOutput.tokenData == tokenData)
 
         let storedOutputs = await book.listUTXOs(for: entry.address)
         #expect(storedOutputs.count == 1)
-        #expect(storedOutputs.first?.tokenData == tokenData)
+        let storedOutput = try #require(storedOutputs.first)
+        #expect(storedOutput.tokenData == tokenData)
     }
 
     @Test("refresh updates cached address balance")

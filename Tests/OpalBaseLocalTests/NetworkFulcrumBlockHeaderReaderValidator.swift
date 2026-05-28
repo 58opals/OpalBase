@@ -28,6 +28,21 @@ struct NetworkFulcrumBlockHeaderReaderValidator {
         #expect(failure.reason == .decoding)
         #expect(failure.message == "Invalid block header length: expected 80 bytes, got 1")
     }
+
+    @Test("block header snapshots reject prefixed header hex")
+    func rejectPrefixedBlockHeaderHexInSnapshots() {
+        let headerHexadecimal = Data(repeating: 0x01, count: 80).hexadecimalString
+
+        let failure = Self.captureNetworkError {
+            _ = try OpalBase.Network.Fulcrum.BlockHeaderReader.makeSnapshot(
+                height: 1,
+                headerHexadecimal: "0x\(headerHexadecimal)"
+            )
+        }
+
+        #expect(failure.reason == .decoding)
+        #expect(failure.message == "Cannot decode block header: 0x\(headerHexadecimal)")
+    }
     
     private static func captureNetworkError(_ work: () throws -> Void) -> OpalBase.Network.Error {
         do {

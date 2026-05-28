@@ -17,13 +17,8 @@ extension AccountCommandValidator {
                                                          amount: paymentAmount,
                                                          tokenData: tokenData)])
 
-        do {
+        await #expect(throws: OpalBase.Account.Error.paymentDoesNotSupportTokensUseTokenTransfer) {
             _ = try await account.prepareSpend(payment)
-            Issue.record("Expected prepareSpend to reject token recipients")
-        } catch let error as OpalBase.Account.Error {
-            #expect(error == .paymentDoesNotSupportTokensUseTokenTransfer)
-        } catch {
-            Issue.record("Unexpected error: \(error)")
         }
     }
 
@@ -36,13 +31,8 @@ extension AccountCommandValidator {
         let payment = OpalBase.Account.Payment(recipients: [.init(address: recipientAddress, amount: paymentAmount)],
                                       tokenInputPolicy: .allowTokenUTXOs)
 
-        do {
+        await #expect(throws: OpalBase.Account.Error.paymentCannotSpendTokenUTXOs) {
             _ = try await account.prepareSpend(payment)
-            Issue.record("Expected prepareSpend to reject token unspent transaction outputs selection policy")
-        } catch let error as OpalBase.Account.Error {
-            #expect(error == .paymentCannotSpendTokenUTXOs)
-        } catch {
-            Issue.record("Unexpected error: \(error)")
         }
     }
 

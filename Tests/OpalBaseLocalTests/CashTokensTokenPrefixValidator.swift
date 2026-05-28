@@ -80,18 +80,13 @@ struct CashTokensTokenPrefixValidator {
     }
     
     @Test("decode rejects invalid token prefix vectors")
-    func decodeInvalidVectors() {
+    func decodeInvalidVectors() throws {
         #expect(!TokenPrefixTestData.invalidVectors.isEmpty)
         for vector in TokenPrefixTestData.invalidVectors {
-            let hasThrown: Bool
-            do {
-                let prefixData = try Data(hexadecimalString: vector.prefix)
+            let prefixData = try Data(hexadecimalString: vector.prefix)
+            #expect(throws: OpalBase.CashTokens.Error.self) {
                 _ = try OpalBase.CashTokens.TokenPrefix.decode(prefixPlusBytecode: prefixData)
-                hasThrown = false
-            } catch {
-                hasThrown = true
             }
-            #expect(hasThrown)
         }
     }
     
@@ -135,9 +130,18 @@ struct CashTokensTokenPrefixValidator {
             _ = try OpalBase.CashTokens.CategoryID(hexFromRPC: "0x\(categoryHexadecimal)")
         }
     }
+
+    @Test("NFT decoder rejects prefixed commitment hex")
+    func nonFungibleTokenDecoderRejectsPrefixedCommitmentHex() {
+        let payload = Data(#"{"capability":"none","commitment":"0x12"}"#.utf8)
+
+        #expect(throws: OpalBase.CashTokens.Error.invalidHexadecimalString) {
+            _ = try JSONDecoder().decode(OpalBase.CashTokens.NFT.self, from: payload)
+        }
+    }
     
     @Test("commitment length bounds are enforced")
-    func commitmentLengthBounds() throws {
+    func validateCommitmentLengthBounds() throws {
         let commitmentLengths = [0, 1, 40]
         for commitmentLength in commitmentLengths {
             let commitment = Data(repeating: 0x01, count: commitmentLength)
@@ -146,16 +150,9 @@ struct CashTokensTokenPrefixValidator {
         }
         
         let oversizedCommitment = Data(repeating: 0x02, count: 41)
-        let hasThrownCommitmentLengthOutOfRange: Bool
-        do {
+        #expect(throws: OpalBase.CashTokens.Error.commitmentLengthOutOfRange(minimum: 0, maximum: 40, actual: 41)) {
             _ = try OpalBase.CashTokens.NFT(capability: .none, commitment: oversizedCommitment)
-            hasThrownCommitmentLengthOutOfRange = false
-        } catch OpalBase.CashTokens.Error.commitmentLengthOutOfRange {
-            hasThrownCommitmentLengthOutOfRange = true
-        } catch {
-            hasThrownCommitmentLengthOutOfRange = false
         }
-        #expect(hasThrownCommitmentLengthOutOfRange)
         
         let category = try makeCategoryIdentifier(using: 0x22)
         let oversizedPrefix = makeOversizedCommitmentPrefix(category: category, commitmentByteCount: 41)

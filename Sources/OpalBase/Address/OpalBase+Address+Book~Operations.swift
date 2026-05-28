@@ -7,8 +7,8 @@ extension _OpalBase.Address.Book {
         inventory.listEntries(for: usage)
     }
     
-    func checkCacheValidity(_ cache: Entry.Cache, currentDate: Date) -> Bool {
-        inventory.checkCacheValidity(cache, currentDate: currentDate)
+    func isCacheValid(_ cache: Entry.Cache, currentDate: Date) -> Bool {
+        inventory.isCacheValid(cache, currentDate: currentDate)
     }
     
     func updateCachedBalance(for address: OpalBase.Address,
@@ -77,4 +77,3 @@ extension _OpalBase.Address.Book {
         try inventory.releaseReservation(address: address, shouldKeepUsed: shouldKeepUsed)
     }
 }
-

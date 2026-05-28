@@ -227,11 +227,12 @@ extension _OpalBase.Claimable {
         }
 
         private static func base32Value(for byte: UInt8) throws -> UInt8 {
-            switch byte {
+            let normalizedByte = (0x61 ... 0x7a).contains(byte) ? byte - 0x20 : byte
+            switch normalizedByte {
             case 0x41 ... 0x5a:
-                return byte - 0x41
+                return normalizedByte - 0x41
             case 0x32 ... 0x37:
-                return byte - 0x32 + 26
+                return normalizedByte - 0x32 + 26
             default:
                 throw OpalBase.Claimable.Error.invalidShareCodePayload
             }

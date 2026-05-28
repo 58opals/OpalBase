@@ -79,6 +79,11 @@ extension _OpalBase.Address.Book.Snapshot {
                 }
                 let commitmentData: Data
                 do {
+                    guard !nftCommitment.hasPrefix("0x"),
+                          !nftCommitment.hasPrefix("0X")
+                    else {
+                        throw OpalBase.CashTokens.Error.invalidHexadecimalString
+                    }
                     commitmentData = try Data(hexadecimalString: nftCommitment)
                 } catch {
                     throw OpalBase.Address.Book.Error.invalidSnapshotTokenData(reason: error)

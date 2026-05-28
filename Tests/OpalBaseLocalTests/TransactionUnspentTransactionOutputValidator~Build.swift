@@ -184,8 +184,10 @@ extension TransactionUnspentTransactionOutputValidator {
         
         #expect(transaction.outputs.count == 3)
         #expect(transaction.outputs.map(\.value) == [3_000, 1_000, 6_000])
-        #expect(transaction.outputs.first?.lockingScript == components.changeOutput.lockingScript)
-        #expect(transaction.outputs.last?.lockingScript != components.changeOutput.lockingScript)
+        let firstOutput = try #require(transaction.outputs.first)
+        let lastOutput = try #require(transaction.outputs.last)
+        #expect(firstOutput.lockingScript == components.changeOutput.lockingScript)
+        #expect(lastOutput.lockingScript != components.changeOutput.lockingScript)
     }
 
     @Test("build rejects privacy shufflers that drop outputs")

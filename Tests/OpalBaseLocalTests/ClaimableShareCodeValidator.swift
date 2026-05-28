@@ -45,6 +45,16 @@ struct ClaimableShareCodeValidator {
         #expect(decodedEnvelope == envelope)
     }
 
+    @Test("decodes lowercase base32 payload")
+    func decodesLowercaseBase32Payload() throws {
+        let (envelope, _) = try makeClaimableEnvelope(network: .testnet)
+        let shareCode = try OpalBase.Claimable.ShareCode.encode(envelope: envelope)
+
+        let decodedEnvelope = try OpalBase.Claimable.ShareCode.decode(shareCode.lowercased())
+
+        #expect(decodedEnvelope == envelope)
+    }
+
     @Test("trims leading and trailing whitespace")
     func trimsLeadingAndTrailingWhitespace() throws {
         let (envelope, _) = try makeClaimableEnvelope(network: .testnet)

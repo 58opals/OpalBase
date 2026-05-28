@@ -48,7 +48,7 @@ extension _OpalBase.Storage {
         
         private let encryptor: Encrypt?
         private let decryptor: Decrypt?
-        private let recoverableSecureFailure: RecoverableSecureFailure
+        private let isSecureFailureRecoverable: RecoverableSecureFailure
         private let protectedMaterialReset: ProtectedMaterialReset?
         
         public init(encrypt: Encrypt? = nil,
@@ -65,10 +65,10 @@ extension _OpalBase.Storage {
         init(encrypt: Encrypt? = nil,
              decrypt: Decrypt? = nil,
              checkSecureEnclaveErrorRecoverability: @escaping RecoverableSecureFailure = { _ in false },
-             protectedMaterialReset: ProtectedMaterialReset? = nil) {
+            protectedMaterialReset: ProtectedMaterialReset? = nil) {
             self.encryptor = encrypt
             self.decryptor = decrypt
-            self.recoverableSecureFailure = checkSecureEnclaveErrorRecoverability
+            self.isSecureFailureRecoverable = checkSecureEnclaveErrorRecoverability
             self.protectedMaterialReset = protectedMaterialReset
         }
         
@@ -102,7 +102,7 @@ extension _OpalBase.Storage {
         }
         
         public func checkSecureEnclaveErrorRecoverability(_ error: Swift.Error) -> Bool {
-            recoverableSecureFailure(error)
+            isSecureFailureRecoverable(error)
         }
 
         func resetProtectedMaterial() throws {

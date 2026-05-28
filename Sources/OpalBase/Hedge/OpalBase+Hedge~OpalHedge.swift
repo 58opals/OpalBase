@@ -171,6 +171,9 @@ extension _OpalBase.Hedge {
     }
 
     static func transactionHash(fromExternalHex hex: String) throws -> OpalBase.Transaction.Hash {
+        guard !hex.hasPrefix("0x"), !hex.hasPrefix("0X") else {
+            throw Error.invalidTransactionHash(hex)
+        }
         let data: Data
         do {
             data = try Data(hexadecimalString: hex)

@@ -52,3 +52,22 @@ extension _OpalBase.CashTokens {
         }
     }
 }
+
+extension _OpalBase.CashTokens.Metadata {
+    static func makeSafeMetadataURL(_ url: URL?) -> URL? {
+        guard let url,
+              let scheme = url.scheme?.lowercased(),
+              url.user == nil,
+              url.password == nil
+        else { return nil }
+        switch scheme {
+        case "https":
+            guard let host = url.host, !host.isEmpty else { return nil }
+        case "ipfs":
+            guard url.host != nil || !url.path.split(separator: "/").isEmpty else { return nil }
+        default:
+            return nil
+        }
+        return url
+    }
+}

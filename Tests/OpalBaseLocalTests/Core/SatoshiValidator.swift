@@ -11,10 +11,7 @@ struct SatoshiValidator {
     func initializeFromInteger() throws {
         let value = try OpalBase.Satoshi(42)
         #expect(value.uint64 == 42)
-        guard let expected = Decimal(string: "0.00000042") else {
-            #expect(Bool(false), "Failed to build expected Decimal literal")
-            return
-        }
+        let expected = try #require(Decimal(string: "0.00000042"))
         #expect(value.bch == expected)
     }
     

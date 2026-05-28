@@ -79,11 +79,17 @@ extension _OpalBase.Block.Header {
     }
     
     public var isProofOfWorkSatisfied: Bool {
+        guard previousBlockHash.count == Self.hashByteCount,
+              merkleRoot.count == Self.hashByteCount else {
+            return false
+        }
         guard Self.isCompactTargetValid(bits) else { return false }
         let hashNumber = LargeUnsignedInteger(proofOfWorkHash)
         let target = OpalBase.Block.Header.calculateTarget(for: bits)
         return hashNumber <= target.value
     }
+
+    private static let hashByteCount = 32
 
     private static func isCompactTargetValid(_ bits: UInt32) -> Bool {
         let exponent = Int(bits >> 24)

@@ -7,6 +7,17 @@ import OpalBaseTestSupport
 
 @Suite("OpalBase.Block.Header.ChainActor", .tags(.unit, .block))
 struct BlockHeaderChainActorValidator {
+    @Test("default checkpoint uses the BCH genesis hash")
+    func defaultCheckpointUsesBitcoinCashGenesisHash() throws {
+        let checkpoint = OpalBase.Block.Header.ChainActor.Checkpoint.defaultCheckpoint
+        let expectedHash = try Data(
+            hexadecimalString: "000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f"
+        ).reversedData
+
+        #expect(checkpoint.height == 0)
+        #expect(checkpoint.hash == expectedHash)
+    }
+
     @Test("apply stores headers and remains idempotent for the same block")
     func applyStoresHeadersIdempotently() async throws {
         let checkpointHeader = try Self.makeSatisfiedHeader(previousBlockHash: Data(repeating: 0x00, count: 32), seed: 1)
@@ -35,17 +46,8 @@ struct BlockHeaderChainActorValidator {
             nonce: 0
         )
 
-        do {
+        await #expect(throws: OpalBase.Block.Header.ChainActor.Error.invalidProofOfWork(height: 1)) {
             _ = try await chain.apply(header: invalidHeader, at: 1)
-            Issue.record("Expected invalid proof-of-work failure")
-        } catch let error as OpalBase.Block.Header.ChainActor.Error {
-            guard case .invalidProofOfWork(let height) = error else {
-                Issue.record("Expected invalidProofOfWork, got: \(error)")
-                return
-            }
-            #expect(height == 1)
-        } catch {
-            Issue.record("Unexpected error: \(error)")
         }
     }
 
@@ -59,17 +61,8 @@ struct BlockHeaderChainActorValidator {
         _ = try await chain.apply(header: nextHeader, at: 1)
 
         let disconnectedHeader = try Self.makeSatisfiedHeader(previousBlockHash: Data(repeating: 0x99, count: 32), seed: 5)
-        do {
+        await #expect(throws: OpalBase.Block.Header.ChainActor.Error.doesNotConnect(height: 2)) {
             _ = try await chain.apply(header: disconnectedHeader, at: 2)
-            Issue.record("Expected does-not-connect failure")
-        } catch let error as OpalBase.Block.Header.ChainActor.Error {
-            guard case .doesNotConnect(let height) = error else {
-                Issue.record("Expected doesNotConnect, got: \(error)")
-                return
-            }
-            #expect(height == 2)
-        } catch {
-            Issue.record("Unexpected error: \(error)")
         }
     }
 
@@ -103,17 +96,8 @@ struct BlockHeaderChainActorValidator {
         _ = try await chain.apply(header: secondHeader, at: 2)
 
         let disconnectedCompetingHeader = try Self.makeSatisfiedHeader(previousBlockHash: Data(repeating: 0x99, count: 32), seed: 23)
-        do {
+        await #expect(throws: OpalBase.Block.Header.ChainActor.Error.doesNotConnect(height: 2)) {
             _ = try await chain.apply(header: disconnectedCompetingHeader, at: 2)
-            Issue.record("Expected does-not-connect failure")
-        } catch let error as OpalBase.Block.Header.ChainActor.Error {
-            guard case .doesNotConnect(let height) = error else {
-                Issue.record("Expected doesNotConnect, got: \(error)")
-                return
-            }
-            #expect(height == 2)
-        } catch {
-            Issue.record("Unexpected error: \(error)")
         }
 
         #expect(await chain.currentTip == .init(height: 2, hash: secondHeader.proofOfWorkHash))
@@ -127,19 +111,13 @@ struct BlockHeaderChainActorValidator {
         let chain = OpalBase.Block.Header.ChainActor(checkpointHeight: 10, checkpointHash: checkpointHeader.proofOfWorkHash)
 
         let earlierHeader = try Self.makeSatisfiedHeader(previousBlockHash: Data(repeating: 0x99, count: 32), seed: 25)
-
-        do {
+        await #expect(
+            throws: OpalBase.Block.Header.ChainActor.Error.checkpointViolation(
+                expected: .init(height: 10, hash: checkpointHeader.proofOfWorkHash),
+                actual: .init(height: 9, hash: earlierHeader.proofOfWorkHash)
+            )
+        ) {
             _ = try await chain.apply(header: earlierHeader, at: 9)
-            Issue.record("Expected below-checkpoint header to be rejected")
-        } catch let error as OpalBase.Block.Header.ChainActor.Error {
-            guard case .checkpointViolation(let expected, let actual) = error else {
-                Issue.record("Expected checkpointViolation, got: \(error)")
-                return
-            }
-            #expect(expected == .init(height: 10, hash: checkpointHeader.proofOfWorkHash))
-            #expect(actual == .init(height: 9, hash: earlierHeader.proofOfWorkHash))
-        } catch {
-            Issue.record("Unexpected error: \(error)")
         }
 
         #expect(await chain.currentTip == .init(height: 10, hash: checkpointHeader.proofOfWorkHash))
