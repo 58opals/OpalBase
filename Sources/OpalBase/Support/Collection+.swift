@@ -6,16 +6,15 @@ import Foundation
 
 extension Collection where Element: Sendable {
     func mapConcurrently<Transformed: Sendable>(
-        limit: Int = 8,
+        maximumConcurrentTasks: Int = 8,
         transformError: @escaping @Sendable (Element, Swift.Error) -> Swift.Error = { _, error in error },
         _ transform: @escaping @Sendable (Element) async throws -> Transformed
     ) async throws -> [Transformed] {
         guard !isEmpty else { return .init() }
         
         let elementCount = count
-        let maximumConcurrentTasks = Swift.max(1, Swift.min(limit, elementCount))
+        let boundedTaskCount = Swift.max(1, Swift.min(maximumConcurrentTasks, elementCount))
         var iterator = self.enumerated().makeIterator()
-        let initialTaskCount = Swift.min(maximumConcurrentTasks, elementCount)
         
         var results: [Transformed?] = Array(repeating: nil, count: elementCount)
         
@@ -27,12 +26,15 @@ extension Collection where Element: Sendable {
                     do {
                         return (index, try await transform(element))
                     } catch {
+                        if error.isCancellationError {
+                            throw error
+                        }
                         throw transformError(element, error)
                     }
                 }
             }
             
-            for _ in 0..<initialTaskCount {
+            for _ in 0..<boundedTaskCount {
                 addTask()
             }
             
@@ -43,26 +45,15 @@ extension Collection where Element: Sendable {
             }
         }
         
-        return try unwrapResults(results)
-    }
-    
-    private func unwrapResults<Transformed>(_ results: [Transformed?]) throws -> [Transformed] {
-        let missingMappingResult = NSError(
-            domain: "Collection.mapConcurrently",
-            code: 1,
-            userInfo: [NSLocalizedDescriptionKey: "Concurrent map completed without filling all result slots."]
-        )
-        
-        var unwrapped: [Transformed] = .init()
-        unwrapped.reserveCapacity(results.count)
-        
-        for result in results {
+        return try results.map { result in
             guard let value = result else {
-                throw missingMappingResult
+                throw NSError(
+                    domain: "Collection.mapConcurrently",
+                    code: 1,
+                    userInfo: [NSLocalizedDescriptionKey: "Concurrent map completed without filling all result slots."]
+                )
             }
-            unwrapped.append(value)
+            return value
         }
-        
-        return unwrapped
     }
 }

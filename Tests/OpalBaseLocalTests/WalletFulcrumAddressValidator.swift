@@ -107,6 +107,79 @@ struct WalletFulcrumAddressValidator {
             )
         }
     }
+
+    @Test("refreshBalances rejects confirmed balances above maximum supply")
+    func rejectConfirmedBalanceAboveMaximumSupplyDuringRefreshBalances() async throws {
+        let account = try await AccountTestFixtures.makeAccount()
+        let targetEntry = try await account.selectNextEntry(for: .receiving)
+
+        let addressReader = WalletAddressReaderTestActor(
+            balancesByAddress: [
+                targetEntry.address.string: .init(
+                    confirmed: OpalBase.Satoshi.maximumSatoshi + 100,
+                    unconfirmed: -100
+                )
+            ],
+            historyByAddress: [
+                targetEntry.address.string: [AccountTestFixtures.makeHistoryEntry(hashByte: 0x13)]
+            ]
+        )
+        let confirmationClient = TransactionConfirmationClientTestActor()
+        let fulcrum = OpalBase.Wallet.Fulcrum(
+            addressReader: addressReader,
+            transactionHandler: confirmationClient
+        )
+
+        await #expect(
+            throws: OpalBase.Account.Error.balanceRefreshFailed(
+                targetEntry.address,
+                OpalBase.Satoshi.Error.exceedsMaximumAmount
+            )
+        ) {
+            _ = try await fulcrum.refreshBalances(
+                for: account,
+                usage: .receiving,
+                includeUnconfirmedHistory: false
+            )
+        }
+    }
+
+    @Test(
+        "refreshBalances accepts valid maximum confirmed balance deltas",
+        arguments: [Int64(0), Int64(-100)]
+    )
+    func acceptMaximumConfirmedBalanceDeltasDuringRefreshBalances(unconfirmed: Int64) async throws {
+        let account = try await AccountTestFixtures.makeAccount()
+        let targetEntry = try await account.selectNextEntry(for: .receiving)
+
+        let addressReader = WalletAddressReaderTestActor(
+            balancesByAddress: [
+                targetEntry.address.string: .init(
+                    confirmed: OpalBase.Satoshi.maximumSatoshi,
+                    unconfirmed: unconfirmed
+                )
+            ],
+            historyByAddress: [
+                targetEntry.address.string: [AccountTestFixtures.makeHistoryEntry(hashByte: 0x14)]
+            ]
+        )
+        let confirmationClient = TransactionConfirmationClientTestActor()
+        let fulcrum = OpalBase.Wallet.Fulcrum(
+            addressReader: addressReader,
+            transactionHandler: confirmationClient
+        )
+
+        let refresh = try await fulcrum.refreshBalances(
+            for: account,
+            usage: .receiving,
+            includeUnconfirmedHistory: false
+        )
+        let expectedTotal = try OpalBase.Satoshi(
+            UInt64(Int64(OpalBase.Satoshi.maximumSatoshi) + unconfirmed)
+        )
+
+        #expect(refresh.total == expectedTotal)
+    }
     
     @Test("refreshBalances leaves cache unchanged when a later usage fails")
     func refreshBalancesLeavesCacheUnchangedWhenLaterUsageFails() async throws {

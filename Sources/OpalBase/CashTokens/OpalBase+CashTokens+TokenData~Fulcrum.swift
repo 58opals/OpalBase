@@ -8,6 +8,9 @@ extension _OpalBase.CashTokens.TokenData {
         let category = try OpalBase.CashTokens.CategoryID(hexFromRPC: swiftFulcrumTokenData.category)
         let amount = try Self.parseAmount(from: swiftFulcrumTokenData.amount)
         let nft = try swiftFulcrumTokenData.nft.map { try OpalBase.CashTokens.NFT(swiftFulcrumNFT: $0) }
+        guard amount != nil || nft != nil else {
+            throw OpalBase.CashTokens.Error.invalidTokenPrefix
+        }
         self.init(category: category, amount: amount, nft: nft)
     }
     

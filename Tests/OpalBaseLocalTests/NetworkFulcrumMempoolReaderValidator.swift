@@ -9,7 +9,7 @@ import OpalBaseTestSupport
 @Suite("OpalBase.Network.Fulcrum.MempoolReader", .tags(.unit, .network))
 struct NetworkFulcrumMempoolReaderValidator {
     @Test("maps mempool responses into OpalBase types")
-    func fetchMempoolResponsesMapToOpalBaseTypes() async throws {
+    func mapMempoolResponsesToOpalBaseTypes() async throws {
         let client = try MempoolClientTestActor(
             infoResponse: Self.makeInfoResponse(),
             histogramResponse: Self.makeHistogramResponse()
@@ -24,7 +24,7 @@ struct NetworkFulcrumMempoolReaderValidator {
         #expect(info.incrementalRelayFee == 0.00003)
         #expect(info.unbroadcastCount == 7)
         #expect(info.isFullReplaceByFeeEnabled == true)
-        #expect(histogram == [.init(fee: 1.5, virtualSize: 125), .init(fee: 3.0, virtualSize: 250)])
+        #expect(histogram == [.init(fee: 3.0, virtualSize: 250), .init(fee: 1.5, virtualSize: 125)])
     }
 
     @Test("translates decoding failures for mempool requests")
@@ -41,35 +41,36 @@ struct NetworkFulcrumMempoolReaderValidator {
         #expect(failure.reason == .decoding)
     }
     
-    @Test("rejects invalid mempool info fee rates")
-    func fetchMempoolInfoRejectsInvalidFeeRates() async throws {
-        let client = try MempoolClientTestActor(
-            infoError: try Self.makeInfoDecodeFailure(mempoolMinimumFee: -1)
-        )
+    @Test(
+        "rejects invalid mempool info fields",
+        arguments: ["fee", "count"]
+    )
+    func rejectInvalidMempoolInfoFields(field: String) async throws {
+        let infoError: Swift.Error
+        let expectedMessage: String
+        switch field {
+        case "fee":
+            infoError = try Self.makeInfoDecodeFailure(mempoolMinimumFee: -1)
+            expectedMessage = "Invalid mempool minimum fee: -1.0"
+        case "count":
+            infoError = try Self.makeInfoDecodeFailure(unbroadcastCount: -1)
+            expectedMessage = "Invalid unbroadcast count: -1"
+        default:
+            Issue.record("Unexpected mempool info field: \(field)")
+            return
+        }
+
+        let client = try MempoolClientTestActor(infoError: infoError)
         let reader = OpalBase.Network.Fulcrum.MempoolReader(client: client)
-        
+
         let failure = await Self.captureNetworkError {
             _ = try await reader.fetchMempoolInfo()
         }
-        
+
         #expect(failure.reason == .decoding)
-        #expect(failure.message == "Invalid mempool minimum fee: -1.0")
+        #expect(failure.message == expectedMessage)
     }
-    
-    @Test("rejects invalid mempool info counts")
-    func fetchMempoolInfoRejectsInvalidCounts() async throws {
-        let client = try MempoolClientTestActor(
-            infoError: try Self.makeInfoDecodeFailure(unbroadcastCount: -1)
-        )
-        let reader = OpalBase.Network.Fulcrum.MempoolReader(client: client)
-        
-        let failure = await Self.captureNetworkError {
-            _ = try await reader.fetchMempoolInfo()
-        }
-        
-        #expect(failure.reason == .decoding)
-        #expect(failure.message == "Invalid unbroadcast count: -1")
-    }
+
 }
 
 extension NetworkFulcrumMempoolReaderValidator {

@@ -91,6 +91,16 @@ struct SatoshiValidator {
         }
     }
 
+    @Test("initialization from large BCH rejects fractional satoshi")
+    func initializeFromLargeBCHRejectsFractionalSatoshi() throws {
+        #expect(throws: OpalBase.Satoshi.Error.invalidPrecision) {
+            _ = try OpalBase.Satoshi(bch: 20_000_000.000000004)
+        }
+
+        let validLargeValue = try OpalBase.Satoshi(bch: 20_000_000.00000002)
+        #expect(validLargeValue.uint64 == 2_000_000_000_000_002)
+    }
+
     @Test("initialization from BCH rejects values above maximum supply before rounding")
     func initializeFromBCHRejectsValuesAboveMaximumSupplyBeforeRounding() throws {
         #expect(throws: OpalBase.Satoshi.Error.exceedsMaximumAmount) {

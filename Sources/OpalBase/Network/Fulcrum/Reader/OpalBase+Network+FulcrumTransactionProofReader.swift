@@ -35,9 +35,10 @@ extension _OpalBase.Network.Fulcrum {
                     transactionHash: identifier,
                     options: .init(timeout: timeouts.transactionMerkleProof)
                 )
-                guard let blockHeight = heightResult.height else {
-                    throw SwiftFulcrum.Client.Error.client(
-                        .protocolMismatch("Merkle proof requires a confirmed transaction height.")
+                guard let blockHeight = heightResult.height, blockHeight > 0 else {
+                    throw OpalBase.Network.Error(
+                        reason: .protocolViolation,
+                        message: "Merkle proof requires a confirmed transaction height."
                     )
                 }
                 let result = try await client.fetchTransactionMerkleProof(
@@ -46,10 +47,9 @@ extension _OpalBase.Network.Fulcrum {
                     options: .init(timeout: timeouts.transactionMerkleProof)
                 )
                 guard result.blockHeight == blockHeight else {
-                    throw SwiftFulcrum.Client.Error.client(
-                        .protocolMismatch(
-                            "Merkle proof block height mismatch: requested=\(blockHeight), response=\(result.blockHeight)"
-                        )
+                    throw OpalBase.Network.Error(
+                        reason: .protocolViolation,
+                        message: "Merkle proof block height mismatch: requested=\(blockHeight), response=\(result.blockHeight)"
                     )
                 }
                 try Self.validateMerkleProof(position: result.position, branch: result.merkle)

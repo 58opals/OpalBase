@@ -109,7 +109,8 @@ extension _OpalBase.Network.Fulcrum {
 extension _OpalBase.Network.Fulcrum {
     static func resolveFee<Fee: BinaryInteger>(_ fee: Fee?) throws -> UInt64? {
         guard let fee else { return nil }
-        guard let resolved = UInt64(exactly: fee) else {
+        guard let resolved = UInt64(exactly: fee),
+              resolved <= OpalBase.Satoshi.maximumSatoshi else {
             throw OpalBase.Network.Error(
                 reason: .decoding,
                 message: "Invalid transaction fee: \(fee)"

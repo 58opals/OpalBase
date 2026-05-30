@@ -37,6 +37,9 @@ extension _OpalBase.Transaction {
         /// Encodes the OpalBase.Transaction.Output into Data.
         /// - Returns: The encoded data.
         public func encode() throws -> Data {
+            guard value <= OpalBase.Satoshi.maximumSatoshi else {
+                throw OpalBase.Satoshi.Error.exceedsMaximumAmount
+            }
             var writer = Data.Writer()
             writer.writeLittleEndian(value)
             let tokenPrefixData = try makeTokenPrefixData()
@@ -59,6 +62,9 @@ extension _OpalBase.Transaction {
         
         static func decode(from reader: inout Data.Reader) throws -> Output {
             let value: UInt64 = try reader.readLittleEndian()
+            guard value <= OpalBase.Satoshi.maximumSatoshi else {
+                throw OpalBase.Satoshi.Error.exceedsMaximumAmount
+            }
             let tokenPrefixAndLockingBytecodeLength = try reader.readCompactSize()
             guard tokenPrefixAndLockingBytecodeLength.value <= UInt64(Int.max) else {
                 throw Data.Error.indexOutOfRange

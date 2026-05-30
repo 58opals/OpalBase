@@ -156,6 +156,9 @@ private extension _OpalBase.Address.Book {
                                                     scriptHash: scriptHash,
                                                     entries: mappedEntries)
         } catch {
+            if error.isCancellationError {
+                throw error
+            }
             throw OpalBase.Address.Book.Error.transactionHistoryRefreshFailed(address, error)
         }
     }

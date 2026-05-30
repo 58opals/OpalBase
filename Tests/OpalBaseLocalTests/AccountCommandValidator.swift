@@ -7,6 +7,85 @@ import OpalBaseTestSupport
 
 @Suite("OpalBase.Account Command", .tags(.unit, .wallet))
 struct AccountCommandValidator {
+    @Test("broadcast propagates cancellation without wrapping account failures")
+    func propagateBroadcastCancellationWithoutAccountFailureWrapping() async throws {
+        let account = try await AccountTestFixtures.makeAccount()
+        let transaction = OpalBase.Transaction(
+            version: 2,
+            inputs: [
+                .init(
+                    previousTransactionHash: AccountTestFixtures.makeHash(byte: 0x47),
+                    previousTransactionOutputIndex: 0,
+                    unlockingScript: Data([0x51])
+                )
+            ],
+            outputs: [
+                .init(
+                    value: 1_000,
+                    lockingScript: Data([0x51])
+                )
+            ],
+            lockTime: 0
+        )
+        let client = OpalBase.Network.TransactionClient(
+            broadcastTransaction: { _ in throw CancellationError() },
+            fetchConfirmations: { _ in nil },
+            fetchConfirmationStatus: Self.makeUnconfirmedStatus
+        )
+
+        await #expect(throws: CancellationError.self) {
+            _ = try await account.broadcast(transaction, via: client)
+        }
+    }
+
+    @Test("confirmation monitor completes cleanly when confirmation fetch is cancelled")
+    func finishConfirmationMonitorWhenConfirmationFetchIsCancelled() async throws {
+        let account = try await AccountTestFixtures.makeAccount()
+        let transactionHash = AccountTestFixtures.makeHash(byte: 0x48)
+        let client = OpalBase.Network.TransactionClient(
+            broadcastTransaction: { _ in transactionHash.reverseOrder.hexadecimalString },
+            fetchConfirmations: { _ in throw CancellationError() },
+            fetchConfirmationStatus: Self.makeUnconfirmedStatus
+        )
+
+        var iterator = await account.monitorConfirmations(
+            for: transactionHash,
+            via: client,
+            pollInterval: .milliseconds(1)
+        ).makeAsyncIterator()
+        let firstValue = try await iterator.next()
+
+        #expect(firstValue == nil)
+    }
+
+    @Test("transaction history refresh propagates cancellation from the history reader")
+    func propagateTransactionHistoryReaderCancellationWithoutAccountFailureWrapping() async throws {
+        let account = try await AccountTestFixtures.makeAccount()
+        let cancellingHistoryReader = OpalBase.Network.AddressReader(
+            fetchBalance: { _, _ in .init(confirmed: 0, unconfirmed: 0) },
+            fetchUnspentOutputs: { _, _ in .init() },
+            fetchHistory: { _, _ in throw CancellationError() },
+            fetchFirstUse: { _ in nil },
+            fetchMempoolTransactions: { _ in .init() },
+            fetchScriptHash: { _ in "" },
+            subscribeToAddress: { _ in
+                AsyncThrowingStream { continuation in
+                    continuation.finish()
+                }
+            }
+        )
+
+        await #expect(throws: CancellationError.self) {
+            _ = try await account.refreshTransactionHistory(using: cancellingHistoryReader, usage: .receiving)
+        }
+    }
+
+    private static func makeUnconfirmedStatus(
+        for transactionHash: OpalBase.Transaction.Hash
+    ) -> OpalBase.Network.TransactionConfirmationStatus {
+        .init(transactionHash: transactionHash, transactionHeight: nil, tipHeight: 0, confirmations: nil)
+    }
+
     @Test("prepareSpend reports insufficient funds when sweep-all shortfall occurs")
     func prepareSpendReportsShortfallForSweepAllCoinSelection() async throws {
         let account = try await AccountTestFixtures.makeAccount()

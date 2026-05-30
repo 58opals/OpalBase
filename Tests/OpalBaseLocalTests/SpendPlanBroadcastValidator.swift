@@ -73,21 +73,7 @@ struct SpendPlanBroadcastValidator {
 
     @Test("buildAndBroadcast maps spend broadcast failures and keeps reservation active")
     func spendPlanBuildAndBroadcastMapsFailures() async throws {
-        let account = try await AccountTestFixtures.makeAccount()
-        _ = try await AccountTestFixtures.addUnspentOutput(
-            to: account,
-            value: 35_000,
-            hashByte: 0x73
-        )
-        let payment = OpalBase.Account.Payment(
-            recipients: [
-                .init(
-                    address: try OpalBase.Address(AccountTestFixtures.standardAddressString),
-                    amount: try OpalBase.Satoshi(12_000)
-                )
-            ]
-        )
-        let plan = try await account.prepareSpend(payment)
+        let (account, plan) = try await makeSpendPlanForBroadcastValidation(hashByte: 0x73)
         let handler = TransactionHandlingTestActor(
             broadcastResult: .failure(NetworkStubError.forced("spend-failure"))
         )
@@ -110,6 +96,41 @@ struct SpendPlanBroadcastValidator {
         let afterCancelEntries = await account.addressBook.listEntries(for: .change)
         let released = try #require(afterCancelEntries.first { $0.derivationPath.index == 0 })
         #expect(released.isReserved == false)
+    }
+
+    @Test("buildAndBroadcast propagates cancellation without wrapping broadcast failures")
+    func spendPlanBuildAndBroadcastPropagatesCancellation() async throws {
+        let (_, plan) = try await makeSpendPlanForBroadcastValidation(hashByte: 0x7a)
+        let handler = TransactionHandlingTestActor(
+            broadcastResult: .failure(CancellationError())
+        )
+
+        await #expect(throws: CancellationError.self) {
+            _ = try await plan.buildAndBroadcast(via: handler)
+        }
+
+        try await plan.cancelReservation()
+    }
+
+    private func makeSpendPlanForBroadcastValidation(
+        hashByte: UInt8
+    ) async throws -> (account: OpalBase.Account, plan: OpalBase.Account.SpendPlan) {
+        let account = try await AccountTestFixtures.makeAccount()
+        _ = try await AccountTestFixtures.addUnspentOutput(
+            to: account,
+            value: 35_000,
+            hashByte: hashByte
+        )
+        let payment = OpalBase.Account.Payment(
+            recipients: [
+                .init(
+                    address: try OpalBase.Address(AccountTestFixtures.standardAddressString),
+                    amount: try OpalBase.Satoshi(12_000)
+                )
+            ]
+        )
+        let plan = try await account.prepareSpend(payment)
+        return (account, plan)
     }
 
     @Test("token spend buildAndBroadcast supports success and failure mapping")

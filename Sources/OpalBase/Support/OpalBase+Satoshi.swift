@@ -23,20 +23,21 @@ extension OpalBase {
         public init(bch: Double) throws {
             guard bch.isFinite else { throw Error.exceedsMaximumAmount }
             guard bch >= 0 else { throw Error.negativeResult }
-            
-            let scaledValue = bch * Double(OpalBase.Satoshi.perBCH)
-            guard scaledValue.isFinite else { throw Error.exceedsMaximumAmount }
-            guard scaledValue >= 0 else { throw Error.negativeResult }
-            guard scaledValue <= Double(OpalBase.Satoshi.maximumSatoshi) else { throw Error.exceedsMaximumAmount }
-            
-            let roundedValue = scaledValue.rounded()
-            let roundingError = abs(roundedValue - scaledValue)
-            let tolerance = Double.ulpOfOne * roundedValue.magnitude
-            guard roundingError <= tolerance else { throw Error.invalidPrecision }
-            guard roundedValue <= Double(OpalBase.Satoshi.maximumSatoshi) else { throw Error.exceedsMaximumAmount }
-            
-            let satoshi = UInt64(roundedValue)
-            self.uint64 = satoshi
+
+            guard let decimalValue = Decimal(string: String(describing: bch)) else {
+                throw Error.invalidPrecision
+            }
+            var scaledValue = decimalValue * Decimal(OpalBase.Satoshi.perBCH)
+            guard scaledValue <= Decimal(OpalBase.Satoshi.maximumSatoshi) else {
+                throw Error.exceedsMaximumAmount
+            }
+
+            var roundedValue = Decimal()
+            NSDecimalRound(&roundedValue, &scaledValue, 0, .plain)
+            guard scaledValue == roundedValue else { throw Error.invalidPrecision }
+
+            let satoshiNumber = NSDecimalNumber(decimal: roundedValue)
+            self.uint64 = satoshiNumber.uint64Value
         }
     }
 }

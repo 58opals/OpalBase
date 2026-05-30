@@ -17,7 +17,7 @@ extension _OpalBase.Key {
             usage: Usage,
             index: UInt32
         ) throws {
-            guard index <= Harden.maxUnhardenedValue else { throw Error.indexOverflow }
+            guard index <= HardenedIndex.maxUnhardenedValue else { throw Error.indexOverflow }
 
             self.purpose = purpose
             self.coinType = coinType

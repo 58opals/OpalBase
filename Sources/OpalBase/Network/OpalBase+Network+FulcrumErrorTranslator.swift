@@ -64,7 +64,11 @@ extension _OpalBase.Network {
         }
 
         static func areFailuresEquivalent(_ left: Swift.Error, _ right: Swift.Error) -> Bool {
-            translate(left) == translate(right)
+            let leftFailure = translate(left)
+            let rightFailure = translate(right)
+            return leftFailure.reason == rightFailure.reason &&
+                leftFailure.message == rightFailure.message &&
+                stableMetadata(from: leftFailure.metadata) == stableMetadata(from: rightFailure.metadata)
         }
 
         static func isCancellation(_ error: Swift.Error) -> Bool {
@@ -74,13 +78,20 @@ extension _OpalBase.Network {
                 switch fulcrumError {
                 case .client(.cancelled):
                     return true
-                case .client(.unknown(let underlying)) where underlying is CancellationError:
-                    return true
+                case .client(.unknown(let underlying)):
+                    return underlying?.isCancellationError == true
                 default:
                     return false
                 }
             }
             return false
+        }
+
+        private static func stableMetadata(from metadata: [String: String]) -> [String: String] {
+            metadata.filter { key, _ in
+                key != OpalBase.Network.Error.DiagnosticMetadataKey.serverIdentifier &&
+                    key != OpalBase.Network.Error.DiagnosticMetadataKey.requestIdentifier
+            }
         }
 
         private static func translateTransport(_ transport: SwiftFulcrum.Client.Error.Transport) -> OpalBase.Network.Error {
@@ -147,14 +158,16 @@ extension _OpalBase.Network {
         }
 
         private static func translateSwiftFulcrumDecodeMessage(_ message: String) -> TranslatedDecodeFailure {
-            if let hashFunction = value(in: message, after: "Unsupported server.features hash_function: ") {
+            let payloadMessage = swiftFulcrumDecodePayloadMessage(from: message)
+
+            if let hashFunction = value(in: payloadMessage, after: "Unsupported server.features hash_function: ") {
                 return .init(
                     reason: .protocolViolation,
                     message: "Unsupported server feature hash function: \(hashFunction)"
                 )
             }
 
-            if let prefixRangeMessage = translateReusablePaymentAddressPrefixRangeMessage(message) {
+            if let prefixRangeMessage = translateReusablePaymentAddressPrefixRangeMessage(payloadMessage) {
                 return .init(reason: .decoding, message: prefixRangeMessage)
             }
 
@@ -176,11 +189,27 @@ extension _OpalBase.Network {
             ]
 
             for (wirePrefix, publicPrefix) in mappings {
-                guard message.hasPrefix(wirePrefix) else { continue }
-                return .init(reason: .decoding, message: publicPrefix + message.dropFirst(wirePrefix.count))
+                guard payloadMessage.hasPrefix(wirePrefix) else { continue }
+                return .init(reason: .decoding, message: publicPrefix + payloadMessage.dropFirst(wirePrefix.count))
             }
 
-            return .init(reason: .decoding, message: message)
+            return .init(reason: .decoding, message: payloadMessage)
+        }
+
+        private static func swiftFulcrumDecodePayloadMessage(from message: String) -> String {
+            var remaining = message[...]
+
+            while remaining.hasPrefix("[") {
+                guard let endIndex = remaining.firstIndex(of: "]") else { break }
+
+                let label = remaining[remaining.index(after: remaining.startIndex)..<endIndex]
+                guard label.hasPrefix("method:") || label.hasPrefix("payload:") else { break }
+
+                remaining = remaining[remaining.index(after: endIndex)...]
+                remaining = remaining.drop(while: { $0 == " " })
+            }
+
+            return String(remaining)
         }
 
         private static func translateReusablePaymentAddressPrefixRangeMessage(_ message: String) -> String? {
@@ -239,7 +268,11 @@ extension _OpalBase.Network {
                     return OpalBase.Network.Error(reason: .unknown, message: nil)
                 }
 
-                if underlying is CancellationError {
+                if let networkFailure = underlying as? OpalBase.Network.Error {
+                    return networkFailure
+                }
+
+                if underlying.isCancellationError {
                     return OpalBase.Network.Error(reason: .cancelled, message: "Operation cancelled")
                 }
 

@@ -9,6 +9,10 @@ import Testing
 
 @Suite("Diagnostics error presentation", .tags(.unit, .network))
 struct DiagnosticsErrorPresentationValidator {
+    private static var wrappedNetworkCancellationError: SwiftFulcrum.Client.Error {
+        SwiftFulcrum.Client.Error.client(.unknown(OpalBase.Network.Error(reason: .cancelled)))
+    }
+
     @Test(
         "network error reasons map to stable diagnostic codes",
         arguments: NetworkReasonClassificationCase.allCases
@@ -93,6 +97,54 @@ struct DiagnosticsErrorPresentationValidator {
         recognitionCase: CancellationRecognitionCase
     ) {
         #expect(recognitionCase.error.isCancellationError == recognitionCase.expectedResult)
+    }
+
+    @Test(
+        "network failure equivalence ignores dynamic diagnostic identifiers",
+        arguments: DynamicDiagnosticIdentifierCase.allCases
+    )
+    func ignoreDynamicDiagnosticIdentifiersInNetworkFailureEquivalence(
+        identifierCase: DynamicDiagnosticIdentifierCase
+    ) throws {
+        switch identifierCase {
+        case .translatedRequestIdentifier:
+            let firstRequestID = try #require(UUID(uuidString: "00000000-0000-0000-0000-000000000001"))
+            let secondRequestID = try #require(UUID(uuidString: "00000000-0000-0000-0000-000000000002"))
+
+            #expect(OpalBase.Network.areFailuresEquivalent(
+                SwiftFulcrum.Client.Error.client(.emptyResponse(firstRequestID)),
+                SwiftFulcrum.Client.Error.client(.emptyResponse(secondRequestID))
+            ))
+        case .serverIdentifier:
+            #expect(OpalBase.Network.areFailuresEquivalent(
+                OpalBase.Network.Error(
+                    reason: .server(code: -32000),
+                    message: "Server overloaded",
+                    metadata: ["serverIdentifier": "server-a"]
+                ),
+                OpalBase.Network.Error(
+                    reason: .server(code: -32000),
+                    message: "Server overloaded",
+                    metadata: ["serverIdentifier": "server-b"]
+                )
+            ))
+        }
+    }
+
+    @Test("network failure equivalence keeps stable metadata significant")
+    func keepStableMetadataInNetworkFailureEquivalence() {
+        #expect(!OpalBase.Network.areFailuresEquivalent(
+            OpalBase.Network.Error(
+                reason: .timeout,
+                message: "Operation timed out",
+                metadata: ["timeoutSeconds": "1.0"]
+            ),
+            OpalBase.Network.Error(
+                reason: .timeout,
+                message: "Operation timed out",
+                metadata: ["timeoutSeconds": "2.0"]
+            )
+        ))
     }
 
     @Test("network diagnostics fields expose safe metadata and keep identifiers private")
@@ -222,6 +274,11 @@ struct DiagnosticsErrorPresentationValidator {
         let description: String
 
         var errorDescription: String? { description }
+    }
+
+    enum DynamicDiagnosticIdentifierCase: CaseIterable, Sendable {
+        case translatedRequestIdentifier
+        case serverIdentifier
     }
 
     enum NetworkDisplayRedactionCase: CaseIterable, Sendable {
@@ -509,10 +566,13 @@ struct DiagnosticsErrorPresentationValidator {
         case heartbeatTimeout
         case cancellation
         case unknownCancellation
+        case wrappedNetworkCancellation
         case decoding
         case encoding
         case unknownEncoding
         case normalizedDecodeMessage
+        case contextualMempoolMinimumFeeDecodeMessage
+        case contextualUnsupportedHashFunctionDecodeMessage
 
         var translationExpectation: (input: Swift.Error, expected: OpalBase.Network.Error) {
             switch self {
@@ -545,6 +605,11 @@ struct DiagnosticsErrorPresentationValidator {
                     SwiftFulcrum.Client.Error.client(.unknown(CancellationError())),
                     .init(reason: .cancelled, message: "Operation cancelled")
                 )
+            case .wrappedNetworkCancellation:
+                return (
+                    DiagnosticsErrorPresentationValidator.wrappedNetworkCancellationError,
+                    .init(reason: .cancelled)
+                )
             case .decoding:
                 return (
                     DecodingError.dataCorrupted(.init(codingPath: [], debugDescription: "Bad payload")),
@@ -573,6 +638,16 @@ struct DiagnosticsErrorPresentationValidator {
                 return (
                     DescribedError(description: #"unexpectedFormat("Invalid mempoolminfee: -1")"#),
                     .init(reason: .decoding, message: "Invalid mempool minimum fee: -1")
+                )
+            case .contextualMempoolMinimumFeeDecodeMessage:
+                return (
+                    SwiftFulcrum.Client.Error.coding(.decode(DescribedError(description: #"unexpectedFormat("[payload: 128 B] Invalid mempoolminfee: -1")"#))),
+                    .init(reason: .decoding, message: "Invalid mempool minimum fee: -1")
+                )
+            case .contextualUnsupportedHashFunctionDecodeMessage:
+                return (
+                    SwiftFulcrum.Client.Error.coding(.decode(DescribedError(description: #"unexpectedFormat("[method: server.features] [payload: 128 B] Unsupported server.features hash_function: sha1")"#))),
+                    .init(reason: .protocolViolation, message: "Unsupported server feature hash function: sha1")
                 )
             }
         }
@@ -647,6 +722,7 @@ struct DiagnosticsErrorPresentationValidator {
         case networkCancellation
         case fulcrumCancellation
         case wrappedFulcrumCancellation
+        case wrappedNetworkCancellation
         case timeout
 
         var error: Swift.Error {
@@ -659,6 +735,8 @@ struct DiagnosticsErrorPresentationValidator {
                 return SwiftFulcrum.Client.Error.client(.cancelled)
             case .wrappedFulcrumCancellation:
                 return SwiftFulcrum.Client.Error.client(.unknown(CancellationError()))
+            case .wrappedNetworkCancellation:
+                return DiagnosticsErrorPresentationValidator.wrappedNetworkCancellationError
             case .timeout:
                 return OpalBase.Network.Error(reason: .timeout)
             }
@@ -669,7 +747,8 @@ struct DiagnosticsErrorPresentationValidator {
             case .cancellation,
                  .networkCancellation,
                  .fulcrumCancellation,
-                 .wrappedFulcrumCancellation:
+                 .wrappedFulcrumCancellation,
+                 .wrappedNetworkCancellation:
                 return true
             case .timeout:
                 return false

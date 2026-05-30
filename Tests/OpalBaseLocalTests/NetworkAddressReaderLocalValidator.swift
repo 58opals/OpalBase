@@ -1,6 +1,7 @@
 // NetworkAddressReaderLocalValidator.swift
 
 import Foundation
+import SwiftFulcrum
 import Testing
 @testable import OpalBase
 
@@ -133,6 +134,47 @@ struct NetworkAddressReaderLocalValidator {
         #expect(failure.reason == .protocolViolation)
         #expect(failure.message == "Address script hash mismatch")
     }
+
+    @Test("address balance conversion rejects confirmed values above maximum supply")
+    func rejectConfirmedValuesAboveMaximumSupplyDuringAddressBalanceConversion() throws {
+        #expect(throws: OpalBase.Network.Error(
+            reason: .decoding,
+            message: "Confirmed balance exceeds maximum supply"
+        )) {
+            _ = try OpalBase.Network.Fulcrum.AddressReader.makeAddressBalance(
+                confirmed: OpalBase.Satoshi.maximumSatoshi + 1,
+                unconfirmed: 0
+            )
+        }
+    }
+
+    @Test("address balance conversion accepts valid confirmed value boundaries")
+    func acceptValidConfirmedValueBoundariesDuringAddressBalanceConversion() throws {
+        let balance = try OpalBase.Network.Fulcrum.AddressReader.makeAddressBalance(
+            confirmed: OpalBase.Satoshi.maximumSatoshi,
+            unconfirmed: -1
+        )
+
+        #expect(balance.confirmed == OpalBase.Satoshi.maximumSatoshi)
+        #expect(balance.unconfirmed == -1)
+    }
+
+    @Test("unspent output conversion rejects values above maximum supply")
+    func rejectValuesAboveMaximumSupplyDuringUnspentOutputConversion() throws {
+        let item = try Self.makeAddressListUnspentItem(
+            value: OpalBase.Satoshi.maximumSatoshi + 1
+        )
+
+        #expect(throws: OpalBase.Network.Error(
+            reason: .decoding,
+            message: "Unspent output value exceeds maximum supply"
+        )) {
+            _ = try OpalBase.Network.Fulcrum.AddressReader.makeUnspentOutput(
+                from: item,
+                lockingScriptData: Data([0x51])
+            )
+        }
+    }
     
     private static func captureNetworkError(_ work: () throws -> Void) -> OpalBase.Network.Error {
         do {
@@ -145,5 +187,21 @@ struct NetworkAddressReaderLocalValidator {
             Issue.record("Unexpected error: \(error)")
             return .init(reason: .unknown, message: String(describing: error))
         }
+    }
+
+    private static func makeAddressListUnspentItem(
+        value: UInt64
+    ) throws -> SwiftFulcrum.Response.Blockchain.Address.ListUnspent.Item {
+        let transactionHash = String(repeating: "1", count: 64)
+        let payload = Data(
+            """
+            [{"height":1,"tx_hash":"\(transactionHash)","tx_pos":0,"value":\(value)}]
+            """.utf8
+        )
+        let result = try JSONDecoder().decode(
+            SwiftFulcrum.Response.Blockchain.Address.ListUnspent.self,
+            from: payload
+        )
+        return try #require(result.items.first)
     }
 }

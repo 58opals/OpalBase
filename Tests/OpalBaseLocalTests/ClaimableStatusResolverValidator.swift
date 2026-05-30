@@ -647,6 +647,80 @@ struct ClaimableStatusResolverValidator {
         #expect(status.fundingState == .spent(spendPath: .unknown))
     }
 
+    @Test(
+        "reports unknown spend path when matching spend has malformed unlocking script pushes",
+        arguments: [
+            (Data.push(Data()), Data.push(Data(count: 33)), UInt8(0x56)),
+            (Data.push(Data(count: 65)), Data.push(Data()), UInt8(0x57)),
+            (Data([ScriptOperationCode._PUSHDATA1.rawValue, 65]) + Data(count: 65), Data.push(Data(count: 33)), UInt8(0x58))
+        ]
+    )
+    func reportUnknownSpendPathForMalformedUnlockingScriptPushes(
+        _ malformedPushCase: (
+            signatureWithHashTypePush: Data,
+            compressedPublicKeyPush: Data,
+            hashByte: UInt8
+        )
+    ) async throws {
+        let (envelope, _) = try makeClaimableEnvelope(
+            network: .chipnet,
+            expiryBlockHeight: 500
+        )
+        let fundingTransaction = makeClaimableFundingTransaction(for: envelope)
+
+        let malformedUnlockingScript = malformedPushCase.signatureWithHashTypePush
+            + malformedPushCase.compressedPublicKeyPush
+            + ScriptOperationCode._1.data
+            + Data.push(envelope.contract.redeemScriptData)
+        let malformedSpendTransaction = OpalBase.Transaction(
+            version: 2,
+            inputs: [
+                .init(
+                    previousTransactionHash: envelope.fundingTransactionHash,
+                    previousTransactionOutputIndex: envelope.fundingOutputIndex,
+                    unlockingScript: malformedUnlockingScript
+                )
+            ],
+            outputs: [
+                .init(
+                    value: 1_000,
+                    lockingScript: makeClaimableDestinationLockingScript(fillByte: malformedPushCase.hashByte)
+                )
+            ],
+            lockTime: 0
+        )
+        let malformedSpendTransactionHash = OpalBase.Transaction.Hash(
+            naturalOrder: Data(repeating: malformedPushCase.hashByte, count: 32)
+        )
+
+        let resolver = OpalBase.Claimable.StatusResolver(
+            network: .chipnet,
+            scriptHashReader: makeClaimableScriptHashReader(
+                history: [
+                    makeClaimableHistoryEntry(
+                        transactionHash: envelope.fundingTransactionHash
+                    ),
+                    makeClaimableHistoryEntry(transactionHash: malformedSpendTransactionHash)
+                ],
+                unspentOutputs: []
+            ),
+            transactionReader: makeClaimableTransactionReader(
+                rawTransactionsByHash: [
+                    envelope.fundingTransactionHash: try fundingTransaction.encode(),
+                    malformedSpendTransactionHash: try malformedSpendTransaction.encode()
+                ]
+            )
+        )
+
+        let status = try await resolver.resolve(
+            for: envelope,
+            includeUnconfirmed: true,
+            currentBlockHeight: 700
+        )
+
+        #expect(status.fundingState == .spent(spendPath: .unknown))
+    }
+
     @Test("continues spend path scan past malformed unrelated history transaction")
     func continuesSpendPathScanPastMalformedUnrelatedHistoryTransaction() async throws {
         let (envelope, _) = try makeClaimableEnvelope(
@@ -741,14 +815,49 @@ struct ClaimableStatusResolverValidator {
     }
 
     @Test("propagates cancellation while scanning spend path history")
-    func propagatesCancellationWhileScanningSpendPathHistory() async throws {
+    func propagatesTaskCancellationWhileScanningSpendPathHistory() async throws {
+        let (envelope, resolver) = try makeResolverWithFailingSpendPathTransactionFetch(
+            transactionFetchFailure: CancellationError(),
+            failingTransactionHashByte: 0x50
+        )
+
+        await #expect(throws: CancellationError.self) {
+            _ = try await resolver.resolve(
+                for: envelope,
+                includeUnconfirmed: true,
+                currentBlockHeight: 700
+            )
+        }
+    }
+
+    @Test("propagates translated network cancellation while scanning spend path history")
+    func propagatesTranslatedNetworkCancellationWhileScanningSpendPathHistory() async throws {
+        let networkCancellation = OpalBase.Network.Error(reason: .cancelled)
+        let (envelope, resolver) = try makeResolverWithFailingSpendPathTransactionFetch(
+            transactionFetchFailure: networkCancellation,
+            failingTransactionHashByte: 0x55
+        )
+
+        await #expect(throws: networkCancellation) {
+            _ = try await resolver.resolve(
+                for: envelope,
+                includeUnconfirmed: true,
+                currentBlockHeight: 700
+            )
+        }
+    }
+
+    private func makeResolverWithFailingSpendPathTransactionFetch(
+        transactionFetchFailure: Swift.Error,
+        failingTransactionHashByte: UInt8
+    ) throws -> (envelope: OpalBase.Claimable.Envelope, resolver: OpalBase.Claimable.StatusResolver) {
         let (envelope, _) = try makeClaimableEnvelope(
             network: .chipnet,
             expiryBlockHeight: 500
         )
-        let fundingTransaction = makeClaimableFundingTransaction(for: envelope)
-        let cancelledTransactionHash = OpalBase.Transaction.Hash(
-            naturalOrder: Data(repeating: 0x50, count: 32)
+        let fundingTransactionData = try makeClaimableFundingTransaction(for: envelope).encode()
+        let failingTransactionHash = OpalBase.Transaction.Hash(
+            naturalOrder: Data(repeating: failingTransactionHashByte, count: 32)
         )
         let resolver = OpalBase.Claimable.StatusResolver(
             network: .chipnet,
@@ -757,29 +866,19 @@ struct ClaimableStatusResolverValidator {
                     makeClaimableHistoryEntry(
                         transactionHash: envelope.fundingTransactionHash
                     ),
-                    makeClaimableHistoryEntry(transactionHash: cancelledTransactionHash)
+                    makeClaimableHistoryEntry(transactionHash: failingTransactionHash)
                 ],
                 unspentOutputs: []
             ),
             transactionReader: OpalBase.Network.TransactionReader { transactionHash in
                 if transactionHash == envelope.fundingTransactionHash {
-                    return try fundingTransaction.encode()
+                    return fundingTransactionData
                 }
-                throw CancellationError()
+                throw transactionFetchFailure
             }
         )
 
-        do {
-            _ = try await resolver.resolve(
-                for: envelope,
-                includeUnconfirmed: true,
-                currentBlockHeight: 700
-            )
-            Issue.record("Expected cancellation to propagate")
-        } catch is CancellationError {
-        } catch {
-            Issue.record("Unexpected error: \(error)")
-        }
+        return (envelope, resolver)
     }
 
     @Test("reports refund spend path")

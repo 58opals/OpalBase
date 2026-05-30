@@ -5,7 +5,7 @@ import Foundation
 extension _OpalBase.Key.DerivationPath {
     public struct Account {
         public init(rawIndexInteger: UInt32) throws {
-            guard rawIndexInteger <= Harden.maxUnhardenedValue else { throw Error.indexOverflow }
+            guard rawIndexInteger <= HardenedIndex.maxUnhardenedValue else { throw Error.indexOverflow }
             self.init(unhardenedIndex: rawIndexInteger)
         }
 
@@ -18,7 +18,7 @@ extension _OpalBase.Key.DerivationPath {
         public func deriveHardenedIndex() throws -> UInt32 { try unhardenedIndex.harden() }
 
         mutating func increase() throws {
-            guard unhardenedIndex < Harden.maxUnhardenedValue else { throw Error.indexOverflow }
+            guard unhardenedIndex < HardenedIndex.maxUnhardenedValue else { throw Error.indexOverflow }
             unhardenedIndex += 1
         }
     }

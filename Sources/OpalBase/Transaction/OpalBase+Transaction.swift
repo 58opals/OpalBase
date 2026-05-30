@@ -112,25 +112,3 @@ extension _OpalBase.Transaction: CustomStringConvertible {
         """
     }
 }
-
-// MARK: - Legacy reference implementation
-/// The following implementation is preserved for educational purposes. It mirrors an earlier iteration of `OpalBase.Transaction` that demonstrated how Bitcoin Cash transactions are serialized without relying on helper methods. Pair it with the legacy sizing helpers in `OpalBase+Transaction+EstimationPlaceholder.swift` to follow the binary layout and fee byte counting step by step.
-private extension _OpalBase.Transaction {
-    func encodeLegacy() throws -> Data {
-        var data = Data()
-        
-        data.append(version.littleEndianData)
-        
-        data.append(CompactSize(value: UInt64(inputs.count)).encode())
-        inputs.forEach { data.append($0.encode()) }
-        
-        data.append(CompactSize(value: UInt64(outputs.count)).encode())
-        for output in outputs {
-            data.append(try output.encode())
-        }
-        
-        data.append(lockTime.littleEndianData)
-        
-        return data
-    }
-}

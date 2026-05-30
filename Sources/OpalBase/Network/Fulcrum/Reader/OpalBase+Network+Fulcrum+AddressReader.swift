@@ -20,7 +20,7 @@ extension _OpalBase.Network.Fulcrum {
                     SwiftFulcrum.API.blockchain.address.balance(address: address, tokenFilter: tokenFilter.fulcrumTokenFilter),
                     options: .init(timeout: timeouts.addressBalance)
                 )
-                return OpalBase.Network.AddressBalance(confirmed: result.confirmed, unconfirmed: result.unconfirmed)
+                return try Self.makeAddressBalance(confirmed: result.confirmed, unconfirmed: result.unconfirmed)
             }
         }
         
@@ -34,20 +34,9 @@ extension _OpalBase.Network.Fulcrum {
                 )
                 
                 let unspentOutputs = try result.items.map { item in
-                    guard let index = UInt32(exactly: item.transactionPosition) else {
-                        throw OpalBase.Network.Error(reason: .decoding, message: "OpalBase.Transaction position overflow")
-                    }
-                    let hash = try OpalBase.Network.decodeTransactionHash(
-                        from: item.transactionHash,
-                        label: "unspent transaction hash"
-                    )
-                    let tokenData = try item.tokenData.map { try OpalBase.CashTokens.TokenData(swiftFulcrumTokenData: $0) }
-                    return OpalBase.Transaction.Output.Unspent(
-                        value: item.value,
-                        lockingScript: lockingScriptData,
-                        tokenData: tokenData,
-                        previousTransactionHash: hash,
-                        previousTransactionOutputIndex: index
+                    try Self.makeUnspentOutput(
+                        from: item,
+                        lockingScriptData: lockingScriptData
                     )
                 }
                 
@@ -217,6 +206,46 @@ extension _OpalBase.Network.Fulcrum {
                 )
             }
             return validatedScriptHash
+        }
+
+        static func makeAddressBalance(
+            confirmed: UInt64,
+            unconfirmed: Int64
+        ) throws -> OpalBase.Network.AddressBalance {
+            guard confirmed <= OpalBase.Satoshi.maximumSatoshi else {
+                throw OpalBase.Network.Error(
+                    reason: .decoding,
+                    message: "Confirmed balance exceeds maximum supply"
+                )
+            }
+            return OpalBase.Network.AddressBalance(confirmed: confirmed, unconfirmed: unconfirmed)
+        }
+
+        static func makeUnspentOutput(
+            from item: SwiftFulcrum.Response.Blockchain.Address.ListUnspent.Item,
+            lockingScriptData: Data
+        ) throws -> OpalBase.Transaction.Output.Unspent {
+            guard item.value <= OpalBase.Satoshi.maximumSatoshi else {
+                throw OpalBase.Network.Error(
+                    reason: .decoding,
+                    message: "Unspent output value exceeds maximum supply"
+                )
+            }
+            guard let index = UInt32(exactly: item.transactionPosition) else {
+                throw OpalBase.Network.Error(reason: .decoding, message: "OpalBase.Transaction position overflow")
+            }
+            let hash = try OpalBase.Network.decodeTransactionHash(
+                from: item.transactionHash,
+                label: "unspent transaction hash"
+            )
+            let tokenData = try item.tokenData.map { try OpalBase.CashTokens.TokenData(swiftFulcrumTokenData: $0) }
+            return OpalBase.Transaction.Output.Unspent(
+                value: item.value,
+                lockingScript: lockingScriptData,
+                tokenData: tokenData,
+                previousTransactionHash: hash,
+                previousTransactionOutputIndex: index
+            )
         }
 
         private func validateAddress(_ address: String) throws -> OpalBase.Address {

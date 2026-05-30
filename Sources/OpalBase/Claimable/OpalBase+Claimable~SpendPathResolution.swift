@@ -2,6 +2,9 @@
 
 import Foundation
 
+private let claimableSchnorrSignatureWithHashTypeByteCount = 65
+private let claimableCompressedPublicKeyByteCount = 33
+
 func makeClaimableSpendPath(
     from unlockingScript: Data,
     expectedRedeemScriptData: Data
@@ -9,8 +12,10 @@ func makeClaimableSpendPath(
     let bytes = Array(unlockingScript)
     var offset = 0
 
-    guard (try? readClaimablePushedElement(from: bytes, offset: &offset)) != nil,
-          (try? readClaimablePushedElement(from: bytes, offset: &offset)) != nil,
+    guard let signatureWithHashType = try? readClaimablePushedElement(from: bytes, offset: &offset),
+          signatureWithHashType.count == claimableSchnorrSignatureWithHashTypeByteCount,
+          let compressedPublicKey = try? readClaimablePushedElement(from: bytes, offset: &offset),
+          compressedPublicKey.count == claimableCompressedPublicKeyByteCount,
           offset < bytes.count
     else {
         return nil
@@ -55,24 +60,36 @@ func readClaimablePushedElement(
         guard offset < bytes.count else {
             throw Data.Error.indexOutOfRange
         }
-        count = Int(bytes[offset])
+        let pushDataCount = Int(bytes[offset])
+        guard pushDataCount >= 76 else {
+            throw Data.Error.indexOutOfRange
+        }
+        count = pushDataCount
         offset += 1
     case ScriptOperationCode._PUSHDATA2.rawValue:
         guard offset + 1 < bytes.count else {
             throw Data.Error.indexOutOfRange
         }
-        count = Int(UInt16(bytes[offset]) | (UInt16(bytes[offset + 1]) << 8))
+        let pushDataCount = UInt16(bytes[offset]) | (UInt16(bytes[offset + 1]) << 8)
+        guard pushDataCount > UInt16(UInt8.max) else {
+            throw Data.Error.indexOutOfRange
+        }
+        count = Int(pushDataCount)
         offset += 2
     case ScriptOperationCode._PUSHDATA4.rawValue:
         guard offset + 3 < bytes.count else {
             throw Data.Error.indexOutOfRange
         }
-        count = Int(
+        let pushDataCount = UInt32(
             UInt32(bytes[offset])
                 | (UInt32(bytes[offset + 1]) << 8)
                 | (UInt32(bytes[offset + 2]) << 16)
                 | (UInt32(bytes[offset + 3]) << 24)
         )
+        guard pushDataCount > UInt32(UInt16.max) else {
+            throw Data.Error.indexOutOfRange
+        }
+        count = Int(pushDataCount)
         offset += 4
     default:
         throw Data.Error.indexOutOfRange

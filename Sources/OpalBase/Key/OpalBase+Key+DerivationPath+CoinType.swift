@@ -35,9 +35,9 @@ extension _OpalBase.Key.DerivationPath {
         public var hardenedIndex: UInt32 {
             switch self {
             case .bitcoin:
-                return Harden.harden(0)
+                return HardenedIndex.harden(0)
             case .bitcoinCash:
-                return Harden.harden(145)
+                return HardenedIndex.harden(145)
             }
         }
     }

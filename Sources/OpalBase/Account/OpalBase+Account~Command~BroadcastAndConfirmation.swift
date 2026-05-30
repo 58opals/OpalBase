@@ -28,6 +28,9 @@ extension _OpalBase.Account {
                 )
                 return hash
             } catch {
+                if error.isCancellationError {
+                    throw error
+                }
                 let accountError = OpalBase.Account.Error.broadcastFailed(error)
                 OpalDiagnostics.record(
                     OpalDiagnostics.Event.transactionBroadcastFailed,
@@ -66,6 +69,9 @@ extension _OpalBase.Account {
                         do {
                             confirmations = try await handler.fetchConfirmations(forTransactionIdentifier: identifier)
                         } catch {
+                            if error.isCancellationError {
+                                throw error
+                            }
                             throw OpalBase.Account.Error.confirmationQueryFailed(error)
                         }
                         
@@ -75,15 +81,7 @@ extension _OpalBase.Account {
                             lastStatus = currentStatus
                         }
                         
-                        do {
-                            try await Task.sleep(for: effectiveInterval)
-                        } catch {
-                            if error.isCancellationError {
-                                continuation.finish()
-                                return
-                            }
-                            throw error
-                        }
+                        try await Task.sleep(for: effectiveInterval)
                     } catch {
                         if error.isCancellationError {
                             continuation.finish()

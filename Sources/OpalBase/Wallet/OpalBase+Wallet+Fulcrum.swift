@@ -213,9 +213,10 @@ private extension _OpalBase.Wallet.Fulcrum {
     }
 
     static func makeBalance(from balance: OpalBase.Network.AddressBalance) throws -> OpalBase.Satoshi {
-        guard let confirmed = Int64(exactly: balance.confirmed) else {
+        guard balance.confirmed <= OpalBase.Satoshi.maximumSatoshi else {
             throw OpalBase.Satoshi.Error.exceedsMaximumAmount
         }
+        let confirmed = Int64(balance.confirmed)
 
         let (total, overflow) = confirmed.addingReportingOverflow(balance.unconfirmed)
         guard !overflow else {

@@ -54,6 +54,30 @@ struct TransactionDecodeValidator {
         }
     }
 
+    @Test("encode rejects outputs above maximum supply")
+    func rejectOutputValuesAboveMaximumSupplyDuringTransactionEncode() {
+        let previousHash = OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0x01, count: 32))
+        let input = OpalBase.Transaction.Input(
+            previousTransactionHash: previousHash,
+            previousTransactionOutputIndex: 0,
+            unlockingScript: Data()
+        )
+        let output = OpalBase.Transaction.Output(
+            value: OpalBase.Satoshi.maximumSatoshi + 1,
+            lockingScript: Data([0x51])
+        )
+        let transaction = OpalBase.Transaction(
+            version: 2,
+            inputs: [input],
+            outputs: [output],
+            lockTime: 0
+        )
+
+        #expect(throws: OpalBase.Satoshi.Error.exceedsMaximumAmount) {
+            try transaction.encode()
+        }
+    }
+
     @Test("decode reports consumed length for sliced data")
     func transactionDecodeBytesReadMatchesSliceLength() throws {
         let previousHash = OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 1, count: 32))
@@ -77,27 +101,6 @@ struct TransactionDecodeValidator {
         #expect(decoded.inputs.count == transaction.inputs.count)
         #expect(decoded.outputs.count == transaction.outputs.count)
         #expect(bytesRead == encoded.count)
-    }
-    
-    @Test("decode fails when bytes are missing")
-    func transactionDecodeThrowsForTruncatedPayload() throws {
-        let previousHash = OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 3, count: 32))
-        let input = OpalBase.Transaction.Input(previousTransactionHash: previousHash,
-                                      previousTransactionOutputIndex: 2,
-                                      unlockingScript: Data([0x51]))
-        let output = OpalBase.Transaction.Output(value: 1_000,
-                                        lockingScript: Data([0x51]))
-        let transaction = OpalBase.Transaction(version: 1,
-                                      inputs: [input],
-                                      outputs: [output],
-                                      lockTime: 0)
-        
-        let encoded = try transaction.encode()
-        let truncated = encoded.dropLast()
-        
-        #expect(throws: Data.Error.indexOutOfRange) {
-            _ = try OpalBase.Transaction.decode(from: Data(truncated))
-        }
     }
     
     @Test("decode rejects truncated transaction payloads")
@@ -196,6 +199,31 @@ struct TransactionDecodeValidator {
             _ = try OpalBase.Transaction.decode(from: malformed)
         }
     }
+
+    @Test("decode rejects outputs above maximum supply")
+    func rejectOutputValuesAboveMaximumSupplyDuringTransactionDecode() {
+        let malformed = Self.makeSingleOutputTransactionData(
+            outputValue: OpalBase.Satoshi.maximumSatoshi + 1
+        )
+
+        #expect(throws: OpalBase.Satoshi.Error.exceedsMaximumAmount) {
+            _ = try OpalBase.Transaction.decode(from: malformed)
+        }
+    }
+
+    @Test(
+        "decode accepts valid output value boundaries",
+        arguments: [UInt64(0), UInt64(546), OpalBase.Satoshi.maximumSatoshi]
+    )
+    func acceptValidOutputValueBoundariesDuringTransactionDecode(outputValue: UInt64) throws {
+        let encoded = Self.makeSingleOutputTransactionData(outputValue: outputValue)
+
+        let (transaction, bytesRead) = try OpalBase.Transaction.decode(from: encoded)
+        let output = try #require(transaction.outputs.first)
+
+        #expect(bytesRead == encoded.count)
+        #expect(output.value == outputValue)
+    }
     
     @Test("block decoding returns relative byte count")
     func blockDecodeBytesReadMatchesSliceLength() throws {
@@ -279,5 +307,22 @@ struct TransactionDecodeValidator {
         #expect(throws: OpalBase.Block.Error.invalidMerkleRootLength(expected: 32, actual: 31)) {
             try OpalBase.Block(header: shortMerkleRootHeader, transactions: [transaction]).encode()
         }
+    }
+}
+
+private extension TransactionDecodeValidator {
+    static func makeSingleOutputTransactionData(outputValue: UInt64) -> Data {
+        var encoded = Data()
+        encoded.append(contentsOf: [0x01, 0x00, 0x00, 0x00]) // version
+        encoded.append(0x01) // input count
+        encoded.append(Data(repeating: 0x00, count: 32)) // previous tx hash
+        encoded.append(contentsOf: [0x00, 0x00, 0x00, 0x00]) // output index
+        encoded.append(0x00) // unlocking script length
+        encoded.append(contentsOf: [0xff, 0xff, 0xff, 0xff]) // sequence
+        encoded.append(0x01) // output count
+        encoded.append(outputValue.littleEndianData)
+        encoded.append(0x00) // locking bytecode length
+        encoded.append(contentsOf: [0x00, 0x00, 0x00, 0x00]) // lock time
+        return encoded
     }
 }

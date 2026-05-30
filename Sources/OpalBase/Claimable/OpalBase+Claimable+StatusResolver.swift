@@ -253,9 +253,10 @@ private extension _OpalBase.Claimable.StatusResolver {
             let rawTransactionData: Data
             do {
                 rawTransactionData = try await transactionReader.fetchRawTransaction(for: transactionHash)
-            } catch let error as CancellationError {
-                throw error
             } catch {
+                if error.isCancellationError {
+                    throw error
+                }
                 continue
             }
             guard let transaction = try? Self.decodeCompleteTransaction(from: rawTransactionData) else {

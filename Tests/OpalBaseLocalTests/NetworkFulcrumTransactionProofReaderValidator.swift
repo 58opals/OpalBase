@@ -9,7 +9,7 @@ import OpalBaseTestSupport
 @Suite("OpalBase.Network.Fulcrum.TransactionProofReader", .tags(.unit, .network))
 struct NetworkFulcrumTransactionProofReaderValidator {
     @Test("maps merkle proof and position responses")
-    func validateTransactionProofResponsesMapToOpalBaseTypes() async throws {
+    func mapTransactionProofResponsesToOpalBaseTypes() async throws {
         let merkleResponse = try Self.makeMerkleResponse()
         let identifierResponse = try Self.makeIdentifierResponse()
         let client = TransactionProofClientTestActor(
@@ -67,6 +67,22 @@ struct NetworkFulcrumTransactionProofReaderValidator {
         #expect(failure.message?.contains("Merkle proof block height mismatch") == true)
     }
 
+    @Test("rejects zero-height merkle proof requests")
+    func fetchMerkleProofRejectsZeroHeight() async throws {
+        let client = TransactionProofClientTestActor(
+            heightResponse: try Self.makeHeightResponse(blockHeight: 0)
+        )
+        let reader = OpalBase.Network.Fulcrum.TransactionProofReader(client: client)
+
+        let failure = await Self.captureNetworkError {
+            _ = try await reader.fetchMerkleProof(for: .init(naturalOrder: Data(repeating: 0x01, count: 32)))
+        }
+
+        #expect(failure.reason == .protocolViolation)
+        #expect(failure.message == "Merkle proof requires a confirmed transaction height.")
+        #expect(await client.readRequestedTransactionHash() == nil)
+    }
+
     @Test("rejects malformed merkle proof branch hashes")
     func fetchMerkleProofRejectsMalformedBranchHashes() async throws {
         let client = TransactionProofClientTestActor(
@@ -96,6 +112,27 @@ struct NetworkFulcrumTransactionProofReaderValidator {
 
         #expect(failure.reason == .protocolViolation)
         #expect(failure.message?.contains("Merkle proof position out of range") == true)
+    }
+
+    @Test("position resolution skips proof position validation when proof is not requested")
+    func resolveTransactionIdentifierWithoutProofPositionValidation() async throws {
+        let client = TransactionProofClientTestActor(
+            identifierResponse: try Self.makeIdentifierResponse(merkle: [])
+        )
+        let reader = OpalBase.Network.Fulcrum.TransactionProofReader(client: client)
+
+        let resolution = try await reader.fetchTransactionIdentifier(
+            atHeight: 12,
+            position: 1,
+            shouldIncludeMerkleProof: false
+        )
+
+        #expect(resolution.blockHeight == 12)
+        #expect(resolution.merkle.isEmpty)
+        let requestedPositionResolution = try #require(await client.readRequestedPositionResolution())
+        #expect(requestedPositionResolution.0 == 12)
+        #expect(requestedPositionResolution.1 == 1)
+        #expect(requestedPositionResolution.2 == false)
     }
 
     @Test("rejects malformed transaction identifiers from position resolution")
@@ -153,10 +190,11 @@ private extension NetworkFulcrumTransactionProofReaderValidator {
     }
 
     static func makeIdentifierResponse(
-        transactionHash: String = String(repeating: "c", count: 64)
+        transactionHash: String = String(repeating: "c", count: 64),
+        merkle: [String] = [String(repeating: "d", count: 64), String(repeating: "e", count: 64)]
     ) throws -> SwiftFulcrum.Response.Blockchain.Transaction.IDFromPos {
         let payload = try JSONSerialization.data(
-            withJSONObject: ["merkle": [String(repeating: "d", count: 64), String(repeating: "e", count: 64)], "tx_hash": transactionHash]
+            withJSONObject: ["merkle": merkle, "tx_hash": transactionHash]
         )
         return try JSONDecoder().decode(SwiftFulcrum.Response.Blockchain.Transaction.IDFromPos.self, from: payload)
     }
