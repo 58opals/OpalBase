@@ -1,4 +1,4 @@
-// OpalBase+Network+BlockHeaderSubscriptionClient_.swift
+// OpalBase+Network+BlockHeaderSubscriptionClient.swift
 
 import Foundation
 

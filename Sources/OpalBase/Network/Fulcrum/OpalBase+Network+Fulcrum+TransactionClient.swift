@@ -84,29 +84,35 @@ extension _OpalBase.Network.Fulcrum {
         
         static func resolveTransactionHeight<Height: BinaryInteger>(_ height: Height?) throws -> Int? {
             guard let height else { return nil }
-            guard height > 0 else { return nil }
+            if height == 0 || height == -1 { return nil }
+            guard height > 0 else {
+                throw Self.invalidHeightError(label: "transaction height", value: height)
+            }
             if let resolved = Int(exactly: height) {
                 return resolved
             }
-            throw OpalBase.Network.Error(
-                reason: .decoding,
-                message: "Invalid transaction height: \(height)"
-            )
+            throw Self.invalidHeightError(label: "transaction height", value: height)
         }
         
         static func resolveTipHeight<Height: BinaryInteger>(_ height: Height) throws -> UInt64 {
             if let resolved = UInt64(exactly: height) {
                 return resolved
             }
-            throw OpalBase.Network.Error(
-                reason: .decoding,
-                message: "Invalid tip height: \(height)"
-            )
+            throw Self.invalidHeightError(label: "tip height", value: height)
+        }
+
+        private static func invalidHeightError<Height: BinaryInteger>(
+            label: String,
+            value: Height
+        ) -> OpalBase.Network.Error {
+            OpalBase.Network.Error(reason: .decoding, message: "Invalid \(label): \(value)")
         }
     }
 }
 
 extension _OpalBase.Network.Fulcrum {
+    static let unconfirmedHistoryBlockHeight = -1
+
     static func resolveFee<Fee: BinaryInteger>(_ fee: Fee?) throws -> UInt64? {
         guard let fee else { return nil }
         guard let resolved = UInt64(exactly: fee),
@@ -117,6 +123,16 @@ extension _OpalBase.Network.Fulcrum {
             )
         }
         return resolved
+    }
+
+    static func resolveHistoryBlockHeight(_ blockHeight: Int) throws -> Int {
+        guard blockHeight >= unconfirmedHistoryBlockHeight else {
+            throw OpalBase.Network.Error(
+                reason: .decoding,
+                message: "Invalid history transaction height: \(blockHeight)"
+            )
+        }
+        return blockHeight
     }
     
     static func mapHistoryTransactions<TransactionValue>(
@@ -133,7 +149,7 @@ extension _OpalBase.Network.Fulcrum {
             )
             return OpalBase.Network.TransactionHistoryEntry(
                 transactionIdentifier: identifier,
-                blockHeight: transaction[keyPath: blockHeight],
+                blockHeight: try resolveHistoryBlockHeight(transaction[keyPath: blockHeight]),
                 fee: try resolveFee(transaction[keyPath: fee])
             )
         }

@@ -1,4 +1,4 @@
-// OpalBase+Account+.swift
+// OpalBase+Account.swift
 
 import Foundation
 import OpalDiagnostics

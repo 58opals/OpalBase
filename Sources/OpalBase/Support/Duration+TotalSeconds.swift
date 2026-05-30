@@ -1,4 +1,4 @@
-// Duration+.swift
+// Duration+TotalSeconds.swift
 
 import Foundation
 

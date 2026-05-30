@@ -179,12 +179,9 @@ private extension OpalBase.CashTokens.BCMR.Client.Fetcher {
         from resourceComponents: URLComponents,
         originalURI: String
     ) throws -> URL {
-        guard resourceComponents.scheme?.lowercased() == "https",
-              let host = resourceComponents.host,
-              !host.isEmpty,
-              resourceComponents.user == nil,
-              resourceComponents.password == nil
-        else {
+        guard let rawResourceLocation = resourceComponents.url,
+              Self.makeHypertextTransferProtocolSecureAuthority(from: rawResourceLocation) != nil,
+              !Self.containsPathTraversal(in: rawResourceLocation) else {
             throw Error.invalidResourceIdentifier(originalURI)
         }
 
@@ -209,28 +206,26 @@ private extension OpalBase.CashTokens.BCMR.Client.Fetcher {
         guard let gateway = ipfsGateway else {
             throw Error.missingInterPlanetaryFileSystemGateway
         }
-        guard let gatewayScheme = gateway.scheme,
-              gatewayScheme.lowercased() == "https",
-              let gatewayHost = gateway.host,
-              !gatewayHost.isEmpty,
-              gateway.user == nil,
-              gateway.password == nil else {
+        guard let gatewayAuthority = Self.makeHypertextTransferProtocolSecureAuthority(from: gateway) else {
             throw Error.invalidInterPlanetaryFileSystemGateway(gateway)
         }
         
         var gatewayComponents = URLComponents()
-        gatewayComponents.scheme = gatewayScheme
-        gatewayComponents.host = gatewayHost
+        gatewayComponents.scheme = gatewayAuthority.scheme
+        gatewayComponents.host = gatewayAuthority.host
         gatewayComponents.port = gateway.port
         
         let interPlanetaryPathComponents = interPlanetaryFileSystemLocation.path
             .split(separator: "/")
             .map(String.init)
-        guard !containsPathTraversal(interPlanetaryPathComponents) else {
+        guard !Self.containsPathTraversal(interPlanetaryPathComponents) else {
             throw Error.invalidResourceIdentifier(interPlanetaryFileSystemLocation.absoluteString)
         }
         let contentPathComponents: [String]
         if let host = interPlanetaryFileSystemLocation.host {
+            guard !Self.containsPathTraversal([host]) else {
+                throw Error.invalidResourceIdentifier(interPlanetaryFileSystemLocation.absoluteString)
+            }
             contentPathComponents = [host] + interPlanetaryPathComponents
         } else if !interPlanetaryPathComponents.isEmpty {
             contentPathComponents = interPlanetaryPathComponents
@@ -239,7 +234,7 @@ private extension OpalBase.CashTokens.BCMR.Client.Fetcher {
         }
         
         let gatewayPathComponents = gateway.path.split(separator: "/").map(String.init)
-        guard !containsPathTraversal(gatewayPathComponents) else {
+        guard !Self.containsPathTraversal(gatewayPathComponents) else {
             throw Error.invalidInterPlanetaryFileSystemGateway(gateway)
         }
         let pathComponents = gatewayPathComponents + ["ipfs"] + contentPathComponents
@@ -252,8 +247,12 @@ private extension OpalBase.CashTokens.BCMR.Client.Fetcher {
         return resolvedResourceLocation
     }
 
-    func containsPathTraversal(_ pathComponents: [String]) -> Bool {
+    static func containsPathTraversal(_ pathComponents: [String]) -> Bool {
         pathComponents.contains { $0 == "." || $0 == ".." }
+    }
+
+    static func containsPathTraversal(in resourceLocation: URL) -> Bool {
+        containsPathTraversal(resourceLocation.path.split(separator: "/").map(String.init))
     }
     
     func resolveRedirectLocation(
@@ -276,10 +275,10 @@ private extension OpalBase.CashTokens.BCMR.Client.Fetcher {
         guard scheme == "https" else {
             throw Error.unsupportedScheme(scheme ?? "")
         }
-        guard let host = resourceLocation.host, !host.isEmpty else {
+        guard Self.makeHypertextTransferProtocolSecureAuthority(from: resourceLocation) != nil else {
             throw Error.invalidResourceIdentifier(resourceLocation.absoluteString)
         }
-        guard resourceLocation.user == nil, resourceLocation.password == nil else {
+        guard !Self.containsPathTraversal(in: resourceLocation) else {
             throw Error.invalidResourceIdentifier(resourceLocation.absoluteString)
         }
     }
@@ -310,6 +309,26 @@ private extension OpalBase.CashTokens.BCMR.Client.Fetcher {
 
     func isCacheControlDeltaSeconds(_ value: String) -> Bool {
         !value.isEmpty && value.utf8.allSatisfy { (0x30...0x39).contains($0) }
+    }
+
+    static func makeHypertextTransferProtocolSecureAuthority(from url: URL) -> (scheme: String, host: String)? {
+        guard let scheme = url.scheme?.lowercased(),
+              scheme == "https",
+              let host = url.host,
+              isValidAuthorityHost(host),
+              isValidPort(url.port),
+              url.user == nil,
+              url.password == nil else { return nil }
+        return (scheme, host)
+    }
+
+    static func isValidAuthorityHost(_ host: String) -> Bool {
+        !host.isEmpty && !Self.containsPathTraversal([host])
+    }
+
+    static func isValidPort(_ port: Int?) -> Bool {
+        guard let port else { return true }
+        return (1...65_535).contains(port)
     }
 
     func parseCacheControlDirective(_ directive: String) -> (name: String, value: String?) {

@@ -13,7 +13,7 @@ struct NetworkFulcrumScriptHashReaderValidator {
         
         #expect(try OpalBase.Network.Fulcrum.ScriptHashReader.validateScriptHash(scriptHash) == scriptHash)
         
-        let failure = Self.captureNetworkError {
+        let failure = try Self.captureNetworkError {
             _ = try OpalBase.Network.Fulcrum.ScriptHashReader.validateScriptHash("dd")
         }
         
@@ -36,7 +36,7 @@ struct NetworkFulcrumScriptHashReaderValidator {
         )
         let requestedScriptHash = OpalCryptoAdapter.sha256(Data([0x52])).reversedData.hexadecimalString
 
-        let failure = Self.captureNetworkError {
+        let failure = try Self.captureNetworkError {
             _ = try OpalBase.Network.Fulcrum.ScriptHashReader.makeUnspentOutput(
                 transactionHash: transactionHash,
                 transactionIdentifier: transactionHash.reverseOrder.hexadecimalString,
@@ -50,16 +50,21 @@ struct NetworkFulcrumScriptHashReaderValidator {
         #expect(failure.message == "Unspent transaction output script hash mismatch")
     }
     
-    private static func captureNetworkError(_ work: () throws -> Void) -> OpalBase.Network.Error {
+    enum NetworkErrorCaptureFailure: Swift.Error {
+        case didNotThrow
+        case unexpected(Swift.Error)
+    }
+
+    private static func captureNetworkError(_ work: () throws -> Void) throws -> OpalBase.Network.Error {
         do {
             try work()
-            Issue.record("Expected OpalBase.Network.Error")
-            return .init(reason: .unknown)
+            throw NetworkErrorCaptureFailure.didNotThrow
         } catch let failure as OpalBase.Network.Error {
             return failure
+        } catch let failure as NetworkErrorCaptureFailure {
+            throw failure
         } catch {
-            Issue.record("Unexpected error: \(error)")
-            return .init(reason: .unknown, message: String(describing: error))
+            throw NetworkErrorCaptureFailure.unexpected(error)
         }
     }
 }

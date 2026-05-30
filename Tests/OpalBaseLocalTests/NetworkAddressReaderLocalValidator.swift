@@ -48,7 +48,7 @@ struct NetworkAddressReaderLocalValidator {
         #expect(firstUse.blockHash == blockHash)
         #expect(firstUse.transactionIdentifier == transactionIdentifier)
         
-        let blockHashFailure = Self.captureNetworkError {
+        let blockHashFailure = try Self.captureNetworkError {
             _ = try OpalBase.Network.Fulcrum.AddressReader.makeFirstUse(
                 blockHeight: 1,
                 blockHash: "aa",
@@ -58,7 +58,7 @@ struct NetworkAddressReaderLocalValidator {
         #expect(blockHashFailure.reason == .decoding)
         #expect(blockHashFailure.message == "Invalid first-use block hash length: expected 32 bytes, got 1")
         
-        let prefixedBlockHashFailure = Self.captureNetworkError {
+        let prefixedBlockHashFailure = try Self.captureNetworkError {
             _ = try OpalBase.Network.Fulcrum.AddressReader.makeFirstUse(
                 blockHeight: 1,
                 blockHash: "0x\(blockHash)",
@@ -68,7 +68,7 @@ struct NetworkAddressReaderLocalValidator {
         #expect(prefixedBlockHashFailure.reason == .decoding)
         #expect(prefixedBlockHashFailure.message == "Cannot decode first-use block hash: 0x\(blockHash)")
         
-        let transactionHashFailure = Self.captureNetworkError {
+        let transactionHashFailure = try Self.captureNetworkError {
             _ = try OpalBase.Network.Fulcrum.AddressReader.makeFirstUse(
                 blockHeight: 1,
                 blockHash: blockHash,
@@ -88,7 +88,7 @@ struct NetworkAddressReaderLocalValidator {
         )
         #expect(unused == nil)
         
-        let failure = Self.captureNetworkError {
+        let failure = try Self.captureNetworkError {
             _ = try OpalBase.Network.Fulcrum.AddressReader.makeFirstUse(
                 blockHeight: 1,
                 blockHash: nil,
@@ -106,13 +106,13 @@ struct NetworkAddressReaderLocalValidator {
         
         #expect(try OpalBase.Network.Fulcrum.AddressReader.validateScriptHash(scriptHash) == scriptHash)
         
-        let failure = Self.captureNetworkError {
+        let failure = try Self.captureNetworkError {
             _ = try OpalBase.Network.Fulcrum.AddressReader.validateScriptHash("cc")
         }
         #expect(failure.reason == .decoding)
         #expect(failure.message == "Invalid script hash length: expected 32 bytes, got 1")
         
-        let prefixedFailure = Self.captureNetworkError {
+        let prefixedFailure = try Self.captureNetworkError {
             _ = try OpalBase.Network.Fulcrum.AddressReader.validateScriptHash("0x\(scriptHash)")
         }
         #expect(prefixedFailure.reason == .decoding)
@@ -124,7 +124,7 @@ struct NetworkAddressReaderLocalValidator {
         let address = try OpalBase.Address("bitcoincash:qpm2qsznhks23z7629mms6s4cwef74vcwvy22gdx6a")
         let mismatchedScriptHash = String(repeating: "c", count: 64)
 
-        let failure = Self.captureNetworkError {
+        let failure = try Self.captureNetworkError {
             _ = try OpalBase.Network.Fulcrum.AddressReader.validateScriptHash(
                 mismatchedScriptHash,
                 matches: address
@@ -148,6 +148,31 @@ struct NetworkAddressReaderLocalValidator {
         }
     }
 
+    @Test("address balance conversion rejects unconfirmed magnitudes above maximum supply")
+    func rejectUnconfirmedMagnitudesAboveMaximumSupplyDuringAddressBalanceConversion() throws {
+        let maximumSignedSatoshi = Int64(OpalBase.Satoshi.maximumSatoshi)
+
+        #expect(throws: OpalBase.Network.Error(
+            reason: .decoding,
+            message: "Unconfirmed balance exceeds maximum supply"
+        )) {
+            _ = try OpalBase.Network.Fulcrum.AddressReader.makeAddressBalance(
+                confirmed: 0,
+                unconfirmed: maximumSignedSatoshi + 1
+            )
+        }
+
+        #expect(throws: OpalBase.Network.Error(
+            reason: .decoding,
+            message: "Unconfirmed balance exceeds maximum supply"
+        )) {
+            _ = try OpalBase.Network.Fulcrum.AddressReader.makeAddressBalance(
+                confirmed: 0,
+                unconfirmed: -maximumSignedSatoshi - 1
+            )
+        }
+    }
+
     @Test("address balance conversion accepts valid confirmed value boundaries")
     func acceptValidConfirmedValueBoundariesDuringAddressBalanceConversion() throws {
         let balance = try OpalBase.Network.Fulcrum.AddressReader.makeAddressBalance(
@@ -157,6 +182,19 @@ struct NetworkAddressReaderLocalValidator {
 
         #expect(balance.confirmed == OpalBase.Satoshi.maximumSatoshi)
         #expect(balance.unconfirmed == -1)
+    }
+
+    @Test("address balance conversion rejects aggregate values above maximum supply")
+    func rejectAggregateValuesAboveMaximumSupplyDuringAddressBalanceConversion() throws {
+        #expect(throws: OpalBase.Network.Error(
+            reason: .decoding,
+            message: "Address balance exceeds maximum supply"
+        )) {
+            _ = try OpalBase.Network.Fulcrum.AddressReader.makeAddressBalance(
+                confirmed: OpalBase.Satoshi.maximumSatoshi,
+                unconfirmed: 1
+            )
+        }
     }
 
     @Test("unspent output conversion rejects values above maximum supply")
@@ -176,17 +214,20 @@ struct NetworkAddressReaderLocalValidator {
         }
     }
     
-    private static func captureNetworkError(_ work: () throws -> Void) -> OpalBase.Network.Error {
+    private enum NetworkErrorCaptureFailure: Swift.Error {
+        case didNotThrow
+        case unexpected(Swift.Error)
+    }
+
+    private static func captureNetworkError(_ work: () throws -> Void) throws -> OpalBase.Network.Error {
         do {
             try work()
-            Issue.record("Expected OpalBase.Network.Error")
-            return .init(reason: .unknown)
         } catch let failure as OpalBase.Network.Error {
             return failure
         } catch {
-            Issue.record("Unexpected error: \(error)")
-            return .init(reason: .unknown, message: String(describing: error))
+            throw NetworkErrorCaptureFailure.unexpected(error)
         }
+        throw NetworkErrorCaptureFailure.didNotThrow
     }
 
     private static func makeAddressListUnspentItem(

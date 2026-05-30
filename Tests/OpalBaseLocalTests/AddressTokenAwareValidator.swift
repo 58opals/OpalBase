@@ -23,8 +23,7 @@ struct AddressTokenAwareValidator {
         #expect(address.generateString(withPrefix: true) == tokenAwareAddress)
 
         guard case .p2pkh_OPCHECKSIG(let hash) = address.lockingScript else {
-            Issue.record("Expected P2PKH locking script")
-            return
+            throw AddressScriptExpectationFailure.expectedPayToPublicKeyHash
         }
         #expect(hash.data.count == 20)
     }
@@ -40,8 +39,7 @@ struct AddressTokenAwareValidator {
         #expect(address.generateString(withPrefix: true) == tokenAwareAddress)
 
         guard case .p2sh(let scriptHash) = address.lockingScript else {
-            Issue.record("Expected P2SH locking script")
-            return
+            throw AddressScriptExpectationFailure.expectedPayToScriptHash
         }
         #expect(scriptHash.count == 20)
     }
@@ -121,5 +119,10 @@ struct AddressTokenAwareValidator {
         #expect(standardAgain.format == .standard)
         #expect(standardAgain.lockingScript == mainnetAddress.lockingScript)
         #expect(standardAgain.network == .mainnet)
+    }
+
+    enum AddressScriptExpectationFailure: Swift.Error {
+        case expectedPayToPublicKeyHash
+        case expectedPayToScriptHash
     }
 }

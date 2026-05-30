@@ -128,10 +128,7 @@ struct AddressValidator {
         #expect(address.string == cashAddr)
         #expect(address.network == .mainnet)
 
-        guard case .p2pkh_OPCHECKSIG(let hash) = address.lockingScript else {
-            Issue.record("Expected P2PKH locking script")
-            return
-        }
+        let hash = try Self.requirePayToPublicKeyHash(from: address.lockingScript)
         #expect(hash.data.count == 20)
     }
 
@@ -182,10 +179,7 @@ struct AddressValidator {
         #expect(address.generateString(withPrefix: true) == "bitcoincash:\(cashAddr.lowercased())")
         #expect(try OpalBase.Address(address.generateString(withPrefix: true)) == address)
 
-        guard case .p2pkh_OPCHECKSIG(let hash) = address.lockingScript else {
-            Issue.record("Expected P2PKH locking script")
-            return
-        }
+        let hash = try Self.requirePayToPublicKeyHash(from: address.lockingScript)
         #expect(hash.data.count == 20)
     }
 
@@ -220,10 +214,7 @@ struct AddressValidator {
         #expect(try OpalBase.Address(address.generateString(withPrefix: true)) == address)
         #expect(address.network == .mainnet)
 
-        guard case .p2pkh_OPCHECKSIG(let hash) = address.lockingScript else {
-            Issue.record("Expected P2PKH locking script")
-            return
-        }
+        let hash = try Self.requirePayToPublicKeyHash(from: address.lockingScript)
         #expect(hash.data.count == 20)
     }
 
@@ -344,5 +335,18 @@ struct AddressValidator {
         let requests = await reader.readHistoryRequests()
         #expect(requests.count == 1)
         #expect(scan.totalScannedPerUsage[.receiving] == 1)
+    }
+
+    private static func requirePayToPublicKeyHash(
+        from script: OpalBase.Script
+    ) throws -> OpalBase.Key.PublicKey.Hash {
+        guard case .p2pkh_OPCHECKSIG(let hash) = script else {
+            throw AddressScriptExpectationFailure.expectedPayToPublicKeyHash
+        }
+        return hash
+    }
+
+    enum AddressScriptExpectationFailure: Swift.Error {
+        case expectedPayToPublicKeyHash
     }
 }

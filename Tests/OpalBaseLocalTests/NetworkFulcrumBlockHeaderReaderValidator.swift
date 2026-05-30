@@ -18,7 +18,7 @@ struct NetworkFulcrumBlockHeaderReaderValidator {
         #expect(snapshot.height == 1)
         #expect(snapshot.headerHexadecimal == headerHexadecimal)
         
-        let failure = Self.captureNetworkError {
+        let failure = try Self.captureNetworkError {
             _ = try OpalBase.Network.Fulcrum.BlockHeaderReader.makeSnapshot(
                 height: 1,
                 headerHexadecimal: "aa"
@@ -30,10 +30,10 @@ struct NetworkFulcrumBlockHeaderReaderValidator {
     }
 
     @Test("block header snapshots reject prefixed header hex")
-    func rejectPrefixedBlockHeaderHexInSnapshots() {
+    func rejectPrefixedBlockHeaderHexInSnapshots() throws {
         let headerHexadecimal = Data(repeating: 0x01, count: 80).hexadecimalString
 
-        let failure = Self.captureNetworkError {
+        let failure = try Self.captureNetworkError {
             _ = try OpalBase.Network.Fulcrum.BlockHeaderReader.makeSnapshot(
                 height: 1,
                 headerHexadecimal: "0x\(headerHexadecimal)"
@@ -44,16 +44,19 @@ struct NetworkFulcrumBlockHeaderReaderValidator {
         #expect(failure.message == "Cannot decode block header: 0x\(headerHexadecimal)")
     }
     
-    private static func captureNetworkError(_ work: () throws -> Void) -> OpalBase.Network.Error {
+    private enum NetworkErrorCaptureFailure: Swift.Error {
+        case didNotThrow
+        case unexpected(Swift.Error)
+    }
+
+    private static func captureNetworkError(_ work: () throws -> Void) throws -> OpalBase.Network.Error {
         do {
             try work()
-            Issue.record("Expected OpalBase.Network.Error")
-            return .init(reason: .unknown)
         } catch let failure as OpalBase.Network.Error {
             return failure
         } catch {
-            Issue.record("Unexpected error: \(error)")
-            return .init(reason: .unknown, message: String(describing: error))
+            throw NetworkErrorCaptureFailure.unexpected(error)
         }
+        throw NetworkErrorCaptureFailure.didNotThrow
     }
 }

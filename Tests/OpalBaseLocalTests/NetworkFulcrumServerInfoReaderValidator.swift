@@ -12,7 +12,7 @@ struct NetworkFulcrumServerInfoReaderValidator {
     func fetchServerInfoMapsResponses() async throws {
         let expectedMinimumProtocolVersion = try #require(OpalBase.Network.ProtocolVersion(major: 1, minor: 4))
         let expectedMaximumProtocolVersion = try #require(OpalBase.Network.ProtocolVersion(major: 1, minor: 5))
-        let client = ServerInfoClientTestActor(
+        let client = try ServerInfoClientTestActor(
             versionResponse: try Self.makeVersionResponse(serverVersion: "Fulcrum 1.9.0", protocolVersion: "1.5"),
             featuresResponse: try Self.makeFeaturesResponse(),
             relayFeeResponse: try Self.makeRelayFeeResponse(fee: 0.00001),
@@ -62,28 +62,21 @@ struct NetworkFulcrumServerInfoReaderValidator {
         #expect(decoded == validVersion)
         
         let invalidPayload = Data(#"{"major":-1,"minor":4,"patch":0,"isPatchComponentIncluded":false}"#.utf8)
-        var capturedContext: DecodingError.Context?
-        do {
+        let context = try Self.captureDataCorruptedContext {
             _ = try JSONDecoder().decode(OpalBase.Network.ProtocolVersion.self, from: invalidPayload)
-            Issue.record("Expected protocol version decoding to reject negative components")
-        } catch DecodingError.dataCorrupted(let context) {
-            capturedContext = context
-        } catch {
-            Issue.record("Unexpected error: \(error)")
         }
 
-        let context = try #require(capturedContext)
         #expect(context.debugDescription == "Invalid protocol version components")
     }
 
     @Test("translates timeout failures for server info requests")
     func pingTranslatesTimeoutFailures() async throws {
-        let client = ServerInfoClientTestActor(
+        let client = try ServerInfoClientTestActor(
             pingError: SwiftFulcrum.Client.Error.client(.timeout(.seconds(3)))
         )
         let reader = OpalBase.Network.Fulcrum.ServerInfoReader(client: client)
 
-        let failure = await Self.captureNetworkError {
+        let failure = try await Self.captureNetworkError {
             try await reader.ping()
         }
 
@@ -95,22 +88,22 @@ struct NetworkFulcrumServerInfoReaderValidator {
     @Test("rejects negative server fee rates")
     func rejectsNegativeServerFeeRates() async throws {
         let relayReader = OpalBase.Network.Fulcrum.ServerInfoReader(
-            client: ServerInfoClientTestActor(
+            client: try ServerInfoClientTestActor(
                 relayFeeError: Self.makeDecodeError("Invalid relay fee: -1e-05")
             )
         )
-        let relayFailure = await Self.captureNetworkError {
+        let relayFailure = try await Self.captureNetworkError {
             _ = try await relayReader.fetchRelayFee()
         }
         #expect(relayFailure.reason == .decoding)
         #expect(relayFailure.message == "Invalid relay fee: -1e-05")
 
         let estimateReader = OpalBase.Network.Fulcrum.ServerInfoReader(
-            client: ServerInfoClientTestActor(
+            client: try ServerInfoClientTestActor(
                 estimatedFeeError: Self.makeDecodeError("Invalid estimated fee: -1.0")
             )
         )
-        let estimateFailure = await Self.captureNetworkError {
+        let estimateFailure = try await Self.captureNetworkError {
             _ = try await estimateReader.estimateFee(forConfirmationTarget: 6)
         }
         #expect(estimateFailure.reason == .decoding)
@@ -119,16 +112,16 @@ struct NetworkFulcrumServerInfoReaderValidator {
     
     @Test("rejects non-positive fee confirmation targets")
     func rejectsNonPositiveFeeConfirmationTargets() async throws {
-        let client = ServerInfoClientTestActor()
+        let client = try ServerInfoClientTestActor()
         let reader = OpalBase.Network.Fulcrum.ServerInfoReader(client: client)
         
-        let zeroFailure = await Self.captureNetworkError {
+        let zeroFailure = try await Self.captureNetworkError {
             _ = try await reader.estimateFee(forConfirmationTarget: 0)
         }
         #expect(zeroFailure.reason == .encoding)
         #expect(zeroFailure.message == "Invalid fee confirmation target: 0")
         
-        let negativeFailure = await Self.captureNetworkError {
+        let negativeFailure = try await Self.captureNetworkError {
             _ = try await reader.estimateFee(forConfirmationTarget: -1)
         }
         #expect(negativeFailure.reason == .encoding)
@@ -140,12 +133,12 @@ struct NetworkFulcrumServerInfoReaderValidator {
     @Test("rejects negative server feature pruning limits")
     func fetchServerFeaturesRejectsNegativePruningLimits() async throws {
         let reader = OpalBase.Network.Fulcrum.ServerInfoReader(
-            client: ServerInfoClientTestActor(
+            client: try ServerInfoClientTestActor(
                 featuresError: Self.makeDecodeError("Invalid server.features pruning: -1")
             )
         )
         
-        let failure = await Self.captureNetworkError {
+        let failure = try await Self.captureNetworkError {
             _ = try await reader.fetchServerFeatures()
         }
         
@@ -156,12 +149,12 @@ struct NetworkFulcrumServerInfoReaderValidator {
     @Test("rejects invalid server feature host ports")
     func fetchServerFeaturesRejectsInvalidHostPorts() async throws {
         let reader = OpalBase.Network.Fulcrum.ServerInfoReader(
-            client: ServerInfoClientTestActor(
+            client: try ServerInfoClientTestActor(
                 featuresError: Self.makeDecodeError("Invalid server.features host ssl_port: -1")
             )
         )
         
-        let failure = await Self.captureNetworkError {
+        let failure = try await Self.captureNetworkError {
             _ = try await reader.fetchServerFeatures()
         }
         
@@ -172,12 +165,12 @@ struct NetworkFulcrumServerInfoReaderValidator {
     @Test("rejects negative reusable payment address metadata")
     func fetchServerFeaturesRejectsNegativeReusablePaymentAddressMetadata() async throws {
         let reader = OpalBase.Network.Fulcrum.ServerInfoReader(
-            client: ServerInfoClientTestActor(
+            client: try ServerInfoClientTestActor(
                 featuresError: Self.makeDecodeError("Invalid server.features rpa history_block_limit: -1")
             )
         )
         
-        let failure = await Self.captureNetworkError {
+        let failure = try await Self.captureNetworkError {
             _ = try await reader.fetchServerFeatures()
         }
         
@@ -188,12 +181,12 @@ struct NetworkFulcrumServerInfoReaderValidator {
     @Test("rejects inconsistent reusable payment address prefix ranges")
     func fetchServerFeaturesRejectsInconsistentReusablePaymentAddressPrefixRanges() async throws {
         let reader = OpalBase.Network.Fulcrum.ServerInfoReader(
-            client: ServerInfoClientTestActor(
+            client: try ServerInfoClientTestActor(
                 featuresError: Self.makeDecodeError("Invalid server.features rpa prefix bit range: 17 exceeds 16")
             )
         )
         
-        let failure = await Self.captureNetworkError {
+        let failure = try await Self.captureNetworkError {
             _ = try await reader.fetchServerFeatures()
         }
         
@@ -201,15 +194,31 @@ struct NetworkFulcrumServerInfoReaderValidator {
         #expect(failure.message == "Invalid server feature rpa prefix range: minimum 17 exceeds indexed 16")
     }
 
+    @Test("translates inconsistent server feature protocol ranges")
+    func fetchServerFeaturesTranslatesInconsistentProtocolRanges() async throws {
+        let reader = OpalBase.Network.Fulcrum.ServerInfoReader(
+            client: try ServerInfoClientTestActor(
+                featuresError: Self.makeDecodeError("Server feature protocol range is invalid: 1.5...1.4")
+            )
+        )
+
+        let failure = try await Self.captureNetworkError {
+            _ = try await reader.fetchServerFeatures()
+        }
+
+        #expect(failure.reason == .decoding)
+        #expect(failure.message == "Invalid server feature protocol range: minimum 1.5 exceeds maximum 1.4")
+    }
+
     @Test("rejects malformed server feature genesis hashes")
     func fetchServerFeaturesRejectsMalformedGenesisHashes() async throws {
         let reader = OpalBase.Network.Fulcrum.ServerInfoReader(
-            client: ServerInfoClientTestActor(
+            client: try ServerInfoClientTestActor(
                 featuresError: Self.makeDecodeError("Expected block hash to be exactly 64 hex characters")
             )
         )
         
-        let failure = await Self.captureNetworkError {
+        let failure = try await Self.captureNetworkError {
             _ = try await reader.fetchServerFeatures()
         }
         
@@ -217,12 +226,12 @@ struct NetworkFulcrumServerInfoReaderValidator {
         #expect(failure.message == "Expected block hash to be exactly 64 hex characters")
         
         let prefixedReader = OpalBase.Network.Fulcrum.ServerInfoReader(
-            client: ServerInfoClientTestActor(
+            client: try ServerInfoClientTestActor(
                 featuresError: Self.makeDecodeError("Expected block hash to contain only hex characters")
             )
         )
         
-        let prefixedFailure = await Self.captureNetworkError {
+        let prefixedFailure = try await Self.captureNetworkError {
             _ = try await prefixedReader.fetchServerFeatures()
         }
         
@@ -233,12 +242,12 @@ struct NetworkFulcrumServerInfoReaderValidator {
     @Test("rejects unsupported server feature hash functions")
     func fetchServerFeaturesRejectsUnsupportedHashFunctions() async throws {
         let reader = OpalBase.Network.Fulcrum.ServerInfoReader(
-            client: ServerInfoClientTestActor(
+            client: try ServerInfoClientTestActor(
                 featuresError: Self.makeDecodeError("Unsupported server.features hash_function: sha1")
             )
         )
         
-        let failure = await Self.captureNetworkError {
+        let failure = try await Self.captureNetworkError {
             _ = try await reader.fetchServerFeatures()
         }
         
@@ -248,6 +257,16 @@ struct NetworkFulcrumServerInfoReaderValidator {
 }
 
 extension NetworkFulcrumServerInfoReaderValidator {
+    enum DataCorruptedContextCaptureFailure: Swift.Error {
+        case didNotThrow
+        case unexpected(Swift.Error)
+    }
+
+    enum NetworkErrorCaptureFailure: Swift.Error {
+        case didNotThrow
+        case unexpected(Swift.Error)
+    }
+
     struct DecodeFailure: Swift.Error, CustomStringConvertible {
         let description: String
     }
@@ -310,18 +329,33 @@ extension NetworkFulcrumServerInfoReaderValidator {
         return try JSONDecoder().decode(SwiftFulcrum.Response.Blockchain.EstimateFee.self, from: payload)
     }
 
+    static func captureDataCorruptedContext(
+        _ work: () throws -> Void
+    ) throws -> DecodingError.Context {
+        do {
+            try work()
+            throw DataCorruptedContextCaptureFailure.didNotThrow
+        } catch DecodingError.dataCorrupted(let context) {
+            return context
+        } catch let failure as DataCorruptedContextCaptureFailure {
+            throw failure
+        } catch {
+            throw DataCorruptedContextCaptureFailure.unexpected(error)
+        }
+    }
+
     static func captureNetworkError(
         _ work: () async throws -> Void
-    ) async -> OpalBase.Network.Error {
+    ) async throws -> OpalBase.Network.Error {
         do {
             try await work()
-            Issue.record("Expected OpalBase.Network.Error")
-            return .init(reason: .unknown)
+            throw NetworkErrorCaptureFailure.didNotThrow
         } catch let failure as OpalBase.Network.Error {
             return failure
+        } catch let failure as NetworkErrorCaptureFailure {
+            throw failure
         } catch {
-            Issue.record("Unexpected error: \(error)")
-            return .init(reason: .unknown, message: String(describing: error))
+            throw NetworkErrorCaptureFailure.unexpected(error)
         }
     }
 }

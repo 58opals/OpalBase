@@ -31,31 +31,41 @@ extension StoragePersistenceValidator {
             ]
         )
 
-        do {
+        let error = try await Self.captureSpendValidationAccountError {
             _ = try await account.prepareSpend(payment)
-            Issue.record("Expected insufficient-funds failure, but prepareSpend succeeded for an empty wallet.")
+        }
+
+        guard case .coinSelectionFailed(let underlying) = error else {
+            throw SpendValidationAccountErrorCaptureFailure.unexpected(error)
+        }
+
+        if let txError = underlying as? OpalBase.Transaction.Error {
+            guard case .insufficientFunds = txError else {
+                throw SpendValidationAccountErrorCaptureFailure.unexpected(txError)
+            }
+        } else {
+            let bookError = try #require(underlying as? OpalBase.Address.Book.Error)
+            #expect(bookError == OpalBase.Address.Book.Error.insufficientFunds)
+        }
+    }
+
+    private enum SpendValidationAccountErrorCaptureFailure: Swift.Error {
+        case didNotThrow
+        case unexpected(Swift.Error)
+    }
+
+    private static func captureSpendValidationAccountError(
+        _ work: () async throws -> Void
+    ) async throws -> OpalBase.Account.Error {
+        do {
+            try await work()
+            throw SpendValidationAccountErrorCaptureFailure.didNotThrow
         } catch let error as OpalBase.Account.Error {
-            guard case .coinSelectionFailed(let underlying) = error else {
-                Issue.record("Expected coinSelectionFailed, got: \(error)")
-                return
-            }
-
-            if let txError = underlying as? OpalBase.Transaction.Error {
-                guard case .insufficientFunds = txError else {
-                    Issue.record("Expected Transaction.Error.insufficientFunds, got: \(txError)")
-                    return
-                }
-                return
-            }
-
-            if let bookError = underlying as? OpalBase.Address.Book.Error {
-                #expect(bookError == OpalBase.Address.Book.Error.insufficientFunds)
-                return
-            }
-
-            Issue.record("coinSelectionFailed with unexpected underlying error: \(underlying)")
+            return error
+        } catch let error as SpendValidationAccountErrorCaptureFailure {
+            throw error
         } catch {
-            Issue.record("Unexpected error: \(error)")
+            throw SpendValidationAccountErrorCaptureFailure.unexpected(error)
         }
     }
 }

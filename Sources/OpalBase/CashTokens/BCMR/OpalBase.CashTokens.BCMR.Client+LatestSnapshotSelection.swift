@@ -166,11 +166,7 @@ private extension OpalBase.CashTokens.BCMR.Client {
     }
 
     func parseAuthbase(from identity: String) -> OpalBase.Transaction.Hash? {
-        guard let data = try? Data(hexadecimalString: identity),
-              data.count == OpalBase.Transaction.Hash.expectedByteCount
-        else { return nil }
-
-        return OpalBase.Transaction.Hash(dataFromRPC: data)
+        try? OpalBase.Network.decodeTransactionHash(from: identity, label: "metadata identity")
     }
 
     func upsertCurrentMetadata(

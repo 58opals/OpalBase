@@ -143,14 +143,15 @@ private extension _OpalBase.Wallet.FeePolicy {
     }
     
     func determineFallbackRate(for preference: Preference) -> UInt64 {
-        switch preference {
+        let multiplier: UInt64 = switch preference {
         case .economy:
-            return resolveMinimumRelayFeeRate(defaultFeeRate)
+            1
         case .standard:
-            return resolveMinimumRelayFeeRate(multiplySafely(defaultFeeRate, by: 2))
+            2
         case .priority:
-            return resolveMinimumRelayFeeRate(multiplySafely(defaultFeeRate, by: 3))
+            3
         }
+        return resolveMinimumRelayFeeRate(multiplySafely(defaultFeeRate, by: multiplier))
     }
     
     func multiplySafely(_ value: UInt64, by multiplier: UInt64) -> UInt64 {

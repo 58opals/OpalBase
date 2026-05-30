@@ -132,11 +132,12 @@ struct AccountTokenMintValidator {
             ]
         )
 
-        do {
+        await #expect(
+            throws: OpalBase.Account.Error.transactionBuildFailed(
+                OpalBase.Transaction.Error.outputValueIsLessThanTheDustLimit
+            )
+        ) {
             _ = try await account.prepareTokenMint(mint)
-            Issue.record("Expected dust token mint recipient output to fail")
-        } catch let error as OpalBase.Account.Error {
-            #expect(error == .transactionBuildFailed(OpalBase.Transaction.Error.outputValueIsLessThanTheDustLimit))
         }
 
         #expect(await account.addressBook.readActiveSpendReservations().isEmpty)

@@ -158,11 +158,8 @@ struct PublicAPISmokeValidator {
     func transactionSignatureFacadeExposesOwnedEnum() {
         let signatureFormat: OpalBase.Transaction.SignatureFormat = .ecdsa(.der)
 
-        if case .ecdsa(.der) = signatureFormat {
-            #expect(OpalBase.Transaction.SignatureFormat.schnorr == .schnorr)
-        } else {
-            Issue.record("Expected DER-backed ECDSA signature format.")
-        }
+        #expect(signatureFormat == .ecdsa(.der))
+        #expect(OpalBase.Transaction.SignatureFormat.schnorr == .schnorr)
     }
 
     @Test("claimable facade composes from OpalBase only")

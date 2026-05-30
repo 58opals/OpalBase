@@ -31,12 +31,12 @@ enum HedgeFixtureData {
     static let fundingTransactionHashHex = String(repeating: "1", count: 64)
     static let settlementTransactionHashHex = String(repeating: "2", count: 64)
 
-    static var fundingTransactionHash: OpalBase.Transaction.Hash {
-        try! OpalBase.Hedge.transactionHash(fromExternalHex: fundingTransactionHashHex)
+    static func fundingTransactionHash() throws -> OpalBase.Transaction.Hash {
+        try OpalBase.Hedge.transactionHash(fromExternalHex: fundingTransactionHashHex)
     }
 
-    static var settlementTransactionHash: OpalBase.Transaction.Hash {
-        try! OpalBase.Hedge.transactionHash(fromExternalHex: settlementTransactionHashHex)
+    static func settlementTransactionHash() throws -> OpalBase.Transaction.Hash {
+        try OpalBase.Hedge.transactionHash(fromExternalHex: settlementTransactionHashHex)
     }
 
     static func startingOracleProof() -> OpalBase.Hedge.OracleProofInput {
@@ -203,4 +203,3 @@ enum HedgeFixtureData {
         return text.count == 1 ? "0" + text : text
     }
 }
-

@@ -36,9 +36,7 @@ extension _OpalBase.Transaction {
             try validateDustDonationAllowed(for: changeOutputTemplate)
             guard shouldAllowDustDonation else { throw Error.outputValueIsLessThanTheDustLimit }
         } else {
-            outputs.append(.init(value: desiredChange,
-                                 lockingScript: changeOutputTemplate.lockingScript,
-                                 tokenData: changeOutputTemplate.tokenData))
+            outputs.append(makeChangeOutput(value: desiredChange, from: changeOutputTemplate))
         }
         
         return try orderAndValidateOutputs(outputs,
@@ -170,6 +168,10 @@ extension _OpalBase.Transaction {
         guard changeOutput.tokenData == nil else {
             throw Error.outputValueIsLessThanTheDustLimit
         }
+    }
+
+    static func makeChangeOutput(value: UInt64, from template: Output) -> Output {
+        .init(value: value, lockingScript: template.lockingScript, tokenData: template.tokenData)
     }
 }
 

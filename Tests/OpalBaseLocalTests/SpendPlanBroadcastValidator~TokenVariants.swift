@@ -45,44 +45,55 @@ extension SpendPlanBroadcastValidator {
         )
 
         let genesisPlan = try await makeTokenGenesisPlan()
-        do {
+        let genesisError = try await captureAccountError {
             _ = try await genesisPlan.buildAndBroadcast(via: failingHandler)
-            Issue.record("Expected token genesis broadcast to throw")
-        } catch let error as OpalBase.Account.Error {
-            guard case .tokenGenesisBroadcastFailed = error else {
-                Issue.record("Expected tokenGenesisBroadcastFailed but got \(error)")
-                return
-            }
+        }
+        guard case .tokenGenesisBroadcastFailed = genesisError else {
+            throw AccountErrorCaptureFailure.unexpected(genesisError)
         }
         try await genesisPlan.cancelReservation()
 
         let mintPlan = try await makeTokenMintPlan()
-        do {
+        let mintError = try await captureAccountError {
             _ = try await mintPlan.buildAndBroadcast(via: failingHandler)
-            Issue.record("Expected token mint broadcast to throw")
-        } catch let error as OpalBase.Account.Error {
-            guard case .tokenMintBroadcastFailed = error else {
-                Issue.record("Expected tokenMintBroadcastFailed but got \(error)")
-                return
-            }
+        }
+        guard case .tokenMintBroadcastFailed = mintError else {
+            throw AccountErrorCaptureFailure.unexpected(mintError)
         }
         try await mintPlan.cancelReservation()
 
         let mutationPlan = try await makeTokenMutationPlan()
-        do {
+        let mutationError = try await captureAccountError {
             _ = try await mutationPlan.buildAndBroadcast(via: failingHandler)
-            Issue.record("Expected token mutation broadcast to throw")
-        } catch let error as OpalBase.Account.Error {
-            guard case .tokenMutationBroadcastFailed = error else {
-                Issue.record("Expected tokenMutationBroadcastFailed but got \(error)")
-                return
-            }
+        }
+        guard case .tokenMutationBroadcastFailed = mutationError else {
+            throw AccountErrorCaptureFailure.unexpected(mutationError)
         }
         try await mutationPlan.cancelReservation()
     }
 }
 
 private extension SpendPlanBroadcastValidator {
+    enum AccountErrorCaptureFailure: Swift.Error {
+        case didNotThrow
+        case unexpected(Swift.Error)
+    }
+
+    func captureAccountError(
+        _ work: () async throws -> Void
+    ) async throws -> OpalBase.Account.Error {
+        do {
+            try await work()
+            throw AccountErrorCaptureFailure.didNotThrow
+        } catch let error as OpalBase.Account.Error {
+            return error
+        } catch let error as AccountErrorCaptureFailure {
+            throw error
+        } catch {
+            throw AccountErrorCaptureFailure.unexpected(error)
+        }
+    }
+
     func makeTokenGenesisPlan() async throws -> OpalBase.Account.TokenGenesisPlan {
         let account = try await AccountTestFixtures.makeAccount()
         let genesisInput = try await AccountTestFixtures.addUnspentOutput(

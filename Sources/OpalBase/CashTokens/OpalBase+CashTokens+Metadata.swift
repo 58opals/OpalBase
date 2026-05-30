@@ -57,17 +57,44 @@ extension _OpalBase.CashTokens.Metadata {
     static func makeSafeMetadataURL(_ url: URL?) -> URL? {
         guard let url,
               let scheme = url.scheme?.lowercased(),
+              Self.isSafeMetadataPort(url.port),
               url.user == nil,
               url.password == nil
         else { return nil }
         switch scheme {
         case "https":
-            guard let host = url.host, !host.isEmpty else { return nil }
+            guard let host = url.host,
+                  !host.isEmpty,
+                  !Self.isPathTraversalComponent(host),
+                  !Self.containsPathTraversal(in: url)
+            else { return nil }
         case "ipfs":
-            guard url.host != nil || !url.path.split(separator: "/").isEmpty else { return nil }
+            let pathComponents = url.path.split(separator: "/")
+            if let host = url.host {
+                guard !Self.isPathTraversalComponent(host) else { return nil }
+            }
+            guard !Self.containsPathTraversal(in: pathComponents),
+                  url.host != nil || !pathComponents.isEmpty else { return nil }
         default:
             return nil
         }
         return url
+    }
+
+    private static func isSafeMetadataPort(_ port: Int?) -> Bool {
+        guard let port else { return true }
+        return (1...65_535).contains(port)
+    }
+
+    private static func isPathTraversalComponent(_ component: some StringProtocol) -> Bool {
+        component == "." || component == ".."
+    }
+
+    private static func containsPathTraversal(in url: URL) -> Bool {
+        containsPathTraversal(in: url.path.split(separator: "/"))
+    }
+
+    private static func containsPathTraversal(in pathComponents: [String.SubSequence]) -> Bool {
+        pathComponents.contains(where: Self.isPathTraversalComponent)
     }
 }

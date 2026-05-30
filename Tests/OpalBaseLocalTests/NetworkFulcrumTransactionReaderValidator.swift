@@ -438,6 +438,11 @@ extension NetworkFulcrumTransactionReaderValidator {
         let description: String
     }
 
+    enum NetworkErrorCaptureFailure: Swift.Error {
+        case didNotThrow
+        case unexpected(Swift.Error)
+    }
+
     static func makeDecodeError(_ message: String) -> SwiftFulcrum.Client.Error {
         .coding(.decode(DecodeFailure(description: ".unexpectedFormat(\"\(message)\")")))
     }
@@ -445,15 +450,15 @@ extension NetworkFulcrumTransactionReaderValidator {
     static func captureNetworkError(
         _ work: () async throws -> Void
     ) async throws -> OpalBase.Network.Error {
-        var capturedFailure: OpalBase.Network.Error?
         do {
             try await work()
-            Issue.record("Expected OpalBase.Network.Error")
+            throw NetworkErrorCaptureFailure.didNotThrow
         } catch let failure as OpalBase.Network.Error {
-            capturedFailure = failure
+            return failure
+        } catch let failure as NetworkErrorCaptureFailure {
+            throw failure
         } catch {
-            Issue.record("Unexpected error: \(error)")
+            throw NetworkErrorCaptureFailure.unexpected(error)
         }
-        return try #require(capturedFailure)
     }
 }

@@ -293,6 +293,8 @@ struct DiagnosticsErrorPresentationValidator {
         case requestIdentifier
         case cashAddress
         case cashAddressWithoutPrefix
+        case legacyAddress
+        case walletImportFormatPrivateKey
         case transactionIdentifier
         case rawPayload
 
@@ -320,6 +322,10 @@ struct DiagnosticsErrorPresentationValidator {
                 return ("bitcoincash:qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqp4z5utj", "[redacted-address]")
             case .cashAddressWithoutPrefix:
                 return (String(repeating: "q", count: 42), "[redacted-address]")
+            case .legacyAddress:
+                return ("1BoatSLRHtKNngkdXEeobR76b53LETtpyT", "[redacted-address]")
+            case .walletImportFormatPrivateKey:
+                return ("L1aW4aubDFB7yfras2S1mMEYCI6fr9DqHNLieyVy2gByX4mbmKvr", "[redacted-private-key]")
             case .transactionIdentifier:
                 return (String(repeating: "a", count: 64), "[redacted-identifier]")
             case .rawPayload:
@@ -471,8 +477,10 @@ struct DiagnosticsErrorPresentationValidator {
 
     enum AllowlistedMetadataVisibilityCase: CaseIterable, Sendable {
         case invalidCloseCode
+        case signedCloseCode
         case canonicalCloseCodeWithWhitespace
         case invalidTimeout
+        case signedTimeout
         case canonicalNegativeZeroTimeout
         case invalidMinimumVersion
         case canonicalMaximumVersion
@@ -493,6 +501,14 @@ struct DiagnosticsErrorPresentationValidator {
                     nil,
                     ["closeCode=9999"]
                 )
+            case .signedCloseCode:
+                return (
+                    OpalBase.Network.Error.DiagnosticMetadataKey.closeCode,
+                    "+1001",
+                    OpalDiagnostics.Field.Name.closeCode,
+                    nil,
+                    ["closeCode=+1001"]
+                )
             case .canonicalCloseCodeWithWhitespace:
                 return (
                     OpalBase.Network.Error.DiagnosticMetadataKey.closeCode,
@@ -508,6 +524,14 @@ struct DiagnosticsErrorPresentationValidator {
                     OpalDiagnostics.Field.Name.timeoutSeconds,
                     nil,
                     ["timeoutSeconds=-1"]
+                )
+            case .signedTimeout:
+                return (
+                    OpalBase.Network.Error.DiagnosticMetadataKey.timeoutSeconds,
+                    "+3",
+                    OpalDiagnostics.Field.Name.timeoutSeconds,
+                    nil,
+                    ["timeoutSeconds=+3"]
                 )
             case .canonicalNegativeZeroTimeout:
                 return (

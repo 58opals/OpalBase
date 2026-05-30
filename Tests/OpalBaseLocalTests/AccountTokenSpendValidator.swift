@@ -239,15 +239,12 @@ struct AccountTokenSpendValidator {
             )
         ])
 
-        do {
+        await #expect(
+            throws: OpalBase.Account.Error.tokenTransferInvalidTokenData(
+                OpalBase.CashTokens.Error.invalidTokenPrefixFungibleAmount
+            )
+        ) {
             _ = try await account.prepareTokenSpend(transfer)
-            Issue.record("Expected invalid token recipient data to fail")
-        } catch let error as OpalBase.Account.Error {
-            guard case .tokenTransferInvalidTokenData(let underlying) = error else {
-                Issue.record("Unexpected account error: \(error)")
-                return
-            }
-            #expect(underlying as? OpalBase.CashTokens.Error == .invalidTokenPrefixFungibleAmount)
         }
 
         #expect(await account.addressBook.readActiveSpendReservations().isEmpty)
@@ -281,11 +278,12 @@ struct AccountTokenSpendValidator {
             )
         ])
 
-        do {
+        await #expect(
+            throws: OpalBase.Account.Error.tokenSelectionFailed(
+                OpalBase.Transaction.Error.outputValueIsLessThanTheDustLimit
+            )
+        ) {
             _ = try await account.prepareTokenSpend(transfer)
-            Issue.record("Expected dust token recipient output to fail")
-        } catch let error as OpalBase.Account.Error {
-            #expect(error == .tokenSelectionFailed(OpalBase.Transaction.Error.outputValueIsLessThanTheDustLimit))
         }
 
         #expect(await account.addressBook.readActiveSpendReservations().isEmpty)

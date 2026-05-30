@@ -171,6 +171,10 @@ extension _OpalBase.Network {
                 return .init(reason: .decoding, message: prefixRangeMessage)
             }
 
+            if let protocolRangeMessage = translateServerFeatureProtocolRangeMessage(payloadMessage) {
+                return .init(reason: .decoding, message: protocolRangeMessage)
+            }
+
             let mappings = [
                 ("Invalid mempoolminfee: ", "Invalid mempool minimum fee: "),
                 ("Invalid minrelaytxfee: ", "Invalid minimum relay transaction fee: "),
@@ -213,14 +217,40 @@ extension _OpalBase.Network {
         }
 
         private static func translateReusablePaymentAddressPrefixRangeMessage(_ message: String) -> String? {
-            guard let suffix = value(in: message, after: "Invalid server.features rpa prefix bit range: "),
-                  let separatorRange = suffix.range(of: " exceeds ") else {
+            guard let range = splitSuffix(
+                in: message,
+                after: "Invalid server.features rpa prefix bit range: ",
+                separator: " exceeds "
+            ) else {
                 return nil
             }
 
-            let minimum = suffix[..<separatorRange.lowerBound]
-            let indexed = suffix[separatorRange.upperBound...]
-            return "Invalid server feature rpa prefix range: minimum \(minimum) exceeds indexed \(indexed)"
+            return "Invalid server feature rpa prefix range: minimum \(range.left) exceeds indexed \(range.right)"
+        }
+
+        private static func translateServerFeatureProtocolRangeMessage(_ message: String) -> String? {
+            guard let range = splitSuffix(
+                in: message,
+                after: "Server feature protocol range is invalid: ",
+                separator: "..."
+            ) else {
+                return nil
+            }
+
+            return "Invalid server feature protocol range: minimum \(range.left) exceeds maximum \(range.right)"
+        }
+
+        private static func splitSuffix(
+            in message: String,
+            after prefix: String,
+            separator: String
+        ) -> (left: Substring, right: Substring)? {
+            guard let suffix = value(in: message, after: prefix),
+                  let separatorRange = suffix.range(of: separator) else {
+                return nil
+            }
+
+            return (suffix[..<separatorRange.lowerBound], suffix[separatorRange.upperBound...])
         }
 
         private static func value(in message: String, after prefix: String) -> String? {

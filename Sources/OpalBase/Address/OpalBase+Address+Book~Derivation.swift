@@ -40,8 +40,7 @@ extension _OpalBase.Address.Book {
         if let usageCache = usageDerivationCache[usage] {
             let childExtendedPrivateKey = try usageCache.baseExtendedPrivateKey.derived(indices: [index])
             let childCompressedPublicKey = childExtendedPrivateKey.publicKey.publicKey.rawRepresentation
-            let publicKey = try OpalBase.Key.PublicKey(compressedData: childCompressedPublicKey)
-            return try OpalBase.Address(script: .p2pkh_OPCHECKSIG(hash: .init(publicKey: publicKey)))
+            return try makeAddress(fromCompressedPublicKey: childCompressedPublicKey)
         }
         
         let derivationPath = try createDerivationPath(usage: usage, index: index)
@@ -53,10 +52,7 @@ extension _OpalBase.Address.Book {
             derivedPublicKey = try rootExtendedPublicKey.derived(indices: derivationPath.makeIndices())
         }
         
-        let publicKey = try OpalBase.Key.PublicKey(compressedData: derivedPublicKey.publicKey.rawRepresentation)
-        let address = try OpalBase.Address(script: .p2pkh_OPCHECKSIG(hash: .init(publicKey: publicKey)))
-        
-        return address
+        return try makeAddress(fromCompressedPublicKey: derivedPublicKey.publicKey.rawRepresentation)
     }
     
     func generatePrivateKey(at index: UInt32, for usage: OpalBase.Key.DerivationPath.Usage) throws -> Data {
@@ -70,5 +66,10 @@ extension _OpalBase.Address.Book {
         let privateKey = try extendedPrivateKey.derived(indices: derivationPath.makeIndices()).privateKey
         
         return privateKey.rawRepresentation
+    }
+
+    func makeAddress(fromCompressedPublicKey compressedPublicKey: Data) throws -> OpalBase.Address {
+        let publicKey = try OpalBase.Key.PublicKey(compressedData: compressedPublicKey)
+        return try OpalBase.Address(script: .p2pkh_OPCHECKSIG(hash: .init(publicKey: publicKey)))
     }
 }

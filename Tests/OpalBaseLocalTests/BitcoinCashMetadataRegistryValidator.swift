@@ -10,14 +10,14 @@ import OpalBaseTestSupport
 struct BitcoinCashMetadataRegistryValidator {
     @Test("parses publication output script")
     func parsePublicationOutputScript() throws {
-        let script = BitcoinCashMetadataRegistryTestData.publicationScript
+        let script = try BitcoinCashMetadataRegistryTestData.publicationScript
         #expect(script.hexadecimalString.hasPrefix("6a0442434d52"))
         
         let publication = try #require(
             OpalBase.CashTokens.BCMR.Client.parsePublicationOutput(lockingScript: script)
         )
         
-        #expect(publication.sha256 == BitcoinCashMetadataRegistryTestData.publicationHash)
+        #expect(publication.sha256 == (try BitcoinCashMetadataRegistryTestData.publicationHash))
         #expect(
             publication.uris == [
                 BitcoinCashMetadataRegistryTestData.publicationUniformResourceIdentifier
@@ -27,7 +27,7 @@ struct BitcoinCashMetadataRegistryValidator {
 
     @Test("parses sliced publication output script")
     func parseSlicedPublicationOutputScript() throws {
-        let script = BitcoinCashMetadataRegistryTestData.publicationScript
+        let script = try BitcoinCashMetadataRegistryTestData.publicationScript
         let paddedScript = Data([0x00]) + script
         let slicedScript = paddedScript[paddedScript.index(after: paddedScript.startIndex)...]
 
@@ -36,7 +36,7 @@ struct BitcoinCashMetadataRegistryValidator {
         )
 
         #expect(slicedScript.startIndex != 0)
-        #expect(publication.sha256 == BitcoinCashMetadataRegistryTestData.publicationHash)
+        #expect(publication.sha256 == (try BitcoinCashMetadataRegistryTestData.publicationHash))
         #expect(
             publication.uris == [
                 BitcoinCashMetadataRegistryTestData.publicationUniformResourceIdentifier
@@ -45,9 +45,9 @@ struct BitcoinCashMetadataRegistryValidator {
     }
 
     @Test("rejects publication marker after leading script bytes")
-    func rejectsPublicationMarkerAfterLeadingScriptBytes() {
+    func rejectsPublicationMarkerAfterLeadingScriptBytes() throws {
         var script = Data([ScriptOperationCode._1.rawValue])
-        script.append(BitcoinCashMetadataRegistryTestData.publicationScript)
+        script.append(try BitcoinCashMetadataRegistryTestData.publicationScript)
 
         let publication = OpalBase.CashTokens.BCMR.Client.parsePublicationOutput(
             lockingScript: script
@@ -57,11 +57,11 @@ struct BitcoinCashMetadataRegistryValidator {
     }
     
     @Test("rejects publication outputs without registry locations")
-    func rejectsPublicationOutputsWithoutRegistryLocations() {
+    func rejectsPublicationOutputsWithoutRegistryLocations() throws {
         let prefix = Data([0x42, 0x43, 0x4d, 0x52])
         var script = Data([0x6a])
         script.append(Data.push(prefix))
-        script.append(Data.push(BitcoinCashMetadataRegistryTestData.publicationHash))
+        script.append(Data.push(try BitcoinCashMetadataRegistryTestData.publicationHash))
         
         let publication = OpalBase.CashTokens.BCMR.Client.parsePublicationOutput(
             lockingScript: script
@@ -71,9 +71,9 @@ struct BitcoinCashMetadataRegistryValidator {
     }
 
     @Test("rejects publication outputs with blank registry locations")
-    func rejectsPublicationOutputsWithBlankRegistryLocations() {
+    func rejectsPublicationOutputsWithBlankRegistryLocations() throws {
         let script = makePublicationScript(
-            sha256: BitcoinCashMetadataRegistryTestData.publicationHash,
+            sha256: try BitcoinCashMetadataRegistryTestData.publicationHash,
             uris: [" \n"]
         )
 
@@ -85,9 +85,9 @@ struct BitcoinCashMetadataRegistryValidator {
     }
     
     @Test("verifies registry hash")
-    func verifyRegistryHash() {
+    func verifyRegistryHash() throws {
         let registryHash = OpalCrypto.Hashing.sha256(BitcoinCashMetadataRegistryTestData.registryData)
-        #expect(registryHash == BitcoinCashMetadataRegistryTestData.registryHash)
+        #expect(registryHash == (try BitcoinCashMetadataRegistryTestData.registryHash))
     }
     
     @Test("decodes registry and extracts token metadata")
@@ -98,13 +98,13 @@ struct BitcoinCashMetadataRegistryValidator {
         )
         
         let metadata = try #require(
-            metadataByCategory[BitcoinCashMetadataRegistryTestData.categoryIdentifier]
+            metadataByCategory[try BitcoinCashMetadataRegistryTestData.categoryIdentifier]
         )
         
         #expect(metadata.name == "Example Token")
         #expect(metadata.symbol == "EXAMPLE")
         #expect(metadata.decimals == 2)
-        #expect(metadata.iconURL == BitcoinCashMetadataRegistryTestData.registryIconLocation)
+        #expect(metadata.iconURL == (try BitcoinCashMetadataRegistryTestData.registryIconLocation))
         #expect(metadata.description == "Example token description")
         #expect(metadata.webURL == nil)
         #expect(metadata.identity == "example.identity")
@@ -139,7 +139,7 @@ struct BitcoinCashMetadataRegistryValidator {
                             decimals: 8
                         ),
                         uris: [
-                            "icon": BitcoinCashMetadataRegistryTestData.registryIconLocation.absoluteString,
+                            "icon": try BitcoinCashMetadataRegistryTestData.registryIconLocation.absoluteString,
                             "web": webURL.absoluteString,
                             "registry": registryURL.absoluteString
                         ]
@@ -149,18 +149,49 @@ struct BitcoinCashMetadataRegistryValidator {
         )
 
         let metadata = try #require(
-            registries.extractTokenMetadata(from: registry)[BitcoinCashMetadataRegistryTestData.categoryIdentifier]
+            registries.extractTokenMetadata(from: registry)[try BitcoinCashMetadataRegistryTestData.categoryIdentifier]
         )
 
         #expect(metadata.name == "Rich Token")
         #expect(metadata.symbol == "RICH")
         #expect(metadata.decimals == 8)
         #expect(metadata.description == "Rich token description")
-        #expect(metadata.iconURL == BitcoinCashMetadataRegistryTestData.registryIconLocation)
+        #expect(metadata.iconURL == (try BitcoinCashMetadataRegistryTestData.registryIconLocation))
         #expect(metadata.webURL == webURL)
         #expect(metadata.identity == identityHexadecimal)
         #expect(metadata.authbase == identityAuthbase)
         #expect(metadata.registryURL == registryURL)
+    }
+
+    @Test("metadata extraction keeps prefixed identity keys out of authbase")
+    func metadataExtractionKeepsPrefixedIdentityKeysOutOfAuthbase() throws {
+        let registries = BitcoinCashMetadataRegistryTestClient.makeRegistries()
+        let prefixedIdentity = "0x\(String(repeating: "11", count: 32))"
+        let registry = OpalBase.CashTokens.BCMR.Client.Registry(
+            version: "1",
+            registryIdentity: nil,
+            identities: [
+                prefixedIdentity: [
+                    "2024-01-01T00:00:00Z": .init(
+                        name: "Prefixed Identity Token",
+                        description: nil,
+                        token: .init(
+                            category: BitcoinCashMetadataRegistryTestData.categoryHexadecimal,
+                            symbol: "PREFIX",
+                            decimals: 0
+                        ),
+                        uris: nil
+                    )
+                ]
+            ]
+        )
+
+        let metadata = try #require(
+            registries.extractTokenMetadata(from: registry)[try BitcoinCashMetadataRegistryTestData.categoryIdentifier]
+        )
+
+        #expect(metadata.identity == prefixedIdentity)
+        #expect(metadata.authbase == nil)
     }
 
     @Test("importRegistry rejects prefixed registry identities")
@@ -196,18 +227,10 @@ struct BitcoinCashMetadataRegistryValidator {
             registryFetcher: .init(urlSession: session, maxBytes: 1_024)
         )
 
-        do {
+        let failedIdentity = try await captureInvalidRegistryIdentity {
             _ = try await client.importRegistry(from: "https://registry.example/registry.json")
-            Issue.record("Expected prefixed registry identity to be rejected")
-        } catch let error as OpalBase.CashTokens.BCMR.Client.Error {
-            guard case .invalidRegistryIdentity(let failedIdentity, _) = error else {
-                Issue.record("Expected invalidRegistryIdentity, got \(error)")
-                return
-            }
-            #expect(failedIdentity == registryIdentity)
-        } catch {
-            Issue.record("Unexpected error: \(error)")
         }
+        #expect(failedIdentity == registryIdentity)
     }
 
     @Test("metadata extraction ignores relative URI values")
@@ -237,7 +260,7 @@ struct BitcoinCashMetadataRegistryValidator {
         )
 
         let metadata = try #require(
-            registries.extractTokenMetadata(from: registry)[BitcoinCashMetadataRegistryTestData.categoryIdentifier]
+            registries.extractTokenMetadata(from: registry)[try BitcoinCashMetadataRegistryTestData.categoryIdentifier]
         )
 
         #expect(metadata.iconURL == nil)
@@ -272,7 +295,7 @@ struct BitcoinCashMetadataRegistryValidator {
         )
 
         let metadata = try #require(
-            registries.extractTokenMetadata(from: registry)[BitcoinCashMetadataRegistryTestData.categoryIdentifier]
+            registries.extractTokenMetadata(from: registry)[try BitcoinCashMetadataRegistryTestData.categoryIdentifier]
         )
 
         #expect(metadata.iconURL == nil)
@@ -307,7 +330,7 @@ struct BitcoinCashMetadataRegistryValidator {
         )
 
         let metadata = try #require(
-            registries.extractTokenMetadata(from: registry)[BitcoinCashMetadataRegistryTestData.categoryIdentifier]
+            registries.extractTokenMetadata(from: registry)[try BitcoinCashMetadataRegistryTestData.categoryIdentifier]
         )
 
         #expect(metadata.iconURL == nil)
@@ -342,7 +365,7 @@ struct BitcoinCashMetadataRegistryValidator {
         )
 
         let metadata = try #require(
-            registries.extractTokenMetadata(from: registry)[BitcoinCashMetadataRegistryTestData.categoryIdentifier]
+            registries.extractTokenMetadata(from: registry)[try BitcoinCashMetadataRegistryTestData.categoryIdentifier]
         )
 
         #expect(metadata.iconURL == nil)
@@ -377,7 +400,7 @@ struct BitcoinCashMetadataRegistryValidator {
         )
 
         let metadata = try #require(
-            registries.extractTokenMetadata(from: registry)[BitcoinCashMetadataRegistryTestData.categoryIdentifier]
+            registries.extractTokenMetadata(from: registry)[try BitcoinCashMetadataRegistryTestData.categoryIdentifier]
         )
 
         #expect(metadata.iconURL == nil)
@@ -418,7 +441,7 @@ struct BitcoinCashMetadataRegistryValidator {
         )
 
         let metadata = try #require(
-            registries.extractTokenMetadata(from: registry)[BitcoinCashMetadataRegistryTestData.categoryIdentifier]
+            registries.extractTokenMetadata(from: registry)[try BitcoinCashMetadataRegistryTestData.categoryIdentifier]
         )
 
         #expect(metadata.name == "Dated Token")
@@ -665,7 +688,7 @@ struct BitcoinCashMetadataRegistryValidator {
     func chainRegistryResolutionRejectsTrailingAuthheadPayloadBytes() async throws {
         let registryURI = "https://registry.example/registry.json"
         let publicationScript = makePublicationScript(
-            sha256: BitcoinCashMetadataRegistryTestData.registryHash,
+            sha256: try BitcoinCashMetadataRegistryTestData.registryHash,
             uris: [registryURI]
         )
         let authbase = OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0x63, count: 32))
@@ -745,7 +768,7 @@ struct BitcoinCashMetadataRegistryValidator {
         let primaryURI = "https://registry.example/missing.json"
         let fallbackURI = "https://registry.example/registry.json"
         let publicationScript = makePublicationScript(
-            sha256: BitcoinCashMetadataRegistryTestData.registryHash,
+            sha256: try BitcoinCashMetadataRegistryTestData.registryHash,
             uris: [primaryURI, fallbackURI]
         )
         let authbase = OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0x64, count: 32))
@@ -820,7 +843,7 @@ struct BitcoinCashMetadataRegistryValidator {
         let primaryURI = "https://registry.example/wrong.json"
         let fallbackURI = "https://registry.example/registry.json"
         let publicationScript = makePublicationScript(
-            sha256: BitcoinCashMetadataRegistryTestData.registryHash,
+            sha256: try BitcoinCashMetadataRegistryTestData.registryHash,
             uris: [primaryURI, fallbackURI]
         )
         let authbase = OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0x66, count: 32))
@@ -1018,6 +1041,53 @@ struct BitcoinCashMetadataRegistryValidator {
         }
     }
 
+    @Test("registry fetcher rejects HTTPS locations with invalid ports")
+    func registryFetcherRejectsHypertextTransferProtocolSecureLocationsWithInvalidPorts() async throws {
+        let gateway = try #require(URL(string: "https://gateway.example:0"))
+        let invalidGatewayFetcher = OpalBase.CashTokens.BCMR.Client.Fetcher(
+            ipfsGateway: gateway,
+            maxBytes: 1_024
+        )
+        await #expect(throws: OpalBase.CashTokens.BCMR.Client.Fetcher.Error.self) {
+            _ = try await invalidGatewayFetcher.fetchRegistryBytes(from: "ipfs://bafybeigdyrzt/metadata.json")
+        }
+
+        let fetcher = OpalBase.CashTokens.BCMR.Client.Fetcher(maxBytes: 1_024)
+        await #expect(throws: OpalBase.CashTokens.BCMR.Client.Fetcher.Error.self) {
+            _ = try await fetcher.fetchRegistryBytes(from: "https://registry.example:65536/metadata.json")
+        }
+    }
+
+    @Test("registry fetcher rejects HTTPS traversal authorities")
+    func registryFetcherRejectsHypertextTransferProtocolSecureTraversalAuthorities() async throws {
+        let invalidGateway = try #require(URL(string: "https://./base"))
+        let invalidGatewayFetcher = OpalBase.CashTokens.BCMR.Client.Fetcher(
+            ipfsGateway: invalidGateway,
+            maxBytes: 1_024
+        )
+        await #expect(throws: OpalBase.CashTokens.BCMR.Client.Fetcher.Error.self) {
+            _ = try await invalidGatewayFetcher.fetchRegistryBytes(from: "ipfs://bafybeigdyrzt/metadata.json")
+        }
+
+        let fetcher = OpalBase.CashTokens.BCMR.Client.Fetcher(maxBytes: 1_024)
+        await #expect(throws: OpalBase.CashTokens.BCMR.Client.Fetcher.Error.self) {
+            _ = try await fetcher.fetchRegistryBytes(from: "https://../metadata.json")
+        }
+    }
+
+    @Test("registry fetcher rejects HTTPS path traversal components")
+    func registryFetcherRejectsHypertextTransferProtocolSecurePathTraversalComponents() async throws {
+        let fetcher = OpalBase.CashTokens.BCMR.Client.Fetcher(maxBytes: 1_024)
+
+        await #expect(throws: OpalBase.CashTokens.BCMR.Client.Fetcher.Error.self) {
+            _ = try await fetcher.fetchRegistryBytes(from: "https://registry.example/../metadata.json")
+        }
+
+        await #expect(throws: OpalBase.CashTokens.BCMR.Client.Fetcher.Error.self) {
+            _ = try await fetcher.fetchRegistryBytes(from: "https://registry.example/%2e%2e/metadata.json")
+        }
+    }
+
     @Test("registry fetcher rejects IPFS gateways with embedded credentials")
     func registryFetcherRejectsInterPlanetaryFileSystemGatewaysWithEmbeddedCredentials() async throws {
         let gateway = try #require(URL(string: "https://user:secret@gateway.example"))
@@ -1055,6 +1125,10 @@ struct BitcoinCashMetadataRegistryValidator {
 
         await #expect(throws: OpalBase.CashTokens.BCMR.Client.Fetcher.Error.self) {
             _ = try await fetcher.fetchRegistryBytes(from: "ipfs://bafybeigdyrzt/../registry.json")
+        }
+
+        await #expect(throws: OpalBase.CashTokens.BCMR.Client.Fetcher.Error.self) {
+            _ = try await fetcher.fetchRegistryBytes(from: "ipfs://../registry.json")
         }
     }
 
@@ -1484,6 +1558,35 @@ private func makePublicationScript(sha256: Data, uris: [String]) -> Data {
 
 private enum RegistryValidatorPlaceholderError: Swift.Error {
     case unused
+}
+
+private enum RegistryClientErrorCaptureFailure: Swift.Error {
+    case didNotThrow
+    case unexpectedClientError(String)
+    case unexpectedError(String)
+}
+
+private func captureInvalidRegistryIdentity(
+    _ operation: () async throws -> Void
+) async throws -> String {
+    let error = try await captureRegistryClientError(operation)
+    guard case .invalidRegistryIdentity(let failedIdentity, _) = error else {
+        throw RegistryClientErrorCaptureFailure.unexpectedClientError(String(describing: error))
+    }
+    return failedIdentity
+}
+
+private func captureRegistryClientError(
+    _ operation: () async throws -> Void
+) async throws -> OpalBase.CashTokens.BCMR.Client.Error {
+    do {
+        try await operation()
+    } catch let error as OpalBase.CashTokens.BCMR.Client.Error {
+        return error
+    } catch {
+        throw RegistryClientErrorCaptureFailure.unexpectedError(String(describing: error))
+    }
+    throw RegistryClientErrorCaptureFailure.didNotThrow
 }
 
 private final class RawTransactionSequence: @unchecked Sendable {

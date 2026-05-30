@@ -5,6 +5,9 @@ import SwiftFulcrum
 
 extension _OpalBase.Network.Fulcrum {
     public struct AddressReader: OpalBase.Network.AddressQueryClient, OpalBase.Network.AddressSubscriptionClient {
+        private static let maximumAddressBalance = OpalBase.Satoshi.maximumSatoshi
+        private static let maximumSignedAddressBalance = Int64(OpalBase.Satoshi.maximumSatoshi)
+
         private let client: Client
         private let timeouts: OpalBase.Network.FulcrumRequestTimeout
         
@@ -212,13 +215,39 @@ extension _OpalBase.Network.Fulcrum {
             confirmed: UInt64,
             unconfirmed: Int64
         ) throws -> OpalBase.Network.AddressBalance {
-            guard confirmed <= OpalBase.Satoshi.maximumSatoshi else {
+            try validateConfirmedBalance(confirmed)
+            try validateUnconfirmedBalance(unconfirmed)
+            try validateAddressBalanceTotal(confirmed: confirmed, unconfirmed: unconfirmed)
+            return OpalBase.Network.AddressBalance(confirmed: confirmed, unconfirmed: unconfirmed)
+        }
+
+        private static func validateConfirmedBalance(_ confirmed: UInt64) throws {
+            guard confirmed <= maximumAddressBalance else {
                 throw OpalBase.Network.Error(
                     reason: .decoding,
                     message: "Confirmed balance exceeds maximum supply"
                 )
             }
-            return OpalBase.Network.AddressBalance(confirmed: confirmed, unconfirmed: unconfirmed)
+        }
+
+        private static func validateUnconfirmedBalance(_ unconfirmed: Int64) throws {
+            guard (-maximumSignedAddressBalance...maximumSignedAddressBalance).contains(unconfirmed) else {
+                throw OpalBase.Network.Error(
+                    reason: .decoding,
+                    message: "Unconfirmed balance exceeds maximum supply"
+                )
+            }
+        }
+
+        private static func validateAddressBalanceTotal(confirmed: UInt64, unconfirmed: Int64) throws {
+            guard unconfirmed > 0 else { return }
+            let incomingUnconfirmed = UInt64(unconfirmed)
+            guard confirmed <= maximumAddressBalance - incomingUnconfirmed else {
+                throw OpalBase.Network.Error(
+                    reason: .decoding,
+                    message: "Address balance exceeds maximum supply"
+                )
+            }
         }
 
         static func makeUnspentOutput(

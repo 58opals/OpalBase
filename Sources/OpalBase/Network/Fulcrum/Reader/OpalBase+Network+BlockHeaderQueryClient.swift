@@ -1,4 +1,4 @@
-// OpalBase+Network+BlockHeaderQueryClient_.swift
+// OpalBase+Network+BlockHeaderQueryClient.swift
 
 import Foundation
 

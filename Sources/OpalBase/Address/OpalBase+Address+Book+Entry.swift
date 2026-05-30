@@ -128,8 +128,7 @@ extension _OpalBase.Address.Book {
         entries.reserveCapacity(indices.count)
         
         for (position, compressedPublicKey) in compressedPublicKeys.enumerated() {
-            let publicKey = try OpalBase.Key.PublicKey(compressedData: compressedPublicKey)
-            let address = try OpalBase.Address(script: .p2pkh_OPCHECKSIG(hash: .init(publicKey: publicKey)))
+            let address = try makeAddress(fromCompressedPublicKey: compressedPublicKey)
             if let existingEntry = inventory.findEntry(for: address) { throw Error.entryDuplicated(existingEntry) }
             
             entries.append(Entry(address: address,

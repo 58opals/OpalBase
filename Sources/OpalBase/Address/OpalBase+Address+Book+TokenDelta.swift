@@ -1,4 +1,4 @@
-// OpalBase+Address+Book+.swift
+// OpalBase+Address+Book+TokenDelta.swift
 
 import Foundation
 

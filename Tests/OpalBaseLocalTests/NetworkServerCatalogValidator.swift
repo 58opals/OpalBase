@@ -104,22 +104,17 @@ struct NetworkServerCatalogValidator {
         
         let loader = configuration.makeFulcrumServerCatalogRepository()
         
-        do {
+        let error = try await Self.captureFulcrumClientError {
             _ = try await loader.loadServers(for: .testnet, fallback: .init())
-            Issue.record("Expected protocol mismatch when requested Fulcrum network does not match configuration.")
-        } catch let error as SwiftFulcrum.Client.Error {
-            switch error {
-            case .client(.protocolMismatch(let message)):
-                let message = try #require(message)
-                #expect(message.contains("configuredEnvironment=mainnet"))
-                #expect(message.contains("expectedFulcrumNetwork=mainnet"))
-                #expect(message.contains("requestedFulcrumNetwork=testnet"))
-            default:
-                Issue.record("Expected FulcrumClient.Error.client(.protocolMismatch), got \(error).")
-            }
-        } catch {
-            Issue.record("Unexpected error type: \(error)")
         }
+        guard case .client(.protocolMismatch(let optionalMessage)) = error else {
+            throw FulcrumClientErrorCaptureFailure.unexpected(error)
+        }
+
+        let message = try #require(optionalMessage)
+        #expect(message.contains("configuredEnvironment=mainnet"))
+        #expect(message.contains("expectedFulcrumNetwork=mainnet"))
+        #expect(message.contains("requestedFulcrumNetwork=testnet"))
     }
     
     @Test("loader augments chipnet defaults with provided fallback")
@@ -247,12 +242,55 @@ struct NetworkServerCatalogValidator {
         #expect(normalized == [URL(string: "wss://fragment.example.com")!])
     }
 
+    @Test("normalizes websocket queries before deduplication")
+    func normalizationCollapsesWebSocketQueries() {
+        let rawServers = [
+            URL(string: "wss://query.example.com?token=secret")!,
+            URL(string: "wss://query.example.com")!,
+            URL(string: "https://query.example.com:443/?token=also-secret")!
+        ]
+
+        let normalized = OpalBase.Network.ServerCatalog.makeNormalizedServers(rawServers)
+
+        #expect(normalized == [URL(string: "wss://query.example.com")!])
+    }
+
+    @Test("normalizes websocket hosts before deduplication")
+    func normalizationLowercasesWebSocketHosts() {
+        let rawServers = [
+            URL(string: "HTTPS://UPPERCASE.EXAMPLE.COM:443")!,
+            URL(string: "wss://uppercase.example.com")!
+        ]
+
+        let normalized = OpalBase.Network.ServerCatalog.makeNormalizedServers(rawServers)
+
+        #expect(normalized == [URL(string: "wss://uppercase.example.com")!])
+    }
+
+    @Test("normalization preserves case-sensitive websocket paths when deduplicating")
+    func normalizationPreservesCaseSensitiveWebSocketPaths() {
+        let rawServers = [
+            URL(string: "wss://PATH.example.com/API")!,
+            URL(string: "wss://path.example.com/API")!,
+            URL(string: "wss://path.example.com/api")!
+        ]
+
+        let normalized = OpalBase.Network.ServerCatalog.makeNormalizedServers(rawServers)
+
+        #expect(normalized == [
+            URL(string: "wss://path.example.com/API")!,
+            URL(string: "wss://path.example.com/api")!
+        ])
+    }
+
     @Test("normalization rejects websocket URLs without hosts")
     func normalizationRejectsWebSocketURLsWithoutHosts() {
         let rawServers = [
             URL(string: "wss:///missing-host")!,
             URL(string: "ws://")!,
             URL(string: "https:/missing-host")!,
+            URL(string: "wss://./relative-host")!,
+            URL(string: "wss://../relative-parent-host")!,
             URL(string: "wss://valid.example.com:50004")!
         ]
 
@@ -285,6 +323,52 @@ struct NetworkServerCatalogValidator {
 
         #expect(normalized == [URL(string: "wss://valid.example.com:50004")!])
     }
+
+    @Test("normalization rejects websocket URLs with malformed host labels")
+    func normalizationRejectsWebSocketURLsWithMalformedHostLabels() {
+        let oversizedLabel = String(repeating: "a", count: 64)
+        let oversizedHost = String(repeating: "a.", count: 127) + "example.com"
+        let rawServers = [
+            URL(string: "wss://.leading-label.example.com")!,
+            URL(string: "wss://empty-label..example.com")!,
+            URL(string: "wss://-leading-hyphen.example.com")!,
+            URL(string: "wss://trailing-hyphen-.example.com")!,
+            URL(string: "wss://\(oversizedLabel).example.com")!,
+            URL(string: "wss://\(oversizedHost)")!,
+            URL(string: "wss://bad_host.example.com")!,
+            URL(string: "wss://%2e%2e.example.com")!,
+            URL(string: "wss://valid.example.com:50004")!
+        ]
+
+        let normalized = OpalBase.Network.ServerCatalog.makeNormalizedServers(rawServers)
+
+        #expect(normalized == [URL(string: "wss://valid.example.com:50004")!])
+    }
+
+    @Test("normalization preserves internet protocol literal websocket hosts")
+    func normalizationPreservesInternetProtocolLiteralWebSocketHosts() {
+        let rawServers = [
+            URL(string: "wss://[::1]:50004")!
+        ]
+
+        let normalized = OpalBase.Network.ServerCatalog.makeNormalizedServers(rawServers)
+
+        #expect(normalized == [URL(string: "wss://[::1]:50004")!])
+    }
+
+    @Test("normalization rejects websocket URLs with path traversal")
+    func normalizationRejectsWebSocketPathTraversal() {
+        let rawServers = [
+            URL(string: "wss://path.example.com/../admin")!,
+            URL(string: "wss://path.example.com/%2e%2e/admin")!,
+            URL(string: "wss://path.example.com/a/%2e/b")!,
+            URL(string: "wss://valid.example.com:50004")!
+        ]
+
+        let normalized = OpalBase.Network.ServerCatalog.makeNormalizedServers(rawServers)
+
+        #expect(normalized == [URL(string: "wss://valid.example.com:50004")!])
+    }
     
     @Test("merged server catalogs preserve priority ordering and uniqueness")
     func mergedServersPreservePriorityOrdering() {
@@ -308,5 +392,25 @@ struct NetworkServerCatalogValidator {
         #expect(merged[1].scheme == "wss")
         #expect(merged[2].host == "secondary.example.com")
         #expect(merged[3].host == "fallback.example.com")
+    }
+
+    enum FulcrumClientErrorCaptureFailure: Swift.Error {
+        case didNotThrow
+        case unexpected(Swift.Error)
+    }
+
+    private static func captureFulcrumClientError(
+        _ work: () async throws -> Void
+    ) async throws -> SwiftFulcrum.Client.Error {
+        do {
+            try await work()
+            throw FulcrumClientErrorCaptureFailure.didNotThrow
+        } catch let error as SwiftFulcrum.Client.Error {
+            return error
+        } catch let error as FulcrumClientErrorCaptureFailure {
+            throw error
+        } catch {
+            throw FulcrumClientErrorCaptureFailure.unexpected(error)
+        }
     }
 }

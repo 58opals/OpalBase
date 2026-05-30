@@ -12,7 +12,7 @@ struct NetworkFulcrumTransactionProofReaderValidator {
     func mapTransactionProofResponsesToOpalBaseTypes() async throws {
         let merkleResponse = try Self.makeMerkleResponse()
         let identifierResponse = try Self.makeIdentifierResponse()
-        let client = TransactionProofClientTestActor(
+        let client = try TransactionProofClientTestActor(
             merkleResponse: merkleResponse,
             identifierResponse: identifierResponse
         )
@@ -38,12 +38,12 @@ struct NetworkFulcrumTransactionProofReaderValidator {
 
     @Test("translates protocol failures for transaction proof requests")
     func fetchMerkleProofTranslatesProtocolFailures() async throws {
-        let client = TransactionProofClientTestActor(
+        let client = try TransactionProofClientTestActor(
             merkleError: SwiftFulcrum.Client.Error.client(.protocolMismatch("unexpected merkle response"))
         )
         let reader = OpalBase.Network.Fulcrum.TransactionProofReader(client: client)
 
-        let failure = await Self.captureNetworkError {
+        let failure = try await Self.captureNetworkError {
             _ = try await reader.fetchMerkleProof(for: .init(naturalOrder: Data(repeating: 0x01, count: 32)))
         }
 
@@ -53,13 +53,13 @@ struct NetworkFulcrumTransactionProofReaderValidator {
 
     @Test("rejects merkle proof height mismatches")
     func fetchMerkleProofRejectsHeightMismatch() async throws {
-        let client = TransactionProofClientTestActor(
+        let client = try TransactionProofClientTestActor(
             merkleResponse: try Self.makeMerkleResponse(blockHeight: 13),
             heightResponse: try Self.makeHeightResponse(blockHeight: 12)
         )
         let reader = OpalBase.Network.Fulcrum.TransactionProofReader(client: client)
 
-        let failure = await Self.captureNetworkError {
+        let failure = try await Self.captureNetworkError {
             _ = try await reader.fetchMerkleProof(for: .init(naturalOrder: Data(repeating: 0x01, count: 32)))
         }
 
@@ -69,12 +69,12 @@ struct NetworkFulcrumTransactionProofReaderValidator {
 
     @Test("rejects zero-height merkle proof requests")
     func fetchMerkleProofRejectsZeroHeight() async throws {
-        let client = TransactionProofClientTestActor(
+        let client = try TransactionProofClientTestActor(
             heightResponse: try Self.makeHeightResponse(blockHeight: 0)
         )
         let reader = OpalBase.Network.Fulcrum.TransactionProofReader(client: client)
 
-        let failure = await Self.captureNetworkError {
+        let failure = try await Self.captureNetworkError {
             _ = try await reader.fetchMerkleProof(for: .init(naturalOrder: Data(repeating: 0x01, count: 32)))
         }
 
@@ -85,12 +85,12 @@ struct NetworkFulcrumTransactionProofReaderValidator {
 
     @Test("rejects malformed merkle proof branch hashes")
     func fetchMerkleProofRejectsMalformedBranchHashes() async throws {
-        let client = TransactionProofClientTestActor(
+        let client = try TransactionProofClientTestActor(
             merkleError: Self.makeDecodeError("Expected merkle proof hash to contain only hex characters")
         )
         let reader = OpalBase.Network.Fulcrum.TransactionProofReader(client: client)
 
-        let failure = await Self.captureNetworkError {
+        let failure = try await Self.captureNetworkError {
             _ = try await reader.fetchMerkleProof(for: .init(naturalOrder: Data(repeating: 0x01, count: 32)))
         }
 
@@ -100,13 +100,13 @@ struct NetworkFulcrumTransactionProofReaderValidator {
 
     @Test("rejects merkle proof positions outside the branch depth")
     func fetchMerkleProofRejectsPositionOutsideBranchDepth() async throws {
-        let client = TransactionProofClientTestActor(
+        let client = try TransactionProofClientTestActor(
             merkleResponse: try Self.makeMerkleResponse(merkle: [], position: 1),
             heightResponse: try Self.makeHeightResponse(blockHeight: 12)
         )
         let reader = OpalBase.Network.Fulcrum.TransactionProofReader(client: client)
 
-        let failure = await Self.captureNetworkError {
+        let failure = try await Self.captureNetworkError {
             _ = try await reader.fetchMerkleProof(for: .init(naturalOrder: Data(repeating: 0x01, count: 32)))
         }
 
@@ -116,7 +116,7 @@ struct NetworkFulcrumTransactionProofReaderValidator {
 
     @Test("position resolution skips proof position validation when proof is not requested")
     func resolveTransactionIdentifierWithoutProofPositionValidation() async throws {
-        let client = TransactionProofClientTestActor(
+        let client = try TransactionProofClientTestActor(
             identifierResponse: try Self.makeIdentifierResponse(merkle: [])
         )
         let reader = OpalBase.Network.Fulcrum.TransactionProofReader(client: client)
@@ -137,12 +137,12 @@ struct NetworkFulcrumTransactionProofReaderValidator {
 
     @Test("rejects malformed transaction identifiers from position resolution")
     func fetchTransactionIdentifierRejectsMalformedIdentifier() async throws {
-        let client = TransactionProofClientTestActor(
+        let client = try TransactionProofClientTestActor(
             identifierError: Self.makeDecodeError("Expected transaction hash to contain only hex characters")
         )
         let reader = OpalBase.Network.Fulcrum.TransactionProofReader(client: client)
 
-        let failure = await Self.captureNetworkError {
+        let failure = try await Self.captureNetworkError {
             _ = try await reader.fetchTransactionIdentifier(
                 atHeight: 12,
                 position: 3,
@@ -156,6 +156,11 @@ struct NetworkFulcrumTransactionProofReaderValidator {
 }
 
 private extension NetworkFulcrumTransactionProofReaderValidator {
+    enum NetworkErrorCaptureFailure: Swift.Error {
+        case didNotThrow
+        case unexpected(Swift.Error)
+    }
+
     struct DecodeFailure: Swift.Error, CustomStringConvertible {
         let description: String
     }
@@ -211,16 +216,16 @@ private extension NetworkFulcrumTransactionProofReaderValidator {
 
     static func captureNetworkError(
         _ work: () async throws -> Void
-    ) async -> OpalBase.Network.Error {
+    ) async throws -> OpalBase.Network.Error {
         do {
             try await work()
-            Issue.record("Expected OpalBase.Network.Error")
-            return .init(reason: .unknown)
+            throw NetworkErrorCaptureFailure.didNotThrow
         } catch let failure as OpalBase.Network.Error {
             return failure
+        } catch let failure as NetworkErrorCaptureFailure {
+            throw failure
         } catch {
-            Issue.record("Unexpected error: \(error)")
-            return .init(reason: .unknown, message: String(describing: error))
+            throw NetworkErrorCaptureFailure.unexpected(error)
         }
     }
 }

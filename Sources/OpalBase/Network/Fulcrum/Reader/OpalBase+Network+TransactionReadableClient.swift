@@ -1,4 +1,4 @@
-// OpalBase+Network+TransactionReadableClient_.swift
+// OpalBase+Network+TransactionReadableClient.swift
 
 import Foundation
 
@@ -7,4 +7,3 @@ extension _OpalBase.Network {
         func fetchRawTransaction(for transactionHash: OpalBase.Transaction.Hash) async throws -> Data
     }
 }
-

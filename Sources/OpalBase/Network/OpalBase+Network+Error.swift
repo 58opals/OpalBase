@@ -115,13 +115,24 @@ extension _OpalBase.Network.Error {
     }
 
     private static func makePublicCloseCode(_ value: String) -> String? {
-        guard let closeCode = UInt16(value), (1000...4999).contains(closeCode) else { return nil }
+        guard !hasExplicitPositiveSign(value),
+              let closeCode = UInt16(value),
+              (1000...4999).contains(closeCode)
+        else { return nil }
         return String(closeCode)
     }
 
     private static func makePublicTimeoutSeconds(_ value: String) -> String? {
-        guard let seconds = Double(value), seconds.isFinite, seconds >= 0 else { return nil }
+        guard !hasExplicitPositiveSign(value),
+              let seconds = Double(value),
+              seconds.isFinite,
+              seconds >= 0
+        else { return nil }
         return String(seconds == 0 ? 0 : seconds)
+    }
+
+    private static func hasExplicitPositiveSign(_ value: String) -> Bool {
+        value.first == "+"
     }
 
     private static func makePublicProtocolVersion(_ value: String) -> String? {
@@ -134,6 +145,8 @@ extension _OpalBase.Network.Error {
         (#"\b(?:(?:[A-Za-z0-9-]+\.)+[A-Za-z]{2,}|localhost|(?:\d{1,3}\.){3}\d{1,3}):\d{1,5}\b"#, "[redacted-endpoint]"),
         (#"\b(?:bitcoincash|bchtest|bchreg):[qpzry9x8gf2tvdw0s3jn54khce6mua7l]{20,}\b"#, "[redacted-address]"),
         (#"\b[qpz][qpzry9x8gf2tvdw0s3jn54khce6mua7l]{41,}\b"#, "[redacted-address]"),
+        (#"\b[13][1-9A-HJ-NP-Za-km-z]{25,34}\b"#, "[redacted-address]"),
+        (#"\b(?:[5KL][1-9A-HJ-NP-Za-km-z]{50,51}|[9c][1-9A-HJ-NP-Za-km-z]{50,51})\b"#, "[redacted-private-key]"),
         (#"\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\b"#, "[redacted-identifier]"),
         (#"\b[0-9a-fA-F]{64,}\b"#, "[redacted-identifier]")
     ]

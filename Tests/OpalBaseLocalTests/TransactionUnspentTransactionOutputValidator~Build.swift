@@ -333,7 +333,7 @@ extension TransactionUnspentTransactionOutputValidator {
             lockingScript: components.changeOutput.lockingScript
         )
         
-        do {
+        let error = try Self.captureBuildTransactionError {
             _ = try OpalBase.Transaction.build(
                 utxoPrivateKeyPairs: components.privateKeys,
                 recipientOutputs: components.recipientOutputs,
@@ -342,17 +342,12 @@ extension TransactionUnspentTransactionOutputValidator {
                 signatureFormat: .ecdsa(.der),
                 feePerByte: 1
             )
-            Issue.record("Expected insufficientFunds for overstated change output.")
-        } catch let error as OpalBase.Transaction.Error {
-            switch error {
-            case .insufficientFunds(let required):
-                #expect(required > 0)
-            default:
-                Issue.record("Expected insufficientFunds, got \(error).")
-            }
-        } catch {
-            Issue.record("Unexpected error type: \(error)")
         }
+
+        guard case .insufficientFunds(let required) = error else {
+            throw BuildTransactionErrorCaptureFailure.unexpected(error)
+        }
+        #expect(required > 0)
     }
     
     @Test("build throws when input totals overflow UInt64 during fee correction")
@@ -396,6 +391,28 @@ extension TransactionUnspentTransactionOutputValidator {
                 feePerByte: 0,
                 privacyOutputShuffle: { $0 }
             )
+        }
+    }
+}
+
+extension TransactionUnspentTransactionOutputValidator {
+    private enum BuildTransactionErrorCaptureFailure: Swift.Error {
+        case didNotThrow
+        case unexpected(Swift.Error)
+    }
+
+    private static func captureBuildTransactionError(
+        _ work: () throws -> Void
+    ) throws -> OpalBase.Transaction.Error {
+        do {
+            try work()
+            throw BuildTransactionErrorCaptureFailure.didNotThrow
+        } catch let error as OpalBase.Transaction.Error {
+            return error
+        } catch let error as BuildTransactionErrorCaptureFailure {
+            throw error
+        } catch {
+            throw BuildTransactionErrorCaptureFailure.unexpected(error)
         }
     }
 }

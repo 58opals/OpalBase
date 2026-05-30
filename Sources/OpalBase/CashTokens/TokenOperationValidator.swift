@@ -18,9 +18,7 @@ enum TokenOperationValidator {
         _ address: OpalBase.Address,
         makeError: (_ offending: [OpalBase.Address]) -> Swift.Error
     ) throws {
-        guard address.isTokenAware else {
-            throw makeError([address])
-        }
+        try requireTokenAwareAddresses([address], makeError: makeError)
     }
     
     static func requireTokenAwareAddresses(

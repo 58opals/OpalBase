@@ -46,13 +46,7 @@ extension _OpalBase.Network.Fulcrum {
             verboseTransaction: TransactionGetVerbose?
         ) throws -> OpalBase.Transaction.Detail {
             try validatePayloadHash(rawTransactionData, expected: transactionHash)
-            let (transaction, bytesRead) = try OpalBase.Transaction.decode(from: rawTransactionData)
-            guard bytesRead == rawTransactionData.count else {
-                throw OpalBase.Network.Error(
-                    reason: .decoding,
-                    message: "Transaction payload has trailing bytes"
-                )
-            }
+            let transaction = try Self.decodeTransaction(from: rawTransactionData)
             guard let rawTransactionSize = UInt32(exactly: rawTransactionData.count) else {
                 throw OpalBase.Network.Error(
                     reason: .decoding,
@@ -134,13 +128,7 @@ extension _OpalBase.Network.Fulcrum {
                 
                 let rawTransactionData = try Self.decodeRawTransactionData(from: rawTransactionHex)
                 try validatePayloadHash(rawTransactionData, expected: transactionHash)
-                let (_, bytesRead) = try OpalBase.Transaction.decode(from: rawTransactionData)
-                guard bytesRead == rawTransactionData.count else {
-                    throw OpalBase.Network.Error(
-                        reason: .decoding,
-                        message: "Transaction payload has trailing bytes"
-                    )
-                }
+                _ = try Self.decodeTransaction(from: rawTransactionData)
                 return rawTransactionData
             }
         }
@@ -243,6 +231,17 @@ extension _OpalBase.Network.Fulcrum {
                     message: "Cannot decode raw transaction hex"
                 )
             }
+        }
+
+        private static func decodeTransaction(from rawTransactionData: Data) throws -> OpalBase.Transaction {
+            let (transaction, bytesRead) = try OpalBase.Transaction.decode(from: rawTransactionData)
+            guard bytesRead == rawTransactionData.count else {
+                throw OpalBase.Network.Error(
+                    reason: .decoding,
+                    message: "Transaction payload has trailing bytes"
+                )
+            }
+            return transaction
         }
     }
 }

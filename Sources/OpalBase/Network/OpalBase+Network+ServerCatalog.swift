@@ -46,6 +46,8 @@ extension _OpalBase.Network {
 
 extension _OpalBase.Network.ServerCatalog {
     public static let opalDefault = Self()
+    private static let maximumDomainNameByteCount = 253
+    private static let maximumDomainLabelByteCount = 63
     
     static func makeMergedServers(primary: [URL], secondary: [URL], fallback: [URL]) -> [URL] {
         makeNormalizedServers(primary + secondary + fallback)
@@ -58,7 +60,7 @@ extension _OpalBase.Network.ServerCatalog {
         
         for server in servers {
             guard let normalizedServer = makeNormalizedServer(server) else { continue }
-            let key = normalizedServer.absoluteString.lowercased()
+            let key = normalizedServer.absoluteString
             if seen.insert(key).inserted {
                 normalizedServers.append(normalizedServer)
             }
@@ -96,15 +98,22 @@ extension _OpalBase.Network.ServerCatalog {
             return nil
         }
 
-        guard let host = components.host, host.isEmpty == false else {
+        guard let host = components.host,
+              host.isEmpty == false,
+              !containsInvalidHostLabel(in: host) else {
             return nil
         }
+        components.host = host.lowercased()
 
         guard components.user == nil, components.password == nil else {
             return nil
         }
         
         if let port = components.port, !(1...65_535).contains(port) {
+            return nil
+        }
+
+        guard !containsPathTraversal(in: components.path) else {
             return nil
         }
         
@@ -121,15 +130,72 @@ extension _OpalBase.Network.ServerCatalog {
         }
         
         components.scheme = normalizedScheme
-        if normalizedScheme == "wss", components.port == 443 {
-            components.port = nil
-        } else if normalizedScheme == "ws", components.port == 80 {
+        if components.port == defaultPort(for: normalizedScheme) {
             components.port = nil
         }
         if components.path == "/" {
             components.path = ""
         }
+        components.query = nil
         components.fragment = nil
         return components.url ?? server
+    }
+
+    private static func containsPathTraversal(in path: String) -> Bool {
+        path.split(separator: "/").contains { component in
+            isPathTraversalComponent(component)
+        }
+    }
+
+    private static func containsInvalidHostLabel(in host: String) -> Bool {
+        guard host.utf8.count <= maximumDomainNameByteCount else {
+            return true
+        }
+
+        var labels = host.split(separator: ".", omittingEmptySubsequences: false)
+        if labels.last?.isEmpty == true {
+            labels.removeLast()
+        }
+
+        return labels.contains { label in
+            guard !isInvalidHostLabelShape(label) else {
+                return true
+            }
+            return !host.contains(":") && containsInvalidDomainLabelCharacter(in: label)
+        }
+    }
+
+    private static func isInvalidHostLabelShape(_ label: some StringProtocol) -> Bool {
+        label.isEmpty
+            || label.utf8.count > maximumDomainLabelByteCount
+            || label.first == "-"
+            || label.last == "-"
+            || isPathTraversalComponent(label)
+    }
+
+    private static func containsInvalidDomainLabelCharacter(in label: some StringProtocol) -> Bool {
+        label.utf8.contains { byte in
+            switch byte {
+            case 0x30 ... 0x39, 0x41 ... 0x5a, 0x61 ... 0x7a, 0x2d:
+                return false
+            default:
+                return true
+            }
+        }
+    }
+
+    private static func isPathTraversalComponent(_ component: some StringProtocol) -> Bool {
+        component == "." || component == ".."
+    }
+
+    private static func defaultPort(for normalizedScheme: String) -> Int? {
+        switch normalizedScheme {
+        case "wss":
+            return 443
+        case "ws":
+            return 80
+        default:
+            return nil
+        }
     }
 }

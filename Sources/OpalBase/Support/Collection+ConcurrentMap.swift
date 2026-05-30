@@ -1,8 +1,8 @@
-// Collection+.swift
+// Collection+ConcurrentMap.swift
 
 import Foundation
 
-// MARK: - Collection_+
+// MARK: - Collection+ConcurrentMap
 
 extension Collection where Element: Sendable {
     func mapConcurrently<Transformed: Sendable>(

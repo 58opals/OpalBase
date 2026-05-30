@@ -84,12 +84,8 @@ extension StoragePersistenceValidator {
         )
         await mnemonicState.failNextSave()
 
-        do {
+        try await expectGenerationStoreSimulatedFailure {
             _ = try await session.save(wallet: replacementWallet)
-            Issue.record("Expected save(wallet:) to fail after staging the replacement snapshot.")
-        } catch GenerationStoreError.simulatedFailure {
-        } catch {
-            Issue.record("Unexpected error: \(error)")
         }
 
         let restored = try await session.restore()
@@ -115,12 +111,8 @@ extension StoragePersistenceValidator {
         _ = try await session.save(wallet: wallet)
         await mnemonicState.failNextDelete()
 
-        do {
+        try await expectGenerationStoreSimulatedFailure {
             try await session.wipe()
-            Issue.record("Expected wipe() to report the mnemonic deletion failure.")
-        } catch GenerationStoreError.simulatedFailure {
-        } catch {
-            Issue.record("Unexpected error: \(error)")
         }
 
         let restored = try await session.restore()
@@ -203,6 +195,24 @@ private func makeGenerationSnapshotStore(
             await state.deleteCommittedGeneration()
         }
     )
+}
+
+private enum GenerationStoreErrorCaptureFailure: Swift.Error {
+    case didNotThrow
+    case unexpected(String)
+}
+
+private func expectGenerationStoreSimulatedFailure(
+    _ operation: () async throws -> Void
+) async throws {
+    do {
+        try await operation()
+    } catch GenerationStoreError.simulatedFailure {
+        return
+    } catch {
+        throw GenerationStoreErrorCaptureFailure.unexpected(String(describing: error))
+    }
+    throw GenerationStoreErrorCaptureFailure.didNotThrow
 }
 
 private func makeGenerationMnemonicStore(

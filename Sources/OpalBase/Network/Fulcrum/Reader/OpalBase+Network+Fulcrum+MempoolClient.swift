@@ -1,4 +1,4 @@
-// OpalBase+Network+Fulcrum+MempoolClient_.swift
+// OpalBase+Network+Fulcrum+MempoolClient.swift
 
 import Foundation
 import SwiftFulcrum

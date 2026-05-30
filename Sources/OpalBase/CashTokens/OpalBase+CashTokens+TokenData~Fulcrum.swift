@@ -15,6 +15,9 @@ extension _OpalBase.CashTokens.TokenData {
     }
     
     private static func parseAmount(from amountString: String) throws -> UInt64? {
+        guard amountString.utf8.allSatisfy({ (0x30...0x39).contains($0) }) else {
+            throw OpalBase.CashTokens.Error.invalidFungibleAmountString(amountString)
+        }
         guard let amountValue = UInt64(amountString) else {
             throw OpalBase.CashTokens.Error.invalidFungibleAmountString(amountString)
         }

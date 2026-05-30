@@ -150,9 +150,7 @@ extension _OpalBase.Transaction {
                     try validateDustDonationAllowed(for: changeOutput)
                     guard shouldAllowDustDonation else { throw Error.outputValueIsLessThanTheDustLimit }
                 } else {
-                    outputs.append(.init(value: remainingChange,
-                                         lockingScript: changeOutput.lockingScript,
-                                         tokenData: changeOutput.tokenData))
+                    outputs.append(makeChangeOutput(value: remainingChange, from: changeOutput))
                 }
             } else if changeOutput.tokenData != nil {
                 try validateDustDonationAllowed(for: changeOutput)

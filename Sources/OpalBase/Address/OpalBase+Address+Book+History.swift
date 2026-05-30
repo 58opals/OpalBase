@@ -222,7 +222,7 @@ extension _OpalBase.Address.Book {
                     message: "Confirmation status hash mismatch"
                 )
             }
-            try Self.validateConfirmationStatus(status)
+            try status.validateConsistency()
             return OpalBase.Address.Book.History.ConfirmationUpdate(record: record, status: status)
         }
         
@@ -272,35 +272,4 @@ extension _OpalBase.Address.Book {
         try await refreshTransactionConfirmations(using: .init(confirmations: handler))
     }
 
-    private static func validateConfirmationStatus(_ status: OpalBase.Network.TransactionConfirmationStatus) throws {
-        guard let transactionHeight = status.transactionHeight, transactionHeight > 0 else {
-            if let confirmations = status.confirmations, confirmations > 0 {
-                throw OpalBase.Network.Error(
-                    reason: .protocolViolation,
-                    message: "Confirmation count requires a confirmed transaction height"
-                )
-            }
-            return
-        }
-
-        guard UInt64(transactionHeight) <= status.tipHeight else {
-            throw OpalBase.Network.Error(
-                reason: .protocolViolation,
-                message: "Confirmation status height exceeds tip height"
-            )
-        }
-        guard let confirmations = status.confirmations else {
-            throw OpalBase.Network.Error(
-                reason: .protocolViolation,
-                message: "Confirmed transaction height requires confirmation count"
-            )
-        }
-        let expectedConfirmations = status.tipHeight - UInt64(transactionHeight) + 1
-        guard UInt64(confirmations) == expectedConfirmations else {
-            throw OpalBase.Network.Error(
-                reason: .protocolViolation,
-                message: "Confirmation status count does not match height and tip"
-            )
-        }
-    }
 }

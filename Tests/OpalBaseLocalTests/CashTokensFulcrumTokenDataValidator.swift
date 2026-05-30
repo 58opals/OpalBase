@@ -19,6 +19,16 @@ struct CashTokensFulcrumTokenDataValidator {
         }
     }
 
+    @Test("rejects signed fungible token amount strings")
+    func rejectSignedFungibleTokenAmountStrings() throws {
+        let signedAmount = "+1"
+        let tokenData = Self.makeSwiftFulcrumTokenData(amount: signedAmount)
+
+        #expect(throws: OpalBase.CashTokens.Error.invalidFungibleAmountString(signedAmount)) {
+            _ = try OpalBase.CashTokens.TokenData(swiftFulcrumTokenData: tokenData)
+        }
+    }
+
     @Test("rejects category-only token data")
     func rejectCategoryOnlyTokenData() throws {
         let tokenData = Self.makeSwiftFulcrumTokenData(amount: "0")

@@ -97,12 +97,39 @@ struct NetworkFulcrumTransactionConfirmationCountValidator {
         }
     }
 
+    @Test("history mapping rejects heights below unconfirmed sentinel")
+    func historyMappingRejectsHeightsBelowUnconfirmedSentinel() throws {
+        let transactions = [
+            HistoryTransactionFixture(
+                transactionIdentifier: String(repeating: "a", count: 64),
+                blockHeight: -2,
+                fee: nil
+            )
+        ]
+
+        #expect(throws: OpalBase.Network.Error(
+            reason: .decoding,
+            message: "Invalid history transaction height: -2"
+        )) {
+            _ = try OpalBase.Network.Fulcrum.mapHistoryTransactions(
+                transactions,
+                transactionIdentifier: \.transactionIdentifier,
+                blockHeight: \.blockHeight,
+                fee: \.fee
+            )
+        }
+    }
+
     @Test("height resolution rejects malformed wire values instead of clamping")
     func heightResolutionRejectsMalformedWireValues() throws {
         #expect(try OpalBase.Network.Fulcrum.TransactionClient.resolveTransactionHeight(Optional<Int>.none) == nil)
         #expect(try OpalBase.Network.Fulcrum.TransactionClient.resolveTransactionHeight(Optional(-1)) == nil)
         #expect(try OpalBase.Network.Fulcrum.TransactionClient.resolveTransactionHeight(Optional(42)) == 42)
         #expect(try OpalBase.Network.Fulcrum.TransactionClient.resolveTipHeight(42) == 42)
+
+        #expect(throws: OpalBase.Network.Error(reason: .decoding, message: "Invalid transaction height: -2")) {
+            _ = try OpalBase.Network.Fulcrum.TransactionClient.resolveTransactionHeight(Optional(-2))
+        }
 
         let oversizedTransactionHeight = UInt64(Int.max) + 1
         #expect(throws: OpalBase.Network.Error(reason: .decoding, message: "Invalid transaction height: \(oversizedTransactionHeight)")) {
@@ -127,6 +154,27 @@ struct NetworkFulcrumTransactionConfirmationCountValidator {
                 transactionHeight: Optional(150),
                 tipHeight: 140
             )
+        }
+    }
+
+    @Test("confirmation status validation rejects non-positive present heights")
+    func confirmationStatusValidationRejectsNonPositivePresentHeights() throws {
+        let transactionHash = OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0x22, count: 32))
+
+        for height in [-1, 0] {
+            let status = OpalBase.Network.TransactionConfirmationStatus(
+                transactionHash: transactionHash,
+                transactionHeight: height,
+                tipHeight: 100,
+                confirmations: nil
+            )
+
+            #expect(throws: OpalBase.Network.Error(
+                reason: .protocolViolation,
+                message: "Confirmation status height must be positive"
+            )) {
+                try status.validateConsistency()
+            }
         }
     }
 

@@ -1,4 +1,4 @@
-// OpalBase+Network+ScriptHashReadableClient_.swift
+// OpalBase+Network+ScriptHashReadableClient.swift
 
 import Foundation
 
@@ -8,4 +8,3 @@ extension _OpalBase.Network {
         func fetchUnspent(forScriptHash scriptHashHex: String, tokenFilter: OpalBase.Network.TokenFilter) async throws -> [OpalBase.Transaction.Output.Unspent]
     }
 }
-

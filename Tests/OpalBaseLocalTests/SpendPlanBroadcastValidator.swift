@@ -78,14 +78,11 @@ struct SpendPlanBroadcastValidator {
             broadcastResult: .failure(NetworkStubError.forced("spend-failure"))
         )
 
-        do {
+        let error = try await captureSpendBroadcastAccountError {
             _ = try await plan.buildAndBroadcast(via: handler)
-            Issue.record("Expected spend buildAndBroadcast to throw")
-        } catch let error as OpalBase.Account.Error {
-            guard case .broadcastFailed = error else {
-                Issue.record("Expected broadcastFailed but got \(error)")
-                return
-            }
+        }
+        guard case .broadcastFailed = error else {
+            throw SpendBroadcastAccountErrorCaptureFailure.unexpected(error)
         }
 
         let changeEntries = await account.addressBook.listEntries(for: .change)
@@ -183,16 +180,33 @@ struct SpendPlanBroadcastValidator {
         let failingHandler = TransactionHandlingTestActor(
             broadcastResult: .failure(NetworkStubError.forced("token-spend-failure"))
         )
-        do {
+        let error = try await captureSpendBroadcastAccountError {
             _ = try await failingPlan.buildAndBroadcast(via: failingHandler)
-            Issue.record("Expected token spend buildAndBroadcast to throw")
-        } catch let error as OpalBase.Account.Error {
-            guard case .broadcastFailed = error else {
-                Issue.record("Expected broadcastFailed but got \(error)")
-                return
-            }
+        }
+        guard case .broadcastFailed = error else {
+            throw SpendBroadcastAccountErrorCaptureFailure.unexpected(error)
         }
         try await failingPlan.cancelReservation()
+    }
+
+    enum SpendBroadcastAccountErrorCaptureFailure: Swift.Error {
+        case didNotThrow
+        case unexpected(Swift.Error)
+    }
+
+    private func captureSpendBroadcastAccountError(
+        _ work: () async throws -> Void
+    ) async throws -> OpalBase.Account.Error {
+        do {
+            try await work()
+            throw SpendBroadcastAccountErrorCaptureFailure.didNotThrow
+        } catch let error as OpalBase.Account.Error {
+            return error
+        } catch let error as SpendBroadcastAccountErrorCaptureFailure {
+            throw error
+        } catch {
+            throw SpendBroadcastAccountErrorCaptureFailure.unexpected(error)
+        }
     }
 }
 

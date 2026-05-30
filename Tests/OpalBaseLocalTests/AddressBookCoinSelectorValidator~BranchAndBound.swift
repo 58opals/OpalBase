@@ -22,8 +22,7 @@ extension AddressBookCoinSelectorValidator {
         )
 
         guard minimalFee > 0 else {
-            Issue.record("Expected minimal fee to exceed zero for overflow scenario")
-            return
+            throw BranchAndBoundFixtureFailure.expectedPositiveMinimalFee
         }
 
         let targetAmount = UInt64.max - (minimalFee - 1)
@@ -121,3 +120,6 @@ extension AddressBookCoinSelectorValidator {
     }
 }
 
+private enum BranchAndBoundFixtureFailure: Swift.Error {
+    case expectedPositiveMinimalFee
+}

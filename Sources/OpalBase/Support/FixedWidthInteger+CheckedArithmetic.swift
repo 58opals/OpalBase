@@ -1,4 +1,4 @@
-// FixedWidthInteger+.swift
+// FixedWidthInteger+CheckedArithmetic.swift
 
 import Foundation
 

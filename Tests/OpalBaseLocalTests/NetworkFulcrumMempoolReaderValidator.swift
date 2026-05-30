@@ -34,7 +34,7 @@ struct NetworkFulcrumMempoolReaderValidator {
         )
         let reader = OpalBase.Network.Fulcrum.MempoolReader(client: client)
 
-        let failure = await Self.captureNetworkError {
+        let failure = try await Self.captureNetworkError {
             _ = try await reader.fetchMempoolInfo()
         }
 
@@ -43,37 +43,52 @@ struct NetworkFulcrumMempoolReaderValidator {
     
     @Test(
         "rejects invalid mempool info fields",
-        arguments: ["fee", "count"]
+        arguments: MempoolInfoFieldFixture.allCases
     )
-    func rejectInvalidMempoolInfoFields(field: String) async throws {
-        let infoError: Swift.Error
-        let expectedMessage: String
-        switch field {
-        case "fee":
-            infoError = try Self.makeInfoDecodeFailure(mempoolMinimumFee: -1)
-            expectedMessage = "Invalid mempool minimum fee: -1.0"
-        case "count":
-            infoError = try Self.makeInfoDecodeFailure(unbroadcastCount: -1)
-            expectedMessage = "Invalid unbroadcast count: -1"
-        default:
-            Issue.record("Unexpected mempool info field: \(field)")
-            return
-        }
+    func rejectInvalidMempoolInfoFields(field: MempoolInfoFieldFixture) async throws {
+        let infoError = try field.makeInfoDecodeFailure()
 
         let client = try MempoolClientTestActor(infoError: infoError)
         let reader = OpalBase.Network.Fulcrum.MempoolReader(client: client)
 
-        let failure = await Self.captureNetworkError {
+        let failure = try await Self.captureNetworkError {
             _ = try await reader.fetchMempoolInfo()
         }
 
         #expect(failure.reason == .decoding)
-        #expect(failure.message == expectedMessage)
+        #expect(failure.message == field.expectedMessage)
     }
 
 }
 
 extension NetworkFulcrumMempoolReaderValidator {
+    enum MempoolInfoDecodeFailure: Swift.Error {
+        case didNotThrow
+    }
+
+    enum MempoolInfoFieldFixture: CaseIterable, Sendable {
+        case fee
+        case count
+
+        var expectedMessage: String {
+            switch self {
+            case .fee:
+                return "Invalid mempool minimum fee: -1.0"
+            case .count:
+                return "Invalid unbroadcast count: -1"
+            }
+        }
+
+        func makeInfoDecodeFailure() throws -> SwiftFulcrum.Client.Error {
+            switch self {
+            case .fee:
+                return try NetworkFulcrumMempoolReaderValidator.makeInfoDecodeFailure(mempoolMinimumFee: -1)
+            case .count:
+                return try NetworkFulcrumMempoolReaderValidator.makeInfoDecodeFailure(unbroadcastCount: -1)
+            }
+        }
+    }
+
     static func makeInfoResponse(
         mempoolMinimumFee: Double = 0.00001,
         minimumRelayTransactionFee: Double = 0.00002,
@@ -103,11 +118,10 @@ extension NetworkFulcrumMempoolReaderValidator {
                 incrementalRelayFee: incrementalRelayFee,
                 unbroadcastCount: unbroadcastCount
             )
-            Issue.record("Expected invalid mempool info payload to fail decoding")
-            return SwiftFulcrum.Client.Error.coding(.decode(nil))
         } catch {
             return SwiftFulcrum.Client.Error.coding(.decode(error))
         }
+        throw MempoolInfoDecodeFailure.didNotThrow
     }
 
     static func makeHistogramResponse() throws -> SwiftFulcrum.Response.Mempool.FeeHistogram {
@@ -117,16 +131,19 @@ extension NetworkFulcrumMempoolReaderValidator {
 
     static func captureNetworkError(
         _ work: () async throws -> Void
-    ) async -> OpalBase.Network.Error {
+    ) async throws -> OpalBase.Network.Error {
         do {
             try await work()
-            Issue.record("Expected OpalBase.Network.Error")
-            return .init(reason: .unknown)
         } catch let failure as OpalBase.Network.Error {
             return failure
         } catch {
-            Issue.record("Unexpected error: \(error)")
-            return .init(reason: .unknown, message: String(describing: error))
+            throw NetworkErrorCaptureFailure.unexpected(error)
         }
+        throw NetworkErrorCaptureFailure.didNotThrow
+    }
+
+    enum NetworkErrorCaptureFailure: Swift.Error {
+        case didNotThrow
+        case unexpected(Swift.Error)
     }
 }

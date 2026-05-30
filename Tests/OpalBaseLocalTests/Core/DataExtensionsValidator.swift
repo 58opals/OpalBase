@@ -84,4 +84,18 @@ struct DataExtensionsValidator {
         #expect(remainingData == Data([0x02, 0x03]))
         #expect(remainingData.startIndex == 0)
     }
+
+    @Test("bit string conversion decodes binary text")
+    func bitStringConversionDecodesBinaryText() throws {
+        let converted = try "1010101000001111".convertBitsToData()
+
+        #expect(converted == Data([0xaa, 0x0f]))
+    }
+
+    @Test("bit string conversion rejects non-binary characters")
+    func bitStringConversionRejectsNonBinaryCharacters() {
+        #expect(throws: String.BitDataConversionError.invalidBit("x")) {
+            _ = try "1010x001".convertBitsToData()
+        }
+    }
 }

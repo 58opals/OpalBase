@@ -20,10 +20,10 @@ actor TransactionProofClientTestActor: OpalBase.Network.Fulcrum.TransactionProof
         identifierResponse: SwiftFulcrum.Response.Blockchain.Transaction.IDFromPos? = nil,
         merkleError: Swift.Error? = nil,
         identifierError: Swift.Error? = nil
-    ) {
-        self.merkleResponse = merkleResponse ?? (try! Self.makeEmptyMerkleResponse())
-        self.heightResponse = heightResponse ?? (try! Self.makeHeightResponse(blockHeight: 12))
-        self.identifierResponse = identifierResponse ?? (try! Self.makeEmptyIdentifierResponse())
+    ) throws {
+        self.merkleResponse = try merkleResponse ?? Self.makeEmptyMerkleResponse()
+        self.heightResponse = try heightResponse ?? Self.makeHeightResponse(blockHeight: 12)
+        self.identifierResponse = try identifierResponse ?? Self.makeEmptyIdentifierResponse()
         self.merkleError = merkleError
         self.identifierError = identifierError
     }

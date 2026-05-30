@@ -71,33 +71,30 @@ extension _OpalBase.Address {
         guard !payload.isEmpty else { throw Error.invalidPayloadLength }
         let versionByte = payload[0]
         let hashData = payload[1...]
+        let script: OpalBase.Script
+        let format: Format
         
         switch versionByte {
         case standardPublicKeyHashVersionByte, tokenAwarePublicKeyHashVersionByte:
             guard hashData.count == 20 else { throw Error.invalidPayloadLength }
             let hash = OpalBase.Key.PublicKey.Hash(hashData)
-            let script = OpalBase.Script.p2pkh_OPCHECKSIG(hash: hash)
-            let format: Format = versionByte == tokenAwarePublicKeyHashVersionByte ? .tokenAware : .standard
-            return OpalBase.Address(
-                cashAddrPayload: canonicalPayload,
-                lockingScript: script,
-                format: format,
-                network: network
-            )
+            script = OpalBase.Script.p2pkh_OPCHECKSIG(hash: hash)
+            format = versionByte == tokenAwarePublicKeyHashVersionByte ? .tokenAware : .standard
         case standardScriptHashVersionByte, tokenAwareScriptHashVersionByte:
             guard hashData.count == 20 else { throw Error.invalidPayloadLength }
             let scriptHash = Data(hashData)
-            let script = OpalBase.Script.p2sh(scriptHash: scriptHash)
-            let format: Format = versionByte == tokenAwareScriptHashVersionByte ? .tokenAware : .standard
-            return OpalBase.Address(
-                cashAddrPayload: canonicalPayload,
-                lockingScript: script,
-                format: format,
-                network: network
-            )
+            script = OpalBase.Script.p2sh(scriptHash: scriptHash)
+            format = versionByte == tokenAwareScriptHashVersionByte ? .tokenAware : .standard
         default:
             throw Error.unsupportedVersionByte(versionByte)
         }
+
+        return OpalBase.Address(
+            cashAddrPayload: canonicalPayload,
+            lockingScript: script,
+            format: format,
+            network: network
+        )
     }
     
     static func parseLegacyAddress(from string: String) throws -> OpalBase.Address {

@@ -1,4 +1,4 @@
-// OpalBase+Network+AddressQueryClient_.swift
+// OpalBase+Network+AddressQueryClient.swift
 
 import Foundation
 

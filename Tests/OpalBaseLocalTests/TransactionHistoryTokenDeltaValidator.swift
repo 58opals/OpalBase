@@ -314,16 +314,15 @@ struct TransactionHistoryTokenDeltaValidator {
             ])
         )
 
-        do {
+        await #expect(throws: OpalBase.Network.Error(
+            reason: .decoding,
+            message: "Transaction payload has trailing bytes"
+        )) {
             _ = try await book.makeTokenDelta(
                 from: currentTransaction,
                 transactionReader: transactionReader,
                 walletScriptHashes: [walletAddress.makeScriptHash().hexadecimalString]
             )
-            Issue.record("Expected trailing bytes in the previous transaction payload to be rejected.")
-        } catch let error as OpalBase.Network.Error {
-            #expect(error.reason == .decoding)
-            #expect(error.message == "Transaction payload has trailing bytes")
         }
     }
 }

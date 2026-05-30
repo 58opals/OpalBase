@@ -150,14 +150,11 @@ struct HedgeFundingFacadeValidator {
             broadcastResult: .failure(NetworkStubError.forced("hedge-failure"))
         )
 
-        do {
+        let error = try await Self.captureAccountError {
             _ = try await plan.buildAndBroadcast(via: handler)
-            Issue.record("Expected hedge funding broadcast to throw")
-        } catch let error as OpalBase.Account.Error {
-            guard case .broadcastFailed = error else {
-                Issue.record("Expected broadcastFailed but got \(error)")
-                return
-            }
+        }
+        guard case .broadcastFailed = error else {
+            throw AccountErrorCaptureFailure.unexpected(error)
         }
 
         #expect(await account.addressBook.readActiveSpendReservations().isEmpty == false)
@@ -186,13 +183,13 @@ struct HedgeFundingFacadeValidator {
             fundingDataDocumentJSON: result.fundingRecord.dataDocumentJSON,
             previousOracleProof: startingProof,
             settlementOracleProof: settlementProof,
-            settlementTransactionHash: HedgeFixtureData.settlementTransactionHash
+            settlementTransactionHash: try HedgeFixtureData.settlementTransactionHash()
         )
         let reconstructedSummary = try OpalBase.Hedge.makeSettlementSummary(
             fundingDataDocumentJSON: result.fundingRecord.dataDocumentJSON,
             previousOracleProof: startingProof,
             settlementOracleProof: settlementProof,
-            settlementTransactionHash: HedgeFixtureData.settlementTransactionHash
+            settlementTransactionHash: try HedgeFixtureData.settlementTransactionHash()
         )
 
         #expect(reconstructedSummary == summary)
@@ -213,6 +210,26 @@ struct HedgeFundingFacadeValidator {
 
         #expect(throws: OpalBase.Hedge.Error.invalidTransactionHash(prefixedHash)) {
             _ = try OpalBase.Hedge.transactionHash(fromExternalHex: prefixedHash)
+        }
+    }
+
+    enum AccountErrorCaptureFailure: Swift.Error {
+        case didNotThrow
+        case unexpected(Swift.Error)
+    }
+
+    private static func captureAccountError(
+        _ work: () async throws -> Void
+    ) async throws -> OpalBase.Account.Error {
+        do {
+            try await work()
+            throw AccountErrorCaptureFailure.didNotThrow
+        } catch let error as OpalBase.Account.Error {
+            return error
+        } catch let error as AccountErrorCaptureFailure {
+            throw error
+        } catch {
+            throw AccountErrorCaptureFailure.unexpected(error)
         }
     }
 }

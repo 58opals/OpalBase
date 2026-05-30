@@ -1,4 +1,4 @@
-// OpalBase+Network+Fulcrum+TransactionProofClient_.swift
+// OpalBase+Network+Fulcrum+TransactionProofClient.swift
 
 import Foundation
 import SwiftFulcrum

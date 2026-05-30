@@ -11,16 +11,16 @@ struct TokenMetadataRepositorySnapshotValidator {
     func roundtripStoreSnapshotsWithMetadata() async throws {
         let store = OpalBase.CashTokens.MetadataRepository()
         let metadata = OpalBase.CashTokens.Metadata(
-            category: BitcoinCashMetadataRegistryTestData.categoryIdentifier,
+            category: try BitcoinCashMetadataRegistryTestData.categoryIdentifier,
             name: "Example Token",
             symbol: "EXAMPLE",
             decimals: 2,
-            iconURL: BitcoinCashMetadataRegistryTestData.registryIconLocation,
+            iconURL: try BitcoinCashMetadataRegistryTestData.registryIconLocation,
             lastUpdated: Date(timeIntervalSince1970: 1_704_067_200),
             source: .embedded
         )
         
-        await store.upsert([BitcoinCashMetadataRegistryTestData.categoryIdentifier: metadata])
+        await store.upsert([try BitcoinCashMetadataRegistryTestData.categoryIdentifier: metadata])
         let snapshot = await store.snapshot()
         
         let encodedSnapshot = try JSONEncoder().encode(snapshot)
@@ -30,7 +30,7 @@ struct TokenMetadataRepositorySnapshotValidator {
         await restoredStore.applySnapshot(decodedSnapshot)
         
         let restoredMetadata = await restoredStore.fetchMetadata(
-            for: BitcoinCashMetadataRegistryTestData.categoryIdentifier
+            for: try BitcoinCashMetadataRegistryTestData.categoryIdentifier
         )
         
         #expect(restoredMetadata == metadata)
@@ -40,7 +40,7 @@ struct TokenMetadataRepositorySnapshotValidator {
     func applySnapshotRemovesUnsafeMetadataURLs() async throws {
         let store = OpalBase.CashTokens.MetadataRepository()
         let metadata = OpalBase.CashTokens.Metadata(
-            category: BitcoinCashMetadataRegistryTestData.categoryIdentifier,
+            category: try BitcoinCashMetadataRegistryTestData.categoryIdentifier,
             name: "Unsafe Token",
             symbol: "UNSAFE",
             decimals: 2,
@@ -52,14 +52,14 @@ struct TokenMetadataRepositorySnapshotValidator {
         )
         let snapshot = OpalBase.CashTokens.MetadataRepository.Snapshot(
             byCategory: [
-                BitcoinCashMetadataRegistryTestData.categoryIdentifier.hexForDisplay: metadata
+                try BitcoinCashMetadataRegistryTestData.categoryIdentifier.hexForDisplay: metadata
             ]
         )
 
         await store.applySnapshot(snapshot)
 
         let restoredMetadata = try #require(
-            await store.fetchMetadata(for: BitcoinCashMetadataRegistryTestData.categoryIdentifier)
+            await store.fetchMetadata(for: try BitcoinCashMetadataRegistryTestData.categoryIdentifier)
         )
         #expect(restoredMetadata.iconURL == nil)
         #expect(restoredMetadata.webURL == nil)
@@ -74,7 +74,7 @@ struct TokenMetadataRepositorySnapshotValidator {
         let webURL = try #require(URL(string: "https:example.com/token"))
         let registryURL = try #require(URL(string: "https:example.com/registry.json"))
         let metadata = OpalBase.CashTokens.Metadata(
-            category: BitcoinCashMetadataRegistryTestData.categoryIdentifier,
+            category: try BitcoinCashMetadataRegistryTestData.categoryIdentifier,
             name: "Hostless Token",
             symbol: "HOSTLESS",
             decimals: 2,
@@ -86,14 +86,14 @@ struct TokenMetadataRepositorySnapshotValidator {
         )
         let snapshot = OpalBase.CashTokens.MetadataRepository.Snapshot(
             byCategory: [
-                BitcoinCashMetadataRegistryTestData.categoryIdentifier.hexForDisplay: metadata
+                try BitcoinCashMetadataRegistryTestData.categoryIdentifier.hexForDisplay: metadata
             ]
         )
 
         await store.applySnapshot(snapshot)
 
         let restoredMetadata = try #require(
-            await store.fetchMetadata(for: BitcoinCashMetadataRegistryTestData.categoryIdentifier)
+            await store.fetchMetadata(for: try BitcoinCashMetadataRegistryTestData.categoryIdentifier)
         )
         #expect(restoredMetadata.iconURL == nil)
         #expect(restoredMetadata.webURL == nil)

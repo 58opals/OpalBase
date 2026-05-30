@@ -24,20 +24,20 @@ actor ServerInfoClientTestActor: OpalBase.Network.Fulcrum.ServerInfoClient {
         featuresResponse: SwiftFulcrum.Response.Server.Features? = nil,
         relayFeeResponse: SwiftFulcrum.Response.Blockchain.RelayFee? = nil,
         estimatedFeeResponse: SwiftFulcrum.Response.Blockchain.EstimateFee? = nil
-    ) {
+    ) throws {
         self.pingError = pingError
         self.featuresError = featuresError
         self.relayFeeError = relayFeeError
         self.estimatedFeeError = estimatedFeeError
-        self.versionResponse = versionResponse ?? (
-            try! NetworkFulcrumServerInfoReaderValidator.makeVersionResponse(
+        self.versionResponse = try versionResponse ?? (
+            NetworkFulcrumServerInfoReaderValidator.makeVersionResponse(
                 serverVersion: "Fulcrum",
                 protocolVersion: "1.4"
             )
         )
-        self.featuresResponse = featuresResponse ?? (try! NetworkFulcrumServerInfoReaderValidator.makeFeaturesResponse())
-        self.relayFeeResponse = relayFeeResponse ?? (try! NetworkFulcrumServerInfoReaderValidator.makeRelayFeeResponse(fee: 0))
-        self.estimatedFeeResponse = estimatedFeeResponse ?? (try! NetworkFulcrumServerInfoReaderValidator.makeEstimateFeeResponse(fee: 0))
+        self.featuresResponse = try featuresResponse ?? NetworkFulcrumServerInfoReaderValidator.makeFeaturesResponse()
+        self.relayFeeResponse = try relayFeeResponse ?? NetworkFulcrumServerInfoReaderValidator.makeRelayFeeResponse(fee: 0)
+        self.estimatedFeeResponse = try estimatedFeeResponse ?? NetworkFulcrumServerInfoReaderValidator.makeEstimateFeeResponse(fee: 0)
     }
 
     func pingServer(options _: SwiftFulcrum.Client.Call.Options) async throws {

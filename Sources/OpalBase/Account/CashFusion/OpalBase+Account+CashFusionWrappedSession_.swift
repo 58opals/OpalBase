@@ -1,4 +1,4 @@
-// OpalBase+Account+CashFusionWrappedSession.swift
+// OpalBase+Account+CashFusionWrappedSession_.swift
 
 #if os(macOS)
 import Foundation
