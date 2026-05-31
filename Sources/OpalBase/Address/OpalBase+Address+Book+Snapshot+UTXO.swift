@@ -62,7 +62,8 @@ extension _OpalBase.Address.Book.Snapshot {
                 throw OpalBase.Address.Book.Error.invalidSnapshotTokenData(reason: error)
             }
 
-            if let tokenAmount, tokenAmount == 0 {
+            if let tokenAmount,
+               tokenAmount == 0 || tokenAmount > OpalBase.CashTokens.TokenData.maximumFungibleAmount {
                 throw OpalBase.Address.Book.Error.invalidSnapshotTokenData(
                     reason: OpalBase.CashTokens.Error.invalidTokenPrefixFungibleAmount
                 )
@@ -77,18 +78,13 @@ extension _OpalBase.Address.Book.Snapshot {
                         reason: SnapshotTokenDataError.missingNonFungibleTokenComponents
                     )
                 }
-                let commitmentData: Data
                 do {
                     guard !nftCommitment.hasPrefix("0x"),
                           !nftCommitment.hasPrefix("0X")
                     else {
                         throw OpalBase.CashTokens.Error.invalidHexadecimalString
                     }
-                    commitmentData = try Data(hexadecimalString: nftCommitment)
-                } catch {
-                    throw OpalBase.Address.Book.Error.invalidSnapshotTokenData(reason: error)
-                }
-                do {
+                    let commitmentData = try Data(hexadecimalString: nftCommitment)
                     nonFungibleToken = try OpalBase.CashTokens.NFT(capability: nftCapability, commitment: commitmentData)
                 } catch {
                     throw OpalBase.Address.Book.Error.invalidSnapshotTokenData(reason: error)

@@ -40,13 +40,18 @@ extension OpalBase {
                 return data
                 
             case .p2ms(let numberOfRequiredSignatures, let publicKeys):
+                guard let requiredSignatureOpcode = Self.multisigSmallIntegerOpcode(for: numberOfRequiredSignatures),
+                      let publicKeyCountOpcode = Self.multisigSmallIntegerOpcode(for: publicKeys.count),
+                      numberOfRequiredSignatures <= publicKeys.count
+                else { return Data() }
+
                 var data = Data()
-                data.append(ScriptOperationCode(rawValue: UInt8(Int(ScriptOperationCode._1.rawValue) + numberOfRequiredSignatures - 1))!.data)
+                data.append(requiredSignatureOpcode.data)
                 for publicKey in publicKeys {
                     data.append(ScriptOperationCode._PUSHBYTES_33.data)
                     data.append(publicKey.compressedData)
                 }
-                data.append(ScriptOperationCode(rawValue: UInt8(Int(ScriptOperationCode._1.rawValue) + publicKeys.count - 1))!.data)
+                data.append(publicKeyCountOpcode.data)
                 data.append(ScriptOperationCode._CHECKMULTISIG.data)
                 return data
                 
@@ -58,6 +63,14 @@ extension OpalBase {
                 data.append(ScriptOperationCode._EQUAL.data)
                 return data
             }
+        }
+
+        private static func multisigSmallIntegerOpcode(for value: Int) -> ScriptOperationCode? {
+            guard (1...16).contains(value) else { return nil }
+            let rawValue = ScriptOperationCode._1.rawValue + UInt8(value - 1)
+            return ScriptOperationCode(
+                rawValue: rawValue
+            )
         }
     }
 }

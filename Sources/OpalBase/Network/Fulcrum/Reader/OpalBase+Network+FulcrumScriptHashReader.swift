@@ -28,11 +28,11 @@ extension _OpalBase.Network.Fulcrum {
         }
         
         public func fetchHistory(
-            forScriptHash scriptHashHex: String,
+            forScriptHash scriptHashHexadecimal: String,
             includeUnconfirmed: Bool
         ) async throws -> [OpalBase.Network.TransactionHistoryEntry] {
             try await OpalBase.Network.performWithFailureTranslation {
-                let validatedScriptHash = try Self.validateScriptHash(scriptHashHex)
+                let validatedScriptHash = try Self.validateScriptHash(scriptHashHexadecimal)
                 let result = try await client.request(
                     SwiftFulcrum.API.blockchain.scriptHash.history(
                         scriptHash: validatedScriptHash,
@@ -51,11 +51,11 @@ extension _OpalBase.Network.Fulcrum {
         }
         
         public func fetchUnspent(
-            forScriptHash scriptHashHex: String,
+            forScriptHash scriptHashHexadecimal: String,
             tokenFilter: OpalBase.Network.TokenFilter
         ) async throws -> [OpalBase.Transaction.Output.Unspent] {
             try await OpalBase.Network.performWithFailureTranslation {
-                let validatedScriptHash = try Self.validateScriptHash(scriptHashHex)
+                let validatedScriptHash = try Self.validateScriptHash(scriptHashHexadecimal)
                 let result = try await client.request(
                     SwiftFulcrum.API.blockchain.scriptHash.listUnspent(
                         scriptHash: validatedScriptHash,
@@ -65,7 +65,7 @@ extension _OpalBase.Network.Fulcrum {
                 )
                 
                 let unspentOutputs = try await result.items.mapConcurrently { item in
-                    try await makeUnspentOutput(from: item, scriptHashHex: validatedScriptHash)
+                    try await makeUnspentOutput(from: item, scriptHashHexadecimal: validatedScriptHash)
                 }
                 
                 return unspentOutputs.sorted { $0.compareOrder(before: $1) }
@@ -74,7 +74,7 @@ extension _OpalBase.Network.Fulcrum {
         
         private func makeUnspentOutput(
             from item: SwiftFulcrum.Response.Blockchain.ScriptHash.ListUnspent.Item,
-            scriptHashHex: String
+            scriptHashHexadecimal: String
         ) async throws -> OpalBase.Transaction.Output.Unspent {
             let hash = try OpalBase.Network.decodeTransactionHash(
                 from: item.transactionHash,
@@ -83,20 +83,32 @@ extension _OpalBase.Network.Fulcrum {
             let rawTransactionData = try await transactionReader.fetchRawTransaction(for: hash)
             return try Self.makeUnspentOutput(
                 transactionHash: hash,
-                transactionIdentifier: item.transactionHash,
                 transactionPosition: item.transactionPosition,
                 rawTransactionData: rawTransactionData,
-                scriptHashHex: scriptHashHex
+                scriptHashHexadecimal: scriptHashHexadecimal
             )
         }
 
         static func makeUnspentOutput(
             transactionHash: OpalBase.Transaction.Hash,
-            transactionIdentifier: String,
             transactionPosition: UInt,
             rawTransactionData: Data,
-            scriptHashHex: String
+            scriptHashHexadecimal: String
         ) throws -> OpalBase.Transaction.Output.Unspent {
+            let transactionIdentifier = transactionHash.reverseOrder.hexadecimalString
+            let actualTransactionHash = OpalBase.Transaction.Hash(
+                naturalOrder: OpalCryptoAdapter.hash256(rawTransactionData)
+            )
+            guard actualTransactionHash == transactionHash else {
+                throw OpalBase.Network.Error(
+                    reason: .protocolViolation,
+                    message: "Script hash unspent transaction payload hash mismatch",
+                    metadata: [
+                        "expected": transactionHash.reverseOrder.hexadecimalString,
+                        "actual": actualTransactionHash.reverseOrder.hexadecimalString
+                    ]
+                )
+            }
             guard let index = UInt32(exactly: transactionPosition) else {
                 throw OpalBase.Network.Error(reason: .decoding, message: "OpalBase.Transaction position overflow")
             }
@@ -116,12 +128,12 @@ extension _OpalBase.Network.Fulcrum {
             
             let output = transaction.outputs[outputIndex]
             let outputScriptHash = OpalCryptoAdapter.sha256(output.lockingScript).reversedData.hexadecimalString
-            guard outputScriptHash.caseInsensitiveCompare(scriptHashHex) == .orderedSame else {
+            guard outputScriptHash.caseInsensitiveCompare(scriptHashHexadecimal) == .orderedSame else {
                 throw OpalBase.Network.Error(
                     reason: .protocolViolation,
                     message: "Unspent transaction output script hash mismatch",
                     metadata: [
-                        "expected": scriptHashHex,
+                        "expected": scriptHashHexadecimal,
                         "actual": outputScriptHash,
                         "transaction": transactionIdentifier,
                         "outputIndex": index.description

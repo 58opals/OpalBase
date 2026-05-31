@@ -43,11 +43,29 @@ extension _OpalBase.Address.Book {
     func makeUTXOChangeSet(for address: OpalBase.Address,
                            with utxos: [OpalBase.Transaction.Output.Unspent],
                            timestamp: Date = .now) throws -> OpalBase.Address.Book.UTXOChangeSet {
-        let previous = listUTXOs(for: address)
-        let orderedUTXOs = utxos.sorted { $0.compareOrder(before: $1) }
+        guard contains(address: address) else { throw OpalBase.Address.Book.Error.addressNotFound }
+
+        let lockingScript = address.lockingScript.data
+        var seenOutpoints: Set<UTXORepository.Outpoint> = .init()
+        for utxo in utxos {
+            guard utxo.lockingScript == lockingScript else {
+                throw OpalBase.Network.Error(
+                    reason: .protocolViolation,
+                    message: "Unspent output locking script does not match requested address"
+                )
+            }
+            guard seenOutpoints.insert(UTXORepository.Outpoint(utxo)).inserted else {
+                throw OpalBase.Network.Error(
+                    reason: .protocolViolation,
+                    message: "Unspent output response contained duplicate outpoints"
+                )
+            }
+        }
+        let previousUnspentOutputs = listUTXOs(for: address)
+        let orderedUnspentOutputs = utxos.sorted { $0.compareOrder(before: $1) }
         return try OpalBase.Address.Book.UTXOChangeSet(address: address,
-                                              previous: previous,
-                                              updated: orderedUTXOs,
+                                              previous: previousUnspentOutputs,
+                                              updated: orderedUnspentOutputs,
                                               timestamp: timestamp)
     }
     

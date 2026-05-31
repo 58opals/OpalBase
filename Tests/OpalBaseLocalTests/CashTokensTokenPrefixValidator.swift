@@ -139,6 +139,15 @@ struct CashTokensTokenPrefixValidator {
             _ = try JSONDecoder().decode(OpalBase.CashTokens.NFT.self, from: payload)
         }
     }
+
+    @Test("NFT coding round-trips empty commitments")
+    func nonFungibleTokenCodingRoundTripsEmptyCommitments() throws {
+        let token = try OpalBase.CashTokens.NFT(capability: .none, commitment: Data())
+        let encoded = try JSONEncoder().encode(token)
+        let decoded = try JSONDecoder().decode(OpalBase.CashTokens.NFT.self, from: encoded)
+
+        #expect(decoded == token)
+    }
     
     @Test("commitment length bounds are enforced")
     func validateCommitmentLengthBounds() throws {

@@ -134,10 +134,13 @@ extension _OpalBase.Transaction {
         }
 
         var hasSpendableOutput = false
-        var totalValue: UInt64 = 0
+        var spendableOutputTotal: UInt64 = 0
         for output in orderedOutputs where !output.isOpReturnScript {
             hasSpendableOutput = true
-            totalValue = try totalValue.addOrThrow(output.value, overflowError: Error.cannotCreateTransaction)
+            spendableOutputTotal = try spendableOutputTotal.addOrThrow(
+                output.value,
+                overflowError: Error.cannotCreateTransaction
+            )
             let dustThreshold = try output.calculateDustThreshold(feeRate: minimumRelayFeeRate)
             guard output.value >= dustThreshold else { throw Error.outputValueIsLessThanTheDustLimit }
         }

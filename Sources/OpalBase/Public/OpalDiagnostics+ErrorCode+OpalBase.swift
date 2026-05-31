@@ -389,6 +389,7 @@ private extension OpalDiagnostics.ErrorCode {
              .invalidFundingOutputIndex,
              .invalidTransactionHash,
              .oraclePublicKeyMismatch,
+             .participantLockingScriptMismatch,
              .fundingOutputNotFound,
              .fundingOutputAmbiguous:
             .hedgeInvalid

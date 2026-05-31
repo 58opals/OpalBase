@@ -10,7 +10,7 @@ extension SecureEnclaveAdapter {
     }
 
     static func deleteKey(applicationTag: Data) throws {
-        let status = SecItemDelete(keyQuery(applicationTag: applicationTag, returnPersistentRef: false) as CFDictionary)
+        let status = SecItemDelete(keyQuery(applicationTag: applicationTag, returnReference: false) as CFDictionary)
         switch status {
         case errSecSuccess, errSecItemNotFound:
             return
@@ -19,9 +19,9 @@ extension SecureEnclaveAdapter {
         }
     }
 
-    static func loadOrCreatePrivateKey(applicationTag: Data) throws -> SecureEnclave.P256.KeyAgreement.PrivateKey {
-        if let persistentReference = try findPersistentReference(applicationTag: applicationTag) {
-            return try SecureEnclave.P256.KeyAgreement.PrivateKey(dataRepresentation: persistentReference)
+    static func loadOrCreatePrivateKey(applicationTag: Data) throws -> SecKey {
+        if let privateKey = try findPrivateKey(applicationTag: applicationTag) {
+            return privateKey
         }
 
         guard SecureEnclave.isAvailable else {
@@ -36,22 +36,22 @@ extension SecureEnclaveAdapter {
             }
         }
 
-        guard let persistentReference = try findPersistentReference(applicationTag: applicationTag) else {
+        guard let privateKey = try findPrivateKey(applicationTag: applicationTag) else {
             throw _OpalBase.Storage.Security.Error.protectionUnavailable
         }
 
-        return try SecureEnclave.P256.KeyAgreement.PrivateKey(dataRepresentation: persistentReference)
+        return privateKey
     }
 
-    static func loadPrivateKey(applicationTag: Data) throws -> SecureEnclave.P256.KeyAgreement.PrivateKey {
-        guard let persistentReference = try findPersistentReference(applicationTag: applicationTag) else {
+    static func loadPrivateKey(applicationTag: Data) throws -> SecKey {
+        guard let privateKey = try findPrivateKey(applicationTag: applicationTag) else {
             throw makeSecurityError(
                 status: errSecItemNotFound,
                 message: "Secure Enclave key material is unavailable for decryption."
             )
         }
 
-        return try SecureEnclave.P256.KeyAgreement.PrivateKey(dataRepresentation: persistentReference)
+        return privateKey
     }
 
     static func createPrivateKey(applicationTag: Data) throws {
@@ -77,16 +77,22 @@ extension SecureEnclaveAdapter {
         }
     }
 
-    static func findPersistentReference(applicationTag: Data) throws -> Data? {
+    static func findPrivateKey(applicationTag: Data) throws -> SecKey? {
         var item: CFTypeRef?
         let status = SecItemCopyMatching(
-            keyQuery(applicationTag: applicationTag, returnPersistentRef: true) as CFDictionary,
+            keyQuery(applicationTag: applicationTag, returnReference: true) as CFDictionary,
             &item
         )
 
         switch status {
         case errSecSuccess:
-            return item as? Data
+            guard let item, CFGetTypeID(item) == SecKeyGetTypeID() else {
+                throw makeSecurityError(
+                    status: errSecDecode,
+                    message: "Secure Enclave key lookup returned an unexpected object."
+                )
+            }
+            return (item as! SecKey)
         case errSecItemNotFound:
             return nil
         default:
@@ -96,7 +102,7 @@ extension SecureEnclaveAdapter {
         }
     }
 
-    static func keyQuery(applicationTag: Data, returnPersistentRef: Bool) -> [String: Any] {
+    static func keyQuery(applicationTag: Data, returnReference: Bool) -> [String: Any] {
         var query: [String: Any] = [
             kSecClass as String: kSecClassKey,
             kSecAttrApplicationTag as String: applicationTag,
@@ -104,8 +110,8 @@ extension SecureEnclaveAdapter {
             kSecAttrTokenID as String: kSecAttrTokenIDSecureEnclave,
         ]
 
-        if returnPersistentRef {
-            query[kSecReturnPersistentRef as String] = true
+        if returnReference {
+            query[kSecReturnRef as String] = true
         }
 
         return query

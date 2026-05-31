@@ -4,12 +4,12 @@ import Foundation
 
 extension _OpalBase.Storage {
     public struct SnapshotStore: Sendable {
-        private let saveWalletSnapshotHandler: @Sendable (OpalBase.Wallet.Snapshot, String) async throws -> Void
-        private let loadWalletSnapshotHandler: @Sendable (String) async throws -> OpalBase.Wallet.Snapshot?
-        private let deleteWalletSnapshotHandler: @Sendable (String) async throws -> Void
-        private let saveCommittedGenerationHandler: @Sendable (String) async throws -> Void
-        private let loadCommittedGenerationHandler: @Sendable () async throws -> String?
-        private let deleteCommittedGenerationHandler: @Sendable () async throws -> Void
+        private let performSaveWalletSnapshot: @Sendable (OpalBase.Wallet.Snapshot, String) async throws -> Void
+        private let performLoadWalletSnapshot: @Sendable (String) async throws -> OpalBase.Wallet.Snapshot?
+        private let performDeleteWalletSnapshot: @Sendable (String) async throws -> Void
+        private let performSaveCommittedGeneration: @Sendable (String) async throws -> Void
+        private let performLoadCommittedGeneration: @Sendable () async throws -> String?
+        private let performDeleteCommittedGeneration: @Sendable () async throws -> Void
 
         public init(
             saveWalletSnapshot: @escaping @Sendable (OpalBase.Wallet.Snapshot, String) async throws -> Void,
@@ -19,36 +19,36 @@ extension _OpalBase.Storage {
             loadCommittedGeneration: @escaping @Sendable () async throws -> String?,
             deleteCommittedGeneration: @escaping @Sendable () async throws -> Void
         ) {
-            self.saveWalletSnapshotHandler = saveWalletSnapshot
-            self.loadWalletSnapshotHandler = loadWalletSnapshot
-            self.deleteWalletSnapshotHandler = deleteWalletSnapshot
-            self.saveCommittedGenerationHandler = saveCommittedGeneration
-            self.loadCommittedGenerationHandler = loadCommittedGeneration
-            self.deleteCommittedGenerationHandler = deleteCommittedGeneration
+            self.performSaveWalletSnapshot = saveWalletSnapshot
+            self.performLoadWalletSnapshot = loadWalletSnapshot
+            self.performDeleteWalletSnapshot = deleteWalletSnapshot
+            self.performSaveCommittedGeneration = saveCommittedGeneration
+            self.performLoadCommittedGeneration = loadCommittedGeneration
+            self.performDeleteCommittedGeneration = deleteCommittedGeneration
         }
 
         public func saveWalletSnapshot(_ snapshot: OpalBase.Wallet.Snapshot, generation: String) async throws {
-            try await saveWalletSnapshotHandler(snapshot, generation)
+            try await performSaveWalletSnapshot(snapshot, generation)
         }
 
         public func loadWalletSnapshot(generation: String) async throws -> OpalBase.Wallet.Snapshot? {
-            try await loadWalletSnapshotHandler(generation)
+            try await performLoadWalletSnapshot(generation)
         }
 
         public func deleteWalletSnapshot(generation: String) async throws {
-            try await deleteWalletSnapshotHandler(generation)
+            try await performDeleteWalletSnapshot(generation)
         }
 
         public func saveCommittedGeneration(_ generation: String) async throws {
-            try await saveCommittedGenerationHandler(generation)
+            try await performSaveCommittedGeneration(generation)
         }
 
         public func loadCommittedGeneration() async throws -> String? {
-            try await loadCommittedGenerationHandler()
+            try await performLoadCommittedGeneration()
         }
 
         public func deleteCommittedGeneration() async throws {
-            try await deleteCommittedGenerationHandler()
+            try await performDeleteCommittedGeneration()
         }
     }
 

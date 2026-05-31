@@ -13,10 +13,6 @@ extension _OpalBase.Address.Book.History {
         let entries: [OpalBase.Transaction.History.Entry]
     }
     
-    struct ConfirmationUpdate: Sendable {
-        let record: OpalBase.Transaction.History.Record
-        let status: OpalBase.Network.TransactionConfirmationStatus
-    }
 }
 
 extension _OpalBase.Address.Book {
@@ -92,6 +88,7 @@ extension _OpalBase.Address.Book {
                                           using service: OpalBase.Network.AddressReader,
                                           includeUnconfirmed: Bool,
                                           transactionReader: OpalBase.Network.TransactionReader? = nil) async throws -> OpalBase.Transaction.History.ChangeSet {
+        guard contains(address: address) else { throw Error.addressNotFound }
         
         let scriptHash = address.makeScriptHash().hexadecimalString
         let result = try await fetchHistoryQueryResult(for: address,
@@ -202,9 +199,9 @@ extension _OpalBase.Address.Book {
                                                for transactionHashes: [OpalBase.Transaction.Hash]) async throws -> OpalBase.Transaction.History.ChangeSet {
         guard !transactionHashes.isEmpty else { return .init() }
         
-        let uniqueHashes = transactionHashes.deduplicate()
+        let uniqueTransactionHashes = transactionHashes.deduplicate()
         var recordsToUpdate: [OpalBase.Transaction.History.Record] = .init()
-        for transactionHash in uniqueHashes {
+        for transactionHash in uniqueTransactionHashes {
             guard let record = transactionLog.loadRecord(for: transactionHash) else { continue }
             recordsToUpdate.append(record)
         }
@@ -223,7 +220,7 @@ extension _OpalBase.Address.Book {
                 )
             }
             try status.validateConsistency()
-            return OpalBase.Address.Book.History.ConfirmationUpdate(record: record, status: status)
+            return (record: record, status: status)
         }
         
         var aggregatedChangeSet = OpalBase.Transaction.History.ChangeSet()
@@ -264,8 +261,8 @@ extension _OpalBase.Address.Book {
     func refreshTransactionConfirmations(using handler: OpalBase.Network.TransactionClient) async throws -> OpalBase.Transaction.History.ChangeSet {
         let records = transactionLog.listRecords()
         guard !records.isEmpty else { return .init() }
-        let hashes = records.map(\.transactionHash)
-        return try await updateTransactionConfirmations(using: handler, for: hashes)
+        let transactionHashes = records.map(\.transactionHash)
+        return try await updateTransactionConfirmations(using: handler, for: transactionHashes)
     }
 
     func refreshTransactionConfirmations(using handler: any OpalBase.Network.TransactionConfirmationClient) async throws -> OpalBase.Transaction.History.ChangeSet {

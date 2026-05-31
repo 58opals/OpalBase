@@ -120,6 +120,53 @@ struct NetworkFulcrumTransactionConfirmationCountValidator {
         }
     }
 
+    @Test("mempool mapping rejects confirmed transaction heights")
+    func mempoolMappingRejectsConfirmedTransactionHeights() throws {
+        let transactions = [
+            HistoryTransactionFixture(
+                transactionIdentifier: String(repeating: "a", count: 64),
+                blockHeight: 1,
+                fee: nil
+            )
+        ]
+
+        #expect(throws: OpalBase.Network.Error(
+            reason: .protocolViolation,
+            message: "Mempool response included a confirmed transaction"
+        )) {
+            _ = try OpalBase.Network.Fulcrum.mapMempoolTransactions(
+                transactions,
+                transactionIdentifier: \.transactionIdentifier,
+                blockHeight: \.blockHeight,
+                fee: \.fee
+            )
+        }
+    }
+
+    @Test(
+        "mempool mapping accepts unconfirmed transaction heights",
+        arguments: [-1, 0]
+    )
+    func mempoolMappingAcceptsUnconfirmedTransactionHeights(_ blockHeight: Int) throws {
+        let transactions = [
+            HistoryTransactionFixture(
+                transactionIdentifier: String(repeating: "a", count: 64),
+                blockHeight: blockHeight,
+                fee: nil
+            )
+        ]
+
+        let entries = try OpalBase.Network.Fulcrum.mapMempoolTransactions(
+            transactions,
+            transactionIdentifier: \.transactionIdentifier,
+            blockHeight: \.blockHeight,
+            fee: \.fee
+        )
+
+        let entry = try #require(entries.first)
+        #expect(entry.blockHeight == blockHeight)
+    }
+
     @Test("height resolution rejects malformed wire values instead of clamping")
     func heightResolutionRejectsMalformedWireValues() throws {
         #expect(try OpalBase.Network.Fulcrum.TransactionClient.resolveTransactionHeight(Optional<Int>.none) == nil)

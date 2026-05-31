@@ -132,47 +132,32 @@ private extension OpalBase.CashTokens.BCMR.Client.Fetcher {
     }
     
     func resolveRegistryLocation(from resourceIdentifier: String) throws -> URL {
-        let trimmedURI = resourceIdentifier.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmedURI.isEmpty else {
+        let trimmedResourceIdentifier = resourceIdentifier.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedResourceIdentifier.isEmpty else {
             throw Error.invalidResourceIdentifier(resourceIdentifier)
         }
 
-        if let resourceComponents = URLComponents(string: trimmedURI),
+        if let resourceComponents = URLComponents(string: trimmedResourceIdentifier),
            let scheme = resourceComponents.scheme?.lowercased() {
-            if scheme == "https" || scheme == "ipfs" {
-                return try resolveRegistryLocation(
-                    from: resourceComponents,
-                    scheme: scheme,
-                    originalURI: trimmedURI
-                )
-            }
-            if trimmedURI.contains("://") {
+            switch scheme {
+            case "https":
+                return try resolveHTTPSRegistryLocation(from: resourceComponents, originalURI: trimmedResourceIdentifier)
+            case "ipfs":
+                guard let resourceLocation = resourceComponents.url else {
+                    throw Error.invalidResourceIdentifier(trimmedResourceIdentifier)
+                }
+                return try resolveInterPlanetaryFileSystemGatewayLocation(from: resourceLocation)
+            case _ where trimmedResourceIdentifier.contains("://"):
                 throw Error.unsupportedScheme(scheme)
+            default:
+                break
             }
         }
 
-        guard let bareComponents = URLComponents(string: "https://\(trimmedURI)") else {
+        guard let bareComponents = URLComponents(string: "https://\(trimmedResourceIdentifier)") else {
             throw Error.invalidResourceIdentifier(resourceIdentifier)
         }
-        return try resolveHTTPSRegistryLocation(from: bareComponents, originalURI: trimmedURI)
-    }
-
-    func resolveRegistryLocation(
-        from resourceComponents: URLComponents,
-        scheme: String,
-        originalURI: String
-    ) throws -> URL {
-        switch scheme {
-        case "https":
-            return try resolveHTTPSRegistryLocation(from: resourceComponents, originalURI: originalURI)
-        case "ipfs":
-            guard let resourceLocation = resourceComponents.url else {
-                throw Error.invalidResourceIdentifier(originalURI)
-            }
-            return try resolveInterPlanetaryFileSystemGatewayLocation(from: resourceLocation)
-        default:
-            throw Error.unsupportedScheme(scheme)
-        }
+        return try resolveHTTPSRegistryLocation(from: bareComponents, originalURI: trimmedResourceIdentifier)
     }
 
     func resolveHTTPSRegistryLocation(
@@ -248,11 +233,34 @@ private extension OpalBase.CashTokens.BCMR.Client.Fetcher {
     }
 
     static func containsPathTraversal(_ pathComponents: [String]) -> Bool {
-        pathComponents.contains { $0 == "." || $0 == ".." }
+        pathComponents.contains(where: isPathTraversalComponent)
+    }
+
+    static func isPathTraversalComponent(_ pathComponent: String) -> Bool {
+        var currentPathComponent = pathComponent
+        while true {
+            if currentPathComponent == "." || currentPathComponent == ".." {
+                return true
+            }
+            guard let decodedPathComponent = currentPathComponent.removingPercentEncoding,
+                  decodedPathComponent != currentPathComponent else {
+                return false
+            }
+            currentPathComponent = decodedPathComponent
+        }
+    }
+
+    static func containsPathTraversal(inPath path: String) -> Bool {
+        containsPathTraversal(path.split(separator: "/").map(String.init))
     }
 
     static func containsPathTraversal(in resourceLocation: URL) -> Bool {
-        containsPathTraversal(resourceLocation.path.split(separator: "/").map(String.init))
+        containsPathTraversal(inPath: resourceLocation.path)
+    }
+
+    static func containsPathTraversal(inLocationValue locationValue: String) -> Bool {
+        guard let components = URLComponents(string: locationValue) else { return false }
+        return containsPathTraversal(inPath: components.path)
     }
     
     func resolveRedirectLocation(
@@ -261,6 +269,9 @@ private extension OpalBase.CashTokens.BCMR.Client.Fetcher {
     ) throws -> URL {
         guard let locationValue = response.value(forHTTPHeaderField: "Location") else {
             throw Error.missingRedirectLocation
+        }
+        guard !Self.containsPathTraversal(inLocationValue: locationValue) else {
+            throw Error.invalidResourceIdentifier(locationValue)
         }
         if let locationResource = URL(string: locationValue, relativeTo: currentResourceLocation) {
             let resolvedLocation = locationResource.absoluteURL

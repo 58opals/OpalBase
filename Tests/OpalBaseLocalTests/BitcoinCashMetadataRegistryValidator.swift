@@ -116,6 +116,26 @@ struct BitcoinCashMetadataRegistryValidator {
         #expect(metadata.lastUpdated == expectedDate)
     }
 
+    @Test("extracts token metadata without negative decimals")
+    func extractTokenMetadataDropsNegativeDecimals() throws {
+        let registries = BitcoinCashMetadataRegistryTestClient.makeRegistries()
+        let category = try makeCategoryIdentifier(byte: 0x12)
+        let registry = makeRegistry(snapshots: [
+            "2024-01-01T00:00:00Z": makeIdentitySnapshot(
+                name: "Negative Decimals",
+                category: category,
+                symbol: "NEG",
+                decimals: -1
+            )
+        ])
+
+        let metadata = try #require(
+            registries.extractTokenMetadata(from: registry)[category]
+        )
+
+        #expect(metadata.decimals == nil)
+    }
+
     @Test("extracts identity, authbase, web URL, and registry URL")
     func extractIdentityAuthbaseWebURLAndRegistryURL() throws {
         let registries = BitcoinCashMetadataRegistryTestClient.makeRegistries()
@@ -1078,13 +1098,27 @@ struct BitcoinCashMetadataRegistryValidator {
     @Test("registry fetcher rejects HTTPS path traversal components")
     func registryFetcherRejectsHypertextTransferProtocolSecurePathTraversalComponents() async throws {
         let fetcher = OpalBase.CashTokens.BCMR.Client.Fetcher(maxBytes: 1_024)
+        let invalidResourceIdentifiers = [
+            "https://registry.example/../metadata.json",
+            "https://registry.example/%2e%2e/metadata.json",
+            "https://registry.example/%252e%252e/metadata.json"
+        ]
 
-        await #expect(throws: OpalBase.CashTokens.BCMR.Client.Fetcher.Error.self) {
-            _ = try await fetcher.fetchRegistryBytes(from: "https://registry.example/../metadata.json")
-        }
-
-        await #expect(throws: OpalBase.CashTokens.BCMR.Client.Fetcher.Error.self) {
-            _ = try await fetcher.fetchRegistryBytes(from: "https://registry.example/%2e%2e/metadata.json")
+        for invalidResourceIdentifier in invalidResourceIdentifiers {
+            do {
+                _ = try await fetcher.fetchRegistryBytes(from: invalidResourceIdentifier)
+                Issue.record("Expected invalidResourceIdentifier for \(invalidResourceIdentifier).")
+            } catch let error as OpalBase.CashTokens.BCMR.Client.Fetcher.Error {
+                switch error {
+                case .invalidResourceIdentifier(let resourceIdentifier)
+                    where resourceIdentifier == invalidResourceIdentifier:
+                    break
+                default:
+                    Issue.record("Expected invalidResourceIdentifier for \(invalidResourceIdentifier), got \(error).")
+                }
+            } catch {
+                Issue.record("Unexpected error for \(invalidResourceIdentifier): \(error)")
+            }
         }
     }
 
@@ -1129,6 +1163,10 @@ struct BitcoinCashMetadataRegistryValidator {
 
         await #expect(throws: OpalBase.CashTokens.BCMR.Client.Fetcher.Error.self) {
             _ = try await fetcher.fetchRegistryBytes(from: "ipfs://../registry.json")
+        }
+
+        await #expect(throws: OpalBase.CashTokens.BCMR.Client.Fetcher.Error.self) {
+            _ = try await fetcher.fetchRegistryBytes(from: "ipfs://bafybeigdyrzt/%252e%252e/registry.json")
         }
     }
 
@@ -1500,6 +1538,48 @@ struct BitcoinCashMetadataRegistryValidator {
             break
         default:
             Issue.record("Expected invalidResourceIdentifier for hostless HTTPS redirect, got \(error).")
+        }
+    }
+
+    @Test("registry fetcher rejects redirects with path traversal components")
+    func registryFetcherRejectsRedirectsWithPathTraversalComponents() async throws {
+        let (session, _) = makeRegistryTestSession { request in
+            let url = try #require(request.url)
+            let response = try #require(HTTPURLResponse(
+                url: url,
+                statusCode: 302,
+                httpVersion: nil,
+                headerFields: ["Location": "../metadata.json"]
+            ))
+            return (response, Data())
+        }
+        defer {
+            RegistryRedirectURLProtocol.requestHandler = nil
+            session.invalidateAndCancel()
+        }
+
+        let fetcher = OpalBase.CashTokens.BCMR.Client.Fetcher(
+            urlSession: session,
+            maxBytes: 1_024
+        )
+
+        var capturedError: OpalBase.CashTokens.BCMR.Client.Fetcher.Error?
+        do {
+            _ = try await fetcher.fetchRegistryBytes(
+                from: "https://registry.example/path/metadata.json"
+            )
+            Issue.record("Expected invalidResourceIdentifier for path traversal redirect.")
+        } catch let error as OpalBase.CashTokens.BCMR.Client.Fetcher.Error {
+            capturedError = error
+        } catch {
+            Issue.record("Unexpected error: \(error)")
+        }
+        let error = try #require(capturedError)
+        switch error {
+        case .invalidResourceIdentifier("../metadata.json"):
+            break
+        default:
+            Issue.record("Expected invalidResourceIdentifier for path traversal redirect, got \(error).")
         }
     }
 }

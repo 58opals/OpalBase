@@ -23,10 +23,10 @@ extension _OpalBase.Account {
         let authorityInput: OpalBase.Transaction.Output.Unspent
         switch mutation.target {
         case .preferredInput(let preferredInput):
-            guard spendableOutputs.contains(preferredInput) else {
+            guard let storedAuthorityInput = spendableOutputs.first(where: { $0 == preferredInput }) else {
                 throw Error.tokenMutationInvalidAuthorityInput
             }
-            authorityInput = preferredInput
+            authorityInput = storedAuthorityInput
         case .byGroup(let group):
             guard let selectedAuthorityInput = spendableOutputs.first(where: { output in
                 guard let tokenData = output.tokenData,
@@ -43,10 +43,8 @@ extension _OpalBase.Account {
         }
         
         guard let authorityTokenData = authorityInput.tokenData,
-              let authorityNonFungibleToken = authorityTokenData.nft else {
-            throw Error.tokenMutationInvalidAuthorityInput
-        }
-        guard authorityNonFungibleToken.capability == .mutable
+              let authorityNonFungibleToken = authorityTokenData.nft,
+              authorityNonFungibleToken.capability == .mutable
                 || authorityNonFungibleToken.capability == .minting else {
             throw Error.tokenMutationInvalidAuthorityInput
         }

@@ -190,6 +190,10 @@ private extension _OpalBase.Claimable.StatusResolver {
         let rawFundingTransactionData = try await transactionReader.fetchRawTransaction(
             for: envelope.fundingTransactionHash
         )
+        try Self.validateTransactionPayloadHash(
+            rawFundingTransactionData,
+            expected: envelope.fundingTransactionHash
+        )
         guard let fundingTransaction = try? Self.decodeCompleteTransaction(
             from: rawFundingTransactionData
         ) else {
@@ -250,6 +254,25 @@ private extension _OpalBase.Claimable.StatusResolver {
             throw Data.Error.indexOutOfRange
         }
         return decodedTransaction.transaction
+    }
+
+    static func validateTransactionPayloadHash(
+        _ rawTransactionData: Data,
+        expected transactionHash: OpalBase.Transaction.Hash
+    ) throws {
+        let actualHash = OpalBase.Transaction.Hash(
+            naturalOrder: OpalCryptoAdapter.hash256(rawTransactionData)
+        )
+        guard actualHash == transactionHash else {
+            throw OpalBase.Network.Error(
+                reason: .protocolViolation,
+                message: "Transaction payload hash mismatch",
+                metadata: [
+                    "expected": transactionHash.reverseOrder.hexadecimalString,
+                    "actual": actualHash.reverseOrder.hexadecimalString
+                ]
+            )
+        }
     }
 
     func validateUniqueUnspentOutpoints(

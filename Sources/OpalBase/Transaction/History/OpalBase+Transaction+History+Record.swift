@@ -75,15 +75,17 @@ extension _OpalBase.Transaction.History {
 }
 
 extension _OpalBase.Transaction.History.Record {
-    mutating func resolveUpdate(from entry: OpalBase.Transaction.History.Entry,
+    mutating func resolveUpdate(from historyEntry: OpalBase.Transaction.History.Entry,
                                 scriptHash: String,
                                 timestamp: Date) {
-        applyEntryDetails(from: entry, scriptHash: scriptHash, timestamp: timestamp)
+        guard historyEntry.transactionHash == transactionHash else { return }
+
+        applyEntryDetails(from: historyEntry, scriptHash: scriptHash, timestamp: timestamp)
 
         let statusTransition = OpalBase.Transaction.History.Status
-            .makeTransition(forHeight: entry.height, from: status)
+            .makeTransition(forHeight: historyEntry.height, from: status)
         applyStatusTransition(statusTransition,
-                              entryHeight: entry.height,
+                              entryHeight: historyEntry.height,
                               timestamp: timestamp)
     }
     
@@ -111,8 +113,7 @@ extension _OpalBase.Transaction.History.Record {
                                           status: statusTransition.status,
                                           chainMetadata: chainMetadata,
                                           confirmationMetadata: confirmationMetadata,
-                                          verificationMetadata: verificationMetadata,
-                                                                                   tokenDelta: .init())
+                                          verificationMetadata: verificationMetadata)
     }
 
     mutating func resetVerification(for status: OpalBase.Transaction.History.Status,

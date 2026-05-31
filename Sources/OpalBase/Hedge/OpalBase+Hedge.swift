@@ -250,6 +250,7 @@ extension _OpalBase.Hedge {
         case invalidFundingOutputIndex(Int64)
         case invalidTransactionHash(String)
         case oraclePublicKeyMismatch(expected: String, actual: String)
+        case participantLockingScriptMismatch(Side)
         case fundingOutputNotFound
         case fundingOutputAmbiguous
     }

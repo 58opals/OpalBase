@@ -105,6 +105,39 @@ struct HedgeFundingFacadeValidator {
         try await plan.cancelReservation()
     }
 
+    @Test("funding request rejects participant locking script mismatches")
+    func fundingRequestRejectsParticipantLockingScriptMismatches() throws {
+        let validWalletParticipant = try HedgeFixtureData.shortParticipant()
+        let mismatchedWalletParticipant = OpalBase.Hedge.ParticipantMaterial(
+            side: validWalletParticipant.side,
+            payoutAddress: validWalletParticipant.payoutAddress,
+            lockingScriptHex: HedgeFixtureData.longLockScriptHex,
+            mutualRedeemPublicKeyHex: validWalletParticipant.mutualRedeemPublicKeyHex,
+            derivedAddress: validWalletParticipant.derivedAddress
+        )
+        let walletMismatchRequest = try HedgeFixtureData.betaRequest(
+            walletParticipant: mismatchedWalletParticipant
+        )
+        let validCounterpartyParticipant = try HedgeFixtureData.longParticipant()
+        let mismatchedCounterpartyParticipant = OpalBase.Hedge.ParticipantMaterial(
+            side: validCounterpartyParticipant.side,
+            payoutAddress: validCounterpartyParticipant.payoutAddress,
+            lockingScriptHex: HedgeFixtureData.shortLockScriptHex,
+            mutualRedeemPublicKeyHex: validCounterpartyParticipant.mutualRedeemPublicKeyHex,
+            derivedAddress: validCounterpartyParticipant.derivedAddress
+        )
+        let counterpartyMismatchRequest = try HedgeFixtureData.betaRequest(
+            counterpartyParticipant: mismatchedCounterpartyParticipant
+        )
+
+        #expect(throws: OpalBase.Hedge.Error.participantLockingScriptMismatch(.hedge)) {
+            _ = try OpalBase.Hedge.buildOpalHedgePlan(from: walletMismatchRequest)
+        }
+        #expect(throws: OpalBase.Hedge.Error.participantLockingScriptMismatch(.long)) {
+            _ = try OpalBase.Hedge.buildOpalHedgePlan(from: counterpartyMismatchRequest)
+        }
+    }
+
     @Test("broadcast success creates funding record")
     func broadcastSuccessCreatesFundingRecord() async throws {
         let account = try await AccountTestFixtures.makeAccount()

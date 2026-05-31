@@ -174,6 +174,48 @@ struct AccountTokenCommitmentMutationValidator {
         #expect(await account.addressBook.readActiveSpendReservations().isEmpty)
     }
 
+    @Test("preferred mutation input uses stored UTXO metadata")
+    func preferredMutationInputUsesStoredUTXOMetadata() async throws {
+        let account = try await makeAccount()
+        let category = try OpalBase.CashTokens.CategoryID(transactionOrderData: Data(repeating: 0xE1, count: 32))
+        let storedInput = try await addUnspentOutput(
+            to: account,
+            value: 25_000,
+            tokenData: nil,
+            previousTransactionHash: OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0xE2, count: 32)),
+            previousTransactionOutputIndex: 0
+        )
+        let staleMutableToken = try OpalBase.CashTokens.NFT(capability: .mutable, commitment: Data([0x01]))
+        let stalePreferredInput = OpalBase.Transaction.Output.Unspent(
+            value: storedInput.value,
+            lockingScript: storedInput.lockingScript,
+            tokenData: OpalBase.CashTokens.TokenData(category: category, amount: nil, nft: staleMutableToken),
+            previousTransactionHash: storedInput.previousTransactionHash,
+            previousTransactionOutputIndex: storedInput.previousTransactionOutputIndex
+        )
+        _ = try await addUnspentOutput(
+            to: account,
+            value: 120_000,
+            tokenData: nil,
+            previousTransactionHash: OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0xE3, count: 32)),
+            previousTransactionOutputIndex: 0
+        )
+        let destinationAddress = try OpalBase.Address("bitcoincash:zpm2qsznhks23z7629mms6s4cwef74vcwvrqekrq9w")
+        let mutation = try OpalBase.Account.TokenCommitmentMutation(
+            target: .preferredInput(stalePreferredInput),
+            newCommitment: Data([0x02]),
+            destination: destinationAddress
+        )
+
+        #expect(storedInput.tokenData == nil)
+        #expect(stalePreferredInput.tokenData != nil)
+        await #expect(throws: OpalBase.Account.Error.tokenMutationInvalidAuthorityInput) {
+            _ = try await account.prepareTokenCommitmentMutation(mutation)
+        }
+        #expect(await account.addressBook.readActiveSpendReservations().isEmpty)
+        #expect(await account.addressBook.listSpendableUTXOs().contains(storedInput))
+    }
+
     @Test("prepareTokenCommitmentMutation refreshes preserved fungible change when the selected change entry becomes stale")
     func prepareTokenCommitmentMutationRefreshesPreservedFungibleChangeWhenSelectedChangeEntryBecomesStale() async throws {
         let account = try await makeAccount()

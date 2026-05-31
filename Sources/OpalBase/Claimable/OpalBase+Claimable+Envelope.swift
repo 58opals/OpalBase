@@ -27,7 +27,7 @@ extension _OpalBase.Claimable {
             guard fundingTransactionHash.naturalOrder.count == OpalBase.Transaction.Hash.expectedByteCount else {
                 throw OpalBase.Claimable.Error.invalidFundingReference
             }
-            guard fundingValue > 0 else {
+            guard (1...OpalBase.Satoshi.maximumSatoshi).contains(fundingValue) else {
                 throw OpalBase.Claimable.Error.invalidFundingOutput
             }
 

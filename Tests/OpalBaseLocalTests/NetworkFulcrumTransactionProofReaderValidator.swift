@@ -114,6 +114,23 @@ struct NetworkFulcrumTransactionProofReaderValidator {
         #expect(failure.message?.contains("Merkle proof position out of range") == true)
     }
 
+    @Test("rejects merkle proof branches too deep to validate")
+    func fetchMerkleProofRejectsUnrepresentableBranchDepth() async throws {
+        let oversizedBranch = Array(repeating: String(repeating: "a", count: 64), count: UInt.bitWidth)
+        let client = try TransactionProofClientTestActor(
+            merkleResponse: try Self.makeMerkleResponse(merkle: oversizedBranch, position: 0),
+            heightResponse: try Self.makeHeightResponse(blockHeight: 12)
+        )
+        let reader = OpalBase.Network.Fulcrum.TransactionProofReader(client: client)
+
+        let failure = try await Self.captureNetworkError {
+            _ = try await reader.fetchMerkleProof(for: .init(naturalOrder: Data(repeating: 0x01, count: 32)))
+        }
+
+        #expect(failure.reason == .protocolViolation)
+        #expect(failure.message?.contains("Merkle proof branch length is too large") == true)
+    }
+
     @Test("position resolution skips proof position validation when proof is not requested")
     func resolveTransactionIdentifierWithoutProofPositionValidation() async throws {
         let client = try TransactionProofClientTestActor(
@@ -133,6 +150,26 @@ struct NetworkFulcrumTransactionProofReaderValidator {
         #expect(requestedPositionResolution.0 == 12)
         #expect(requestedPositionResolution.1 == 1)
         #expect(requestedPositionResolution.2 == false)
+    }
+
+    @Test("position resolution rejects proof branches too deep to validate")
+    func fetchTransactionIdentifierRejectsUnrepresentableBranchDepth() async throws {
+        let oversizedBranch = Array(repeating: String(repeating: "d", count: 64), count: UInt.bitWidth)
+        let client = try TransactionProofClientTestActor(
+            identifierResponse: try Self.makeIdentifierResponse(merkle: oversizedBranch)
+        )
+        let reader = OpalBase.Network.Fulcrum.TransactionProofReader(client: client)
+
+        let failure = try await Self.captureNetworkError {
+            _ = try await reader.fetchTransactionIdentifier(
+                atHeight: 12,
+                position: 0,
+                shouldIncludeMerkleProof: true
+            )
+        }
+
+        #expect(failure.reason == .protocolViolation)
+        #expect(failure.message?.contains("Merkle proof branch length is too large") == true)
     }
 
     @Test("rejects malformed transaction identifiers from position resolution")

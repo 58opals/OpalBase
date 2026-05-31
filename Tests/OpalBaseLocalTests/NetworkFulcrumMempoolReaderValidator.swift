@@ -59,6 +59,30 @@ struct NetworkFulcrumMempoolReaderValidator {
         #expect(failure.message == field.expectedMessage)
     }
 
+    @Test("rejects invalid mempool fee histogram bins")
+    func rejectInvalidMempoolFeeHistogramBins() async throws {
+        let virtualSizeReader = OpalBase.Network.Fulcrum.MempoolReader(
+            client: try MempoolClientTestActor(
+                histogramResponse: Self.makeHistogramResponse(bins: [[1.0, 0]])
+            )
+        )
+
+        let virtualSizeFailure = try await Self.captureNetworkError {
+            _ = try await virtualSizeReader.fetchFeeHistogram()
+        }
+
+        #expect(virtualSizeFailure.reason == .decoding)
+        #expect(virtualSizeFailure.message == "Invalid mempool fee histogram virtual size: 0")
+
+        let zeroFeeReader = OpalBase.Network.Fulcrum.MempoolReader(
+            client: try MempoolClientTestActor(
+                histogramResponse: Self.makeHistogramResponse(bins: [[0.0, 1]])
+            )
+        )
+
+        let zeroFeeHistogram = try await zeroFeeReader.fetchFeeHistogram()
+        #expect(zeroFeeHistogram == [.init(fee: 0.0, virtualSize: 1)])
+    }
 }
 
 extension NetworkFulcrumMempoolReaderValidator {
@@ -124,8 +148,10 @@ extension NetworkFulcrumMempoolReaderValidator {
         throw MempoolInfoDecodeFailure.didNotThrow
     }
 
-    static func makeHistogramResponse() throws -> SwiftFulcrum.Response.Mempool.FeeHistogram {
-        let payload = try JSONSerialization.data(withJSONObject: [[3.0, 250], [1.5, 125]])
+    static func makeHistogramResponse(
+        bins: [[Any]] = [[3.0, 250], [1.5, 125]]
+    ) throws -> SwiftFulcrum.Response.Mempool.FeeHistogram {
+        let payload = try JSONSerialization.data(withJSONObject: bins)
         return try JSONDecoder().decode(SwiftFulcrum.Response.Mempool.FeeHistogram.self, from: payload)
     }
 

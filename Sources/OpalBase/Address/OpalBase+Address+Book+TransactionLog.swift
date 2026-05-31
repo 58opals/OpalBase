@@ -160,6 +160,13 @@ extension _OpalBase.Address.Book {
         }
         
         mutating func store(_ record: OpalBase.Transaction.History.Record) {
+            if let existingRecord = records[record.transactionHash] {
+                removeTransactionHashFromScriptHashIndexes(
+                    for: record.transactionHash,
+                    scriptHashes: existingRecord.chainMetadata.scriptHashes
+                )
+            }
+
             records[record.transactionHash] = record
             for scriptHash in record.chainMetadata.scriptHashes {
                 transactionHashesByScriptHash[scriptHash, default: .init()].insert(record.transactionHash)
@@ -168,6 +175,18 @@ extension _OpalBase.Address.Book {
         
         var isEmpty: Bool {
             records.isEmpty
+        }
+
+        private mutating func removeTransactionHashFromScriptHashIndexes(
+            for transactionHash: OpalBase.Transaction.Hash,
+            scriptHashes: Set<String>
+        ) {
+            for scriptHash in scriptHashes {
+                transactionHashesByScriptHash[scriptHash]?.remove(transactionHash)
+                if transactionHashesByScriptHash[scriptHash]?.isEmpty == true {
+                    transactionHashesByScriptHash.removeValue(forKey: scriptHash)
+                }
+            }
         }
     }
 }

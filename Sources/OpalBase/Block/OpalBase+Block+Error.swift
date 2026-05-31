@@ -7,6 +7,7 @@ extension _OpalBase.Block {
         case emptyTransactionList
         case invalidPreviousBlockHashLength(expected: Int, actual: Int)
         case invalidMerkleRootLength(expected: Int, actual: Int)
+        case merkleRootMismatch(computed: Data, header: Data)
         case transactionCountOverflow(UInt64)
     }
 }

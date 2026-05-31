@@ -40,7 +40,7 @@ extension _OpalBase.CashTokens {
             self.category = category
             self.name = name
             self.symbol = symbol
-            self.decimals = decimals
+            self.decimals = decimals.flatMap { $0 >= 0 ? $0 : nil }
             self.iconURL = iconURL
             self.description = description
             self.webURL = webURL
@@ -57,19 +57,19 @@ extension _OpalBase.CashTokens.Metadata {
     static func makeSafeMetadataURL(_ url: URL?) -> URL? {
         guard let url,
               let scheme = url.scheme?.lowercased(),
-              Self.isSafeMetadataPort(url.port),
+              Self.isValidMetadataPort(url.port),
               url.user == nil,
               url.password == nil
         else { return nil }
+        let pathComponents = url.path.split(separator: "/")
         switch scheme {
         case "https":
             guard let host = url.host,
                   !host.isEmpty,
                   !Self.isPathTraversalComponent(host),
-                  !Self.containsPathTraversal(in: url)
+                  !Self.containsPathTraversal(in: pathComponents)
             else { return nil }
         case "ipfs":
-            let pathComponents = url.path.split(separator: "/")
             if let host = url.host {
                 guard !Self.isPathTraversalComponent(host) else { return nil }
             }
@@ -81,17 +81,23 @@ extension _OpalBase.CashTokens.Metadata {
         return url
     }
 
-    private static func isSafeMetadataPort(_ port: Int?) -> Bool {
+    private static func isValidMetadataPort(_ port: Int?) -> Bool {
         guard let port else { return true }
         return (1...65_535).contains(port)
     }
 
     private static func isPathTraversalComponent(_ component: some StringProtocol) -> Bool {
-        component == "." || component == ".."
-    }
-
-    private static func containsPathTraversal(in url: URL) -> Bool {
-        containsPathTraversal(in: url.path.split(separator: "/"))
+        var currentComponent = String(component)
+        while true {
+            if currentComponent == "." || currentComponent == ".." {
+                return true
+            }
+            guard let decodedComponent = currentComponent.removingPercentEncoding,
+                  decodedComponent != currentComponent else {
+                return false
+            }
+            currentComponent = decodedComponent
+        }
     }
 
     private static func containsPathTraversal(in pathComponents: [String.SubSequence]) -> Bool {

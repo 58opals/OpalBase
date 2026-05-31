@@ -245,6 +245,24 @@ struct WalletFulcrumAddressValidator {
         #expect(Set(historyRequests.map(\.address)).isSubset(of: receivingAddresses))
     }
 
+    @Test("refreshTransactionHistory rejects untracked address before reading history")
+    func refreshTransactionHistoryRejectsUntrackedAddressBeforeReadingHistory() async throws {
+        let account = try await AccountTestFixtures.makeAccount()
+        let addressBook = await account.addressBook
+        let nextReceivingIndex = UInt32(await addressBook.countEntries(for: .receiving))
+        let externalAddress = try await addressBook.generateAddress(at: nextReceivingIndex, for: .receiving)
+        let addressReader = WalletAddressReaderTestActor()
+
+        #expect(await addressBook.contains(address: externalAddress) == false)
+
+        await #expect(throws: OpalBase.Address.Book.Error.addressNotFound) {
+            _ = try await account.refreshTransactionHistory(for: externalAddress, using: addressReader)
+        }
+
+        #expect(await addressReader.readHistoryRequests().isEmpty)
+        #expect(await account.loadTransactionHistory().isEmpty)
+    }
+
     @Test("refreshTransactionHistory rejects unconfirmed entries in confirmed-only results")
     func refreshTransactionHistoryRejectsUnconfirmedEntriesWhenExcluded() async throws {
         let account = try await AccountTestFixtures.makeAccount()

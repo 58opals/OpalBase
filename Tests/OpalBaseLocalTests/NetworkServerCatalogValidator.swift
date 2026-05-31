@@ -357,12 +357,13 @@ struct NetworkServerCatalogValidator {
     }
 
     @Test("normalization rejects websocket URLs with path traversal")
-    func normalizationRejectsWebSocketPathTraversal() {
+    func normalizationRejectsWebSocketPathTraversal() throws {
         let rawServers = [
-            URL(string: "wss://path.example.com/../admin")!,
-            URL(string: "wss://path.example.com/%2e%2e/admin")!,
-            URL(string: "wss://path.example.com/a/%2e/b")!,
-            URL(string: "wss://valid.example.com:50004")!
+            try #require(URL(string: "wss://path.example.com/../admin")),
+            try #require(URL(string: "wss://path.example.com/%2e%2e/admin")),
+            try #require(URL(string: "wss://path.example.com/%252e%252e/admin")),
+            try #require(URL(string: "wss://path.example.com/a/%2e/b")),
+            try #require(URL(string: "wss://valid.example.com:50004"))
         ]
 
         let normalized = OpalBase.Network.ServerCatalog.makeNormalizedServers(rawServers)
@@ -371,27 +372,23 @@ struct NetworkServerCatalogValidator {
     }
     
     @Test("merged server catalogs preserve priority ordering and uniqueness")
-    func mergedServersPreservePriorityOrdering() {
+    func mergedServersPreservePriorityOrdering() throws {
         let primary = [
             URL(string: "wss://primary.example.com")!,
             URL(string: "https://duplicate.example.com")!
         ]
-        let secondary = [
-            URL(string: "wss://duplicate.example.com")!,
-            URL(string: "http://secondary.example.com")!
-        ]
         let fallback = [
+            URL(string: "wss://duplicate.example.com")!,
             URL(string: "wss://fallback.example.com")!
         ]
         
-        let merged = OpalBase.Network.ServerCatalog.makeMergedServers(primary: primary, secondary: secondary, fallback: fallback)
+        let merged = OpalBase.Network.ServerCatalog.makeMergedServers(primary: primary, fallback: fallback)
         
-        #expect(merged.count == 4)
+        try #require(merged.count == 3)
         #expect(merged[0].host == "primary.example.com")
         #expect(merged[1].host == "duplicate.example.com")
         #expect(merged[1].scheme == "wss")
-        #expect(merged[2].host == "secondary.example.com")
-        #expect(merged[3].host == "fallback.example.com")
+        #expect(merged[2].host == "fallback.example.com")
     }
 
     enum FulcrumClientErrorCaptureFailure: Swift.Error {

@@ -19,7 +19,7 @@ extension _OpalBase.Claimable.Envelope {
             writer.writeData(fundingTransactionHash.naturalOrder)
             writer.writeLittleEndian(fundingOutputIndex)
             writer.writeLittleEndian(fundingValue)
-            let data = writer.data
+            let encodedEnvelopeData = writer.data
             OpalDiagnostics.record(
                 OpalDiagnostics.Event.claimableEnvelopeEncoded,
                 category: OpalDiagnostics.Category.claimable,
@@ -27,10 +27,10 @@ extension _OpalBase.Claimable.Envelope {
                     OpalDiagnostics.Field.operation("claimable_envelope_encode"),
                     OpalDiagnostics.Field.module(),
                     OpalDiagnostics.Field.network(contract.network),
-                    OpalDiagnostics.Field.publicValue(OpalDiagnostics.Field.Name.byteCount, data.count)
+                    OpalDiagnostics.Field.publicValue(OpalDiagnostics.Field.Name.byteCount, encodedEnvelopeData.count)
                 ]
             )
-            return data
+            return encodedEnvelopeData
         }
     }
 

@@ -19,7 +19,7 @@ extension _OpalBase.Address.Book {
         let missingHashes = transactionHashes.filter { tokenDeltaCache[$0] == nil }
         guard !missingHashes.isEmpty else { return }
         
-        let resolved = try await missingHashes.mapConcurrently(
+        let resolvedTokenDeltas = try await missingHashes.mapConcurrently(
             transformError: { hash, error in
                 OpalBase.Address.Book.Error.transactionDetailsRefreshFailed(hash, error)
             }
@@ -30,7 +30,7 @@ extension _OpalBase.Address.Book {
             return (hash, tokenDelta)
         }
         
-        for (hash, tokenDelta) in resolved {
+        for (hash, tokenDelta) in resolvedTokenDeltas {
             tokenDeltaCache[hash] = tokenDelta
         }
     }
@@ -40,8 +40,10 @@ extension _OpalBase.Address.Book {
         transactionReader: OpalBase.Network.TransactionReader,
         walletScriptHashes: Set<String>
     ) async throws -> OpalBase.Transaction.History.Record.TokenDelta {
-        let rawTransactionData = try await transactionReader.fetchRawTransaction(for: transactionHash)
-        let transaction = try Self.decodeCompleteTransaction(from: rawTransactionData)
+        let transaction = try await fetchCompleteTransaction(
+            for: transactionHash,
+            transactionReader: transactionReader
+        )
         return try await makeTokenDelta(from: transaction,
                                         transactionReader: transactionReader,
                                         walletScriptHashes: walletScriptHashes)
@@ -53,10 +55,12 @@ extension _OpalBase.Address.Book {
         walletScriptHashes: Set<String>
     ) async throws -> OpalBase.Transaction.History.Record.TokenDelta {
         let spendingInputs = transaction.inputs.filter { !$0.isCoinbase }
-        let previousHashes = spendingInputs.map(\.previousTransactionHash).deduplicate()
-        let previousTransactions = try await previousHashes.mapConcurrently { hash in
-            let rawTransactionData = try await transactionReader.fetchRawTransaction(for: hash)
-            let previousTransaction = try Self.decodeCompleteTransaction(from: rawTransactionData)
+        let previousTransactionHashes = spendingInputs.map(\.previousTransactionHash).deduplicate()
+        let previousTransactions = try await previousTransactionHashes.mapConcurrently { hash in
+            let previousTransaction = try await self.fetchCompleteTransaction(
+                for: hash,
+                transactionReader: transactionReader
+            )
             return (hash, previousTransaction)
         }
         let previousTransactionsByHash = Dictionary(uniqueKeysWithValues: previousTransactions)
@@ -113,6 +117,15 @@ extension _OpalBase.Address.Book {
         OpalCryptoAdapter.sha256(lockingScript).reversedData.hexadecimalString
     }
 
+    func fetchCompleteTransaction(
+        for transactionHash: OpalBase.Transaction.Hash,
+        transactionReader: OpalBase.Network.TransactionReader
+    ) async throws -> OpalBase.Transaction {
+        let rawTransactionData = try await transactionReader.fetchRawTransaction(for: transactionHash)
+        try Self.validateTransactionPayloadHash(rawTransactionData, expected: transactionHash)
+        return try Self.decodeCompleteTransaction(from: rawTransactionData)
+    }
+
     nonisolated static func decodeCompleteTransaction(from rawTransactionData: Data) throws -> OpalBase.Transaction {
         let (transaction, bytesRead) = try OpalBase.Transaction.decode(from: rawTransactionData)
         guard bytesRead == rawTransactionData.count else {
@@ -122,6 +135,25 @@ extension _OpalBase.Address.Book {
             )
         }
         return transaction
+    }
+
+    nonisolated static func validateTransactionPayloadHash(
+        _ rawTransactionData: Data,
+        expected transactionHash: OpalBase.Transaction.Hash
+    ) throws {
+        let actualHash = OpalBase.Transaction.Hash(
+            naturalOrder: OpalCryptoAdapter.hash256(rawTransactionData)
+        )
+        guard actualHash == transactionHash else {
+            throw OpalBase.Network.Error(
+                reason: .protocolViolation,
+                message: "Transaction payload hash mismatch",
+                metadata: [
+                    "expected": transactionHash.reverseOrder.hexadecimalString,
+                    "actual": actualHash.reverseOrder.hexadecimalString
+                ]
+            )
+        }
     }
 
     func netNonFungibleTokenDeltas(

@@ -21,6 +21,23 @@ struct NetworkConfigurationLocalValidator {
         #expect(configuration.network == .mainnet)
     }
 
+    @Test(
+        "configuration clamps non-positive maximum message sizes",
+        arguments: [0, -1]
+    )
+    func configurationClampsNonPositiveMaximumMessageSizes(_ maximumMessageSize: Int) {
+        var configuration = OpalBase.Network.Configuration(
+            serverURLs: [Self.primaryServerAddress],
+            maximumMessageSize: maximumMessageSize
+        )
+
+        #expect(configuration.maximumMessageSize == 1)
+
+        configuration.maximumMessageSize = maximumMessageSize
+
+        #expect(configuration.maximumMessageSize == 1)
+    }
+
     @Test("server URL mutation preserves normalization")
     func serverURLMutationPreservesNormalization() {
         var configuration = OpalBase.Network.Configuration(serverURLs: [Self.primaryServerAddress])

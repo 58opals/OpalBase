@@ -10,8 +10,13 @@ extension SecureEnclaveAdapter {
         applicationTag: Data
     ) throws -> _OpalBase.Storage.Security.Ciphertext {
         let privateKey = try loadOrCreatePrivateKey(applicationTag: applicationTag)
-        let ephemeralPrivateKey = P256.KeyAgreement.PrivateKey()
-        let sharedSecret = try ephemeralPrivateKey.sharedSecretFromKeyAgreement(with: privateKey.publicKey)
+        let publicKey = try copyPublicKey(for: privateKey)
+        let ephemeralPrivateKey = try createEphemeralPrivateKey()
+        let ephemeralPublicKey = try copyPublicKey(for: ephemeralPrivateKey)
+        let sharedSecret = try copyKeyAgreementSharedSecret(
+            privateKey: ephemeralPrivateKey,
+            publicKey: publicKey
+        )
         let salt = try randomBytes(count: 32)
         let symmetricKey = deriveSymmetricKey(
             sharedSecret: sharedSecret,
@@ -31,7 +36,10 @@ extension SecureEnclaveAdapter {
         let envelope = SecureEnclaveEnvelope(
             version: envelopeVersion,
             salt: salt,
-            ephemeralPublicKeyRepresentation: ephemeralPrivateKey.publicKey.x963Representation,
+            ephemeralPublicKeyRepresentation: try externalRepresentation(
+                of: ephemeralPublicKey,
+                message: "Failed to export the ephemeral public key."
+            ),
             combinedCiphertext: combinedCiphertext
         )
         let payload = try JSONEncoder().encode(envelope)
@@ -54,10 +62,13 @@ extension SecureEnclaveAdapter {
         }
 
         let privateKey = try loadPrivateKey(applicationTag: applicationTag)
-        let ephemeralPublicKey = try P256.KeyAgreement.PublicKey(
+        let ephemeralPublicKey = try makePublicKey(
             x963Representation: envelope.ephemeralPublicKeyRepresentation
         )
-        let sharedSecret = try privateKey.sharedSecretFromKeyAgreement(with: ephemeralPublicKey)
+        let sharedSecret = try copyKeyAgreementSharedSecret(
+            privateKey: privateKey,
+            publicKey: ephemeralPublicKey
+        )
         let symmetricKey = deriveSymmetricKey(
             sharedSecret: sharedSecret,
             salt: envelope.salt,
@@ -68,16 +79,100 @@ extension SecureEnclaveAdapter {
     }
 
     static func deriveSymmetricKey(
-        sharedSecret: SharedSecret,
+        sharedSecret: Data,
         salt: Data,
         applicationTag: Data
     ) -> SymmetricKey {
-        sharedSecret.hkdfDerivedSymmetricKey(
-            using: SHA256.self,
+        HKDF<SHA256>.deriveKey(
+            inputKeyMaterial: SymmetricKey(data: sharedSecret),
             salt: salt,
-            sharedInfo: makeSharedInfo(applicationTag: applicationTag),
+            info: makeSharedInfo(applicationTag: applicationTag),
             outputByteCount: 32
         )
+    }
+
+    static func createEphemeralPrivateKey() throws -> SecKey {
+        let attributes: [String: Any] = [
+            kSecAttrKeyType as String: kSecAttrKeyTypeECSECPrimeRandom,
+            kSecAttrKeySizeInBits as String: 256,
+            kSecPrivateKeyAttrs as String: [
+                kSecAttrIsPermanent as String: false,
+            ],
+        ]
+
+        var error: Unmanaged<CFError>?
+        guard let privateKey = SecKeyCreateRandomKey(attributes as CFDictionary, &error) else {
+            if let error {
+                throw normalizeProtectionAvailabilityError(error.takeRetainedValue() as Swift.Error)
+            }
+
+            throw makeSecurityError(status: errSecAllocate, message: "Failed to create an ephemeral key agreement key.")
+        }
+
+        return privateKey
+    }
+
+    static func copyPublicKey(for privateKey: SecKey) throws -> SecKey {
+        guard let publicKey = SecKeyCopyPublicKey(privateKey) else {
+            throw makeSecurityError(status: errSecDecode, message: "Failed to resolve the Secure Enclave public key.")
+        }
+
+        return publicKey
+    }
+
+    static func makePublicKey(x963Representation: Data) throws -> SecKey {
+        let attributes: [String: Any] = [
+            kSecAttrKeyType as String: kSecAttrKeyTypeECSECPrimeRandom,
+            kSecAttrKeyClass as String: kSecAttrKeyClassPublic,
+            kSecAttrKeySizeInBits as String: 256,
+        ]
+
+        var error: Unmanaged<CFError>?
+        guard let publicKey = SecKeyCreateWithData(
+            x963Representation as CFData,
+            attributes as CFDictionary,
+            &error
+        ) else {
+            if let error {
+                throw error.takeRetainedValue() as Swift.Error
+            }
+
+            throw makeSecurityError(status: errSecDecode, message: "Failed to decode the ephemeral public key.")
+        }
+
+        return publicKey
+    }
+
+    static func externalRepresentation(of publicKey: SecKey, message: String) throws -> Data {
+        var error: Unmanaged<CFError>?
+        guard let representation = SecKeyCopyExternalRepresentation(publicKey, &error) as Data? else {
+            if let error {
+                throw error.takeRetainedValue() as Swift.Error
+            }
+
+            throw makeSecurityError(status: errSecDecode, message: message)
+        }
+
+        return representation
+    }
+
+    static func copyKeyAgreementSharedSecret(privateKey: SecKey, publicKey: SecKey) throws -> Data {
+        var error: Unmanaged<CFError>?
+        guard let sharedSecret = SecKeyCopyKeyExchangeResult(
+            privateKey,
+            SecKeyAlgorithm.ecdhKeyExchangeStandard,
+            publicKey,
+            [:] as CFDictionary,
+            &error
+        ) as Data? else {
+            if let error {
+                throw normalizeProtectionAvailabilityError(error.takeRetainedValue() as Swift.Error)
+            }
+
+            throw makeSecurityError(status: errSecDecode, message: "Secure Enclave key agreement failed.")
+        }
+
+        return sharedSecret
     }
 
     static func makeSharedInfo(applicationTag: Data) -> Data {

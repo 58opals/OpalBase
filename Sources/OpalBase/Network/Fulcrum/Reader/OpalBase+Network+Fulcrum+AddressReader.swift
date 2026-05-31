@@ -58,7 +58,7 @@ extension _OpalBase.Network.Fulcrum {
                     options: .init(timeout: timeouts.addressHistory)
                 )
                 
-                return try OpalBase.Network.Fulcrum.mapHistoryTransactions(
+                return try Self.mapAddressHistoryTransactions(
                     result.transactions,
                     transactionIdentifier: \.transactionHash,
                     blockHeight: \.height,
@@ -91,13 +91,41 @@ extension _OpalBase.Network.Fulcrum {
                     options: .init(timeout: timeouts.addressMempool)
                 )
                 
-                return try OpalBase.Network.Fulcrum.mapHistoryTransactions(
+                return try Self.mapAddressMempoolTransactions(
                     result.transactions,
                     transactionIdentifier: \.transactionHash,
                     blockHeight: \.height,
                     fee: \.fee
                 )
             }
+        }
+
+        static func mapAddressHistoryTransactions<TransactionValue>(
+            _ historyTransactions: [TransactionValue],
+            transactionIdentifier: KeyPath<TransactionValue, String>,
+            blockHeight: KeyPath<TransactionValue, Int>,
+            fee: KeyPath<TransactionValue, UInt?>
+        ) throws -> [OpalBase.Network.TransactionHistoryEntry] {
+            try OpalBase.Network.Fulcrum.mapHistoryTransactions(
+                historyTransactions,
+                transactionIdentifier: transactionIdentifier,
+                blockHeight: blockHeight,
+                fee: fee
+            )
+        }
+
+        static func mapAddressMempoolTransactions<TransactionValue>(
+            _ mempoolTransactions: [TransactionValue],
+            transactionIdentifier: KeyPath<TransactionValue, String>,
+            blockHeight: KeyPath<TransactionValue, Int>,
+            fee: KeyPath<TransactionValue, UInt?>
+        ) throws -> [OpalBase.Network.TransactionHistoryEntry] {
+            try OpalBase.Network.Fulcrum.mapMempoolTransactions(
+                mempoolTransactions,
+                transactionIdentifier: transactionIdentifier,
+                blockHeight: blockHeight,
+                fee: fee
+            )
         }
         
         public func fetchScriptHash(for address: String) async throws -> String {
@@ -176,8 +204,15 @@ extension _OpalBase.Network.Fulcrum {
             blockHash: String,
             transactionIdentifier: String
         ) throws -> OpalBase.Network.AddressFirstUse {
+            guard blockHeight > 0 else {
+                throw OpalBase.Network.Error(
+                    reason: .protocolViolation,
+                    message: "First-use block height must be positive"
+                )
+            }
+
             _ = try OpalBase.Network.decodeHashData(from: blockHash, label: "first-use block hash")
-            
+
             _ = try OpalBase.Network.decodeTransactionHash(
                 from: transactionIdentifier,
                 label: "first-use transaction hash"
@@ -240,12 +275,18 @@ extension _OpalBase.Network.Fulcrum {
         }
 
         private static func validateAddressBalanceTotal(confirmed: UInt64, unconfirmed: Int64) throws {
-            guard unconfirmed > 0 else { return }
-            let incomingUnconfirmed = UInt64(unconfirmed)
-            guard confirmed <= maximumAddressBalance - incomingUnconfirmed else {
+            let confirmedTotal = Int64(confirmed)
+            let (total, overflow) = confirmedTotal.addingReportingOverflow(unconfirmed)
+            guard !overflow, total <= maximumSignedAddressBalance else {
                 throw OpalBase.Network.Error(
                     reason: .decoding,
                     message: "Address balance exceeds maximum supply"
+                )
+            }
+            guard total >= 0 else {
+                throw OpalBase.Network.Error(
+                    reason: .decoding,
+                    message: "Address balance cannot be negative"
                 )
             }
         }

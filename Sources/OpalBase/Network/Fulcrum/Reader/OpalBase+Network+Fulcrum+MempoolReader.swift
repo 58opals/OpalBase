@@ -37,8 +37,23 @@ extension _OpalBase.Network.Fulcrum {
                     options: .init(timeout: timeouts.mempoolFeeHistogram)
                 )
                 
-                return response.histogram.map { result in
-                    OpalBase.Network.MempoolFeeHistogramBin(fee: result.fee, virtualSize: result.virtualSize)
+                return try response.histogram.map { histogramBin in
+                    guard histogramBin.fee.isFinite, histogramBin.fee >= 0 else {
+                        throw OpalBase.Network.Error(
+                            reason: .decoding,
+                            message: "Invalid mempool fee histogram fee: \(histogramBin.fee)"
+                        )
+                    }
+                    guard histogramBin.virtualSize > 0 else {
+                        throw OpalBase.Network.Error(
+                            reason: .decoding,
+                            message: "Invalid mempool fee histogram virtual size: \(histogramBin.virtualSize)"
+                        )
+                    }
+                    return OpalBase.Network.MempoolFeeHistogramBin(
+                        fee: histogramBin.fee,
+                        virtualSize: histogramBin.virtualSize
+                    )
                 }
             }
         }

@@ -111,8 +111,6 @@ extension _OpalBase.Network.Fulcrum {
 }
 
 extension _OpalBase.Network.Fulcrum {
-    static let unconfirmedHistoryBlockHeight = -1
-
     static func resolveFee<Fee: BinaryInteger>(_ fee: Fee?) throws -> UInt64? {
         guard let fee else { return nil }
         guard let resolved = UInt64(exactly: fee),
@@ -124,34 +122,52 @@ extension _OpalBase.Network.Fulcrum {
         }
         return resolved
     }
-
-    static func resolveHistoryBlockHeight(_ blockHeight: Int) throws -> Int {
-        guard blockHeight >= unconfirmedHistoryBlockHeight else {
-            throw OpalBase.Network.Error(
-                reason: .decoding,
-                message: "Invalid history transaction height: \(blockHeight)"
-            )
-        }
-        return blockHeight
-    }
     
     static func mapHistoryTransactions<TransactionValue>(
-        _ transactions: [TransactionValue],
+        _ historyTransactions: [TransactionValue],
         transactionIdentifier: KeyPath<TransactionValue, String>,
         blockHeight: KeyPath<TransactionValue, Int>,
         fee: KeyPath<TransactionValue, UInt?>
     ) throws -> [OpalBase.Network.TransactionHistoryEntry] {
-        try transactions.map { transaction in
+        try historyTransactions.map { transaction in
             let identifier = transaction[keyPath: transactionIdentifier]
             _ = try OpalBase.Network.decodeTransactionHash(
                 from: identifier,
                 label: "history transaction hash"
             )
+            let resolvedBlockHeight = transaction[keyPath: blockHeight]
+            guard resolvedBlockHeight >= -1 else {
+                throw OpalBase.Network.Error(
+                    reason: .decoding,
+                    message: "Invalid history transaction height: \(resolvedBlockHeight)"
+                )
+            }
             return OpalBase.Network.TransactionHistoryEntry(
                 transactionIdentifier: identifier,
-                blockHeight: try resolveHistoryBlockHeight(transaction[keyPath: blockHeight]),
+                blockHeight: resolvedBlockHeight,
                 fee: try resolveFee(transaction[keyPath: fee])
             )
         }
+    }
+
+    static func mapMempoolTransactions<TransactionValue>(
+        _ mempoolTransactions: [TransactionValue],
+        transactionIdentifier: KeyPath<TransactionValue, String>,
+        blockHeight: KeyPath<TransactionValue, Int>,
+        fee: KeyPath<TransactionValue, UInt?>
+    ) throws -> [OpalBase.Network.TransactionHistoryEntry] {
+        let entries = try mapHistoryTransactions(
+            mempoolTransactions,
+            transactionIdentifier: transactionIdentifier,
+            blockHeight: blockHeight,
+            fee: fee
+        )
+        for entry in entries where entry.blockHeight > 0 {
+            throw OpalBase.Network.Error(
+                reason: .protocolViolation,
+                message: "Mempool response included a confirmed transaction"
+            )
+        }
+        return entries
     }
 }

@@ -311,6 +311,52 @@ struct AddressValidator {
         #expect(receivingEntry.address != changeEntry.address)
     }
 
+    @Test("address book rejects non-positive gap limits", arguments: [0, -1])
+    func addressBookRejectsNonPositiveGapLimits(_ gapLimit: Int) async throws {
+        let rootExtendedPrivateKey = try OpalCrypto.Key.ExtendedPrivate.root(
+            seed: AccountTestFixtures.makeMnemonic().deriveSeed()
+        )
+        let account = try OpalBase.Key.DerivationPath.Account(rawIndexInteger: 0)
+
+        await #expect(throws: OpalBase.Address.Book.Error.indexOutOfBounds) {
+            _ = try await OpalBase.Address.Book(
+                rootExtendedPrivateKey: rootExtendedPrivateKey,
+                purpose: .bip44,
+                coinType: .bitcoinCash,
+                account: account,
+                gapLimit: gapLimit
+            )
+        }
+    }
+
+    @Test("address book derivation rejects hardened address indexes")
+    func addressBookDerivationRejectsHardenedAddressIndexes() async throws {
+        let rootExtendedPrivateKey = try OpalCrypto.Key.ExtendedPrivate.root(
+            seed: AccountTestFixtures.makeMnemonic().deriveSeed()
+        )
+        let account = try OpalBase.Key.DerivationPath.Account(rawIndexInteger: 0)
+        let book = try await OpalBase.Address.Book(
+            rootExtendedPrivateKey: rootExtendedPrivateKey,
+            purpose: .bip44,
+            coinType: .bitcoinCash,
+            account: account,
+            gapLimit: 1
+        )
+
+        let highestUnhardenedAddress = try await book.generateAddress(
+            at: HardenedIndex.maxUnhardenedValue,
+            for: .receiving
+        )
+
+        #expect(highestUnhardenedAddress.lockingScript.data.isEmpty == false)
+        await #expect(throws: OpalBase.Key.DerivationPath.Error.indexOverflow) {
+            _ = try await book.generateAddress(at: HardenedIndex.bit, for: .receiving)
+        }
+        await #expect(throws: OpalBase.Key.DerivationPath.Error.indexOverflow) {
+            _ = try await book.generatePrivateKey(at: HardenedIndex.bit, for: .receiving)
+        }
+    }
+
     @Test("address usage scan does not query beyond the remaining gap")
     func addressUsageScanDoesNotQueryBeyondRemainingGap() async throws {
         let rootExtendedPrivateKey = try OpalCrypto.Key.ExtendedPrivate.root(

@@ -82,9 +82,10 @@ struct PublicAPISmokeValidator {
 
         #expect(readiness.pilotAvailability == .available)
         #expect(readiness.accountStatus == .ready)
-        #expect(readiness.utxoEligibility.count == 1)
-        #expect(readiness.utxoEligibility.first?.unspentOutput == unspentOutput)
-        #expect(readiness.utxoEligibility.first?.status == .eligible)
+        try #require(readiness.utxoEligibility.count == 1)
+        let eligibility = try #require(readiness.utxoEligibility.first)
+        #expect(eligibility.unspentOutput == unspentOutput)
+        #expect(eligibility.status == .eligible)
 
         let sessionStatus = OpalBase.Account.CashFusionSessionStatus(
             isConnected: false,
@@ -335,11 +336,12 @@ struct PublicAPISmokeValidator {
         ])
         let tokenSpendPlan = try await account.prepareTokenSpend(transfer)
         let tokenSpendReview = try tokenSpendPlan.buildReview()
+        let tokenRecipientOutput = try #require(tokenSpendReview.tokenRecipientOutputs.first)
 
         #expect(tokenAwareAddress.isTokenAware)
-        #expect(tokenSpendReview.tokenRecipientOutputs.first?.role == .recipient)
-        #expect(tokenSpendReview.tokenRecipientOutputs.first?.category == category)
-        #expect(tokenSpendReview.tokenRecipientOutputs.first?.fungibleAmount == 5)
+        #expect(tokenRecipientOutput.role == .recipient)
+        #expect(tokenRecipientOutput.category == category)
+        #expect(tokenRecipientOutput.fungibleAmount == 5)
         #expect(tokenSpendReview.rawTransactionByteCount == tokenSpendReview.rawTransactionData.count)
         try await tokenSpendPlan.cancelReservation()
 
@@ -352,10 +354,11 @@ struct PublicAPISmokeValidator {
         )
         let tokenGenesisReview = try tokenGenesisPlan.buildReview()
         let expectedTotalBCHNeeded = try tokenGenesisReview.lockedBCHOutputValue + tokenGenesisReview.fee
+        let mintedOutput = try #require(tokenGenesisReview.mintedOutputs.first)
 
         #expect(tokenGenesisReview.category.transactionOrderData == genesisInput.previousTransactionHash.naturalOrder)
-        #expect(tokenGenesisReview.mintedOutputs.first?.role == .minted)
-        #expect(tokenGenesisReview.mintedOutputs.first?.fungibleAmount == 7)
+        #expect(mintedOutput.role == .minted)
+        #expect(mintedOutput.fungibleAmount == 7)
         #expect(tokenGenesisReview.totalBCHNeeded == expectedTotalBCHNeeded)
         try await tokenGenesisPlan.cancelReservation()
     }

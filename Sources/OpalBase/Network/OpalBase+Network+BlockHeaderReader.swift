@@ -4,15 +4,15 @@ import Foundation
 
 extension _OpalBase.Network {
     public struct BlockHeaderReader: Sendable {
-        private let fetchTipHandler: @Sendable () async throws -> OpalBase.Network.BlockHeaderSnapshot
-        private let subscribeToTipHandler: @Sendable () async throws -> AsyncThrowingStream<OpalBase.Network.BlockHeaderSnapshot, any Swift.Error>
+        private let performFetchTip: @Sendable () async throws -> OpalBase.Network.BlockHeaderSnapshot
+        private let performSubscribeToTip: @Sendable () async throws -> AsyncThrowingStream<OpalBase.Network.BlockHeaderSnapshot, any Swift.Error>
 
         public init(
             fetchTip: @escaping @Sendable () async throws -> OpalBase.Network.BlockHeaderSnapshot,
             subscribeToTip: @escaping @Sendable () async throws -> AsyncThrowingStream<OpalBase.Network.BlockHeaderSnapshot, any Swift.Error>
         ) {
-            self.fetchTipHandler = fetchTip
-            self.subscribeToTipHandler = subscribeToTip
+            self.performFetchTip = fetchTip
+            self.performSubscribeToTip = subscribeToTip
         }
 
         public init(_ reader: OpalBase.Network.Fulcrum.BlockHeaderReader) {
@@ -30,11 +30,11 @@ extension _OpalBase.Network {
         }
 
         public func fetchTip() async throws -> OpalBase.Network.BlockHeaderSnapshot {
-            try await fetchTipHandler()
+            try await performFetchTip()
         }
 
         public func subscribeToTip() async throws -> AsyncThrowingStream<OpalBase.Network.BlockHeaderSnapshot, any Swift.Error> {
-            try await subscribeToTipHandler()
+            try await performSubscribeToTip()
         }
     }
 }

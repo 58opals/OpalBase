@@ -61,9 +61,45 @@ struct ScriptDecodeValidator {
         #expect(Set([invalid, matchingInvalid, distinctInvalid]).count == 2)
     }
 
+    @Test("invalid public P2MS values do not trap during serialization")
+    func invalidPublicP2MSValuesDoNotTrapDuringSerialization() throws {
+        let publicKey = try makePublicKey(privateKeyByte: 1)
+        let scripts: [OpalBase.Script] = [
+            .p2ms(numberOfRequiredSignatures: 0, publicKeys: []),
+            .p2ms(numberOfRequiredSignatures: 0, publicKeys: [publicKey]),
+            .p2ms(numberOfRequiredSignatures: 2, publicKeys: [publicKey]),
+            .p2ms(numberOfRequiredSignatures: 17, publicKeys: [publicKey])
+        ]
+
+        for script in scripts {
+            #expect(script.data.isEmpty)
+        }
+    }
+
+    @Test("serializes largest standard P2MS script")
+    func serializesLargestStandardP2MSScript() throws {
+        let publicKeys = try (1...16).map { try makePublicKey(privateKeyByte: UInt8($0)) }
+        let script = OpalBase.Script.p2ms(
+            numberOfRequiredSignatures: 16,
+            publicKeys: publicKeys
+        )
+        let lockingScript = script.data
+        let publicKeyCountIndex = lockingScript.index(lockingScript.endIndex, offsetBy: -2)
+
+        #expect(lockingScript.first == ScriptOperationCode._16.rawValue)
+        #expect(lockingScript[publicKeyCountIndex] == ScriptOperationCode._16.rawValue)
+        #expect(lockingScript.last == ScriptOperationCode._CHECKMULTISIG.rawValue)
+        #expect(try OpalBase.Script.decode(lockingScript: lockingScript) == script)
+    }
+
     private func makeSlicedData(from data: Data) -> Data {
         var paddedData = Data([0x00])
         paddedData.append(data)
         return paddedData[paddedData.index(after: paddedData.startIndex)...]
+    }
+
+    private func makePublicKey(privateKeyByte: UInt8) throws -> OpalBase.Key.PublicKey {
+        let privateKeyData = Data(repeating: privateKeyByte, count: 32)
+        return try OpalBase.Key.PublicKey(privateKeyData: privateKeyData)
     }
 }

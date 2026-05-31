@@ -7,6 +7,9 @@ import Testing
 
 @Suite("OpalBase.Network.AddressReader", .tags(.unit, .network))
 struct NetworkAddressReaderLocalValidator {
+    private static let firstUseBlockHash = String(repeating: "a", count: 64)
+    private static let firstUseTransactionIdentifier = String(repeating: "b", count: 64)
+
     @Test("preserves negative unconfirmed balances from the underlying network client")
     func preservesNegativeUnconfirmedBalances() async throws {
         let expectedBalance = OpalBase.Network.AddressBalance(confirmed: 1_200, unconfirmed: -300)
@@ -35,24 +38,21 @@ struct NetworkAddressReaderLocalValidator {
     
     @Test("first-use results require valid block and transaction hashes")
     func firstUseResultsRequireValidHashes() throws {
-        let blockHash = String(repeating: "a", count: 64)
-        let transactionIdentifier = String(repeating: "b", count: 64)
-        
         let firstUse = try OpalBase.Network.Fulcrum.AddressReader.makeFirstUse(
             blockHeight: 1,
-            blockHash: blockHash,
-            transactionIdentifier: transactionIdentifier
+            blockHash: Self.firstUseBlockHash,
+            transactionIdentifier: Self.firstUseTransactionIdentifier
         )
         
         #expect(firstUse.blockHeight == 1)
-        #expect(firstUse.blockHash == blockHash)
-        #expect(firstUse.transactionIdentifier == transactionIdentifier)
+        #expect(firstUse.blockHash == Self.firstUseBlockHash)
+        #expect(firstUse.transactionIdentifier == Self.firstUseTransactionIdentifier)
         
         let blockHashFailure = try Self.captureNetworkError {
             _ = try OpalBase.Network.Fulcrum.AddressReader.makeFirstUse(
                 blockHeight: 1,
                 blockHash: "aa",
-                transactionIdentifier: transactionIdentifier
+                transactionIdentifier: Self.firstUseTransactionIdentifier
             )
         }
         #expect(blockHashFailure.reason == .decoding)
@@ -61,22 +61,50 @@ struct NetworkAddressReaderLocalValidator {
         let prefixedBlockHashFailure = try Self.captureNetworkError {
             _ = try OpalBase.Network.Fulcrum.AddressReader.makeFirstUse(
                 blockHeight: 1,
-                blockHash: "0x\(blockHash)",
-                transactionIdentifier: transactionIdentifier
+                blockHash: "0x\(Self.firstUseBlockHash)",
+                transactionIdentifier: Self.firstUseTransactionIdentifier
             )
         }
         #expect(prefixedBlockHashFailure.reason == .decoding)
-        #expect(prefixedBlockHashFailure.message == "Cannot decode first-use block hash: 0x\(blockHash)")
+        #expect(prefixedBlockHashFailure.message == "Cannot decode first-use block hash: 0x\(Self.firstUseBlockHash)")
         
         let transactionHashFailure = try Self.captureNetworkError {
             _ = try OpalBase.Network.Fulcrum.AddressReader.makeFirstUse(
                 blockHeight: 1,
-                blockHash: blockHash,
+                blockHash: Self.firstUseBlockHash,
                 transactionIdentifier: "bb"
             )
         }
         #expect(transactionHashFailure.reason == .decoding)
         #expect(transactionHashFailure.message == "Invalid first-use transaction hash length: expected 32 bytes, got 1")
+    }
+
+    @Test("first-use results reject zero confirmed heights")
+    func firstUseResultsRejectZeroConfirmedHeights() throws {
+        let failure = try Self.captureNetworkError {
+            _ = try OpalBase.Network.Fulcrum.AddressReader.makeFirstUse(
+                blockHeight: 0,
+                blockHash: Self.firstUseBlockHash,
+                transactionIdentifier: Self.firstUseTransactionIdentifier
+            )
+        }
+
+        #expect(failure.reason == .protocolViolation)
+        #expect(failure.message == "First-use block height must be positive")
+    }
+
+    @Test("first-use optional response rejects zero confirmed heights")
+    func firstUseOptionalResponseRejectsZeroConfirmedHeights() throws {
+        let failure = try Self.captureNetworkError {
+            _ = try OpalBase.Network.Fulcrum.AddressReader.makeFirstUse(
+                blockHeight: Optional<UInt>(0),
+                blockHash: Self.firstUseBlockHash,
+                transactionIdentifier: Self.firstUseTransactionIdentifier
+            )
+        }
+
+        #expect(failure.reason == .protocolViolation)
+        #expect(failure.message == "First-use block height must be positive")
     }
 
     @Test("first-use results reject partial responses")
@@ -92,12 +120,80 @@ struct NetworkAddressReaderLocalValidator {
             _ = try OpalBase.Network.Fulcrum.AddressReader.makeFirstUse(
                 blockHeight: 1,
                 blockHash: nil,
-                transactionIdentifier: String(repeating: "b", count: 64)
+                transactionIdentifier: Self.firstUseTransactionIdentifier
             )
         }
 
         #expect(failure.reason == .protocolViolation)
         #expect(failure.message == "Incomplete first-use response")
+    }
+
+    @Test("address history mapping accepts confirmed transactions")
+    func addressHistoryMappingAcceptsConfirmedTransactions() throws {
+        let transactions = [
+            AddressTransactionFixture(
+                transactionIdentifier: String(repeating: "a", count: 64),
+                blockHeight: 1,
+                fee: nil
+            )
+        ]
+
+        let entries = try OpalBase.Network.Fulcrum.AddressReader.mapAddressHistoryTransactions(
+            transactions,
+            transactionIdentifier: \.transactionIdentifier,
+            blockHeight: \.blockHeight,
+            fee: \.fee
+        )
+
+        let entry = try #require(entries.first)
+        #expect(entry.blockHeight == 1)
+    }
+
+    @Test("address mempool mapping rejects confirmed transactions")
+    func addressMempoolMappingRejectsConfirmedTransactions() throws {
+        let transactions = [
+            AddressTransactionFixture(
+                transactionIdentifier: String(repeating: "b", count: 64),
+                blockHeight: 1,
+                fee: nil
+            )
+        ]
+
+        #expect(throws: OpalBase.Network.Error(
+            reason: .protocolViolation,
+            message: "Mempool response included a confirmed transaction"
+        )) {
+            _ = try OpalBase.Network.Fulcrum.AddressReader.mapAddressMempoolTransactions(
+                transactions,
+                transactionIdentifier: \.transactionIdentifier,
+                blockHeight: \.blockHeight,
+                fee: \.fee
+            )
+        }
+    }
+
+    @Test(
+        "address mempool mapping accepts unconfirmed transaction heights",
+        arguments: [-1, 0]
+    )
+    func addressMempoolMappingAcceptsUnconfirmedTransactionHeights(_ blockHeight: Int) throws {
+        let transactions = [
+            AddressTransactionFixture(
+                transactionIdentifier: String(repeating: "c", count: 64),
+                blockHeight: blockHeight,
+                fee: nil
+            )
+        ]
+
+        let entries = try OpalBase.Network.Fulcrum.AddressReader.mapAddressMempoolTransactions(
+            transactions,
+            transactionIdentifier: \.transactionIdentifier,
+            blockHeight: \.blockHeight,
+            fee: \.fee
+        )
+
+        let entry = try #require(entries.first)
+        #expect(entry.blockHeight == blockHeight)
     }
     
     @Test("script hash results require valid hashes")
@@ -197,6 +293,19 @@ struct NetworkAddressReaderLocalValidator {
         }
     }
 
+    @Test("address balance conversion rejects negative aggregate values")
+    func rejectNegativeAggregateValuesDuringAddressBalanceConversion() throws {
+        #expect(throws: OpalBase.Network.Error(
+            reason: .decoding,
+            message: "Address balance cannot be negative"
+        )) {
+            _ = try OpalBase.Network.Fulcrum.AddressReader.makeAddressBalance(
+                confirmed: 0,
+                unconfirmed: -1
+            )
+        }
+    }
+
     @Test("unspent output conversion rejects values above maximum supply")
     func rejectValuesAboveMaximumSupplyDuringUnspentOutputConversion() throws {
         let item = try Self.makeAddressListUnspentItem(
@@ -244,5 +353,11 @@ struct NetworkAddressReaderLocalValidator {
             from: payload
         )
         return try #require(result.items.first)
+    }
+
+    private struct AddressTransactionFixture {
+        let transactionIdentifier: String
+        let blockHeight: Int
+        let fee: UInt?
     }
 }

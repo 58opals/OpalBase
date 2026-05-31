@@ -70,4 +70,39 @@ extension _OpalBase.Transaction.Hash: CustomStringConvertible {
 
 extension _OpalBase.Transaction.Hash: Sendable {}
 extension _OpalBase.Transaction.Hash: Hashable {}
-extension _OpalBase.Transaction.Hash: Codable {}
+extension _OpalBase.Transaction.Hash: Codable {
+    private enum CodingKeys: String, CodingKey {
+        case originalData
+    }
+
+    private static func invalidByteCountDescription(actual: Int) -> String {
+        "Invalid transaction hash length: expected \(Self.expectedByteCount) bytes, got \(actual)"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let originalData = try container.decode(Data.self, forKey: .originalData)
+        guard originalData.count == Self.expectedByteCount else {
+            throw DecodingError.dataCorruptedError(
+                forKey: .originalData,
+                in: container,
+                debugDescription: Self.invalidByteCountDescription(actual: originalData.count)
+            )
+        }
+        self.init(naturalOrder: originalData)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        guard originalData.count == Self.expectedByteCount else {
+            throw EncodingError.invalidValue(
+                originalData,
+                .init(
+                    codingPath: encoder.codingPath + [CodingKeys.originalData],
+                    debugDescription: Self.invalidByteCountDescription(actual: originalData.count)
+                )
+            )
+        }
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(originalData, forKey: .originalData)
+    }
+}

@@ -143,6 +143,50 @@ struct AccountTokenMintValidator {
         #expect(await account.addressBook.readActiveSpendReservations().isEmpty)
     }
 
+    @Test("preferred minting input uses stored UTXO metadata")
+    func preferredMintingInputUsesStoredUTXOMetadata() async throws {
+        let account = try await makeAccount()
+        let category = try OpalBase.CashTokens.CategoryID(transactionOrderData: Data(repeating: 0xD1, count: 32))
+        let storedInput = try await addUnspentOutput(
+            to: account,
+            value: 25_000,
+            tokenData: nil,
+            previousTransactionHash: OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0xD2, count: 32)),
+            previousTransactionOutputIndex: 0
+        )
+        let staleMintingToken = try OpalBase.CashTokens.NFT(capability: .minting, commitment: Data([0x01]))
+        let stalePreferredInput = OpalBase.Transaction.Output.Unspent(
+            value: storedInput.value,
+            lockingScript: storedInput.lockingScript,
+            tokenData: OpalBase.CashTokens.TokenData(category: category, amount: nil, nft: staleMintingToken),
+            previousTransactionHash: storedInput.previousTransactionHash,
+            previousTransactionOutputIndex: storedInput.previousTransactionOutputIndex
+        )
+        _ = try await addUnspentOutput(
+            to: account,
+            value: 120_000,
+            tokenData: nil,
+            previousTransactionHash: OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0xD3, count: 32)),
+            previousTransactionOutputIndex: 0
+        )
+        let recipientAddress = try OpalBase.Address("bitcoincash:zpm2qsznhks23z7629mms6s4cwef74vcwvrqekrq9w")
+        let mint = try OpalBase.Account.TokenMint(
+            category: category,
+            recipients: [
+                try .init(
+                    address: recipientAddress,
+                    nft: OpalBase.CashTokens.NFT(capability: .none, commitment: Data([0x02]))
+                )
+            ]
+        )
+
+        await #expect(throws: OpalBase.Account.Error.tokenMintNoEligibleMintingInput) {
+            _ = try await account.prepareTokenMint(mint, preferredMintingInput: stalePreferredInput)
+        }
+        #expect(await account.addressBook.readActiveSpendReservations().isEmpty)
+        #expect(await account.addressBook.listSpendableUTXOs().contains(storedInput))
+    }
+
     @Test("prepareTokenMint refreshes wallet-owned token outputs when the selected change entry becomes stale")
     func prepareTokenMintRefreshesWalletOwnedTokenOutputsWhenSelectedChangeEntryBecomesStale() async throws {
         let account = try await makeAccount()

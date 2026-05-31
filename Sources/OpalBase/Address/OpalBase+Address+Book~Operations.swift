@@ -38,15 +38,7 @@ extension _OpalBase.Address.Book {
     func countUnusedEntries(for usage: OpalBase.Key.DerivationPath.Usage) -> Int {
         inventory.countUnusedEntries(for: usage)
     }
-    
-    func readCacheValidityDuration() -> TimeInterval {
-        inventory.cacheValidityDuration
-    }
-    
-    func appendEntry(_ entry: Entry, usage: OpalBase.Key.DerivationPath.Usage) {
-        inventory.append(entry, usage: usage)
-    }
-    
+
     func findEntry(for address: OpalBase.Address) -> Entry? {
         inventory.findEntry(for: address)
     }
@@ -58,17 +50,7 @@ extension _OpalBase.Address.Book {
     func listAllEntries() -> [Entry] {
         inventory.allEntries
     }
-    
-    func updateEntry(at index: Int,
-                     usage: OpalBase.Key.DerivationPath.Usage,
-                     _ update: (inout Entry) -> Void) {
-        inventory.updateEntry(at: index, usage: usage, update)
-    }
-    
-    func markEntry(address: OpalBase.Address, isUsed: Bool) throws -> Entry {
-        try inventory.mark(address: address, isUsed: isUsed)
-    }
-    
+
     func reserveEntry(address: OpalBase.Address) throws -> Entry {
         try inventory.reserve(address: address)
     }

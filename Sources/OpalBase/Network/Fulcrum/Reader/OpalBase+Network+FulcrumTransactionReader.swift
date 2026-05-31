@@ -59,7 +59,23 @@ extension _OpalBase.Network.Fulcrum {
                     message: "Verbose transaction size mismatch"
                 )
             }
-            let blockHash = try decodeBlockHash(verboseTransaction?.blockHash)
+            let blockHash: Data?
+            if let verboseBlockHashHexadecimal = verboseTransaction?.blockHash {
+                blockHash = try OpalBase.Network.decodeHashData(
+                    from: verboseBlockHashHexadecimal,
+                    label: "block hash"
+                )
+            } else {
+                blockHash = nil
+            }
+            if let confirmations = verboseTransaction?.confirmations,
+               confirmations > 0,
+               blockHash == nil {
+                throw OpalBase.Network.Error(
+                    reason: .decoding,
+                    message: "Verbose transaction confirmations require a block hash"
+                )
+            }
             
             return OpalBase.Transaction.Detail(
                 transaction: transaction,
@@ -71,11 +87,6 @@ extension _OpalBase.Network.Fulcrum {
                 size: rawTransactionSize,
                 time: verboseTransaction?.time
             )
-        }
-
-        private func decodeBlockHash(_ hexadecimalString: String?) throws -> Data? {
-            guard let hexadecimalString else { return nil }
-            return try OpalBase.Network.decodeHashData(from: hexadecimalString, label: "block hash")
         }
 
         private func validatePayloadHash(

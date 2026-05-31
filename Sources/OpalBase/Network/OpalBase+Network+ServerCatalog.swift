@@ -49,8 +49,8 @@ extension _OpalBase.Network.ServerCatalog {
     private static let maximumDomainNameByteCount = 253
     private static let maximumDomainLabelByteCount = 63
     
-    static func makeMergedServers(primary: [URL], secondary: [URL], fallback: [URL]) -> [URL] {
-        makeNormalizedServers(primary + secondary + fallback)
+    static func makeMergedServers(primary: [URL], fallback: [URL]) -> [URL] {
+        makeNormalizedServers(primary + fallback)
     }
     
     static func makeNormalizedServers(_ servers: [URL]) -> [URL] {
@@ -100,7 +100,7 @@ extension _OpalBase.Network.ServerCatalog {
 
         guard let host = components.host,
               host.isEmpty == false,
-              !containsInvalidHostLabel(in: host) else {
+              !isInvalidHost(host) else {
             return nil
         }
         components.host = host.lowercased()
@@ -147,7 +147,7 @@ extension _OpalBase.Network.ServerCatalog {
         }
     }
 
-    private static func containsInvalidHostLabel(in host: String) -> Bool {
+    private static func isInvalidHost(_ host: String) -> Bool {
         guard host.utf8.count <= maximumDomainNameByteCount else {
             return true
         }
@@ -157,11 +157,12 @@ extension _OpalBase.Network.ServerCatalog {
             labels.removeLast()
         }
 
+        let isInternetProtocolLiteral = host.contains(":")
         return labels.contains { label in
             guard !isInvalidHostLabelShape(label) else {
                 return true
             }
-            return !host.contains(":") && containsInvalidDomainLabelCharacter(in: label)
+            return !isInternetProtocolLiteral && containsInvalidDomainLabelCharacter(in: label)
         }
     }
 
@@ -185,7 +186,17 @@ extension _OpalBase.Network.ServerCatalog {
     }
 
     private static func isPathTraversalComponent(_ component: some StringProtocol) -> Bool {
-        component == "." || component == ".."
+        var currentComponent = String(component)
+        while true {
+            if currentComponent == "." || currentComponent == ".." {
+                return true
+            }
+            guard let decodedComponent = currentComponent.removingPercentEncoding,
+                  decodedComponent != currentComponent else {
+                return false
+            }
+            currentComponent = decodedComponent
+        }
     }
 
     private static func defaultPort(for normalizedScheme: String) -> Int? {

@@ -15,27 +15,27 @@ extension _OpalBase.Network {
             var lastKey: DeduplicationKey?
             let initialValue = initial
             let updatesStream = updates
-            let cancelHandler = cancel
-            let makeInitialUpdatesHandler = makeInitialUpdates
-            let makeUpdatesHandler = makeUpdates
-            let deduplicationKeyHandler = deduplicationKey
+            let cancelSubscription = cancel
+            let buildInitialUpdates = makeInitialUpdates
+            let buildUpdates = makeUpdates
+            let keyForDeduplication = deduplicationKey
             
             do {
-                for update in try makeInitialUpdatesHandler(initialValue) {
-                    lastKey = deduplicationKeyHandler(update)
+                for update in try buildInitialUpdates(initialValue) {
+                    lastKey = keyForDeduplication(update)
                     continuation.yield(update)
                 }
             } catch {
                 continuation.finish(throwing: FulcrumErrorTranslator.translate(error))
-                Task { await cancelHandler() }
+                Task { await cancelSubscription() }
                 return
             }
             
             let task = Task {
                 do {
                     for try await notification in updatesStream {
-                        for update in try makeUpdatesHandler(notification) {
-                            let key = deduplicationKeyHandler(update)
+                        for update in try buildUpdates(notification) {
+                            let key = keyForDeduplication(update)
                             guard key != lastKey else { continue }
                             lastKey = key
                             continuation.yield(update)
@@ -53,7 +53,7 @@ extension _OpalBase.Network {
             
             continuation.onTermination = { _ in
                 task.cancel()
-                Task { await cancelHandler() }
+                Task { await cancelSubscription() }
             }
         }
     }

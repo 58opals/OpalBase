@@ -133,9 +133,11 @@ extension StoragePersistenceValidator {
         let configuration = OpalBase.Storage.Security.SecureEnclaveConfiguration(
             applicationTag: "OpalBase.Tests.SecureEnclave.\(UUID().uuidString)"
         )
+        let applicationTag = Data(configuration.applicationTag.utf8)
 
         do {
             let security = try OpalBase.Storage.Security.makeSecureEnclaveBacked(configuration: configuration)
+            #expect(try SecureEnclaveAdapter.findPrivateKey(applicationTag: applicationTag) != nil)
             let storage = try OpalBase.Storage(valueClient: .makeInMemory(), security: security)
             let protectionMode = try await storage.saveMnemonic(
                 Self.makeStoredMnemonic(passphrase: "secure-enclave"),
@@ -146,6 +148,57 @@ extension StoragePersistenceValidator {
         } catch {
             Self.expectProtectionUnavailable(error)
         }
+    }
+
+    @Test("Secure Enclave key lookup requests a SecKey reference instead of a persistent reference")
+    func secureEnclaveKeyLookupUsesKeyReference() {
+        let query = SecureEnclaveAdapter.keyQuery(
+            applicationTag: Data("OpalBase.Tests.SecureEnclave.Query".utf8),
+            returnReference: true
+        )
+
+        #expect(query[kSecReturnRef as String] as? Bool == true)
+        #expect(query[kSecReturnPersistentRef as String] == nil)
+    }
+
+    @Test("Security.framework key agreement helpers round trip public-key envelopes")
+    func securityKeyAgreementHelpersRoundTripEnvelopeKeys() throws {
+        let recipientPrivateKey = try SecureEnclaveAdapter.createEphemeralPrivateKey()
+        let recipientPublicKey = try SecureEnclaveAdapter.copyPublicKey(for: recipientPrivateKey)
+        let ephemeralPrivateKey = try SecureEnclaveAdapter.createEphemeralPrivateKey()
+        let ephemeralPublicKey = try SecureEnclaveAdapter.copyPublicKey(for: ephemeralPrivateKey)
+
+        let encryptSharedSecret = try SecureEnclaveAdapter.copyKeyAgreementSharedSecret(
+            privateKey: ephemeralPrivateKey,
+            publicKey: recipientPublicKey
+        )
+        let ephemeralPublicKeyRepresentation = try SecureEnclaveAdapter.externalRepresentation(
+            of: ephemeralPublicKey,
+            message: "Failed to export the test ephemeral public key."
+        )
+        let restoredEphemeralPublicKey = try SecureEnclaveAdapter.makePublicKey(
+            x963Representation: ephemeralPublicKeyRepresentation
+        )
+        let decryptSharedSecret = try SecureEnclaveAdapter.copyKeyAgreementSharedSecret(
+            privateKey: recipientPrivateKey,
+            publicKey: restoredEphemeralPublicKey
+        )
+
+        #expect(encryptSharedSecret == decryptSharedSecret)
+    }
+
+    @Test(
+        "Secure Enclave setup classifies corrupt key references as recoverable",
+        arguments: [errSecDecode, errSecParam]
+    )
+    func secureEnclaveSetupClassifiesCorruptKeyReferencesAsRecoverable(status: OSStatus) {
+        let error = NSError(
+            domain: NSOSStatusErrorDomain,
+            code: Int(status),
+            userInfo: [NSDebugDescriptionErrorKey: "corrupted objectID detected"]
+        )
+
+        #expect(SecureEnclaveAdapter.isRecoverable(error))
     }
 }
 

@@ -85,11 +85,11 @@ extension _OpalBase.Network.Fulcrum {
                             reusable.maximumHistoryItems,
                             fieldName: "rpa maximum history items"
                         )
-                        let indexedPrefixBits = try Self.validateFeatureCount(
+                        let indexedPrefixBits = try Self.validateReusablePaymentAddressPrefixBits(
                             reusable.indexedPrefixBits,
                             fieldName: "rpa indexed prefix bits"
                         )
-                        let minimumPrefixBits = try Self.validateFeatureCount(
+                        let minimumPrefixBits = try Self.validateReusablePaymentAddressPrefixBits(
                             reusable.minimumPrefixBits,
                             fieldName: "rpa minimum prefix bits"
                         )
@@ -173,6 +173,20 @@ extension _OpalBase.Network.Fulcrum {
                 )
             }
             return port
+        }
+
+        private static func validateReusablePaymentAddressPrefixBits(
+            _ count: Int?,
+            fieldName: String
+        ) throws -> Int? {
+            guard let prefixBits = try validateFeatureCount(count, fieldName: fieldName) else { return nil }
+            guard prefixBits <= 256 else {
+                throw OpalBase.Network.Error(
+                    reason: .decoding,
+                    message: "Invalid server feature \(fieldName): \(prefixBits)"
+                )
+            }
+            return prefixBits
         }
         
         private static func validateFeatureHash(_ hash: String, fieldName: String) throws -> String {

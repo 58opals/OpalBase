@@ -37,14 +37,14 @@ extension _OpalBase.Address.Book {
     }
     
     func generateAddress(at index: UInt32, for usage: OpalBase.Key.DerivationPath.Usage) throws -> OpalBase.Address {
-        if let usageCache = usageDerivationCache[usage] {
-            let childExtendedPrivateKey = try usageCache.baseExtendedPrivateKey.derived(indices: [index])
+        let derivationPath = try createDerivationPath(usage: usage, index: index)
+
+        if let cachedUsageDerivation = usageDerivationCache[usage] {
+            let childExtendedPrivateKey = try cachedUsageDerivation.baseExtendedPrivateKey.derived(indices: [index])
             let childCompressedPublicKey = childExtendedPrivateKey.publicKey.publicKey.rawRepresentation
             return try makeAddress(fromCompressedPublicKey: childCompressedPublicKey)
         }
-        
-        let derivationPath = try createDerivationPath(usage: usage, index: index)
-        
+
         let derivedPublicKey: OpalCrypto.Key.ExtendedPublic
         if let extendedPrivateKey = rootExtendedPrivateKey {
             derivedPublicKey = try extendedPrivateKey.derived(indices: derivationPath.makeIndices()).publicKey
@@ -56,13 +56,13 @@ extension _OpalBase.Address.Book {
     }
     
     func generatePrivateKey(at index: UInt32, for usage: OpalBase.Key.DerivationPath.Usage) throws -> Data {
-        if let usageCache = usageDerivationCache[usage] {
-            return try usageCache.baseExtendedPrivateKey.derived(indices: [index]).privateKey.rawRepresentation
-        }
-        
-        guard let extendedPrivateKey = rootExtendedPrivateKey else { throw Error.privateKeyNotFound }
-        
         let derivationPath = try createDerivationPath(usage: usage, index: index)
+
+        if let cachedUsageDerivation = usageDerivationCache[usage] {
+            return try cachedUsageDerivation.baseExtendedPrivateKey.derived(indices: [index]).privateKey.rawRepresentation
+        }
+
+        guard let extendedPrivateKey = rootExtendedPrivateKey else { throw Error.privateKeyNotFound }
         let privateKey = try extendedPrivateKey.derived(indices: derivationPath.makeIndices()).privateKey
         
         return privateKey.rawRepresentation

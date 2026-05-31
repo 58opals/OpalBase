@@ -32,7 +32,7 @@ extension _OpalBase.Address.Book {
     func initializeEntries() async throws {
         for usage in OpalBase.Key.DerivationPath.Usage.allCases {
             try await generateEntries(for: usage,
-                                      numberOfNewEntries: gapLimit,
+                                      entryCount: gapLimit,
                                       isUsed: false)
         }
     }
@@ -48,31 +48,31 @@ extension _OpalBase.Address.Book {
         guard numberOfMissingEntries > 0 else { return }
         
         try await generateEntries(for: usage,
-                                  numberOfNewEntries: numberOfMissingEntries,
+                                  entryCount: numberOfMissingEntries,
                                   isUsed: false)
     }
     
     func generateEntries(for usage: OpalBase.Key.DerivationPath.Usage,
-                         numberOfNewEntries: Int,
+                         entryCount: Int,
                          isUsed: Bool,
                          shouldNotifyNewEntries: Bool = true) async throws {
-        guard numberOfNewEntries > 0 else { return }
+        guard entryCount > 0 else { return }
         
         let currentCount = inventory.countEntries(for: usage)
-        let desiredCount = currentCount + numberOfNewEntries
+        let desiredCount = currentCount + entryCount
         
         var indices: [UInt32] = .init()
-        indices.reserveCapacity(numberOfNewEntries)
+        indices.reserveCapacity(entryCount)
         for indexValue in currentCount ..< desiredCount {
             guard let index = UInt32(exactly: indexValue) else { throw Error.indexOutOfBounds }
             indices.append(index)
         }
         
         let newEntries: [Entry]
-        if let usageCache = usageDerivationCache[usage] {
+        if let cachedUsageDerivation = usageDerivationCache[usage] {
             newEntries = try await makeEntriesUsingUsageDerivationCache(usage: usage,
                                                                         indices: indices,
-                                                                        usageCache: usageCache,
+                                                                        cachedUsageDerivation: cachedUsageDerivation,
                                                                         isUsed: isUsed)
         } else {
             newEntries = try indices.map { index in
@@ -107,7 +107,7 @@ extension _OpalBase.Address.Book {
     private func makeEntriesUsingUsageDerivationCache(
         usage: OpalBase.Key.DerivationPath.Usage,
         indices: [UInt32],
-        usageCache: UsageDerivationCache,
+        cachedUsageDerivation: UsageDerivationCache,
         isUsed: Bool
     ) async throws -> [Entry] {
         var childPrivateKeys: [Data] = .init()
@@ -116,9 +116,10 @@ extension _OpalBase.Address.Book {
         derivationPaths.reserveCapacity(indices.count)
         
         for index in indices {
-            let childExtendedPrivateKey = try usageCache.baseExtendedPrivateKey.derived(indices: [index])
+            let derivationPath = try createDerivationPath(usage: usage, index: index)
+            let childExtendedPrivateKey = try cachedUsageDerivation.baseExtendedPrivateKey.derived(indices: [index])
             childPrivateKeys.append(childExtendedPrivateKey.privateKey.rawRepresentation)
-            derivationPaths.append(try createDerivationPath(usage: usage, index: index))
+            derivationPaths.append(derivationPath)
         }
         
         let compressedPublicKeys = try await OpalCryptoAdapter.deriveCompressedPublicKeys(

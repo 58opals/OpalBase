@@ -34,12 +34,10 @@ extension _OpalBase.Account.PrivacyShaperActor {
         guard configuration.decoyProbability > 0 else { return 0 }
         let draw = Double.random(in: 0.0 ... 1.0, using: &generator)
         guard draw <= configuration.decoyProbability else { return 0 }
-        
-        if configuration.decoyQueryRange.lowerBound == configuration.decoyQueryRange.upperBound {
-            return configuration.decoyQueryRange.lowerBound
-        }
-        
-        return Int.random(in: configuration.decoyQueryRange, using: &generator)
+        let decoyQueryRange = configuration.decoyQueryRange
+        return decoyQueryRange.lowerBound == decoyQueryRange.upperBound
+            ? decoyQueryRange.lowerBound
+            : Int.random(in: decoyQueryRange, using: &generator)
     }
     
     func scheduleSensitiveOperation<Result: Sendable>(
@@ -137,4 +135,5 @@ extension _OpalBase.Account.PrivacyShaperActor {
         guard range.lowerBound < range.upperBound else { return range.lowerBound }
         return UInt64.random(in: range, using: &generator)
     }
+
 }

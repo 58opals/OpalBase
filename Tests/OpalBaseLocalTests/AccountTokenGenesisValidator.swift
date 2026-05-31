@@ -280,6 +280,32 @@ struct AccountTokenGenesisValidator {
 
         #expect(selected == [fundingInput])
     }
+
+    @Test("token genesis outpoint preparation rejects dust outputs")
+    func prepareTokenGenesisOutpointRejectsDustOutputs() async throws {
+        let account = try await makeAccount()
+        let destinationAddress = try OpalBase.Address("bitcoincash:qpm2qsznhks23z7629mms6s4cwef74vcwvy22gdx6a")
+        let outputTemplate = OpalBase.Transaction.Output(value: 0, address: destinationAddress)
+        let estimatedFee = try OpalBase.Transaction.estimateFee(
+            inputCount: 1,
+            outputs: [outputTemplate],
+            feePerByte: OpalBase.Transaction.minimumRelayFeeRate
+        )
+        let dustThreshold = try outputTemplate.calculateDustThreshold(
+            feeRate: OpalBase.Transaction.minimumRelayFeeRate
+        )
+        _ = try await addSpendableOutput(
+            to: account,
+            previousTransactionHash: OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0x5A, count: 32)),
+            previousTransactionOutputIndex: 1,
+            value: estimatedFee + dustThreshold - 1
+        )
+
+        await #expect(throws: OpalBase.Account.Error.tokenGenesisInvalidGenesisInput) {
+            _ = try await account.prepareTokenGenesisOutpoint()
+        }
+        #expect(await account.addressBook.readActiveSpendReservations().isEmpty)
+    }
 }
 
 private func makeAccount() async throws -> OpalBase.Account {

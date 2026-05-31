@@ -140,7 +140,7 @@ struct WalletOrchestrationValidator {
         let restoredChangeEntries = await restoredAccount.addressBook.listEntries(for: .change)
 
         #expect(existingAccount === restoredAccount)
-        #expect(restoredReceivingEntries.count == 21)
+        try #require(restoredReceivingEntries.count == 21)
         let firstRestoredReceivingEntry = try #require(restoredReceivingEntries.first)
         let lastRestoredReceivingEntry = try #require(restoredReceivingEntries.last)
         #expect(lastRestoredReceivingEntry.derivationPath.index == 20)
@@ -148,7 +148,7 @@ struct WalletOrchestrationValidator {
         #expect(firstRestoredReceivingEntry.isReserved == false)
         #expect(restoredReceivingEntries.dropFirst().allSatisfy { !$0.isReserved })
         #expect(restoredReceivingEntries.filter { !$0.isUsed && !$0.isReserved }.count == 20)
-        #expect(restoredChangeEntries.count == 20)
+        try #require(restoredChangeEntries.count == 20)
         #expect(restoredChangeEntries.allSatisfy { !$0.isUsed && !$0.isReserved })
     }
 

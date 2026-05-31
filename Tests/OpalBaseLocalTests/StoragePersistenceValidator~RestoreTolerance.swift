@@ -140,6 +140,9 @@ extension StoragePersistenceValidator {
                     domain: NSOSStatusErrorDomain,
                     code: Int(errSecDecode)
                 )
+            },
+            checkSecureEnclaveErrorRecoverability: { error in
+                SecureEnclaveAdapter.isRecoverable(error)
             }
         )
         let restoringStorage = try OpalBase.Storage(

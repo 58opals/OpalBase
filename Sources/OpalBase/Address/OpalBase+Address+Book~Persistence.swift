@@ -28,7 +28,7 @@ extension _OpalBase.Address.Book {
         let receiving = makeEntrySnapshots(for: .receiving)
         let change = makeEntrySnapshots(for: .change)
 
-        let utxoSnaps = utxoStore.listUTXOs().map {
+        let unspentOutputSnapshots = utxoStore.listUTXOs().map {
             Snapshot.UTXO(value: $0.value,
                           lockingScript: $0.lockingScript.hexadecimalString,
                           tokenData: $0.tokenData,
@@ -72,7 +72,7 @@ extension _OpalBase.Address.Book {
 
         return Snapshot(receivingEntries: receiving,
                         changeEntries: change,
-                        utxos: utxoSnaps,
+                        utxos: unspentOutputSnapshots,
                         transactions: transactionSnaps)
     }
 
@@ -92,6 +92,9 @@ extension _OpalBase.Address.Book {
         try validateEntryUsage(in: snapshot.receivingEntries, expected: .receiving)
         try validateEntryUsage(in: snapshot.changeEntries, expected: .change)
         try validateEntryReservationState(in: entrySnapshots)
+        for entry in entrySnapshots where entry.index > HardenedIndex.maxUnhardenedValue {
+            throw OpalBase.Address.Book.Error.indexOutOfBounds
+        }
         try validateUniqueEntryIndices(in: snapshot.receivingEntries, usage: .receiving)
         try validateUniqueEntryIndices(in: snapshot.changeEntries, usage: .change)
         let restoredEntryBalances = try makeRestoredEntryBalances(in: entrySnapshots)
@@ -264,20 +267,7 @@ extension _OpalBase.Address.Book {
                 in: transaction.scriptHashes,
                 restoredEntryScriptHashes: restoredEntryScriptHashes
             )
-            let proof = try transaction.merkleProof.map { proof -> OpalBase.Transaction.MerkleProof in
-                let branch = try proof.branch.map { branchNode -> Data in
-                    try makeSnapshotMerkleProofHashData(from: branchNode)
-                }
-                let blockHash = try proof.blockHash.map { blockHash -> Data in
-                    try makeSnapshotMerkleProofHashData(from: blockHash)
-                }
-                return OpalBase.Transaction.MerkleProof(
-                    blockHeight: proof.blockHeight,
-                    position: proof.position,
-                    branch: branch,
-                    blockHash: blockHash
-                )
-            }
+            let proof = try transaction.merkleProof.map(makeRestoredMerkleProof)
             if transaction.verificationStatus == .verified {
                 guard let proof,
                       transaction.status == .confirmed,
@@ -320,11 +310,17 @@ extension _OpalBase.Address.Book {
             let nonFungibleTokenRemovals = try validateUniqueTokenDeltas(
                 in: transaction.nonFungibleTokenRemovals ?? .init()
             )
+            let fungibleTokenDeltas = try validateSnapshotFungibleTokenDeltas(
+                transaction.fungibleTokenDeltasByCategory ?? .init()
+            )
+            let bchLockedInTokenOutputDelta = try validateSnapshotLockedBCHDelta(
+                transaction.bchLockedInTokenOutputDelta ?? 0
+            )
             let tokenDelta = OpalBase.Transaction.History.Record.TokenDelta(
-                fungibleDeltasByCategory: transaction.fungibleTokenDeltasByCategory ?? .init(),
+                fungibleDeltasByCategory: fungibleTokenDeltas,
                 nonFungibleTokenAdditions: nonFungibleTokenAdditions,
                 nonFungibleTokenRemovals: nonFungibleTokenRemovals,
-                bchLockedInTokenOutputDelta: transaction.bchLockedInTokenOutputDelta ?? 0
+                bchLockedInTokenOutputDelta: bchLockedInTokenOutputDelta
             )
             let record = OpalBase.Transaction.History.Record(transactionHash: hash,
                                                     status: transaction.status,
@@ -371,6 +367,34 @@ extension _OpalBase.Address.Book {
         return data
     }
 
+    private func makeRestoredMerkleProof(
+        from proof: Snapshot.Transaction.MerkleProof
+    ) throws -> OpalBase.Transaction.MerkleProof {
+        let branch = try proof.branch.map { branchNode -> Data in
+            try makeSnapshotMerkleProofHashData(from: branchNode)
+        }
+        let blockHash = try proof.blockHash.map { blockHash -> Data in
+            try makeSnapshotMerkleProofHashData(from: blockHash)
+        }
+        try validateSnapshotMerkleProofPosition(proof.position, branch: branch)
+        return OpalBase.Transaction.MerkleProof(
+            blockHeight: proof.blockHeight,
+            position: proof.position,
+            branch: branch,
+            blockHash: blockHash
+        )
+    }
+
+    private func validateSnapshotMerkleProofPosition(_ position: UInt32, branch: [Data]) throws {
+        guard branch.count < UInt32.bitWidth else {
+            throw OpalBase.Address.Book.Error.invalidSnapshotVerificationState
+        }
+        let maximumPosition = UInt32(1) << branch.count
+        guard position < maximumPosition else {
+            throw OpalBase.Address.Book.Error.invalidSnapshotVerificationState
+        }
+    }
+
     private func hasHexadecimalPrefix(_ value: String) -> Bool {
         value.hasPrefix("0x") || value.hasPrefix("0X")
     }
@@ -383,6 +407,24 @@ extension _OpalBase.Address.Book {
             throw OpalBase.Address.Book.Error.invalidSnapshotDuplicateTokenDelta(tokenDelta)
         }
         return uniqueTokenDeltas
+    }
+
+    private func validateSnapshotFungibleTokenDeltas(
+        _ deltas: [OpalBase.CashTokens.CategoryID: Int64]
+    ) throws -> [OpalBase.CashTokens.CategoryID: Int64] {
+        let maximumDelta = Int64(OpalBase.CashTokens.TokenData.maximumFungibleAmount)
+        for delta in deltas.values where delta < -maximumDelta || delta > maximumDelta {
+            throw OpalBase.Address.Book.Error.tokenDeltaOverflow
+        }
+        return deltas
+    }
+
+    private func validateSnapshotLockedBCHDelta(_ delta: Int64) throws -> Int64 {
+        let maximumDelta = Int64(OpalBase.Satoshi.maximumSatoshi)
+        guard delta >= -maximumDelta, delta <= maximumDelta else {
+            throw OpalBase.Address.Book.Error.tokenDeltaOverflow
+        }
+        return delta
     }
 
     private func validateScriptHashes(
@@ -431,7 +473,7 @@ extension _OpalBase.Address.Book {
         if let highestIndex = entrySnapshots.map(\.index).max() {
             let entryCount = Int(highestIndex) + 1
             try await generateEntries(for: usage,
-                                      numberOfNewEntries: entryCount,
+                                      entryCount: entryCount,
                                       isUsed: false,
                                       shouldNotifyNewEntries: false)
         }
@@ -448,7 +490,7 @@ extension _OpalBase.Address.Book {
         let numberOfMissingUnusedEntries = gapLimit - inventory.countUnusedEntries(for: usage)
         if numberOfMissingUnusedEntries > 0 {
             try await generateEntries(for: usage,
-                                      numberOfNewEntries: numberOfMissingUnusedEntries,
+                                      entryCount: numberOfMissingUnusedEntries,
                                       isUsed: false,
                                       shouldNotifyNewEntries: false)
         }

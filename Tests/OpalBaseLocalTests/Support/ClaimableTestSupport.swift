@@ -36,7 +36,7 @@ func makeClaimableEnvelope(
     expiryBlockHeight: UInt32 = 500,
     fundingValue: UInt64 = 50_000,
     fundingOutputIndex: UInt32 = 1,
-    fundingHashByte: UInt8 = 0x44
+    fundingHashByte: UInt8? = nil
 ) throws -> (envelope: OpalBase.Claimable.Envelope, refundPrivateKey: Data) {
     let claimPrivateKey = makeClaimablePrivateKey(lastByte: 0x01)
     let refundPrivateKey = makeClaimablePrivateKey(lastByte: 0x02)
@@ -52,14 +52,37 @@ func makeClaimableEnvelope(
         ),
         expiryBlockHeight: expiryBlockHeight
     )
-    let envelope = try OpalBase.Claimable.Envelope(
+    let placeholderFundingHash = OpalBase.Transaction.Hash(
+        naturalOrder: Data(repeating: fundingHashByte ?? 0x44, count: 32)
+    )
+    var envelope = try OpalBase.Claimable.Envelope(
         contract: contract,
         claimPrivateKey: claimPrivateKey,
-        fundingTransactionHash: .init(naturalOrder: Data(repeating: fundingHashByte, count: 32)),
+        fundingTransactionHash: placeholderFundingHash,
         fundingOutputIndex: fundingOutputIndex,
         fundingValue: fundingValue
     )
+    if fundingHashByte == nil {
+        let fundingTransactionData = try makeClaimableFundingTransaction(for: envelope).encode()
+        envelope = try envelope.replacingFundingTransactionHash(
+            .init(naturalOrder: OpalCryptoAdapter.hash256(fundingTransactionData))
+        )
+    }
     return (envelope, refundPrivateKey)
+}
+
+extension OpalBase.Claimable.Envelope {
+    func replacingFundingTransactionHash(
+        _ fundingTransactionHash: OpalBase.Transaction.Hash
+    ) throws -> OpalBase.Claimable.Envelope {
+        try OpalBase.Claimable.Envelope(
+            contract: contract,
+            claimPrivateKey: claimPrivateKey,
+            fundingTransactionHash: fundingTransactionHash,
+            fundingOutputIndex: fundingOutputIndex,
+            fundingValue: fundingValue
+        )
+    }
 }
 
 func makeClaimableFundingIdentifier(

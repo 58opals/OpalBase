@@ -52,7 +52,8 @@ extension _OpalBase.Network.Fulcrum {
                         message: "Merkle proof block height mismatch: requested=\(blockHeight), response=\(result.blockHeight)"
                     )
                 }
-                try Self.validateMerkleProof(position: result.position, branch: result.merkle)
+                try Self.validateMerkleBranch(result.merkle)
+                try Self.validateMerklePositionBounds(result.position, branch: result.merkle)
                 
                 return OpalBase.Network.TransactionMerkleProof(
                     blockHeight: result.blockHeight,
@@ -76,7 +77,7 @@ extension _OpalBase.Network.Fulcrum {
                 )
                 try Self.validateMerkleBranch(result.merkle)
                 if shouldIncludeMerkleProof {
-                    try Self.validateMerklePosition(position, branch: result.merkle)
+                    try Self.validateMerklePositionBounds(position, branch: result.merkle)
                 }
                 _ = try OpalBase.Network.decodeTransactionHash(
                     from: result.transactionHash,
@@ -94,11 +95,6 @@ extension _OpalBase.Network.Fulcrum {
 }
 
 private extension _OpalBase.Network.Fulcrum.TransactionProofReader {
-    static func validateMerkleProof(position: UInt, branch: [String]) throws {
-        try validateMerkleBranch(branch)
-        try validateMerklePosition(position, branch: branch)
-    }
-
     static func validateMerkleBranch(_ branch: [String]) throws {
         for (index, hashString) in branch.enumerated() {
             guard !hashString.hasPrefix("0x"), !hashString.hasPrefix("0X") else {
@@ -125,8 +121,14 @@ private extension _OpalBase.Network.Fulcrum.TransactionProofReader {
         }
     }
 
-    static func validateMerklePosition(_ position: UInt, branch: [String]) throws {
-        guard branch.count < UInt.bitWidth else { return }
+    static func validateMerklePositionBounds(_ position: UInt, branch: [String]) throws {
+        guard branch.count < UInt.bitWidth else {
+            throw SwiftFulcrum.Client.Error.client(
+                .protocolMismatch(
+                    "Merkle proof branch length is too large: branchLength=\(branch.count)"
+                )
+            )
+        }
         let maximumPositionCount = UInt(1) << branch.count
         guard position < maximumPositionCount else {
             throw SwiftFulcrum.Client.Error.client(

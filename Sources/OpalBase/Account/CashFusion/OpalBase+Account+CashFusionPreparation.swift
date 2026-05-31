@@ -13,14 +13,14 @@ extension _OpalBase.Account {
         try await prepareCashFusionSession(
             configuration: configuration,
             request: request,
-            sessionFactory: Self.defaultCashFusionWrappedSessionFactory
+            sessionBuilder: Self.defaultCashFusionWrappedSessionBuilder
         )
     }
 
     func prepareCashFusionSession(
         configuration: OpalBase.Account.CashFusionSession.Configuration,
         request: OpalBase.Account.CashFusionRequest,
-        sessionFactory: CashFusionWrappedSessionFactory
+        sessionBuilder: CashFusionWrappedSessionBuilder
     ) async throws -> OpalBase.Account.CashFusionSession {
         try await OpalDiagnostics.withTraceID {
             let traceID = OpalDiagnostics.currentTraceID ?? OpalDiagnostics.TraceID()
@@ -39,7 +39,7 @@ extension _OpalBase.Account {
                 )
                 let observerSink = CashFusionObserverSink()
                 let reconnectPolicy = OpalFusion.Client.ReconnectPolicy.walletDefault
-                let wrappedSession = await sessionFactory(
+                let wrappedSession = await sessionBuilder(
                     configuration.makeClientConfiguration(),
                     configuration.genesisHash,
                     configuration.joinPools.makeJoinPools(),

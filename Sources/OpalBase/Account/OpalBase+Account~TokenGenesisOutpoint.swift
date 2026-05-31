@@ -33,28 +33,29 @@ extension _OpalBase.Account {
             throw Error.paymentExceedsMaximumAmount
         }
         
-        let estimatedFee: OpalBase.Satoshi
+        let genesisOutpointValue: OpalBase.Satoshi
         do {
-            estimatedFee = try OpalBase.Satoshi(estimatedFeeValue)
+            genesisOutpointValue = try inputValue - OpalBase.Satoshi(estimatedFeeValue)
         } catch let error as OpalBase.Satoshi.Error {
             switch error {
+            case .negativeResult:
+                throw Error.tokenGenesisInvalidGenesisInput
             case .exceedsMaximumAmount:
                 throw Error.paymentExceedsMaximumAmount
             default:
                 throw Error.transactionBuildFailed(error)
             }
         }
-        
-        let outputValue: OpalBase.Satoshi
+        let dustThreshold: UInt64
         do {
-            outputValue = try inputValue - estimatedFee
-        } catch let error as OpalBase.Satoshi.Error {
-            switch error {
-            case .negativeResult:
-                throw Error.tokenGenesisInvalidGenesisInput
-            default:
-                throw Error.transactionBuildFailed(error)
-            }
+            dustThreshold = try outputTemplate.calculateDustThreshold(
+                feeRate: OpalBase.Transaction.minimumRelayFeeRate
+            )
+        } catch {
+            throw Error.transactionBuildFailed(error)
+        }
+        guard genesisOutpointValue.uint64 >= dustThreshold else {
+            throw Error.tokenGenesisInvalidGenesisInput
         }
         
         let (reservation, reservedEntry, privateKeys) = try await reserveSpendAndDeriveKeys(
@@ -65,17 +66,17 @@ extension _OpalBase.Account {
         )
         let reservationHandle = OpalBase.Account.SpendReservation(addressBook: addressBook, reservation: reservation)
         let payment = Payment(recipients: [
-            Payment.Recipient(address: reservedEntry.address, amount: outputValue)
+            Payment.Recipient(address: reservedEntry.address, amount: genesisOutpointValue)
         ])
         
-        let recipientOutput = OpalBase.Transaction.Output(value: outputValue.uint64, address: reservedEntry.address)
-        let changeOutput = OpalBase.Transaction.Output(value: estimatedFee.uint64, address: reservedEntry.address)
+        let recipientOutput = OpalBase.Transaction.Output(value: genesisOutpointValue.uint64, address: reservedEntry.address)
+        let changeOutput = OpalBase.Transaction.Output(value: estimatedFeeValue, address: reservedEntry.address)
         
         return SpendPlan(payment: payment,
                          feeRate: feeRate,
                          inputs: [selectedOutput],
                          totalSelectedAmount: inputValue,
-                         targetAmount: outputValue,
+                         targetAmount: genesisOutpointValue,
                          shouldAllowDustDonation: false,
                          reservationHandle: reservationHandle,
                          changeOutput: changeOutput,

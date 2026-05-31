@@ -38,6 +38,8 @@ extension _OpalBase.Address {
              gapLimit: Int = 20,
              cacheValidityDuration: TimeInterval = 10 * 60,
              spendReservationExpirationInterval: TimeInterval = 10 * 60) async throws {
+            guard gapLimit > 0 else { throw Error.indexOutOfBounds }
+
             self.rootExtendedPrivateKey = rootExtendedPrivateKey
             
             if let extendedPrivateKey = rootExtendedPrivateKey {

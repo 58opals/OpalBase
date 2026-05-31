@@ -23,21 +23,21 @@ extension _OpalBase.Account {
         beforeReservation: (@Sendable (OpalBase.Address.Book.Entry) async throws -> Void)?
     ) async throws -> TokenMintPlan {
         let spendableOutputs = await addressBook.sortSpendableUTXOs(by: { $0.value > $1.value })
+        func isMintingAuthorityInput(_ output: OpalBase.Transaction.Output.Unspent) -> Bool {
+            guard let tokenData = output.tokenData else { return false }
+            return tokenData.category == mint.category
+                && tokenData.nft?.capability == .minting
+        }
+
         let authorityInput: OpalBase.Transaction.Output.Unspent
         if let preferredMintingInput {
-            guard spendableOutputs.contains(preferredMintingInput),
-                  let tokenData = preferredMintingInput.tokenData,
-                  tokenData.category == mint.category,
-                  tokenData.nft?.capability == .minting else {
+            guard let spendableMintingInput = spendableOutputs.first(where: { $0 == preferredMintingInput }),
+                  isMintingAuthorityInput(spendableMintingInput) else {
                 throw Error.tokenMintNoEligibleMintingInput
             }
-            authorityInput = preferredMintingInput
+            authorityInput = spendableMintingInput
         } else {
-            guard let selectedAuthorityInput = spendableOutputs.first(where: { output in
-                guard let tokenData = output.tokenData else { return false }
-                return tokenData.category == mint.category
-                && tokenData.nft?.capability == .minting
-            }) else {
+            guard let selectedAuthorityInput = spendableOutputs.first(where: isMintingAuthorityInput) else {
                 throw Error.tokenMintNoEligibleMintingInput
             }
             authorityInput = selectedAuthorityInput
@@ -106,8 +106,7 @@ extension _OpalBase.Account {
         }
         let preservedFungible = totalFungibleIn - requiredFungibleOut
         
-        guard let authorityTokenData = authorityInput.tokenData,
-              let authorityNonFungibleToken = authorityTokenData.nft else {
+        guard let authorityNonFungibleToken = authorityInput.tokenData?.nft else {
             throw Error.tokenMintNoEligibleMintingInput
         }
         

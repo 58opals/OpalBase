@@ -494,47 +494,19 @@ struct ClaimableStatusResolverValidator {
 
     @Test("reports invalid funding state when referenced output mismatches contract")
     func reportsInvalidFundingStateWhenReferencedOutputMismatchesContract() async throws {
-        let (envelope, _) = try makeClaimableEnvelope(network: .chipnet)
+        let (draftEnvelope, _) = try makeClaimableEnvelope(network: .chipnet)
         let invalidFundingOutput = OpalBase.Transaction.Output(
-            value: envelope.fundingValue,
+            value: draftEnvelope.fundingValue,
             lockingScript: makeClaimableDestinationLockingScript(fillByte: 0x45)
         )
         let fundingTransaction = makeClaimableFundingTransaction(
-            for: envelope,
+            for: draftEnvelope,
             output: invalidFundingOutput
         )
-        let resolver = OpalBase.Claimable.StatusResolver(
-            network: .chipnet,
-            scriptHashReader: makeClaimableScriptHashReader(
-                history: [
-                    makeClaimableHistoryEntry(
-                        transactionHash: envelope.fundingTransactionHash
-                    )
-                ],
-                unspentOutputs: []
-            ),
-            transactionReader: makeClaimableTransactionReader(
-                rawTransactionsByHash: [
-                    envelope.fundingTransactionHash: try fundingTransaction.encode()
-                ]
-            )
+        let rawFundingTransaction = try fundingTransaction.encode()
+        let envelope = try draftEnvelope.replacingFundingTransactionHash(
+            .init(naturalOrder: OpalCryptoAdapter.hash256(rawFundingTransaction))
         )
-
-        let status = try await resolver.resolve(
-            for: envelope,
-            includeUnconfirmed: true,
-            currentBlockHeight: 700
-        )
-
-        #expect(status.fundingState == .invalid)
-    }
-
-    @Test("reports invalid funding state when raw funding transaction has trailing bytes")
-    func reportsInvalidFundingStateWhenRawFundingTransactionHasTrailingBytes() async throws {
-        let (envelope, _) = try makeClaimableEnvelope(network: .chipnet)
-        let fundingTransaction = makeClaimableFundingTransaction(for: envelope)
-        var rawFundingTransaction = try fundingTransaction.encode()
-        rawFundingTransaction.append(0x00)
         let resolver = OpalBase.Claimable.StatusResolver(
             network: .chipnet,
             scriptHashReader: makeClaimableScriptHashReader(
@@ -559,6 +531,79 @@ struct ClaimableStatusResolverValidator {
         )
 
         #expect(status.fundingState == .invalid)
+    }
+
+    @Test("reports invalid funding state when raw funding transaction has trailing bytes")
+    func reportsInvalidFundingStateWhenRawFundingTransactionHasTrailingBytes() async throws {
+        let (draftEnvelope, _) = try makeClaimableEnvelope(network: .chipnet)
+        let fundingTransaction = makeClaimableFundingTransaction(for: draftEnvelope)
+        var rawFundingTransaction = try fundingTransaction.encode()
+        rawFundingTransaction.append(0x00)
+        let envelope = try draftEnvelope.replacingFundingTransactionHash(
+            .init(naturalOrder: OpalCryptoAdapter.hash256(rawFundingTransaction))
+        )
+        let resolver = OpalBase.Claimable.StatusResolver(
+            network: .chipnet,
+            scriptHashReader: makeClaimableScriptHashReader(
+                history: [
+                    makeClaimableHistoryEntry(
+                        transactionHash: envelope.fundingTransactionHash
+                    )
+                ],
+                unspentOutputs: []
+            ),
+            transactionReader: makeClaimableTransactionReader(
+                rawTransactionsByHash: [
+                    envelope.fundingTransactionHash: rawFundingTransaction
+                ]
+            )
+        )
+
+        let status = try await resolver.resolve(
+            for: envelope,
+            includeUnconfirmed: true,
+            currentBlockHeight: 700
+        )
+
+        #expect(status.fundingState == .invalid)
+    }
+
+    @Test("rejects raw funding transactions with mismatched payload hashes")
+    func rejectsRawFundingTransactionsWithMismatchedPayloadHashes() async throws {
+        let (envelope, _) = try makeClaimableEnvelope(network: .chipnet)
+        var mismatchedRawFundingTransaction = try makeClaimableFundingTransaction(for: envelope).encode()
+        mismatchedRawFundingTransaction[mismatchedRawFundingTransaction.count - 1] ^= 0x01
+        let resolver = OpalBase.Claimable.StatusResolver(
+            network: .chipnet,
+            scriptHashReader: makeClaimableScriptHashReader(
+                history: [
+                    makeClaimableHistoryEntry(
+                        transactionHash: envelope.fundingTransactionHash
+                    )
+                ],
+                unspentOutputs: []
+            ),
+            transactionReader: makeClaimableTransactionReader(
+                rawTransactionsByHash: [
+                    envelope.fundingTransactionHash: mismatchedRawFundingTransaction
+                ]
+            )
+        )
+
+        let failure = try await Self.captureNetworkError {
+            _ = try await resolver.resolve(
+                for: envelope,
+                includeUnconfirmed: true,
+                currentBlockHeight: 700
+            )
+        }
+
+        #expect(failure.reason == .protocolViolation)
+        #expect(failure.message == "Transaction payload hash mismatch")
+        #expect(failure.metadata["expected"] == envelope.fundingTransactionHash.reverseOrder.hexadecimalString)
+        #expect(failure.metadata["actual"] == OpalBase.Transaction.Hash(
+            naturalOrder: OpalCryptoAdapter.hash256(mismatchedRawFundingTransaction)
+        ).reverseOrder.hexadecimalString)
     }
 
     @Test("reports claim spend path")
@@ -1062,6 +1107,26 @@ struct ClaimableStatusResolverValidator {
                 includeUnconfirmed: true,
                 currentBlockHeight: 400
             )
+        }
+    }
+
+    private enum NetworkErrorCaptureFailure: Swift.Error {
+        case didNotThrow
+        case unexpected(Swift.Error)
+    }
+
+    private static func captureNetworkError(
+        _ work: () async throws -> Void
+    ) async throws -> OpalBase.Network.Error {
+        do {
+            try await work()
+            throw NetworkErrorCaptureFailure.didNotThrow
+        } catch let failure as OpalBase.Network.Error {
+            return failure
+        } catch let failure as NetworkErrorCaptureFailure {
+            throw failure
+        } catch {
+            throw NetworkErrorCaptureFailure.unexpected(error)
         }
     }
 }

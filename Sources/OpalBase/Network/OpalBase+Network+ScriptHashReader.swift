@@ -4,15 +4,15 @@ import Foundation
 
 extension _OpalBase.Network {
     public struct ScriptHashReader: Sendable {
-        private let fetchHistoryHandler: @Sendable (String, Bool) async throws -> [OpalBase.Network.TransactionHistoryEntry]
-        private let fetchUnspentHandler: @Sendable (String, OpalBase.Network.TokenFilter) async throws -> [OpalBase.Transaction.Output.Unspent]
+        private let performFetchHistory: @Sendable (String, Bool) async throws -> [OpalBase.Network.TransactionHistoryEntry]
+        private let performFetchUnspent: @Sendable (String, OpalBase.Network.TokenFilter) async throws -> [OpalBase.Transaction.Output.Unspent]
 
         public init(
             fetchHistory: @escaping @Sendable (String, Bool) async throws -> [OpalBase.Network.TransactionHistoryEntry],
             fetchUnspent: @escaping @Sendable (String, OpalBase.Network.TokenFilter) async throws -> [OpalBase.Transaction.Output.Unspent]
         ) {
-            self.fetchHistoryHandler = fetchHistory
-            self.fetchUnspentHandler = fetchUnspent
+            self.performFetchHistory = fetchHistory
+            self.performFetchUnspent = fetchUnspent
         }
 
         public init(_ reader: OpalBase.Network.Fulcrum.ScriptHashReader) {
@@ -33,14 +33,14 @@ extension _OpalBase.Network {
             forScriptHash scriptHashHex: String,
             includeUnconfirmed: Bool
         ) async throws -> [OpalBase.Network.TransactionHistoryEntry] {
-            try await fetchHistoryHandler(scriptHashHex, includeUnconfirmed)
+            try await performFetchHistory(scriptHashHex, includeUnconfirmed)
         }
 
         public func fetchUnspent(
             forScriptHash scriptHashHex: String,
             tokenFilter: OpalBase.Network.TokenFilter
         ) async throws -> [OpalBase.Transaction.Output.Unspent] {
-            try await fetchUnspentHandler(scriptHashHex, tokenFilter)
+            try await performFetchUnspent(scriptHashHex, tokenFilter)
         }
     }
 }

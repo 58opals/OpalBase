@@ -11,7 +11,7 @@ extension _OpalBase.Account {
         func snapshot() async -> OpalFusion.Client.Session.Snapshot
     }
 
-    typealias CashFusionWrappedSessionFactory = @Sendable (
+    typealias CashFusionWrappedSessionBuilder = @Sendable (
         OpalFusion.Client.Configuration,
         [UInt8]?,
         OpalFusion.ProtocolModel.JoinPools,
@@ -22,7 +22,7 @@ extension _OpalBase.Account {
         OpalFusion.Client.ReconnectPolicy
     ) async -> any CashFusionWrappedSession
 
-    static let defaultCashFusionWrappedSessionFactory: CashFusionWrappedSessionFactory = {
+    static let defaultCashFusionWrappedSessionBuilder: CashFusionWrappedSessionBuilder = {
         configuration,
         genesisHash,
         joinPools,

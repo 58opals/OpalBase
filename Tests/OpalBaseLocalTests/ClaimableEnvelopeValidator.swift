@@ -93,6 +93,20 @@ struct ClaimableEnvelopeValidator {
         }
     }
 
+    @Test(
+        "rejects invalid funding values",
+        arguments: [UInt64(0), OpalBase.Satoshi.maximumSatoshi + 1]
+    )
+    func rejectsInvalidFundingValues(_ invalidFundingValue: UInt64) throws {
+        let (envelope, _) = try makeClaimableEnvelope()
+        var encodedEnvelope = envelope.encode()
+        encodedEnvelope.replaceSubrange(94 ..< 102, with: invalidFundingValue.littleEndianData)
+
+        #expect(throws: OpalBase.Claimable.Error.invalidFundingOutput) {
+            try OpalBase.Claimable.Envelope.decode(from: encodedEnvelope)
+        }
+    }
+
     @Test("evaluates local expiry policy")
     func evaluatesLocalExpiryPolicy() throws {
         let (envelope, _) = try makeClaimableEnvelope(expiryBlockHeight: 500)

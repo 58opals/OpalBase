@@ -4,12 +4,12 @@ import Foundation
 
 extension _OpalBase.Network {
     public struct TransactionReader: Sendable {
-        private let fetchRawTransactionHandler: @Sendable (OpalBase.Transaction.Hash) async throws -> Data
+        private let performFetchRawTransaction: @Sendable (OpalBase.Transaction.Hash) async throws -> Data
 
         public init(
             fetchRawTransaction: @escaping @Sendable (OpalBase.Transaction.Hash) async throws -> Data
         ) {
-            self.fetchRawTransactionHandler = fetchRawTransaction
+            self.performFetchRawTransaction = fetchRawTransaction
         }
 
         public init(_ reader: OpalBase.Network.Fulcrum.TransactionReader) {
@@ -21,7 +21,7 @@ extension _OpalBase.Network {
         }
 
         public func fetchRawTransaction(for transactionHash: OpalBase.Transaction.Hash) async throws -> Data {
-            try await fetchRawTransactionHandler(transactionHash)
+            try await performFetchRawTransaction(transactionHash)
         }
     }
 }

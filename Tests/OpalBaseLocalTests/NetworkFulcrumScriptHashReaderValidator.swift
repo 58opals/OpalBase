@@ -39,15 +39,44 @@ struct NetworkFulcrumScriptHashReaderValidator {
         let failure = try Self.captureNetworkError {
             _ = try OpalBase.Network.Fulcrum.ScriptHashReader.makeUnspentOutput(
                 transactionHash: transactionHash,
-                transactionIdentifier: transactionHash.reverseOrder.hexadecimalString,
                 transactionPosition: 0,
                 rawTransactionData: rawTransactionData,
-                scriptHashHex: requestedScriptHash
+                scriptHashHexadecimal: requestedScriptHash
             )
         }
 
         #expect(failure.reason == .protocolViolation)
         #expect(failure.message == "Unspent transaction output script hash mismatch")
+    }
+
+    @Test("unspent outputs require matching transaction payload hashes")
+    func unspentOutputRequiresMatchingTransactionPayloadHash() throws {
+        let input = OpalBase.Transaction.Input(
+            previousTransactionHash: OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0x21, count: 32)),
+            previousTransactionOutputIndex: 0,
+            unlockingScript: Data()
+        )
+        let output = OpalBase.Transaction.Output(value: 546, lockingScript: Data([0x51]))
+        let transaction = OpalBase.Transaction(version: 2, inputs: [input], outputs: [output], lockTime: 0)
+        let rawTransactionData = try transaction.encode()
+        let mismatchedHash = OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0x22, count: 32))
+        let scriptHash = OpalCryptoAdapter.sha256(output.lockingScript).reversedData.hexadecimalString
+
+        let failure = try Self.captureNetworkError {
+            _ = try OpalBase.Network.Fulcrum.ScriptHashReader.makeUnspentOutput(
+                transactionHash: mismatchedHash,
+                transactionPosition: 0,
+                rawTransactionData: rawTransactionData,
+                scriptHashHexadecimal: scriptHash
+            )
+        }
+
+        #expect(failure.reason == .protocolViolation)
+        #expect(failure.message == "Script hash unspent transaction payload hash mismatch")
+        #expect(failure.metadata["expected"] == mismatchedHash.reverseOrder.hexadecimalString)
+        #expect(failure.metadata["actual"] == OpalBase.Transaction.Hash(
+            naturalOrder: OpalCryptoAdapter.hash256(rawTransactionData)
+        ).reverseOrder.hexadecimalString)
     }
     
     enum NetworkErrorCaptureFailure: Swift.Error {

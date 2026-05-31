@@ -21,24 +21,23 @@ extension _OpalBase.Network {
         
         public init?(string: String) {
             let versionComponents = string.split(separator: ".", omittingEmptySubsequences: false)
-            guard versionComponents.allSatisfy({ component in
-                !component.isEmpty
-                && component.unicodeScalars.allSatisfy { scalar in
-                    scalar.value >= 48 && scalar.value <= 57
-                }
-            }) else { return nil }
+            let parsedComponents = versionComponents.compactMap(Self.parseCanonicalDecimalComponent)
+            guard parsedComponents.count == versionComponents.count else { return nil }
             switch versionComponents.count {
             case 2:
-                guard let major = Int(versionComponents[0]),
-                      let minor = Int(versionComponents[1])
-                else { return nil }
-                self.init(major: major, minor: minor, patch: 0, isPatchComponentIncluded: false)
+                self.init(
+                    major: parsedComponents[0],
+                    minor: parsedComponents[1],
+                    patch: 0,
+                    isPatchComponentIncluded: false
+                )
             case 3:
-                guard let major = Int(versionComponents[0]),
-                      let minor = Int(versionComponents[1]),
-                      let patch = Int(versionComponents[2])
-                else { return nil }
-                self.init(major: major, minor: minor, patch: patch, isPatchComponentIncluded: true)
+                self.init(
+                    major: parsedComponents[0],
+                    minor: parsedComponents[1],
+                    patch: parsedComponents[2],
+                    isPatchComponentIncluded: true
+                )
             default:
                 return nil
             }
@@ -69,6 +68,15 @@ extension _OpalBase.Network {
             }
             
             return lhs.patch < rhs.patch
+        }
+
+        private static func parseCanonicalDecimalComponent(_ component: Substring) -> Int? {
+            guard !component.isEmpty else { return nil }
+            if component.count > 1, component.first == "0" { return nil }
+            guard component.unicodeScalars.allSatisfy({ scalar in
+                scalar.value >= 48 && scalar.value <= 57
+            }) else { return nil }
+            return Int(component)
         }
     }
 }

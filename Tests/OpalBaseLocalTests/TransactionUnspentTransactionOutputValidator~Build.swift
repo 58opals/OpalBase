@@ -162,7 +162,7 @@ extension TransactionUnspentTransactionOutputValidator {
             feePerByte: 0
         )
         
-        #expect(transaction.outputs.count == 3)
+        try #require(transaction.outputs.count == 3)
         #expect(transaction.outputs.map(\.value) == [1_000, 3_000, 6_000])
         #expect(transaction.outputs[1].lockingScript == changeScript)
     }

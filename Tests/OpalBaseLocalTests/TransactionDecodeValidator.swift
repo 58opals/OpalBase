@@ -7,6 +7,28 @@ import OpalBaseTestSupport
 
 @Suite("OpalBase.Transaction decoding", .tags(.unit))
 struct TransactionDecodeValidator {
+    @Test("hash decoding rejects invalid byte counts")
+    func hashDecodingRejectsInvalidByteCounts() {
+        let malformedHash = Data(repeating: 0x01, count: OpalBase.Transaction.Hash.expectedByteCount - 1)
+            .base64EncodedString()
+        let payload = Data(#"{"originalData":"\#(malformedHash)"}"#.utf8)
+
+        #expect(throws: DecodingError.self) {
+            _ = try JSONDecoder().decode(OpalBase.Transaction.Hash.self, from: payload)
+        }
+    }
+
+    @Test("hash encoding rejects invalid byte counts")
+    func hashEncodingRejectsInvalidByteCounts() {
+        let malformedHash = OpalBase.Transaction.Hash(
+            naturalOrder: Data(repeating: 0x01, count: OpalBase.Transaction.Hash.expectedByteCount - 1)
+        )
+
+        #expect(throws: EncodingError.self) {
+            _ = try JSONEncoder().encode(malformedHash)
+        }
+    }
+
     @Test("encode rejects invalid previous transaction hash length")
     func transactionEncodeRejectsInvalidPreviousTransactionHashLength() throws {
         let invalidHash = OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0x01, count: 31))
@@ -70,6 +92,32 @@ struct TransactionDecodeValidator {
             version: 2,
             inputs: [input],
             outputs: [output],
+            lockTime: 0
+        )
+
+        #expect(throws: OpalBase.Satoshi.Error.exceedsMaximumAmount) {
+            try transaction.encode()
+        }
+    }
+
+    @Test("encode rejects output totals above maximum supply")
+    func rejectOutputValueTotalsAboveMaximumSupplyDuringTransactionEncode() {
+        let previousHash = OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0x01, count: 32))
+        let input = OpalBase.Transaction.Input(
+            previousTransactionHash: previousHash,
+            previousTransactionOutputIndex: 0,
+            unlockingScript: Data()
+        )
+        let transaction = OpalBase.Transaction(
+            version: 2,
+            inputs: [input],
+            outputs: [
+                OpalBase.Transaction.Output(
+                    value: OpalBase.Satoshi.maximumSatoshi,
+                    lockingScript: Data([0x51])
+                ),
+                OpalBase.Transaction.Output(value: 1, lockingScript: Data([0x51]))
+            ],
             lockTime: 0
         )
 
@@ -211,6 +259,18 @@ struct TransactionDecodeValidator {
         }
     }
 
+    @Test("decode rejects output totals above maximum supply")
+    func rejectOutputValueTotalsAboveMaximumSupplyDuringTransactionDecode() {
+        let malformed = Self.makeTransactionData(outputValues: [
+            OpalBase.Satoshi.maximumSatoshi,
+            1
+        ])
+
+        #expect(throws: OpalBase.Satoshi.Error.exceedsMaximumAmount) {
+            _ = try OpalBase.Transaction.decode(from: malformed)
+        }
+    }
+
     @Test(
         "decode accepts valid output value boundaries",
         arguments: [UInt64(0), UInt64(546), OpalBase.Satoshi.maximumSatoshi]
@@ -224,15 +284,35 @@ struct TransactionDecodeValidator {
         #expect(bytesRead == encoded.count)
         #expect(output.value == outputValue)
     }
+
+    @Test("encode and decode accept output totals at maximum supply")
+    func acceptOutputValueTotalsAtMaximumSupply() throws {
+        let previousHash = OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0x01, count: 32))
+        let input = OpalBase.Transaction.Input(
+            previousTransactionHash: previousHash,
+            previousTransactionOutputIndex: 0,
+            unlockingScript: Data()
+        )
+        let outputValues = [
+            OpalBase.Satoshi.maximumSatoshi - 1,
+            UInt64(1)
+        ]
+        let transaction = OpalBase.Transaction(
+            version: 2,
+            inputs: [input],
+            outputs: outputValues.map { OpalBase.Transaction.Output(value: $0, lockingScript: Data([0x51])) },
+            lockTime: 0
+        )
+
+        let encoded = try transaction.encode()
+        let (decoded, bytesRead) = try OpalBase.Transaction.decode(from: encoded)
+
+        #expect(bytesRead == encoded.count)
+        #expect(decoded.outputs.map(\.value) == outputValues)
+    }
     
     @Test("block decoding returns relative byte count")
     func blockDecodeBytesReadMatchesSliceLength() throws {
-        let header = OpalBase.Block.Header(version: 2,
-                                  previousBlockHash: Data(repeating: 0xaa, count: 32),
-                                  merkleRoot: Data(repeating: 0xbb, count: 32),
-                                  time: 1,
-                                  bits: 2,
-                                  nonce: 3)
         let previousHash = OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 2, count: 32))
         let input = OpalBase.Transaction.Input(previousTransactionHash: previousHash,
                                       previousTransactionOutputIndex: 0,
@@ -243,6 +323,13 @@ struct TransactionDecodeValidator {
                                       inputs: [input],
                                       outputs: [output],
                                       lockTime: 0)
+        let merkleRoot = try OpalBase.Block.computeMerkleRoot(for: [transaction])
+        let header = OpalBase.Block.Header(version: 2,
+                                  previousBlockHash: Data(repeating: 0xaa, count: 32),
+                                  merkleRoot: merkleRoot,
+                                  time: 1,
+                                  bits: 2,
+                                  nonce: 3)
         let block = OpalBase.Block(header: header, transactions: [transaction])
         
         let encoded = try block.encode()
@@ -308,10 +395,75 @@ struct TransactionDecodeValidator {
             try OpalBase.Block(header: shortMerkleRootHeader, transactions: [transaction]).encode()
         }
     }
+
+    @Test("block encode and decode reject merkle root mismatches")
+    func blockEncodeAndDecodeRejectMerkleRootMismatches() throws {
+        let previousHash = OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 2, count: 32))
+        let input = OpalBase.Transaction.Input(previousTransactionHash: previousHash,
+                                      previousTransactionOutputIndex: 0,
+                                      unlockingScript: Data([0x51]))
+        let output = OpalBase.Transaction.Output(value: 600,
+                                        lockingScript: Data([0x51]))
+        let transaction = OpalBase.Transaction(version: 1,
+                                      inputs: [input],
+                                      outputs: [output],
+                                      lockTime: 0)
+        let computedMerkleRoot = try OpalBase.Block.computeMerkleRoot(for: [transaction])
+        let mismatchedMerkleRoot = Data(repeating: 0xbb, count: 32)
+        let header = OpalBase.Block.Header(version: 2,
+                                  previousBlockHash: Data(repeating: 0xaa, count: 32),
+                                  merkleRoot: mismatchedMerkleRoot,
+                                  time: 1,
+                                  bits: 2,
+                                  nonce: 3)
+
+        #expect(throws: OpalBase.Block.Error.merkleRootMismatch(
+            computed: computedMerkleRoot,
+            header: mismatchedMerkleRoot
+        )) {
+            try OpalBase.Block(header: header, transactions: [transaction]).encode()
+        }
+
+        let encodedBlock = try header.encode() + Data([0x01]) + transaction.encode()
+        #expect(throws: OpalBase.Block.Error.merkleRootMismatch(
+            computed: computedMerkleRoot,
+            header: mismatchedMerkleRoot
+        )) {
+            _ = try OpalBase.Block.decode(from: encodedBlock)
+        }
+    }
+
+    @Test("block merkle root duplicates the last hash for odd transaction counts")
+    func blockMerkleRootDuplicatesLastHashForOddTransactionCounts() throws {
+        let transactions = (0..<3).map { index in
+            let previousHash = OpalBase.Transaction.Hash(naturalOrder: Data(repeating: UInt8(index + 1), count: 32))
+            let input = OpalBase.Transaction.Input(previousTransactionHash: previousHash,
+                                          previousTransactionOutputIndex: 0,
+                                          unlockingScript: Data([0x51]))
+            let output = OpalBase.Transaction.Output(value: UInt64(600 + index),
+                                            lockingScript: Data([0x51]))
+            return OpalBase.Transaction(version: 1,
+                                  inputs: [input],
+                                  outputs: [output],
+                                  lockTime: 0)
+        }
+        let transactionHashes = try transactions.map { transaction in
+            OpalCryptoAdapter.hash256(try transaction.encode())
+        }
+        let leftBranch = OpalCryptoAdapter.hash256(transactionHashes[0] + transactionHashes[1])
+        let rightBranch = OpalCryptoAdapter.hash256(transactionHashes[2] + transactionHashes[2])
+        let expectedMerkleRoot = OpalCryptoAdapter.hash256(leftBranch + rightBranch)
+
+        #expect(try OpalBase.Block.computeMerkleRoot(for: transactions) == expectedMerkleRoot)
+    }
 }
 
 private extension TransactionDecodeValidator {
     static func makeSingleOutputTransactionData(outputValue: UInt64) -> Data {
+        makeTransactionData(outputValues: [outputValue])
+    }
+
+    static func makeTransactionData(outputValues: [UInt64]) -> Data {
         var encoded = Data()
         encoded.append(contentsOf: [0x01, 0x00, 0x00, 0x00]) // version
         encoded.append(0x01) // input count
@@ -319,9 +471,11 @@ private extension TransactionDecodeValidator {
         encoded.append(contentsOf: [0x00, 0x00, 0x00, 0x00]) // output index
         encoded.append(0x00) // unlocking script length
         encoded.append(contentsOf: [0xff, 0xff, 0xff, 0xff]) // sequence
-        encoded.append(0x01) // output count
-        encoded.append(outputValue.littleEndianData)
-        encoded.append(0x00) // locking bytecode length
+        encoded.append(UInt8(outputValues.count)) // output count
+        for outputValue in outputValues {
+            encoded.append(outputValue.littleEndianData)
+            encoded.append(0x00) // locking bytecode length
+        }
         encoded.append(contentsOf: [0x00, 0x00, 0x00, 0x00]) // lock time
         return encoded
     }

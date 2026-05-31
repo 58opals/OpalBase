@@ -264,6 +264,61 @@ struct NetworkFulcrumTransactionReaderValidator {
         #expect(await client.readRawFetchCount() == 1)
     }
 
+    @Test("falls back to raw transaction fetch when verbose confirmations omit the block hash")
+    func fetchDetailedTransactionFallsBackToRawAfterConfirmedVerboseResponseWithoutBlockHash() async throws {
+        let fixture = try TransactionFixture.make()
+        let verboseResponse = try TransactionFixture.makeVerboseResponse(
+            transactionHash: fixture.transactionHash.reverseOrder.hexadecimalString,
+            rawTransactionHexadecimal: fixture.rawTransactionHexadecimal,
+            blockHashHexadecimal: nil,
+            blockTime: fixture.blockTime,
+            confirmations: fixture.confirmations,
+            transactionTime: fixture.transactionTime,
+            size: fixture.rawTransactionData.count
+        )
+        let client = TransactionReaderClientTestActor(
+            rawTransactionHex: fixture.rawTransactionHexadecimal,
+            verboseTransaction: verboseResponse
+        )
+        let reader = OpalBase.Network.Fulcrum.TransactionReader(client: client)
+
+        let detail = try await reader.fetchDetailedTransaction(for: fixture.transactionHash)
+
+        #expect(detail.hash == fixture.transactionHash)
+        #expect(detail.rawTransactionData == fixture.rawTransactionData)
+        #expect(detail.confirmations == nil)
+        #expect(detail.blockHash == nil)
+        #expect(await client.readVerboseFetchCount() == 1)
+        #expect(await client.readRawFetchCount() == 1)
+    }
+
+    @Test("preserves zero verbose confirmations without a block hash")
+    func fetchDetailedTransactionPreservesUnconfirmedVerboseResponseWithoutBlockHash() async throws {
+        let fixture = try TransactionFixture.make()
+        let verboseResponse = try TransactionFixture.makeVerboseResponse(
+            transactionHash: fixture.transactionHash.reverseOrder.hexadecimalString,
+            rawTransactionHexadecimal: fixture.rawTransactionHexadecimal,
+            blockHashHexadecimal: nil,
+            blockTime: nil,
+            confirmations: 0,
+            transactionTime: nil,
+            size: fixture.rawTransactionData.count
+        )
+        let client = TransactionReaderClientTestActor(
+            rawTransactionHex: fixture.rawTransactionHexadecimal,
+            verboseTransaction: verboseResponse
+        )
+        let reader = OpalBase.Network.Fulcrum.TransactionReader(client: client)
+
+        let detail = try await reader.fetchDetailedTransaction(for: fixture.transactionHash)
+
+        #expect(detail.hash == fixture.transactionHash)
+        #expect(detail.blockHash == nil)
+        #expect(detail.confirmations == 0)
+        #expect(await client.readVerboseFetchCount() == 1)
+        #expect(await client.readRawFetchCount() == 0)
+    }
+
     @Test("fetchDetailedTransaction rejects transaction payload hash mismatches")
     func fetchDetailedTransactionRejectsPayloadHashMismatches() async throws {
         let fixture = try TransactionFixture.make()

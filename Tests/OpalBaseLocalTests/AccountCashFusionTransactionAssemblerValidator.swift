@@ -78,6 +78,7 @@ struct AccountCashFusionTransactionAssemblerValidator {
         )
 
         #expect(decoded.outputs == unsignedTransaction.outputs)
+        try #require(decoded.inputs.count == unsignedTransaction.inputs.count)
         #expect(decoded.inputs[1].unlockingScript.isEmpty)
         #expect(decoded.inputs[0].unlockingScript.isEmpty == false)
         #expect(decoded.inputs[2].unlockingScript.isEmpty == false)
@@ -200,6 +201,7 @@ struct AccountCashFusionTransactionAssemblerValidator {
         ).transaction
         let firstReservedInput = try #require(reservation.reservedInputs.first)
         let secondReservedInput = try #require(reservation.reservedInputs.dropFirst().first)
+        try #require(decoded.inputs.count == reorderedTransaction.inputs.count)
         let firstLocalUnlockingScript = try CashFusionTestSupport.decodePayToPublicKeyHashUnlockingScript(
             decoded.inputs[0].unlockingScript
         )
@@ -511,6 +513,7 @@ struct AccountCashFusionTransactionAssemblerValidator {
         let decoded = try OpalBase.Transaction.decode(
             from: Data(finalized.transactionBytes)
         ).transaction
+        try #require(decoded.inputs.count == unsignedTransaction.inputs.count)
         let unlockingScript = try CashFusionTestSupport.decodePayToPublicKeyHashUnlockingScript(
             decoded.inputs[0].unlockingScript
         )

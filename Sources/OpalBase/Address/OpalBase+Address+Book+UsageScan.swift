@@ -97,7 +97,7 @@ extension _OpalBase.Address.Book {
         let numberOfMissingEntries = endIndex - existingEntries.count
         if numberOfMissingEntries > 0 {
             try await generateEntries(for: usage,
-                                      numberOfNewEntries: numberOfMissingEntries,
+                                      entryCount: numberOfMissingEntries,
                                       isUsed: false)
         }
         

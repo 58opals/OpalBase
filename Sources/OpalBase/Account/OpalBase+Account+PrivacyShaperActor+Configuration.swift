@@ -19,19 +19,26 @@ extension _OpalBase.Account.PrivacyShaperActor {
              decoyProbability: Double = 0.35,
              shouldRandomizeUTXOOrdering: Bool = true,
              shouldRandomizeRecipientOrdering: Bool = true) {
-            precondition(batchingIntervalRange.lowerBound <= batchingIntervalRange.upperBound, "Invalid batching interval range")
-            precondition(operationJitterRange.lowerBound <= operationJitterRange.upperBound, "Invalid jitter range")
-            precondition(decoyQueryRange.lowerBound <= decoyQueryRange.upperBound, "Invalid decoy range")
-            precondition((0.0...1.0).contains(decoyProbability), "Decoy probability must be between 0 and 1")
-            
             self.batchingIntervalRange = batchingIntervalRange
             self.operationJitterRange = operationJitterRange
-            self.decoyQueryRange = decoyQueryRange
-            self.decoyProbability = decoyProbability
+            self.decoyQueryRange = Self.nonNegativeDecoyQueryRange(decoyQueryRange)
+            self.decoyProbability = Self.clampedDecoyProbability(decoyProbability)
             self.shouldRandomizeUTXOOrdering = shouldRandomizeUTXOOrdering
             self.shouldRandomizeRecipientOrdering = shouldRandomizeRecipientOrdering
         }
         
         static let standard = Configuration()
+
+        private static func clampedDecoyProbability(_ decoyProbability: Double) -> Double {
+            guard !decoyProbability.isNaN else { return 0 }
+            return min(max(decoyProbability, 0), 1)
+        }
+
+        private static func nonNegativeDecoyQueryRange(_ decoyQueryRange: ClosedRange<Int>) -> ClosedRange<Int> {
+            let lowerBound = max(0, decoyQueryRange.lowerBound)
+            let upperBound = max(lowerBound, decoyQueryRange.upperBound)
+            return lowerBound ... upperBound
+        }
+
     }
 }

@@ -389,4 +389,62 @@ struct AddressBookUnspentTransactionOutputRefreshValidator {
         #expect(await book.listUTXOs(for: secondEntry.address) == [moved])
         #expect(await book.listUTXOs() == [moved])
     }
+
+    @Test("address replacement rejects mismatched UTXO locking scripts")
+    func addressReplacementRejectsMismatchedUTXOLockingScripts() async throws {
+        let book = try await AddressBookCashTokensTestData.makeAddressBook()
+        let entry = try await book.selectNextEntry(for: .receiving)
+        let existing = OpalBase.Transaction.Output.Unspent(
+            value: 1_000,
+            lockingScript: entry.address.lockingScript.data,
+            previousTransactionHash: OpalBase.Transaction.Hash(
+                naturalOrder: Data(repeating: 0x57, count: 32)
+            ),
+            previousTransactionOutputIndex: 0
+        )
+        let mismatched = OpalBase.Transaction.Output.Unspent(
+            value: 2_000,
+            lockingScript: Data([0x51]),
+            previousTransactionHash: OpalBase.Transaction.Hash(
+                naturalOrder: Data(repeating: 0x58, count: 32)
+            ),
+            previousTransactionOutputIndex: 0
+        )
+        await book.addUTXO(existing)
+
+        await #expect(
+            throws: OpalBase.Network.Error(
+                reason: .protocolViolation,
+                message: "Unspent output locking script does not match requested address"
+            )
+        ) {
+            _ = try await book.replaceUTXOs(for: entry.address, with: [mismatched])
+        }
+
+        #expect(await book.listUTXOs(for: entry.address) == [existing])
+        #expect(await book.listUTXOs() == [existing])
+    }
+
+    @Test("address replacement rejects untracked addresses")
+    func addressReplacementRejectsUntrackedAddresses() async throws {
+        let book = try await AddressBookCashTokensTestData.makeAddressBook()
+        let externalAddress = try await book.generateAddress(at: 2, for: .receiving)
+        let externalUTXO = OpalBase.Transaction.Output.Unspent(
+            value: 2_000,
+            lockingScript: externalAddress.lockingScript.data,
+            previousTransactionHash: OpalBase.Transaction.Hash(
+                naturalOrder: Data(repeating: 0x59, count: 32)
+            ),
+            previousTransactionOutputIndex: 0
+        )
+
+        #expect(await book.contains(address: externalAddress) == false)
+
+        await #expect(throws: OpalBase.Address.Book.Error.addressNotFound) {
+            _ = try await book.replaceUTXOs(for: externalAddress, with: [externalUTXO])
+        }
+
+        #expect(await book.listUTXOs(for: externalAddress).isEmpty)
+        #expect(await book.listUTXOs().isEmpty)
+    }
 }

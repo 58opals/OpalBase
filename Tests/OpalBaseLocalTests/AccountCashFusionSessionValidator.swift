@@ -1007,7 +1007,7 @@ private extension AccountCashFusionSessionValidator {
                 selectedInputs: [selectedInput],
                 outputPolicy: resolvedOutputPolicy
             ),
-            sessionFactory: {
+            sessionBuilder: {
                 clientConfiguration,
                 genesisHash,
                 joinPools,

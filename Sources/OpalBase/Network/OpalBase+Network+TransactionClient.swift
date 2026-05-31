@@ -4,18 +4,18 @@ import Foundation
 
 extension _OpalBase.Network {
     public struct TransactionClient: Sendable {
-        private let broadcastTransactionHandler: @Sendable (String) async throws -> String
-        private let fetchConfirmationsHandler: @Sendable (String) async throws -> UInt?
-        private let fetchConfirmationStatusHandler: @Sendable (OpalBase.Transaction.Hash) async throws -> OpalBase.Network.TransactionConfirmationStatus
+        private let performBroadcastTransaction: @Sendable (String) async throws -> String
+        private let performFetchConfirmations: @Sendable (String) async throws -> UInt?
+        private let performFetchConfirmationStatus: @Sendable (OpalBase.Transaction.Hash) async throws -> OpalBase.Network.TransactionConfirmationStatus
 
         public init(
             broadcastTransaction: @escaping @Sendable (String) async throws -> String,
             fetchConfirmations: @escaping @Sendable (String) async throws -> UInt?,
             fetchConfirmationStatus: @escaping @Sendable (OpalBase.Transaction.Hash) async throws -> OpalBase.Network.TransactionConfirmationStatus
         ) {
-            self.broadcastTransactionHandler = broadcastTransaction
-            self.fetchConfirmationsHandler = fetchConfirmations
-            self.fetchConfirmationStatusHandler = fetchConfirmationStatus
+            self.performBroadcastTransaction = broadcastTransaction
+            self.performFetchConfirmations = fetchConfirmations
+            self.performFetchConfirmationStatus = fetchConfirmationStatus
         }
 
         public init(_ client: OpalBase.Network.Fulcrum.TransactionClient) {
@@ -48,15 +48,15 @@ extension _OpalBase.Network {
         }
 
         public func broadcastTransaction(rawTransactionHexadecimal: String) async throws -> String {
-            try await broadcastTransactionHandler(rawTransactionHexadecimal)
+            try await performBroadcastTransaction(rawTransactionHexadecimal)
         }
 
         public func fetchConfirmations(forTransactionIdentifier transactionIdentifier: String) async throws -> UInt? {
-            try await fetchConfirmationsHandler(transactionIdentifier)
+            try await performFetchConfirmations(transactionIdentifier)
         }
 
         public func fetchConfirmationStatus(for transactionHash: OpalBase.Transaction.Hash) async throws -> OpalBase.Network.TransactionConfirmationStatus {
-            try await fetchConfirmationStatusHandler(transactionHash)
+            try await performFetchConfirmationStatus(transactionHash)
         }
 
         public func broadcast(transaction: OpalBase.Transaction) async throws -> OpalBase.Transaction.Hash {

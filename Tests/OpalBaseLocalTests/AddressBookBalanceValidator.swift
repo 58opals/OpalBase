@@ -22,7 +22,7 @@ struct AddressBookBalanceValidator {
         )
         
         let receivingEntries = await book.listEntries(for: OpalBase.Key.DerivationPath.Usage.receiving)
-        #expect(receivingEntries.count >= 2)
+        try #require(receivingEntries.count >= 2)
         
         let firstAddress = receivingEntries[0].address
         let secondAddress = receivingEntries[1].address

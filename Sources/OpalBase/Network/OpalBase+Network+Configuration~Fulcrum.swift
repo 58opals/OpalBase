@@ -26,7 +26,6 @@ extension _OpalBase.Network.Configuration {
             let primaryCatalog = overrides.isEmpty ? defaults : overrides
             let merged = OpalBase.Network.ServerCatalog.makeMergedServers(
                 primary: primaryCatalog,
-                secondary: .init(),
                 fallback: fallback
             )
             guard !merged.isEmpty else { throw SwiftFulcrum.Client.Error.transport(.setupFailed) }

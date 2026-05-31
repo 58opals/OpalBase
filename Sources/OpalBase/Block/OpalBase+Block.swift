@@ -28,6 +28,7 @@ extension OpalBase {
                     actual: header.merkleRoot.count
                 )
             }
+            try Self.validateMerkleRoot(header.merkleRoot, transactions: transactions)
             var writer = Data.Writer()
             writer.writeData(header.encode())
             writer.writeCompactSize(CompactSize(value: UInt64(transactions.count)))
@@ -47,7 +48,38 @@ extension OpalBase {
                 try OpalBase.Transaction.decode(from: &reader)
             }
             let block = OpalBase.Block(header: header, transactions: transactions)
+            try validateMerkleRoot(header.merkleRoot, transactions: transactions)
             return (block, reader.bytesRead)
+        }
+
+        static func computeMerkleRoot(for transactions: [OpalBase.Transaction]) throws -> Data {
+            guard !transactions.isEmpty else { throw Error.emptyTransactionList }
+            var level = try transactions.map { transaction in
+                OpalCryptoAdapter.hash256(try transaction.encode())
+            }
+
+            while level.count > 1 {
+                var nextLevel: [Data] = .init()
+                nextLevel.reserveCapacity((level.count + 1) / 2)
+                for index in stride(from: 0, to: level.count, by: 2) {
+                    let left = level[index]
+                    let right = index + 1 < level.count ? level[index + 1] : left
+                    nextLevel.append(OpalCryptoAdapter.hash256(left + right))
+                }
+                level = nextLevel
+            }
+
+            return level[0]
+        }
+
+        private static func validateMerkleRoot(
+            _ merkleRoot: Data,
+            transactions: [OpalBase.Transaction]
+        ) throws {
+            let computedMerkleRoot = try computeMerkleRoot(for: transactions)
+            guard merkleRoot == computedMerkleRoot else {
+                throw Error.merkleRootMismatch(computed: computedMerkleRoot, header: merkleRoot)
+            }
         }
     }
 }

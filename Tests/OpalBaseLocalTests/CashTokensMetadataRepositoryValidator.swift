@@ -68,6 +68,7 @@ struct CashTokensMetadataRepositoryValidator {
         )
         let hostedPathTraversalURL = try #require(URL(string: "ipfs://bafybeigdyrzt/../secret.json"))
         let pathFormTraversalURL = try #require(URL(string: "ipfs:///bafybeigdyrzt/../icon.png"))
+        let encodedPathTraversalURL = try #require(URL(string: "ipfs://bafybeigdyrzt/%252e%252e/registry.json"))
         let repository = OpalBase.CashTokens.MetadataRepository()
         let metadata = OpalBase.CashTokens.Metadata(
             category: category,
@@ -76,9 +77,9 @@ struct CashTokensMetadataRepositoryValidator {
             decimals: 0,
             iconURL: pathFormTraversalURL,
             lastUpdated: Date(timeIntervalSince1970: 0),
-            source: .dns(hostedPathTraversalURL),
+            source: .dns(encodedPathTraversalURL),
             webURL: hostedPathTraversalURL,
-            registryURL: hostedPathTraversalURL
+            registryURL: encodedPathTraversalURL
         )
 
         await repository.upsert([category: metadata])
@@ -155,6 +156,7 @@ struct CashTokensMetadataRepositoryValidator {
         )
         let iconURL = try #require(URL(string: "https://example.com/../icon.png"))
         let registryURL = try #require(URL(string: "https://example.com/%2e%2e/registry.json"))
+        let encodedWebURL = try #require(URL(string: "https://example.com/%252e%252e/token.json"))
         let repository = OpalBase.CashTokens.MetadataRepository()
         let metadata = OpalBase.CashTokens.Metadata(
             category: category,
@@ -164,7 +166,7 @@ struct CashTokensMetadataRepositoryValidator {
             iconURL: iconURL,
             lastUpdated: Date(timeIntervalSince1970: 0),
             source: .dns(registryURL),
-            webURL: registryURL,
+            webURL: encodedWebURL,
             registryURL: registryURL
         )
 

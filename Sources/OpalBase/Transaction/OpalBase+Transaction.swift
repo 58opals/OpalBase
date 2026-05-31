@@ -68,6 +68,7 @@ extension OpalBase {
             let outputs = try (0..<Int(outputsCount.value)).map { _ -> Output in
                 try Output.decode(from: &reader)
             }
+            try validateTotalOutputValue(outputs)
             
             let lockTime: UInt32 = try reader.readLittleEndian()
             return OpalBase.Transaction(version: version, inputs: inputs, outputs: outputs, lockTime: lockTime)
@@ -92,12 +93,19 @@ extension _OpalBase.Transaction {
             }
             writer.writeData(input.encode())
         }
+        try Self.validateTotalOutputValue(outputs)
         writer.writeCompactSize(CompactSize(value: UInt64(outputs.count)))
         for output in outputs {
             writer.writeData(try output.encode())
         }
         writer.writeLittleEndian(lockTime)
         return writer.data
+    }
+
+    static func validateTotalOutputValue(_ outputs: [Output]) throws {
+        _ = try OpalBase.Satoshi.sum(of: outputs) { output in
+            try OpalBase.Satoshi(output.value)
+        }
     }
 }
 

@@ -7,14 +7,6 @@ extension _OpalBase.Address.Book {
         let utxosByAddress: [OpalBase.Address: [OpalBase.Transaction.Output.Unspent]]
         let changeSets: [UTXOChangeSet]
         let totalBalance: OpalBase.Satoshi
-        
-        init(utxosByAddress: [OpalBase.Address : [OpalBase.Transaction.Output.Unspent]],
-                    changeSets: [UTXOChangeSet],
-                    totalBalance: OpalBase.Satoshi) {
-            self.utxosByAddress = utxosByAddress
-            self.changeSets = changeSets
-            self.totalBalance = totalBalance
-        }
     }
 }
 
@@ -31,30 +23,16 @@ extension _OpalBase.Address.Book {
         let refreshTimestamp = Date.now
         try await performForEachTargetUsage(usage) { _, entries in
             let addresses = entries.map(\.address)
-            let usageResults = try await addresses.mapConcurrently { address in
-                let utxos = try await service.fetchUnspentOutputs(for: address.string, tokenFilter: .include)
-                let lockingScript = address.lockingScript.data
-                var seenOutpoints: Set<UTXORepository.Outpoint> = .init()
-                for utxo in utxos {
-                    guard utxo.lockingScript == lockingScript else {
-                        throw OpalBase.Network.Error(
-                            reason: .protocolViolation,
-                            message: "Unspent output locking script does not match requested address"
-                        )
-                    }
-                    guard seenOutpoints.insert(UTXORepository.Outpoint(utxo)).inserted else {
-                        throw OpalBase.Network.Error(
-                            reason: .protocolViolation,
-                            message: "Unspent output response contained duplicate outpoints"
-                        )
-                    }
-                }
-                let orderedUTXOs = utxos.sorted { $0.compareOrder(before: $1) }
-                return (address, orderedUTXOs)
+            let fetchedUnspentOutputsByAddress = try await addresses.mapConcurrently { address in
+                let unspentOutputs = try await service.fetchUnspentOutputs(for: address.string, tokenFilter: .include)
+                return (address, unspentOutputs)
             }
             
-            for (address, utxos) in usageResults {
-                for utxo in utxos {
+            for (address, unspentOutputs) in fetchedUnspentOutputsByAddress {
+                let changeSet = try makeUTXOChangeSet(for: address,
+                                                       with: unspentOutputs,
+                                                       timestamp: refreshTimestamp)
+                for utxo in changeSet.updated {
                     guard seenRefreshOutpoints.insert(UTXORepository.Outpoint(utxo)).inserted else {
                         throw OpalBase.Network.Error(
                             reason: .protocolViolation,
@@ -62,11 +40,8 @@ extension _OpalBase.Address.Book {
                         )
                     }
                 }
-                refreshedUTXOs[address] = utxos
-                let changeSet = try makeUTXOChangeSet(for: address,
-                                                       with: utxos,
-                                                       timestamp: refreshTimestamp)
-                plannedRefreshes.append((address, utxos, changeSet))
+                refreshedUTXOs[address] = changeSet.updated
+                plannedRefreshes.append((address, changeSet.updated, changeSet))
             }
         }
         

@@ -65,7 +65,7 @@ struct TransactionFixture {
     static func makeVerboseResponse(
         transactionHash: String,
         rawTransactionHexadecimal: String,
-        blockHashHexadecimal: String,
+        blockHashHexadecimal: String?,
         blockTime: UInt32?,
         confirmations: UInt32?,
         transactionTime: UInt32?,
@@ -85,14 +85,13 @@ struct TransactionFixture {
     static func makeVerboseResponseWithUnsignedMetadata(
         transactionHash: String,
         rawTransactionHexadecimal: String,
-        blockHashHexadecimal: String,
+        blockHashHexadecimal: String?,
         blockTime: UInt?,
         confirmations: UInt?,
         transactionTime: UInt?,
         size: Int
     ) throws -> SwiftFulcrum.Response.Blockchain.Transaction.Verbose {
         var payload: [String: Any] = [
-            "blockhash": blockHashHexadecimal,
             "hash": transactionHash,
             "hex": rawTransactionHexadecimal,
             "locktime": 0,
@@ -124,6 +123,9 @@ struct TransactionFixture {
                 ]
             ]
         ]
+        if let blockHashHexadecimal {
+            payload["blockhash"] = blockHashHexadecimal
+        }
         if let blockTime {
             payload["blocktime"] = blockTime
         }

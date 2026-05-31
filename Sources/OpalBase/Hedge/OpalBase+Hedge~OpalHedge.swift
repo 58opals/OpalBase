@@ -77,8 +77,10 @@ extension _OpalBase.Hedge {
         guard request.counterpartyParticipant.side == .long else {
             throw Error.unsupportedCounterpartySide(request.counterpartyParticipant.side)
         }
-        try validateNetwork(request.network, matches: request.walletParticipant)
-        try validateNetwork(request.network, matches: request.counterpartyParticipant)
+        for participant in [request.walletParticipant, request.counterpartyParticipant] {
+            try validateNetwork(request.network, matches: participant)
+            try validateParticipantLockingScript(participant)
+        }
     }
 
     static func validateNetwork(
@@ -90,6 +92,13 @@ extension _OpalBase.Hedge {
                 expected: expected,
                 actual: participant.payoutAddress.network
             )
+        }
+    }
+
+    static func validateParticipantLockingScript(_ participant: ParticipantMaterial) throws {
+        let expectedLockingScriptHex = participant.payoutAddress.lockingScript.data.hexadecimalString
+        guard participant.lockingScriptHex == expectedLockingScriptHex else {
+            throw Error.participantLockingScriptMismatch(participant.side)
         }
     }
 

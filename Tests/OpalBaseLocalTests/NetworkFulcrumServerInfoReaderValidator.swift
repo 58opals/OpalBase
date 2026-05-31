@@ -51,7 +51,19 @@ struct NetworkFulcrumServerInfoReaderValidator {
         #expect(OpalBase.Network.ProtocolVersion(string: "1.2.") == nil)
         #expect(OpalBase.Network.ProtocolVersion(string: "+1.2") == nil)
         #expect(OpalBase.Network.ProtocolVersion(string: "1.+2") == nil)
+        #expect(OpalBase.Network.ProtocolVersion(string: "01.2") == nil)
+        #expect(OpalBase.Network.ProtocolVersion(string: "1.02") == nil)
+        #expect(OpalBase.Network.ProtocolVersion(string: "1.2.03") == nil)
         #expect(OpalBase.Network.ProtocolVersion(major: 1, minor: 2, patch: 3, isPatchComponentIncluded: false) == nil)
+    }
+
+    @Test("protocol version parser accepts canonical zero components")
+    func protocolVersionParserAcceptsCanonicalZeroComponents() throws {
+        let twoComponentVersion = try #require(OpalBase.Network.ProtocolVersion(string: "0.0"))
+        let threeComponentVersion = try #require(OpalBase.Network.ProtocolVersion(string: "1.2.0"))
+
+        #expect(twoComponentVersion.description == "0.0")
+        #expect(threeComponentVersion.description == "1.2.0")
     }
     
     @Test("protocol version decoder rejects invalid components")
@@ -194,6 +206,40 @@ struct NetworkFulcrumServerInfoReaderValidator {
         #expect(failure.message == "Invalid server feature rpa prefix range: minimum 17 exceeds indexed 16")
     }
 
+    @Test("rejects reusable payment address prefix bits above the hash width")
+    func fetchServerFeaturesRejectsReusablePaymentAddressPrefixBitsAboveHashWidth() async throws {
+        let reader = OpalBase.Network.Fulcrum.ServerInfoReader(
+            client: try ServerInfoClientTestActor(
+                featuresResponse: Self.makeFeaturesResponse(
+                    reusablePaymentAddress: Self.makeReusablePaymentAddressFeatures(prefixBits: 257)
+                )
+            )
+        )
+
+        let failure = try await Self.captureNetworkError {
+            _ = try await reader.fetchServerFeatures()
+        }
+
+        #expect(failure.reason == .decoding)
+        #expect(failure.message == "Invalid server feature rpa indexed prefix bits: 257")
+
+        let boundaryReader = OpalBase.Network.Fulcrum.ServerInfoReader(
+            client: try ServerInfoClientTestActor(
+                featuresResponse: Self.makeFeaturesResponse(
+                    reusablePaymentAddress: Self.makeReusablePaymentAddressFeatures(
+                        prefixBits: 256,
+                        minimumPrefixBits: 256
+                    )
+                )
+            )
+        )
+
+        let boundaryFeatures = try await boundaryReader.fetchServerFeatures()
+
+        #expect(boundaryFeatures.reusablePaymentAddress?.indexedPrefixBits == 256)
+        #expect(boundaryFeatures.reusablePaymentAddress?.minimumPrefixBits == 256)
+    }
+
     @Test("translates inconsistent server feature protocol ranges")
     func fetchServerFeaturesTranslatesInconsistentProtocolRanges() async throws {
         let reader = OpalBase.Network.Fulcrum.ServerInfoReader(
@@ -290,13 +336,7 @@ extension NetworkFulcrumServerInfoReaderValidator {
         hosts: [String: [String: Int]] = [
             "fulcrum.example.com": ["ssl_port": 50002, "tcp_port": 50001, "ws_port": 50003, "wss_port": 50004]
         ],
-        reusablePaymentAddress: [String: Int] = [
-            "history_block_limit": 288,
-            "max_history": 100,
-            "prefix_bits": 16,
-            "prefix_bits_min": 8,
-            "starting_height": 800_000
-        ]
+        reusablePaymentAddress: [String: Int] = makeReusablePaymentAddressFeatures()
     ) throws -> SwiftFulcrum.Response.Server.Features {
         let payloadObject: [String: Any] = [
             "genesis_hash": genesisHash,
@@ -313,6 +353,19 @@ extension NetworkFulcrumServerInfoReaderValidator {
         ]
         let payload = try JSONSerialization.data(withJSONObject: payloadObject)
         return try JSONDecoder().decode(SwiftFulcrum.Response.Server.Features.self, from: payload)
+    }
+
+    static func makeReusablePaymentAddressFeatures(
+        prefixBits: Int = 16,
+        minimumPrefixBits: Int = 8
+    ) -> [String: Int] {
+        [
+            "history_block_limit": 288,
+            "max_history": 100,
+            "prefix_bits": prefixBits,
+            "prefix_bits_min": minimumPrefixBits,
+            "starting_height": 800_000
+        ]
     }
 
     static func makeRelayFeeResponse(
