@@ -5,24 +5,6 @@ import Foundation
 import OpalFusion
 
 extension _OpalBase.Account {
-    enum CashFusionRoundReservationError: Swift.Error, Equatable {
-        case dynamicReservationRequiresContext(OpalFusion.Round.Identifier)
-        case missingRoundReservation(OpalFusion.Round.Identifier)
-        case invalidExcessFeeRange(minimum: UInt64, maximum: UInt64)
-        case componentCountLimitExceeded(required: Int, limit: UInt32)
-        case insufficientSelectedInputValue(required: UInt64, available: UInt64)
-        case outputAmountBelowMinimum(minimum: UInt64, actual: UInt64)
-        case localOutputMismatch
-        case amountOverflow
-    }
-
-    struct CashFusionRoundReservation: Sendable {
-        let roundIdentifier: OpalFusion.Round.Identifier
-        let reservedReceivingEntries: [OpalBase.Address.Book.Entry]
-        let participantOutputs: [OpalFusion.Host.ParticipantOutput]
-        let participantReservation: OpalFusion.Host.ParticipantReservation
-    }
-
     actor CashFusionRoundReservationRegistry {
         private var roundReservationByIdentifier: [OpalFusion.Round.Identifier: CashFusionRoundReservation] = [:]
         private var completedLocalOutputsByRoundIdentifier: [
@@ -76,6 +58,18 @@ extension _OpalBase.Account {
             let privateKey: Data
             let compressedPublicKey: Data
             let participantInput: OpalFusion.Host.ParticipantInput
+
+            init(
+                unspentOutput: OpalBase.Transaction.Output.Unspent,
+                privateKey: Data,
+                compressedPublicKey: Data,
+                participantInput: OpalFusion.Host.ParticipantInput
+            ) {
+                self.unspentOutput = unspentOutput
+                self.privateKey = Data(privateKey)
+                self.compressedPublicKey = Data(compressedPublicKey)
+                self.participantInput = participantInput
+            }
         }
 
         enum OutputStrategy: Sendable {
@@ -229,13 +223,14 @@ extension _OpalBase.Account {
             completedLocalOutputs.reserveCapacity(participantOutputs.count)
 
             for participantOutput in participantOutputs {
+                let participantLockingScript = Data(participantOutput.lockingScriptBytes)
                 guard let matchingOutput = finalizedTransaction.outputs.enumerated().first(where: {
                     let outputIndex = $0.offset
                     let output = $0.element
                     return usedOutputIndices.contains(outputIndex) == false &&
                         output.tokenData == nil &&
                         output.value == participantOutput.amountSatoshis &&
-                        output.lockingScript == Data(participantOutput.lockingScriptBytes)
+                        output.lockingScript == participantLockingScript
                 }) else {
                     throw CashFusionRoundReservationError.localOutputMismatch
                 }

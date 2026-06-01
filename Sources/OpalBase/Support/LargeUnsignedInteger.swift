@@ -24,9 +24,9 @@ struct LargeUnsignedInteger: Comparable, Sendable {
         }
         var values: [UInt32] = .init()
         values.reserveCapacity((data.count + 3) / 4)
-        var index = data.count
-        while index > 0 {
-            let start = Swift.max(0, index - 4)
+        var index = data.endIndex
+        while index > data.startIndex {
+            let start = data.index(index, offsetBy: -4, limitedBy: data.startIndex) ?? data.startIndex
             let chunk = data[start..<index]
             var value: UInt32 = 0
             for byte in chunk {
@@ -40,21 +40,26 @@ struct LargeUnsignedInteger: Comparable, Sendable {
     }
     
     func serialize() -> Data {
-        guard !words.isEmpty else { return Data() }
+        guard let mostSignificantWord = words.last else { return Data() }
         var data = Data()
-        for (index, word) in words.reversed().enumerated() {
-            var bytes: [UInt8] = [
+        data.reserveCapacity(words.count * 4)
+
+        let leadingBytes: [UInt8] = [
+            UInt8((mostSignificantWord >> 24) & 0xff),
+            UInt8((mostSignificantWord >> 16) & 0xff),
+            UInt8((mostSignificantWord >> 8) & 0xff),
+            UInt8(mostSignificantWord & 0xff)
+        ]
+        let firstSignificantByte = leadingBytes.firstIndex(where: { $0 != 0 }) ?? leadingBytes.index(before: leadingBytes.endIndex)
+        data.append(contentsOf: leadingBytes[firstSignificantByte...])
+
+        for word in words.dropLast().reversed() {
+            data.append(contentsOf: [
                 UInt8((word >> 24) & 0xff),
                 UInt8((word >> 16) & 0xff),
                 UInt8((word >> 8) & 0xff),
                 UInt8(word & 0xff)
-            ]
-            if index == 0 {
-                while bytes.first == 0 && bytes.count > 1 {
-                    bytes.removeFirst()
-                }
-            }
-            data.append(contentsOf: bytes)
+            ])
         }
         return data
     }

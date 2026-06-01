@@ -308,15 +308,21 @@ struct DiagnosticsValidator {
         for sensitiveValue in result.sensitiveValues {
             #expect(renderedRecords.contains(sensitiveValue) == false)
         }
-
-        let fieldNames = OpalDiagnostics.Field.Name.all.joined(separator: " ")
-        for forbiddenNameFragment in [
-            "mnemonic", "seed", "private_key", "wif", "full_address", "raw_transaction",
-            "contract_json", "oracle_message", "oracle_signature", "redeem_script", "raw_proof"
-        ] {
-            #expect(fieldNames.contains(forbiddenNameFragment) == false)
-        }
     }
+
+    @Test(
+        "diagnostic field names avoid sensitive vocabulary",
+        arguments: forbiddenFieldNameFragments
+    )
+    func diagnosticFieldNamesAvoidSensitiveVocabulary(_ forbiddenNameFragment: String) {
+        let fieldNames = OpalDiagnostics.Field.Name.all.joined(separator: " ")
+        #expect(fieldNames.contains(forbiddenNameFragment) == false)
+    }
+
+    private static let forbiddenFieldNameFragments = [
+        "mnemonic", "seed", "private_key", "wif", "full_address", "raw_transaction",
+        "contract_json", "oracle_message", "oracle_signature", "redeem_script", "raw_proof"
+    ]
 
     @Test("error code fields remain stable")
     func errorCodeFieldsRemainStable() async throws {
@@ -505,7 +511,7 @@ struct DiagnosticsValidator {
     @Test("claimable envelope network mismatches record failure diagnostics")
     func claimableEnvelopeNetworkMismatchesRecordFailureDiagnostics() throws {
         let records = try OpalDiagnostics.withConfiguration(diagnosticsConfiguration()) {
-            let (envelope, _) = try makeClaimableEnvelope(network: .chipnet)
+            let (envelope, _) = try ClaimableTestSupport.makeClaimableEnvelope(network: .chipnet)
             let encodedEnvelope = envelope.encode()
 
             #expect(
@@ -547,7 +553,7 @@ struct DiagnosticsValidator {
     @Test("claimable status failures use the status error code")
     func claimableStatusFailuresUseStatusErrorCode() async throws {
         let records = try await OpalDiagnostics.withConfiguration(diagnosticsConfiguration()) {
-            let (envelope, _) = try makeClaimableEnvelope(network: .chipnet)
+            let (envelope, _) = try ClaimableTestSupport.makeClaimableEnvelope(network: .chipnet)
             let resolver = OpalBase.Claimable.StatusResolver(
                 network: .chipnet,
                 scriptHashReader: .init(

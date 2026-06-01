@@ -51,6 +51,11 @@ extension OpalBase {
             guard inputsCount.value <= UInt64(Int.max) else {
                 throw Data.Error.indexOutOfRange
             }
+            try validateDeclaredVectorCount(
+                inputsCount.value,
+                remainingByteCount: reader.remainingData.count,
+                minimumElementByteCount: minimumEncodedInputByteCount
+            )
             guard inputsCount.value > 0 else {
                 throw OpalBase.Transaction.Error.cannotCreateTransaction
             }
@@ -62,6 +67,11 @@ extension OpalBase {
             guard outputsCount.value <= UInt64(Int.max) else {
                 throw Data.Error.indexOutOfRange
             }
+            try validateDeclaredVectorCount(
+                outputsCount.value,
+                remainingByteCount: reader.remainingData.count,
+                minimumElementByteCount: minimumEncodedOutputByteCount
+            )
             guard outputsCount.value > 0 else {
                 throw OpalBase.Transaction.Error.cannotCreateTransaction
             }
@@ -77,6 +87,19 @@ extension OpalBase {
 }
 
 extension _OpalBase.Transaction {
+    private static let minimumEncodedInputByteCount = 41
+    private static let minimumEncodedOutputByteCount = 9
+
+    private static func validateDeclaredVectorCount(
+        _ count: UInt64,
+        remainingByteCount: Int,
+        minimumElementByteCount: Int
+    ) throws {
+        guard count <= UInt64(remainingByteCount / minimumElementByteCount) else {
+            throw Data.Error.indexOutOfRange
+        }
+    }
+
     func makeSerializedTransaction(with inputs: [Input]) throws -> Data {
         guard !inputs.isEmpty, !outputs.isEmpty else {
             throw OpalBase.Transaction.Error.cannotCreateTransaction

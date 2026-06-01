@@ -113,7 +113,7 @@ extension _OpalBase.Network.ServerCatalog {
             return nil
         }
 
-        guard !containsPathTraversal(in: components.path) else {
+        guard !URLPathTraversal.containsPathTraversal(inPath: components.path) else {
             return nil
         }
         
@@ -138,17 +138,18 @@ extension _OpalBase.Network.ServerCatalog {
         }
         components.query = nil
         components.fragment = nil
-        return components.url ?? server
-    }
-
-    private static func containsPathTraversal(in path: String) -> Bool {
-        path.split(separator: "/").contains { component in
-            isPathTraversalComponent(component)
-        }
+        return components.url
     }
 
     private static func isInvalidHost(_ host: String) -> Bool {
         guard host.utf8.count <= maximumDomainNameByteCount else {
+            return true
+        }
+
+        if host.contains(":") {
+            return !URLHostValidation.isValidBracketedInternetProtocolLiteral(host)
+        }
+        if URLHostValidation.isMalformedInternetProtocolVersion4LiteralHost(host) {
             return true
         }
 
@@ -157,12 +158,11 @@ extension _OpalBase.Network.ServerCatalog {
             labels.removeLast()
         }
 
-        let isInternetProtocolLiteral = host.contains(":")
         return labels.contains { label in
             guard !isInvalidHostLabelShape(label) else {
                 return true
             }
-            return !isInternetProtocolLiteral && containsInvalidDomainLabelCharacter(in: label)
+            return containsInvalidDomainLabelCharacter(in: label)
         }
     }
 
@@ -171,7 +171,7 @@ extension _OpalBase.Network.ServerCatalog {
             || label.utf8.count > maximumDomainLabelByteCount
             || label.first == "-"
             || label.last == "-"
-            || isPathTraversalComponent(label)
+            || URLPathTraversal.isPathTraversalComponent(String(label))
     }
 
     private static func containsInvalidDomainLabelCharacter(in label: some StringProtocol) -> Bool {
@@ -182,20 +182,6 @@ extension _OpalBase.Network.ServerCatalog {
             default:
                 return true
             }
-        }
-    }
-
-    private static func isPathTraversalComponent(_ component: some StringProtocol) -> Bool {
-        var currentComponent = String(component)
-        while true {
-            if currentComponent == "." || currentComponent == ".." {
-                return true
-            }
-            guard let decodedComponent = currentComponent.removingPercentEncoding,
-                  decodedComponent != currentComponent else {
-                return false
-            }
-            currentComponent = decodedComponent
         }
     }
 

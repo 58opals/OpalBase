@@ -216,55 +216,11 @@ struct NetworkServerCatalogValidator {
         ])
     }
 
-    @Test("normalizes root websocket paths before deduplication")
-    func normalizationCollapsesRootWebSocketPaths() {
-        let rawServers = [
-            URL(string: "wss://root-path.example.com")!,
-            URL(string: "wss://root-path.example.com/")!,
-            URL(string: "https://root-path.example.com:443/")!
-        ]
+    @Test("normalizes single-server variants before deduplication", arguments: ServerNormalizationDeduplicationCase.allCases)
+    fileprivate func normalizationCollapsesSingleServerVariants(_ deduplicationCase: ServerNormalizationDeduplicationCase) {
+        let normalized = OpalBase.Network.ServerCatalog.makeNormalizedServers(deduplicationCase.rawServers)
 
-        let normalized = OpalBase.Network.ServerCatalog.makeNormalizedServers(rawServers)
-
-        #expect(normalized == [URL(string: "wss://root-path.example.com")!])
-    }
-
-    @Test("normalizes websocket fragments before deduplication")
-    func normalizationCollapsesWebSocketFragments() {
-        let rawServers = [
-            URL(string: "wss://fragment.example.com")!,
-            URL(string: "wss://fragment.example.com#ignored")!,
-            URL(string: "https://fragment.example.com:443/#also-ignored")!
-        ]
-
-        let normalized = OpalBase.Network.ServerCatalog.makeNormalizedServers(rawServers)
-
-        #expect(normalized == [URL(string: "wss://fragment.example.com")!])
-    }
-
-    @Test("normalizes websocket queries before deduplication")
-    func normalizationCollapsesWebSocketQueries() {
-        let rawServers = [
-            URL(string: "wss://query.example.com?token=secret")!,
-            URL(string: "wss://query.example.com")!,
-            URL(string: "https://query.example.com:443/?token=also-secret")!
-        ]
-
-        let normalized = OpalBase.Network.ServerCatalog.makeNormalizedServers(rawServers)
-
-        #expect(normalized == [URL(string: "wss://query.example.com")!])
-    }
-
-    @Test("normalizes websocket hosts before deduplication")
-    func normalizationLowercasesWebSocketHosts() {
-        let rawServers = [
-            URL(string: "HTTPS://UPPERCASE.EXAMPLE.COM:443")!,
-            URL(string: "wss://uppercase.example.com")!
-        ]
-
-        let normalized = OpalBase.Network.ServerCatalog.makeNormalizedServers(rawServers)
-
-        #expect(normalized == [URL(string: "wss://uppercase.example.com")!])
+        #expect(normalized == [deduplicationCase.expectedServer])
     }
 
     @Test("normalization preserves case-sensitive websocket paths when deduplicating")
@@ -337,6 +293,10 @@ struct NetworkServerCatalogValidator {
             URL(string: "wss://\(oversizedHost)")!,
             URL(string: "wss://bad_host.example.com")!,
             URL(string: "wss://%2e%2e.example.com")!,
+            URL(string: "wss://[::::]:50004")!,
+            URL(string: "wss://999.999.999.999:50004")!,
+            URL(string: "wss://999.999.999.999.:50004")!,
+            URL(string: "wss://999.999.999.999..:50004")!,
             URL(string: "wss://valid.example.com:50004")!
         ]
 
@@ -360,8 +320,10 @@ struct NetworkServerCatalogValidator {
     func normalizationRejectsWebSocketPathTraversal() throws {
         let rawServers = [
             try #require(URL(string: "wss://path.example.com/../admin")),
+            try #require(URL(string: "wss://path.example.com/..\\admin")),
             try #require(URL(string: "wss://path.example.com/%2e%2e/admin")),
             try #require(URL(string: "wss://path.example.com/%252e%252e/admin")),
+            try #require(URL(string: "wss://path.example.com/%252e%252e%252fadmin")),
             try #require(URL(string: "wss://path.example.com/a/%2e/b")),
             try #require(URL(string: "wss://valid.example.com:50004"))
         ]
@@ -408,6 +370,75 @@ struct NetworkServerCatalogValidator {
             throw error
         } catch {
             throw FulcrumClientErrorCaptureFailure.unexpected(error)
+        }
+    }
+
+    enum ServerNormalizationDeduplicationCase: CaseIterable, CustomStringConvertible, Sendable {
+        case rootPath
+        case fragment
+        case query
+        case hostCasing
+
+        var description: String {
+            switch self {
+            case .rootPath:
+                "root path"
+            case .fragment:
+                "fragment"
+            case .query:
+                "query"
+            case .hostCasing:
+                "host casing"
+            }
+        }
+
+        var rawServers: [URL] {
+            urlStrings.map { URL(string: $0)! }
+        }
+
+        var expectedServer: URL {
+            URL(string: expectedURLString)!
+        }
+
+        private var urlStrings: [String] {
+            switch self {
+            case .rootPath:
+                [
+                    "wss://root-path.example.com",
+                    "wss://root-path.example.com/",
+                    "https://root-path.example.com:443/"
+                ]
+            case .fragment:
+                [
+                    "wss://fragment.example.com",
+                    "wss://fragment.example.com#ignored",
+                    "https://fragment.example.com:443/#also-ignored"
+                ]
+            case .query:
+                [
+                    "wss://query.example.com?token=secret",
+                    "wss://query.example.com",
+                    "https://query.example.com:443/?token=also-secret"
+                ]
+            case .hostCasing:
+                [
+                    "HTTPS://UPPERCASE.EXAMPLE.COM:443",
+                    "wss://uppercase.example.com"
+                ]
+            }
+        }
+
+        private var expectedURLString: String {
+            switch self {
+            case .rootPath:
+                "wss://root-path.example.com"
+            case .fragment:
+                "wss://fragment.example.com"
+            case .query:
+                "wss://query.example.com"
+            case .hostCasing:
+                "wss://uppercase.example.com"
+            }
         }
     }
 }

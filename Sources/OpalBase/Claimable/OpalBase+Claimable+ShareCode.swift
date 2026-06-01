@@ -9,6 +9,7 @@ extension _OpalBase.Claimable {
         private static let version = "1"
         private static let separator: Character = ":"
         private static let base32Alphabet = Array("ABCDEFGHIJKLMNOPQRSTUVWXYZ234567")
+        private static let payloadCharacterCount = (OpalBase.Claimable.Envelope.encodedByteCount * 8 + 4) / 5
 
         public static func encode(envelope: OpalBase.Claimable.Envelope) throws -> String {
             OpalDiagnostics.withTraceID {
@@ -132,6 +133,9 @@ extension _OpalBase.Claimable {
             let payload = String(components[3])
             guard !payload.isEmpty else {
                 throw OpalBase.Claimable.Error.emptyShareCodePayload
+            }
+            guard payload.utf8.count == payloadCharacterCount else {
+                throw OpalBase.Claimable.Error.invalidShareCodePayload
             }
 
             return (

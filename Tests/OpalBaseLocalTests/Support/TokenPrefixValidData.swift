@@ -2,8 +2,7 @@
 
 import Foundation
 
-struct TokenPrefixValidData: Codable {
+struct TokenPrefixValidData: Codable, Sendable {
     let prefix: String
     let data: TokenPrefixTokenData
 }
-

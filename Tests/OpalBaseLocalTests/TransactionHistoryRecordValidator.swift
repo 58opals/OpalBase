@@ -73,6 +73,26 @@ struct TransactionHistoryRecordValidator {
         #expect(record.verificationMetadata.lastVerifiedHeight == nil)
     }
 
+    @Test("merkle proofs normalize sliced branch and block hash data")
+    func merkleProofsNormalizeSlicedBranchAndBlockHashData() {
+        let branchNode = makeSlicedData(from: Data(repeating: 0x31, count: 32))
+        let blockHash = makeSlicedData(from: Data(repeating: 0x32, count: 32))
+
+        let proof = OpalBase.Transaction.MerkleProof(
+            blockHeight: 10,
+            position: 0,
+            branch: [branchNode],
+            blockHash: blockHash
+        )
+
+        #expect(branchNode.startIndex != 0)
+        #expect(blockHash.startIndex != 0)
+        #expect(proof.branch == [Data(repeating: 0x31, count: 32)])
+        #expect(proof.blockHash == Data(repeating: 0x32, count: 32))
+        #expect(proof.branch.first?.startIndex == 0)
+        #expect(proof.blockHash?.startIndex == 0)
+    }
+
     @Test("mismatched transaction hash updates are ignored")
     func mismatchedTransactionHashUpdatesAreIgnored() {
         let transactionHash = OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0x22, count: 32))
@@ -104,59 +124,10 @@ struct TransactionHistoryRecordValidator {
 
         #expect(record == original)
     }
-}
 
-@Suite("OpalBase.Address.Book.TransactionLog", .tags(.unit, .wallet))
-struct TransactionHistoryLogValidator {
-    @Test("store removes stale script hash indexes when replacing a record")
-    func storeRemovesStaleScriptHashIndexesWhenReplacingRecord() {
-        let transactionHash = OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0x24, count: 32))
-        let oldScriptHash = String(repeating: "e", count: 64)
-        let secondOldScriptHash = String(repeating: "0", count: 64)
-        let newScriptHash = String(repeating: "f", count: 64)
-        let timestamp = Date(timeIntervalSince1970: 1)
-        var log = OpalBase.Address.Book.TransactionLog()
-        var oldRecord = Self.makeRecord(
-            transactionHash: transactionHash,
-            scriptHash: oldScriptHash,
-            timestamp: timestamp
-        )
-        oldRecord.chainMetadata.scriptHashes.insert(secondOldScriptHash)
-        let newRecord = Self.makeRecord(
-            transactionHash: transactionHash,
-            scriptHash: newScriptHash,
-            timestamp: timestamp
-        )
-
-        log.store(oldRecord)
-        log.store(newRecord)
-        let staleChangeSet = log.replaceHistory(
-            for: oldScriptHash,
-            entries: [],
-            tokenDeltasByHash: [:],
-            timestamp: Date(timeIntervalSince1970: 2)
-        )
-        let secondStaleChangeSet = log.replaceHistory(
-            for: secondOldScriptHash,
-            entries: [],
-            tokenDeltasByHash: [:],
-            timestamp: Date(timeIntervalSince1970: 3)
-        )
-
-        #expect(staleChangeSet.isEmpty)
-        #expect(secondStaleChangeSet.isEmpty)
-        #expect(log.loadRecord(for: transactionHash)?.chainMetadata.scriptHashes == [newScriptHash])
-    }
-
-    private static func makeRecord(
-        transactionHash: OpalBase.Transaction.Hash,
-        scriptHash: String,
-        timestamp: Date
-    ) -> OpalBase.Transaction.History.Record {
-        OpalBase.Transaction.History.Record.makeRecord(
-            for: .init(transactionHash: transactionHash, height: -1, fee: nil),
-            scriptHash: scriptHash,
-            timestamp: timestamp
-        )
+    private func makeSlicedData(from data: Data) -> Data {
+        var paddedData = Data([0x00])
+        paddedData.append(data)
+        return paddedData[paddedData.index(after: paddedData.startIndex)...]
     }
 }

@@ -37,7 +37,7 @@ extension _OpalBase.Account {
                     tokenData: OpalBase.CashTokens.TokenData?) {
             self.role = role
             self.value = value
-            self.lockingScript = lockingScript
+            self.lockingScript = Data(lockingScript)
             self.tokenData = tokenData
         }
     }
@@ -76,7 +76,7 @@ extension _OpalBase.Account.TokenSpendPlan {
                     tokenChangeOutputs: [OpalBase.Account.TokenOutputReview],
                     lockedBCHOutputValue: OpalBase.Satoshi) {
             self.transaction = transaction
-            self.rawTransactionData = rawTransactionData
+            self.rawTransactionData = Data(rawTransactionData)
             self.rawTransactionByteCount = rawTransactionByteCount
             self.fee = fee
             self.configuredFeeRate = configuredFeeRate
@@ -92,6 +92,7 @@ extension _OpalBase.Account.TokenSpendPlan {
                             unlockers: [OpalBase.Transaction.Output.Unspent: OpalBase.Transaction.Unlocker] = .init()) throws -> Review {
         let result = try buildTransaction(signatureFormat: signatureFormat, unlockers: unlockers)
         let rawTransactionData = try result.transaction.encode()
+        let rawTransactionByteCount = rawTransactionData.count
         var resolver = OpalBase.Transaction.Output.Resolver(outputs: result.transaction.outputs)
         let resolvedRecipientOutputs = try resolver.resolve(tokenRecipientOutputs).map {
             try OpalBase.Account.TokenOutputReview(output: $0, role: .recipient)
@@ -105,11 +106,11 @@ extension _OpalBase.Account.TokenSpendPlan {
         
         return Review(transaction: result.transaction,
                       rawTransactionData: rawTransactionData,
-                      rawTransactionByteCount: rawTransactionData.count,
+                      rawTransactionByteCount: rawTransactionByteCount,
                       fee: result.fee,
                       configuredFeeRate: feeRate,
                       effectiveFeeRate: TokenTransactionReview.effectiveFeeRate(fee: result.fee,
-                                                                                byteCount: rawTransactionData.count),
+                                                                                byteCount: rawTransactionByteCount),
                       bchChange: result.bchChange,
                       tokenRecipientOutputs: resolvedRecipientOutputs,
                       tokenChangeOutputs: resolvedTokenChangeOutputs,
@@ -143,7 +144,7 @@ extension _OpalBase.Account.TokenGenesisPlan {
                     lockedBCHOutputValue: OpalBase.Satoshi,
                     totalBCHNeeded: OpalBase.Satoshi) {
             self.transaction = transaction
-            self.rawTransactionData = rawTransactionData
+            self.rawTransactionData = Data(rawTransactionData)
             self.rawTransactionByteCount = rawTransactionByteCount
             self.fee = fee
             self.configuredFeeRate = configuredFeeRate
@@ -160,6 +161,7 @@ extension _OpalBase.Account.TokenGenesisPlan {
                             unlockers: [OpalBase.Transaction.Output.Unspent: OpalBase.Transaction.Unlocker] = .init()) throws -> Review {
         let result = try buildTransaction(signatureFormat: signatureFormat, unlockers: unlockers)
         let rawTransactionData = try result.transaction.encode()
+        let rawTransactionByteCount = rawTransactionData.count
         let mintedOutputs = try result.mintedOutputs.map {
             try OpalBase.Account.TokenOutputReview(output: $0, role: .minted)
         }
@@ -168,28 +170,15 @@ extension _OpalBase.Account.TokenGenesisPlan {
         
         return Review(transaction: result.transaction,
                       rawTransactionData: rawTransactionData,
-                      rawTransactionByteCount: rawTransactionData.count,
+                      rawTransactionByteCount: rawTransactionByteCount,
                       fee: result.fee,
                       configuredFeeRate: feeRate,
                       effectiveFeeRate: TokenTransactionReview.effectiveFeeRate(fee: result.fee,
-                                                                                byteCount: rawTransactionData.count),
+                                                                                byteCount: rawTransactionByteCount),
                       category: result.category,
                       mintedOutputs: mintedOutputs,
                       bchChange: result.bchChange,
                       lockedBCHOutputValue: lockedBCHOutputValue,
                       totalBCHNeeded: totalBCHNeeded)
-    }
-}
-
-private enum TokenTransactionReview {
-    static func effectiveFeeRate(fee: OpalBase.Satoshi, byteCount: Int) -> Double? {
-        guard byteCount > 0 else { return nil }
-        return Double(fee.uint64) / Double(byteCount)
-    }
-    
-    static func sumTokenOutputValue(_ outputs: [OpalBase.Account.TokenOutputReview]) throws -> OpalBase.Satoshi {
-        try outputs.sumSatoshi(or: OpalBase.Account.Error.paymentExceedsMaximumAmount) { output in
-            output.value
-        }
     }
 }

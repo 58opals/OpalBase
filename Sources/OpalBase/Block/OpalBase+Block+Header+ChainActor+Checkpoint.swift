@@ -9,7 +9,7 @@ extension _OpalBase.Block.Header.ChainActor {
         
         init(height: UInt32, hash: Data) {
             self.height = height
-            self.hash = hash
+            self.hash = Data(hash)
         }
     }
 }

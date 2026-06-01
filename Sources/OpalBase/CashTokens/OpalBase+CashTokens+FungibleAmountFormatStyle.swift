@@ -6,12 +6,13 @@ extension _OpalBase.CashTokens {
     public struct FungibleAmountFormatStyle: FormatStyle, Sendable {
         public typealias FormatInput = UInt64
         public typealias FormatOutput = String
+        private static let maximumDisplayDecimals = 64
 
         public let decimals: Int
         public let symbol: String?
 
         public init(decimals: Int?, symbol: String? = nil) {
-            self.decimals = max(0, decimals ?? 0)
+            self.decimals = min(max(0, decimals ?? 0), Self.maximumDisplayDecimals)
             let trimmedSymbol = symbol?.trimmingCharacters(in: .whitespacesAndNewlines)
             self.symbol = trimmedSymbol?.isEmpty == false ? trimmedSymbol : nil
         }

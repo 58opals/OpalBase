@@ -1,7 +1,6 @@
 // OpalBase+Transaction+Builder.swift
 
 import Foundation
-import OpalCrypto
 
 extension _OpalBase.Transaction {
     struct Builder {
@@ -16,7 +15,7 @@ extension _OpalBase.Transaction {
              signatureFormat: OpalBase.Transaction.SignatureFormat,
              sequence: UInt32,
              unlockers: [OpalBase.Transaction.Output.Unspent: OpalBase.Transaction.Unlocker]) {
-            self.privateKeysByUnspent = utxoPrivateKeyPairs
+            self.privateKeysByUnspent = utxoPrivateKeyPairs.mapValues { Data($0) }
             self.signatureFormat = signatureFormat
             self.sequence = sequence
             self.unlockersByUnspent = unlockers

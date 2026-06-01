@@ -1,7 +1,5 @@
 // OpalBase+Network+BlockHeaderReader.swift
 
-import Foundation
-
 extension _OpalBase.Network {
     public struct BlockHeaderReader: Sendable {
         private let performFetchTip: @Sendable () async throws -> OpalBase.Network.BlockHeaderSnapshot

@@ -7,6 +7,30 @@ import OpalBaseTestSupport
 
 @Suite("OpalBase.Account Token Commitment Mutation", .tags(.unit, .wallet, .cashTokens))
 struct AccountTokenCommitmentMutationValidator {
+    @Test("commitment mutation initializer normalizes sliced commitment")
+    func commitmentMutationInitializerNormalizesSlicedCommitment() throws {
+        let newCommitment = Data([0x01, 0x02, 0x03])
+        let paddedCommitment = Data([0xff]) + newCommitment
+        let slicedCommitment = paddedCommitment[paddedCommitment.index(after: paddedCommitment.startIndex)...]
+        let authorityOutput = OpalBase.Transaction.Output.Unspent(
+            value: 546,
+            lockingScript: Data([0x51]),
+            previousTransactionHash: .init(naturalOrder: Data(repeating: 0x21, count: 32)),
+            previousTransactionOutputIndex: 0
+        )
+        let destinationAddress = try OpalBase.Address("bitcoincash:zpm2qsznhks23z7629mms6s4cwef74vcwvrqekrq9w")
+
+        let mutation = try OpalBase.Account.TokenCommitmentMutation(
+            target: .preferredInput(authorityOutput),
+            newCommitment: slicedCommitment,
+            destination: destinationAddress
+        )
+
+        #expect(slicedCommitment.startIndex != newCommitment.startIndex)
+        #expect(mutation.newCommitment == newCommitment)
+        #expect(mutation.newCommitment.startIndex == newCommitment.startIndex)
+    }
+
     @Test("mutates mutable non-fungible commitment and preserves fungible change externally")
     func mutatesCommitmentAndPreservesFungibleChange() async throws {
         let account = try await makeAccount()

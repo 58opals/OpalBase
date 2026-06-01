@@ -1,7 +1,5 @@
 // OpalBase+Claimable+NetworkStatus.swift
 
-import Foundation
-
 extension _OpalBase.Claimable {
     public struct NetworkStatus {
         public let localStatus: OpalBase.Claimable.LocalStatus

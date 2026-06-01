@@ -7,6 +7,23 @@ import OpalBaseTestSupport
 
 @Suite("OpalBase.Transaction UTXO", .tags(.unit, .transaction))
 struct TransactionUnspentTransactionOutputValidator {
+    @Test("unspent output initializer normalizes sliced locking script")
+    func unspentOutputInitializerNormalizesSlicedLockingScript() {
+        let lockingScript = Data([0x51, 0x21, 0x00])
+        let paddedData = Data([0xff]) + lockingScript
+        let slicedLockingScript = paddedData[paddedData.index(after: paddedData.startIndex)...]
+        let unspentOutput = OpalBase.Transaction.Output.Unspent(
+            value: 546,
+            lockingScript: slicedLockingScript,
+            previousTransactionHash: .init(naturalOrder: Data(repeating: 0x11, count: 32)),
+            previousTransactionOutputIndex: 0
+        )
+
+        #expect(slicedLockingScript.startIndex != lockingScript.startIndex)
+        #expect(unspentOutput.lockingScript == lockingScript)
+        #expect(unspentOutput.lockingScript.startIndex == lockingScript.startIndex)
+    }
+
     @Test("build preserves token metadata on change outputs")
     func buildPreservesTokenMetadataOnChangeOutputs() throws {
         let components = try makeTransactionBuilderComponents()

@@ -9,22 +9,17 @@ import Testing
 struct CashTokensFulcrumTokenDataValidator {
     private static let validCategoryIdentifier = String(repeating: "11", count: 32)
 
-    @Test("rejects oversized fungible token amounts")
-    func rejectOversizedFungibleTokenAmounts() throws {
-        let oversizedAmount = "9223372036854775808"
-        let tokenData = Self.makeSwiftFulcrumTokenData(amount: oversizedAmount)
+    @Test(
+        "rejects invalid fungible token amount strings",
+        arguments: [
+            "9223372036854775808",
+            "+1"
+        ]
+    )
+    func rejectInvalidFungibleTokenAmountStrings(_ invalidAmount: String) throws {
+        let tokenData = Self.makeSwiftFulcrumTokenData(amount: invalidAmount)
 
-        #expect(throws: OpalBase.CashTokens.Error.invalidFungibleAmountString(oversizedAmount)) {
-            _ = try OpalBase.CashTokens.TokenData(swiftFulcrumTokenData: tokenData)
-        }
-    }
-
-    @Test("rejects signed fungible token amount strings")
-    func rejectSignedFungibleTokenAmountStrings() throws {
-        let signedAmount = "+1"
-        let tokenData = Self.makeSwiftFulcrumTokenData(amount: signedAmount)
-
-        #expect(throws: OpalBase.CashTokens.Error.invalidFungibleAmountString(signedAmount)) {
+        #expect(throws: OpalBase.CashTokens.Error.invalidFungibleAmountString(invalidAmount)) {
             _ = try OpalBase.CashTokens.TokenData(swiftFulcrumTokenData: tokenData)
         }
     }

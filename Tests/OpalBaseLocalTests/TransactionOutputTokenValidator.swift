@@ -19,6 +19,41 @@ struct TransactionOutputTokenValidator {
         #expect(decoded == output)
         #expect(reencoded == encoded)
     }
+
+    @Test("output initializer normalizes sliced locking script")
+    func outputInitializerNormalizesSlicedLockingScript() {
+        let lockingScript = Data([0x51, 0x21, 0x00])
+        let paddedData = Data([0xff]) + lockingScript
+        let slicedLockingScript = paddedData[paddedData.index(after: paddedData.startIndex)...]
+
+        let output = OpalBase.Transaction.Output(value: 546, lockingScript: slicedLockingScript)
+
+        #expect(slicedLockingScript.startIndex != lockingScript.startIndex)
+        #expect(output.lockingScript == lockingScript)
+        #expect(output.lockingScript.startIndex == lockingScript.startIndex)
+    }
+
+    @Test("output fingerprints normalize sliced locking scripts")
+    func outputFingerprintsNormalizeSlicedLockingScripts() {
+        let lockingScript = Data([0x51, 0x21, 0x00])
+        let paddedData = Data([0xff]) + lockingScript
+        let slicedLockingScript = paddedData[paddedData.index(after: paddedData.startIndex)...]
+        let fingerprint = OpalBase.Transaction.Output.Fingerprint(
+            lockingScript: slicedLockingScript,
+            value: 546,
+            tokenData: nil
+        )
+        let orderingFingerprint = OpalBase.Transaction.Output.OrderingFingerprint(
+            lockingScript: slicedLockingScript,
+            tokenData: nil
+        )
+
+        #expect(slicedLockingScript.startIndex != lockingScript.startIndex)
+        #expect(fingerprint.lockingScript == lockingScript)
+        #expect(fingerprint.lockingScript.startIndex == lockingScript.startIndex)
+        #expect(orderingFingerprint.lockingScript == lockingScript)
+        #expect(orderingFingerprint.lockingScript.startIndex == lockingScript.startIndex)
+    }
     
     @Test("output round trip with token data matches expected hexadecimal")
     func outputRoundTripWithTokenDataMatchesExpectedHexadecimal() throws {

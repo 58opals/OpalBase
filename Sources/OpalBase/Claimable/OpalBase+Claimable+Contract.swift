@@ -26,8 +26,8 @@ extension _OpalBase.Claimable {
             }
 
             self.network = network
-            self.claimPublicKeyHash = claimPublicKeyHash
-            self.refundPublicKeyHash = refundPublicKeyHash
+            self.claimPublicKeyHash = Data(claimPublicKeyHash)
+            self.refundPublicKeyHash = Data(refundPublicKeyHash)
             self.expiryBlockHeight = expiryBlockHeight
         }
     }

@@ -177,17 +177,16 @@ extension _OpalBase.Transaction.History.Record {
                                              entryHeight: Int,
                                              timestamp: Date) -> Bool {
         let previousHeight = confirmationMetadata.height
-        if let newHeight = transition.resolveConfirmationHeight(forHeight: entryHeight) {
-            if let existingHeight = confirmationMetadata.height, existingHeight != newHeight {
-                confirmationMetadata.confirmedAt = timestamp
-            } else if confirmationMetadata.confirmedAt == nil {
-                confirmationMetadata.confirmedAt = timestamp
-            }
-            confirmationMetadata.height = newHeight
-        } else {
+        guard let newHeight = transition.resolveConfirmationHeight(forHeight: entryHeight) else {
             confirmationMetadata.height = nil
             confirmationMetadata.confirmedAt = nil
+            return previousHeight != confirmationMetadata.height
         }
+
+        if confirmationMetadata.height != newHeight || confirmationMetadata.confirmedAt == nil {
+            confirmationMetadata.confirmedAt = timestamp
+        }
+        confirmationMetadata.height = newHeight
         return previousHeight != confirmationMetadata.height
     }
 }

@@ -1,0 +1,255 @@
+// OpalBase+Network+Fulcrum+TransactionReader.swift
+
+import Foundation
+
+extension _OpalBase.Network.Fulcrum {
+    /// Reads transaction data from a Fulcrum server.
+    ///
+    /// Most wallet applications should use `OpalBase.Wallet.Fulcrum` for live
+    /// synchronization. Use this reader directly when composing a custom network
+    /// adapter.
+    public struct TransactionReader {
+        private let client: any OpalBase.Network.Fulcrum.TransactionReaderClient
+        private let timeouts: OpalBase.Network.FulcrumRequestTimeout
+        private let cache: OpalBase.Transaction.Cache
+        
+        public init(
+            client: OpalBase.Network.Fulcrum.Client,
+            timeouts: OpalBase.Network.FulcrumRequestTimeout = .init(),
+            cache: OpalBase.Transaction.Cache = .init()
+        ) {
+            self.init(
+                client: client as any OpalBase.Network.Fulcrum.TransactionReaderClient,
+                timeouts: timeouts,
+                cache: cache
+            )
+        }
+
+        init(
+            client: any OpalBase.Network.Fulcrum.TransactionReaderClient,
+            timeouts: OpalBase.Network.FulcrumRequestTimeout = .init(),
+            cache: OpalBase.Transaction.Cache = .init()
+        ) {
+            self.client = client
+            self.timeouts = timeouts
+            self.cache = cache
+        }
+        
+        public func fetchDetailedTransaction(forTransactionIdentifier transactionIdentifier: String) async throws -> OpalBase.Transaction.Detail {
+            let hash = try OpalBase.Network.decodeTransactionHash(from: transactionIdentifier)
+            return try await fetchDetailedTransaction(for: hash)
+        }
+        
+        private func makeDetailed(
+            transactionHash: OpalBase.Transaction.Hash,
+            rawTransactionData: Data,
+            verboseTransaction: TransactionGetVerbose?
+        ) throws -> OpalBase.Transaction.Detail {
+            try validatePayloadHash(rawTransactionData, expected: transactionHash)
+            let transaction = try Self.decodeTransaction(from: rawTransactionData)
+            guard let rawTransactionSize = UInt32(exactly: rawTransactionData.count) else {
+                throw OpalBase.Network.Error(
+                    reason: .decoding,
+                    message: "Invalid transaction size: \(rawTransactionData.count)"
+                )
+            }
+            if let verboseTransaction, verboseTransaction.size != rawTransactionSize {
+                throw OpalBase.Network.Error(
+                    reason: .decoding,
+                    message: "Verbose transaction size mismatch"
+                )
+            }
+            let blockHash = try verboseTransaction?.blockHash.map {
+                try OpalBase.Network.decodeHashData(from: $0, label: "block hash")
+            }
+            if let confirmations = verboseTransaction?.confirmations,
+               confirmations > 0,
+               blockHash == nil {
+                throw OpalBase.Network.Error(
+                    reason: .decoding,
+                    message: "Verbose transaction confirmations require a block hash"
+                )
+            }
+            
+            return OpalBase.Transaction.Detail(
+                transaction: transaction,
+                blockHash: blockHash,
+                blockTime: verboseTransaction?.blockTime,
+                confirmations: verboseTransaction?.confirmations,
+                hash: transactionHash,
+                rawTransactionData: rawTransactionData,
+                size: rawTransactionSize,
+                time: verboseTransaction?.time
+            )
+        }
+
+        private func validatePayloadHash(
+            _ rawTransactionData: Data,
+            expected transactionHash: OpalBase.Transaction.Hash
+        ) throws {
+            let actualHash = OpalBase.Transaction.Hash(
+                naturalOrder: OpalCryptoAdapter.hash256(rawTransactionData)
+            )
+            guard actualHash == transactionHash else {
+                throw OpalBase.Network.Error(
+                    reason: .protocolViolation,
+                    message: "Transaction payload hash mismatch",
+                    metadata: [
+                        "expected": transactionHash.reverseOrder.hexadecimalString,
+                        "actual": actualHash.reverseOrder.hexadecimalString
+                    ]
+                )
+            }
+        }
+        
+        public func fetchDetailedTransaction(for transactionHash: OpalBase.Transaction.Hash) async throws -> OpalBase.Transaction.Detail {
+            if let cached = await cache.loadTransaction(at: transactionHash) {
+                return cached
+            }
+            
+            do {
+                let detailed = try await fetchDetailedTransactionUsingVerboseResponse(for: transactionHash)
+                await cache.put(detailed, at: transactionHash)
+                return detailed
+            } catch let failure as OpalBase.Network.Error where failure.reason == .decoding {
+                let detailed = try await fetchDetailedTransactionUsingRawResponse(for: transactionHash)
+                await cache.put(detailed, at: transactionHash)
+                return detailed
+            }
+        }
+        
+        public func fetchRawTransaction(for transactionHash: OpalBase.Transaction.Hash) async throws -> Data {
+            if let cached = await cache.loadTransaction(at: transactionHash) {
+                return cached.rawTransactionData
+            }
+            
+            let identifier = transactionHash.reverseOrder.hexadecimalString
+            
+            return try await OpalBase.Network.performWithFailureTranslation {
+                let rawTransactionHex = try await client.fetchRawTransaction(
+                    transactionHash: identifier,
+                    options: .init(timeout: timeouts.transactionConfirmations)
+                )
+                
+                let rawTransactionData = try Self.decodeRawTransactionData(from: rawTransactionHex)
+                try validatePayloadHash(rawTransactionData, expected: transactionHash)
+                _ = try Self.decodeTransaction(from: rawTransactionData)
+                return rawTransactionData
+            }
+        }
+        
+        private func fetchVerboseTransaction(for transactionHash: OpalBase.Transaction.Hash) async throws -> TransactionGetVerbose {
+            let identifier = transactionHash.reverseOrder.hexadecimalString
+            
+            let result = try await client.fetchVerboseTransaction(
+                transactionHash: identifier,
+                options: .init(timeout: timeouts.transactionConfirmations)
+            )
+            guard let size = UInt32(exactly: result.size) else {
+                throw OpalBase.Network.Error(
+                    reason: .decoding,
+                    message: "Invalid transaction size: \(result.size)"
+                )
+            }
+            guard result.hash.caseInsensitiveCompare(identifier) == .orderedSame,
+                  result.transactionID.caseInsensitiveCompare(identifier) == .orderedSame else {
+                throw OpalBase.Network.Error(
+                    reason: .protocolViolation,
+                    message: "Verbose transaction identifier mismatch",
+                    metadata: [
+                        "expected": identifier,
+                        "hash": result.hash,
+                        "txid": result.transactionID
+                    ]
+                )
+            }
+            return .init(hex: result.hex,
+                         blockHash: result.blockHash,
+                         blockTime: try Self.validatedUInt32Metadata(result.blocktime, fieldName: "blocktime"),
+                         confirmations: try Self.validatedUInt32Metadata(result.confirmations, fieldName: "confirmations"),
+                         size: size,
+                         time: try Self.validatedUInt32Metadata(result.time, fieldName: "time"))
+        }
+
+        private static func validatedUInt32Metadata(
+            _ value: UInt?,
+            fieldName: String
+        ) throws -> UInt32? {
+            guard let value else { return nil }
+            guard let converted = UInt32(exactly: value) else {
+                throw OpalBase.Network.Error(
+                    reason: .decoding,
+                    message: "Invalid transaction \(fieldName): \(value)"
+                )
+            }
+            return converted
+        }
+
+        private func fetchDetailedTransactionUsingVerboseResponse(
+            for transactionHash: OpalBase.Transaction.Hash
+        ) async throws -> OpalBase.Transaction.Detail {
+            try await OpalBase.Network.performWithFailureTranslation {
+                let verbose = try await fetchVerboseTransaction(for: transactionHash)
+                let rawTransactionData = try Self.decodeRawTransactionData(from: verbose.hex)
+                return try makeDetailed(
+                    transactionHash: transactionHash,
+                    rawTransactionData: rawTransactionData,
+                    verboseTransaction: verbose
+                )
+            }
+        }
+
+        private func fetchDetailedTransactionUsingRawResponse(
+            for transactionHash: OpalBase.Transaction.Hash
+        ) async throws -> OpalBase.Transaction.Detail {
+            try await OpalBase.Network.performWithFailureTranslation {
+                let rawTransactionData = try await fetchRawTransaction(for: transactionHash)
+                return try makeDetailed(
+                    transactionHash: transactionHash,
+                    rawTransactionData: rawTransactionData,
+                    verboseTransaction: nil
+                )
+            }
+        }
+        
+        private struct TransactionGetVerbose: Sendable {
+            let hex: String
+            let blockHash: String?
+            let blockTime: UInt32?
+            let confirmations: UInt32?
+            let size: UInt32
+            let time: UInt32?
+        }
+
+        private static func decodeRawTransactionData(from rawTransactionHex: String) throws -> Data {
+            guard !rawTransactionHex.hasPrefix("0x"), !rawTransactionHex.hasPrefix("0X") else {
+                throw OpalBase.Network.Error(
+                    reason: .decoding,
+                    message: "Cannot decode raw transaction hex"
+                )
+            }
+            do {
+                return try Data(hexadecimalString: rawTransactionHex)
+            } catch {
+                throw OpalBase.Network.Error(
+                    reason: .decoding,
+                    message: "Cannot decode raw transaction hex"
+                )
+            }
+        }
+
+        private static func decodeTransaction(from rawTransactionData: Data) throws -> OpalBase.Transaction {
+            let (transaction, bytesRead) = try OpalBase.Transaction.decode(from: rawTransactionData)
+            guard bytesRead == rawTransactionData.count else {
+                throw OpalBase.Network.Error(
+                    reason: .decoding,
+                    message: "Transaction payload has trailing bytes"
+                )
+            }
+            return transaction
+        }
+    }
+}
+
+extension _OpalBase.Network.Fulcrum.TransactionReader: Sendable {}
+extension _OpalBase.Network.Fulcrum.TransactionReader: OpalBase.Network.TransactionReadableClient {}

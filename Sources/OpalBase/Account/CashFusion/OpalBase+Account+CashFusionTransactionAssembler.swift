@@ -5,14 +5,6 @@ import Foundation
 import OpalFusion
 
 extension _OpalBase.Account {
-    enum CashFusionTransactionAssemblyError: Swift.Error, Equatable {
-        case trailingUnsignedTransactionBytes
-        case inputCountMismatch(expected: Int, actual: Int)
-        case outputCountMismatch(expected: Int, actual: Int)
-        case localInputMismatch
-        case duplicatedLocalInput
-    }
-
     struct CashFusionTransactionAssembler: OpalFusion.Host.TransactionAssembler {
         private static let transactionAssemblyFailedSummary = "CashFusion transaction assembly failed"
         private static let hostPolicyRejectedSummary = "CashFusion host policy rejected transaction"
@@ -133,20 +125,4 @@ extension _OpalBase.Account {
     }
 }
 
-private extension _OpalBase.Account.CashFusionTransactionAssembler {
-    struct Outpoint: Hashable, Sendable {
-        let transactionHash: OpalBase.Transaction.Hash
-        let outputIndex: UInt32
-
-        init(_ input: OpalBase.Transaction.Input) {
-            self.transactionHash = input.previousTransactionHash
-            self.outputIndex = input.previousTransactionOutputIndex
-        }
-
-        init(_ unspentOutput: OpalBase.Transaction.Output.Unspent) {
-            self.transactionHash = unspentOutput.previousTransactionHash
-            self.outputIndex = unspentOutput.previousTransactionOutputIndex
-        }
-    }
-}
 #endif

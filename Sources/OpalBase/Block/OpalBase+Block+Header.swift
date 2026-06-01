@@ -18,8 +18,8 @@ extension _OpalBase.Block {
                     bits: UInt32,
                     nonce: UInt32) {
             self.version = version
-            self.previousBlockHash = previousBlockHash
-            self.merkleRoot = merkleRoot
+            self.previousBlockHash = Data(previousBlockHash)
+            self.merkleRoot = Data(merkleRoot)
             self.time = time
             self.bits = bits
             self.nonce = nonce
@@ -68,14 +68,12 @@ extension _OpalBase.Block.Header {
     
     public static func calculateTarget(for bits: UInt32) -> OpalBase.Block.Target {
         let exponent = Int(bits >> 24)
-        var mantissa = LargeUnsignedInteger(UInt64(bits & 0x00ff_ffff))
+        let mantissa = LargeUnsignedInteger(UInt64(bits & 0x00ff_ffff))
         
         if exponent <= 3 {
-            mantissa = mantissa.shiftRight(by: 8 * (3 - exponent))
-            return OpalBase.Block.Target(mantissa)
-        } else {
-            return OpalBase.Block.Target(mantissa.shiftLeft(by: 8 * (exponent - 3)))
+            return OpalBase.Block.Target(mantissa.shiftRight(by: 8 * (3 - exponent)))
         }
+        return OpalBase.Block.Target(mantissa.shiftLeft(by: 8 * (exponent - 3)))
     }
     
     public var isProofOfWorkSatisfied: Bool {

@@ -1,6 +1,5 @@
 // OpalBase+Network+ProtocolVersion.swift
 
-import Foundation
 import SwiftFulcrum
 
 extension _OpalBase.Network {

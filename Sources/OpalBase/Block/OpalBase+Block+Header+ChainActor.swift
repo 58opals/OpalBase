@@ -24,13 +24,14 @@ extension _OpalBase.Block.Header {
         private var lastTipStatus: TipStatus?
         
         init(checkpointHeight: UInt32, checkpointHash: Data, maxCheckpointDepth: Int = 24) {
+            let normalizedCheckpointHash = Data(checkpointHash)
             self.checkpointHeight = checkpointHeight
-            self.checkpointHash = checkpointHash
+            self.checkpointHash = normalizedCheckpointHash
             self.maxCheckpointDepth = max(1, maxCheckpointDepth)
-            self.checkpoints = [.init(height: checkpointHeight, hash: checkpointHash)]
+            self.checkpoints = [.init(height: checkpointHeight, hash: normalizedCheckpointHash)]
             self.tipHeight = checkpointHeight
-            self.tipHash = checkpointHash
-            self.hashes[checkpointHeight] = checkpointHash
+            self.tipHash = normalizedCheckpointHash
+            self.hashes[checkpointHeight] = normalizedCheckpointHash
         }
     }
 }
@@ -91,10 +92,8 @@ extension _OpalBase.Block.Header.ChainActor {
     }
     
     func dequeueMaintenanceEvents() -> [MaintenanceEvent] {
-        guard !queuedMaintenanceEvents.isEmpty else { return .init() }
-        let events = queuedMaintenanceEvents
-        queuedMaintenanceEvents.removeAll()
-        return events
+        defer { queuedMaintenanceEvents.removeAll() }
+        return queuedMaintenanceEvents
     }
     
     func apply(header: OpalBase.Block.Header, at height: UInt32) throws -> UpdateResult {
@@ -125,30 +124,25 @@ extension _OpalBase.Block.Header.ChainActor {
         
         var detachedHeights: [UInt32] = .init()
         
-        if height <= tipHeight,
-           let existingHash = hashes[height],
-           existingHash != headerHash,
-           height > checkpointHeight {
-            guard let previousHash = hashes[height - 1],
-                  previousHash == header.previousBlockHash else {
-                throw Error.doesNotConnect(height: height)
-            }
-        }
-
-        if height <= tipHeight {
-            if let existingHash = hashes[height], existingHash != headerHash {
-                detachedHeights = Array(height...tipHeight)
-                for oldHeight in detachedHeights {
-                    headers.removeValue(forKey: oldHeight)
-                    hashes.removeValue(forKey: oldHeight)
+        if height <= tipHeight, let existingHash = hashes[height], existingHash != headerHash {
+            if height > checkpointHeight {
+                guard let previousHash = hashes[height - 1],
+                      previousHash == header.previousBlockHash else {
+                    throw Error.doesNotConnect(height: height)
                 }
-                let newTipHeight = height == 0 ? 0 : height &- 1
-                let nextHash = hashes[newTipHeight] ?? (newTipHeight == checkpointHeight ? checkpointHash : nil)
-                tipHeight = newTipHeight
-                tipHash = nextHash ?? checkpointHash
-                checkpoints.removeAll { $0.height >= height }
-                queuedMaintenanceEvents.append(.requiresResynchronization(from: .init(height: height, hash: headerHash)))
             }
+
+            detachedHeights = Array(height...tipHeight)
+            for oldHeight in detachedHeights {
+                headers.removeValue(forKey: oldHeight)
+                hashes.removeValue(forKey: oldHeight)
+            }
+            let newTipHeight = height == 0 ? 0 : height &- 1
+            let nextHash = hashes[newTipHeight] ?? (newTipHeight == checkpointHeight ? checkpointHash : nil)
+            tipHeight = newTipHeight
+            tipHash = nextHash ?? checkpointHash
+            checkpoints.removeAll { $0.height >= height }
+            queuedMaintenanceEvents.append(.requiresResynchronization(from: .init(height: height, hash: headerHash)))
         } else if height > tipHeight + 1, hashes[height - 1] == nil {
             let checkpointHeader = headers[checkpointHeight]
             headers.removeAll()

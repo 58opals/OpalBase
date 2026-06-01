@@ -13,13 +13,20 @@ extension _OpalBase.CashTokens {
                 throw Error.categoryIdentifierLengthMismatch(expected: Self.expectedByteCount,
                                                              actual: transactionOrderData.count)
             }
-            self.transactionOrderData = transactionOrderData
+            self.transactionOrderData = Data(transactionOrderData)
         }
         
         public init(hexFromRPC hexadecimalString: String) throws {
-            guard !hexadecimalString.hasPrefix("0x"),
-                  !hexadecimalString.hasPrefix("0X"),
-                  let rawData = try? Data(hexadecimalString: hexadecimalString) else {
+            guard !hexadecimalString.hasPrefix("0x"), !hexadecimalString.hasPrefix("0X") else {
+                throw Error.invalidHexadecimalString
+            }
+
+            if let decodedByteCount = Data.unprefixedHexadecimalByteCount(hexadecimalString),
+               decodedByteCount != Self.expectedByteCount {
+                throw Error.categoryIdentifierLengthMismatch(expected: Self.expectedByteCount, actual: decodedByteCount)
+            }
+
+            guard let rawData = try? Data(hexadecimalString: hexadecimalString) else {
                 throw Error.invalidHexadecimalString
             }
             try self.init(transactionOrderData: rawData.reversedData)

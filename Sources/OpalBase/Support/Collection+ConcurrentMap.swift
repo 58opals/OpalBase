@@ -10,8 +10,6 @@ extension Collection where Element: Sendable {
         transformError: @escaping @Sendable (Element, Swift.Error) -> Swift.Error = { _, error in error },
         _ transform: @escaping @Sendable (Element) async throws -> Transformed
     ) async throws -> [Transformed] {
-        guard !isEmpty else { return .init() }
-        
         let elementCount = count
         let boundedTaskCount = Swift.max(1, Swift.min(maximumConcurrentTasks, elementCount))
         var iterator = self.enumerated().makeIterator()

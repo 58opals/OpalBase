@@ -24,6 +24,26 @@ extension _OpalBase.Transaction {
         public let rawTransactionData: Data
         public let size: UInt32
         public let time: UInt32?
+
+        init(
+            transaction: OpalBase.Transaction,
+            blockHash: Data?,
+            blockTime: UInt32?,
+            confirmations: UInt32?,
+            hash: OpalBase.Transaction.Hash,
+            rawTransactionData: Data,
+            size: UInt32,
+            time: UInt32?
+        ) {
+            self.transaction = transaction
+            self.blockHash = blockHash.map { Data($0) }
+            self.blockTime = blockTime
+            self.confirmations = confirmations
+            self.hash = hash
+            self.rawTransactionData = Data(rawTransactionData)
+            self.size = size
+            self.time = time
+        }
     }
 }
 

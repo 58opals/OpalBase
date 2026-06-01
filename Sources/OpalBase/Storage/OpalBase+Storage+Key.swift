@@ -18,6 +18,9 @@ extension _OpalBase.Storage {
             case .walletSnapshot:
                 return "wallet.snapshot"
             case .walletSnapshotGeneration(let generation):
+                if generation == "committed" {
+                    return "wallet.snapshot.generation.committed"
+                }
                 return "wallet.snapshot." + generation
             case .walletSnapshotCommittedGeneration:
                 return "wallet.snapshot.committed"

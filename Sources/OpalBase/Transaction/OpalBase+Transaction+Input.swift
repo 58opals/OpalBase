@@ -22,7 +22,7 @@ extension _OpalBase.Transaction {
         public init(previousTransactionHash: OpalBase.Transaction.Hash, previousTransactionOutputIndex: UInt32, unlockingScript: Data, sequence: UInt32 = 0xFFFFFFFF) {
             self.previousTransactionHash = previousTransactionHash
             self.previousTransactionOutputIndex = previousTransactionOutputIndex
-            self.unlockingScript = unlockingScript
+            self.unlockingScript = Data(unlockingScript)
             self.sequence = sequence
         }
         

@@ -64,11 +64,11 @@ extension StoragePersistenceValidator {
 
     @Test("failed staged saves leave the previous committed generation active")
     func failedStagedSaveKeepsPreviouslyCommittedState() async throws {
-        let snapshotState = GenerationSnapshotStoreState()
-        let mnemonicState = GenerationMnemonicStoreState()
+        let snapshotState = GenerationSnapshotPersistenceState()
+        let mnemonicState = GenerationMnemonicPersistenceState()
         let session = OpalBase.Storage.PersistenceSession(
-            snapshotStore: makeGenerationSnapshotStore(state: snapshotState),
-            storedMnemonicStore: makeGenerationMnemonicStore(state: mnemonicState)
+            snapshotPersistence: makeGenerationSnapshotPersistence(state: snapshotState),
+            storedMnemonicPersistence: makeGenerationMnemonicPersistence(state: mnemonicState)
         )
 
         let initialWallet = try await AccountTestFixtures.makeWallet(passphrase: "first-passphrase")
@@ -84,7 +84,7 @@ extension StoragePersistenceValidator {
         )
         await mnemonicState.failNextSave()
 
-        try await expectGenerationStoreSimulatedFailure {
+        try await expectGenerationPersistenceSimulatedFailure {
             _ = try await session.save(wallet: replacementWallet)
         }
 
@@ -100,18 +100,18 @@ extension StoragePersistenceValidator {
 
     @Test("failed wipes do not expose partial committed state on restore")
     func failedWipeDoesNotExposePartialCommittedState() async throws {
-        let snapshotState = GenerationSnapshotStoreState()
-        let mnemonicState = GenerationMnemonicStoreState()
+        let snapshotState = GenerationSnapshotPersistenceState()
+        let mnemonicState = GenerationMnemonicPersistenceState()
         let session = OpalBase.Storage.PersistenceSession(
-            snapshotStore: makeGenerationSnapshotStore(state: snapshotState),
-            storedMnemonicStore: makeGenerationMnemonicStore(state: mnemonicState)
+            snapshotPersistence: makeGenerationSnapshotPersistence(state: snapshotState),
+            storedMnemonicPersistence: makeGenerationMnemonicPersistence(state: mnemonicState)
         )
 
         let wallet = try await AccountTestFixtures.makeWallet(passphrase: "wipe-failure")
         _ = try await session.save(wallet: wallet)
         await mnemonicState.failNextDelete()
 
-        try await expectGenerationStoreSimulatedFailure {
+        try await expectGenerationPersistenceSimulatedFailure {
             try await session.wipe()
         }
 
@@ -124,58 +124,10 @@ extension StoragePersistenceValidator {
     }
 }
 
-private actor GenerationMnemonicStoreState {
-    private var mnemonicStates: [String: (
-        mnemonic: OpalBase.Storage.StoredMnemonic,
-        protectionMode: OpalBase.Storage.Security.ProtectionMode
-    )] = .init()
-    private var shouldFailNextSave = false
-    private var shouldFailNextDelete = false
-
-    func saveMnemonic(
-        _ mnemonic: OpalBase.Storage.StoredMnemonic,
-        generation: String,
-        fallbackToPlaintext: Bool
-    ) throws -> OpalBase.Storage.Security.ProtectionMode {
-        if shouldFailNextSave {
-            shouldFailNextSave = false
-            throw GenerationStoreError.simulatedFailure
-        }
-
-        let mode: OpalBase.Storage.Security.ProtectionMode = fallbackToPlaintext ? .plaintext : .software
-        mnemonicStates[generation] = (mnemonic, mode)
-        return mode
-    }
-
-    func loadMnemonicState(generation: String) -> (
-        mnemonic: OpalBase.Storage.StoredMnemonic,
-        protectionMode: OpalBase.Storage.Security.ProtectionMode
-    )? {
-        mnemonicStates[generation]
-    }
-
-    func deleteMnemonic(generation: String) throws {
-        if shouldFailNextDelete {
-            shouldFailNextDelete = false
-            throw GenerationStoreError.simulatedFailure
-        }
-
-        mnemonicStates.removeValue(forKey: generation)
-    }
-
-    func failNextSave() {
-        shouldFailNextSave = true
-    }
-
-    func failNextDelete() {
-        shouldFailNextDelete = true
-    }
-}
-
-private func makeGenerationSnapshotStore(
-    state: GenerationSnapshotStoreState
-) -> OpalBase.Storage.SnapshotStore {
-    OpalBase.Storage.SnapshotStore(
+private func makeGenerationSnapshotPersistence(
+    state: GenerationSnapshotPersistenceState
+) -> OpalBase.Storage.SnapshotPersistence {
+    OpalBase.Storage.SnapshotPersistence(
         saveWalletSnapshot: { snapshot, generation in
             await state.saveWalletSnapshot(snapshot, generation: generation)
         },
@@ -197,28 +149,23 @@ private func makeGenerationSnapshotStore(
     )
 }
 
-private enum GenerationStoreErrorCaptureFailure: Swift.Error {
-    case didNotThrow
-    case unexpected(String)
-}
-
-private func expectGenerationStoreSimulatedFailure(
+private func expectGenerationPersistenceSimulatedFailure(
     _ operation: () async throws -> Void
 ) async throws {
     do {
         try await operation()
-    } catch GenerationStoreError.simulatedFailure {
+    } catch GenerationPersistenceError.simulatedFailure {
         return
     } catch {
-        throw GenerationStoreErrorCaptureFailure.unexpected(String(describing: error))
+        throw GenerationPersistenceErrorCaptureFailure.unexpected(String(describing: error))
     }
-    throw GenerationStoreErrorCaptureFailure.didNotThrow
+    throw GenerationPersistenceErrorCaptureFailure.didNotThrow
 }
 
-private func makeGenerationMnemonicStore(
-    state: GenerationMnemonicStoreState
-) -> OpalBase.Storage.StoredMnemonicStore {
-    OpalBase.Storage.StoredMnemonicStore(
+private func makeGenerationMnemonicPersistence(
+    state: GenerationMnemonicPersistenceState
+) -> OpalBase.Storage.StoredMnemonicPersistence {
+    OpalBase.Storage.StoredMnemonicPersistence(
         saveMnemonic: { mnemonic, generation, fallbackToPlaintext in
             try await state.saveMnemonic(
                 mnemonic,

@@ -412,55 +412,70 @@ struct AccountCashFusionSessionValidator {
         #expect(failedFinalRecord.level == .error)
     }
 
-    @Test("makePublicStatus maps every terminal completion status")
-    func makePublicStatusMapsEveryTerminalCompletionStatus() {
-        let cases: [(OpalFusion.Round.CompletionStatus, OpalBase.Account.CashFusionSessionStatus.CompletionStatus)] = [
-            (.success, .success),
-            (.coordinatorRejected, .coordinatorRejected),
-            (.hostRejected, .hostRejected),
-            (.protocolIncompatible, .protocolIncompatible),
-            (.transportFailed, .transportFailed),
-            (.blameRequired, .blameRequired)
-        ]
-
-        for (fusionStatus, expectedStatus) in cases {
-            let publicStatus = OpalBase.Account.CashFusionSessionStatus(
-                snapshot: CashFusionTestSupport.makeSnapshot(
-                    phase: .completed,
-                    completionStatus: fusionStatus
-                )
+    @Test(
+        "makePublicStatus maps every terminal completion status",
+        arguments: terminalCompletionStatusCases
+    )
+    func makePublicStatusMapsEveryTerminalCompletionStatus(
+        statusCase: (
+            fusionStatus: OpalFusion.Round.CompletionStatus,
+            expectedStatus: OpalBase.Account.CashFusionSessionStatus.CompletionStatus
+        )
+    ) {
+        let publicStatus = OpalBase.Account.CashFusionSessionStatus(
+            snapshot: CashFusionTestSupport.makeSnapshot(
+                phase: .completed,
+                completionStatus: statusCase.fusionStatus
             )
+        )
 
-            #expect(publicStatus.round?.completionStatus == expectedStatus)
-            #expect(publicStatus.round?.isTerminal == true)
-        }
+        #expect(publicStatus.round?.completionStatus == statusCase.expectedStatus)
+        #expect(publicStatus.round?.isTerminal == true)
     }
 
-    @Test("makePublicStatus maps every client error category")
-    func makePublicStatusMapsEveryClientErrorCategory() {
-        let cases: [(OpalFusion.Client.Error, OpalBase.Account.CashFusionSessionStatus.LastError)] = [
-            (.invalidConfiguration, .invalidConfiguration),
-            (.transportUnavailable, .transportUnavailable),
-            (.coordinatorRejected, .coordinatorRejected),
-            (.hostRejected, .hostRejected),
-            (.protocolIncompatible, .protocolIncompatible),
-            (.blameRequired, .blameRequired),
-            (.notImplemented, .notImplemented)
-        ]
+    private static let terminalCompletionStatusCases: [(
+        fusionStatus: OpalFusion.Round.CompletionStatus,
+        expectedStatus: OpalBase.Account.CashFusionSessionStatus.CompletionStatus
+    )] = [
+        (.success, .success),
+        (.coordinatorRejected, .coordinatorRejected),
+        (.hostRejected, .hostRejected),
+        (.protocolIncompatible, .protocolIncompatible),
+        (.transportFailed, .transportFailed),
+        (.blameRequired, .blameRequired)
+    ]
 
-        for (fusionError, expectedError) in cases {
-            let publicStatus = OpalBase.Account.CashFusionSessionStatus(
-                snapshot: .init(
-                    state: .init(),
-                    lastError: fusionError,
-                    lastErrorSummary: "CashFusion failed"
-                )
+    @Test("makePublicStatus maps every client error category", arguments: clientErrorCategoryCases)
+    func makePublicStatusMapsEveryClientErrorCategory(
+        errorCase: (
+            fusionError: OpalFusion.Client.Error,
+            expectedError: OpalBase.Account.CashFusionSessionStatus.LastError
+        )
+    ) {
+        let publicStatus = OpalBase.Account.CashFusionSessionStatus(
+            snapshot: .init(
+                state: .init(),
+                lastError: errorCase.fusionError,
+                lastErrorSummary: "CashFusion failed"
             )
+        )
 
-            #expect(publicStatus.lastError == expectedError)
-            #expect(publicStatus.lastErrorSummary == "CashFusion failed")
-        }
+        #expect(publicStatus.lastError == errorCase.expectedError)
+        #expect(publicStatus.lastErrorSummary == "CashFusion failed")
     }
+
+    private static let clientErrorCategoryCases: [(
+        fusionError: OpalFusion.Client.Error,
+        expectedError: OpalBase.Account.CashFusionSessionStatus.LastError
+    )] = [
+        (.invalidConfiguration, .invalidConfiguration),
+        (.transportUnavailable, .transportUnavailable),
+        (.coordinatorRejected, .coordinatorRejected),
+        (.hostRejected, .hostRejected),
+        (.protocolIncompatible, .protocolIncompatible),
+        (.blameRequired, .blameRequired),
+        (.notImplemented, .notImplemented)
+    ]
 
     @Test("makePublicStatus maps a disconnected snapshot with no round")
     func makePublicStatusMapsADisconnectedSnapshotWithNoRound() async throws {

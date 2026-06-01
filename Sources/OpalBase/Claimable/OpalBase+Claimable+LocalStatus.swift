@@ -1,7 +1,5 @@
 // OpalBase+Claimable+LocalStatus.swift
 
-import Foundation
-
 extension _OpalBase.Claimable {
     public struct LocalStatus {
         public let currentBlockHeight: UInt32

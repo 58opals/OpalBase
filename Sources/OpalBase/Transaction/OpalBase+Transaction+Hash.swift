@@ -9,7 +9,7 @@ extension _OpalBase.Transaction {
         
         // Initializer for data received in natural order (little-endian)
         public init(naturalOrder data: Data) {
-            self.originalData = data
+            self.originalData = Data(data)
         }
         
         // Initializer for data received in reverse order (big-endian)
@@ -18,11 +18,11 @@ extension _OpalBase.Transaction {
         }
         
         public init(dataFromBlockExplorer data: Data) {
-            self.originalData = data.reversedData
+            self.init(reverseOrder: data)
         }
         
         public init(dataFromRPC data: Data) {
-            self.originalData = data.reversedData
+            self.init(reverseOrder: data)
         }
         
         // Computed property to return the natural byte order (little-endian)

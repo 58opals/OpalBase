@@ -6,19 +6,18 @@ import Testing
 
 @Suite("OpalBase.Script decoding", .tags(.unit))
 struct ScriptDecodeValidator {
-    @Test("decodes sliced P2PKH and P2SH locking bytecode")
-    func decodesSlicedStandardLockingBytecode() throws {
-        let scripts: [OpalBase.Script] = [
-            .p2pkh_OPCHECKSIG(hash: .init(Data(repeating: 0x22, count: 20))),
-            .p2sh(scriptHash: Data(repeating: 0x33, count: 20))
+    @Test(
+        "decodes sliced P2PKH and P2SH locking bytecode",
+        arguments: [
+            OpalBase.Script.p2pkh_OPCHECKSIG(hash: .init(Data(repeating: 0x22, count: 20))),
+            OpalBase.Script.p2sh(scriptHash: Data(repeating: 0x33, count: 20))
         ]
+    )
+    func decodesSlicedStandardLockingBytecode(script: OpalBase.Script) throws {
+        let slicedLockingScript = makeSlicedData(from: script.data)
 
-        for script in scripts {
-            let slicedLockingScript = makeSlicedData(from: script.data)
-
-            #expect(slicedLockingScript.startIndex != 0)
-            #expect(try OpalBase.Script.decode(lockingScript: slicedLockingScript) == script)
-        }
+        #expect(slicedLockingScript.startIndex != 0)
+        #expect(try OpalBase.Script.decode(lockingScript: slicedLockingScript) == script)
     }
 
     @Test("rejects standard scripts with trailing bytes")
@@ -61,19 +60,17 @@ struct ScriptDecodeValidator {
         #expect(Set([invalid, matchingInvalid, distinctInvalid]).count == 2)
     }
 
-    @Test("invalid public P2MS values do not trap during serialization")
-    func invalidPublicP2MSValuesDoNotTrapDuringSerialization() throws {
-        let publicKey = try makePublicKey(privateKeyByte: 1)
-        let scripts: [OpalBase.Script] = [
-            .p2ms(numberOfRequiredSignatures: 0, publicKeys: []),
-            .p2ms(numberOfRequiredSignatures: 0, publicKeys: [publicKey]),
-            .p2ms(numberOfRequiredSignatures: 2, publicKeys: [publicKey]),
-            .p2ms(numberOfRequiredSignatures: 17, publicKeys: [publicKey])
-        ]
-
-        for script in scripts {
-            #expect(script.data.isEmpty)
+    @Test("invalid public P2MS values do not trap during serialization", arguments: invalidP2MSFixtures)
+    func invalidPublicP2MSValuesDoNotTrapDuringSerialization(fixture: InvalidP2MSFixture) throws {
+        let publicKeys = try (0..<fixture.publicKeyCount).map {
+            try makePublicKey(privateKeyByte: UInt8($0 + 1))
         }
+        let script = OpalBase.Script.p2ms(
+            numberOfRequiredSignatures: fixture.numberOfRequiredSignatures,
+            publicKeys: publicKeys
+        )
+
+        #expect(script.data.isEmpty)
     }
 
     @Test("serializes largest standard P2MS script")
@@ -101,5 +98,17 @@ struct ScriptDecodeValidator {
     private func makePublicKey(privateKeyByte: UInt8) throws -> OpalBase.Key.PublicKey {
         let privateKeyData = Data(repeating: privateKeyByte, count: 32)
         return try OpalBase.Key.PublicKey(privateKeyData: privateKeyData)
+    }
+
+    private static let invalidP2MSFixtures: [InvalidP2MSFixture] = [
+        .init(numberOfRequiredSignatures: 0, publicKeyCount: 0),
+        .init(numberOfRequiredSignatures: 0, publicKeyCount: 1),
+        .init(numberOfRequiredSignatures: 2, publicKeyCount: 1),
+        .init(numberOfRequiredSignatures: 17, publicKeyCount: 1)
+    ]
+
+    struct InvalidP2MSFixture: Sendable {
+        let numberOfRequiredSignatures: Int
+        let publicKeyCount: Int
     }
 }

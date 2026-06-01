@@ -364,8 +364,17 @@ struct AccountCashFusionTransactionAssemblerValidator {
         try await reservation.cancel()
     }
 
-    @Test("proposal transaction count mismatches are rejected before signing")
-    func proposalTransactionCountMismatchesAreRejectedBeforeSigning() async throws {
+    @Test(
+        "proposal transaction count mismatches are rejected before signing",
+        arguments: transactionCountMismatchCases
+    )
+    func proposalTransactionCountMismatchesAreRejectedBeforeSigning(
+        mismatchCase: (
+            roundIdentifier: String,
+            expectedInputCount: Int?,
+            expectedOutputCount: Int?
+        )
+    ) async throws {
         let account = try await AccountTestFixtures.makeAccount()
         let selectedInput = try await CashFusionTestSupport.makeWalletOwnedUnspentOutput(
             to: account,
@@ -402,32 +411,26 @@ struct AccountCashFusionTransactionAssemblerValidator {
             )
         ) {
             _ = try await assembler.finalizeTransaction(
-                for: .init(rawValue: "round-input-count"),
+                for: .init(rawValue: mismatchCase.roundIdentifier),
                 proposal: .init(
                     unsignedTransactionBytes: unsignedTransactionBytes,
-                    expectedInputCount: 2,
-                    expectedOutputCount: 1
-                )
-            )
-        }
-
-        await #expect(
-            throws: OpalFusion.Host.TransactionFinalizationFailure.transactionAssemblyFailed(
-                summary: "CashFusion transaction assembly failed"
-            )
-        ) {
-            _ = try await assembler.finalizeTransaction(
-                for: .init(rawValue: "round-output-count"),
-                proposal: .init(
-                    unsignedTransactionBytes: unsignedTransactionBytes,
-                    expectedInputCount: 1,
-                    expectedOutputCount: 2
+                    expectedInputCount: mismatchCase.expectedInputCount,
+                    expectedOutputCount: mismatchCase.expectedOutputCount
                 )
             )
         }
 
         try await reservation.cancel()
     }
+
+    private static let transactionCountMismatchCases: [(
+        roundIdentifier: String,
+        expectedInputCount: Int?,
+        expectedOutputCount: Int?
+    )] = [
+        ("round-input-count", 2, 1),
+        ("round-output-count", 1, 2)
+    ]
 
     @Test("reservation policy refusals are reported as host policy failures")
     func reservationPolicyRefusalsAreReportedAsHostPolicyFailures() async throws {

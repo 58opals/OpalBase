@@ -1,7 +1,5 @@
 // OpalBase+CashTokens+Error.swift
 
-import Foundation
-
 extension _OpalBase.CashTokens {
     public enum Error: Swift.Error, Equatable {
         case invalidHexadecimalString

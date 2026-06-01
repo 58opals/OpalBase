@@ -15,11 +15,19 @@ extension _OpalBase.Transaction {
                     blockHash: Data? = nil) {
             self.blockHeight = blockHeight
             self.position = position
-            self.branch = branch
-            self.blockHash = blockHash
+            self.branch = branch.map { Data($0) }
+            self.blockHash = blockHash.map { Data($0) }
         }
         
         public func computeRoot(for transactionHash: OpalBase.Transaction.Hash) -> Data {
+            guard Self.canComputeRoot(
+                for: transactionHash,
+                branch: branch,
+                position: position
+            ) else {
+                return Data()
+            }
+
             var current = transactionHash.naturalOrder
             var index = position
             
@@ -33,6 +41,19 @@ extension _OpalBase.Transaction {
             }
             
             return current
+        }
+
+        private static func canComputeRoot(
+            for transactionHash: OpalBase.Transaction.Hash,
+            branch: [Data],
+            position: UInt32
+        ) -> Bool {
+            guard transactionHash.naturalOrder.count == OpalBase.Transaction.Hash.expectedByteCount,
+                  branch.allSatisfy({ $0.count == OpalBase.Transaction.Hash.expectedByteCount }),
+                  branch.count < UInt32.bitWidth else {
+                return false
+            }
+            return position < (UInt32(1) << UInt32(branch.count))
         }
     }
 }

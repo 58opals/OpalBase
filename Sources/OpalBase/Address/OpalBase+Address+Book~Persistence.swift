@@ -333,38 +333,39 @@ extension _OpalBase.Address.Book {
     }
 
     private func makeSnapshotTransactionHashData(from transactionHash: String) throws -> Data {
-        guard !hasHexadecimalPrefix(transactionHash) else {
-            throw OpalBase.Address.Book.Error.invalidSnapshotTransactionHash(transactionHash)
-        }
-        let hashData = try Data(hexadecimalString: transactionHash)
-        guard hashData.count == OpalBase.Transaction.Hash.expectedByteCount else {
-            throw OpalBase.Address.Book.Error.invalidSnapshotTransactionHashLength(
-                expected: OpalBase.Transaction.Hash.expectedByteCount,
-                actual: hashData.count
-            )
-        }
-        return hashData
+        try makeFixedSizeSnapshotHashData(
+            from: transactionHash,
+            invalidHexadecimalError: OpalBase.Address.Book.Error.invalidSnapshotTransactionHash(transactionHash),
+            invalidLengthError: { actualByteCount in
+                OpalBase.Address.Book.Error.invalidSnapshotTransactionHashLength(
+                    expected: OpalBase.Transaction.Hash.expectedByteCount,
+                    actual: actualByteCount
+                )
+            }
+        )
     }
 
     private func makeSnapshotUTXOLockingScriptData(from lockingScript: String) throws -> Data {
         guard !hasHexadecimalPrefix(lockingScript) else {
             throw OpalBase.Address.Book.Error.invalidSnapshotUTXOLockingScriptHex(lockingScript)
         }
-        return try Data(hexadecimalString: lockingScript)
+        guard let data = try? Data(hexadecimalString: lockingScript) else {
+            throw OpalBase.Address.Book.Error.invalidSnapshotUTXOLockingScriptHex(lockingScript)
+        }
+        return data
     }
 
     private func makeSnapshotMerkleProofHashData(from hash: String) throws -> Data {
-        guard !hasHexadecimalPrefix(hash) else {
-            throw OpalBase.Address.Book.Error.invalidSnapshotMerkleProofHash(hash)
-        }
-        let data = try Data(hexadecimalString: hash)
-        guard data.count == OpalBase.Transaction.Hash.expectedByteCount else {
-            throw OpalBase.Address.Book.Error.invalidSnapshotMerkleProofHashLength(
-                expected: OpalBase.Transaction.Hash.expectedByteCount,
-                actual: data.count
-            )
-        }
-        return data
+        try makeFixedSizeSnapshotHashData(
+            from: hash,
+            invalidHexadecimalError: OpalBase.Address.Book.Error.invalidSnapshotMerkleProofHash(hash),
+            invalidLengthError: { actualByteCount in
+                OpalBase.Address.Book.Error.invalidSnapshotMerkleProofHashLength(
+                    expected: OpalBase.Transaction.Hash.expectedByteCount,
+                    actual: actualByteCount
+                )
+            }
+        )
     }
 
     private func makeRestoredMerkleProof(
@@ -403,8 +404,15 @@ extension _OpalBase.Address.Book {
         in tokenDeltas: [OpalBase.CashTokens.TokenData]
     ) throws -> Set<OpalBase.CashTokens.TokenData> {
         var uniqueTokenDeltas: Set<OpalBase.CashTokens.TokenData> = .init()
-        for tokenDelta in tokenDeltas where !uniqueTokenDeltas.insert(tokenDelta).inserted {
-            throw OpalBase.Address.Book.Error.invalidSnapshotDuplicateTokenDelta(tokenDelta)
+        for tokenDelta in tokenDeltas {
+            guard let nonFungibleTokenDelta = makeNonFungibleTokenData(from: tokenDelta) else {
+                throw OpalBase.Address.Book.Error.invalidSnapshotTokenData(
+                    reason: OpalBase.CashTokens.Error.invalidTokenPrefix
+                )
+            }
+            guard uniqueTokenDeltas.insert(nonFungibleTokenDelta).inserted else {
+                throw OpalBase.Address.Book.Error.invalidSnapshotDuplicateTokenDelta(nonFungibleTokenDelta)
+            }
         }
         return uniqueTokenDeltas
     }
@@ -452,15 +460,33 @@ extension _OpalBase.Address.Book {
     }
 
     private func makeSnapshotScriptHashData(from scriptHash: String) throws -> Data {
-        guard !hasHexadecimalPrefix(scriptHash) else {
-            throw OpalBase.Address.Book.Error.invalidSnapshotScriptHash(scriptHash)
+        try makeFixedSizeSnapshotHashData(
+            from: scriptHash,
+            invalidHexadecimalError: OpalBase.Address.Book.Error.invalidSnapshotScriptHash(scriptHash),
+            invalidLengthError: { actualByteCount in
+                OpalBase.Address.Book.Error.invalidSnapshotScriptHashLength(
+                    expected: OpalBase.Transaction.Hash.expectedByteCount,
+                    actual: actualByteCount
+                )
+            }
+        )
+    }
+
+    private func makeFixedSizeSnapshotHashData(
+        from hexadecimalString: String,
+        invalidHexadecimalError: @autoclosure () -> Swift.Error,
+        invalidLengthError: (Int) -> Swift.Error
+    ) throws -> Data {
+        guard !hasHexadecimalPrefix(hexadecimalString) else {
+            throw invalidHexadecimalError()
         }
-        let data = try Data(hexadecimalString: scriptHash)
+        if let decodedByteCount = Data.unprefixedHexadecimalByteCount(hexadecimalString),
+           decodedByteCount != OpalBase.Transaction.Hash.expectedByteCount {
+            throw invalidLengthError(decodedByteCount)
+        }
+        let data = try Data(hexadecimalString: hexadecimalString)
         guard data.count == OpalBase.Transaction.Hash.expectedByteCount else {
-            throw OpalBase.Address.Book.Error.invalidSnapshotScriptHashLength(
-                expected: OpalBase.Transaction.Hash.expectedByteCount,
-                actual: data.count
-            )
+            throw invalidLengthError(data.count)
         }
         return data
     }

@@ -30,26 +30,31 @@ extension _OpalBase.Claimable {
             privateKeyData: Data,
             compressedPublicKeyData: Data
         ) throws {
-            self.network = envelope.contract.network
+            let contract = envelope.contract
+            let redeemScriptData = contract.redeemScriptData
+            let fundingLockingScriptData = contract.fundingLockingScriptData
+            let fundingScriptHashData = contract.fundingScriptHashData
+
+            self.network = contract.network
             self.spendPath = spendPath
-            self.privateKeyData = privateKeyData
-            self.compressedPublicKeyData = compressedPublicKeyData
+            self.privateKeyData = Data(privateKeyData)
+            self.compressedPublicKeyData = Data(compressedPublicKeyData)
             self.privateKeyHexadecimal = privateKeyData.hexadecimalString
             self.privateKeyWalletImportFormat = try makeClaimableWalletImportFormat(
                 privateKey: privateKeyData,
-                network: envelope.contract.network
+                network: contract.network
             )
-            self.redeemScriptData = envelope.contract.redeemScriptData
-            self.redeemScriptHexadecimal = envelope.contract.redeemScriptData.hexadecimalString
-            self.fundingLockingScriptData = envelope.contract.fundingLockingScriptData
-            self.fundingLockingScriptHexadecimal = envelope.contract.fundingLockingScriptData.hexadecimalString
-            self.fundingScriptHashData = envelope.contract.fundingScriptHashData
-            self.fundingScriptHashHexadecimal = envelope.contract.fundingScriptHashData.hexadecimalString
+            self.redeemScriptData = redeemScriptData
+            self.redeemScriptHexadecimal = redeemScriptData.hexadecimalString
+            self.fundingLockingScriptData = fundingLockingScriptData
+            self.fundingLockingScriptHexadecimal = fundingLockingScriptData.hexadecimalString
+            self.fundingScriptHashData = fundingScriptHashData
+            self.fundingScriptHashHexadecimal = fundingScriptHashData.hexadecimalString
             self.fundingTransactionHash = envelope.fundingTransactionHash
             self.fundingTransactionIdentifier = envelope.fundingTransactionHash.reverseOrder.hexadecimalString
             self.fundingOutputIndex = envelope.fundingOutputIndex
             self.fundingValueSatoshis = envelope.fundingValue
-            self.expiryBlockHeight = envelope.contract.expiryBlockHeight
+            self.expiryBlockHeight = contract.expiryBlockHeight
             let encodedEnvelopeData = envelope.encode()
             self.encodedEnvelopeData = encodedEnvelopeData
             self.encodedEnvelopeHexadecimal = encodedEnvelopeData.hexadecimalString

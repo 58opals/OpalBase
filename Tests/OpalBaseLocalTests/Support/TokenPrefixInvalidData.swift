@@ -2,7 +2,6 @@
 
 import Foundation
 
-struct TokenPrefixInvalidData: Codable {
+struct TokenPrefixInvalidData: Codable, Sendable {
     let prefix: String
 }
-

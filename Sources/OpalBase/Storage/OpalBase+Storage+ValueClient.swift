@@ -15,8 +15,12 @@ extension _OpalBase.Storage {
             valueDeleter: @escaping @Sendable (OpalBase.Storage.Key) async throws -> Void,
             allValuesDeleter: @escaping @Sendable () async throws -> Void
         ) {
-            self.valueWriter = valueWriter
-            self.valueReader = valueReader
+            self.valueWriter = { data, key in
+                try await valueWriter(Data(data), key)
+            }
+            self.valueReader = { key in
+                try await valueReader(key).map { Data($0) }
+            }
             self.valueDeleter = valueDeleter
             self.allValuesDeleter = allValuesDeleter
         }
@@ -29,11 +33,11 @@ extension _OpalBase.Storage.ValueClient {
             var values: [String: Data] = .init()
             
             func store(_ data: Data, key: OpalBase.Storage.Key) {
-                values[key.rawValue] = data
+                values[key.rawValue] = Data(data)
             }
             
             func load(key: OpalBase.Storage.Key) -> Data? {
-                values[key.rawValue]
+                values[key.rawValue].map { Data($0) }
             }
             
             func remove(key: OpalBase.Storage.Key) {

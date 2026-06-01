@@ -79,7 +79,7 @@ extension _OpalBase.Transaction {
                                                                   shouldAllowDustDonation: shouldAllowDustDonation,
                                                                   privacyOutputShuffle: privacyOutputShuffle)
             
-            guard correctedOutputs != correctedTransaction.outputs else { return correctedTransaction }
+            guard correctedOutputs != correctedTransaction.outputs else { throw Error.cannotCreateTransaction }
             
             let unsignedTransaction = OpalBase.Transaction(version: correctedTransaction.version,
                                                   inputs: inputs,
@@ -99,17 +99,13 @@ extension _OpalBase.Transaction {
             return correctedTransaction
         }
         
-        let finalOutputs = try computeOutputsForTargetFee(recipientOutputs: recipientOutputs,
-                                                          changeOutputTemplate: changeOutput,
-                                                          outputOrderingStrategy: outputOrderingStrategy,
-                                                          targetFee: finalRequiredFee,
-                                                          shouldAllowDustDonation: shouldAllowDustDonation,
-                                                          privacyOutputShuffle: privacyOutputShuffle)
-        guard finalOutputs == correctedTransaction.outputs else {
-            throw Error.cannotCreateTransaction
-        }
-        
-        return correctedTransaction
+        _ = try computeOutputsForTargetFee(recipientOutputs: recipientOutputs,
+                                           changeOutputTemplate: changeOutput,
+                                           outputOrderingStrategy: outputOrderingStrategy,
+                                           targetFee: finalRequiredFee,
+                                           shouldAllowDustDonation: shouldAllowDustDonation,
+                                           privacyOutputShuffle: privacyOutputShuffle)
+        throw Error.cannotCreateTransaction
     }
     
     static func sumValues<S: Sequence>(of values: S,

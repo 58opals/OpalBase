@@ -8,7 +8,7 @@ import Testing
 struct ClaimableStatusResolverValidator {
     @Test("reports missing funding state")
     func reportsMissingFundingState() async throws {
-        let (envelope, _) = try makeClaimableEnvelope(network: .chipnet)
+        let (envelope, _) = try ClaimableTestSupport.makeClaimableEnvelope(network: .chipnet)
         let resolver = OpalBase.Claimable.StatusResolver(
             network: .chipnet,
             scriptHashReader: .init(
@@ -30,13 +30,13 @@ struct ClaimableStatusResolverValidator {
 
     @Test("rejects unconfirmed history returned for confirmed-only resolution")
     func rejectsUnconfirmedHistoryWhenExcluded() async throws {
-        let (envelope, _) = try makeClaimableEnvelope(network: .chipnet)
+        let (envelope, _) = try ClaimableTestSupport.makeClaimableEnvelope(network: .chipnet)
         let resolver = OpalBase.Claimable.StatusResolver(
             network: .chipnet,
             scriptHashReader: .init(
                 fetchHistory: { _, _ in
                     [
-                        makeClaimableHistoryEntry(
+                        ClaimableTestSupport.makeClaimableHistoryEntry(
                             transactionHash: envelope.fundingTransactionHash,
                             blockHeight: -1
                         )
@@ -61,17 +61,17 @@ struct ClaimableStatusResolverValidator {
 
     @Test("rejects duplicate transaction identifiers in history")
     func rejectsDuplicateTransactionIdentifiersInHistory() async throws {
-        let (envelope, _) = try makeClaimableEnvelope(network: .chipnet)
+        let (envelope, _) = try ClaimableTestSupport.makeClaimableEnvelope(network: .chipnet)
         let resolver = OpalBase.Claimable.StatusResolver(
             network: .chipnet,
             scriptHashReader: .init(
                 fetchHistory: { _, _ in
                     [
-                        makeClaimableHistoryEntry(
+                        ClaimableTestSupport.makeClaimableHistoryEntry(
                             transactionHash: envelope.fundingTransactionHash,
                             blockHeight: 490
                         ),
-                        makeClaimableHistoryEntry(
+                        ClaimableTestSupport.makeClaimableHistoryEntry(
                             transactionHash: envelope.fundingTransactionHash,
                             blockHeight: 491
                         )
@@ -96,7 +96,7 @@ struct ClaimableStatusResolverValidator {
 
     @Test("rejects malformed transaction identifiers in history")
     func rejectsMalformedTransactionIdentifiersInHistory() async throws {
-        let (envelope, _) = try makeClaimableEnvelope(network: .chipnet)
+        let (envelope, _) = try ClaimableTestSupport.makeClaimableEnvelope(network: .chipnet)
         let resolver = OpalBase.Claimable.StatusResolver(
             network: .chipnet,
             scriptHashReader: .init(
@@ -128,7 +128,7 @@ struct ClaimableStatusResolverValidator {
 
     @Test("reports unspent funding state with confirmations")
     func reportsUnspentFundingStateWithConfirmations() async throws {
-        let (envelope, _) = try makeClaimableEnvelope(network: .chipnet)
+        let (envelope, _) = try ClaimableTestSupport.makeClaimableEnvelope(network: .chipnet)
         let unspentOutput = OpalBase.Transaction.Output.Unspent(
             output: .init(
                 value: envelope.fundingValue,
@@ -148,7 +148,7 @@ struct ClaimableStatusResolverValidator {
             scriptHashReader: .init(
                 fetchHistory: { _, _ in
                     [
-                        makeClaimableHistoryEntry(
+                        ClaimableTestSupport.makeClaimableHistoryEntry(
                             transactionHash: envelope.fundingTransactionHash,
                             blockHeight: 490
                         )
@@ -176,7 +176,7 @@ struct ClaimableStatusResolverValidator {
 
     @Test("rejects confirmation status height that disagrees with funding history")
     func rejectsConfirmationStatusHeightThatDisagreesWithFundingHistory() async throws {
-        let (envelope, _) = try makeClaimableEnvelope(network: .chipnet)
+        let (envelope, _) = try ClaimableTestSupport.makeClaimableEnvelope(network: .chipnet)
         let unspentOutput = OpalBase.Transaction.Output.Unspent(
             output: .init(
                 value: envelope.fundingValue,
@@ -196,7 +196,7 @@ struct ClaimableStatusResolverValidator {
             scriptHashReader: .init(
                 fetchHistory: { _, _ in
                     [
-                        makeClaimableHistoryEntry(
+                        ClaimableTestSupport.makeClaimableHistoryEntry(
                             transactionHash: envelope.fundingTransactionHash,
                             blockHeight: 490
                         )
@@ -226,7 +226,7 @@ struct ClaimableStatusResolverValidator {
 
     @Test("rejects confirmation status for a different funding transaction")
     func rejectsMismatchedConfirmationStatusHash() async throws {
-        let (envelope, _) = try makeClaimableEnvelope(network: .chipnet)
+        let (envelope, _) = try ClaimableTestSupport.makeClaimableEnvelope(network: .chipnet)
         let unspentOutput = OpalBase.Transaction.Output.Unspent(
             output: .init(
                 value: envelope.fundingValue,
@@ -249,7 +249,7 @@ struct ClaimableStatusResolverValidator {
             scriptHashReader: .init(
                 fetchHistory: { _, _ in
                     [
-                        makeClaimableHistoryEntry(
+                        ClaimableTestSupport.makeClaimableHistoryEntry(
                             transactionHash: envelope.fundingTransactionHash,
                             blockHeight: 490
                         )
@@ -279,7 +279,7 @@ struct ClaimableStatusResolverValidator {
 
     @Test("rejects confirmation status whose count does not match height and tip")
     func rejectsMismatchedConfirmationStatusCount() async throws {
-        let (envelope, _) = try makeClaimableEnvelope(network: .chipnet)
+        let (envelope, _) = try ClaimableTestSupport.makeClaimableEnvelope(network: .chipnet)
         let unspentOutput = OpalBase.Transaction.Output.Unspent(
             output: .init(
                 value: envelope.fundingValue,
@@ -299,7 +299,7 @@ struct ClaimableStatusResolverValidator {
             scriptHashReader: .init(
                 fetchHistory: { _, _ in
                     [
-                        makeClaimableHistoryEntry(
+                        ClaimableTestSupport.makeClaimableHistoryEntry(
                             transactionHash: envelope.fundingTransactionHash,
                             blockHeight: 490
                         )
@@ -329,7 +329,7 @@ struct ClaimableStatusResolverValidator {
 
     @Test("rejects confirmation status with confirmed height but missing count")
     func rejectsConfirmedHeightWithoutConfirmationCount() async throws {
-        let (envelope, _) = try makeClaimableEnvelope(network: .chipnet)
+        let (envelope, _) = try ClaimableTestSupport.makeClaimableEnvelope(network: .chipnet)
         let unspentOutput = OpalBase.Transaction.Output.Unspent(
             output: .init(
                 value: envelope.fundingValue,
@@ -349,7 +349,7 @@ struct ClaimableStatusResolverValidator {
             scriptHashReader: .init(
                 fetchHistory: { _, _ in
                     [
-                        makeClaimableHistoryEntry(
+                        ClaimableTestSupport.makeClaimableHistoryEntry(
                             transactionHash: envelope.fundingTransactionHash,
                             blockHeight: 490
                         )
@@ -379,7 +379,7 @@ struct ClaimableStatusResolverValidator {
 
     @Test("rejects duplicate unspent funding outpoints")
     func rejectsDuplicateUnspentFundingOutpoints() async throws {
-        let (envelope, _) = try makeClaimableEnvelope(network: .chipnet)
+        let (envelope, _) = try ClaimableTestSupport.makeClaimableEnvelope(network: .chipnet)
         let validFundingOutput = OpalBase.Transaction.Output.Unspent(
             output: .init(
                 value: envelope.fundingValue,
@@ -401,7 +401,7 @@ struct ClaimableStatusResolverValidator {
             scriptHashReader: .init(
                 fetchHistory: { _, _ in
                     [
-                        makeClaimableHistoryEntry(
+                        ClaimableTestSupport.makeClaimableHistoryEntry(
                             transactionHash: envelope.fundingTransactionHash,
                             blockHeight: 490
                         )
@@ -426,7 +426,7 @@ struct ClaimableStatusResolverValidator {
 
     @Test("reports invalid funding state for token-bearing funding output")
     func reportsInvalidFundingStateForTokenBearingFundingOutput() async throws {
-        let (envelope, _) = try makeClaimableEnvelope(network: .chipnet)
+        let (envelope, _) = try ClaimableTestSupport.makeClaimableEnvelope(network: .chipnet)
         let category = try OpalBase.CashTokens.CategoryID(
             transactionOrderData: Data(repeating: 0x42, count: 32)
         )
@@ -443,7 +443,7 @@ struct ClaimableStatusResolverValidator {
             scriptHashReader: .init(
                 fetchHistory: { _, _ in
                     [
-                        makeClaimableHistoryEntry(
+                        ClaimableTestSupport.makeClaimableHistoryEntry(
                             transactionHash: envelope.fundingTransactionHash
                         )
                     ]
@@ -465,13 +465,13 @@ struct ClaimableStatusResolverValidator {
 
     @Test("reports unknown spent funding state without transaction reader")
     func reportsUnknownSpentFundingStateWithoutTransactionReader() async throws {
-        let (envelope, _) = try makeClaimableEnvelope(network: .chipnet)
+        let (envelope, _) = try ClaimableTestSupport.makeClaimableEnvelope(network: .chipnet)
         let resolver = OpalBase.Claimable.StatusResolver(
             network: .chipnet,
             scriptHashReader: .init(
                 fetchHistory: { _, _ in
                     [
-                        makeClaimableHistoryEntry(
+                        ClaimableTestSupport.makeClaimableHistoryEntry(
                             transactionHash: envelope.fundingTransactionHash,
                             blockHeight: 490
                         )
@@ -494,30 +494,31 @@ struct ClaimableStatusResolverValidator {
 
     @Test("reports invalid funding state when referenced output mismatches contract")
     func reportsInvalidFundingStateWhenReferencedOutputMismatchesContract() async throws {
-        let (draftEnvelope, _) = try makeClaimableEnvelope(network: .chipnet)
+        let (draftEnvelope, _) = try ClaimableTestSupport.makeClaimableEnvelope(network: .chipnet)
         let invalidFundingOutput = OpalBase.Transaction.Output(
             value: draftEnvelope.fundingValue,
-            lockingScript: makeClaimableDestinationLockingScript(fillByte: 0x45)
+            lockingScript: ClaimableTestSupport.makeClaimableDestinationLockingScript(fillByte: 0x45)
         )
-        let fundingTransaction = makeClaimableFundingTransaction(
+        let fundingTransaction = ClaimableTestSupport.makeClaimableFundingTransaction(
             for: draftEnvelope,
             output: invalidFundingOutput
         )
         let rawFundingTransaction = try fundingTransaction.encode()
-        let envelope = try draftEnvelope.replacingFundingTransactionHash(
-            .init(naturalOrder: OpalCryptoAdapter.hash256(rawFundingTransaction))
+        let envelope = try ClaimableTestSupport.replacingFundingTransactionHash(
+            in: draftEnvelope,
+            with: .init(naturalOrder: OpalCryptoAdapter.hash256(rawFundingTransaction))
         )
         let resolver = OpalBase.Claimable.StatusResolver(
             network: .chipnet,
-            scriptHashReader: makeClaimableScriptHashReader(
+            scriptHashReader: ClaimableTestSupport.makeClaimableScriptHashReader(
                 history: [
-                    makeClaimableHistoryEntry(
+                    ClaimableTestSupport.makeClaimableHistoryEntry(
                         transactionHash: envelope.fundingTransactionHash
                     )
                 ],
                 unspentOutputs: []
             ),
-            transactionReader: makeClaimableTransactionReader(
+            transactionReader: ClaimableTestSupport.makeClaimableTransactionReader(
                 rawTransactionsByHash: [
                     envelope.fundingTransactionHash: rawFundingTransaction
                 ]
@@ -535,24 +536,25 @@ struct ClaimableStatusResolverValidator {
 
     @Test("reports invalid funding state when raw funding transaction has trailing bytes")
     func reportsInvalidFundingStateWhenRawFundingTransactionHasTrailingBytes() async throws {
-        let (draftEnvelope, _) = try makeClaimableEnvelope(network: .chipnet)
-        let fundingTransaction = makeClaimableFundingTransaction(for: draftEnvelope)
+        let (draftEnvelope, _) = try ClaimableTestSupport.makeClaimableEnvelope(network: .chipnet)
+        let fundingTransaction = ClaimableTestSupport.makeClaimableFundingTransaction(for: draftEnvelope)
         var rawFundingTransaction = try fundingTransaction.encode()
         rawFundingTransaction.append(0x00)
-        let envelope = try draftEnvelope.replacingFundingTransactionHash(
-            .init(naturalOrder: OpalCryptoAdapter.hash256(rawFundingTransaction))
+        let envelope = try ClaimableTestSupport.replacingFundingTransactionHash(
+            in: draftEnvelope,
+            with: .init(naturalOrder: OpalCryptoAdapter.hash256(rawFundingTransaction))
         )
         let resolver = OpalBase.Claimable.StatusResolver(
             network: .chipnet,
-            scriptHashReader: makeClaimableScriptHashReader(
+            scriptHashReader: ClaimableTestSupport.makeClaimableScriptHashReader(
                 history: [
-                    makeClaimableHistoryEntry(
+                    ClaimableTestSupport.makeClaimableHistoryEntry(
                         transactionHash: envelope.fundingTransactionHash
                     )
                 ],
                 unspentOutputs: []
             ),
-            transactionReader: makeClaimableTransactionReader(
+            transactionReader: ClaimableTestSupport.makeClaimableTransactionReader(
                 rawTransactionsByHash: [
                     envelope.fundingTransactionHash: rawFundingTransaction
                 ]
@@ -570,20 +572,20 @@ struct ClaimableStatusResolverValidator {
 
     @Test("rejects raw funding transactions with mismatched payload hashes")
     func rejectsRawFundingTransactionsWithMismatchedPayloadHashes() async throws {
-        let (envelope, _) = try makeClaimableEnvelope(network: .chipnet)
-        var mismatchedRawFundingTransaction = try makeClaimableFundingTransaction(for: envelope).encode()
+        let (envelope, _) = try ClaimableTestSupport.makeClaimableEnvelope(network: .chipnet)
+        var mismatchedRawFundingTransaction = try ClaimableTestSupport.makeClaimableFundingTransaction(for: envelope).encode()
         mismatchedRawFundingTransaction[mismatchedRawFundingTransaction.count - 1] ^= 0x01
         let resolver = OpalBase.Claimable.StatusResolver(
             network: .chipnet,
-            scriptHashReader: makeClaimableScriptHashReader(
+            scriptHashReader: ClaimableTestSupport.makeClaimableScriptHashReader(
                 history: [
-                    makeClaimableHistoryEntry(
+                    ClaimableTestSupport.makeClaimableHistoryEntry(
                         transactionHash: envelope.fundingTransactionHash
                     )
                 ],
                 unspentOutputs: []
             ),
-            transactionReader: makeClaimableTransactionReader(
+            transactionReader: ClaimableTestSupport.makeClaimableTransactionReader(
                 rawTransactionsByHash: [
                     envelope.fundingTransactionHash: mismatchedRawFundingTransaction
                 ]
@@ -606,35 +608,84 @@ struct ClaimableStatusResolverValidator {
         ).reverseOrder.hexadecimalString)
     }
 
-    @Test("reports claim spend path")
-    func reportsClaimSpendPath() async throws {
-        let (envelope, _) = try makeClaimableEnvelope(
+    @Test("rejects spend path transactions with mismatched payload hashes")
+    func rejectsSpendPathTransactionsWithMismatchedPayloadHashes() async throws {
+        let (envelope, _) = try ClaimableTestSupport.makeClaimableEnvelope(
             network: .chipnet,
             expiryBlockHeight: 500
         )
-        let fundingTransaction = makeClaimableFundingTransaction(for: envelope)
+        let fundingTransaction = ClaimableTestSupport.makeClaimableFundingTransaction(for: envelope)
         let claimTransaction = try envelope.buildClaimTransaction(
-            destinationLockingScript: makeClaimableDestinationLockingScript(fillByte: 0x51),
+            destinationLockingScript: ClaimableTestSupport.makeClaimableDestinationLockingScript(fillByte: 0x51),
             currentBlockHeight: 499
         )
-        let claimTransactionHash = OpalBase.Transaction.Hash(
+        let rawClaimTransaction = try claimTransaction.encode()
+        let mismatchedClaimTransactionHash = OpalBase.Transaction.Hash(
             naturalOrder: Data(repeating: 0x51, count: 32)
         )
         let resolver = OpalBase.Claimable.StatusResolver(
             network: .chipnet,
-            scriptHashReader: makeClaimableScriptHashReader(
+            scriptHashReader: ClaimableTestSupport.makeClaimableScriptHashReader(
                 history: [
-                    makeClaimableHistoryEntry(
+                    ClaimableTestSupport.makeClaimableHistoryEntry(
                         transactionHash: envelope.fundingTransactionHash
                     ),
-                    makeClaimableHistoryEntry(transactionHash: claimTransactionHash)
+                    ClaimableTestSupport.makeClaimableHistoryEntry(transactionHash: mismatchedClaimTransactionHash)
                 ],
                 unspentOutputs: []
             ),
-            transactionReader: makeClaimableTransactionReader(
+            transactionReader: ClaimableTestSupport.makeClaimableTransactionReader(
                 rawTransactionsByHash: [
                     envelope.fundingTransactionHash: try fundingTransaction.encode(),
-                    claimTransactionHash: try claimTransaction.encode()
+                    mismatchedClaimTransactionHash: rawClaimTransaction
+                ]
+            )
+        )
+
+        let failure = try await Self.captureNetworkError {
+            _ = try await resolver.resolve(
+                for: envelope,
+                includeUnconfirmed: true,
+                currentBlockHeight: 700
+            )
+        }
+
+        #expect(failure.reason == .protocolViolation)
+        #expect(failure.message == "Transaction payload hash mismatch")
+        #expect(failure.metadata["expected"] == mismatchedClaimTransactionHash.reverseOrder.hexadecimalString)
+        #expect(failure.metadata["actual"] == ClaimableTestSupport.makeClaimableTransactionHash(
+            from: rawClaimTransaction
+        ).reverseOrder.hexadecimalString)
+    }
+
+    @Test("reports spend paths", arguments: SpendPathCase.allCases)
+    func reportsSpendPath(_ spendPathCase: SpendPathCase) async throws {
+        let (envelope, refundPrivateKey) = try ClaimableTestSupport.makeClaimableEnvelope(
+            network: .chipnet,
+            expiryBlockHeight: 500
+        )
+        let fundingTransaction = ClaimableTestSupport.makeClaimableFundingTransaction(for: envelope)
+        let spendTransaction = try spendPathCase.makeTransaction(
+            for: envelope,
+            refundPrivateKey: refundPrivateKey
+        )
+        let rawSpendTransaction = try spendTransaction.encode()
+        let spendTransactionHash = ClaimableTestSupport.makeClaimableTransactionHash(from: rawSpendTransaction)
+        let resolver = OpalBase.Claimable.StatusResolver(
+            network: .chipnet,
+            scriptHashReader: ClaimableTestSupport.makeClaimableScriptHashReader(
+                history: [
+                    ClaimableTestSupport.makeClaimableHistoryEntry(
+                        transactionHash: envelope.fundingTransactionHash
+                    ),
+                    ClaimableTestSupport.makeClaimableHistoryEntry(transactionHash: spendTransactionHash)
+                ],
+                unspentOutputs: []
+            ),
+            transactionReader: ClaimableTestSupport.makeClaimableTransactionReader(
+                rawTransactionsByHash: [
+                    envelope.fundingTransactionHash: try fundingTransaction.encode(),
+                    spendTransactionHash: rawSpendTransaction
                 ]
             )
         )
@@ -645,37 +696,35 @@ struct ClaimableStatusResolverValidator {
             currentBlockHeight: 700
         )
 
-        #expect(status.fundingState == .spent(spendPath: .claim))
+        #expect(status.fundingState == .spent(spendPath: spendPathCase.expectedSpendPath))
     }
 
     @Test("ignores spend path transactions with trailing bytes")
     func ignoresSpendPathTransactionsWithTrailingBytes() async throws {
-        let (envelope, _) = try makeClaimableEnvelope(
+        let (envelope, _) = try ClaimableTestSupport.makeClaimableEnvelope(
             network: .chipnet,
             expiryBlockHeight: 500
         )
-        let fundingTransaction = makeClaimableFundingTransaction(for: envelope)
+        let fundingTransaction = ClaimableTestSupport.makeClaimableFundingTransaction(for: envelope)
         let claimTransaction = try envelope.buildClaimTransaction(
-            destinationLockingScript: makeClaimableDestinationLockingScript(fillByte: 0x51),
+            destinationLockingScript: ClaimableTestSupport.makeClaimableDestinationLockingScript(fillByte: 0x51),
             currentBlockHeight: 499
         )
         var rawClaimTransaction = try claimTransaction.encode()
         rawClaimTransaction.append(0x00)
-        let claimTransactionHash = OpalBase.Transaction.Hash(
-            naturalOrder: Data(repeating: 0x51, count: 32)
-        )
+        let claimTransactionHash = ClaimableTestSupport.makeClaimableTransactionHash(from: rawClaimTransaction)
         let resolver = OpalBase.Claimable.StatusResolver(
             network: .chipnet,
-            scriptHashReader: makeClaimableScriptHashReader(
+            scriptHashReader: ClaimableTestSupport.makeClaimableScriptHashReader(
                 history: [
-                    makeClaimableHistoryEntry(
+                    ClaimableTestSupport.makeClaimableHistoryEntry(
                         transactionHash: envelope.fundingTransactionHash
                     ),
-                    makeClaimableHistoryEntry(transactionHash: claimTransactionHash)
+                    ClaimableTestSupport.makeClaimableHistoryEntry(transactionHash: claimTransactionHash)
                 ],
                 unspentOutputs: []
             ),
-            transactionReader: makeClaimableTransactionReader(
+            transactionReader: ClaimableTestSupport.makeClaimableTransactionReader(
                 rawTransactionsByHash: [
                     envelope.fundingTransactionHash: try fundingTransaction.encode(),
                     claimTransactionHash: rawClaimTransaction
@@ -707,11 +756,11 @@ struct ClaimableStatusResolverValidator {
             hashByte: UInt8
         )
     ) async throws {
-        let (envelope, _) = try makeClaimableEnvelope(
+        let (envelope, _) = try ClaimableTestSupport.makeClaimableEnvelope(
             network: .chipnet,
             expiryBlockHeight: 500
         )
-        let fundingTransaction = makeClaimableFundingTransaction(for: envelope)
+        let fundingTransaction = ClaimableTestSupport.makeClaimableFundingTransaction(for: envelope)
 
         let malformedUnlockingScript = malformedPushCase.signatureWithHashTypePush
             + malformedPushCase.compressedPublicKeyPush
@@ -729,30 +778,29 @@ struct ClaimableStatusResolverValidator {
             outputs: [
                 .init(
                     value: 1_000,
-                    lockingScript: makeClaimableDestinationLockingScript(fillByte: malformedPushCase.hashByte)
+                    lockingScript: ClaimableTestSupport.makeClaimableDestinationLockingScript(fillByte: malformedPushCase.hashByte)
                 )
             ],
             lockTime: 0
         )
-        let malformedSpendTransactionHash = OpalBase.Transaction.Hash(
-            naturalOrder: Data(repeating: malformedPushCase.hashByte, count: 32)
-        )
+        let rawMalformedSpendTransaction = try malformedSpendTransaction.encode()
+        let malformedSpendTransactionHash = ClaimableTestSupport.makeClaimableTransactionHash(from: rawMalformedSpendTransaction)
 
         let resolver = OpalBase.Claimable.StatusResolver(
             network: .chipnet,
-            scriptHashReader: makeClaimableScriptHashReader(
+            scriptHashReader: ClaimableTestSupport.makeClaimableScriptHashReader(
                 history: [
-                    makeClaimableHistoryEntry(
+                    ClaimableTestSupport.makeClaimableHistoryEntry(
                         transactionHash: envelope.fundingTransactionHash
                     ),
-                    makeClaimableHistoryEntry(transactionHash: malformedSpendTransactionHash)
+                    ClaimableTestSupport.makeClaimableHistoryEntry(transactionHash: malformedSpendTransactionHash)
                 ],
                 unspentOutputs: []
             ),
-            transactionReader: makeClaimableTransactionReader(
+            transactionReader: ClaimableTestSupport.makeClaimableTransactionReader(
                 rawTransactionsByHash: [
                     envelope.fundingTransactionHash: try fundingTransaction.encode(),
-                    malformedSpendTransactionHash: try malformedSpendTransaction.encode()
+                    malformedSpendTransactionHash: rawMalformedSpendTransaction
                 ]
             )
         )
@@ -768,38 +816,36 @@ struct ClaimableStatusResolverValidator {
 
     @Test("continues spend path scan past malformed unrelated history transaction")
     func continuesSpendPathScanPastMalformedUnrelatedHistoryTransaction() async throws {
-        let (envelope, _) = try makeClaimableEnvelope(
+        let (envelope, _) = try ClaimableTestSupport.makeClaimableEnvelope(
             network: .chipnet,
             expiryBlockHeight: 500
         )
-        let fundingTransaction = makeClaimableFundingTransaction(for: envelope)
-        let malformedTransactionHash = OpalBase.Transaction.Hash(
-            naturalOrder: Data(repeating: 0x50, count: 32)
-        )
+        let fundingTransaction = ClaimableTestSupport.makeClaimableFundingTransaction(for: envelope)
+        let malformedTransactionData = Data([0x00])
+        let malformedTransactionHash = ClaimableTestSupport.makeClaimableTransactionHash(from: malformedTransactionData)
         let claimTransaction = try envelope.buildClaimTransaction(
-            destinationLockingScript: makeClaimableDestinationLockingScript(fillByte: 0x51),
+            destinationLockingScript: ClaimableTestSupport.makeClaimableDestinationLockingScript(fillByte: 0x51),
             currentBlockHeight: 499
         )
-        let claimTransactionHash = OpalBase.Transaction.Hash(
-            naturalOrder: Data(repeating: 0x51, count: 32)
-        )
+        let rawClaimTransaction = try claimTransaction.encode()
+        let claimTransactionHash = ClaimableTestSupport.makeClaimableTransactionHash(from: rawClaimTransaction)
         let resolver = OpalBase.Claimable.StatusResolver(
             network: .chipnet,
-            scriptHashReader: makeClaimableScriptHashReader(
+            scriptHashReader: ClaimableTestSupport.makeClaimableScriptHashReader(
                 history: [
-                    makeClaimableHistoryEntry(
+                    ClaimableTestSupport.makeClaimableHistoryEntry(
                         transactionHash: envelope.fundingTransactionHash
                     ),
-                    makeClaimableHistoryEntry(transactionHash: malformedTransactionHash),
-                    makeClaimableHistoryEntry(transactionHash: claimTransactionHash)
+                    ClaimableTestSupport.makeClaimableHistoryEntry(transactionHash: malformedTransactionHash),
+                    ClaimableTestSupport.makeClaimableHistoryEntry(transactionHash: claimTransactionHash)
                 ],
                 unspentOutputs: []
             ),
-            transactionReader: makeClaimableTransactionReader(
+            transactionReader: ClaimableTestSupport.makeClaimableTransactionReader(
                 rawTransactionsByHash: [
                     envelope.fundingTransactionHash: try fundingTransaction.encode(),
-                    malformedTransactionHash: Data([0x00]),
-                    claimTransactionHash: try claimTransaction.encode()
+                    malformedTransactionHash: malformedTransactionData,
+                    claimTransactionHash: rawClaimTransaction
                 ]
             )
         )
@@ -815,37 +861,36 @@ struct ClaimableStatusResolverValidator {
 
     @Test("continues spend path scan past unfetchable unrelated history transaction")
     func continuesSpendPathScanPastUnfetchableUnrelatedHistoryTransaction() async throws {
-        let (envelope, _) = try makeClaimableEnvelope(
+        let (envelope, _) = try ClaimableTestSupport.makeClaimableEnvelope(
             network: .chipnet,
             expiryBlockHeight: 500
         )
-        let fundingTransaction = makeClaimableFundingTransaction(for: envelope)
+        let fundingTransaction = ClaimableTestSupport.makeClaimableFundingTransaction(for: envelope)
         let unfetchableTransactionHash = OpalBase.Transaction.Hash(
             naturalOrder: Data(repeating: 0x50, count: 32)
         )
         let claimTransaction = try envelope.buildClaimTransaction(
-            destinationLockingScript: makeClaimableDestinationLockingScript(fillByte: 0x51),
+            destinationLockingScript: ClaimableTestSupport.makeClaimableDestinationLockingScript(fillByte: 0x51),
             currentBlockHeight: 499
         )
-        let claimTransactionHash = OpalBase.Transaction.Hash(
-            naturalOrder: Data(repeating: 0x51, count: 32)
-        )
+        let rawClaimTransaction = try claimTransaction.encode()
+        let claimTransactionHash = ClaimableTestSupport.makeClaimableTransactionHash(from: rawClaimTransaction)
         let resolver = OpalBase.Claimable.StatusResolver(
             network: .chipnet,
-            scriptHashReader: makeClaimableScriptHashReader(
+            scriptHashReader: ClaimableTestSupport.makeClaimableScriptHashReader(
                 history: [
-                    makeClaimableHistoryEntry(
+                    ClaimableTestSupport.makeClaimableHistoryEntry(
                         transactionHash: envelope.fundingTransactionHash
                     ),
-                    makeClaimableHistoryEntry(transactionHash: unfetchableTransactionHash),
-                    makeClaimableHistoryEntry(transactionHash: claimTransactionHash)
+                    ClaimableTestSupport.makeClaimableHistoryEntry(transactionHash: unfetchableTransactionHash),
+                    ClaimableTestSupport.makeClaimableHistoryEntry(transactionHash: claimTransactionHash)
                 ],
                 unspentOutputs: []
             ),
-            transactionReader: makeClaimableTransactionReader(
+            transactionReader: ClaimableTestSupport.makeClaimableTransactionReader(
                 rawTransactionsByHash: [
                     envelope.fundingTransactionHash: try fundingTransaction.encode(),
-                    claimTransactionHash: try claimTransaction.encode()
+                    claimTransactionHash: rawClaimTransaction
                 ]
             )
         )
@@ -896,22 +941,22 @@ struct ClaimableStatusResolverValidator {
         transactionFetchFailure: Swift.Error,
         failingTransactionHashByte: UInt8
     ) throws -> (envelope: OpalBase.Claimable.Envelope, resolver: OpalBase.Claimable.StatusResolver) {
-        let (envelope, _) = try makeClaimableEnvelope(
+        let (envelope, _) = try ClaimableTestSupport.makeClaimableEnvelope(
             network: .chipnet,
             expiryBlockHeight: 500
         )
-        let fundingTransactionData = try makeClaimableFundingTransaction(for: envelope).encode()
+        let fundingTransactionData = try ClaimableTestSupport.makeClaimableFundingTransaction(for: envelope).encode()
         let failingTransactionHash = OpalBase.Transaction.Hash(
             naturalOrder: Data(repeating: failingTransactionHashByte, count: 32)
         )
         let resolver = OpalBase.Claimable.StatusResolver(
             network: .chipnet,
-            scriptHashReader: makeClaimableScriptHashReader(
+            scriptHashReader: ClaimableTestSupport.makeClaimableScriptHashReader(
                 history: [
-                    makeClaimableHistoryEntry(
+                    ClaimableTestSupport.makeClaimableHistoryEntry(
                         transactionHash: envelope.fundingTransactionHash
                     ),
-                    makeClaimableHistoryEntry(transactionHash: failingTransactionHash)
+                    ClaimableTestSupport.makeClaimableHistoryEntry(transactionHash: failingTransactionHash)
                 ],
                 unspentOutputs: []
             ),
@@ -926,53 +971,10 @@ struct ClaimableStatusResolverValidator {
         return (envelope, resolver)
     }
 
-    @Test("reports refund spend path")
-    func reportsRefundSpendPath() async throws {
-        let (envelope, refundPrivateKey) = try makeClaimableEnvelope(
-            network: .chipnet,
-            expiryBlockHeight: 500
-        )
-        let fundingTransaction = makeClaimableFundingTransaction(for: envelope)
-        let refundTransaction = try envelope.buildRefundTransaction(
-            refundPrivateKey: refundPrivateKey,
-            destinationLockingScript: makeClaimableDestinationLockingScript(fillByte: 0x52),
-            currentBlockHeight: 500
-        )
-        let refundTransactionHash = OpalBase.Transaction.Hash(
-            naturalOrder: Data(repeating: 0x52, count: 32)
-        )
-        let resolver = OpalBase.Claimable.StatusResolver(
-            network: .chipnet,
-            scriptHashReader: makeClaimableScriptHashReader(
-                history: [
-                    makeClaimableHistoryEntry(
-                        transactionHash: envelope.fundingTransactionHash
-                    ),
-                    makeClaimableHistoryEntry(transactionHash: refundTransactionHash)
-                ],
-                unspentOutputs: []
-            ),
-            transactionReader: makeClaimableTransactionReader(
-                rawTransactionsByHash: [
-                    envelope.fundingTransactionHash: try fundingTransaction.encode(),
-                    refundTransactionHash: try refundTransaction.encode()
-                ]
-            )
-        )
-
-        let status = try await resolver.resolve(
-            for: envelope,
-            includeUnconfirmed: true,
-            currentBlockHeight: 700
-        )
-
-        #expect(status.fundingState == .spent(spendPath: .refund))
-    }
-
     @Test("reports unknown spend path for ambiguous spend")
     func reportsUnknownSpendPathForAmbiguousSpend() async throws {
-        let (envelope, _) = try makeClaimableEnvelope(network: .chipnet)
-        let fundingTransaction = makeClaimableFundingTransaction(for: envelope)
+        let (envelope, _) = try ClaimableTestSupport.makeClaimableEnvelope(network: .chipnet)
+        let fundingTransaction = ClaimableTestSupport.makeClaimableFundingTransaction(for: envelope)
         let ambiguousTransaction = OpalBase.Transaction(
             version: 2,
             inputs: [
@@ -985,29 +987,28 @@ struct ClaimableStatusResolverValidator {
             outputs: [
                 .init(
                     value: 1_000,
-                    lockingScript: makeClaimableDestinationLockingScript(fillByte: 0x53)
+                    lockingScript: ClaimableTestSupport.makeClaimableDestinationLockingScript(fillByte: 0x53)
                 )
             ],
             lockTime: 0
         )
-        let ambiguousTransactionHash = OpalBase.Transaction.Hash(
-            naturalOrder: Data(repeating: 0x53, count: 32)
-        )
+        let rawAmbiguousTransaction = try ambiguousTransaction.encode()
+        let ambiguousTransactionHash = ClaimableTestSupport.makeClaimableTransactionHash(from: rawAmbiguousTransaction)
         let resolver = OpalBase.Claimable.StatusResolver(
             network: .chipnet,
-            scriptHashReader: makeClaimableScriptHashReader(
+            scriptHashReader: ClaimableTestSupport.makeClaimableScriptHashReader(
                 history: [
-                    makeClaimableHistoryEntry(
+                    ClaimableTestSupport.makeClaimableHistoryEntry(
                         transactionHash: envelope.fundingTransactionHash
                     ),
-                    makeClaimableHistoryEntry(transactionHash: ambiguousTransactionHash)
+                    ClaimableTestSupport.makeClaimableHistoryEntry(transactionHash: ambiguousTransactionHash)
                 ],
                 unspentOutputs: []
             ),
-            transactionReader: makeClaimableTransactionReader(
+            transactionReader: ClaimableTestSupport.makeClaimableTransactionReader(
                 rawTransactionsByHash: [
                     envelope.fundingTransactionHash: try fundingTransaction.encode(),
-                    ambiguousTransactionHash: try ambiguousTransaction.encode()
+                    ambiguousTransactionHash: rawAmbiguousTransaction
                 ]
             )
         )
@@ -1023,11 +1024,11 @@ struct ClaimableStatusResolverValidator {
 
     @Test("continues spend path scan past ambiguous matching spend")
     func continuesSpendPathScanPastAmbiguousMatchingSpend() async throws {
-        let (envelope, _) = try makeClaimableEnvelope(
+        let (envelope, _) = try ClaimableTestSupport.makeClaimableEnvelope(
             network: .chipnet,
             expiryBlockHeight: 500
         )
-        let fundingTransaction = makeClaimableFundingTransaction(for: envelope)
+        let fundingTransaction = ClaimableTestSupport.makeClaimableFundingTransaction(for: envelope)
         let ambiguousTransaction = OpalBase.Transaction(
             version: 2,
             inputs: [
@@ -1040,38 +1041,36 @@ struct ClaimableStatusResolverValidator {
             outputs: [
                 .init(
                     value: 1_000,
-                    lockingScript: makeClaimableDestinationLockingScript(fillByte: 0x53)
+                    lockingScript: ClaimableTestSupport.makeClaimableDestinationLockingScript(fillByte: 0x53)
                 )
             ],
             lockTime: 0
         )
-        let ambiguousTransactionHash = OpalBase.Transaction.Hash(
-            naturalOrder: Data(repeating: 0x53, count: 32)
-        )
+        let rawAmbiguousTransaction = try ambiguousTransaction.encode()
+        let ambiguousTransactionHash = ClaimableTestSupport.makeClaimableTransactionHash(from: rawAmbiguousTransaction)
         let claimTransaction = try envelope.buildClaimTransaction(
-            destinationLockingScript: makeClaimableDestinationLockingScript(fillByte: 0x54),
+            destinationLockingScript: ClaimableTestSupport.makeClaimableDestinationLockingScript(fillByte: 0x54),
             currentBlockHeight: 499
         )
-        let claimTransactionHash = OpalBase.Transaction.Hash(
-            naturalOrder: Data(repeating: 0x54, count: 32)
-        )
+        let rawClaimTransaction = try claimTransaction.encode()
+        let claimTransactionHash = ClaimableTestSupport.makeClaimableTransactionHash(from: rawClaimTransaction)
         let resolver = OpalBase.Claimable.StatusResolver(
             network: .chipnet,
-            scriptHashReader: makeClaimableScriptHashReader(
+            scriptHashReader: ClaimableTestSupport.makeClaimableScriptHashReader(
                 history: [
-                    makeClaimableHistoryEntry(
+                    ClaimableTestSupport.makeClaimableHistoryEntry(
                         transactionHash: envelope.fundingTransactionHash
                     ),
-                    makeClaimableHistoryEntry(transactionHash: ambiguousTransactionHash),
-                    makeClaimableHistoryEntry(transactionHash: claimTransactionHash)
+                    ClaimableTestSupport.makeClaimableHistoryEntry(transactionHash: ambiguousTransactionHash),
+                    ClaimableTestSupport.makeClaimableHistoryEntry(transactionHash: claimTransactionHash)
                 ],
                 unspentOutputs: []
             ),
-            transactionReader: makeClaimableTransactionReader(
+            transactionReader: ClaimableTestSupport.makeClaimableTransactionReader(
                 rawTransactionsByHash: [
                     envelope.fundingTransactionHash: try fundingTransaction.encode(),
-                    ambiguousTransactionHash: try ambiguousTransaction.encode(),
-                    claimTransactionHash: try claimTransaction.encode()
+                    ambiguousTransactionHash: rawAmbiguousTransaction,
+                    claimTransactionHash: rawClaimTransaction
                 ]
             )
         )
@@ -1087,7 +1086,7 @@ struct ClaimableStatusResolverValidator {
 
     @Test("rejects resolver network mismatch")
     func rejectsResolverNetworkMismatch() async throws {
-        let (envelope, _) = try makeClaimableEnvelope(network: .chipnet)
+        let (envelope, _) = try ClaimableTestSupport.makeClaimableEnvelope(network: .chipnet)
         let resolver = OpalBase.Claimable.StatusResolver(
             network: .mainnet,
             scriptHashReader: .init(
@@ -1127,6 +1126,39 @@ struct ClaimableStatusResolverValidator {
             throw failure
         } catch {
             throw NetworkErrorCaptureFailure.unexpected(error)
+        }
+    }
+
+    enum SpendPathCase: CaseIterable, Sendable {
+        case claim
+        case refund
+
+        var expectedSpendPath: OpalBase.Claimable.SpendPath {
+            switch self {
+            case .claim:
+                return .claim
+            case .refund:
+                return .refund
+            }
+        }
+
+        func makeTransaction(
+            for envelope: OpalBase.Claimable.Envelope,
+            refundPrivateKey: Data
+        ) throws -> OpalBase.Transaction {
+            switch self {
+            case .claim:
+                try envelope.buildClaimTransaction(
+                    destinationLockingScript: ClaimableTestSupport.makeClaimableDestinationLockingScript(fillByte: 0x51),
+                    currentBlockHeight: 499
+                )
+            case .refund:
+                try envelope.buildRefundTransaction(
+                    refundPrivateKey: refundPrivateKey,
+                    destinationLockingScript: ClaimableTestSupport.makeClaimableDestinationLockingScript(fillByte: 0x52),
+                    currentBlockHeight: 500
+                )
+            }
         }
     }
 }

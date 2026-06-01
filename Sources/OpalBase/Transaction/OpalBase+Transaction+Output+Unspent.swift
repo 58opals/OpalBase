@@ -16,18 +16,20 @@ extension _OpalBase.Transaction.Output {
                     previousTransactionHash: OpalBase.Transaction.Hash,
                     previousTransactionOutputIndex: UInt32) {
             self.value = value
-            self.lockingScript = lockingScript
+            self.lockingScript = Data(lockingScript)
             self.tokenData = tokenData
             self.previousTransactionHash = previousTransactionHash
             self.previousTransactionOutputIndex = previousTransactionOutputIndex
         }
         
         public init(output: OpalBase.Transaction.Output, previousTransactionHash: OpalBase.Transaction.Hash, previousTransactionOutputIndex: UInt32) {
-            self.value = output.value
-            self.lockingScript = output.lockingScript
-            self.tokenData = output.tokenData
-            self.previousTransactionHash = previousTransactionHash
-            self.previousTransactionOutputIndex = previousTransactionOutputIndex
+            self.init(
+                value: output.value,
+                lockingScript: output.lockingScript,
+                tokenData: output.tokenData,
+                previousTransactionHash: previousTransactionHash,
+                previousTransactionOutputIndex: previousTransactionOutputIndex
+            )
         }
     }
 }

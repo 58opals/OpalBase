@@ -7,6 +7,23 @@ import OpalBaseTestSupport
 
 @Suite("OpalBase.Account Token Genesis", .tags(.unit, .wallet, .cashTokens))
 struct AccountTokenGenesisValidator {
+    @Test("reserved supply initializer normalizes sliced commitment")
+    func reservedSupplyInitializerNormalizesSlicedCommitment() throws {
+        let commitment = Data([0x01, 0x02, 0x03])
+        let paddedCommitment = Data([0xff]) + commitment
+        let slicedCommitment = paddedCommitment[paddedCommitment.index(after: paddedCommitment.startIndex)...]
+
+        let reservedSupply = try OpalBase.Account.ReservedSupply(
+            fungibleAmount: 1,
+            shouldIncludeMintingNonFungibleToken: true,
+            commitment: slicedCommitment
+        )
+
+        #expect(slicedCommitment.startIndex != commitment.startIndex)
+        #expect(reservedSupply.commitment == commitment)
+        #expect(reservedSupply.commitment.startIndex == commitment.startIndex)
+    }
+
     @Test("token genesis recipients must include token data")
     func tokenGenesisRecipientsMustIncludeTokenData() throws {
         let recipientAddress = try OpalBase.Address("bitcoincash:zpm2qsznhks23z7629mms6s4cwef74vcwvrqekrq9w")

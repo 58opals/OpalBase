@@ -21,7 +21,7 @@ extension _OpalBase.Network {
         }
 
         public func fetchRawTransaction(for transactionHash: OpalBase.Transaction.Hash) async throws -> Data {
-            try await performFetchRawTransaction(transactionHash)
+            try await Data(performFetchRawTransaction(transactionHash))
         }
     }
 }

@@ -36,9 +36,26 @@ struct DiagnosticsErrorPresentationValidator {
         #expect((error as Swift.Error).localizedDescription == description)
         #expect(String(reflecting: error) == description)
         #expect(!description.contains("error 1"))
+    }
 
-        for substring in expectation.expectedSubstrings {
-            #expect(description.contains(substring))
+    @Test(
+        "network error display text includes expected substrings",
+        arguments: networkDisplaySubstringCases
+    )
+    func verifyNetworkErrorDisplayTextIncludesExpectedSubstring(
+        substringCase: NetworkDisplaySubstringCase
+    ) {
+        let expectation = substringCase.displayCase.displayExpectation
+        let description = String(describing: expectation.error)
+        #expect(description.contains(substringCase.expectedSubstring))
+    }
+
+    private static let networkDisplaySubstringCases: [NetworkDisplaySubstringCase] = NetworkDisplayCase.allCases.flatMap { displayCase in
+        displayCase.displayExpectation.expectedSubstrings.map { expectedSubstring in
+            NetworkDisplaySubstringCase(
+                displayCase: displayCase,
+                expectedSubstring: expectedSubstring
+            )
         }
     }
 
@@ -143,6 +160,22 @@ struct DiagnosticsErrorPresentationValidator {
                 reason: .timeout,
                 message: "Operation timed out",
                 metadata: ["timeoutSeconds": "2.0"]
+            )
+        ))
+    }
+
+    @Test("network failure equivalence normalizes stable diagnostic metadata")
+    func normalizeStableDiagnosticMetadataInNetworkFailureEquivalence() {
+        #expect(OpalBase.Network.areFailuresEquivalent(
+            OpalBase.Network.Error(
+                reason: .timeout,
+                message: "Operation timed out",
+                metadata: ["timeoutSeconds": "03"]
+            ),
+            OpalBase.Network.Error(
+                reason: .timeout,
+                message: "Operation timed out",
+                metadata: ["timeoutSeconds": "3.0"]
             )
         ))
     }
@@ -418,6 +451,11 @@ struct DiagnosticsErrorPresentationValidator {
         }
     }
 
+    struct NetworkDisplaySubstringCase: Sendable {
+        let displayCase: NetworkDisplayCase
+        let expectedSubstring: String
+    }
+
     enum NetworkReasonClassificationCase: CaseIterable, Sendable {
         case transport
         case network
@@ -552,7 +590,7 @@ struct DiagnosticsErrorPresentationValidator {
             case .canonicalMaximumVersion:
                 return (
                     OpalBase.Network.Error.DiagnosticMetadataKey.maximumVersion,
-                    "01.05",
+                    "1.5",
                     OpalDiagnostics.Field.Name.maximumVersion,
                     "1.5",
                     []

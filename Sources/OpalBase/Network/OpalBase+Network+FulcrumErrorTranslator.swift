@@ -88,9 +88,38 @@ extension _OpalBase.Network {
         }
 
         private static func stableMetadata(from metadata: [String: String]) -> [String: String] {
-            metadata.filter { key, _ in
-                key != OpalBase.Network.Error.DiagnosticMetadataKey.serverIdentifier &&
-                    key != OpalBase.Network.Error.DiagnosticMetadataKey.requestIdentifier
+            metadata.reduce(into: [String: String]()) { result, entry in
+                guard entry.key != OpalBase.Network.Error.DiagnosticMetadataKey.serverIdentifier,
+                      entry.key != OpalBase.Network.Error.DiagnosticMetadataKey.requestIdentifier else {
+                    return
+                }
+                result[entry.key] = stableMetadataValue(for: entry.key, value: entry.value)
+            }
+        }
+
+        private static func stableMetadataValue(for key: String, value: String) -> String {
+            let trimmedValue = value.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard trimmedValue.first != "+" else { return value }
+
+            switch key {
+            case OpalBase.Network.Error.DiagnosticMetadataKey.closeCode:
+                guard let closeCode = UInt16(trimmedValue),
+                      (1000...4999).contains(closeCode) else {
+                    return value
+                }
+                return String(closeCode)
+            case OpalBase.Network.Error.DiagnosticMetadataKey.timeoutSeconds:
+                guard let seconds = Double(trimmedValue),
+                      seconds.isFinite,
+                      seconds >= 0 else {
+                    return value
+                }
+                return String(seconds == 0 ? 0 : seconds)
+            case OpalBase.Network.Error.DiagnosticMetadataKey.minimumVersion,
+                OpalBase.Network.Error.DiagnosticMetadataKey.maximumVersion:
+                return OpalBase.Network.ProtocolVersion(string: trimmedValue)?.description ?? value
+            default:
+                return value
             }
         }
 

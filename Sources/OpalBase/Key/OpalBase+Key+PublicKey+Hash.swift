@@ -7,11 +7,11 @@ extension _OpalBase.Key.PublicKey {
         let data: Data
         
         init(_ data: Data) {
-            self.data = data
+            self.data = Data(data)
         }
         
         init(publicKey: OpalBase.Key.PublicKey) {
-            self.data = publicKey.hash
+            self.init(publicKey.hash)
         }
     }
 }

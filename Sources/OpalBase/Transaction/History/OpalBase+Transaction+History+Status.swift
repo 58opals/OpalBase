@@ -1,7 +1,5 @@
 // OpalBase+Transaction+History+Status.swift
 
-import Foundation
-
 extension _OpalBase.Transaction.History {
     public enum Status: String, Sendable, Hashable, Codable {
         case discovered

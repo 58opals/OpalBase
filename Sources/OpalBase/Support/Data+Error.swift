@@ -10,6 +10,14 @@ extension Data {
 }
 
 extension Data {
+    static func unprefixedHexadecimalByteCount(_ hexadecimalString: String) -> Int? {
+        let unicodeScalars = hexadecimalString.unicodeScalars
+        guard unicodeScalars.count.isMultiple(of: 2) else { return nil }
+        guard unicodeScalars.allSatisfy({ $0.hexadecimalNibble != nil }) else { return nil }
+
+        return unicodeScalars.count / 2
+    }
+
     init(hexadecimalString: String) throws {
         var byteArray = [UInt8]()
         let unicodeScalars = hexadecimalString.unicodeScalars
@@ -21,22 +29,21 @@ extension Data {
         guard !hasHexadecimalPrefix || !hexadecimalScalars.isEmpty else {
             throw Error.cannotConvertHexadecimalStringToData
         }
-        byteArray.reserveCapacity(hexadecimalScalars.lazy.underestimatedCount)
+        guard hexadecimalScalars.count.isMultiple(of: 2) else {
+            throw Error.cannotConvertHexadecimalStringToData
+        }
+        byteArray.reserveCapacity(hexadecimalScalars.count / 2)
         
-        var byteBuffer: UInt8?
-        for unicodeScalar in hexadecimalScalars.lazy {
-            guard let currentValue = unicodeScalar.hexadecimalNibble else {
+        var index = hexadecimalScalars.startIndex
+        while index < hexadecimalScalars.endIndex {
+            let nextIndex = hexadecimalScalars.index(after: index)
+            guard let highNibble = hexadecimalScalars[index].hexadecimalNibble,
+                  let lowNibble = hexadecimalScalars[nextIndex].hexadecimalNibble else {
                 throw Error.cannotConvertHexadecimalStringToData
             }
-            if let bufferedValue = byteBuffer {
-                byteArray.append(bufferedValue << 4 | currentValue)
-                byteBuffer = nil
-            } else {
-                byteBuffer = currentValue
-            }
+            byteArray.append(highNibble << 4 | lowNibble)
+            index = hexadecimalScalars.index(after: nextIndex)
         }
-        
-        guard byteBuffer == nil else { throw Error.cannotConvertHexadecimalStringToData}
         
         self = Data(byteArray)
     }
@@ -51,11 +58,6 @@ extension Data {
     
     var reversedData: Data {
         return Data(self.reversed())
-        //var reversedData = Data()
-        //for byte in self {
-        //    reversedData.insert(byte, at: 0)
-        //}
-        //return reversedData
     }
 }
 

@@ -59,7 +59,7 @@ extension _OpalBase.CashTokens {
         
         public static func decode(prefixPlusBytecode: Data) throws -> (tokenData: TokenData?, lockingBytecode: Data) {
             guard let prefixByte = prefixPlusBytecode.first, prefixByte == prefixToken else {
-                return (nil, prefixPlusBytecode)
+                return (nil, Data(prefixPlusBytecode))
             }
             
             guard prefixPlusBytecode.count >= minimumPrefixLength else {

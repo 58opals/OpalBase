@@ -8,6 +8,38 @@ import Testing
 
 @Suite("OpalBase.Account CashFusion preparation", .tags(.unit, .wallet))
 struct AccountCashFusionReservationValidator {
+    @Test("reserved inputs normalize sliced key data")
+    func reservedInputsNormalizeSlicedKeyData() {
+        let privateKey = makeSlicedData(from: Data(repeating: 0x01, count: 32))
+        let compressedPublicKey = makeSlicedData(from: Data(repeating: 0x02, count: 33))
+        let unspentOutput = OpalBase.Transaction.Output.Unspent(
+            value: 120_000,
+            lockingScript: Data([0x51]),
+            previousTransactionHash: .init(naturalOrder: Data(repeating: 0x03, count: 32)),
+            previousTransactionOutputIndex: 0
+        )
+
+        let reservedInput = OpalBase.Account.CashFusionReservation.ReservedInput(
+            unspentOutput: unspentOutput,
+            privateKey: privateKey,
+            compressedPublicKey: compressedPublicKey,
+            participantInput: .init(
+                outpointTransactionHashBytes: [UInt8](unspentOutput.previousTransactionHash.reverseOrder),
+                outpointIndex: unspentOutput.previousTransactionOutputIndex,
+                amountSatoshis: unspentOutput.value,
+                lockingScriptBytes: [UInt8](unspentOutput.lockingScript),
+                publicKey: [UInt8](compressedPublicKey)
+            )
+        )
+
+        #expect(privateKey.startIndex != 0)
+        #expect(compressedPublicKey.startIndex != 0)
+        #expect(reservedInput.privateKey == Data(privateKey))
+        #expect(reservedInput.compressedPublicKey == Data(compressedPublicKey))
+        #expect(reservedInput.privateKey.startIndex == 0)
+        #expect(reservedInput.compressedPublicKey.startIndex == 0)
+    }
+
     @Test("empty selected inputs are rejected")
     func emptySelectedInputsAreRejected() async throws {
         let account = try await AccountTestFixtures.makeAccount()
@@ -21,37 +53,21 @@ struct AccountCashFusionReservationValidator {
         }
     }
 
-    @Test("empty output amounts are rejected")
-    func emptyOutputAmountsAreRejected() async throws {
+    @Test(
+        "missing positive output amounts are rejected",
+        arguments: MissingPositiveOutputAmountsCase.allCases
+    )
+    func missingPositiveOutputAmountsAreRejected(_ outputCase: MissingPositiveOutputAmountsCase) async throws {
         let account = try await AccountTestFixtures.makeAccount()
         let selectedInput = try await CashFusionTestSupport.makeWalletOwnedUnspentOutput(
             to: account,
             value: 120_000,
             usage: .change,
-            hashByte: 0xB1
+            hashByte: outputCase.hashByte
         )
         let request = OpalBase.Account.CashFusionRequest(
             selectedInputs: [selectedInput],
-            outputAmounts: []
-        )
-
-        await #expect(throws: OpalBase.Account.Error.cashFusionHasNoOutputAmounts) {
-            _ = try await account.prepareCashFusionReservation(request: request)
-        }
-    }
-
-    @Test("zero output amounts are rejected")
-    func zeroOutputAmountsAreRejected() async throws {
-        let account = try await AccountTestFixtures.makeAccount()
-        let selectedInput = try await CashFusionTestSupport.makeWalletOwnedUnspentOutput(
-            to: account,
-            value: 120_000,
-            usage: .change,
-            hashByte: 0xBC
-        )
-        let request = OpalBase.Account.CashFusionRequest(
-            selectedInputs: [selectedInput],
-            outputAmounts: [OpalBase.Satoshi()]
+            outputAmounts: outputCase.outputAmounts
         )
 
         await #expect(throws: OpalBase.Account.Error.cashFusionHasNoOutputAmounts) {
@@ -327,6 +343,31 @@ struct AccountCashFusionReservationValidator {
 
 }
 
+extension AccountCashFusionReservationValidator {
+    enum MissingPositiveOutputAmountsCase: CaseIterable, Sendable {
+        case empty
+        case zero
+
+        var hashByte: UInt8 {
+            switch self {
+            case .empty:
+                return 0xB1
+            case .zero:
+                return 0xBC
+            }
+        }
+
+        var outputAmounts: [OpalBase.Satoshi] {
+            switch self {
+            case .empty:
+                return []
+            case .zero:
+                return [OpalBase.Satoshi()]
+            }
+        }
+    }
+}
+
 private extension AccountCashFusionReservationValidator {
     func makeReservationContext(
         roundIdentifier: String,
@@ -343,6 +384,12 @@ private extension AccountCashFusionReservationValidator {
             minimumExcessFeeSatoshis: minimumExcessFeeSatoshis,
             maximumExcessFeeSatoshis: maximumExcessFeeSatoshis
         )
+    }
+
+    private func makeSlicedData(from data: Data) -> Data {
+        var paddedData = Data([0x00])
+        paddedData.append(data)
+        return paddedData[paddedData.index(after: paddedData.startIndex)...]
     }
 }
 #endif

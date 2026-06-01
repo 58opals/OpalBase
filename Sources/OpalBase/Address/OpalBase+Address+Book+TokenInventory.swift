@@ -13,7 +13,7 @@ extension _OpalBase.Address.Book {
                         commitment: Data,
                         capability: OpalBase.CashTokens.NFT.Capability) {
                 self.category = category
-                self.commitment = commitment
+                self.commitment = Data(commitment)
                 self.capability = capability
             }
         }
@@ -67,8 +67,7 @@ extension _OpalBase.Address.Book {
     }
     
     func calculateTokenInventory() throws -> TokenInventory {
-        let partition = partitionUnspentOutputs()
-        return try makeTokenInventory(from: partition.tokenUTXOs)
+        try makeTokenInventory(from: partitionUnspentOutputs().tokenUTXOs)
     }
 }
 

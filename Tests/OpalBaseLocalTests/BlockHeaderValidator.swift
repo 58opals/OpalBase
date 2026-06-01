@@ -42,6 +42,32 @@ struct BlockHeaderValidator {
         #expect(decoded.bits == header.bits)
         #expect(decoded.nonce == header.nonce)
     }
+
+    @Test("initializer normalizes sliced hash fields")
+    func initializerNormalizesSlicedHashFields() {
+        let previousBlockHash = Data(repeating: 0x02, count: 32)
+        let merkleRoot = Data(repeating: 0x03, count: 32)
+        let paddedPreviousBlockHash = Data([0xff]) + previousBlockHash
+        let paddedMerkleRoot = Data([0xee]) + merkleRoot
+        let slicedPreviousBlockHash = paddedPreviousBlockHash[paddedPreviousBlockHash.index(after: paddedPreviousBlockHash.startIndex)...]
+        let slicedMerkleRoot = paddedMerkleRoot[paddedMerkleRoot.index(after: paddedMerkleRoot.startIndex)...]
+
+        let header = OpalBase.Block.Header(
+            version: 2,
+            previousBlockHash: slicedPreviousBlockHash,
+            merkleRoot: slicedMerkleRoot,
+            time: 1,
+            bits: 0x1d00ffff,
+            nonce: 4
+        )
+
+        #expect(slicedPreviousBlockHash.startIndex != previousBlockHash.startIndex)
+        #expect(slicedMerkleRoot.startIndex != merkleRoot.startIndex)
+        #expect(header.previousBlockHash == previousBlockHash)
+        #expect(header.previousBlockHash.startIndex == previousBlockHash.startIndex)
+        #expect(header.merkleRoot == merkleRoot)
+        #expect(header.merkleRoot.startIndex == merkleRoot.startIndex)
+    }
     
     @Test("proof-of-work hash uses little-endian order")
     func proofOfWorkHashUsesLittleEndianOrder() {
@@ -69,6 +95,18 @@ struct BlockHeaderValidator {
         let target = OpalBase.Block.Header.calculateTarget(for: bits)
         
         #expect(target == expectedTarget)
+    }
+
+    @Test("block target decoding accepts sliced data")
+    func blockTargetDecodingAcceptsSlicedData() throws {
+        let expectedTargetData = try Data(hexadecimalString: "00000000ffff0000000000000000000000000000000000000000000000000000")
+        let paddedTargetData = Data([0xff]) + expectedTargetData + Data([0xee])
+        let targetSlice = paddedTargetData[paddedTargetData.index(after: paddedTargetData.startIndex)..<paddedTargetData.index(before: paddedTargetData.endIndex)]
+
+        let slicedTarget = OpalBase.Block.Target(data: targetSlice)
+        let expectedTarget = OpalBase.Block.Target(data: expectedTargetData)
+
+        #expect(slicedTarget == expectedTarget)
     }
     
     @Test("proof-of-work validation matches known header")
@@ -106,18 +144,57 @@ struct BlockHeaderValidator {
         #expect(!header.isProofOfWorkSatisfied)
     }
 
-    @Test("proof-of-work validation rejects malformed hash field lengths")
-    func proofOfWorkValidationRejectsMalformedHashFieldLengths() {
-        let header = OpalBase.Block.Header(
-            version: 1,
-            previousBlockHash: Data(repeating: 0x00, count: 31),
-            merkleRoot: Data(repeating: 0x55, count: 32),
-            time: 1_700_000_100,
-            bits: 0x207fffff,
-            nonce: 4
-        )
-
-        #expect(!header.isProofOfWorkSatisfied)
+    @Test(
+        "proof-of-work validation rejects malformed hash field lengths",
+        arguments: MalformedBlockHeaderHashFieldCase.allCases
+    )
+    fileprivate func proofOfWorkValidationRejectsMalformedHashFieldLengths(
+        _ hashFieldCase: MalformedBlockHeaderHashFieldCase
+    ) {
+        #expect(!hashFieldCase.makeHeader().isProofOfWorkSatisfied)
     }
 
+
+    enum MalformedBlockHeaderHashFieldCase: CaseIterable, CustomStringConvertible, Sendable {
+        case previousBlockHash
+        case merkleRoot
+
+        var description: String {
+            switch self {
+            case .previousBlockHash:
+                "previous block hash"
+            case .merkleRoot:
+                "merkle root"
+            }
+        }
+
+        func makeHeader() -> OpalBase.Block.Header {
+            OpalBase.Block.Header(
+                version: 1,
+                previousBlockHash: previousBlockHash,
+                merkleRoot: merkleRoot,
+                time: 1_700_000_100,
+                bits: 0x207fffff,
+                nonce: 4
+            )
+        }
+
+        private var previousBlockHash: Data {
+            switch self {
+            case .previousBlockHash:
+                Data(repeating: 0x00, count: 31)
+            case .merkleRoot:
+                Data(repeating: 0x00, count: 32)
+            }
+        }
+
+        private var merkleRoot: Data {
+            switch self {
+            case .previousBlockHash:
+                Data(repeating: 0x55, count: 32)
+            case .merkleRoot:
+                Data(repeating: 0x55, count: 31)
+            }
+        }
+    }
 }

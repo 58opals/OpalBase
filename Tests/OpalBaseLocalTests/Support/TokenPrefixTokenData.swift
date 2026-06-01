@@ -2,7 +2,7 @@
 
 import Foundation
 
-struct TokenPrefixTokenData: Codable {
+struct TokenPrefixTokenData: Codable, Sendable {
     let category: String
     let amount: String?
     let nonFungibleToken: TokenPrefixNonFungibleTokenData?
@@ -13,4 +13,3 @@ struct TokenPrefixTokenData: Codable {
         case nonFungibleToken = "nft"
     }
 }
-

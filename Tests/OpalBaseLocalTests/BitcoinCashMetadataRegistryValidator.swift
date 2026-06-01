@@ -44,6 +44,40 @@ struct BitcoinCashMetadataRegistryValidator {
         )
     }
 
+    @Test("registry fetch results normalize sliced bytes")
+    func registryFetchResultsNormalizeSlicedBytes() throws {
+        let bytes = Data("{\"version\":\"1\"}".utf8)
+        let paddedBytes = Data([0x00]) + bytes
+        let slicedBytes = paddedBytes[paddedBytes.index(after: paddedBytes.startIndex)...]
+
+        let result = OpalBase.CashTokens.BCMR.Client.Fetcher.RegistryFetchResult(
+            bytes: slicedBytes,
+            finalURL: try #require(URL(string: "https://registry.example/metadata.json")),
+            cacheExpiration: nil,
+            permanentRedirectLocation: nil
+        )
+
+        #expect(slicedBytes.startIndex != 0)
+        #expect(result.bytes == bytes)
+        #expect(result.bytes.startIndex == 0)
+    }
+
+    @Test("publication initializers normalize sliced hash bytes")
+    func publicationInitializersNormalizeSlicedHashBytes() throws {
+        let hash = try BitcoinCashMetadataRegistryTestData.publicationHash
+        let paddedHash = Data([0x00]) + hash
+        let slicedHash = paddedHash[paddedHash.index(after: paddedHash.startIndex)...]
+
+        let publication = OpalBase.CashTokens.BCMR.Client.Publication(
+            sha256: slicedHash,
+            uris: [BitcoinCashMetadataRegistryTestData.publicationUniformResourceIdentifier]
+        )
+
+        #expect(slicedHash.startIndex != 0)
+        #expect(publication.sha256 == hash)
+        #expect(publication.sha256.startIndex == 0)
+    }
+
     @Test("rejects publication marker after leading script bytes")
     func rejectsPublicationMarkerAfterLeadingScriptBytes() throws {
         var script = Data([ScriptOperationCode._1.rawValue])
@@ -667,29 +701,19 @@ struct BitcoinCashMetadataRegistryValidator {
         #expect(metadata.lastUpdated == migratedDate)
     }
     
-    @Test("authchain transaction decode rejects trailing payload bytes")
-    func authchainTransactionDecodeRejectsTrailingPayloadBytes() throws {
-        let transactionHash = OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0x44, count: 32))
-        let input = OpalBase.Transaction.Input(
-            previousTransactionHash: OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0x11, count: 32)),
-            previousTransactionOutputIndex: 0,
-            unlockingScript: Data()
-        )
-        let output = OpalBase.Transaction.Output(value: 0, lockingScript: Data([ScriptOperationCode._1.rawValue]))
-        let transaction = OpalBase.Transaction(
-            version: 1,
-            inputs: [input],
-            outputs: [output],
-            lockTime: 0
-        )
-        let rawTransactionData = try transaction.encode() + Data([0x00])
-        
+    @Test("authchain transaction decode rejects invalid payloads", arguments: AuthchainInvalidPayloadCase.allCases)
+    func authchainTransactionDecodeRejectsInvalidPayloads(
+        _ invalidPayloadCase: AuthchainInvalidPayloadCase
+    ) throws {
+        let transactionHash = invalidPayloadCase.transactionHash
+        let rawTransactionData = try invalidPayloadCase.makeRawTransactionData()
+
         do {
             _ = try OpalBase.CashTokens.BCMR.Client.AuthchainResolver.decodeTransaction(
                 rawTransactionData,
                 transactionHash: transactionHash
             )
-            Issue.record("Expected authchain decode to reject trailing bytes")
+            Issue.record("Expected authchain decode to reject \(invalidPayloadCase)")
         } catch let error as OpalBase.CashTokens.BCMR.Client.AuthchainResolver.Error {
             guard case .transactionDecodingFailed(let failedHash, let underlying) = error else {
                 Issue.record("Expected transactionDecodingFailed, got \(error)")
@@ -697,8 +721,14 @@ struct BitcoinCashMetadataRegistryValidator {
             }
             #expect(failedHash == transactionHash)
             let networkError = try #require(underlying as? OpalBase.Network.Error)
-            #expect(networkError.reason == .decoding)
-            #expect(networkError.message == "Transaction payload has trailing bytes")
+            #expect(networkError.reason == invalidPayloadCase.expectedReason)
+            #expect(networkError.message == invalidPayloadCase.expectedMessage)
+            if invalidPayloadCase.requiresHashMetadata {
+                #expect(networkError.metadata["expected"] == transactionHash.reverseOrder.hexadecimalString)
+                #expect(networkError.metadata["actual"] == OpalBase.Transaction.Hash(
+                    naturalOrder: OpalCryptoAdapter.hash256(rawTransactionData)
+                ).reverseOrder.hexadecimalString)
+            }
         } catch {
             Issue.record("Unexpected error: \(error)")
         }
@@ -711,20 +741,8 @@ struct BitcoinCashMetadataRegistryValidator {
             sha256: try BitcoinCashMetadataRegistryTestData.registryHash,
             uris: [registryURI]
         )
-        let authbase = OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0x63, count: 32))
-        let input = OpalBase.Transaction.Input(
-            previousTransactionHash: OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0x62, count: 32)),
-            previousTransactionOutputIndex: 0,
-            unlockingScript: Data()
-        )
-        let output = OpalBase.Transaction.Output(value: 0, lockingScript: publicationScript)
-        let transaction = OpalBase.Transaction(
-            version: 1,
-            inputs: [input],
-            outputs: [output],
-            lockTime: 0
-        )
-        let rawTransactionData = try transaction.encode()
+        let rawTransactionData = try makeAuthchainTransactionData(lockingScript: publicationScript)
+        let authbase = OpalBase.Transaction.Hash(naturalOrder: OpalCryptoAdapter.hash256(rawTransactionData))
         let rawTransactions = RawTransactionSequence([
             rawTransactionData,
             rawTransactionData + Data([0x00])
@@ -791,20 +809,8 @@ struct BitcoinCashMetadataRegistryValidator {
             sha256: try BitcoinCashMetadataRegistryTestData.registryHash,
             uris: [primaryURI, fallbackURI]
         )
-        let authbase = OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0x64, count: 32))
-        let input = OpalBase.Transaction.Input(
-            previousTransactionHash: OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0x65, count: 32)),
-            previousTransactionOutputIndex: 0,
-            unlockingScript: Data()
-        )
-        let output = OpalBase.Transaction.Output(value: 0, lockingScript: publicationScript)
-        let transaction = OpalBase.Transaction(
-            version: 1,
-            inputs: [input],
-            outputs: [output],
-            lockTime: 0
-        )
-        let rawTransactionData = try transaction.encode()
+        let rawTransactionData = try makeAuthchainTransactionData(lockingScript: publicationScript)
+        let authbase = OpalBase.Transaction.Hash(naturalOrder: OpalCryptoAdapter.hash256(rawTransactionData))
         let transactionReader = OpalBase.Network.TransactionReader { _ in
             rawTransactionData
         }
@@ -866,20 +872,8 @@ struct BitcoinCashMetadataRegistryValidator {
             sha256: try BitcoinCashMetadataRegistryTestData.registryHash,
             uris: [primaryURI, fallbackURI]
         )
-        let authbase = OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0x66, count: 32))
-        let input = OpalBase.Transaction.Input(
-            previousTransactionHash: OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0x67, count: 32)),
-            previousTransactionOutputIndex: 0,
-            unlockingScript: Data()
-        )
-        let output = OpalBase.Transaction.Output(value: 0, lockingScript: publicationScript)
-        let transaction = OpalBase.Transaction(
-            version: 1,
-            inputs: [input],
-            outputs: [output],
-            lockTime: 0
-        )
-        let rawTransactionData = try transaction.encode()
+        let rawTransactionData = try makeAuthchainTransactionData(lockingScript: publicationScript)
+        let authbase = OpalBase.Transaction.Hash(naturalOrder: OpalCryptoAdapter.hash256(rawTransactionData))
         let transactionReader = OpalBase.Network.TransactionReader { _ in
             rawTransactionData
         }
@@ -1095,30 +1089,69 @@ struct BitcoinCashMetadataRegistryValidator {
         }
     }
 
-    @Test("registry fetcher rejects HTTPS path traversal components")
-    func registryFetcherRejectsHypertextTransferProtocolSecurePathTraversalComponents() async throws {
-        let fetcher = OpalBase.CashTokens.BCMR.Client.Fetcher(maxBytes: 1_024)
-        let invalidResourceIdentifiers = [
-            "https://registry.example/../metadata.json",
-            "https://registry.example/%2e%2e/metadata.json",
-            "https://registry.example/%252e%252e/metadata.json"
-        ]
+    @Test("registry fetcher rejects malformed HTTPS IP literals")
+    func registryFetcherRejectsMalformedHypertextTransferProtocolSecureInternetProtocolLiterals() async throws {
+        let invalidGatewayIPv6Literal = try #require(URL(string: "https://[::::]/base"))
+        let invalidGatewayIPv6LiteralFetcher = OpalBase.CashTokens.BCMR.Client.Fetcher(
+            ipfsGateway: invalidGatewayIPv6Literal,
+            maxBytes: 1_024
+        )
+        await #expect(throws: OpalBase.CashTokens.BCMR.Client.Fetcher.Error.self) {
+            _ = try await invalidGatewayIPv6LiteralFetcher.fetchRegistryBytes(from: "ipfs://bafybeigdyrzt/metadata.json")
+        }
 
-        for invalidResourceIdentifier in invalidResourceIdentifiers {
-            do {
-                _ = try await fetcher.fetchRegistryBytes(from: invalidResourceIdentifier)
-                Issue.record("Expected invalidResourceIdentifier for \(invalidResourceIdentifier).")
-            } catch let error as OpalBase.CashTokens.BCMR.Client.Fetcher.Error {
-                switch error {
-                case .invalidResourceIdentifier(let resourceIdentifier)
-                    where resourceIdentifier == invalidResourceIdentifier:
-                    break
-                default:
-                    Issue.record("Expected invalidResourceIdentifier for \(invalidResourceIdentifier), got \(error).")
-                }
-            } catch {
-                Issue.record("Unexpected error for \(invalidResourceIdentifier): \(error)")
+        let invalidGatewayIPv4Literal = try #require(URL(string: "https://999.999.999.999/base"))
+        let invalidGatewayIPv4LiteralFetcher = OpalBase.CashTokens.BCMR.Client.Fetcher(
+            ipfsGateway: invalidGatewayIPv4Literal,
+            maxBytes: 1_024
+        )
+        await #expect(throws: OpalBase.CashTokens.BCMR.Client.Fetcher.Error.self) {
+            _ = try await invalidGatewayIPv4LiteralFetcher.fetchRegistryBytes(from: "ipfs://bafybeigdyrzt/metadata.json")
+        }
+
+        let fetcher = OpalBase.CashTokens.BCMR.Client.Fetcher(maxBytes: 1_024)
+        await #expect(throws: OpalBase.CashTokens.BCMR.Client.Fetcher.Error.self) {
+            _ = try await fetcher.fetchRegistryBytes(from: "https://[::::]/metadata.json")
+        }
+        await #expect(throws: OpalBase.CashTokens.BCMR.Client.Fetcher.Error.self) {
+            _ = try await fetcher.fetchRegistryBytes(from: "https://999.999.999.999/metadata.json")
+        }
+        await #expect(throws: OpalBase.CashTokens.BCMR.Client.Fetcher.Error.self) {
+            _ = try await fetcher.fetchRegistryBytes(from: "https://999.999.999.999./metadata.json")
+        }
+        await #expect(throws: OpalBase.CashTokens.BCMR.Client.Fetcher.Error.self) {
+            _ = try await fetcher.fetchRegistryBytes(from: "https://999.999.999.999../metadata.json")
+        }
+    }
+
+    @Test(
+        "registry fetcher rejects HTTPS path traversal components",
+        arguments: [
+            "https://registry.example/../metadata.json",
+            "https://registry.example/..\\metadata.json",
+            "https://registry.example/%2e%2e/metadata.json",
+            "https://registry.example/%252e%252e/metadata.json",
+            "https://registry.example/%252e%252e%252fmetadata.json"
+        ]
+    )
+    func registryFetcherRejectsHypertextTransferProtocolSecurePathTraversalComponents(
+        invalidResourceIdentifier: String
+    ) async throws {
+        let fetcher = OpalBase.CashTokens.BCMR.Client.Fetcher(maxBytes: 1_024)
+
+        do {
+            _ = try await fetcher.fetchRegistryBytes(from: invalidResourceIdentifier)
+            Issue.record("Expected invalidResourceIdentifier for \(invalidResourceIdentifier).")
+        } catch let error as OpalBase.CashTokens.BCMR.Client.Fetcher.Error {
+            switch error {
+            case .invalidResourceIdentifier(let resourceIdentifier)
+                where resourceIdentifier == invalidResourceIdentifier:
+                break
+            default:
+                Issue.record("Expected invalidResourceIdentifier for \(invalidResourceIdentifier), got \(error).")
             }
+        } catch {
+            Issue.record("Unexpected error for \(invalidResourceIdentifier): \(error)")
         }
     }
 
@@ -1582,6 +1615,51 @@ struct BitcoinCashMetadataRegistryValidator {
             Issue.record("Expected invalidResourceIdentifier for path traversal redirect, got \(error).")
         }
     }
+
+    enum AuthchainInvalidPayloadCase: CaseIterable, Sendable {
+        case trailingBytes
+        case mismatchedHash
+
+        var transactionHash: OpalBase.Transaction.Hash {
+            switch self {
+            case .trailingBytes:
+                return OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0x44, count: 32))
+            case .mismatchedHash:
+                return OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0x45, count: 32))
+            }
+        }
+
+        var expectedReason: OpalBase.Network.Error.Reason {
+            switch self {
+            case .trailingBytes:
+                return .decoding
+            case .mismatchedHash:
+                return .protocolViolation
+            }
+        }
+
+        var expectedMessage: String {
+            switch self {
+            case .trailingBytes:
+                return "Transaction payload has trailing bytes"
+            case .mismatchedHash:
+                return "Transaction payload hash mismatch"
+            }
+        }
+
+        var requiresHashMetadata: Bool {
+            self == .mismatchedHash
+        }
+
+        func makeRawTransactionData() throws -> Data {
+            switch self {
+            case .trailingBytes:
+                return try makeAuthchainTransactionData() + Data([0x00])
+            case .mismatchedHash:
+                return try makeAuthchainTransactionData()
+            }
+        }
+    }
 }
 
 private func makeRegistry(
@@ -1636,14 +1714,21 @@ private func makePublicationScript(sha256: Data, uris: [String]) -> Data {
     return script
 }
 
-private enum RegistryValidatorPlaceholderError: Swift.Error {
-    case unused
-}
-
-private enum RegistryClientErrorCaptureFailure: Swift.Error {
-    case didNotThrow
-    case unexpectedClientError(String)
-    case unexpectedError(String)
+private func makeAuthchainTransactionData(
+    lockingScript: Data = Data([ScriptOperationCode._1.rawValue])
+) throws -> Data {
+    let input = OpalBase.Transaction.Input(
+        previousTransactionHash: OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0x11, count: 32)),
+        previousTransactionOutputIndex: 0,
+        unlockingScript: Data()
+    )
+    let output = OpalBase.Transaction.Output(value: 0, lockingScript: lockingScript)
+    return try OpalBase.Transaction(
+        version: 1,
+        inputs: [input],
+        outputs: [output],
+        lockTime: 0
+    ).encode()
 }
 
 private func captureInvalidRegistryIdentity(
@@ -1667,26 +1752,6 @@ private func captureRegistryClientError(
         throw RegistryClientErrorCaptureFailure.unexpectedError(String(describing: error))
     }
     throw RegistryClientErrorCaptureFailure.didNotThrow
-}
-
-private final class RawTransactionSequence: @unchecked Sendable {
-    enum Error: Swift.Error {
-        case exhausted
-    }
-
-    private let lock = NSLock()
-    private var values: [Data]
-
-    init(_ values: [Data]) {
-        self.values = values
-    }
-
-    func next() throws -> Data {
-        lock.lock()
-        defer { lock.unlock() }
-        guard !values.isEmpty else { throw Error.exhausted }
-        return values.removeFirst()
-    }
 }
 
 private func makeUnusedAddressReader() -> OpalBase.Network.AddressReader {
@@ -1715,51 +1780,4 @@ private func makeRegistryTestSession(
         return try handler(request)
     }
     return (session, recorder)
-}
-
-private final class RegistryRequestRecorder: @unchecked Sendable {
-    private let lock = NSLock()
-    private var requestedURLs: [URL] = .init()
-
-    var values: [URL] {
-        lock.lock()
-        defer { lock.unlock() }
-        return requestedURLs
-    }
-
-    func append(_ url: URL) {
-        lock.lock()
-        requestedURLs.append(url)
-        lock.unlock()
-    }
-}
-
-private final class RegistryRedirectURLProtocol: URLProtocol {
-    nonisolated(unsafe) static var requestHandler: (@Sendable (URLRequest) throws -> (HTTPURLResponse, Data))?
-
-    override class func canInit(with request: URLRequest) -> Bool {
-        true
-    }
-
-    override class func canonicalRequest(for request: URLRequest) -> URLRequest {
-        request
-    }
-
-    override func startLoading() {
-        guard let requestHandler = Self.requestHandler else {
-            client?.urlProtocol(self, didFailWithError: URLError(.badServerResponse))
-            return
-        }
-
-        do {
-            let (response, data) = try requestHandler(request)
-            client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
-            client?.urlProtocol(self, didLoad: data)
-            client?.urlProtocolDidFinishLoading(self)
-        } catch {
-            client?.urlProtocol(self, didFailWithError: error)
-        }
-    }
-
-    override func stopLoading() {}
 }

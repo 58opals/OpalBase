@@ -18,6 +18,31 @@ struct BlockHeaderChainActorValidator {
         #expect(checkpoint.hash == expectedHash)
     }
 
+    @Test("initial checkpoint normalizes sliced hashes")
+    func initialCheckpointNormalizesSlicedHashes() async throws {
+        let checkpointHash = Data(repeating: 0x42, count: 32)
+        let slicedCheckpointHash = Self.makeSlicedData(from: checkpointHash)
+
+        let checkpoint = OpalBase.Block.Header.ChainActor.Checkpoint(
+            height: 7,
+            hash: slicedCheckpointHash
+        )
+        let chain = OpalBase.Block.Header.ChainActor(
+            checkpointHeight: 7,
+            checkpointHash: slicedCheckpointHash
+        )
+        let storedHash = try #require(await chain.lookupHash(at: 7))
+        let tip = await chain.currentTip
+
+        #expect(slicedCheckpointHash.startIndex != checkpointHash.startIndex)
+        #expect(checkpoint.hash == checkpointHash)
+        #expect(checkpoint.hash.startIndex == checkpointHash.startIndex)
+        #expect(storedHash == checkpointHash)
+        #expect(storedHash.startIndex == checkpointHash.startIndex)
+        #expect(tip.hash == checkpointHash)
+        #expect(tip.hash.startIndex == checkpointHash.startIndex)
+    }
+
     @Test("apply stores headers and remains idempotent for the same block")
     func applyStoresHeadersIdempotently() async throws {
         let checkpointHeader = try Self.makeSatisfiedHeader(previousBlockHash: Data(repeating: 0x00, count: 32), seed: 1)
@@ -163,6 +188,11 @@ struct BlockHeaderChainActorValidator {
 }
 
 private extension BlockHeaderChainActorValidator {
+    static func makeSlicedData(from data: Data) -> Data {
+        let paddedData = Data([0x00]) + data
+        return paddedData[paddedData.index(after: paddedData.startIndex)...]
+    }
+
     static func makeSatisfiedHeader(
         previousBlockHash: Data,
         seed: UInt8,

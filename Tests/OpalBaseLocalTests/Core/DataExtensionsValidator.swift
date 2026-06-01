@@ -18,37 +18,23 @@ struct DataExtensionsValidator {
         #expect(reversed == expected)
     }
     
-    @Test("hexadecimal initializer decodes valid strings")
-    func hexadecimalInitializerDecodesValidStrings() throws {
-        let lowercaseHexadecimal = "deadbeef"
-        let prefixedUppercaseHexadecimal = "0xCAFEBABE"
-        let uppercasePrefixedHexadecimal = "0XDEADBEEF"
-        
-        let lowercaseData = try Data(hexadecimalString: lowercaseHexadecimal)
-        let prefixedUppercaseData = try Data(hexadecimalString: prefixedUppercaseHexadecimal)
-        let uppercasePrefixedData = try Data(hexadecimalString: uppercasePrefixedHexadecimal)
-        
-        #expect(lowercaseData == Data([0xde, 0xad, 0xbe, 0xef]))
-        #expect(prefixedUppercaseData == Data([0xca, 0xfe, 0xba, 0xbe]))
-        #expect(uppercasePrefixedData == Data([0xde, 0xad, 0xbe, 0xef]))
+    @Test(
+        "hexadecimal initializer decodes valid strings",
+        arguments: validHexadecimalStringCases
+    )
+    func hexadecimalInitializerDecodesValidStrings(_ validCase: ValidHexadecimalStringCase) throws {
+        let data = try Data(hexadecimalString: validCase.hexadecimalString)
+
+        #expect(data == validCase.expectedData)
     }
     
-    @Test("hexadecimal initializer rejects malformed strings")
-    func hexadecimalInitializerRejectsMalformedStrings() {
+    @Test(
+        "hexadecimal initializer rejects malformed strings",
+        arguments: malformedHexadecimalStrings
+    )
+    func hexadecimalInitializerRejectsMalformedStrings(_ hexadecimalString: String) {
         #expect(throws: Data.Error.cannotConvertHexadecimalStringToData) {
-            _ = try Data(hexadecimalString: "0x123g")
-        }
-        
-        #expect(throws: Data.Error.cannotConvertHexadecimalStringToData) {
-            _ = try Data(hexadecimalString: "abc")
-        }
-
-        #expect(throws: Data.Error.cannotConvertHexadecimalStringToData) {
-            _ = try Data(hexadecimalString: "0x")
-        }
-
-        #expect(throws: Data.Error.cannotConvertHexadecimalStringToData) {
-            _ = try Data(hexadecimalString: "0X")
+            _ = try Data(hexadecimalString: hexadecimalString)
         }
     }
 
@@ -96,6 +82,65 @@ struct DataExtensionsValidator {
     func bitStringConversionRejectsNonBinaryCharacters() {
         #expect(throws: String.BitDataConversionError.invalidBit("x")) {
             _ = try "1010x001".convertBitsToData()
+        }
+    }
+
+    @Test("bit conversion rejects invalid bit widths", arguments: invalidBitWidthCases)
+    func bitConversionRejectsInvalidBitWidths(_ invalidCase: InvalidBitWidthCase) {
+        #expect(throws: BitConversion.Error.invalidBitWidth) {
+            _ = try BitConversion.convertBits(
+                [],
+                from: invalidCase.fromBits,
+                to: invalidCase.toBits,
+                pad: true
+            )
+        }
+    }
+
+    private static let malformedHexadecimalStrings = [
+        "0x123g",
+        "abc",
+        String(repeating: "a", count: 129),
+        "0x",
+        "0X"
+    ]
+
+    private static let validHexadecimalStringCases = [
+        ValidHexadecimalStringCase(
+            hexadecimalString: "deadbeef",
+            expectedData: Data([0xde, 0xad, 0xbe, 0xef])
+        ),
+        ValidHexadecimalStringCase(
+            hexadecimalString: "0xCAFEBABE",
+            expectedData: Data([0xca, 0xfe, 0xba, 0xbe])
+        ),
+        ValidHexadecimalStringCase(
+            hexadecimalString: "0XDEADBEEF",
+            expectedData: Data([0xde, 0xad, 0xbe, 0xef])
+        )
+    ]
+
+    struct ValidHexadecimalStringCase: CustomStringConvertible, Sendable {
+        let hexadecimalString: String
+        let expectedData: Data
+
+        var description: String {
+            hexadecimalString
+        }
+    }
+
+    private static let invalidBitWidthCases = [
+        InvalidBitWidthCase(fromBits: 0, toBits: 8),
+        InvalidBitWidthCase(fromBits: 1, toBits: 0),
+        InvalidBitWidthCase(fromBits: Int.bitWidth, toBits: 8)
+    ]
+
+    struct InvalidBitWidthCase: CustomStringConvertible, Sendable {
+        let fromBits: Int
+        let toBits: Int
+
+        var description: String {
+            "from \(fromBits) to \(toBits)"
         }
     }
 }

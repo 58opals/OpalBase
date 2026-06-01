@@ -93,6 +93,34 @@ struct NetworkFulcrumTransactionReaderValidator {
         #expect(await client.readLastVerboseTransactionHash() == fixture.transactionHash.reverseOrder.hexadecimalString)
     }
 
+    @Test("transaction details normalize sliced payload data")
+    func transactionDetailsNormalizeSlicedPayloadData() throws {
+        let fixture = try TransactionFixture.make()
+        let rawTransactionData = Self.makeSlicedData(from: fixture.rawTransactionData)
+        let blockHash = Self.makeSlicedData(from: fixture.blockHashData)
+        let transaction = try OpalBase.Transaction.decode(
+            from: fixture.rawTransactionData
+        ).transaction
+
+        let detail = OpalBase.Transaction.Detail(
+            transaction: transaction,
+            blockHash: blockHash,
+            blockTime: fixture.blockTime,
+            confirmations: fixture.confirmations,
+            hash: fixture.transactionHash,
+            rawTransactionData: rawTransactionData,
+            size: UInt32(fixture.rawTransactionData.count),
+            time: fixture.transactionTime
+        )
+
+        #expect(rawTransactionData.startIndex != 0)
+        #expect(blockHash.startIndex != 0)
+        #expect(detail.rawTransactionData == fixture.rawTransactionData)
+        #expect(detail.blockHash == fixture.blockHashData)
+        #expect(detail.rawTransactionData.startIndex == 0)
+        #expect(detail.blockHash?.startIndex == 0)
+    }
+
     @Test("preserves missing verbose transaction metadata as nil")
     func fetchDetailedTransactionPreservesMissingVerboseMetadata() async throws {
         let fixture = try TransactionFixture.make()
@@ -124,13 +152,18 @@ struct NetworkFulcrumTransactionReaderValidator {
         #expect(await client.readRawFetchCount() == 0)
     }
 
-    @Test("falls back to raw transaction fetch when verbose decoding fails")
-    func fetchDetailedTransactionFallsBackToRawAfterVerboseDecodingFailure() async throws {
+    @Test(
+        "falls back to raw transaction fetch after verbose decode failures",
+        arguments: VerboseDecodingFallbackCase.allCases
+    )
+    func fetchDetailedTransactionFallsBackToRawAfterVerboseDecodeFailures(
+        _ fallbackCase: VerboseDecodingFallbackCase
+    ) async throws {
         let fixture = try TransactionFixture.make()
         let client = TransactionReaderClientTestActor(
             rawTransactionHex: fixture.rawTransactionHexadecimal,
             verboseTransaction: fixture.verboseResponse,
-            verboseError: SwiftFulcrum.Client.Error.coding(.decode(nil))
+            verboseError: fallbackCase.verboseError
         )
         let reader = OpalBase.Network.Fulcrum.TransactionReader(client: client)
 
@@ -147,135 +180,15 @@ struct NetworkFulcrumTransactionReaderValidator {
         #expect(await client.readRawFetchCount() == 1)
     }
 
-    @Test("falls back to raw transaction fetch when verbose block hash is malformed")
-    func fetchDetailedTransactionFallsBackToRawAfterMalformedVerboseBlockHash() async throws {
+    @Test(
+        "falls back to raw transaction fetch after invalid verbose metadata",
+        arguments: VerboseMetadataFallbackCase.allCases
+    )
+    func fetchDetailedTransactionFallsBackToRawAfterInvalidVerboseMetadata(
+        _ fallbackCase: VerboseMetadataFallbackCase
+    ) async throws {
         let fixture = try TransactionFixture.make()
-        let client = TransactionReaderClientTestActor(
-            rawTransactionHex: fixture.rawTransactionHexadecimal,
-            verboseTransaction: fixture.verboseResponse,
-            verboseError: Self.makeDecodeError("Expected block hash to be exactly 64 hex characters")
-        )
-        let reader = OpalBase.Network.Fulcrum.TransactionReader(client: client)
-
-        let detail = try await reader.fetchDetailedTransaction(for: fixture.transactionHash)
-
-        #expect(detail.rawTransactionData == fixture.rawTransactionData)
-        #expect(detail.blockHash == nil)
-        #expect(await client.readVerboseFetchCount() == 1)
-        #expect(await client.readRawFetchCount() == 1)
-    }
-
-    @Test("falls back to raw transaction fetch when verbose block hash is prefixed")
-    func fetchDetailedTransactionFallsBackToRawAfterPrefixedVerboseBlockHash() async throws {
-        let fixture = try TransactionFixture.make()
-        let client = TransactionReaderClientTestActor(
-            rawTransactionHex: fixture.rawTransactionHexadecimal,
-            verboseTransaction: fixture.verboseResponse,
-            verboseError: Self.makeDecodeError("Expected block hash to be exactly 64 hex characters")
-        )
-        let reader = OpalBase.Network.Fulcrum.TransactionReader(client: client)
-
-        let detail = try await reader.fetchDetailedTransaction(for: fixture.transactionHash)
-
-        #expect(detail.rawTransactionData == fixture.rawTransactionData)
-        #expect(detail.blockHash == nil)
-        #expect(await client.readVerboseFetchCount() == 1)
-        #expect(await client.readRawFetchCount() == 1)
-    }
-
-    @Test("falls back to raw transaction fetch when verbose size exceeds supported range")
-    func fetchDetailedTransactionFallsBackToRawAfterOversizedVerboseSize() async throws {
-        let fixture = try TransactionFixture.make()
-        let verboseResponse = try TransactionFixture.makeVerboseResponse(
-            transactionHash: fixture.transactionHash.reverseOrder.hexadecimalString,
-            rawTransactionHexadecimal: fixture.rawTransactionHexadecimal,
-            blockHashHexadecimal: fixture.blockHashData.hexadecimalString,
-            blockTime: fixture.blockTime,
-            confirmations: fixture.confirmations,
-            transactionTime: fixture.transactionTime,
-            size: Int(UInt32.max) + 1
-        )
-        let client = TransactionReaderClientTestActor(
-            rawTransactionHex: fixture.rawTransactionHexadecimal,
-            verboseTransaction: verboseResponse
-        )
-        let reader = OpalBase.Network.Fulcrum.TransactionReader(client: client)
-
-        let detail = try await reader.fetchDetailedTransaction(for: fixture.transactionHash)
-
-        #expect(detail.rawTransactionData == fixture.rawTransactionData)
-        #expect(detail.size == UInt32(fixture.rawTransactionData.count))
-        #expect(detail.blockHash == nil)
-        #expect(await client.readVerboseFetchCount() == 1)
-        #expect(await client.readRawFetchCount() == 1)
-    }
-
-    @Test("falls back to raw transaction fetch when verbose size mismatches payload")
-    func fetchDetailedTransactionFallsBackToRawAfterMismatchedVerboseSize() async throws {
-        let fixture = try TransactionFixture.make()
-        let verboseResponse = try TransactionFixture.makeVerboseResponse(
-            transactionHash: fixture.transactionHash.reverseOrder.hexadecimalString,
-            rawTransactionHexadecimal: fixture.rawTransactionHexadecimal,
-            blockHashHexadecimal: fixture.blockHashData.hexadecimalString,
-            blockTime: fixture.blockTime,
-            confirmations: fixture.confirmations,
-            transactionTime: fixture.transactionTime,
-            size: fixture.rawTransactionData.count + 1
-        )
-        let client = TransactionReaderClientTestActor(
-            rawTransactionHex: fixture.rawTransactionHexadecimal,
-            verboseTransaction: verboseResponse
-        )
-        let reader = OpalBase.Network.Fulcrum.TransactionReader(client: client)
-
-        let detail = try await reader.fetchDetailedTransaction(for: fixture.transactionHash)
-
-        #expect(detail.rawTransactionData == fixture.rawTransactionData)
-        #expect(detail.size == UInt32(fixture.rawTransactionData.count))
-        #expect(detail.blockHash == nil)
-        #expect(await client.readVerboseFetchCount() == 1)
-        #expect(await client.readRawFetchCount() == 1)
-    }
-
-    @Test("falls back to raw transaction fetch when verbose confirmations exceed supported range")
-    func fetchDetailedTransactionFallsBackToRawAfterOversizedVerboseConfirmations() async throws {
-        let fixture = try TransactionFixture.make()
-        let verboseResponse = try TransactionFixture.makeVerboseResponseWithUnsignedMetadata(
-            transactionHash: fixture.transactionHash.reverseOrder.hexadecimalString,
-            rawTransactionHexadecimal: fixture.rawTransactionHexadecimal,
-            blockHashHexadecimal: fixture.blockHashData.hexadecimalString,
-            blockTime: UInt(fixture.blockTime),
-            confirmations: UInt(UInt32.max) + 1,
-            transactionTime: UInt(fixture.transactionTime),
-            size: fixture.rawTransactionData.count
-        )
-        let client = TransactionReaderClientTestActor(
-            rawTransactionHex: fixture.rawTransactionHexadecimal,
-            verboseTransaction: verboseResponse
-        )
-        let reader = OpalBase.Network.Fulcrum.TransactionReader(client: client)
-
-        let detail = try await reader.fetchDetailedTransaction(for: fixture.transactionHash)
-
-        #expect(detail.rawTransactionData == fixture.rawTransactionData)
-        #expect(detail.confirmations == nil)
-        #expect(detail.blockHash == nil)
-        #expect(await client.readVerboseFetchCount() == 1)
-        #expect(await client.readRawFetchCount() == 1)
-    }
-
-    @Test("falls back to raw transaction fetch when verbose confirmations omit the block hash")
-    func fetchDetailedTransactionFallsBackToRawAfterConfirmedVerboseResponseWithoutBlockHash() async throws {
-        let fixture = try TransactionFixture.make()
-        let verboseResponse = try TransactionFixture.makeVerboseResponse(
-            transactionHash: fixture.transactionHash.reverseOrder.hexadecimalString,
-            rawTransactionHexadecimal: fixture.rawTransactionHexadecimal,
-            blockHashHexadecimal: nil,
-            blockTime: fixture.blockTime,
-            confirmations: fixture.confirmations,
-            transactionTime: fixture.transactionTime,
-            size: fixture.rawTransactionData.count
-        )
+        let verboseResponse = try fallbackCase.makeVerboseResponse(for: fixture)
         let client = TransactionReaderClientTestActor(
             rawTransactionHex: fixture.rawTransactionHexadecimal,
             verboseTransaction: verboseResponse
@@ -286,8 +199,12 @@ struct NetworkFulcrumTransactionReaderValidator {
 
         #expect(detail.hash == fixture.transactionHash)
         #expect(detail.rawTransactionData == fixture.rawTransactionData)
-        #expect(detail.confirmations == nil)
+        #expect(detail.size == UInt32(fixture.rawTransactionData.count))
         #expect(detail.blockHash == nil)
+        #expect(detail.blockTime == nil)
+        #expect(detail.confirmations == nil)
+        #expect(detail.time == nil)
+        #expect(try detail.transaction.encode() == fixture.rawTransactionData)
         #expect(await client.readVerboseFetchCount() == 1)
         #expect(await client.readRawFetchCount() == 1)
     }
@@ -457,6 +374,101 @@ struct NetworkFulcrumTransactionReaderValidator {
 }
 
 extension NetworkFulcrumTransactionReaderValidator {
+    enum VerboseDecodingFallbackCase: CaseIterable, CustomStringConvertible, Sendable {
+        case genericDecode
+        case malformedBlockHash
+        case prefixedBlockHash
+
+        var description: String {
+            switch self {
+            case .genericDecode:
+                "generic decode"
+            case .malformedBlockHash:
+                "malformed block hash"
+            case .prefixedBlockHash:
+                "prefixed block hash"
+            }
+        }
+
+        var verboseError: Swift.Error {
+            switch self {
+            case .genericDecode:
+                return SwiftFulcrum.Client.Error.coding(.decode(nil))
+            case .malformedBlockHash, .prefixedBlockHash:
+                return NetworkFulcrumTransactionReaderValidator.makeDecodeError(
+                    "Expected block hash to be exactly 64 hex characters"
+                )
+            }
+        }
+    }
+
+    enum VerboseMetadataFallbackCase: CaseIterable, CustomStringConvertible, Sendable {
+        case oversizedSize
+        case mismatchedSize
+        case oversizedConfirmations
+        case confirmedWithoutBlockHash
+
+        var description: String {
+            switch self {
+            case .oversizedSize:
+                "oversized size"
+            case .mismatchedSize:
+                "mismatched size"
+            case .oversizedConfirmations:
+                "oversized confirmations"
+            case .confirmedWithoutBlockHash:
+                "confirmed without block hash"
+            }
+        }
+
+        func makeVerboseResponse(
+            for fixture: TransactionFixture
+        ) throws -> SwiftFulcrum.Response.Blockchain.Transaction.Verbose {
+            switch self {
+            case .oversizedSize:
+                return try TransactionFixture.makeVerboseResponse(
+                    transactionHash: fixture.transactionHash.reverseOrder.hexadecimalString,
+                    rawTransactionHexadecimal: fixture.rawTransactionHexadecimal,
+                    blockHashHexadecimal: fixture.blockHashData.hexadecimalString,
+                    blockTime: fixture.blockTime,
+                    confirmations: fixture.confirmations,
+                    transactionTime: fixture.transactionTime,
+                    size: Int(UInt32.max) + 1
+                )
+            case .mismatchedSize:
+                return try TransactionFixture.makeVerboseResponse(
+                    transactionHash: fixture.transactionHash.reverseOrder.hexadecimalString,
+                    rawTransactionHexadecimal: fixture.rawTransactionHexadecimal,
+                    blockHashHexadecimal: fixture.blockHashData.hexadecimalString,
+                    blockTime: fixture.blockTime,
+                    confirmations: fixture.confirmations,
+                    transactionTime: fixture.transactionTime,
+                    size: fixture.rawTransactionData.count + 1
+                )
+            case .oversizedConfirmations:
+                return try TransactionFixture.makeVerboseResponseWithUnsignedMetadata(
+                    transactionHash: fixture.transactionHash.reverseOrder.hexadecimalString,
+                    rawTransactionHexadecimal: fixture.rawTransactionHexadecimal,
+                    blockHashHexadecimal: fixture.blockHashData.hexadecimalString,
+                    blockTime: UInt(fixture.blockTime),
+                    confirmations: UInt(UInt32.max) + 1,
+                    transactionTime: UInt(fixture.transactionTime),
+                    size: fixture.rawTransactionData.count
+                )
+            case .confirmedWithoutBlockHash:
+                return try TransactionFixture.makeVerboseResponse(
+                    transactionHash: fixture.transactionHash.reverseOrder.hexadecimalString,
+                    rawTransactionHexadecimal: fixture.rawTransactionHexadecimal,
+                    blockHashHexadecimal: nil,
+                    blockTime: fixture.blockTime,
+                    confirmations: fixture.confirmations,
+                    transactionTime: fixture.transactionTime,
+                    size: fixture.rawTransactionData.count
+                )
+            }
+        }
+    }
+
     enum NonDecodingFailureCase: CaseIterable, Sendable {
         case timeout
         case transport
@@ -500,6 +512,12 @@ extension NetworkFulcrumTransactionReaderValidator {
 
     static func makeDecodeError(_ message: String) -> SwiftFulcrum.Client.Error {
         .coding(.decode(DecodeFailure(description: ".unexpectedFormat(\"\(message)\")")))
+    }
+
+    static func makeSlicedData(from data: Data) -> Data {
+        var paddedData = Data([0x00])
+        paddedData.append(data)
+        return paddedData[paddedData.index(after: paddedData.startIndex)...]
     }
 
     static func captureNetworkError(

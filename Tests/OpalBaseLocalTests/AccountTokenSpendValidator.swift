@@ -7,6 +7,32 @@ import OpalBaseTestSupport
 
 @Suite("OpalBase.Account Token Spend", .tags(.unit, .wallet, .cashTokens))
 struct AccountTokenSpendValidator {
+    @Test("token inventory NFT groups normalize sliced commitments")
+    func tokenInventoryNFTGroupsNormalizeSlicedCommitments() throws {
+        let category = try OpalBase.CashTokens.CategoryID(
+            transactionOrderData: Data(repeating: 0xA0, count: 32)
+        )
+        let commitment = Data([0x01, 0x02])
+        let slicedCommitment = makeSlicedData(from: commitment)
+
+        let group = OpalBase.Address.Book.TokenInventory.NonFungibleTokenGroup(
+            category: category,
+            commitment: slicedCommitment,
+            capability: .mutable
+        )
+        let publicGroup = OpalBase.Account.TokenInventory.NonFungibleTokenGroup(
+            category: category,
+            commitment: slicedCommitment,
+            capability: .mutable
+        )
+
+        #expect(slicedCommitment.startIndex != 0)
+        #expect(group.commitment == commitment)
+        #expect(group.commitment.startIndex == 0)
+        #expect(publicGroup.commitment == commitment)
+        #expect(publicGroup.commitment.startIndex == 0)
+    }
+
     @Test("token input selection ignores fungible tokens from other categories")
     func tokenInputSelectionIgnoresFungibleTokensFromOtherCategories() async throws {
         let account = try await makeAccount()
@@ -369,6 +395,11 @@ private func makeTokenUnspentOutput(
         previousTransactionHash: OpalBase.Transaction.Hash(naturalOrder: Data(repeating: previousTransactionByte, count: 32)),
         previousTransactionOutputIndex: 0
     )
+}
+
+private func makeSlicedData(from data: Data) -> Data {
+    let paddedData = Data([0x00]) + data
+    return paddedData[paddedData.index(after: paddedData.startIndex)...]
 }
 
 private func addUnspentOutput(

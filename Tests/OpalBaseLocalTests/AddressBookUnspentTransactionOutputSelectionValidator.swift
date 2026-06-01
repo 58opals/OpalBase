@@ -55,6 +55,42 @@ struct AddressBookUnspentTransactionOutputSelectionValidator {
                                            override: .init(explicitFeeRate: 0))
         }
     }
+
+    @Test("BCH selection tie-breaks equal values by outpoint order")
+    func selectUnspentTransactionOutputsTieBreaksEqualValuesByOutpointOrder() async throws {
+        let book = try await makeAddressBook()
+        let lockingScript = Data([0x51])
+        let transactionHash = OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0x33, count: 32))
+        let outputValue: UInt64 = 50_000
+        let laterOutpoint = OpalBase.Transaction.Output.Unspent(
+            value: outputValue,
+            lockingScript: lockingScript,
+            previousTransactionHash: transactionHash,
+            previousTransactionOutputIndex: 1
+        )
+        let earlierOutpoint = OpalBase.Transaction.Output.Unspent(
+            value: outputValue,
+            lockingScript: lockingScript,
+            previousTransactionHash: transactionHash,
+            previousTransactionOutputIndex: 0
+        )
+        let feeRate = OpalBase.Transaction.minimumRelayFeeRate
+        let feeWithoutChange = try OpalBase.Transaction.estimateFee(
+            inputCount: 1,
+            outputs: OpalBase.Address.Book.CoinSelection.Templates.recipientOutputs,
+            feePerByte: feeRate
+        )
+
+        await book.addUTXOs([laterOutpoint, earlierOutpoint])
+
+        let selection = try await book.selectUTXOs(
+            targetAmount: try OpalBase.Satoshi(outputValue - feeWithoutChange),
+            feePolicy: .init(),
+            override: .init(explicitFeeRate: 0)
+        )
+
+        #expect(selection == [earlierOutpoint])
+    }
 }
 
 private extension AddressBookUnspentTransactionOutputSelectionValidator {

@@ -32,7 +32,7 @@ extension _OpalBase.Address.Book.CoinSelector {
         case .branchAndBound:
             return try selectBranchAndBound()
         case .sweepAll:
-            return utxos
+            return try selectSweepAll()
         }
     }
     
@@ -52,6 +52,36 @@ extension _OpalBase.Address.Book.CoinSelector {
         }
         
         throw OpalBase.Address.Book.Error.insufficientFunds
+    }
+
+    private func selectSweepAll() throws -> [OpalBase.Transaction.Output.Unspent] {
+        let total = try utxos.reduce(UInt64(0)) { partialResult, utxo in
+            try partialResult.addOrThrow(
+                utxo.value,
+                overflowError: OpalBase.Address.Book.Error.paymentExceedsMaximumAmount
+            )
+        }
+
+        guard try evaluate(selection: utxos, sum: total) != nil else {
+            throw try makeInsufficientFundsError(total: total, inputCount: utxos.count)
+        }
+
+        return utxos
+    }
+
+    private func makeInsufficientFundsError(total: UInt64, inputCount: Int) throws -> OpalBase.Transaction.Error {
+        let feeWithoutChange = try OpalBase.Transaction.estimateFee(
+            inputCount: inputCount,
+            outputs: configuration.recipientOutputs,
+            feePerByte: feePerByte
+        )
+        let requiredAmount = try targetAmount.addOrThrow(
+            feeWithoutChange,
+            overflowError: OpalBase.Address.Book.Error.paymentExceedsMaximumAmount
+        )
+        let requiredAdditionalAmount = requiredAmount > total ? requiredAmount - total : 0
+
+        return OpalBase.Transaction.Error.insufficientFunds(required: requiredAdditionalAmount)
     }
     
     func evaluate(selection: [OpalBase.Transaction.Output.Unspent],

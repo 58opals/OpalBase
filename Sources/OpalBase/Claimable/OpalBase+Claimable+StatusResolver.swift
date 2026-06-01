@@ -229,6 +229,7 @@ private extension _OpalBase.Claimable.StatusResolver {
                 }
                 continue
             }
+            try Self.validateTransactionPayloadHash(rawTransactionData, expected: transactionHash)
             guard let transaction = try? Self.decodeCompleteTransaction(from: rawTransactionData) else {
                 continue
             }
@@ -285,16 +286,6 @@ private extension _OpalBase.Claimable.StatusResolver {
                 message: "Unspent output response contained duplicate outpoints"
             )
         }
-    }
-}
-
-private struct ClaimableUnspentOutpoint: Hashable {
-    let transactionHash: OpalBase.Transaction.Hash
-    let outputIndex: UInt32
-
-    init(_ unspentOutput: OpalBase.Transaction.Output.Unspent) {
-        self.transactionHash = unspentOutput.previousTransactionHash
-        self.outputIndex = unspentOutput.previousTransactionOutputIndex
     }
 }
 

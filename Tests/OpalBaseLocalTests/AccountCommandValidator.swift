@@ -121,7 +121,12 @@ struct AccountCommandValidator {
 
                 switch transactionError {
                 case .insufficientFunds(required: let requiredAmount):
-                    #expect(requiredAmount == 1_000)
+                    let feeWithoutChange = try OpalBase.Transaction.estimateFee(
+                        inputCount: 1,
+                        outputs: [OpalBase.Transaction.Output(value: paymentAmount.uint64, address: recipientAddress, tokenData: nil)],
+                        feePerByte: OpalBase.Wallet.FeePolicy().recommendFeeRate(for: payment.feeContext)
+                    )
+                    #expect(requiredAmount == paymentAmount.uint64 + feeWithoutChange - utxo.value)
                 default:
                     Issue.record("Expected insufficient funds but received \(transactionError)")
                 }

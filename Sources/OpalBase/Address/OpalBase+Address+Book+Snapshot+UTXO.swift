@@ -84,7 +84,9 @@ extension _OpalBase.Address.Book.Snapshot {
                     else {
                         throw OpalBase.CashTokens.Error.invalidHexadecimalString
                     }
-                    let commitmentData = try Data(hexadecimalString: nftCommitment)
+                    guard let commitmentData = try? Data(hexadecimalString: nftCommitment) else {
+                        throw OpalBase.CashTokens.Error.invalidHexadecimalString
+                    }
                     nonFungibleToken = try OpalBase.CashTokens.NFT(capability: nftCapability, commitment: commitmentData)
                 } catch {
                     throw OpalBase.Address.Book.Error.invalidSnapshotTokenData(reason: error)

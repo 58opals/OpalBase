@@ -9,6 +9,16 @@ extension _OpalBase.Address {
             let baseExtendedPrivateKey: OpalCrypto.Key.ExtendedPrivate
             let baseCompressedPublicKey: Data
             let baseFingerprint: Data
+
+            init(
+                baseExtendedPrivateKey: OpalCrypto.Key.ExtendedPrivate,
+                baseCompressedPublicKey: Data,
+                baseFingerprint: Data
+            ) {
+                self.baseExtendedPrivateKey = baseExtendedPrivateKey
+                self.baseCompressedPublicKey = Data(baseCompressedPublicKey)
+                self.baseFingerprint = Data(baseFingerprint)
+            }
         }
         
         let rootExtendedPrivateKey: OpalCrypto.Key.ExtendedPrivate?

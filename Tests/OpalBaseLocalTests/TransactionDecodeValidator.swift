@@ -55,24 +55,10 @@ struct TransactionDecodeValidator {
         }
     }
 
-    @Test("encode rejects transactions without inputs or outputs")
-    func transactionEncodeRejectsEmptyInputOrOutputVectors() {
-        let previousHash = OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0x01, count: 32))
-        let input = OpalBase.Transaction.Input(
-            previousTransactionHash: previousHash,
-            previousTransactionOutputIndex: 0,
-            unlockingScript: Data()
-        )
-        let output = OpalBase.Transaction.Output(value: 546, lockingScript: Data([0x51]))
-
-        let noInputs = OpalBase.Transaction(version: 2, inputs: [], outputs: [output], lockTime: 0)
-        let noOutputs = OpalBase.Transaction(version: 2, inputs: [input], outputs: [], lockTime: 0)
-
+    @Test("encode rejects transactions without inputs or outputs", arguments: EmptyTransactionVectorCase.allCases)
+    fileprivate func transactionEncodeRejectsEmptyInputOrOutputVectors(_ emptyVectorCase: EmptyTransactionVectorCase) {
         #expect(throws: OpalBase.Transaction.Error.cannotCreateTransaction) {
-            try noInputs.encode()
-        }
-        #expect(throws: OpalBase.Transaction.Error.cannotCreateTransaction) {
-            try noOutputs.encode()
+            try emptyVectorCase.makeTransaction().encode()
         }
     }
 
@@ -187,6 +173,18 @@ struct TransactionDecodeValidator {
         }
     }
 
+    @Test(
+        "decode rejects impossible vector counts before allocation",
+        arguments: ImpossibleTransactionVectorCountCase.allCases
+    )
+    fileprivate func transactionDecodeRejectsImpossibleVectorCountsBeforeAllocation(
+        _ vectorCase: ImpossibleTransactionVectorCountCase
+    ) {
+        #expect(throws: Data.Error.indexOutOfRange) {
+            _ = try OpalBase.Transaction.decode(from: vectorCase.makeEncodedTransactionData())
+        }
+    }
+
     @Test("decode rejects non-minimal CompactSize counts")
     func transactionDecodeRejectsNonMinimalCompactSizeCounts() {
         var malformed = Data()
@@ -200,32 +198,10 @@ struct TransactionDecodeValidator {
         }
     }
 
-    @Test("decode rejects transactions without inputs or outputs")
-    func transactionDecodeRejectsEmptyInputOrOutputVectors() {
-        var noInputs = Data()
-        noInputs.append(contentsOf: [0x01, 0x00, 0x00, 0x00]) // version
-        noInputs.append(0x00) // input count
-        noInputs.append(0x01) // output count
-        noInputs.append(Data(repeating: 0x00, count: 8)) // output value
-        noInputs.append(0x01) // locking bytecode length
-        noInputs.append(0x51) // locking bytecode
-        noInputs.append(contentsOf: [0x00, 0x00, 0x00, 0x00]) // lock time
-
-        var noOutputs = Data()
-        noOutputs.append(contentsOf: [0x01, 0x00, 0x00, 0x00]) // version
-        noOutputs.append(0x01) // input count
-        noOutputs.append(Data(repeating: 0x00, count: 32)) // previous tx hash
-        noOutputs.append(contentsOf: [0x00, 0x00, 0x00, 0x00]) // output index
-        noOutputs.append(0x00) // unlocking script length
-        noOutputs.append(contentsOf: [0xff, 0xff, 0xff, 0xff]) // sequence
-        noOutputs.append(0x00) // output count
-        noOutputs.append(contentsOf: [0x00, 0x00, 0x00, 0x00]) // lock time
-
+    @Test("decode rejects transactions without inputs or outputs", arguments: EmptyTransactionVectorCase.allCases)
+    fileprivate func transactionDecodeRejectsEmptyInputOrOutputVectors(_ emptyVectorCase: EmptyTransactionVectorCase) {
         #expect(throws: OpalBase.Transaction.Error.cannotCreateTransaction) {
-            _ = try OpalBase.Transaction.decode(from: noInputs)
-        }
-        #expect(throws: OpalBase.Transaction.Error.cannotCreateTransaction) {
-            _ = try OpalBase.Transaction.decode(from: noOutputs)
+            _ = try OpalBase.Transaction.decode(from: emptyVectorCase.makeEncodedTransactionData())
         }
     }
     
@@ -273,16 +249,18 @@ struct TransactionDecodeValidator {
 
     @Test(
         "decode accepts valid output value boundaries",
-        arguments: [UInt64(0), UInt64(546), OpalBase.Satoshi.maximumSatoshi]
+        arguments: ValidOutputValueBoundaryCase.allCases
     )
-    func acceptValidOutputValueBoundariesDuringTransactionDecode(outputValue: UInt64) throws {
-        let encoded = Self.makeSingleOutputTransactionData(outputValue: outputValue)
+    fileprivate func acceptValidOutputValueBoundariesDuringTransactionDecode(
+        _ boundaryCase: ValidOutputValueBoundaryCase
+    ) throws {
+        let encoded = Self.makeSingleOutputTransactionData(outputValue: boundaryCase.outputValue)
 
         let (transaction, bytesRead) = try OpalBase.Transaction.decode(from: encoded)
         let output = try #require(transaction.outputs.first)
 
         #expect(bytesRead == encoded.count)
-        #expect(output.value == outputValue)
+        #expect(output.value == boundaryCase.outputValue)
     }
 
     @Test("encode and decode accept output totals at maximum supply")
@@ -455,6 +433,122 @@ struct TransactionDecodeValidator {
         let expectedMerkleRoot = OpalCryptoAdapter.hash256(leftBranch + rightBranch)
 
         #expect(try OpalBase.Block.computeMerkleRoot(for: transactions) == expectedMerkleRoot)
+    }
+
+    enum EmptyTransactionVectorCase: CaseIterable, CustomStringConvertible, Sendable {
+        case inputs
+        case outputs
+
+        var description: String {
+            switch self {
+            case .inputs:
+                "inputs"
+            case .outputs:
+                "outputs"
+            }
+        }
+
+        func makeTransaction() -> OpalBase.Transaction {
+            let previousHash = OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0x01, count: 32))
+            let input = OpalBase.Transaction.Input(
+                previousTransactionHash: previousHash,
+                previousTransactionOutputIndex: 0,
+                unlockingScript: Data()
+            )
+            let output = OpalBase.Transaction.Output(value: 546, lockingScript: Data([0x51]))
+
+            switch self {
+            case .inputs:
+                return OpalBase.Transaction(version: 2, inputs: [], outputs: [output], lockTime: 0)
+            case .outputs:
+                return OpalBase.Transaction(version: 2, inputs: [input], outputs: [], lockTime: 0)
+            }
+        }
+
+        func makeEncodedTransactionData() -> Data {
+            var encoded = Data()
+            encoded.append(contentsOf: [0x01, 0x00, 0x00, 0x00]) // version
+
+            switch self {
+            case .inputs:
+                encoded.append(0x00) // input count
+                encoded.append(0x01) // output count
+                encoded.append(Data(repeating: 0x00, count: 8)) // output value
+                encoded.append(0x01) // locking bytecode length
+                encoded.append(0x51) // locking bytecode
+            case .outputs:
+                encoded.append(0x01) // input count
+                encoded.append(Data(repeating: 0x00, count: 32)) // previous tx hash
+                encoded.append(contentsOf: [0x00, 0x00, 0x00, 0x00]) // output index
+                encoded.append(0x00) // unlocking script length
+                encoded.append(contentsOf: [0xff, 0xff, 0xff, 0xff]) // sequence
+                encoded.append(0x00) // output count
+            }
+
+            encoded.append(contentsOf: [0x00, 0x00, 0x00, 0x00]) // lock time
+            return encoded
+        }
+    }
+
+    enum ImpossibleTransactionVectorCountCase: CaseIterable, CustomStringConvertible, Sendable {
+        case inputs
+        case outputs
+
+        var description: String {
+            switch self {
+            case .inputs:
+                "inputs"
+            case .outputs:
+                "outputs"
+            }
+        }
+
+        func makeEncodedTransactionData() -> Data {
+            var encoded = Data()
+            encoded.append(contentsOf: [0x01, 0x00, 0x00, 0x00]) // version
+
+            switch self {
+            case .inputs:
+                encoded.append(CompactSize(value: UInt64(Int.max)).encode())
+            case .outputs:
+                encoded.append(0x01) // input count
+                encoded.append(Data(repeating: 0x00, count: 32)) // previous tx hash
+                encoded.append(contentsOf: [0x00, 0x00, 0x00, 0x00]) // output index
+                encoded.append(0x00) // unlocking script length
+                encoded.append(contentsOf: [0xff, 0xff, 0xff, 0xff]) // sequence
+                encoded.append(CompactSize(value: UInt64(Int.max)).encode())
+            }
+
+            return encoded
+        }
+    }
+
+    enum ValidOutputValueBoundaryCase: CaseIterable, CustomStringConvertible, Sendable {
+        case zero
+        case dust
+        case maximumSupply
+
+        var description: String {
+            switch self {
+            case .zero:
+                "zero"
+            case .dust:
+                "dust"
+            case .maximumSupply:
+                "maximum supply"
+            }
+        }
+
+        var outputValue: UInt64 {
+            switch self {
+            case .zero:
+                return 0
+            case .dust:
+                return 546
+            case .maximumSupply:
+                return OpalBase.Satoshi.maximumSatoshi
+            }
+        }
     }
 }
 

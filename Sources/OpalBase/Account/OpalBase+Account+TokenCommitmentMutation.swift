@@ -29,30 +29,13 @@ extension _OpalBase.Account {
             try TokenCommitmentMutationValidation.validateCommitment(newCommitment)
             try TokenCommitmentMutationValidation.validateDestination(destination)
             self.target = target
-            self.newCommitment = newCommitment
+            self.newCommitment = Data(newCommitment)
             self.destination = destination
             self.bchAmount = bchAmount
             self.shouldPreserveAttachedFungibleToWallet = shouldPreserveAttachedFungibleToWallet
             self.feeOverride = feeOverride
             self.feeContext = feeContext
             self.shouldAllowDustDonation = shouldAllowDustDonation
-        }
-    }
-}
-
-private enum TokenCommitmentMutationValidation {
-    static func validateCommitment(_ commitment: Data) throws {
-        try TokenOperationValidator.validateCommitmentLength(commitment) { maximum, actual in
-            OpalBase.Account.Error.tokenMutationNonFungibleTokenCommitmentTooLong(
-                maximum: maximum,
-                actual: actual
-            )
-        }
-    }
-    
-    static func validateDestination(_ destination: OpalBase.Address) throws {
-        try TokenOperationValidator.requireTokenAwareAddress(destination) { offending in
-            OpalBase.Account.Error.tokenMutationRequiresTokenAwareAddress(offending)
         }
     }
 }

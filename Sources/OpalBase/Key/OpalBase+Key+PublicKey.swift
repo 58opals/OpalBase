@@ -8,7 +8,7 @@ extension _OpalBase.Key {
         
         public init(compressedData: Data) throws {
             guard compressedData.count == 33 else { throw Error.invalidLength }
-            self.compressedData = compressedData
+            self.compressedData = Data(compressedData)
         }
 
         init(privateKeyData: Data) throws {

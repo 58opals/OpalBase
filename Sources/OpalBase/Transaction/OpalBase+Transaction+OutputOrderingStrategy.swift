@@ -1,21 +1,20 @@
 // OpalBase+Transaction+OutputOrderingStrategy.swift
 
 import Foundation
-import OpalCrypto
 
 extension _OpalBase.Transaction {
     public static let minimumRelayFeeRate: UInt64 = 1
     public static let defaultFeeRate: UInt64 = minimumRelayFeeRate
-    
+
     public enum OutputOrderingStrategy: Sendable {
         case privacyRandomized
         case canonicalBIP69
     }
-    
+
     static func defaultPrivacyOutputShuffle(_ outputs: [Output]) -> [Output] {
         outputs.count > 1 ? outputs.shuffled() : outputs
     }
-    
+
     static func build(version: UInt32 = 2,
                       utxoPrivateKeyPairs: [OpalBase.Transaction.Output.Unspent: Data],
                       recipientOutputs: [Output],
@@ -29,7 +28,7 @@ extension _OpalBase.Transaction {
                       privacyOutputShuffle: ([Output]) -> [Output] = defaultPrivacyOutputShuffle,
                       unlockers: [OpalBase.Transaction.Output.Unspent: Unlocker] = .init()) throws -> OpalBase.Transaction {
         var privacyOutputShuffleCache: [[Output.Fingerprint]: [Output]] = .init()
-        var privacyOutputOrder: [Output.OrderingFingerprint]?
+        var privacyOutputOrder: [Output.Fingerprint]?
         let stablePrivacyOutputShuffle: ([Output]) -> [Output] = { outputs in
             let fingerprint = outputs.map(\.fingerprint)
             if let cachedOutputs = privacyOutputShuffleCache[fingerprint] {
@@ -42,10 +41,15 @@ extension _OpalBase.Transaction {
                 var orderedOutputs: [Output] = .init()
                 orderedOutputs.reserveCapacity(outputs.count)
 
-                for orderingFingerprint in privacyOutputOrder {
-                    guard let index = outputs.indices.first(where: { index in
-                        !consumedIndexes.contains(index) && outputs[index].orderingFingerprint == orderingFingerprint
-                    }) else {
+                for outputFingerprint in privacyOutputOrder {
+                    let exactIndex = outputs.indices.first { index in
+                        !consumedIndexes.contains(index) && outputs[index].fingerprint == outputFingerprint
+                    }
+                    let fallbackIndex = exactIndex ?? outputs.indices.first { index in
+                        !consumedIndexes.contains(index) && outputs[index].orderingFingerprint == outputFingerprint.orderingFingerprint
+                    }
+
+                    guard let index = fallbackIndex else {
                         continue
                     }
                     consumedIndexes.insert(index)
@@ -58,7 +62,7 @@ extension _OpalBase.Transaction {
                 shuffledOutputs = orderedOutputs + remainingOutputs
             } else {
                 shuffledOutputs = privacyOutputShuffle(outputs)
-                privacyOutputOrder = shuffledOutputs.map(\.orderingFingerprint)
+                privacyOutputOrder = shuffledOutputs.map(\.fingerprint)
             }
 
             privacyOutputShuffleCache[fingerprint] = shuffledOutputs
@@ -68,27 +72,26 @@ extension _OpalBase.Transaction {
                               signatureFormat: signatureFormat,
                               sequence: sequence,
                               unlockers: unlockers)
-        
+
         let inputs = builder.makeInputs()
-        let orderedRecipientOutputs = recipientOutputs
-        
+
         let (outputs, _) = try computeOutputsAndFee(version: version,
                                                     inputs: inputs,
-                                                    recipientOutputs: orderedRecipientOutputs,
+                                                    recipientOutputs: recipientOutputs,
                                                     changeOutput: changeOutput,
                                                     outputOrderingStrategy: outputOrderingStrategy,
                                                     feePerByte: feePerByte,
                                                     lockTime: lockTime,
                                                     shouldAllowDustDonation: shouldAllowDustDonation,
                                                     privacyOutputShuffle: stablePrivacyOutputShuffle)
-        
+
         let unsignedTransaction = OpalBase.Transaction(version: version, inputs: inputs, outputs: outputs, lockTime: lockTime)
         let signedTransaction = try signTransaction(unsignedTransaction, using: builder)
-        
+
         return try correctFeeAfterSigning(signedTransaction: signedTransaction,
                                           inputs: inputs,
                                           builder: builder,
-                                          recipientOutputs: orderedRecipientOutputs,
+                                          recipientOutputs: recipientOutputs,
                                           changeOutput: changeOutput,
                                           outputOrderingStrategy: outputOrderingStrategy,
                                           feePerByte: feePerByte,
@@ -96,7 +99,7 @@ extension _OpalBase.Transaction {
                                           shouldAllowDustDonation: shouldAllowDustDonation,
                                           privacyOutputShuffle: stablePrivacyOutputShuffle)
     }
-    
+
     private static func computeOutputsAndFee(version: UInt32,
                                              inputs: [Input],
                                              recipientOutputs: [Output],
@@ -110,25 +113,25 @@ extension _OpalBase.Transaction {
                                                 inputs: inputs,
                                                 outputs: recipientOutputs + [changeOutput],
                                                 lockTime: lockTime)
-        
+
         let estimatedFeeWithChange = try transactionWithChange.calculateFee(feePerByte: feePerByte)
         let changeAmount = changeOutput.value
         let minimumRelayFeeRate = OpalBase.Transaction.minimumRelayFeeRate
         let changeDustThreshold = try changeOutput.calculateDustThreshold(feeRate: minimumRelayFeeRate)
-        
+
         var outputs = recipientOutputs
         var didRemoveChangeOutput = false
-        
+
         if changeAmount < estimatedFeeWithChange {
             didRemoveChangeOutput = true
             try validateDustDonationAllowed(for: changeOutput)
-            
+
             let transactionWithoutChange = OpalBase.Transaction(version: version,
                                                        inputs: inputs,
                                                        outputs: recipientOutputs,
                                                        lockTime: lockTime)
             let estimatedFeeWithoutChange = try transactionWithoutChange.calculateFee(feePerByte: feePerByte)
-            
+
             if changeAmount < estimatedFeeWithoutChange {
                 if !shouldAllowDustDonation {
                     let requiredAdditionalAmount = estimatedFeeWithoutChange - changeAmount
@@ -144,7 +147,7 @@ extension _OpalBase.Transaction {
             }
         } else {
             let remainingChange = changeAmount - estimatedFeeWithChange
-            
+
             if remainingChange > 0 {
                 if remainingChange < changeDustThreshold {
                     try validateDustDonationAllowed(for: changeOutput)
@@ -156,27 +159,27 @@ extension _OpalBase.Transaction {
                 try validateDustDonationAllowed(for: changeOutput)
             }
         }
-        
+
         let orderedOutputs = try orderAndValidateOutputs(outputs,
                                                          outputOrderingStrategy: outputOrderingStrategy,
                                                          privacyOutputShuffle: privacyOutputShuffle)
-        
+
         let finalizedTransaction = OpalBase.Transaction(version: version,
                                                inputs: inputs,
                                                outputs: orderedOutputs,
                                                lockTime: lockTime)
         let finalizedFee = try finalizedTransaction.calculateFee(feePerByte: feePerByte)
-        
+
         if shouldAllowDustDonation && didRemoveChangeOutput {
             guard changeAmount >= finalizedFee else {
                 let requiredAdditionalAmount = finalizedFee - changeAmount
                 throw Error.insufficientFunds(required: requiredAdditionalAmount)
             }
         }
-        
+
         return (orderedOutputs, finalizedFee)
     }
-    
+
     static func signTransaction(_ unsignedTransaction: OpalBase.Transaction,
                                 using builder: Builder) throws -> OpalBase.Transaction {
         var transaction = unsignedTransaction
@@ -185,7 +188,7 @@ extension _OpalBase.Transaction {
                    lockingScript: unspentOutput.lockingScript,
                    tokenData: unspentOutput.tokenData)
         }
-        
+
         for (index, unspentOutput) in builder.orderedUnspentOutputs.enumerated() {
             guard let privateKey = builder.findPrivateKey(for: unspentOutput) else { throw Error.cannotCreateTransaction }
             let unlocker = builder.makeUnlocker(for: unspentOutput)
@@ -199,7 +202,7 @@ extension _OpalBase.Transaction {
                 spentOutputs: spentOutputs
             )
         }
-        
+
         return transaction
     }
 }

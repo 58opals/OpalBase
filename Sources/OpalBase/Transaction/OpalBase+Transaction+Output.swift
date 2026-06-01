@@ -19,7 +19,7 @@ extension _OpalBase.Transaction {
         ///   - tokenData: Token metadata to prefix before the locking script.
         public init(value: UInt64, lockingScript: Data, tokenData: OpalBase.CashTokens.TokenData? = nil) {
             self.value = value
-            self.lockingScript = lockingScript
+            self.lockingScript = Data(lockingScript)
             self.tokenData = tokenData
         }
         
@@ -29,9 +29,7 @@ extension _OpalBase.Transaction {
         ///   - address: The address of the output's recipient.
         ///   - tokenData: Token metadata to prefix before the locking script.
         public init(value: UInt64, address: OpalBase.Address, tokenData: OpalBase.CashTokens.TokenData? = nil) {
-            self.value = value
-            self.lockingScript = address.lockingScript.data
-            self.tokenData = tokenData
+            self.init(value: value, lockingScript: address.lockingScript.data, tokenData: tokenData)
         }
         
         /// Encodes the OpalBase.Transaction.Output into Data.
@@ -70,16 +68,10 @@ extension _OpalBase.Transaction {
                 throw Data.Error.indexOutOfRange
             }
             let tokenPrefixAndLockingBytecode = try reader.readData(count: Int(tokenPrefixAndLockingBytecodeLength.value))
-            if tokenPrefixAndLockingBytecode.first == OpalBase.CashTokens.TokenPrefix.prefixToken {
-                let decoded = try OpalBase.CashTokens.TokenPrefix.decode(prefixPlusBytecode: tokenPrefixAndLockingBytecode)
-                return Output(value: value,
-                              lockingScript: decoded.lockingBytecode,
-                              tokenData: decoded.tokenData)
-            }
-            
+            let decoded = try OpalBase.CashTokens.TokenPrefix.decode(prefixPlusBytecode: tokenPrefixAndLockingBytecode)
             return Output(value: value,
-                          lockingScript: tokenPrefixAndLockingBytecode,
-                          tokenData: nil)
+                          lockingScript: decoded.lockingBytecode,
+                          tokenData: decoded.tokenData)
         }
         
         func makeTokenPrefixData() throws -> Data {

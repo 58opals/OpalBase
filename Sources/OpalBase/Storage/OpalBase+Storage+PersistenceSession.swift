@@ -6,28 +6,28 @@ extension _OpalBase.Storage {
     public struct PersistenceSession: Sendable {
         public typealias ProgressHandler = @Sendable (Progress) async -> Void
         
-        private let snapshotStore: OpalBase.Storage.SnapshotStore
-        private let storedMnemonicStore: OpalBase.Storage.StoredMnemonicStore
+        private let snapshotPersistence: OpalBase.Storage.SnapshotPersistence
+        private let storedMnemonicPersistence: OpalBase.Storage.StoredMnemonicPersistence
         private let progressHandler: ProgressHandler
         
         public init(
             storage: OpalBase.Storage,
             progressHandler: @escaping ProgressHandler = { _ in }
         ) async {
-            let snapshotStore = await storage.makeSnapshotStore()
-            let storedMnemonicStore = await storage.makeStoredMnemonicStore()
+            let snapshotPersistence = await storage.makeSnapshotPersistence()
+            let storedMnemonicPersistence = await storage.makeStoredMnemonicPersistence()
             self.init(
-                snapshotStore: snapshotStore,
-                storedMnemonicStore: storedMnemonicStore,
+                snapshotPersistence: snapshotPersistence,
+                storedMnemonicPersistence: storedMnemonicPersistence,
                 progressHandler: progressHandler
             )
         }
         
-        public init(snapshotStore: OpalBase.Storage.SnapshotStore,
-                    storedMnemonicStore: OpalBase.Storage.StoredMnemonicStore,
+        public init(snapshotPersistence: OpalBase.Storage.SnapshotPersistence,
+                    storedMnemonicPersistence: OpalBase.Storage.StoredMnemonicPersistence,
                     progressHandler: @escaping ProgressHandler = { _ in }) {
-            self.snapshotStore = snapshotStore
-            self.storedMnemonicStore = storedMnemonicStore
+            self.snapshotPersistence = snapshotPersistence
+            self.storedMnemonicPersistence = storedMnemonicPersistence
             self.progressHandler = progressHandler
         }
         
@@ -78,40 +78,40 @@ extension _OpalBase.Storage {
             policy: OpalBase.Storage.Security.PersistencePolicy
         ) async throws -> OpalBase.Storage.Security.ProtectionMode {
             await progressHandler(.beganSave)
-            let previousCommittedGeneration = try await snapshotStore.loadCommittedGeneration()
+            let previousCommittedGeneration = try await snapshotPersistence.loadCommittedGeneration()
             let stagedGeneration = UUID().uuidString.lowercased()
 
             do {
-                try await snapshotStore.saveWalletSnapshot(snapshot, generation: stagedGeneration)
+                try await snapshotPersistence.saveWalletSnapshot(snapshot, generation: stagedGeneration)
                 await progressHandler(.savedWalletSnapshot(generation: stagedGeneration))
 
-                let protectionMode = try await storedMnemonicStore.saveMnemonic(
+                let protectionMode = try await storedMnemonicPersistence.saveMnemonic(
                     mnemonic,
                     generation: stagedGeneration,
                     policy: policy
                 )
                 await progressHandler(.savedMnemonic(mode: protectionMode))
 
-                try await snapshotStore.saveCommittedGeneration(stagedGeneration)
+                try await snapshotPersistence.saveCommittedGeneration(stagedGeneration)
                 await progressHandler(.committedGeneration(generation: stagedGeneration))
 
                 if let previousCommittedGeneration, previousCommittedGeneration != stagedGeneration {
-                    try? await snapshotStore.deleteWalletSnapshot(generation: previousCommittedGeneration)
-                    try? await storedMnemonicStore.deleteMnemonic(generation: previousCommittedGeneration)
+                    try? await snapshotPersistence.deleteWalletSnapshot(generation: previousCommittedGeneration)
+                    try? await storedMnemonicPersistence.deleteMnemonic(generation: previousCommittedGeneration)
                 }
 
                 await progressHandler(.finishedSave(mode: protectionMode))
                 return protectionMode
             } catch {
-                try? await snapshotStore.deleteWalletSnapshot(generation: stagedGeneration)
-                try? await storedMnemonicStore.deleteMnemonic(generation: stagedGeneration)
+                try? await snapshotPersistence.deleteWalletSnapshot(generation: stagedGeneration)
+                try? await storedMnemonicPersistence.deleteMnemonic(generation: stagedGeneration)
                 throw error
             }
         }
         
         public func restore() async throws -> RestoredState {
             await progressHandler(.beganRestore)
-            let committedGeneration = try await snapshotStore.loadCommittedGeneration()
+            let committedGeneration = try await snapshotPersistence.loadCommittedGeneration()
             let walletSnapshot: OpalBase.Wallet.Snapshot?
             let mnemonicState: (
                 mnemonic: OpalBase.Storage.StoredMnemonic,
@@ -119,13 +119,13 @@ extension _OpalBase.Storage {
             )?
 
             if let committedGeneration {
-                walletSnapshot = try await snapshotStore.loadWalletSnapshot(generation: committedGeneration)
+                walletSnapshot = try await snapshotPersistence.loadWalletSnapshot(generation: committedGeneration)
                 do {
-                    mnemonicState = try await storedMnemonicStore.loadMnemonicState(
+                    mnemonicState = try await storedMnemonicPersistence.loadMnemonicState(
                         generation: committedGeneration
                     )
                 } catch {
-                    guard storedMnemonicStore.isRecoverableLoadFailure(error) else {
+                    guard storedMnemonicPersistence.isRecoverableLoadFailure(error) else {
                         throw error
                     }
                     mnemonicState = nil
@@ -147,16 +147,16 @@ extension _OpalBase.Storage {
         
         public func wipe() async throws {
             await progressHandler(.beganWipe)
-            if let committedGeneration = try await snapshotStore.loadCommittedGeneration() {
-                try await snapshotStore.deleteCommittedGeneration()
+            if let committedGeneration = try await snapshotPersistence.loadCommittedGeneration() {
+                try await snapshotPersistence.deleteCommittedGeneration()
                 var deletionError: Swift.Error?
                 do {
-                    try await snapshotStore.deleteWalletSnapshot(generation: committedGeneration)
+                    try await snapshotPersistence.deleteWalletSnapshot(generation: committedGeneration)
                 } catch {
                     deletionError = error
                 }
                 do {
-                    try await storedMnemonicStore.deleteMnemonic(generation: committedGeneration)
+                    try await storedMnemonicPersistence.deleteMnemonic(generation: committedGeneration)
                 } catch {
                     if deletionError == nil {
                         deletionError = error
@@ -166,7 +166,7 @@ extension _OpalBase.Storage {
                     throw deletionError
                 }
             } else {
-                try await snapshotStore.deleteCommittedGeneration()
+                try await snapshotPersistence.deleteCommittedGeneration()
             }
             await progressHandler(.finishedWipe)
         }

@@ -7,6 +7,56 @@ import OpalBaseTestSupport
 
 @Suite("Hedge funding facade", .tags(.unit, .wallet, .transaction))
 struct HedgeFundingFacadeValidator {
+    @Test("funding models normalize sliced byte buffers")
+    func fundingModelsNormalizeSlicedByteBuffers() throws {
+        let redeemScriptBytecode = Data([0x51, 0x52])
+        let paddedRedeemScriptBytecode = Data([0x00]) + redeemScriptBytecode
+        let slicedRedeemScriptBytecode = paddedRedeemScriptBytecode[
+            paddedRedeemScriptBytecode.index(after: paddedRedeemScriptBytecode.startIndex)...
+        ]
+        let fundingOutput = OpalBase.Transaction.Output(
+            value: 10_000,
+            lockingScript: Data([0x51])
+        )
+        let transaction = OpalBase.Transaction(
+            version: 1,
+            inputs: [],
+            outputs: [fundingOutput],
+            lockTime: 0
+        )
+        let quote = OpalBase.Hedge.FundingQuote(
+            fundingAddress: try HedgeFixtureData.shortParticipant().payoutAddress,
+            fundingAmount: try OpalBase.Satoshi(10_000),
+            payoutAmount: try OpalBase.Satoshi(9_000),
+            dustReserveAmount: try OpalBase.Satoshi(1_000),
+            redeemScriptBytecode: slicedRedeemScriptBytecode,
+            contractDataDocumentJSON: "{}"
+        )
+        let rawTransactionData = Data([0x01, 0x02, 0x03])
+        let paddedRawTransactionData = Data([0x00]) + rawTransactionData
+        let slicedRawTransactionData = paddedRawTransactionData[
+            paddedRawTransactionData.index(after: paddedRawTransactionData.startIndex)...
+        ]
+
+        let review = OpalBase.Hedge.FundingReview(
+            transaction: transaction,
+            rawTransactionData: slicedRawTransactionData,
+            fee: try OpalBase.Satoshi(500),
+            change: nil,
+            fundingOutputIndex: 0,
+            fundingOutput: fundingOutput,
+            quote: quote
+        )
+
+        #expect(slicedRedeemScriptBytecode.startIndex != 0)
+        #expect(slicedRawTransactionData.startIndex != 0)
+        #expect(quote.redeemScriptBytecode == redeemScriptBytecode)
+        #expect(quote.redeemScriptBytecode.startIndex == 0)
+        #expect(review.rawTransactionData == rawTransactionData)
+        #expect(review.rawTransactionData.startIndex == 0)
+        #expect(review.rawTransactionByteCount == rawTransactionData.count)
+    }
+
     @Test("reserves participant material from receiving address")
     func reservesParticipantMaterialFromReceivingAddress() async throws {
         let account = try await AccountTestFixtures.makeAccount()
@@ -105,36 +155,34 @@ struct HedgeFundingFacadeValidator {
         try await plan.cancelReservation()
     }
 
-    @Test("funding request rejects participant locking script mismatches")
-    func fundingRequestRejectsParticipantLockingScriptMismatches() throws {
+    @Test(
+        "funding request rejects participant locking script mismatches",
+        arguments: participantLockingScriptMismatchCases
+    )
+    func fundingRequestRejectsParticipantLockingScriptMismatches(
+        _ mismatchCase: (side: OpalBase.Hedge.Side, mismatchedLockingScriptHex: String)
+    ) throws {
         let validWalletParticipant = try HedgeFixtureData.shortParticipant()
-        let mismatchedWalletParticipant = OpalBase.Hedge.ParticipantMaterial(
-            side: validWalletParticipant.side,
-            payoutAddress: validWalletParticipant.payoutAddress,
-            lockingScriptHex: HedgeFixtureData.longLockScriptHex,
-            mutualRedeemPublicKeyHex: validWalletParticipant.mutualRedeemPublicKeyHex,
-            derivedAddress: validWalletParticipant.derivedAddress
-        )
-        let walletMismatchRequest = try HedgeFixtureData.betaRequest(
-            walletParticipant: mismatchedWalletParticipant
-        )
         let validCounterpartyParticipant = try HedgeFixtureData.longParticipant()
-        let mismatchedCounterpartyParticipant = OpalBase.Hedge.ParticipantMaterial(
-            side: validCounterpartyParticipant.side,
-            payoutAddress: validCounterpartyParticipant.payoutAddress,
-            lockingScriptHex: HedgeFixtureData.shortLockScriptHex,
-            mutualRedeemPublicKeyHex: validCounterpartyParticipant.mutualRedeemPublicKeyHex,
-            derivedAddress: validCounterpartyParticipant.derivedAddress
-        )
-        let counterpartyMismatchRequest = try HedgeFixtureData.betaRequest(
-            counterpartyParticipant: mismatchedCounterpartyParticipant
+        let walletParticipant = mismatchCase.side == .hedge
+            ? Self.makeParticipantMaterial(
+                from: validWalletParticipant,
+                lockingScriptHex: mismatchCase.mismatchedLockingScriptHex
+            )
+            : validWalletParticipant
+        let counterpartyParticipant = mismatchCase.side == .long
+            ? Self.makeParticipantMaterial(
+                from: validCounterpartyParticipant,
+                lockingScriptHex: mismatchCase.mismatchedLockingScriptHex
+            )
+            : validCounterpartyParticipant
+        let request = try HedgeFixtureData.betaRequest(
+            walletParticipant: walletParticipant,
+            counterpartyParticipant: counterpartyParticipant
         )
 
-        #expect(throws: OpalBase.Hedge.Error.participantLockingScriptMismatch(.hedge)) {
-            _ = try OpalBase.Hedge.buildOpalHedgePlan(from: walletMismatchRequest)
-        }
-        #expect(throws: OpalBase.Hedge.Error.participantLockingScriptMismatch(.long)) {
-            _ = try OpalBase.Hedge.buildOpalHedgePlan(from: counterpartyMismatchRequest)
+        #expect(throws: OpalBase.Hedge.Error.participantLockingScriptMismatch(mismatchCase.side)) {
+            _ = try OpalBase.Hedge.buildOpalHedgePlan(from: request)
         }
     }
 
@@ -249,6 +297,24 @@ struct HedgeFundingFacadeValidator {
     enum AccountErrorCaptureFailure: Swift.Error {
         case didNotThrow
         case unexpected(Swift.Error)
+    }
+
+    private static let participantLockingScriptMismatchCases = [
+        (side: OpalBase.Hedge.Side.hedge, mismatchedLockingScriptHex: HedgeFixtureData.longLockScriptHex),
+        (side: OpalBase.Hedge.Side.long, mismatchedLockingScriptHex: HedgeFixtureData.shortLockScriptHex)
+    ]
+
+    private static func makeParticipantMaterial(
+        from participant: OpalBase.Hedge.ParticipantMaterial,
+        lockingScriptHex: String
+    ) -> OpalBase.Hedge.ParticipantMaterial {
+        OpalBase.Hedge.ParticipantMaterial(
+            side: participant.side,
+            payoutAddress: participant.payoutAddress,
+            lockingScriptHex: lockingScriptHex,
+            mutualRedeemPublicKeyHex: participant.mutualRedeemPublicKeyHex,
+            derivedAddress: participant.derivedAddress
+        )
     }
 
     private static func captureAccountError(

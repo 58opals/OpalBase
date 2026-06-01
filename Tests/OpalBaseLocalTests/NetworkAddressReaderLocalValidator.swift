@@ -9,6 +9,7 @@ import Testing
 struct NetworkAddressReaderLocalValidator {
     private static let firstUseBlockHash = String(repeating: "a", count: 64)
     private static let firstUseTransactionIdentifier = String(repeating: "b", count: 64)
+    private static let validScriptHash = String(repeating: "c", count: 64)
 
     @Test("preserves negative unconfirmed balances from the underlying network client")
     func preservesNegativeUnconfirmedBalances() async throws {
@@ -36,8 +37,8 @@ struct NetworkAddressReaderLocalValidator {
         #expect(balance.unconfirmed == -300)
     }
     
-    @Test("first-use results require valid block and transaction hashes")
-    func firstUseResultsRequireValidHashes() throws {
+    @Test("first-use results accept valid block and transaction hashes")
+    func firstUseResultsAcceptValidHashes() throws {
         let firstUse = try OpalBase.Network.Fulcrum.AddressReader.makeFirstUse(
             blockHeight: 1,
             blockHash: Self.firstUseBlockHash,
@@ -47,36 +48,23 @@ struct NetworkAddressReaderLocalValidator {
         #expect(firstUse.blockHeight == 1)
         #expect(firstUse.blockHash == Self.firstUseBlockHash)
         #expect(firstUse.transactionIdentifier == Self.firstUseTransactionIdentifier)
-        
-        let blockHashFailure = try Self.captureNetworkError {
+    }
+
+    @Test(
+        "first-use results reject invalid block and transaction hashes",
+        arguments: firstUseInvalidHashCases
+    )
+    func firstUseResultsRejectInvalidHashes(_ invalidHashCase: FirstUseInvalidHashCase) throws {
+        let failure = try Self.captureNetworkError {
             _ = try OpalBase.Network.Fulcrum.AddressReader.makeFirstUse(
                 blockHeight: 1,
-                blockHash: "aa",
-                transactionIdentifier: Self.firstUseTransactionIdentifier
+                blockHash: invalidHashCase.blockHash,
+                transactionIdentifier: invalidHashCase.transactionIdentifier
             )
         }
-        #expect(blockHashFailure.reason == .decoding)
-        #expect(blockHashFailure.message == "Invalid first-use block hash length: expected 32 bytes, got 1")
-        
-        let prefixedBlockHashFailure = try Self.captureNetworkError {
-            _ = try OpalBase.Network.Fulcrum.AddressReader.makeFirstUse(
-                blockHeight: 1,
-                blockHash: "0x\(Self.firstUseBlockHash)",
-                transactionIdentifier: Self.firstUseTransactionIdentifier
-            )
-        }
-        #expect(prefixedBlockHashFailure.reason == .decoding)
-        #expect(prefixedBlockHashFailure.message == "Cannot decode first-use block hash: 0x\(Self.firstUseBlockHash)")
-        
-        let transactionHashFailure = try Self.captureNetworkError {
-            _ = try OpalBase.Network.Fulcrum.AddressReader.makeFirstUse(
-                blockHeight: 1,
-                blockHash: Self.firstUseBlockHash,
-                transactionIdentifier: "bb"
-            )
-        }
-        #expect(transactionHashFailure.reason == .decoding)
-        #expect(transactionHashFailure.message == "Invalid first-use transaction hash length: expected 32 bytes, got 1")
+
+        #expect(failure.reason == .decoding)
+        #expect(failure.message == invalidHashCase.expectedMessage)
     }
 
     @Test("first-use results reject zero confirmed heights")
@@ -196,29 +184,31 @@ struct NetworkAddressReaderLocalValidator {
         #expect(entry.blockHeight == blockHeight)
     }
     
-    @Test("script hash results require valid hashes")
-    func scriptHashResultsRequireValidHashes() throws {
-        let scriptHash = String(repeating: "c", count: 64)
-        
-        #expect(try OpalBase.Network.Fulcrum.AddressReader.validateScriptHash(scriptHash) == scriptHash)
-        
+    @Test("script hash results accept valid hashes")
+    func scriptHashResultsAcceptValidHashes() throws {
+        #expect(
+            try OpalBase.Network.Fulcrum.AddressReader.validateScriptHash(Self.validScriptHash)
+                == Self.validScriptHash
+        )
+    }
+
+    @Test(
+        "script hash results reject invalid hashes",
+        arguments: scriptHashInvalidCases
+    )
+    func scriptHashResultsRejectInvalidHashes(_ invalidHashCase: ScriptHashInvalidCase) throws {
         let failure = try Self.captureNetworkError {
-            _ = try OpalBase.Network.Fulcrum.AddressReader.validateScriptHash("cc")
+            _ = try OpalBase.Network.Fulcrum.AddressReader.validateScriptHash(invalidHashCase.scriptHash)
         }
+
         #expect(failure.reason == .decoding)
-        #expect(failure.message == "Invalid script hash length: expected 32 bytes, got 1")
-        
-        let prefixedFailure = try Self.captureNetworkError {
-            _ = try OpalBase.Network.Fulcrum.AddressReader.validateScriptHash("0x\(scriptHash)")
-        }
-        #expect(prefixedFailure.reason == .decoding)
-        #expect(prefixedFailure.message == "Cannot decode script hash: 0x\(scriptHash)")
+        #expect(failure.message == invalidHashCase.expectedMessage)
     }
 
     @Test("script hash results must match the requested address")
     func scriptHashResultsMustMatchRequestedAddress() throws {
         let address = try OpalBase.Address("bitcoincash:qpm2qsznhks23z7629mms6s4cwef74vcwvy22gdx6a")
-        let mismatchedScriptHash = String(repeating: "c", count: 64)
+        let mismatchedScriptHash = Self.validScriptHash
 
         let failure = try Self.captureNetworkError {
             _ = try OpalBase.Network.Fulcrum.AddressReader.validateScriptHash(
@@ -244,27 +234,20 @@ struct NetworkAddressReaderLocalValidator {
         }
     }
 
-    @Test("address balance conversion rejects unconfirmed magnitudes above maximum supply")
-    func rejectUnconfirmedMagnitudesAboveMaximumSupplyDuringAddressBalanceConversion() throws {
-        let maximumSignedSatoshi = Int64(OpalBase.Satoshi.maximumSatoshi)
-
+    @Test(
+        "address balance conversion rejects unconfirmed magnitudes above maximum supply",
+        arguments: invalidUnconfirmedBalanceMagnitudes
+    )
+    func rejectUnconfirmedMagnitudesAboveMaximumSupplyDuringAddressBalanceConversion(
+        _ unconfirmed: Int64
+    ) throws {
         #expect(throws: OpalBase.Network.Error(
             reason: .decoding,
             message: "Unconfirmed balance exceeds maximum supply"
         )) {
             _ = try OpalBase.Network.Fulcrum.AddressReader.makeAddressBalance(
                 confirmed: 0,
-                unconfirmed: maximumSignedSatoshi + 1
-            )
-        }
-
-        #expect(throws: OpalBase.Network.Error(
-            reason: .decoding,
-            message: "Unconfirmed balance exceeds maximum supply"
-        )) {
-            _ = try OpalBase.Network.Fulcrum.AddressReader.makeAddressBalance(
-                confirmed: 0,
-                unconfirmed: -maximumSignedSatoshi - 1
+                unconfirmed: unconfirmed
             )
         }
     }
@@ -359,5 +342,53 @@ struct NetworkAddressReaderLocalValidator {
         let transactionIdentifier: String
         let blockHeight: Int
         let fee: UInt?
+    }
+
+    private static let firstUseInvalidHashCases = [
+        FirstUseInvalidHashCase(
+            blockHash: "aa",
+            transactionIdentifier: firstUseTransactionIdentifier,
+            expectedMessage: "Invalid first-use block hash length: expected 32 bytes, got 1"
+        ),
+        FirstUseInvalidHashCase(
+            blockHash: "0x\(firstUseBlockHash)",
+            transactionIdentifier: firstUseTransactionIdentifier,
+            expectedMessage: "Cannot decode first-use block hash: 0x\(firstUseBlockHash)"
+        ),
+        FirstUseInvalidHashCase(
+            blockHash: firstUseBlockHash,
+            transactionIdentifier: "bb",
+            expectedMessage: "Invalid first-use transaction hash length: expected 32 bytes, got 1"
+        )
+    ]
+
+    struct FirstUseInvalidHashCase: Sendable {
+        let blockHash: String
+        let transactionIdentifier: String
+        let expectedMessage: String
+    }
+
+    private static let invalidUnconfirmedBalanceMagnitudes: [Int64] = {
+        let maximumSignedSatoshi = Int64(OpalBase.Satoshi.maximumSatoshi)
+        return [
+            maximumSignedSatoshi + 1,
+            -maximumSignedSatoshi - 1
+        ]
+    }()
+
+    private static let scriptHashInvalidCases = [
+        ScriptHashInvalidCase(
+            scriptHash: "cc",
+            expectedMessage: "Invalid script hash length: expected 32 bytes, got 1"
+        ),
+        ScriptHashInvalidCase(
+            scriptHash: "0x\(validScriptHash)",
+            expectedMessage: "Cannot decode script hash: 0x\(validScriptHash)"
+        )
+    ]
+
+    struct ScriptHashInvalidCase: Sendable {
+        let scriptHash: String
+        let expectedMessage: String
     }
 }

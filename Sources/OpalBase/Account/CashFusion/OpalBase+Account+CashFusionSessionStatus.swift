@@ -1,7 +1,6 @@
 // OpalBase+Account+CashFusionSessionStatus.swift
 
 #if os(macOS)
-import Foundation
 import OpalFusion
 
 extension _OpalBase.Account {

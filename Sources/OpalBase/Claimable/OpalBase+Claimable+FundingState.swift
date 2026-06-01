@@ -1,7 +1,5 @@
 // OpalBase+Claimable+FundingState.swift
 
-import Foundation
-
 extension _OpalBase.Claimable {
     public enum FundingState: Sendable, Equatable {
         case missing

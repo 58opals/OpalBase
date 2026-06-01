@@ -67,67 +67,39 @@ struct SnapshotPersistenceValidator {
         #expect(try decodedUnspentOutput.makeTokenData() == nil)
     }
 
-    @Test("address book snapshot rejects category-only token UTXOs")
-    func addressBookSnapshotRejectsCategoryOnlyTokenUTXOs() throws {
+    @Test(
+        "address book snapshot rejects invalid token UTXO fields",
+        arguments: InvalidSnapshotTokenUTXOFieldsCase.allCases
+    )
+    fileprivate func addressBookSnapshotRejectsInvalidTokenUTXOFields(
+        _ invalidCase: InvalidSnapshotTokenUTXOFieldsCase
+    ) throws {
         let unspentOutputSnapshot = try makeTokenUnspentOutputSnapshot(
-            categoryByte: 0x01,
-            tokenAmount: nil,
+            categoryByte: invalidCase.categoryByte,
+            tokenAmount: invalidCase.tokenAmount,
             nftCapability: nil,
             nftCommitment: nil
         )
 
         #expect(
-            throws: OpalBase.Address.Book.Error.invalidSnapshotTokenData(
-                reason: OpalBase.CashTokens.Error.invalidTokenPrefix
-            )
+            throws: invalidCase.expectedError
         ) {
             _ = try unspentOutputSnapshot.makeTokenData()
         }
     }
 
-    @Test("address book snapshot rejects zero fungible token amounts")
-    func addressBookSnapshotRejectsZeroFungibleTokenAmounts() throws {
-        let unspentOutputSnapshot = try makeTokenUnspentOutputSnapshot(
-            categoryByte: 0x02,
-            tokenAmount: 0,
-            nftCapability: nil,
-            nftCommitment: nil
-        )
-
-        #expect(
-            throws: OpalBase.Address.Book.Error.invalidSnapshotTokenData(
-                reason: OpalBase.CashTokens.Error.invalidTokenPrefixFungibleAmount
-            )
-        ) {
-            _ = try unspentOutputSnapshot.makeTokenData()
-        }
-    }
-
-    @Test("address book snapshot rejects oversized fungible token amounts")
-    func addressBookSnapshotRejectsOversizedFungibleTokenAmounts() throws {
-        let unspentOutputSnapshot = try makeTokenUnspentOutputSnapshot(
-            categoryByte: 0x02,
-            tokenAmount: OpalBase.CashTokens.TokenData.maximumFungibleAmount + 1,
-            nftCapability: nil,
-            nftCommitment: nil
-        )
-
-        #expect(
-            throws: OpalBase.Address.Book.Error.invalidSnapshotTokenData(
-                reason: OpalBase.CashTokens.Error.invalidTokenPrefixFungibleAmount
-            )
-        ) {
-            _ = try unspentOutputSnapshot.makeTokenData()
-        }
-    }
-
-    @Test("address book snapshot rejects prefixed NFT commitments")
-    func rejectPrefixedNonFungibleTokenCommitmentsInAddressBookSnapshot() throws {
+    @Test(
+        "address book snapshot rejects invalid NFT commitments",
+        arguments: InvalidSnapshotNFTCommitmentCase.allCases
+    )
+    fileprivate func addressBookSnapshotRejectsInvalidNFTCommitments(
+        _ invalidCase: InvalidSnapshotNFTCommitmentCase
+    ) throws {
         let unspentOutputSnapshot = try makeTokenUnspentOutputSnapshot(
             categoryByte: 0x03,
             tokenAmount: nil,
             nftCapability: OpalBase.CashTokens.NFT.Capability.none,
-            nftCommitment: "0x12"
+            nftCommitment: invalidCase.commitment
         )
 
         #expect(
@@ -367,7 +339,7 @@ struct SnapshotPersistenceValidator {
         )
 
         await #expect(
-            throws: Data.Error.cannotConvertHexadecimalStringToData
+            throws: OpalBase.Address.Book.Error.invalidSnapshotUTXOLockingScriptHex("not-hex")
         ) {
             try await book.refresh(with: malformedSnapshot)
         }
@@ -375,8 +347,13 @@ struct SnapshotPersistenceValidator {
         #expect(try await book.readCachedBalance(for: entry.address) == OpalBase.Satoshi(1_234))
     }
 
-    @Test("address book restore rejects malformed UTXO hashes before mutation")
-    func addressBookRestoreRejectsMalformedUTXOHashesBeforeMutation() async throws {
+    @Test(
+        "address book restore rejects invalid UTXO transaction hashes before mutation",
+        arguments: InvalidSnapshotUTXOTransactionHashCase.allCases
+    )
+    fileprivate func addressBookRestoreRejectsInvalidUTXOTransactionHashesBeforeMutation(
+        _ invalidCase: InvalidSnapshotUTXOTransactionHashCase
+    ) async throws {
         let account = try await AccountTestFixtures.makeAccount()
         let book = await account.addressBook
         let entry = try #require(await book.listEntries(for: .receiving).first)
@@ -387,16 +364,7 @@ struct SnapshotPersistenceValidator {
         )
 
         let snapshot = await book.makeSnapshot()
-        let alteredReceivingEntries = snapshot.receivingEntries.map { snapshotEntry in
-            OpalBase.Address.Book.Snapshot.Entry(
-                usage: snapshotEntry.usage,
-                index: snapshotEntry.index,
-                isUsed: snapshotEntry.isUsed,
-                isReserved: snapshotEntry.isReserved,
-                balance: snapshotEntry.index == entry.derivationPath.index ? 9_999 : snapshotEntry.balance,
-                lastUpdated: snapshotEntry.lastUpdated
-            )
-        }
+        let alteredReceivingEntries = makeReceivingEntriesWithChangedBalance(from: snapshot, for: entry)
         let malformedUTXO = OpalBase.Address.Book.Snapshot.UTXO(
             value: 500,
             lockingScript: entry.address.lockingScript.data.hexadecimalString,
@@ -404,7 +372,7 @@ struct SnapshotPersistenceValidator {
             tokenAmount: nil,
             nftCapability: nil,
             nftCommitment: nil,
-            transactionHash: "abcd",
+            transactionHash: invalidCase.transactionHash,
             outputIndex: 0
         )
         let malformedSnapshot = OpalBase.Address.Book.Snapshot(
@@ -415,58 +383,7 @@ struct SnapshotPersistenceValidator {
         )
 
         await #expect(
-            throws: OpalBase.Address.Book.Error.invalidSnapshotTransactionHashLength(
-                expected: OpalBase.Transaction.Hash.expectedByteCount,
-                actual: 2
-            )
-        ) {
-            try await book.refresh(with: malformedSnapshot)
-        }
-        #expect(try await book.readCachedBalance(for: entry.address) == OpalBase.Satoshi(1_234))
-    }
-
-    @Test("address book restore rejects prefixed UTXO transaction hashes before mutation")
-    func rejectPrefixedUnspentOutputTransactionHashesBeforeAddressBookRestoreMutation() async throws {
-        let account = try await AccountTestFixtures.makeAccount()
-        let book = await account.addressBook
-        let entry = try #require(await book.listEntries(for: .receiving).first)
-        try await book.updateCachedBalance(
-            for: entry.address,
-            balance: try OpalBase.Satoshi(1_234),
-            timestamp: .now
-        )
-
-        let snapshot = await book.makeSnapshot()
-        let alteredReceivingEntries = snapshot.receivingEntries.map { snapshotEntry in
-            OpalBase.Address.Book.Snapshot.Entry(
-                usage: snapshotEntry.usage,
-                index: snapshotEntry.index,
-                isUsed: snapshotEntry.isUsed,
-                isReserved: snapshotEntry.isReserved,
-                balance: snapshotEntry.index == entry.derivationPath.index ? 9_999 : snapshotEntry.balance,
-                lastUpdated: snapshotEntry.lastUpdated
-            )
-        }
-        let prefixedHash = "0x\(String(repeating: "0", count: 64))"
-        let malformedUTXO = OpalBase.Address.Book.Snapshot.UTXO(
-            value: 500,
-            lockingScript: entry.address.lockingScript.data.hexadecimalString,
-            tokenCategory: nil,
-            tokenAmount: nil,
-            nftCapability: nil,
-            nftCommitment: nil,
-            transactionHash: prefixedHash,
-            outputIndex: 0
-        )
-        let malformedSnapshot = OpalBase.Address.Book.Snapshot(
-            receivingEntries: alteredReceivingEntries,
-            changeEntries: snapshot.changeEntries,
-            utxos: [malformedUTXO],
-            transactions: snapshot.transactions
-        )
-
-        await #expect(
-            throws: OpalBase.Address.Book.Error.invalidSnapshotTransactionHash(prefixedHash)
+            throws: invalidCase.expectedError
         ) {
             try await book.refresh(with: malformedSnapshot)
         }
@@ -672,8 +589,8 @@ struct SnapshotPersistenceValidator {
         #expect(storedUTXO.value == 500)
     }
 
-    @Test("address book restore rejects malformed transaction hashes before mutation")
-    func addressBookRestoreRejectsMalformedTransactionHashesBeforeMutation() async throws {
+    @Test("address book restore rejects invalid transaction hashes before mutation", arguments: InvalidSnapshotTransactionHashCase.allCases)
+    fileprivate func addressBookRestoreRejectsInvalidTransactionHashesBeforeMutation(_ invalidCase: InvalidSnapshotTransactionHashCase) async throws {
         let account = try await AccountTestFixtures.makeAccount()
         let book = await account.addressBook
         let entry = try #require(await book.listEntries(for: .receiving).first)
@@ -695,7 +612,7 @@ struct SnapshotPersistenceValidator {
             )
         }
         let malformedTransaction = OpalBase.Address.Book.Snapshot.Transaction(
-            transactionHash: "abcd",
+            transactionHash: invalidCase.transactionHash,
             height: 1,
             fee: nil,
             scriptHashes: [entry.address.makeScriptHash().hexadecimalString],
@@ -717,63 +634,7 @@ struct SnapshotPersistenceValidator {
         )
 
         await #expect(
-            throws: OpalBase.Address.Book.Error.invalidSnapshotTransactionHashLength(
-                expected: OpalBase.Transaction.Hash.expectedByteCount,
-                actual: 2
-            )
-        ) {
-            try await book.refresh(with: malformedSnapshot)
-        }
-        #expect(try await book.readCachedBalance(for: entry.address) == OpalBase.Satoshi(1_234))
-    }
-
-    @Test("address book restore rejects prefixed transaction hashes before mutation")
-    func addressBookRestoreRejectsPrefixedTransactionHashesBeforeMutation() async throws {
-        let account = try await AccountTestFixtures.makeAccount()
-        let book = await account.addressBook
-        let entry = try #require(await book.listEntries(for: .receiving).first)
-        try await book.updateCachedBalance(
-            for: entry.address,
-            balance: try OpalBase.Satoshi(1_234),
-            timestamp: .now
-        )
-
-        let snapshot = await book.makeSnapshot()
-        let alteredReceivingEntries = snapshot.receivingEntries.map { snapshotEntry in
-            OpalBase.Address.Book.Snapshot.Entry(
-                usage: snapshotEntry.usage,
-                index: snapshotEntry.index,
-                isUsed: snapshotEntry.isUsed,
-                isReserved: snapshotEntry.isReserved,
-                balance: snapshotEntry.index == entry.derivationPath.index ? 9_999 : snapshotEntry.balance,
-                lastUpdated: snapshotEntry.lastUpdated
-            )
-        }
-        let prefixedHash = "0x\(String(repeating: "1", count: 64))"
-        let malformedTransaction = OpalBase.Address.Book.Snapshot.Transaction(
-            transactionHash: prefixedHash,
-            height: 1,
-            fee: nil,
-            scriptHashes: [entry.address.makeScriptHash().hexadecimalString],
-            firstSeenAt: .now,
-            lastUpdatedAt: .now,
-            status: .confirmed,
-            confirmationHeight: 1,
-            confirmedAt: .now,
-            verificationStatus: .pending,
-            merkleProof: nil,
-            lastVerifiedHeight: nil,
-            lastCheckedAt: nil
-        )
-        let malformedSnapshot = OpalBase.Address.Book.Snapshot(
-            receivingEntries: alteredReceivingEntries,
-            changeEntries: snapshot.changeEntries,
-            utxos: snapshot.utxos,
-            transactions: [malformedTransaction]
-        )
-
-        await #expect(
-            throws: OpalBase.Address.Book.Error.invalidSnapshotTransactionHash(prefixedHash)
+            throws: invalidCase.expectedError
         ) {
             try await book.refresh(with: malformedSnapshot)
         }
@@ -1278,6 +1139,17 @@ struct SnapshotPersistenceValidator {
             )
         }
         let tokenData = try makeTokenDataWithNonFungibleToken()
+        let nonFungibleToken = try #require(tokenData.nft)
+        let canonicalTokenData = OpalBase.CashTokens.TokenData(
+            category: tokenData.category,
+            amount: nil,
+            nft: nonFungibleToken
+        )
+        let duplicateTokenData = OpalBase.CashTokens.TokenData(
+            category: tokenData.category,
+            amount: 42,
+            nft: nonFungibleToken
+        )
         let malformedTransaction = OpalBase.Address.Book.Snapshot.Transaction(
             transactionHash: String(repeating: "1", count: 64),
             height: 0,
@@ -1292,7 +1164,7 @@ struct SnapshotPersistenceValidator {
             merkleProof: nil,
             lastVerifiedHeight: nil,
             lastCheckedAt: nil,
-            nonFungibleTokenAdditions: [tokenData, tokenData]
+            nonFungibleTokenAdditions: [tokenData, duplicateTokenData]
         )
         let malformedSnapshot = OpalBase.Address.Book.Snapshot(
             receivingEntries: alteredReceivingEntries,
@@ -1301,7 +1173,7 @@ struct SnapshotPersistenceValidator {
             transactions: [malformedTransaction]
         )
 
-        await #expect(throws: OpalBase.Address.Book.Error.invalidSnapshotDuplicateTokenDelta(tokenData)) {
+        await #expect(throws: OpalBase.Address.Book.Error.invalidSnapshotDuplicateTokenDelta(canonicalTokenData)) {
             try await book.refresh(with: malformedSnapshot)
         }
         #expect(try await book.readCachedBalance(for: entry.address) == OpalBase.Satoshi(1_234))
@@ -2137,6 +2009,159 @@ struct SnapshotPersistenceValidator {
             return .minting
         default:
             throw OpalBase.CashTokens.Error.invalidTokenPrefixCapability
+        }
+    }
+
+    enum InvalidSnapshotTransactionHashCase: CaseIterable, CustomStringConvertible, Sendable {
+        case shortHex
+        case prefixedHex
+        case oversizedHex
+
+        var description: String {
+            switch self {
+            case .shortHex:
+                "short hex"
+            case .prefixedHex:
+                "prefixed hex"
+            case .oversizedHex:
+                "oversized hex"
+            }
+        }
+
+        var transactionHash: String {
+            switch self {
+            case .shortHex:
+                "abcd"
+            case .prefixedHex:
+                "0x\(String(repeating: "1", count: 64))"
+            case .oversizedHex:
+                String(repeating: "a", count: 4_096)
+            }
+        }
+
+        var expectedError: OpalBase.Address.Book.Error {
+            switch self {
+            case .shortHex:
+                OpalBase.Address.Book.Error.invalidSnapshotTransactionHashLength(
+                    expected: OpalBase.Transaction.Hash.expectedByteCount,
+                    actual: 2
+                )
+            case .prefixedHex:
+                OpalBase.Address.Book.Error.invalidSnapshotTransactionHash(transactionHash)
+            case .oversizedHex:
+                OpalBase.Address.Book.Error.invalidSnapshotTransactionHashLength(
+                    expected: OpalBase.Transaction.Hash.expectedByteCount,
+                    actual: 2_048
+                )
+            }
+        }
+    }
+
+    enum InvalidSnapshotUTXOTransactionHashCase: CaseIterable, CustomStringConvertible, Sendable {
+        case shortHex
+        case prefixedHex
+
+        var description: String {
+            switch self {
+            case .shortHex:
+                "short hex"
+            case .prefixedHex:
+                "prefixed hex"
+            }
+        }
+
+        var transactionHash: String {
+            switch self {
+            case .shortHex:
+                "abcd"
+            case .prefixedHex:
+                "0x\(String(repeating: "0", count: 64))"
+            }
+        }
+
+        var expectedError: OpalBase.Address.Book.Error {
+            switch self {
+            case .shortHex:
+                OpalBase.Address.Book.Error.invalidSnapshotTransactionHashLength(
+                    expected: OpalBase.Transaction.Hash.expectedByteCount,
+                    actual: 2
+                )
+            case .prefixedHex:
+                OpalBase.Address.Book.Error.invalidSnapshotTransactionHash(transactionHash)
+            }
+        }
+    }
+
+    enum InvalidSnapshotNFTCommitmentCase: CaseIterable, CustomStringConvertible, Sendable {
+        case prefixedHex
+        case malformedHex
+
+        var description: String {
+            switch self {
+            case .prefixedHex:
+                "prefixed hex"
+            case .malformedHex:
+                "malformed hex"
+            }
+        }
+
+        var commitment: String {
+            switch self {
+            case .prefixedHex:
+                "0x12"
+            case .malformedHex:
+                "not-hex"
+            }
+        }
+    }
+
+    enum InvalidSnapshotTokenUTXOFieldsCase: CaseIterable, CustomStringConvertible, Sendable {
+        case categoryOnly
+        case zeroFungibleAmount
+        case oversizedFungibleAmount
+
+        var description: String {
+            switch self {
+            case .categoryOnly:
+                "category only"
+            case .zeroFungibleAmount:
+                "zero fungible amount"
+            case .oversizedFungibleAmount:
+                "oversized fungible amount"
+            }
+        }
+
+        var categoryByte: UInt8 {
+            switch self {
+            case .categoryOnly:
+                0x01
+            case .zeroFungibleAmount, .oversizedFungibleAmount:
+                0x02
+            }
+        }
+
+        var tokenAmount: UInt64? {
+            switch self {
+            case .categoryOnly:
+                nil
+            case .zeroFungibleAmount:
+                0
+            case .oversizedFungibleAmount:
+                OpalBase.CashTokens.TokenData.maximumFungibleAmount + 1
+            }
+        }
+
+        var expectedError: OpalBase.Address.Book.Error {
+            switch self {
+            case .categoryOnly:
+                OpalBase.Address.Book.Error.invalidSnapshotTokenData(
+                    reason: OpalBase.CashTokens.Error.invalidTokenPrefix
+                )
+            case .zeroFungibleAmount, .oversizedFungibleAmount:
+                OpalBase.Address.Book.Error.invalidSnapshotTokenData(
+                    reason: OpalBase.CashTokens.Error.invalidTokenPrefixFungibleAmount
+                )
+            }
         }
     }
 }

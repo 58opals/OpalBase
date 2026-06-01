@@ -28,12 +28,11 @@ extension _OpalBase.Address.Book {
     
     func createDerivationPath(usage: OpalBase.Key.DerivationPath.Usage,
                               index: UInt32) throws -> OpalBase.Key.DerivationPath {
-        let derivationPath = try OpalBase.Key.DerivationPath(purpose: self.purpose,
-                                                coinType: self.coinType,
-                                                account: self.account,
-                                                usage: usage,
-                                                index: index)
-        return derivationPath
+        try OpalBase.Key.DerivationPath(purpose: self.purpose,
+                                         coinType: self.coinType,
+                                         account: self.account,
+                                         usage: usage,
+                                         index: index)
     }
     
     func generateAddress(at index: UInt32, for usage: OpalBase.Key.DerivationPath.Usage) throws -> OpalBase.Address {

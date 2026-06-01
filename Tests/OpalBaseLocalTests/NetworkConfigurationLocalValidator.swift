@@ -98,29 +98,4 @@ struct NetworkConfigurationLocalValidator {
         #expect(adjustedConfiguration.reconnectConfiguration.jitterMultiplierRange == 1.0 ... 1.0)
     }
 
-    @Test("deprecated connectionTimeout alias round-trips to connectTimeout")
-    @available(*, deprecated, message: "Compatibility validator for deprecated API")
-    func deprecatedConnectionTimeoutAliasRoundTrips() {
-        var configuration = OpalBase.Network.Configuration(
-            serverURLs: [Self.primaryServerAddress],
-            connectTimeout: .seconds(6)
-        )
-
-        #expect(configuration.connectionTimeout == .seconds(6))
-
-        configuration.connectionTimeout = .seconds(9)
-
-        #expect(configuration.connectTimeout == .seconds(9))
-    }
-
-    @Test("deprecated initializer forwards connectionTimeout into connectTimeout")
-    @available(*, deprecated, message: "Compatibility validator for deprecated API")
-    func deprecatedInitializerForwardsConnectionTimeout() {
-        let configuration = OpalBase.Network.Configuration(
-            serverURLs: [Self.primaryServerAddress],
-            connectionTimeout: .seconds(7)
-        )
-
-        #expect(configuration.connectTimeout == .seconds(7))
-    }
 }

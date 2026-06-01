@@ -8,18 +8,101 @@ import Testing
 struct ClaimableRecoveryMaterialValidator {
     @Test("builds claim recovery material")
     func buildsClaimRecoveryMaterial() throws {
-        let (envelope, _) = try makeClaimableEnvelope(network: .mainnet)
+        let (envelope, _) = try ClaimableTestSupport.makeClaimableEnvelope(network: .mainnet)
         let material = try envelope.makeClaimRecoveryMaterial()
-        let expectedCompressedPublicKey = try makeClaimableCompressedPublicKey(
-            from: envelope.claimPrivateKey,
-            invalidError: .invalidClaimPrivateKey
+
+        try assertRecoveryMaterial(
+            material,
+            envelope: envelope,
+            spendPath: .claim,
+            privateKey: envelope.claimPrivateKey,
+            invalidPrivateKeyError: .invalidClaimPrivateKey
+        )
+        #expect(material.privateKeyWalletImportFormat == "KwDiBf89QgGbjEhKnhXJuH7LrciVrZi3qYjgd9M7rFU73sVHnoWn")
+    }
+
+    @Test("builds refund recovery material")
+    func buildsRefundRecoveryMaterial() throws {
+        let (envelope, refundPrivateKey) = try ClaimableTestSupport.makeClaimableEnvelope(network: .mainnet)
+        let material = try envelope.makeRefundRecoveryMaterial(
+            refundPrivateKey: refundPrivateKey
         )
 
-        #expect(material.network == .mainnet)
-        #expect(material.spendPath == .claim)
-        #expect(material.privateKeyData == envelope.claimPrivateKey)
-        #expect(material.privateKeyHexadecimal == envelope.claimPrivateKey.hexadecimalString)
-        #expect(material.privateKeyWalletImportFormat == "KwDiBf89QgGbjEhKnhXJuH7LrciVrZi3qYjgd9M7rFU73sVHnoWn")
+        try assertRecoveryMaterial(
+            material,
+            envelope: envelope,
+            spendPath: .refund,
+            privateKey: refundPrivateKey,
+            invalidPrivateKeyError: .invalidRefundPrivateKey
+        )
+    }
+
+    @Test("normalizes sliced refund private key data")
+    func normalizesSlicedRefundPrivateKeyData() throws {
+        let (envelope, refundPrivateKey) = try ClaimableTestSupport.makeClaimableEnvelope(network: .mainnet)
+        let slicedRefundPrivateKey = makeSlicedData(from: refundPrivateKey)
+
+        let material = try envelope.makeRefundRecoveryMaterial(
+            refundPrivateKey: slicedRefundPrivateKey
+        )
+
+        #expect(slicedRefundPrivateKey.startIndex != 0)
+        #expect(material.privateKeyData == refundPrivateKey)
+        #expect(material.privateKeyData.startIndex == 0)
+    }
+
+    @Test("rejects invalid refund recovery key")
+    func rejectsInvalidRefundRecoveryKey() throws {
+        let (envelope, _) = try ClaimableTestSupport.makeClaimableEnvelope()
+
+        #expect(throws: OpalBase.Claimable.Error.invalidRefundPrivateKey) {
+            try envelope.makeRefundRecoveryMaterial(
+                refundPrivateKey: ClaimableTestSupport.makeClaimablePrivateKey(lastByte: 0x03)
+            )
+        }
+    }
+
+    @Test("formats network-aware wallet import format strings")
+    func formatsNetworkAwareWalletImportFormatStrings() throws {
+        let (mainnetEnvelope, _) = try ClaimableTestSupport.makeClaimableEnvelope(network: .mainnet)
+        let (chipnetEnvelope, _) = try ClaimableTestSupport.makeClaimableEnvelope(network: .chipnet)
+        let (testnetEnvelope, _) = try ClaimableTestSupport.makeClaimableEnvelope(network: .testnet)
+
+        let mainnetMaterial = try mainnetEnvelope.makeClaimRecoveryMaterial()
+        let chipnetMaterial = try chipnetEnvelope.makeClaimRecoveryMaterial()
+        let testnetMaterial = try testnetEnvelope.makeClaimRecoveryMaterial()
+
+        #expect(mainnetMaterial.privateKeyWalletImportFormat == "KwDiBf89QgGbjEhKnhXJuH7LrciVrZi3qYjgd9M7rFU73sVHnoWn")
+        #expect(chipnetMaterial.privateKeyWalletImportFormat == "cMahea7zqjxrtgAbB7LSGbcQUr1uX1ojuat9jZodMN87JcbXMTcA")
+        #expect(testnetMaterial.privateKeyWalletImportFormat == "cMahea7zqjxrtgAbB7LSGbcQUr1uX1ojuat9jZodMN87JcbXMTcA")
+    }
+
+    private func makeSlicedData(from data: Data) -> Data {
+        var paddedData = Data([0x00])
+        paddedData.append(data)
+        return paddedData[paddedData.index(after: paddedData.startIndex)...]
+    }
+
+    private func assertRecoveryMaterial(
+        _ material: OpalBase.Claimable.RecoveryMaterial,
+        envelope: OpalBase.Claimable.Envelope,
+        spendPath: OpalBase.Claimable.SpendPath,
+        privateKey: Data,
+        invalidPrivateKeyError: OpalBase.Claimable.Error
+    ) throws {
+        let expectedCompressedPublicKey = try makeClaimableCompressedPublicKey(
+            from: privateKey,
+            invalidError: invalidPrivateKeyError
+        )
+
+        #expect(material.network == envelope.contract.network)
+        #expect(material.spendPath == spendPath)
+        #expect(material.privateKeyData == privateKey)
+        #expect(material.privateKeyHexadecimal == privateKey.hexadecimalString)
+        #expect(material.privateKeyWalletImportFormat == (try makeClaimableWalletImportFormat(
+            privateKey: privateKey,
+            network: envelope.contract.network
+        )))
         #expect(material.compressedPublicKeyData == expectedCompressedPublicKey)
         #expect(material.redeemScriptData == envelope.contract.redeemScriptData)
         #expect(material.redeemScriptHexadecimal == envelope.contract.redeemScriptData.hexadecimalString)
@@ -34,47 +117,5 @@ struct ClaimableRecoveryMaterialValidator {
         #expect(material.expiryBlockHeight == envelope.contract.expiryBlockHeight)
         #expect(material.encodedEnvelopeData == envelope.encode())
         #expect(material.encodedEnvelopeHexadecimal == envelope.encode().hexadecimalString)
-    }
-
-    @Test("builds refund recovery material")
-    func buildsRefundRecoveryMaterial() throws {
-        let (envelope, refundPrivateKey) = try makeClaimableEnvelope(network: .mainnet)
-        let material = try envelope.makeRefundRecoveryMaterial(
-            refundPrivateKey: refundPrivateKey
-        )
-        let expectedCompressedPublicKey = try makeClaimableCompressedPublicKey(
-            from: refundPrivateKey,
-            invalidError: .invalidRefundPrivateKey
-        )
-
-        #expect(material.spendPath == .refund)
-        #expect(material.privateKeyData == refundPrivateKey)
-        #expect(material.compressedPublicKeyData == expectedCompressedPublicKey)
-    }
-
-    @Test("rejects invalid refund recovery key")
-    func rejectsInvalidRefundRecoveryKey() throws {
-        let (envelope, _) = try makeClaimableEnvelope()
-
-        #expect(throws: OpalBase.Claimable.Error.invalidRefundPrivateKey) {
-            try envelope.makeRefundRecoveryMaterial(
-                refundPrivateKey: makeClaimablePrivateKey(lastByte: 0x03)
-            )
-        }
-    }
-
-    @Test("formats network-aware wallet import format strings")
-    func formatsNetworkAwareWalletImportFormatStrings() throws {
-        let (mainnetEnvelope, _) = try makeClaimableEnvelope(network: .mainnet)
-        let (chipnetEnvelope, _) = try makeClaimableEnvelope(network: .chipnet)
-        let (testnetEnvelope, _) = try makeClaimableEnvelope(network: .testnet)
-
-        let mainnetMaterial = try mainnetEnvelope.makeClaimRecoveryMaterial()
-        let chipnetMaterial = try chipnetEnvelope.makeClaimRecoveryMaterial()
-        let testnetMaterial = try testnetEnvelope.makeClaimRecoveryMaterial()
-
-        #expect(mainnetMaterial.privateKeyWalletImportFormat == "KwDiBf89QgGbjEhKnhXJuH7LrciVrZi3qYjgd9M7rFU73sVHnoWn")
-        #expect(chipnetMaterial.privateKeyWalletImportFormat == "cMahea7zqjxrtgAbB7LSGbcQUr1uX1ojuat9jZodMN87JcbXMTcA")
-        #expect(testnetMaterial.privateKeyWalletImportFormat == "cMahea7zqjxrtgAbB7LSGbcQUr1uX1ojuat9jZodMN87JcbXMTcA")
     }
 }

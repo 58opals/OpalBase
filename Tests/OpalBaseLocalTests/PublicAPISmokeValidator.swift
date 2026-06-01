@@ -363,16 +363,16 @@ struct PublicAPISmokeValidator {
         try await tokenGenesisPlan.cancelReservation()
     }
 
-    @Test("storage concrete stores accept facade test doubles")
-    func storageConcreteStoresAcceptFacadeTestDoubles() async throws {
+    @Test("storage persistence values accept facade test doubles")
+    func storagePersistenceValuesAcceptFacadeTestDoubles() async throws {
         let wallet = try OpalBase.Wallet(mnemonic: makeSmokeMnemonic())
         try await wallet.addAccount(unhardenedIndex: 0)
 
-        let snapshotState = SmokeSnapshotStoreState()
-        let mnemonicState = SmokeStoredMnemonicStoreState()
+        let snapshotState = SmokeSnapshotPersistenceState()
+        let mnemonicState = SmokeStoredMnemonicPersistenceState()
         let session = OpalBase.Storage.PersistenceSession(
-            snapshotStore: makeSmokeSnapshotStore(state: snapshotState),
-            storedMnemonicStore: makeSmokeStoredMnemonicStore(state: mnemonicState)
+            snapshotPersistence: makeSmokeSnapshotPersistence(state: snapshotState),
+            storedMnemonicPersistence: makeSmokeStoredMnemonicPersistence(state: mnemonicState)
         )
 
         let protectionMode = try await session.save(wallet: wallet)
@@ -494,69 +494,8 @@ private func makeSmokeBlockHeaderReader() -> OpalBase.Network.BlockHeaderReader 
     )
 }
 
-private actor SmokeSnapshotStoreState {
-    private var walletSnapshots: [String: OpalBase.Wallet.Snapshot] = [:]
-    private var committedGeneration: String?
-
-    func saveWalletSnapshot(_ snapshot: OpalBase.Wallet.Snapshot, generation: String) {
-        walletSnapshots[generation] = snapshot
-    }
-
-    func loadWalletSnapshot(generation: String) -> OpalBase.Wallet.Snapshot? {
-        walletSnapshots[generation]
-    }
-
-    func deleteWalletSnapshot(generation: String) {
-        walletSnapshots.removeValue(forKey: generation)
-    }
-
-    func saveCommittedGeneration(_ generation: String) {
-        committedGeneration = generation
-    }
-
-    func loadCommittedGeneration() -> String? {
-        committedGeneration
-    }
-
-    func deleteCommittedGeneration() {
-        committedGeneration = nil
-    }
-
-    func wipeAll() {
-        walletSnapshots.removeAll()
-        committedGeneration = nil
-    }
-}
-
-private actor SmokeStoredMnemonicStoreState {
-    private var state: (
-        mnemonic: OpalBase.Storage.StoredMnemonic,
-        protectionMode: OpalBase.Storage.Security.ProtectionMode
-    )?
-
-    func saveMnemonic(
-        _ mnemonic: OpalBase.Storage.StoredMnemonic,
-        fallbackToPlaintext: Bool
-    ) -> OpalBase.Storage.Security.ProtectionMode {
-        let mode: OpalBase.Storage.Security.ProtectionMode = fallbackToPlaintext ? .plaintext : .software
-        state = (mnemonic, mode)
-        return mode
-    }
-
-    func loadMnemonicState() -> (
-        mnemonic: OpalBase.Storage.StoredMnemonic,
-        protectionMode: OpalBase.Storage.Security.ProtectionMode
-    )? {
-        state
-    }
-
-    func deleteMnemonic(generation _: String) {
-        state = nil
-    }
-}
-
-private func makeSmokeSnapshotStore(state: SmokeSnapshotStoreState) -> OpalBase.Storage.SnapshotStore {
-    OpalBase.Storage.SnapshotStore(
+private func makeSmokeSnapshotPersistence(state: SmokeSnapshotPersistenceState) -> OpalBase.Storage.SnapshotPersistence {
+    OpalBase.Storage.SnapshotPersistence(
         saveWalletSnapshot: { snapshot, generation in
             await state.saveWalletSnapshot(snapshot, generation: generation)
         },
@@ -578,8 +517,8 @@ private func makeSmokeSnapshotStore(state: SmokeSnapshotStoreState) -> OpalBase.
     )
 }
 
-private func makeSmokeStoredMnemonicStore(state: SmokeStoredMnemonicStoreState) -> OpalBase.Storage.StoredMnemonicStore {
-    OpalBase.Storage.StoredMnemonicStore(
+private func makeSmokeStoredMnemonicPersistence(state: SmokeStoredMnemonicPersistenceState) -> OpalBase.Storage.StoredMnemonicPersistence {
+    OpalBase.Storage.StoredMnemonicPersistence(
         saveMnemonic: { mnemonic, _, fallbackToPlaintext in
             await state.saveMnemonic(mnemonic, fallbackToPlaintext: fallbackToPlaintext)
         },

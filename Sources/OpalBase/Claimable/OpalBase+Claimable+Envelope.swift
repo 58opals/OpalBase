@@ -32,7 +32,7 @@ extension _OpalBase.Claimable {
             }
 
             self.contract = contract
-            self.claimPrivateKey = claimPrivateKey
+            self.claimPrivateKey = Data(claimPrivateKey)
             self.fundingTransactionHash = fundingTransactionHash
             self.fundingOutputIndex = fundingOutputIndex
             self.fundingValue = fundingValue

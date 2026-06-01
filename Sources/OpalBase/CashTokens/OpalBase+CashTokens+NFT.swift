@@ -22,25 +22,19 @@ extension _OpalBase.CashTokens {
                                                        actual: commitment.count)
             }
             self.capability = capability
-            self.commitment = commitment
+            self.commitment = Data(commitment)
         }
         
         public init(from decoder: Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             let capability = try container.decode(Capability.self, forKey: .capability)
             let commitmentString = try container.decode(String.self, forKey: .commitment)
-            let commitment: Data
             guard !commitmentString.hasPrefix("0x"),
                   !commitmentString.hasPrefix("0X")
             else {
                 throw Error.invalidHexadecimalString
             }
-
-            if commitmentString.isEmpty {
-                commitment = Data()
-            } else if let decodedCommitment = try? Data(hexadecimalString: commitmentString) {
-                commitment = decodedCommitment
-            } else {
+            guard let commitment = try? Data(hexadecimalString: commitmentString) else {
                 throw Error.invalidHexadecimalString
             }
             try self.init(capability: capability, commitment: commitment)

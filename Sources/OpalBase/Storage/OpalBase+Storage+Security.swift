@@ -37,7 +37,7 @@ extension _OpalBase.Storage {
             
             public init(mode: ProtectionMode, payload: Data) {
                 self.mode = mode
-                self.payload = payload
+                self.payload = Data(payload)
             }
         }
         
@@ -66,8 +66,20 @@ extension _OpalBase.Storage {
              decrypt: Decrypt? = nil,
              checkSecureEnclaveErrorRecoverability: @escaping RecoverableSecureFailure = { _ in false },
             protectedMaterialReset: ProtectedMaterialReset? = nil) {
-            self.encryptor = encrypt
-            self.decryptor = decrypt
+            if let encrypt {
+                self.encryptor = { value in
+                    try encrypt(Data(value))
+                }
+            } else {
+                self.encryptor = nil
+            }
+            if let decrypt {
+                self.decryptor = { ciphertext in
+                    try Data(decrypt(ciphertext))
+                }
+            } else {
+                self.decryptor = nil
+            }
             self.isSecureFailureRecoverable = checkSecureEnclaveErrorRecoverability
             self.protectedMaterialReset = protectedMaterialReset
         }

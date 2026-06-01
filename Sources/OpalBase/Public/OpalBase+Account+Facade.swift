@@ -74,7 +74,7 @@ extension _OpalBase.Account {
                 capability: OpalBase.CashTokens.NFT.Capability
             ) {
                 self.category = category
-                self.commitment = commitment
+                self.commitment = Data(commitment)
                 self.capability = capability
             }
 

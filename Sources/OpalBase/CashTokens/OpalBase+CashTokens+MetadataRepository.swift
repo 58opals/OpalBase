@@ -50,25 +50,15 @@ extension _OpalBase.CashTokens {
                 name: metadata.name,
                 symbol: metadata.symbol,
                 decimals: metadata.decimals,
-                iconURL: OpalBase.CashTokens.Metadata.makeSafeMetadataURL(metadata.iconURL),
+                iconURL: metadata.iconURL,
                 lastUpdated: metadata.lastUpdated,
-                source: makeSafeSource(metadata.source),
+                source: metadata.source,
                 description: metadata.description,
-                webURL: OpalBase.CashTokens.Metadata.makeSafeMetadataURL(metadata.webURL),
+                webURL: metadata.webURL,
                 identity: metadata.identity,
                 authbase: metadata.authbase,
-                registryURL: OpalBase.CashTokens.Metadata.makeSafeMetadataURL(metadata.registryURL)
+                registryURL: metadata.registryURL
             )
-        }
-
-        private func makeSafeSource(_ source: OpalBase.CashTokens.Metadata.Source) -> OpalBase.CashTokens.Metadata.Source {
-            switch source {
-            case .dns(let url):
-                guard let safeURL = OpalBase.CashTokens.Metadata.makeSafeMetadataURL(url) else { return .embedded }
-                return .dns(safeURL)
-            case .embedded, .chain:
-                return source
-            }
         }
     }
 }

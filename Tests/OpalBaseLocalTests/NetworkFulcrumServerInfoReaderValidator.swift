@@ -44,26 +44,98 @@ struct NetworkFulcrumServerInfoReaderValidator {
         #expect(estimatedFee == 0.00002)
     }
 
-    @Test("protocol version parser rejects malformed components")
-    func protocolVersionParserRejectsMalformedComponents() {
-        #expect(OpalBase.Network.ProtocolVersion(string: "1.x.2") == nil)
-        #expect(OpalBase.Network.ProtocolVersion(string: "1..2") == nil)
-        #expect(OpalBase.Network.ProtocolVersion(string: "1.2.") == nil)
-        #expect(OpalBase.Network.ProtocolVersion(string: "+1.2") == nil)
-        #expect(OpalBase.Network.ProtocolVersion(string: "1.+2") == nil)
-        #expect(OpalBase.Network.ProtocolVersion(string: "01.2") == nil)
-        #expect(OpalBase.Network.ProtocolVersion(string: "1.02") == nil)
-        #expect(OpalBase.Network.ProtocolVersion(string: "1.2.03") == nil)
+    @Test(
+        "protocol version parser rejects malformed components",
+        arguments: malformedProtocolVersionInputs
+    )
+    func protocolVersionParserRejectsMalformedComponents(_ input: String) {
+        #expect(OpalBase.Network.ProtocolVersion(string: input) == nil)
+    }
+
+    @Test("protocol version parser rejects hidden patch components")
+    func protocolVersionParserRejectsHiddenPatchComponents() {
         #expect(OpalBase.Network.ProtocolVersion(major: 1, minor: 2, patch: 3, isPatchComponentIncluded: false) == nil)
     }
 
-    @Test("protocol version parser accepts canonical zero components")
-    func protocolVersionParserAcceptsCanonicalZeroComponents() throws {
-        let twoComponentVersion = try #require(OpalBase.Network.ProtocolVersion(string: "0.0"))
-        let threeComponentVersion = try #require(OpalBase.Network.ProtocolVersion(string: "1.2.0"))
+    @Test(
+        "protocol version parser accepts canonical zero components",
+        arguments: canonicalZeroProtocolVersionCases
+    )
+    func protocolVersionParserAcceptsCanonicalZeroComponents(
+        versionCase: (input: String, expectedDescription: String)
+    ) throws {
+        let version = try #require(OpalBase.Network.ProtocolVersion(string: versionCase.input))
 
-        #expect(twoComponentVersion.description == "0.0")
-        #expect(threeComponentVersion.description == "1.2.0")
+        #expect(version.description == versionCase.expectedDescription)
+    }
+
+    private static let canonicalZeroProtocolVersionCases = [
+        (input: "0.0", expectedDescription: "0.0"),
+        (input: "1.2.0", expectedDescription: "1.2.0")
+    ]
+
+    private static let malformedProtocolVersionInputs = [
+        "1.x.2",
+        "1..2",
+        "1.2.",
+        "+1.2",
+        "1.+2",
+        "01.2",
+        "1.02",
+        "1.2.03"
+    ]
+
+    private static let malformedGenesisHashCases = [
+        (
+            decodeMessage: "Expected block hash to be exactly 64 hex characters",
+            expectedMessage: "Expected block hash to be exactly 64 hex characters"
+        ),
+        (
+            decodeMessage: "Expected block hash to contain only hex characters",
+            expectedMessage: "Expected block hash to contain only hex characters"
+        )
+    ]
+
+    private static let serverFeatureDecodingFailureCases = [
+        (
+            decodeMessage: "Invalid server.features pruning: -1",
+            expectedMessage: "Invalid server feature pruning limit: -1"
+        ),
+        (
+            decodeMessage: "Invalid server.features host ssl_port: -1",
+            expectedMessage: "Invalid server feature ssl port: -1"
+        ),
+        (
+            decodeMessage: "Invalid server.features rpa history_block_limit: -1",
+            expectedMessage: "Invalid server feature rpa history block limit: -1"
+        ),
+        (
+            decodeMessage: "Invalid server.features rpa prefix bit range: 17 exceeds 16",
+            expectedMessage: "Invalid server feature rpa prefix range: minimum 17 exceeds indexed 16"
+        ),
+        (
+            decodeMessage: "Server feature protocol range is invalid: 1.5...1.4",
+            expectedMessage: "Invalid server feature protocol range: minimum 1.5 exceeds maximum 1.4"
+        )
+    ]
+
+    private static let invalidFeeConfirmationTargetCases = [
+        (target: 0, expectedMessage: "Invalid fee confirmation target: 0"),
+        (target: -1, expectedMessage: "Invalid fee confirmation target: -1")
+    ]
+
+    enum NegativeServerFeeRateCase: CaseIterable, Sendable {
+        case relay
+        case estimated
+
+        var decodeMessage: String {
+            switch self {
+            case .relay:
+                return "Invalid relay fee: -1e-05"
+            case .estimated:
+                return "Invalid estimated fee: -1.0"
+            }
+        }
     }
     
     @Test("protocol version decoder rejects invalid components")
@@ -97,56 +169,66 @@ struct NetworkFulcrumServerInfoReaderValidator {
         #expect(failure.metadata["timeoutSeconds"] == "3.0")
     }
 
-    @Test("rejects negative server fee rates")
-    func rejectsNegativeServerFeeRates() async throws {
-        let relayReader = OpalBase.Network.Fulcrum.ServerInfoReader(
-            client: try ServerInfoClientTestActor(
-                relayFeeError: Self.makeDecodeError("Invalid relay fee: -1e-05")
+    @Test(
+        "rejects negative server fee rates",
+        arguments: NegativeServerFeeRateCase.allCases
+    )
+    func rejectsNegativeServerFeeRates(_ feeCase: NegativeServerFeeRateCase) async throws {
+        let failure: OpalBase.Network.Error
+        switch feeCase {
+        case .relay:
+            let reader = OpalBase.Network.Fulcrum.ServerInfoReader(
+                client: try ServerInfoClientTestActor(
+                    relayFeeError: Self.makeDecodeError(feeCase.decodeMessage)
+                )
             )
-        )
-        let relayFailure = try await Self.captureNetworkError {
-            _ = try await relayReader.fetchRelayFee()
+            failure = try await Self.captureNetworkError {
+                _ = try await reader.fetchRelayFee()
+            }
+        case .estimated:
+            let reader = OpalBase.Network.Fulcrum.ServerInfoReader(
+                client: try ServerInfoClientTestActor(
+                    estimatedFeeError: Self.makeDecodeError(feeCase.decodeMessage)
+                )
+            )
+            failure = try await Self.captureNetworkError {
+                _ = try await reader.estimateFee(forConfirmationTarget: 6)
+            }
         }
-        #expect(relayFailure.reason == .decoding)
-        #expect(relayFailure.message == "Invalid relay fee: -1e-05")
 
-        let estimateReader = OpalBase.Network.Fulcrum.ServerInfoReader(
-            client: try ServerInfoClientTestActor(
-                estimatedFeeError: Self.makeDecodeError("Invalid estimated fee: -1.0")
-            )
-        )
-        let estimateFailure = try await Self.captureNetworkError {
-            _ = try await estimateReader.estimateFee(forConfirmationTarget: 6)
-        }
-        #expect(estimateFailure.reason == .decoding)
-        #expect(estimateFailure.message == "Invalid estimated fee: -1.0")
+        #expect(failure.reason == .decoding)
+        #expect(failure.message == feeCase.decodeMessage)
     }
     
-    @Test("rejects non-positive fee confirmation targets")
-    func rejectsNonPositiveFeeConfirmationTargets() async throws {
+    @Test(
+        "rejects non-positive fee confirmation targets",
+        arguments: invalidFeeConfirmationTargetCases
+    )
+    func rejectsNonPositiveFeeConfirmationTargets(
+        _ targetCase: (target: Int, expectedMessage: String)
+    ) async throws {
         let client = try ServerInfoClientTestActor()
         let reader = OpalBase.Network.Fulcrum.ServerInfoReader(client: client)
         
-        let zeroFailure = try await Self.captureNetworkError {
-            _ = try await reader.estimateFee(forConfirmationTarget: 0)
+        let failure = try await Self.captureNetworkError {
+            _ = try await reader.estimateFee(forConfirmationTarget: targetCase.target)
         }
-        #expect(zeroFailure.reason == .encoding)
-        #expect(zeroFailure.message == "Invalid fee confirmation target: 0")
-        
-        let negativeFailure = try await Self.captureNetworkError {
-            _ = try await reader.estimateFee(forConfirmationTarget: -1)
-        }
-        #expect(negativeFailure.reason == .encoding)
-        #expect(negativeFailure.message == "Invalid fee confirmation target: -1")
+        #expect(failure.reason == .encoding)
+        #expect(failure.message == targetCase.expectedMessage)
         
         #expect(await client.readEstimateFeeTargets().isEmpty)
     }
     
-    @Test("rejects negative server feature pruning limits")
-    func fetchServerFeaturesRejectsNegativePruningLimits() async throws {
+    @Test(
+        "translates server feature decoding failures",
+        arguments: serverFeatureDecodingFailureCases
+    )
+    func fetchServerFeaturesTranslatesDecodingFailures(
+        _ failureCase: (decodeMessage: String, expectedMessage: String)
+    ) async throws {
         let reader = OpalBase.Network.Fulcrum.ServerInfoReader(
             client: try ServerInfoClientTestActor(
-                featuresError: Self.makeDecodeError("Invalid server.features pruning: -1")
+                featuresError: Self.makeDecodeError(failureCase.decodeMessage)
             )
         )
         
@@ -155,55 +237,7 @@ struct NetworkFulcrumServerInfoReaderValidator {
         }
         
         #expect(failure.reason == .decoding)
-        #expect(failure.message == "Invalid server feature pruning limit: -1")
-    }
-    
-    @Test("rejects invalid server feature host ports")
-    func fetchServerFeaturesRejectsInvalidHostPorts() async throws {
-        let reader = OpalBase.Network.Fulcrum.ServerInfoReader(
-            client: try ServerInfoClientTestActor(
-                featuresError: Self.makeDecodeError("Invalid server.features host ssl_port: -1")
-            )
-        )
-        
-        let failure = try await Self.captureNetworkError {
-            _ = try await reader.fetchServerFeatures()
-        }
-        
-        #expect(failure.reason == .decoding)
-        #expect(failure.message == "Invalid server feature ssl port: -1")
-    }
-    
-    @Test("rejects negative reusable payment address metadata")
-    func fetchServerFeaturesRejectsNegativeReusablePaymentAddressMetadata() async throws {
-        let reader = OpalBase.Network.Fulcrum.ServerInfoReader(
-            client: try ServerInfoClientTestActor(
-                featuresError: Self.makeDecodeError("Invalid server.features rpa history_block_limit: -1")
-            )
-        )
-        
-        let failure = try await Self.captureNetworkError {
-            _ = try await reader.fetchServerFeatures()
-        }
-        
-        #expect(failure.reason == .decoding)
-        #expect(failure.message == "Invalid server feature rpa history block limit: -1")
-    }
-    
-    @Test("rejects inconsistent reusable payment address prefix ranges")
-    func fetchServerFeaturesRejectsInconsistentReusablePaymentAddressPrefixRanges() async throws {
-        let reader = OpalBase.Network.Fulcrum.ServerInfoReader(
-            client: try ServerInfoClientTestActor(
-                featuresError: Self.makeDecodeError("Invalid server.features rpa prefix bit range: 17 exceeds 16")
-            )
-        )
-        
-        let failure = try await Self.captureNetworkError {
-            _ = try await reader.fetchServerFeatures()
-        }
-        
-        #expect(failure.reason == .decoding)
-        #expect(failure.message == "Invalid server feature rpa prefix range: minimum 17 exceeds indexed 16")
+        #expect(failure.message == failureCase.expectedMessage)
     }
 
     @Test("rejects reusable payment address prefix bits above the hash width")
@@ -240,27 +274,16 @@ struct NetworkFulcrumServerInfoReaderValidator {
         #expect(boundaryFeatures.reusablePaymentAddress?.minimumPrefixBits == 256)
     }
 
-    @Test("translates inconsistent server feature protocol ranges")
-    func fetchServerFeaturesTranslatesInconsistentProtocolRanges() async throws {
+    @Test(
+        "rejects malformed server feature genesis hashes",
+        arguments: malformedGenesisHashCases
+    )
+    func fetchServerFeaturesRejectsMalformedGenesisHashes(
+        _ genesisHashCase: (decodeMessage: String, expectedMessage: String)
+    ) async throws {
         let reader = OpalBase.Network.Fulcrum.ServerInfoReader(
             client: try ServerInfoClientTestActor(
-                featuresError: Self.makeDecodeError("Server feature protocol range is invalid: 1.5...1.4")
-            )
-        )
-
-        let failure = try await Self.captureNetworkError {
-            _ = try await reader.fetchServerFeatures()
-        }
-
-        #expect(failure.reason == .decoding)
-        #expect(failure.message == "Invalid server feature protocol range: minimum 1.5 exceeds maximum 1.4")
-    }
-
-    @Test("rejects malformed server feature genesis hashes")
-    func fetchServerFeaturesRejectsMalformedGenesisHashes() async throws {
-        let reader = OpalBase.Network.Fulcrum.ServerInfoReader(
-            client: try ServerInfoClientTestActor(
-                featuresError: Self.makeDecodeError("Expected block hash to be exactly 64 hex characters")
+                featuresError: Self.makeDecodeError(genesisHashCase.decodeMessage)
             )
         )
         
@@ -269,20 +292,7 @@ struct NetworkFulcrumServerInfoReaderValidator {
         }
         
         #expect(failure.reason == .decoding)
-        #expect(failure.message == "Expected block hash to be exactly 64 hex characters")
-        
-        let prefixedReader = OpalBase.Network.Fulcrum.ServerInfoReader(
-            client: try ServerInfoClientTestActor(
-                featuresError: Self.makeDecodeError("Expected block hash to contain only hex characters")
-            )
-        )
-        
-        let prefixedFailure = try await Self.captureNetworkError {
-            _ = try await prefixedReader.fetchServerFeatures()
-        }
-        
-        #expect(prefixedFailure.reason == .decoding)
-        #expect(prefixedFailure.message == "Expected block hash to contain only hex characters")
+        #expect(failure.message == genesisHashCase.expectedMessage)
     }
     
     @Test("rejects unsupported server feature hash functions")
