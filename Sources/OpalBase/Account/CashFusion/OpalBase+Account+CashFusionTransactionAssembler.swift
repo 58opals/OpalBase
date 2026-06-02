@@ -16,7 +16,7 @@ extension _OpalBase.Account {
             proposal: OpalFusion.Host.TransactionFinalizationProposal
         ) async throws -> OpalFusion.Host.FinalizedTransaction {
             do {
-                _ = try await reservation.participantReservation(for: roundIdentifier)
+                _ = try await reservation.reserveParticipant(for: roundIdentifier)
             } catch let error as CancellationError {
                 throw error
             } catch {

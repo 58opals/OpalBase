@@ -113,6 +113,7 @@ struct DiagnosticsErrorPresentationValidator {
     func verifyCancellationHelpersRecognizeCancellationForms(
         recognitionCase: CancellationRecognitionCase
     ) {
+        #expect(OpalBaseCancellation.isCancellationError(recognitionCase.error) == recognitionCase.expectedResult)
         #expect(recognitionCase.error.isCancellationError == recognitionCase.expectedResult)
     }
 
@@ -781,6 +782,8 @@ struct DiagnosticsErrorPresentationValidator {
 
     enum CancellationRecognitionCase: CaseIterable, Sendable {
         case cancellation
+        case reflectedCancellation
+        case urlCancellation
         case networkCancellation
         case fulcrumCancellation
         case wrappedFulcrumCancellation
@@ -791,6 +794,10 @@ struct DiagnosticsErrorPresentationValidator {
             switch self {
             case .cancellation:
                 return CancellationError()
+            case .reflectedCancellation:
+                return NSError(domain: String(reflecting: CancellationError.self), code: 1)
+            case .urlCancellation:
+                return NSError(domain: NSURLErrorDomain, code: NSURLErrorCancelled)
             case .networkCancellation:
                 return OpalBase.Network.Error(reason: .cancelled)
             case .fulcrumCancellation:
@@ -807,6 +814,8 @@ struct DiagnosticsErrorPresentationValidator {
         var expectedResult: Bool {
             switch self {
             case .cancellation,
+                 .reflectedCancellation,
+                 .urlCancellation,
                  .networkCancellation,
                  .fulcrumCancellation,
                  .wrappedFulcrumCancellation,

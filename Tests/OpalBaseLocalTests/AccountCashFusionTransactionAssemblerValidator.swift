@@ -432,6 +432,60 @@ struct AccountCashFusionTransactionAssemblerValidator {
         ("round-output-count", 1, 2)
     ]
 
+    @Test("proposal transactions with trailing bytes are rejected before signing")
+    func proposalTransactionsWithTrailingBytesAreRejectedBeforeSigning() async throws {
+        let account = try await AccountTestFixtures.makeAccount()
+        let selectedInput = try await CashFusionTestSupport.makeWalletOwnedUnspentOutput(
+            to: account,
+            value: 130_000,
+            usage: .change,
+            hashByte: 0xCB
+        )
+        let reservation = try await account.prepareCashFusionReservation(
+            request: .init(
+                selectedInputs: [selectedInput],
+                outputAmounts: [try OpalBase.Satoshi(50_000)]
+            )
+        )
+        let assembler = OpalBase.Account.CashFusionTransactionAssembler(
+            reservation: reservation
+        )
+        let localOutput = try makeLocalOutput(for: reservation, value: 50_000)
+        let unsignedTransaction = OpalBase.Transaction(
+            version: 2,
+            inputs: [
+                .init(
+                    previousTransactionHash: selectedInput.previousTransactionHash,
+                    previousTransactionOutputIndex: selectedInput.previousTransactionOutputIndex,
+                    unlockingScript: Data()
+                )
+            ],
+            outputs: [localOutput],
+            lockTime: 0
+        )
+        let roundIdentifier = OpalFusion.Round.Identifier(rawValue: "round-trailing-bytes")
+        var unsignedTransactionBytes = [UInt8](try unsignedTransaction.encode())
+        unsignedTransactionBytes.append(0x00)
+
+        await #expect(
+            throws: OpalFusion.Host.TransactionFinalizationFailure.transactionAssemblyFailed(
+                summary: "CashFusion transaction assembly failed"
+            )
+        ) {
+            _ = try await assembler.finalizeTransaction(
+                for: roundIdentifier,
+                proposal: .init(
+                    unsignedTransactionBytes: unsignedTransactionBytes,
+                    expectedInputCount: unsignedTransaction.inputs.count,
+                    expectedOutputCount: unsignedTransaction.outputs.count
+                )
+            )
+        }
+        #expect(await reservation.completedLocalOutputs(for: roundIdentifier).isEmpty)
+
+        try await reservation.cancel()
+    }
+
     @Test("reservation policy refusals are reported as host policy failures")
     func reservationPolicyRefusalsAreReportedAsHostPolicyFailures() async throws {
         let account = try await AccountTestFixtures.makeAccount()

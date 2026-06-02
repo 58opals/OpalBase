@@ -11,8 +11,10 @@ struct WalletTokenMetadataSyncValidator {
     func syncTokenMetadataResolvesFungibleAndNonFungibleInventoryCategories() async throws {
         let wallet = try await AccountTestFixtures.makeWallet(accountIndices: [0])
         let account = try await wallet.fetchAccount(at: 0)
-        let fungibleCategory = try makeTokenMetadataSyncCategory(byte: 0x91)
-        let nonFungibleCategory = try makeTokenMetadataSyncCategory(byte: 0x92)
+        let fungibleAuthbase = try makeTokenMetadataSyncAuthbase(byte: 0x91)
+        let nonFungibleAuthbase = try makeTokenMetadataSyncAuthbase(byte: 0x92)
+        let fungibleCategory = fungibleAuthbase.category
+        let nonFungibleCategory = nonFungibleAuthbase.category
         _ = try await AccountTestFixtures.addUnspentOutput(
             to: account,
             value: 1_000,
@@ -73,37 +75,17 @@ struct WalletTokenMetadataSyncValidator {
             registryData: registryData,
             registryURL: registryURL
         )
-        let rawPublicationTransaction = try makeTokenMetadataSyncPublicationTransaction(
+        let authchain = try makeTokenMetadataSyncAuthchain(
+            authbases: [fungibleAuthbase, nonFungibleAuthbase],
             publicationScript: publicationScript
         )
-        let transactionReader = OpalBase.Network.TransactionReader { _ in
-            rawPublicationTransaction
+        try await withTokenMetadataSyncRegistryFetcher(registryData: registryData) { registryFetcher in
+            try await wallet.syncTokenMetadata(
+                using: authchain.transactionReader,
+                addressReader: authchain.addressReader,
+                registryFetcher: registryFetcher
+            )
         }
-        let addressReader = makeTokenMetadataSyncAddressReader()
-        let (session, _) = makeTokenMetadataSyncRegistrySession { request in
-            let url = try #require(request.url)
-            let response = try #require(HTTPURLResponse(
-                url: url,
-                statusCode: 200,
-                httpVersion: nil,
-                headerFields: nil
-            ))
-            return (response, registryData)
-        }
-        defer {
-            TokenMetadataSyncRegistryURLProtocol.requestHandler = nil
-            session.invalidateAndCancel()
-        }
-        let registryFetcher = OpalBase.CashTokens.BCMR.Client.Fetcher(
-            urlSession: session,
-            maxBytes: 64 * 1_024
-        )
-
-        try await wallet.syncTokenMetadata(
-            using: transactionReader,
-            addressReader: addressReader,
-            registryFetcher: registryFetcher
-        )
 
         let fungibleMetadata = try #require(await wallet.fetchTokenMetadata(for: fungibleCategory))
         let nonFungibleMetadata = try #require(await wallet.fetchTokenMetadata(for: nonFungibleCategory))
@@ -118,7 +100,8 @@ struct WalletTokenMetadataSyncValidator {
     @Test("syncTokenMetadata stores only requested categories")
     func syncTokenMetadataStoresOnlyRequestedCategories() async throws {
         let wallet = try await AccountTestFixtures.makeWallet(accountIndices: [0])
-        let targetCategory = try makeTokenMetadataSyncCategory(byte: 0x93)
+        let targetAuthbase = try makeTokenMetadataSyncAuthbase(byte: 0x93)
+        let targetCategory = targetAuthbase.category
         let unrelatedCategory = try makeTokenMetadataSyncCategory(byte: 0x94)
         let registry = OpalBase.CashTokens.BCMR.Client.Registry(
             version: "1",
@@ -156,43 +139,123 @@ struct WalletTokenMetadataSyncValidator {
             registryData: registryData,
             registryURL: registryURL
         )
-        let rawPublicationTransaction = try makeTokenMetadataSyncPublicationTransaction(
+        let authchain = try makeTokenMetadataSyncAuthchain(
+            authbases: [targetAuthbase],
             publicationScript: publicationScript
         )
-        let transactionReader = OpalBase.Network.TransactionReader { _ in
-            rawPublicationTransaction
+        try await withTokenMetadataSyncRegistryFetcher(registryData: registryData) { registryFetcher in
+            try await wallet.syncTokenMetadata(
+                using: authchain.transactionReader,
+                addressReader: authchain.addressReader,
+                categories: [targetCategory],
+                registryFetcher: registryFetcher
+            )
         }
-        let addressReader = makeTokenMetadataSyncAddressReader()
-        let (session, _) = makeTokenMetadataSyncRegistrySession { request in
-            let url = try #require(request.url)
-            let response = try #require(HTTPURLResponse(
-                url: url,
-                statusCode: 200,
-                httpVersion: nil,
-                headerFields: nil
-            ))
-            return (response, registryData)
-        }
-        defer {
-            TokenMetadataSyncRegistryURLProtocol.requestHandler = nil
-            session.invalidateAndCancel()
-        }
-        let registryFetcher = OpalBase.CashTokens.BCMR.Client.Fetcher(
-            urlSession: session,
-            maxBytes: 64 * 1_024
-        )
-
-        try await wallet.syncTokenMetadata(
-            using: transactionReader,
-            addressReader: addressReader,
-            categories: [targetCategory],
-            registryFetcher: registryFetcher
-        )
 
         let targetMetadata = try #require(await wallet.fetchTokenMetadata(for: targetCategory))
         #expect(targetMetadata.name == "Target Token")
         #expect(await wallet.fetchTokenMetadata(for: unrelatedCategory) == nil)
     }
+
+    @Test(
+        "syncTokenMetadata propagates cancellation",
+        arguments: TokenMetadataSyncCancellationCase.allCases
+    )
+    func syncTokenMetadataPropagatesCancellation(
+        _ cancellationCase: TokenMetadataSyncCancellationCase
+    ) async throws {
+        let wallet = try await AccountTestFixtures.makeWallet(accountIndices: [0])
+        let category = try makeTokenMetadataSyncCategory(byte: cancellationCase.categoryByte)
+        let transactionReader = OpalBase.Network.TransactionReader { _ in
+            throw cancellationCase.makeError()
+        }
+        let publicationHash = OpalBase.Transaction.Hash(
+            naturalOrder: Data(repeating: cancellationCase.publicationHashByte, count: 32)
+        )
+
+        await #expect(throws: CancellationError.self) {
+            try await wallet.syncTokenMetadata(
+                using: transactionReader,
+                addressReader: makeTokenMetadataSyncAddressReader(publicationHash: publicationHash),
+                categories: [category]
+            )
+        }
+    }
+}
+
+private struct TokenMetadataSyncAuthbase: Sendable {
+    let rawTransaction: Data
+    let transactionHash: OpalBase.Transaction.Hash
+    let category: OpalBase.CashTokens.CategoryID
+}
+
+private struct TokenMetadataSyncAuthchain: Sendable {
+    let transactionReader: OpalBase.Network.TransactionReader
+    let addressReader: OpalBase.Network.AddressReader
+}
+
+enum TokenMetadataSyncCancellationCase: CaseIterable, Sendable {
+    case direct
+    case url
+
+    var categoryByte: UInt8 {
+        switch self {
+        case .direct:
+            return 0x95
+        case .url:
+            return 0x97
+        }
+    }
+
+    var publicationHashByte: UInt8 {
+        switch self {
+        case .direct:
+            return 0x96
+        case .url:
+            return 0x98
+        }
+    }
+
+    func makeError() -> Swift.Error {
+        switch self {
+        case .direct:
+            return CancellationError()
+        case .url:
+            return NSError(
+                domain: NSURLErrorDomain,
+                code: NSURLErrorCancelled
+            )
+        }
+    }
+}
+
+private func makeTokenMetadataSyncAuthbase(byte: UInt8) throws -> TokenMetadataSyncAuthbase {
+    let identityAddress = try OpalBase.Address(string: AccountTestFixtures.standardAddressString)
+    let input = OpalBase.Transaction.Input(
+        previousTransactionHash: OpalBase.Transaction.Hash(naturalOrder: Data(repeating: byte, count: 32)),
+        previousTransactionOutputIndex: 0,
+        unlockingScript: Data()
+    )
+    let transaction = OpalBase.Transaction(
+        version: 1,
+        inputs: [input],
+        outputs: [
+            OpalBase.Transaction.Output(
+                value: 1,
+                lockingScript: identityAddress.lockingScript.data
+            )
+        ],
+        lockTime: 0
+    )
+    let rawTransaction = try transaction.encode()
+    let transactionHash = OpalBase.Transaction.Hash(
+        naturalOrder: OpalCryptoAdapter.hash256(rawTransaction)
+    )
+    return try TokenMetadataSyncAuthbase(
+        rawTransaction: rawTransaction,
+        transactionHash: transactionHash,
+        category: OpalBase.CashTokens.CategoryID(transactionOrderData: transactionHash.naturalOrder)
+    )
 }
 
 private func makeTokenMetadataSyncCategory(byte: UInt8) throws -> OpalBase.CashTokens.CategoryID {
@@ -201,11 +264,53 @@ private func makeTokenMetadataSyncCategory(byte: UInt8) throws -> OpalBase.CashT
     )
 }
 
-private func makeTokenMetadataSyncAddressReader() -> OpalBase.Network.AddressReader {
+private func makeTokenMetadataSyncAuthchain(
+    authbases: [TokenMetadataSyncAuthbase],
+    publicationScript: Data
+) throws -> TokenMetadataSyncAuthchain {
+    let rawPublicationTransaction = try makeTokenMetadataSyncPublicationTransaction(
+        authbaseHashes: authbases.map(\.transactionHash),
+        publicationScript: publicationScript
+    )
+    let publicationHash = OpalBase.Transaction.Hash(
+        naturalOrder: OpalCryptoAdapter.hash256(rawPublicationTransaction)
+    )
+    var mutableRawTransactionsByHash = Dictionary(
+        uniqueKeysWithValues: authbases.map { authbase in
+            (authbase.transactionHash, authbase.rawTransaction)
+        }
+    )
+    mutableRawTransactionsByHash[publicationHash] = rawPublicationTransaction
+    let rawTransactionsByHash = mutableRawTransactionsByHash
+
+    let transactionReader = OpalBase.Network.TransactionReader { transactionHash in
+        guard let rawTransaction = rawTransactionsByHash[transactionHash] else {
+            throw TokenMetadataSyncStubError.notImplemented
+        }
+        return rawTransaction
+    }
+
+    return TokenMetadataSyncAuthchain(
+        transactionReader: transactionReader,
+        addressReader: makeTokenMetadataSyncAddressReader(publicationHash: publicationHash)
+    )
+}
+
+private func makeTokenMetadataSyncAddressReader(
+    publicationHash: OpalBase.Transaction.Hash
+) -> OpalBase.Network.AddressReader {
     OpalBase.Network.AddressReader(
         fetchBalance: { _, _ in throw TokenMetadataSyncStubError.notImplemented },
         fetchUnspentOutputs: { _, _ in throw TokenMetadataSyncStubError.notImplemented },
-        fetchHistory: { _, _ in [] },
+        fetchHistory: { _, _ in
+            [
+                OpalBase.Network.TransactionHistoryEntry(
+                    transactionIdentifier: publicationHash.reverseOrder.hexadecimalString,
+                    blockHeight: 1,
+                    fee: nil
+                )
+            ]
+        },
         fetchFirstUse: { _ in nil },
         fetchMempoolTransactions: { _ in [] },
         fetchScriptHash: { _ in throw TokenMetadataSyncStubError.notImplemented },
@@ -229,16 +334,20 @@ private func makeTokenMetadataSyncPublicationScript(
     return script
 }
 
-private func makeTokenMetadataSyncPublicationTransaction(publicationScript: Data) throws -> Data {
+private func makeTokenMetadataSyncPublicationTransaction(
+    authbaseHashes: [OpalBase.Transaction.Hash],
+    publicationScript: Data
+) throws -> Data {
     let identityAddress = try OpalBase.Address(string: AccountTestFixtures.standardAddressString)
-    let input = OpalBase.Transaction.Input(
-        previousTransactionHash: AccountTestFixtures.makeHash(byte: 0x31),
-        previousTransactionOutputIndex: 0,
-        unlockingScript: Data()
-    )
     let transaction = OpalBase.Transaction(
         version: 1,
-        inputs: [input],
+        inputs: authbaseHashes.map { authbaseHash in
+            OpalBase.Transaction.Input(
+                previousTransactionHash: authbaseHash,
+                previousTransactionOutputIndex: 0,
+                unlockingScript: Data()
+            )
+        },
         outputs: [
             OpalBase.Transaction.Output(
                 value: 1,
@@ -254,18 +363,39 @@ private func makeTokenMetadataSyncPublicationTransaction(publicationScript: Data
     return try transaction.encode()
 }
 
+private func withTokenMetadataSyncRegistryFetcher<T>(
+    registryData: Data,
+    operation: (OpalBase.CashTokens.BCMR.Client.Fetcher) async throws -> T
+) async throws -> T {
+    let session = makeTokenMetadataSyncRegistrySession { request in
+        let url = try #require(request.url)
+        let response = try #require(HTTPURLResponse(
+            url: url,
+            statusCode: 200,
+            httpVersion: nil,
+            headerFields: nil
+        ))
+        return (response, registryData)
+    }
+    defer {
+        TokenMetadataSyncRegistryURLProtocol.requestHandler = nil
+        session.invalidateAndCancel()
+    }
+    let registryFetcher = OpalBase.CashTokens.BCMR.Client.Fetcher(
+        urlSession: session,
+        maxBytes: 64 * 1_024
+    )
+    return try await operation(registryFetcher)
+}
+
 private func makeTokenMetadataSyncRegistrySession(
     handler: @escaping @Sendable (URLRequest) throws -> (HTTPURLResponse, Data)
-) -> (URLSession, TokenMetadataSyncRequestRecorder) {
-    let recorder = TokenMetadataSyncRequestRecorder()
+) -> URLSession {
     let configuration = URLSessionConfiguration.ephemeral
     configuration.protocolClasses = [TokenMetadataSyncRegistryURLProtocol.self]
     let session = URLSession(configuration: configuration)
     TokenMetadataSyncRegistryURLProtocol.requestHandler = { request in
-        if let url = request.url {
-            recorder.append(url)
-        }
         return try handler(request)
     }
-    return (session, recorder)
+    return session
 }

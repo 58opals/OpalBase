@@ -85,7 +85,7 @@ extension OpalBase.CashTokens.BCMR.Client.AuthchainResolver {
     }
 }
 
-private extension OpalBase.CashTokens.BCMR.Client.AuthchainResolver {
+extension OpalBase.CashTokens.BCMR.Client.AuthchainResolver {
     func fetchTransaction(for transactionHash: OpalBase.Transaction.Hash) async throws -> OpalBase.Transaction {
         let rawTransactionData = try await transactionReader.fetchRawTransaction(for: transactionHash)
         return try Self.decodeTransaction(rawTransactionData, transactionHash: transactionHash)

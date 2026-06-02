@@ -27,7 +27,7 @@ extension OpalBase.CashTokens.BCMR.Client {
 
     public func resolveChainRegistry(authbase: OpalBase.Transaction.Hash) async throws -> ChainResolvedRegistry {
         let authhead = try await authchainResolver.resolveAuthhead(from: authbase)
-        let transaction = try await fetchTransaction(for: authhead)
+        let transaction = try await authchainResolver.fetchTransaction(for: authhead)
         guard let publication = findPublication(in: transaction) else {
             throw ChainRegistryResolverError.missingPublicationOutput(authhead)
         }
@@ -45,13 +45,6 @@ extension OpalBase.CashTokens.BCMR.Client {
 }
 
 private extension OpalBase.CashTokens.BCMR.Client {
-    func fetchTransaction(for transactionHash: OpalBase.Transaction.Hash) async throws -> OpalBase.Transaction {
-        let rawTransactionData = try await authchainResolver.transactionReader.fetchRawTransaction(
-            for: transactionHash
-        )
-        return try AuthchainResolver.decodeTransaction(rawTransactionData, transactionHash: transactionHash)
-    }
-    
     func findPublication(in transaction: OpalBase.Transaction) -> Publication? {
         for output in transaction.outputs {
             if let publication = Self.parsePublicationOutput(lockingScript: output.lockingScript) {
@@ -82,6 +75,8 @@ private extension OpalBase.CashTokens.BCMR.Client {
                     continue
                 }
                 return registryFetchResult
+            } catch let error as CancellationError {
+                throw error
             } catch {
                 lastError = ChainRegistryResolverError.registryFetchingFailed(uri, error)
             }
@@ -98,4 +93,5 @@ private extension OpalBase.CashTokens.BCMR.Client {
             throw ChainRegistryResolverError.registryDecodingFailed(error)
         }
     }
+
 }

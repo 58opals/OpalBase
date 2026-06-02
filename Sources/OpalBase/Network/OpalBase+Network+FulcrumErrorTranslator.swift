@@ -71,22 +71,6 @@ extension _OpalBase.Network {
                 stableMetadata(from: leftFailure.metadata) == stableMetadata(from: rightFailure.metadata)
         }
 
-        static func isCancellation(_ error: Swift.Error) -> Bool {
-            if error is CancellationError { return true }
-            if let failure = error as? OpalBase.Network.Error { return failure.reason == .cancelled }
-            if let fulcrumError = error as? SwiftFulcrum.Client.Error {
-                switch fulcrumError {
-                case .client(.cancelled):
-                    return true
-                case .client(.unknown(let underlying)):
-                    return underlying?.isCancellationError == true
-                default:
-                    return false
-                }
-            }
-            return false
-        }
-
         private static func stableMetadata(from metadata: [String: String]) -> [String: String] {
             metadata.reduce(into: [String: String]()) { result, entry in
                 guard entry.key != OpalBase.Network.Error.DiagnosticMetadataKey.serverIdentifier,
@@ -364,6 +348,6 @@ extension _OpalBase.Network {
 
 extension Swift.Error {
     var isCancellationError: Bool {
-        OpalBase.Network.FulcrumErrorTranslator.isCancellation(self)
+        OpalBaseCancellation.isCancellationError(self)
     }
 }

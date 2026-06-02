@@ -36,7 +36,7 @@ extension _OpalBase.Wallet {
                     )
                     return
                 }
-                let metadataByCategory = await withTaskGroup(
+                let metadataByCategory = try await withThrowingTaskGroup(
                     of: [OpalBase.CashTokens.CategoryID: OpalBase.CashTokens.Metadata].self
                 ) { group in
                     for category in targetCategories {
@@ -58,6 +58,8 @@ extension _OpalBase.Wallet {
                                     registry.registryFetchResult?.finalURL,
                                     to: metadata
                                 )
+                            } catch where OpalBaseCancellation.isCancellationError(error) {
+                                throw CancellationError()
                             } catch {
                                 return .init()
                             }
@@ -65,7 +67,7 @@ extension _OpalBase.Wallet {
                     }
 
                     var aggregatedMetadata: [OpalBase.CashTokens.CategoryID: OpalBase.CashTokens.Metadata] = .init()
-                    for await registryMetadata in group {
+                    for try await registryMetadata in group {
                         aggregatedMetadata.merge(registryMetadata) { current, _ in current }
                     }
                     return aggregatedMetadata.filter { category, _ in
@@ -179,4 +181,5 @@ private extension _OpalBase.Wallet {
             )
         }
     }
+
 }

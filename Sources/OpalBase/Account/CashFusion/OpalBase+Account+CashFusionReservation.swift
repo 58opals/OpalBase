@@ -28,10 +28,12 @@ extension _OpalBase.Account {
             return (roundReservation, true)
         }
 
-        func drainRoundReservations() -> [CashFusionRoundReservation] {
-            let roundReservations = Array(roundReservationByIdentifier.values)
+        func listRoundReservations() -> [CashFusionRoundReservation] {
+            Array(roundReservationByIdentifier.values)
+        }
+
+        func clearRoundReservations() {
             roundReservationByIdentifier.removeAll()
-            return roundReservations
         }
 
         func recordCompletedLocalOutputs(
@@ -108,7 +110,7 @@ extension _OpalBase.Account {
             reservedInputs.map(\.participantInput)
         }
 
-        func participantReservation(
+        func reserveParticipant(
             for roundIdentifier: OpalFusion.Round.Identifier
         ) async throws -> OpalFusion.Host.ParticipantReservation {
             if let existing = await roundReservations.roundReservation(for: roundIdentifier) {
@@ -129,7 +131,7 @@ extension _OpalBase.Account {
             }
         }
 
-        func participantReservation(
+        func reserveParticipant(
             for context: OpalFusion.Host.ParticipantReservationContext
         ) async throws -> OpalFusion.Host.ParticipantReservation {
             if let existing = await roundReservations.roundReservation(for: context.roundIdentifier) {
@@ -139,7 +141,7 @@ extension _OpalBase.Account {
             let roundReservation = try await makeRoundReservation(for: context)
             let stored = await roundReservations.insert(roundReservation)
             if stored.inserted == false {
-                try? await releaseReceivingEntries(
+                try? await addressBook.releaseCashFusionReceivingEntries(
                     roundReservation.reservedReceivingEntries,
                     shouldKeepUsed: false
                 )
@@ -198,7 +200,7 @@ extension _OpalBase.Account {
             inputOutcome: InputOutcome,
             shouldKeepUsed: Bool
         ) async throws {
-            let storedRoundReservations = await roundReservations.drainRoundReservations()
+            let storedRoundReservations = await roundReservations.listRoundReservations()
 
             switch inputOutcome {
             case .spent:
@@ -210,7 +212,8 @@ extension _OpalBase.Account {
             }
 
             let receivingEntries = reservedReceivingEntries + storedRoundReservations.flatMap(\.reservedReceivingEntries)
-            try await releaseReceivingEntries(receivingEntries, shouldKeepUsed: shouldKeepUsed)
+            try await addressBook.releaseCashFusionReceivingEntries(receivingEntries, shouldKeepUsed: shouldKeepUsed)
+            await roundReservations.clearRoundReservations()
         }
 
         private func makeCompletedLocalOutputs(
@@ -293,7 +296,7 @@ extension _OpalBase.Account {
 
             let reservedReceivingEntries: [OpalBase.Address.Book.Entry]
             do {
-                reservedReceivingEntries = try await reserveReceivingEntries(
+                reservedReceivingEntries = try await addressBook.reserveCashFusionReceivingEntries(
                     count: Self.valuePreservingOutputCount
                 )
             } catch {
@@ -311,7 +314,7 @@ extension _OpalBase.Account {
                     participantOutputs: participantOutputs
                 )
             } catch {
-                try await releaseReceivingEntries(
+                try await addressBook.releaseCashFusionReceivingEntries(
                     reservedReceivingEntries,
                     shouldKeepUsed: false
                 )
@@ -380,53 +383,6 @@ extension _OpalBase.Account {
                     required: required,
                     limit: context.numberOfComponents
                 )
-            }
-        }
-
-        private func reserveReceivingEntries(
-            count: Int
-        ) async throws -> [OpalBase.Address.Book.Entry] {
-            var reservedEntries: [OpalBase.Address.Book.Entry] = []
-            reservedEntries.reserveCapacity(count)
-
-            do {
-                for _ in 0..<count {
-                    let reservedEntry = try await addressBook.reserveNextEntry(for: .receiving)
-                    reservedEntries.append(reservedEntry)
-                }
-            } catch {
-                try await releaseReceivingEntries(
-                    reservedEntries,
-                    shouldKeepUsed: false
-                )
-                throw error
-            }
-
-            return reservedEntries
-        }
-
-        private func releaseReceivingEntries(
-            _ entries: [OpalBase.Address.Book.Entry],
-            shouldKeepUsed: Bool
-        ) async throws {
-            var firstError: Swift.Error?
-            var releasedAddresses = Set<OpalBase.Address>()
-
-            for entry in entries where releasedAddresses.insert(entry.address).inserted {
-                do {
-                    _ = try await addressBook.releaseReservation(
-                        address: entry.address,
-                        shouldKeepUsed: shouldKeepUsed
-                    )
-                } catch {
-                    if firstError == nil {
-                        firstError = error
-                    }
-                }
-            }
-
-            if let firstError {
-                throw firstError
             }
         }
 

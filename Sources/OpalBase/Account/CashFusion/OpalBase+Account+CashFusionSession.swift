@@ -62,9 +62,11 @@ extension _OpalBase.Account {
             await finalize(with: .stopped)
         }
 
-        func snapshot() async -> OpalFusion.Client.Session.Snapshot {
-            await OpalDiagnostics.withTraceID(traceID) {
-                await wrappedSession.snapshot()
+        var currentSnapshot: OpalFusion.Client.Session.Snapshot {
+            get async {
+                await OpalDiagnostics.withTraceID(traceID) {
+                    await wrappedSession.currentSnapshot
+                }
             }
         }
 
@@ -79,7 +81,8 @@ extension _OpalBase.Account {
                 preRoundTransportFailureRetryAttempt = 0
             }
 
-            if snapshot.lastError != nil,
+            if snapshot.state.isConnected == false,
+               snapshot.lastError != nil,
                snapshot.state.round == nil,
                isRetryingPreRoundTransportFailure(snapshot) == false {
                 await finalize(with: .failed)

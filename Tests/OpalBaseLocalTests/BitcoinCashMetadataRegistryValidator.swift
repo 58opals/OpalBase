@@ -734,8 +734,13 @@ struct BitcoinCashMetadataRegistryValidator {
         }
     }
 
-    @Test("chain registry resolution rejects trailing authhead payload bytes")
-    func chainRegistryResolutionRejectsTrailingAuthheadPayloadBytes() async throws {
+    @Test(
+        "chain registry resolution rejects invalid authhead payloads",
+        arguments: AuthchainInvalidPayloadCase.allCases
+    )
+    func chainRegistryResolutionRejectsInvalidAuthheadPayloads(
+        _ invalidPayloadCase: AuthchainInvalidPayloadCase
+    ) async throws {
         let registryURI = "https://registry.example/registry.json"
         let publicationScript = makePublicationScript(
             sha256: try BitcoinCashMetadataRegistryTestData.registryHash,
@@ -743,24 +748,20 @@ struct BitcoinCashMetadataRegistryValidator {
         )
         let rawTransactionData = try makeAuthchainTransactionData(lockingScript: publicationScript)
         let authbase = OpalBase.Transaction.Hash(naturalOrder: OpalCryptoAdapter.hash256(rawTransactionData))
+        let invalidAuthheadData: Data
+        switch invalidPayloadCase {
+        case .trailingBytes:
+            invalidAuthheadData = rawTransactionData + Data([0x00])
+        case .mismatchedHash:
+            invalidAuthheadData = try makeAuthchainTransactionData()
+        }
         let rawTransactions = RawTransactionSequence([
             rawTransactionData,
-            rawTransactionData + Data([0x00])
+            invalidAuthheadData
         ])
         let transactionReader = OpalBase.Network.TransactionReader { _ in
             try rawTransactions.next()
         }
-        let addressReader = makeUnusedAddressReader()
-        let scriptHashReader = OpalBase.Network.ScriptHashReader(
-            fetchHistory: { _, _ in [] },
-            fetchUnspent: { _, _ in [] }
-        )
-        let authchainResolver = OpalBase.CashTokens.BCMR.Client.AuthchainResolver(
-            transactionReader: transactionReader,
-            addressReader: addressReader,
-            scriptHashReader: scriptHashReader,
-            maxDepth: 0
-        )
         let (session, _) = makeRegistryTestSession { request in
             let url = try #require(request.url)
             let response = try #require(HTTPURLResponse(
@@ -775,18 +776,14 @@ struct BitcoinCashMetadataRegistryValidator {
             RegistryRedirectURLProtocol.requestHandler = nil
             session.invalidateAndCancel()
         }
-        let registryFetcher = OpalBase.CashTokens.BCMR.Client.Fetcher(
-            urlSession: session,
-            maxBytes: 1_024
-        )
-        let client = OpalBase.CashTokens.BCMR.Client(
-            authchainResolver: authchainResolver,
-            registryFetcher: registryFetcher
+        let client = makeChainRegistryTestClient(
+            transactionReader: transactionReader,
+            session: session
         )
 
         do {
             _ = try await client.resolveChainRegistry(authbase: authbase)
-            Issue.record("Expected chain registry resolution to reject trailing transaction bytes")
+            Issue.record("Expected chain registry resolution to reject \(invalidPayloadCase)")
         } catch let error as OpalBase.CashTokens.BCMR.Client.AuthchainResolver.Error {
             guard case .transactionDecodingFailed(let failedHash, let underlying) = error else {
                 Issue.record("Expected transactionDecodingFailed, got \(error)")
@@ -794,8 +791,14 @@ struct BitcoinCashMetadataRegistryValidator {
             }
             #expect(failedHash == authbase)
             let networkError = try #require(underlying as? OpalBase.Network.Error)
-            #expect(networkError.reason == .decoding)
-            #expect(networkError.message == "Transaction payload has trailing bytes")
+            #expect(networkError.reason == invalidPayloadCase.expectedReason)
+            #expect(networkError.message == invalidPayloadCase.expectedMessage)
+            if invalidPayloadCase.requiresHashMetadata {
+                #expect(networkError.metadata["expected"] == authbase.reverseOrder.hexadecimalString)
+                #expect(networkError.metadata["actual"] == OpalBase.Transaction.Hash(
+                    naturalOrder: OpalCryptoAdapter.hash256(invalidAuthheadData)
+                ).reverseOrder.hexadecimalString)
+            }
         } catch {
             Issue.record("Unexpected error: \(error)")
         }
@@ -814,17 +817,6 @@ struct BitcoinCashMetadataRegistryValidator {
         let transactionReader = OpalBase.Network.TransactionReader { _ in
             rawTransactionData
         }
-        let addressReader = makeUnusedAddressReader()
-        let scriptHashReader = OpalBase.Network.ScriptHashReader(
-            fetchHistory: { _, _ in [] },
-            fetchUnspent: { _, _ in [] }
-        )
-        let authchainResolver = OpalBase.CashTokens.BCMR.Client.AuthchainResolver(
-            transactionReader: transactionReader,
-            addressReader: addressReader,
-            scriptHashReader: scriptHashReader,
-            maxDepth: 0
-        )
         let (session, requestedURLs) = makeRegistryTestSession { request in
             let url = try #require(request.url)
             if url.path == "/registry.json" {
@@ -848,13 +840,9 @@ struct BitcoinCashMetadataRegistryValidator {
             RegistryRedirectURLProtocol.requestHandler = nil
             session.invalidateAndCancel()
         }
-        let registryFetcher = OpalBase.CashTokens.BCMR.Client.Fetcher(
-            urlSession: session,
-            maxBytes: 1_024
-        )
-        let client = OpalBase.CashTokens.BCMR.Client(
-            authchainResolver: authchainResolver,
-            registryFetcher: registryFetcher
+        let client = makeChainRegistryTestClient(
+            transactionReader: transactionReader,
+            session: session
         )
 
         let resolved = try await client.resolveChainRegistry(authbase: authbase)
@@ -877,17 +865,6 @@ struct BitcoinCashMetadataRegistryValidator {
         let transactionReader = OpalBase.Network.TransactionReader { _ in
             rawTransactionData
         }
-        let addressReader = makeUnusedAddressReader()
-        let scriptHashReader = OpalBase.Network.ScriptHashReader(
-            fetchHistory: { _, _ in [] },
-            fetchUnspent: { _, _ in [] }
-        )
-        let authchainResolver = OpalBase.CashTokens.BCMR.Client.AuthchainResolver(
-            transactionReader: transactionReader,
-            addressReader: addressReader,
-            scriptHashReader: scriptHashReader,
-            maxDepth: 0
-        )
         let (session, requestedURLs) = makeRegistryTestSession { request in
             let url = try #require(request.url)
             let response = try #require(HTTPURLResponse(
@@ -905,19 +882,46 @@ struct BitcoinCashMetadataRegistryValidator {
             RegistryRedirectURLProtocol.requestHandler = nil
             session.invalidateAndCancel()
         }
-        let registryFetcher = OpalBase.CashTokens.BCMR.Client.Fetcher(
-            urlSession: session,
-            maxBytes: 1_024
-        )
-        let client = OpalBase.CashTokens.BCMR.Client(
-            authchainResolver: authchainResolver,
-            registryFetcher: registryFetcher
+        let client = makeChainRegistryTestClient(
+            transactionReader: transactionReader,
+            session: session
         )
 
         let resolved = try await client.resolveChainRegistry(authbase: authbase)
 
         #expect(resolved.registry.version == "1")
         #expect(requestedURLs.values.map(\.absoluteString) == [primaryURI, fallbackURI])
+    }
+
+    @Test("chain registry resolution propagates registry fetch cancellation")
+    func chainRegistryResolutionPropagatesRegistryFetchCancellation() async throws {
+        let primaryURI = "https://registry.example/cancel.json"
+        let fallbackURI = "https://registry.example/registry.json"
+        let publicationScript = makePublicationScript(
+            sha256: try BitcoinCashMetadataRegistryTestData.registryHash,
+            uris: [primaryURI, fallbackURI]
+        )
+        let rawTransactionData = try makeAuthchainTransactionData(lockingScript: publicationScript)
+        let authbase = OpalBase.Transaction.Hash(naturalOrder: OpalCryptoAdapter.hash256(rawTransactionData))
+        let transactionReader = OpalBase.Network.TransactionReader { _ in
+            rawTransactionData
+        }
+        let (session, requestedURLs) = makeRegistryTestSession { _ in
+            throw CancellationError()
+        }
+        defer {
+            RegistryRedirectURLProtocol.requestHandler = nil
+            session.invalidateAndCancel()
+        }
+        let client = makeChainRegistryTestClient(
+            transactionReader: transactionReader,
+            session: session
+        )
+
+        await #expect(throws: CancellationError.self) {
+            _ = try await client.resolveChainRegistry(authbase: authbase)
+        }
+        #expect(requestedURLs.values.map(\.absoluteString) == [primaryURI])
     }
 
     @Test("registry fetcher resolves DNS and publication identifiers")
@@ -956,6 +960,29 @@ struct BitcoinCashMetadataRegistryValidator {
             "https://example.com/.well-known/bitcoin-cash-metadata-registry.json",
             "https://example.com/registry.json"
         ])
+    }
+
+    @Test("registry fetcher propagates cancellation")
+    func registryFetcherPropagatesCancellation() async throws {
+        let registryURI = "https://registry.example/registry.json"
+        let (session, requestedURLs) = makeRegistryTestSession { _ in
+            throw CancellationError()
+        }
+        defer {
+            RegistryRedirectURLProtocol.requestHandler = nil
+            session.invalidateAndCancel()
+        }
+        let fetcher = OpalBase.CashTokens.BCMR.Client.Fetcher(
+            urlSession: session,
+            maxBytes: 1_024
+        )
+
+        await #expect(throws: CancellationError.self) {
+            _ = try await fetcher.fetchRegistryBytes(
+                from: registryURI
+            )
+        }
+        #expect(requestedURLs.values.map(\.absoluteString) == [registryURI])
     }
 
     @Test("registry fetcher resolves IPFS through an HTTPS gateway")
@@ -1763,6 +1790,30 @@ private func makeUnusedAddressReader() -> OpalBase.Network.AddressReader {
         fetchMempoolTransactions: { _ in throw RegistryValidatorPlaceholderError.unused },
         fetchScriptHash: { _ in throw RegistryValidatorPlaceholderError.unused },
         subscribeToAddress: { _ in throw RegistryValidatorPlaceholderError.unused }
+    )
+}
+
+private func makeChainRegistryTestClient(
+    transactionReader: OpalBase.Network.TransactionReader,
+    session: URLSession
+) -> OpalBase.CashTokens.BCMR.Client {
+    let scriptHashReader = OpalBase.Network.ScriptHashReader(
+        fetchHistory: { _, _ in [] },
+        fetchUnspent: { _, _ in [] }
+    )
+    let authchainResolver = OpalBase.CashTokens.BCMR.Client.AuthchainResolver(
+        transactionReader: transactionReader,
+        addressReader: makeUnusedAddressReader(),
+        scriptHashReader: scriptHashReader,
+        maxDepth: 0
+    )
+    let registryFetcher = OpalBase.CashTokens.BCMR.Client.Fetcher(
+        urlSession: session,
+        maxBytes: 1_024
+    )
+    return OpalBase.CashTokens.BCMR.Client(
+        authchainResolver: authchainResolver,
+        registryFetcher: registryFetcher
     )
 }
 

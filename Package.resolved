@@ -25,7 +25,7 @@
       "location" : "https://github.com/58opals/OpalFusion.git",
       "state" : {
         "branch" : "develop",
-        "revision" : "52962272a6eb4a54be687a84aa088012597d7027"
+        "revision" : "e4bc3f032977e91086d4133560bd7deeca1143fd"
       }
     },
     {
@@ -35,15 +35,6 @@
       "state" : {
         "branch" : "develop",
         "revision" : "3e8beb2038c5c959a31bef0789cf647aaf68e023"
-      }
-    },
-    {
-      "identity" : "swift-protobuf",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/apple/swift-protobuf.git",
-      "state" : {
-        "branch" : "main",
-        "revision" : "9d87f9fc7809a53bad392a70e75e7039b1b52aa3"
       }
     },
     {

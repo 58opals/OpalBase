@@ -160,7 +160,7 @@ extension _OpalBase.Account {
         case .explicitAmounts(let outputAmounts):
             let reservedReceivingEntries: [OpalBase.Address.Book.Entry]
             do {
-                reservedReceivingEntries = try await reserveCashFusionReceivingEntries(
+                reservedReceivingEntries = try await addressBook.reserveCashFusionReceivingEntries(
                     count: outputAmounts.count
                 )
             } catch {
@@ -304,52 +304,6 @@ extension _OpalBase.Account {
             unspentOutput: selectedInput,
             status: .eligible(reservedInput)
         )
-    }
-
-    private func reserveCashFusionReceivingEntries(
-        count: Int
-    ) async throws -> [OpalBase.Address.Book.Entry] {
-        var reservedEntries: [OpalBase.Address.Book.Entry] = []
-        reservedEntries.reserveCapacity(count)
-
-        do {
-            for _ in 0..<count {
-                let reservedEntry = try await addressBook.reserveNextEntry(for: .receiving)
-                reservedEntries.append(reservedEntry)
-            }
-        } catch {
-            try await releaseCashFusionReceivingEntries(
-                reservedEntries,
-                shouldKeepUsed: false
-            )
-            throw error
-        }
-
-        return reservedEntries
-    }
-
-    private func releaseCashFusionReceivingEntries(
-        _ entries: [OpalBase.Address.Book.Entry],
-        shouldKeepUsed: Bool
-    ) async throws {
-        var firstError: Swift.Error?
-
-        for entry in entries {
-            do {
-                _ = try await addressBook.releaseReservation(
-                    address: entry.address,
-                    shouldKeepUsed: shouldKeepUsed
-                )
-            } catch {
-                if firstError == nil {
-                    firstError = error
-                }
-            }
-        }
-
-        if let firstError {
-            throw firstError
-        }
     }
 }
 

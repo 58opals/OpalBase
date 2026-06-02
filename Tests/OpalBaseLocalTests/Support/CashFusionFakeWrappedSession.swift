@@ -10,7 +10,7 @@ actor CashFusionFakeWrappedSession: OpalBase.Account.CashFusionWrappedSession {
 
     private var startCount = 0
     private var stopCount = 0
-    private var currentSnapshot: OpalFusion.Client.Session.Snapshot = .init()
+    private var storedSnapshot: OpalFusion.Client.Session.Snapshot = .init()
     private var snapshotTraceIDs: [OpalDiagnostics.TraceID?] = []
 
     init(
@@ -27,13 +27,15 @@ actor CashFusionFakeWrappedSession: OpalBase.Account.CashFusionWrappedSession {
         stopCount += 1
     }
 
-    func snapshot() async -> OpalFusion.Client.Session.Snapshot {
-        snapshotTraceIDs.append(OpalDiagnostics.currentTraceID)
-        return currentSnapshot
+    var currentSnapshot: OpalFusion.Client.Session.Snapshot {
+        get async {
+            snapshotTraceIDs.append(OpalDiagnostics.currentTraceID)
+            return storedSnapshot
+        }
     }
 
     func emit(snapshot: OpalFusion.Client.Session.Snapshot) async {
-        currentSnapshot = snapshot
+        storedSnapshot = snapshot
         await stateObserver?.receive(snapshot)
     }
 

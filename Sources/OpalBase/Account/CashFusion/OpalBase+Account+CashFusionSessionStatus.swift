@@ -144,15 +144,17 @@ extension _OpalBase.Account {
 extension _OpalBase.Account.CashFusionSessionStatus {
     init(
         snapshot: OpalFusion.Client.Session.Snapshot,
-        completedLocalOutputs: [OpalBase.Transaction.Output.Unspent] = []
+        completedLocalOutputs: [OpalBase.Transaction.Output.Unspent] = [],
+        activityOverride: OpalBase.Account.CashFusionSessionStatus.Activity? = nil,
+        retryAttempt: Int? = nil
     ) {
         self.init(
             isConnected: snapshot.state.isConnected,
             round: snapshot.state.round.map(Self.makeRound(_:)),
             lastError: snapshot.lastError.map(Self.makeLastError(_:)),
             lastErrorSummary: snapshot.lastErrorSummary,
-            activity: Self.makeActivity(snapshot),
-            retryAttempt: nil,
+            activity: activityOverride ?? Self.makeActivity(snapshot),
+            retryAttempt: retryAttempt,
             nextRetryDelayMilliseconds: nil,
             coordinatorStatus: Self.makeCoordinatorStatus(snapshot.coordinatorStatus),
             completedLocalOutputs: completedLocalOutputs
@@ -235,7 +237,7 @@ extension _OpalBase.Account.CashFusionSessionStatus {
     private static func makeActivity(
         _ snapshot: OpalFusion.Client.Session.Snapshot
     ) -> OpalBase.Account.CashFusionSessionStatus.Activity {
-        if snapshot.lastError != nil {
+        if snapshot.lastError != nil, snapshot.state.isConnected == false {
             return .failed
         }
 
@@ -280,8 +282,27 @@ extension _OpalBase.Account.CashFusionSession {
         let completedLocalOutputs = await completedLocalOutputs(for: sessionSnapshot)
         return .init(
             snapshot: sessionSnapshot,
-            completedLocalOutputs: completedLocalOutputs
+            completedLocalOutputs: completedLocalOutputs,
+            activityOverride: publicStatusActivityOverride,
+            retryAttempt: publicStatusRetryAttempt
         )
+    }
+
+    private var publicStatusActivityOverride: OpalBase.Account.CashFusionSessionStatus.Activity? {
+        switch terminalOutcome {
+        case .failed?:
+            return .failed
+        case .stopped?:
+            return .stopped
+        case .success?:
+            return nil
+        case .none:
+            return publicStatusRetryAttempt == nil ? nil : .retrying
+        }
+    }
+
+    private var publicStatusRetryAttempt: Int? {
+        preRoundTransportFailureRetryAttempt > 0 ? preRoundTransportFailureRetryAttempt : nil
     }
     
     private func publicStatusSnapshot() async -> OpalFusion.Client.Session.Snapshot {
@@ -289,7 +310,7 @@ extension _OpalBase.Account.CashFusionSession {
             return successfulTerminalSnapshot
         }
         
-        return await snapshot()
+        return await currentSnapshot
     }
 
     private func completedLocalOutputs(

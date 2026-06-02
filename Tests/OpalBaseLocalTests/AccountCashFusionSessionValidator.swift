@@ -17,14 +17,6 @@ struct AccountCashFusionSessionValidator {
         )
     }
 
-    @Test("non-transport pre-round failure releases reservations")
-    func nonTransportPreRoundFailureReleasesReservations() async throws {
-        try await assertPreRoundFatalFailureReleasesReservation(
-            lastError: .invalidConfiguration,
-            hashByte: 0xE1
-        )
-    }
-
     @Test("pre-round transport failure keeps reservations active while reconnect is enabled")
     func preRoundTransportFailureKeepsReservationsActiveWhileReconnectIsEnabled() async throws {
         let account = try await AccountTestFixtures.makeAccount()
@@ -57,6 +49,9 @@ struct AccountCashFusionSessionValidator {
 
         #expect(await fakeSession.readStartCount() == 1)
         #expect(await fakeSession.readStopCount() == 0)
+        let retryingStatus = await session.makePublicStatus()
+        #expect(retryingStatus.activity == .retrying)
+        #expect(retryingStatus.retryAttempt == 1)
         try await assertReceivingEntries(
             reservation.reservedReceivingEntries,
             on: account,
@@ -76,6 +71,9 @@ struct AccountCashFusionSessionValidator {
         )
 
         #expect(await fakeSession.readStopCount() == 0)
+        let recoveredStatus = await session.makePublicStatus()
+        #expect(recoveredStatus.activity == .idle)
+        #expect(recoveredStatus.retryAttempt == nil)
         try await assertReceivingEntries(
             reservation.reservedReceivingEntries,
             on: account,
@@ -90,6 +88,63 @@ struct AccountCashFusionSessionValidator {
             )
         )
 
+        #expect(await fakeSession.readStopCount() == 1)
+        try await assertReceivingEntries(
+            reservation.reservedReceivingEntries,
+            on: account,
+            expectedUsed: true,
+            expectedReserved: false
+        )
+        #expect(await addressBook.listUTXOs().contains(selectedInput) == false)
+        #expect(await addressBook.listSpendableUTXOs().contains(selectedInput) == false)
+    }
+
+    @Test("connected pre-round error does not finalize the session")
+    func connectedPreRoundErrorDoesNotFinalizeTheSession() async throws {
+        let account = try await AccountTestFixtures.makeAccount()
+        let selectedInput = try await CashFusionTestSupport.makeWalletOwnedUnspentOutput(
+            to: account,
+            value: 170_000,
+            usage: .change,
+            hashByte: 0xEA
+        )
+        let capture = CashFusionWrappedSessionCapture()
+        let session = try await makeSession(
+            account: account,
+            selectedInput: selectedInput,
+            capture: capture
+        )
+        let reservation = await session.reservation
+        let fakeSession = try #require(await capture.load())
+
+        await session.start()
+        await fakeSession.emit(
+            snapshot: .init(
+                state: .init(
+                    isConnected: true,
+                    round: nil
+                ),
+                lastError: .invalidConfiguration,
+                lastErrorSummary: "Retained diagnostic detail"
+            )
+        )
+
+        #expect(await fakeSession.readStopCount() == 0)
+        try await assertReceivingEntries(
+            reservation.reservedReceivingEntries,
+            on: account,
+            expectedUsed: true,
+            expectedReserved: true
+        )
+
+        await fakeSession.emit(
+            snapshot: CashFusionTestSupport.makeSnapshot(
+                phase: .completed,
+                completionStatus: .success
+            )
+        )
+
+        let addressBook = await account.addressBook
         #expect(await fakeSession.readStopCount() == 1)
         try await assertReceivingEntries(
             reservation.reservedReceivingEntries,
@@ -206,8 +261,8 @@ struct AccountCashFusionSessionValidator {
         #expect(await addressBook.listSpendableUTXOs().contains(selectedInput))
     }
 
-    @Test("snapshot preserves the session trace identifier")
-    func snapshotPreservesTheSessionTraceIdentifier() async throws {
+    @Test("currentSnapshot preserves the session trace identifier")
+    func currentSnapshotPreservesTheSessionTraceIdentifier() async throws {
         let traceID = OpalDiagnostics.TraceID()
         let account = try await AccountTestFixtures.makeAccount()
         let selectedInput = try await CashFusionTestSupport.makeWalletOwnedUnspentOutput(
@@ -226,7 +281,7 @@ struct AccountCashFusionSessionValidator {
         }
         let fakeSession = try #require(await capture.load())
 
-        _ = await session.snapshot()
+        _ = await session.currentSnapshot
 
         #expect(await fakeSession.readSnapshotTraceIDs() == [traceID])
     }
@@ -349,7 +404,7 @@ struct AccountCashFusionSessionValidator {
             maximumExcessFeeSatoshis: 500
         )
 
-        _ = try await participantReservationSource.participantReservation(for: context)
+        _ = try await participantReservationSource.reserveParticipant(for: context)
         let roundReservation = try await reservation.roundReservation(for: context.roundIdentifier)
 
         await session.start()
@@ -705,6 +760,7 @@ struct AccountCashFusionSessionValidator {
         )
 
         let rejectedPublicStatus = await rejectedFixture.session.makePublicStatus()
+        #expect(rejectedPublicStatus.activity == .failed)
         #expect(rejectedPublicStatus.completedLocalOutputs.isEmpty)
 
         let stoppedFixture = try await makeSessionWithRecordedCompletedOutput(
@@ -715,6 +771,7 @@ struct AccountCashFusionSessionValidator {
         await stoppedFixture.session.stop()
 
         let stoppedPublicStatus = await stoppedFixture.session.makePublicStatus()
+        #expect(stoppedPublicStatus.activity == .stopped)
         #expect(stoppedPublicStatus.completedLocalOutputs.isEmpty)
 
         let retryingFixture = try await makeSessionWithRecordedCompletedOutput(
@@ -815,6 +872,26 @@ struct AccountCashFusionSessionValidator {
         #expect(publicStatus.activity == .failed)
         #expect(publicStatus.retryAttempt == nil)
         #expect(publicStatus.nextRetryDelayMilliseconds == nil)
+    }
+
+    @Test("makePublicStatus keeps connected retained errors idle")
+    func makePublicStatusKeepsConnectedRetainedErrorsIdle() {
+        let publicStatus = OpalBase.Account.CashFusionSessionStatus(
+            snapshot: .init(
+                state: .init(
+                    isConnected: true,
+                    round: nil
+                ),
+                lastError: .transportUnavailable,
+                lastErrorSummary: "Previous connection failed"
+            )
+        )
+
+        #expect(publicStatus.isConnected)
+        #expect(publicStatus.lastError == .transportUnavailable)
+        #expect(publicStatus.lastErrorSummary == "Previous connection failed")
+        #expect(publicStatus.activity == .idle)
+        #expect(publicStatus.retryAttempt == nil)
     }
 
     @Test("makePublicStatus maps coordinator queue status")
@@ -1114,7 +1191,7 @@ private extension AccountCashFusionSessionValidator {
         in reservation: OpalBase.Account.CashFusionReservation,
         value: UInt64
     ) async throws -> [OpalBase.Transaction.Output.Unspent] {
-        _ = try await reservation.participantReservation(for: roundIdentifier)
+        _ = try await reservation.reserveParticipant(for: roundIdentifier)
         let selectedInput = try #require(reservation.selectedInputs.first)
         let localOutput = try makeLocalOutput(for: reservation, value: value)
         let finalizedTransaction = OpalBase.Transaction(

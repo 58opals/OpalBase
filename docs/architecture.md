@@ -10,8 +10,8 @@ Consumers use Opal Base when they need wallet flows, CashAddr management, spend 
 
 - `OpalCrypto` provides the cryptography, seed and key derivation primitives, and signing support consumed by wallet, account, and transaction flows in this package.
 - `SwiftFulcrum` provides the underlying Fulcrum protocol transport used by `OpalBase.Network.Fulcrum.Client` and the readers and clients layered on top of it.
-- Opal Base owns the app-facing orchestration above those packages: wallet state, address tracking, spend planning, history refresh, snapshotting, storage, and token metadata handling.
-- If a downstream app adds CashFusion support through Opal Fusion, that protocol/runtime boundary remains outside Opal Base. Opal Base is not the CashFusion runtime package.
+- `OpalFusion` provides the native CashFusion runtime and protocol behavior consumed by wallet-backed CashFusion flows in this package.
+- Opal Base owns the app-facing orchestration above those packages: wallet state, address tracking, spend planning, CashFusion reservation and session preparation, history refresh, snapshotting, storage, and token metadata handling.
 
 ## Downstream Integration
 
@@ -24,6 +24,7 @@ Consumers use Opal Base when they need wallet flows, CashAddr management, spend 
 - Actor-isolated wallet and account surfaces through `OpalBase.Wallet` and `OpalBase.Account`.
 - Deterministic address management and gap-limit-aware address-book behavior for BCH receiving and change flows.
 - BCH spend planning, transaction construction, signing, broadcast helpers, and confirmation or history refresh flows.
+- Wallet-backed CashFusion pilot orchestration over `OpalFusion.Client.Session` for explicitly selected wallet UTXOs and fresh wallet-owned receiving outputs.
 - Snapshotting and restoration of wallet, account, and token metadata state.
 - Storage helpers, including Secure Enclave-backed mnemonic protection through `OpalBase.Storage.Security.makeSecureEnclaveBacked`.
 - CashTokens and BCMR metadata support through `OpalBase.CashTokens.*`.

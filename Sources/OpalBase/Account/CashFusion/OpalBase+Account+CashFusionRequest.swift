@@ -18,9 +18,10 @@ extension _OpalBase.Account {
             selectedInputs: [OpalBase.Transaction.Output.Unspent],
             outputAmounts: [OpalBase.Satoshi]
         ) {
-            self.selectedInputs = selectedInputs
-            self.outputAmounts = outputAmounts
-            self.outputPolicy = .explicitAmounts(outputAmounts)
+            self.init(
+                selectedInputs: selectedInputs,
+                outputPolicy: .explicitAmounts(outputAmounts)
+            )
         }
 
         public init(

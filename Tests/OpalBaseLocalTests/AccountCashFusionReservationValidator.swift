@@ -188,6 +188,9 @@ struct AccountCashFusionReservationValidator {
         await #expect(throws: OpalBase.Account.Error.cashFusionUnsupportedSelectedInputs) {
             _ = try await account.prepareCashFusionReservation(request: request)
         }
+
+        let addressBook = await account.addressBook
+        #expect(await addressBook.listSpendableUTXOs().contains(selectedInput))
     }
 
     @Test("reserved receiving outputs use fresh wallet-owned receiving entries")
@@ -202,6 +205,7 @@ struct AccountCashFusionReservationValidator {
         let expectedEntries = Array(
             await account.listEntries(for: .receiving).prefix(2)
         )
+        try #require(expectedEntries.count == 2)
         let reservation = try await account.prepareCashFusionReservation(
             request: .init(
                 selectedInputs: [selectedInput],
@@ -215,7 +219,7 @@ struct AccountCashFusionReservationValidator {
         #expect(reservation.reservedReceivingEntries.map(\.address) == expectedEntries.map(\.address))
         #expect(reservation.reservedReceivingEntries.allSatisfy { $0.derivationPath.usage == .receiving })
         #expect(reservation.reservedReceivingEntries.allSatisfy { $0.isReserved })
-        let participantReservation = try await reservation.participantReservation(
+        let participantReservation = try await reservation.reserveParticipant(
             for: .init(rawValue: "round-explicit-outputs")
         )
 
@@ -250,7 +254,7 @@ struct AccountCashFusionReservationValidator {
             maximumExcessFeeSatoshis: 500
         )
 
-        let participantReservation = try await reservation.participantReservation(for: context)
+        let participantReservation = try await reservation.reserveParticipant(for: context)
         let roundReservation = try await reservation.roundReservation(for: context.roundIdentifier)
         let output = try #require(participantReservation.outputs.first)
         let receivingEntry = try #require(roundReservation.reservedReceivingEntries.first)
@@ -290,7 +294,7 @@ struct AccountCashFusionReservationValidator {
                 limit: 1
             )
         ) {
-            _ = try await reservation.participantReservation(for: context)
+            _ = try await reservation.reserveParticipant(for: context)
         }
         await #expect(
             throws: OpalBase.Account.CashFusionRoundReservationError.missingRoundReservation(
@@ -301,6 +305,47 @@ struct AccountCashFusionReservationValidator {
         }
 
         try await reservation.cancel()
+    }
+
+    @Test("failed cancel preserves round reservations for retry")
+    func failedCancelPreservesRoundReservationsForRetry() async throws {
+        let account = try await AccountTestFixtures.makeAccount()
+        let foreignAccount = try await AccountTestFixtures.makeAccount(unhardenedIndex: 1)
+        let foreignReceivingEntry = try #require(
+            await foreignAccount.listEntries(for: .receiving).first
+        )
+        let participantOutput = OpalFusion.Host.ParticipantOutput(
+            lockingScriptBytes: [UInt8](foreignReceivingEntry.address.lockingScript.data),
+            amountSatoshis: 50_000
+        )
+        let roundIdentifier = OpalFusion.Round.Identifier(rawValue: "round-cancel-release-failure")
+        let roundRegistry = OpalBase.Account.CashFusionRoundReservationRegistry()
+        _ = await roundRegistry.insert(
+            .init(
+                roundIdentifier: roundIdentifier,
+                reservedReceivingEntries: [foreignReceivingEntry],
+                participantOutputs: [participantOutput],
+                participantReservation: .init(
+                    inputs: [],
+                    outputs: [participantOutput]
+                )
+            )
+        )
+        let addressBook = await account.addressBook
+        let reservation = OpalBase.Account.CashFusionReservation(
+            addressBook: addressBook,
+            reservedInputs: [],
+            reservedReceivingEntries: [],
+            outputStrategy: .explicit([]),
+            roundReservations: roundRegistry
+        )
+
+        await #expect(throws: OpalBase.Address.Book.Error.addressNotFound) {
+            try await reservation.cancel()
+        }
+
+        let retainedRoundReservation = try await reservation.roundReservation(for: roundIdentifier)
+        #expect(retainedRoundReservation.roundIdentifier == roundIdentifier)
     }
 
     @Test("derived compressed public keys are attached to participant inputs")
@@ -325,7 +370,7 @@ struct AccountCashFusionReservationValidator {
             )
         )
 
-        let participantReservation = try await reservation.participantReservation(
+        let participantReservation = try await reservation.reserveParticipant(
             for: .init(rawValue: "round-derived-keys")
         )
 

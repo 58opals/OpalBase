@@ -8,7 +8,7 @@ extension _OpalBase.Account {
     protocol CashFusionWrappedSession: Sendable {
         func start() async
         func stop() async
-        func snapshot() async -> OpalFusion.Client.Session.Snapshot
+        var currentSnapshot: OpalFusion.Client.Session.Snapshot { get async }
     }
 
     typealias CashFusionWrappedSessionBuilder = @Sendable (

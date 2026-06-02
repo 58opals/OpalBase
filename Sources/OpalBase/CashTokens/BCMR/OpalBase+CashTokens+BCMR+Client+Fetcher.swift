@@ -50,7 +50,11 @@ extension OpalBase.CashTokens.BCMR.Client.Fetcher {
     
     public func fetchRegistry(from resourceIdentifier: String) async throws -> RegistryFetchResult {
         let resolvedResourceLocation = try resolveRegistryLocation(from: resourceIdentifier)
-        return try await fetchRegistry(from: resolvedResourceLocation, remainingRedirects: 5)
+        do {
+            return try await fetchRegistry(from: resolvedResourceLocation, remainingRedirects: 5)
+        } catch where OpalBaseCancellation.isCancellationError(error) {
+            throw CancellationError()
+        }
     }
 
     public func fetchRegistryBytes(from resourceIdentifier: String) async throws -> Data {
