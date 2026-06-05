@@ -8,6 +8,14 @@ import OpalBase
 
 @Suite("Public API smoke", .tags(.unit))
 struct PublicAPISmokeValidator {
+    @Test("mnemonic derives account xpubs through OpalBase only")
+    func mnemonicDerivesAccountExtendedPublicKeysThroughOpalBaseOnly() throws {
+        let serialized = try makeSmokeMnemonic().makeSerializedAccountExtendedPublicKey(account: 0)
+
+        #expect(serialized.hasPrefix("xpub"))
+        #expect(serialized.isEmpty == false)
+    }
+
     @Test("wallet, account, and network facades compose")
     func walletAccountAndNetworkFacadesCompose() async throws {
         let wallet = try OpalBase.Wallet(mnemonic: makeSmokeMnemonic())

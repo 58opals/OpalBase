@@ -15,8 +15,8 @@ extension _OpalBase.Wallet {
             bchSpendable = try bchSpendable + balances.bchSpendable
             try mergeFungibleAmounts(from: balances.tokenInventory.fungibleAmountsByCategory,
                                      into: &fungibleAmountsByCategory)
-            mergeNonFungibleTokens(from: balances.tokenInventory.nonFungibleTokensByGroup,
-                                   into: &nonFungibleTokensByGroup)
+            try mergeNonFungibleTokens(from: balances.tokenInventory.nonFungibleTokensByGroup,
+                                       into: &nonFungibleTokensByGroup)
         }
         
         let tokenInventory = OpalBase.Account.TokenInventory(
@@ -49,9 +49,12 @@ private extension _OpalBase.Wallet {
     }
     
     func mergeNonFungibleTokens(from additions: [OpalBase.Account.TokenInventory.NonFungibleTokenGroup: Int],
-                                into totals: inout [OpalBase.Account.TokenInventory.NonFungibleTokenGroup: Int]) {
+                                into totals: inout [OpalBase.Account.TokenInventory.NonFungibleTokenGroup: Int]) throws {
         for (group, count) in additions {
-            totals[group, default: 0] += count
+            totals[group] = try (totals[group] ?? 0).addOrThrow(
+                count,
+                overflowError: OpalBase.Account.Error.paymentExceedsMaximumAmount
+            )
         }
     }
 }

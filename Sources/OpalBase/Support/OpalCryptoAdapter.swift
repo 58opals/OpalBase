@@ -74,6 +74,23 @@ enum OpalCryptoAdapter {
         Data(hash160(compressedPublicKeyData).prefix(4))
     }
 
+    static func makeSerializedAccountExtendedPublicKey(
+        seed: Data,
+        purpose: OpalBase.Key.DerivationPath.Purpose,
+        coinType: OpalBase.Key.DerivationPath.CoinType,
+        account: OpalBase.Key.DerivationPath.Account
+    ) throws -> String {
+        let rootExtendedPrivateKey = try OpalCrypto.Key.ExtendedPrivate.root(
+            seed: OpalCrypto.Key.Seed(rawRepresentation: seed)
+        )
+        let accountExtendedPrivateKey = try rootExtendedPrivateKey.derived(indices: [
+            purpose.hardenedIndex,
+            coinType.hardenedIndex,
+            account.deriveHardenedIndex()
+        ])
+        return accountExtendedPrivateKey.publicKey.serialize()
+    }
+
     static func serializedExtendedKeyData(_ serialized: String) throws -> Data {
         guard let data = decodeBase58(serialized) else {
             throw Error.invalidSerializedExtendedKey

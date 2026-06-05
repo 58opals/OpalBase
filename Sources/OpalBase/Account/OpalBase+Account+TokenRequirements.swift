@@ -40,7 +40,10 @@ extension _OpalBase.Account {
                 let group = OpalBase.Address.Book.TokenInventory.NonFungibleTokenGroup(category: category,
                                                                               commitment: nonFungibleToken.commitment,
                                                                               capability: nonFungibleToken.capability)
-                nonFungibleTokens[group, default: 0] += 1
+                nonFungibleTokens[group] = try (nonFungibleTokens[group] ?? 0).addOrThrow(
+                    1,
+                    overflowError: Error.paymentExceedsMaximumAmount
+                )
                 requirements = TokenRequirements(category: category,
                                                  fungibleAmount: requirements.fungibleAmount,
                                                  nonFungibleTokens: nonFungibleTokens)
@@ -73,7 +76,10 @@ extension _OpalBase.Account {
                 let group = OpalBase.Address.Book.TokenInventory.NonFungibleTokenGroup(category: tokenData.category,
                                                                               commitment: nonFungibleToken.commitment,
                                                                               capability: nonFungibleToken.capability)
-                nonFungibleTokens[group, default: 0] += 1
+                nonFungibleTokens[group] = try (nonFungibleTokens[group] ?? 0).addOrThrow(
+                    1,
+                    overflowError: Error.paymentExceedsMaximumAmount
+                )
             }
         }
         return TokenSelectionInventory(category: category,

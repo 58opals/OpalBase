@@ -88,7 +88,10 @@ private extension _OpalBase.Address.Book {
                 let group = TokenInventory.NonFungibleTokenGroup(category: tokenData.category,
                                                                  commitment: nonFungibleToken.commitment,
                                                                  capability: nonFungibleToken.capability)
-                nonFungibleTokensByGroup[group, default: 0] += 1
+                nonFungibleTokensByGroup[group] = try (nonFungibleTokensByGroup[group] ?? 0).addOrThrow(
+                    1,
+                    overflowError: Error.paymentExceedsMaximumAmount
+                )
             }
         }
         return TokenInventory(fungibleAmountsByCategory: fungibleAmountsByCategory,

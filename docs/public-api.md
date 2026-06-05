@@ -25,6 +25,17 @@ try await wallet.addAccount(unhardenedIndex: 0)
 let account = try await wallet.fetchAccount(at: 0)
 ```
 
+For descriptor persistence, callers can derive the account-level read-only extended public key from mnemonic material without importing lower-level cryptography packages:
+
+```swift
+let accountXpub = try mnemonic.makeSerializedAccountExtendedPublicKey(
+    passphrase: passphrase,
+    purpose: .bip44,
+    coinType: .bitcoinCash,
+    account: 0
+)
+```
+
 To restore from persisted state, use `OpalBase.Storage.PersistenceSession` when possible. Custom import/export layers can use `OpalBase.Wallet.Snapshot`, `OpalBase.Account.Snapshot`, and `OpalBase.Storage.SnapshotStore`.
 
 ## Receiving Addresses

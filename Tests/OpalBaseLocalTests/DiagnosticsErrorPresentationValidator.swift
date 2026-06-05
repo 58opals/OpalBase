@@ -844,6 +844,7 @@ struct DiagnosticsErrorPresentationValidator {
         case publicKey
         case derivationPath
         case mnemonic
+        case mnemonicAccountExtendedPublicKey
         case encoding
 
         var diagnosticsClassificationExpectation: (error: Swift.Error, expectedCode: OpalDiagnostics.ErrorCode) {
@@ -889,6 +890,8 @@ struct DiagnosticsErrorPresentationValidator {
                 return (OpalBase.Key.DerivationPath.Error.indexOverflow, .keyInvalid)
             case .mnemonic:
                 return (OpalBase.Key.Mnemonic.Error.invalidWordCount(actual: 11), .keyInvalid)
+            case .mnemonicAccountExtendedPublicKey:
+                return (OpalBase.Key.Mnemonic.Error.accountExtendedPublicKeyDerivationFailed, .keyInvalid)
             case .encoding:
                 return (OpalBase.Encoding.Error.invalidHexadecimalString, .encodingInvalid)
             }

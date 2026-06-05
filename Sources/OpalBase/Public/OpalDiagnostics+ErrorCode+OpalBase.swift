@@ -427,7 +427,8 @@ private extension OpalDiagnostics.ErrorCode {
              .ambiguousLanguage,
              .randomGenerationFailed,
              .wordListResourceMissing,
-             .invalidWordList:
+             .invalidWordList,
+             .accountExtendedPublicKeyDerivationFailed:
             .keyInvalid
         }
     }

@@ -82,6 +82,7 @@ extension _OpalBase.Key {
             case randomGenerationFailed(status: Int32)
             case wordListResourceMissing(language: Word.Language)
             case invalidWordList(language: Word.Language, actualCount: Int)
+            case accountExtendedPublicKeyDerivationFailed
         }
 
         public let words: [Word]
@@ -132,6 +133,26 @@ extension _OpalBase.Key {
                 return try makeOpalCryptoMnemonic().deriveSeed(passphrase: passphrase).rawRepresentation
             } catch {
                 throw Self.mapError(error)
+            }
+        }
+
+        public func makeSerializedAccountExtendedPublicKey(
+            passphrase: String = "",
+            purpose: OpalBase.Key.DerivationPath.Purpose = .bip44,
+            coinType: OpalBase.Key.DerivationPath.CoinType = .bitcoinCash,
+            account: UInt32
+        ) throws -> String {
+            let derivationAccount = try OpalBase.Key.DerivationPath.Account(rawIndexInteger: account)
+            let seed = try deriveSeed(passphrase: passphrase)
+            do {
+                return try OpalCryptoAdapter.makeSerializedAccountExtendedPublicKey(
+                    seed: seed,
+                    purpose: purpose,
+                    coinType: coinType,
+                    account: derivationAccount
+                )
+            } catch {
+                throw Mnemonic.Error.accountExtendedPublicKeyDerivationFailed
             }
         }
 
