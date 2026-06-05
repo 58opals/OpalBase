@@ -21,8 +21,7 @@ extension _OpalBase.Address {
             }
         }
         
-        let rootExtendedPrivateKey: OpalCrypto.Key.ExtendedPrivate?
-        let rootExtendedPublicKey: OpalCrypto.Key.ExtendedPublic
+        let keyOrigin: KeyOrigin
         let purpose: OpalBase.Key.DerivationPath.Purpose
         let coinType: OpalBase.Key.DerivationPath.CoinType
         let account: OpalBase.Key.DerivationPath.Account
@@ -39,9 +38,9 @@ extension _OpalBase.Address {
         var spendReservationStates: [UUID: SpendReservation.State]
         
         let entryPublisher = Entry.PublisherActor()
-        
+
         init(rootExtendedPrivateKey: OpalCrypto.Key.ExtendedPrivate? = nil,
-             rootExtendedPublicKey: OpalCrypto.Key.ExtendedPublic? = nil,
+             accountExtendedPublicKey: OpalCrypto.Key.ExtendedPublic? = nil,
              purpose: OpalBase.Key.DerivationPath.Purpose,
              coinType: OpalBase.Key.DerivationPath.CoinType,
              account: OpalBase.Key.DerivationPath.Account,
@@ -50,12 +49,10 @@ extension _OpalBase.Address {
              spendReservationExpirationInterval: TimeInterval = 10 * 60) async throws {
             guard gapLimit > 0 else { throw Error.indexOutOfBounds }
 
-            self.rootExtendedPrivateKey = rootExtendedPrivateKey
-            
             if let extendedPrivateKey = rootExtendedPrivateKey {
-                self.rootExtendedPublicKey = extendedPrivateKey.publicKey
-            } else if let extendedPublicKey = rootExtendedPublicKey {
-                self.rootExtendedPublicKey = extendedPublicKey
+                self.keyOrigin = .rootPrivate(extendedPrivateKey)
+            } else if let accountExtendedPublicKey {
+                self.keyOrigin = .accountPublic(accountExtendedPublicKey)
             } else {
                 throw Error.privateKeyNotFound
             }

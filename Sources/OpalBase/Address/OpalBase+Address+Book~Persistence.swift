@@ -6,7 +6,7 @@ import OpalCrypto
 extension _OpalBase.Address.Book {
     init(from snapshot: Snapshot,
          rootExtendedPrivateKey: OpalCrypto.Key.ExtendedPrivate? = nil,
-         rootExtendedPublicKey: OpalCrypto.Key.ExtendedPublic? = nil,
+         accountExtendedPublicKey: OpalCrypto.Key.ExtendedPublic? = nil,
          purpose: OpalBase.Key.DerivationPath.Purpose,
          coinType: OpalBase.Key.DerivationPath.CoinType,
          account: OpalBase.Key.DerivationPath.Account,
@@ -14,7 +14,7 @@ extension _OpalBase.Address.Book {
          cacheValidityDuration: TimeInterval = 10 * 60,
          spendReservationExpirationInterval: TimeInterval = 10 * 60) async throws {
         try await self.init(rootExtendedPrivateKey: rootExtendedPrivateKey,
-                            rootExtendedPublicKey: rootExtendedPublicKey,
+                            accountExtendedPublicKey: accountExtendedPublicKey,
                             purpose: purpose,
                             coinType: coinType,
                             account: account,
@@ -513,13 +513,28 @@ extension _OpalBase.Address.Book {
             }
         }
 
-        let numberOfMissingUnusedEntries = gapLimit - inventory.countUnusedEntries(for: usage)
+        let numberOfMissingUnusedEntries = countMissingGapEntries(
+            after: entrySnapshots,
+            usage: usage
+        )
         if numberOfMissingUnusedEntries > 0 {
             try await generateEntries(for: usage,
                                       entryCount: numberOfMissingUnusedEntries,
                                       isUsed: false,
                                       shouldNotifyNewEntries: false)
         }
+    }
+
+    private func countMissingGapEntries(
+        after entrySnapshots: [Snapshot.Entry],
+        usage: OpalBase.Key.DerivationPath.Usage
+    ) -> Int {
+        guard let highestUsedIndex = entrySnapshots.filter(\.isUsed).map(\.index).max() else {
+            return max(0, gapLimit - inventory.countUnusedEntries(for: usage))
+        }
+
+        let trailingUnusedCount = inventory.countEntries(for: usage) - Int(highestUsedIndex) - 1
+        return max(0, gapLimit - trailingUnusedCount)
     }
 }
 

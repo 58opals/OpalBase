@@ -830,6 +830,9 @@ struct DiagnosticsErrorPresentationValidator {
     enum OpalBaseErrorDomainClassificationCase: CaseIterable, Sendable {
         case wallet
         case account
+        case accountInvalidExtendedPublicKey
+        case accountExtendedPublicKeyMismatch
+        case accountPrivateKeyMaterialUnavailable
         case accountFeePreference
         case accountTokenSelection
         case network
@@ -853,6 +856,12 @@ struct DiagnosticsErrorPresentationValidator {
                 return (OpalBase.Wallet.Error.accountAlreadyExists(index: 0), .walletAccountAlreadyExists)
             case .account:
                 return (OpalBase.Account.Error.paymentHasNoRecipients, .accountPaymentInvalid)
+            case .accountInvalidExtendedPublicKey:
+                return (OpalBase.Account.Error.invalidAccountExtendedPublicKey, .keyInvalid)
+            case .accountExtendedPublicKeyMismatch:
+                return (OpalBase.Account.Error.accountExtendedPublicKeyDoesNotMatchAccount, .keyInvalid)
+            case .accountPrivateKeyMaterialUnavailable:
+                return (OpalBase.Account.Error.privateKeyMaterialUnavailable, .accountTransactionBuildFailed)
             case .accountFeePreference:
                 return (
                     OpalBase.Account.Error.feePreferenceUnavailable(NetworkStubError.forced("fee")),

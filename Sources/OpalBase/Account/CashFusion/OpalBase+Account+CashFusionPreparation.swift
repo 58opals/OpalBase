@@ -30,6 +30,7 @@ extension _OpalBase.Account {
                 OpalDiagnostics.Field.publicValue(OpalDiagnostics.Field.Name.inputCount, request.selectedInputs.count)
             ]
             do {
+                try requirePrivateKeyMaterial()
                 let reservation = try await prepareCashFusionReservation(request: request)
                 let participantReservationSource = CashFusionParticipantReservationSource(
                     reservation: reservation
@@ -81,6 +82,8 @@ extension _OpalBase.Account {
     func prepareCashFusionReservation(
         request: OpalBase.Account.CashFusionRequest
     ) async throws -> CashFusionReservation {
+        try requirePrivateKeyMaterial()
+
         guard request.selectedInputs.isEmpty == false else {
             throw Error.cashFusionHasNoSelectedInputs
         }
@@ -269,6 +272,8 @@ extension _OpalBase.Account {
                 at: entry.derivationPath.index,
                 for: entry.derivationPath.usage
             )
+        } catch OpalBase.Address.Book.Error.privateKeyNotFound {
+            throw Error.privateKeyMaterialUnavailable
         } catch {
             throw Error.cashFusionReservationFailed(error)
         }

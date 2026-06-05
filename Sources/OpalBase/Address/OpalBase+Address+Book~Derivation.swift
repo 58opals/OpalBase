@@ -5,7 +5,7 @@ import OpalCrypto
 
 extension _OpalBase.Address.Book {
     func buildUsageDerivationCacheIfNeeded() throws {
-        guard let rootExtendedPrivateKey else { return }
+        guard case .rootPrivate(let rootExtendedPrivateKey) = keyOrigin else { return }
         
         let accountIndex = try account.deriveHardenedIndex()
         let accountExtendedPrivateKey = try rootExtendedPrivateKey.derived(indices: [
@@ -45,10 +45,14 @@ extension _OpalBase.Address.Book {
         }
 
         let derivedPublicKey: OpalCrypto.Key.ExtendedPublic
-        if let extendedPrivateKey = rootExtendedPrivateKey {
+        switch keyOrigin {
+        case .rootPrivate(let extendedPrivateKey):
             derivedPublicKey = try extendedPrivateKey.derived(indices: derivationPath.makeIndices()).publicKey
-        } else {
-            derivedPublicKey = try rootExtendedPublicKey.derived(indices: derivationPath.makeIndices())
+        case .accountPublic(let accountExtendedPublicKey):
+            derivedPublicKey = try accountExtendedPublicKey.derived(indices: [
+                usage.unhardenedIndex,
+                index
+            ])
         }
         
         return try makeAddress(fromCompressedPublicKey: derivedPublicKey.publicKey.rawRepresentation)
@@ -61,7 +65,7 @@ extension _OpalBase.Address.Book {
             return try cachedUsageDerivation.baseExtendedPrivateKey.derived(indices: [index]).privateKey.rawRepresentation
         }
 
-        guard let extendedPrivateKey = rootExtendedPrivateKey else { throw Error.privateKeyNotFound }
+        guard case .rootPrivate(let extendedPrivateKey) = keyOrigin else { throw Error.privateKeyNotFound }
         let privateKey = try extendedPrivateKey.derived(indices: derivationPath.makeIndices()).privateKey
         
         return privateKey.rawRepresentation

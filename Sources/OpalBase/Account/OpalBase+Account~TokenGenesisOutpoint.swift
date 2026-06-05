@@ -7,6 +7,8 @@ extension _OpalBase.Account {
         feePolicy: OpalBase.Wallet.FeePolicy = .init(),
         using entryUsage: OpalBase.Key.DerivationPath.Usage = .change
     ) async throws -> SpendPlan {
+        try requirePrivateKeyMaterial()
+
         let spendableOutputs = await addressBook.listSpendableUTXOs()
         guard let selectedOutput = selectMaximumSpendableOutput(from: spendableOutputs,
                                                                 matching: { $0.tokenData == nil }) else {

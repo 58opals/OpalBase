@@ -152,6 +152,36 @@ struct SnapshotPersistenceValidator {
         #expect(restoredChangeEntries.allSatisfy { !$0.isUsed && !$0.isReserved })
     }
 
+    @Test("address book restore preserves trailing gap after sparse used entries")
+    func addressBookRestorePreservesTrailingGapAfterSparseUsedEntries() async throws {
+        let account = try await AccountTestFixtures.makeAccount()
+        let book = await account.addressBook
+        let restoredSnapshot = OpalBase.Address.Book.Snapshot(
+            receivingEntries: [
+                .init(
+                    usage: .receiving,
+                    index: 25,
+                    isUsed: true,
+                    isReserved: false,
+                    balance: nil,
+                    lastUpdated: nil
+                )
+            ],
+            changeEntries: [],
+            utxos: [],
+            transactions: []
+        )
+
+        try await book.refresh(with: restoredSnapshot)
+
+        let restoredReceivingEntries = await book.listEntries(for: .receiving)
+        let restoredReceivingIndexes = restoredReceivingEntries.map(\.derivationPath.index)
+
+        #expect(restoredReceivingEntries.count == 46)
+        #expect(restoredReceivingIndexes.suffix(20) == Array(UInt32(26)...UInt32(45)))
+        #expect(restoredReceivingEntries.suffix(20).allSatisfy { !$0.isUsed && !$0.isReserved })
+    }
+
     @Test("address book restore rejects entries in the wrong usage bucket")
     func addressBookRestoreRejectsWrongUsageBucket() async throws {
         let account = try await AccountTestFixtures.makeAccount()

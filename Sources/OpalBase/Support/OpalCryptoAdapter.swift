@@ -6,6 +6,8 @@ import OpalCrypto
 enum OpalCryptoAdapter {
     enum Error: Swift.Error, Equatable {
         case invalidSerializedExtendedKey
+        case invalidSerializedAccountExtendedPublicKey
+        case accountExtendedPublicKeyDoesNotMatchAccount
     }
 
     static let cashAddrCharacters: Set<Character> = Set("qpzry9x8gf2tvdw0s3jn54khce6mua7l")
@@ -83,12 +85,47 @@ enum OpalCryptoAdapter {
         let rootExtendedPrivateKey = try OpalCrypto.Key.ExtendedPrivate.root(
             seed: OpalCrypto.Key.Seed(rawRepresentation: seed)
         )
-        let accountExtendedPrivateKey = try rootExtendedPrivateKey.derived(indices: [
+        return try makeAccountExtendedPublicKey(
+            rootExtendedPrivateKey: rootExtendedPrivateKey,
+            purpose: purpose,
+            coinType: coinType,
+            account: account
+        ).serialize()
+    }
+
+    static func makeAccountExtendedPublicKey(
+        rootExtendedPrivateKey: OpalCrypto.Key.ExtendedPrivate,
+        purpose: OpalBase.Key.DerivationPath.Purpose,
+        coinType: OpalBase.Key.DerivationPath.CoinType,
+        account: OpalBase.Key.DerivationPath.Account
+    ) throws -> OpalCrypto.Key.ExtendedPublic {
+        try rootExtendedPrivateKey.derived(indices: [
             purpose.hardenedIndex,
             coinType.hardenedIndex,
             account.deriveHardenedIndex()
-        ])
-        return accountExtendedPrivateKey.publicKey.serialize()
+        ]).publicKey
+    }
+
+    static func parseAccountExtendedPublicKey(
+        _ serialized: String,
+        account: OpalBase.Key.DerivationPath.Account
+    ) throws -> OpalCrypto.Key.ExtendedPublic {
+        let accountExtendedPublicKey: OpalCrypto.Key.ExtendedPublic
+        do {
+            accountExtendedPublicKey = try OpalCrypto.Key.ExtendedPublic(serialized)
+        } catch {
+            throw Error.invalidSerializedAccountExtendedPublicKey
+        }
+
+        guard accountExtendedPublicKey.depth == 3 else {
+            throw Error.invalidSerializedAccountExtendedPublicKey
+        }
+
+        guard accountExtendedPublicKey.childIndex == (try account.deriveHardenedIndex()) else {
+            throw Error.accountExtendedPublicKeyDoesNotMatchAccount
+        }
+
+        return accountExtendedPublicKey
     }
 
     static func serializedExtendedKeyData(_ serialized: String) throws -> Data {

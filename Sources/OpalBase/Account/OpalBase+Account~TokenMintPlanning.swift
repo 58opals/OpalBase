@@ -22,6 +22,8 @@ extension _OpalBase.Account {
         feePolicy: OpalBase.Wallet.FeePolicy = .init(),
         beforeReservation: (@Sendable (OpalBase.Address.Book.Entry) async throws -> Void)?
     ) async throws -> TokenMintPlan {
+        try requirePrivateKeyMaterial()
+
         let spendableOutputs = await addressBook.sortSpendableUTXOs(by: { $0.value > $1.value })
         func isMintingAuthorityInput(_ output: OpalBase.Transaction.Output.Unspent) -> Bool {
             guard let tokenData = output.tokenData else { return false }

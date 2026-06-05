@@ -22,6 +22,8 @@ extension _OpalBase.Account {
         feePolicy: OpalBase.Wallet.FeePolicy = .init(),
         beforeReservation: (@Sendable (OpalBase.Address.Book.Entry) async throws -> Void)?
     ) async throws -> TokenGenesisPlan {
+        try requirePrivateKeyMaterial()
+
         guard !genesis.recipients.isEmpty || genesis.reservedSupplyToSelf != nil else {
             throw Error.tokenGenesisHasNoRecipients
         }

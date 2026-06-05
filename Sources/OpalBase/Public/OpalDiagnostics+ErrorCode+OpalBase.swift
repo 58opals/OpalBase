@@ -159,6 +159,9 @@ private extension OpalDiagnostics.ErrorCode {
         switch error {
         case .snapshotDoesNotMatchAccount:
             .accountSnapshotMismatch
+        case .invalidAccountExtendedPublicKey,
+             .accountExtendedPublicKeyDoesNotMatchAccount:
+            .keyInvalid
         case .paymentHasNoRecipients,
              .paymentExceedsMaximumAmount,
              .paymentDoesNotSupportTokensUseTokenTransfer,
@@ -197,7 +200,8 @@ private extension OpalDiagnostics.ErrorCode {
         case .transactionBuildFailed,
              .tokenGenesisCannotComputeDustThreshold,
              .tokenGenesisTransactionBuildFailed,
-             .tokenMutationCannotComputeDustThreshold:
+             .tokenMutationCannotComputeDustThreshold,
+             .privateKeyMaterialUnavailable:
             .accountTransactionBuildFailed
         case .broadcastFailed,
              .tokenGenesisBroadcastFailed,

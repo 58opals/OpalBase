@@ -7,7 +7,7 @@ import Testing
 
 @Suite("OpalBase.Key.Mnemonic account extended public keys", .tags(.unit))
 struct KeyMnemonicAccountExtendedPublicKeyValidator {
-    @Test("account xpub serialization is stable for a known mnemonic and path")
+    @Test("account extended public key serialization is stable for a known mnemonic and path")
     func accountExtendedPublicKeySerializationIsStable() throws {
         let serialized = try Self.makeSerializedAccountExtendedPublicKey()
 
@@ -33,7 +33,7 @@ struct KeyMnemonicAccountExtendedPublicKeyValidator {
         #expect(serialized != Self.expectedAccountExtendedPublicKey)
     }
 
-    @Test("returned account xpub parses and derives non-hardened receiving children")
+    @Test("returned account extended public key parses and derives non-hardened receiving children")
     func accountExtendedPublicKeyDerivesNonHardenedReceivingChildren() throws {
         let serialized = try Self.makeSerializedAccountExtendedPublicKey()
         let receivingChild = try OpalCrypto.Key.ExtendedPublic(serialized).derived(indices: [

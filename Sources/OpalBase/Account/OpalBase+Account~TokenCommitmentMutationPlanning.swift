@@ -19,6 +19,8 @@ extension _OpalBase.Account {
         feePolicy: OpalBase.Wallet.FeePolicy = .init(),
         beforeReservation: (@Sendable (OpalBase.Address.Book.Entry) async throws -> Void)?
     ) async throws -> TokenCommitmentMutationPlan {
+        try requirePrivateKeyMaterial()
+
         let spendableOutputs = await addressBook.sortSpendableUTXOs(by: { $0.value > $1.value })
         let authorityInput: OpalBase.Transaction.Output.Unspent
         switch mutation.target {

@@ -5,6 +5,9 @@ import Foundation
 extension _OpalBase.Account {
     public enum Error: Swift.Error {
         case snapshotDoesNotMatchAccount
+        case invalidAccountExtendedPublicKey
+        case accountExtendedPublicKeyDoesNotMatchAccount
+        case privateKeyMaterialUnavailable
         case balanceFetchTimeout(OpalBase.Address)
         case balanceRefreshFailed(OpalBase.Address, Swift.Error)
         case transactionHistoryRefreshFailed(OpalBase.Address, Swift.Error)
@@ -64,6 +67,9 @@ extension _OpalBase.Account.Error: Equatable {
     public static func == (lhs: OpalBase.Account.Error, rhs: OpalBase.Account.Error) -> Bool {
         switch (lhs, rhs) {
         case (.snapshotDoesNotMatchAccount, .snapshotDoesNotMatchAccount),
+            (.invalidAccountExtendedPublicKey, .invalidAccountExtendedPublicKey),
+            (.accountExtendedPublicKeyDoesNotMatchAccount, .accountExtendedPublicKeyDoesNotMatchAccount),
+            (.privateKeyMaterialUnavailable, .privateKeyMaterialUnavailable),
             (.paymentHasNoRecipients, .paymentHasNoRecipients),
             (.paymentExceedsMaximumAmount, .paymentExceedsMaximumAmount),
             (.cashFusionHasNoSelectedInputs, .cashFusionHasNoSelectedInputs),
@@ -170,6 +176,8 @@ extension _OpalBase.Account {
             return Error.transactionDetailsRefreshFailed(hash, underlying)
         case .transactionConfirmationRefreshFailed(let hash, let underlying):
             return Error.transactionConfirmationRefreshFailed(hash, underlying)
+        case .privateKeyNotFound:
+            return Error.privateKeyMaterialUnavailable
         default:
             return error
         }

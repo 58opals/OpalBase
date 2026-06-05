@@ -21,6 +21,7 @@ extension _OpalBase.Account {
                 fields: fields
             )
             do {
+                try requirePrivateKeyMaterial()
                 let entry = try await reserveNextReceivingEntry()
                 let privateKeyData = try await addressBook.generatePrivateKey(
                     at: entry.derivationPath.index,
@@ -80,6 +81,7 @@ extension _OpalBase.Account {
             )
 
             do {
+                try requirePrivateKeyMaterial()
                 let contractPlan = try OpalBase.Hedge.buildOpalHedgePlan(from: request)
                 let fundingRequest = try OpalHedge.Client.Context()
                     .createAnyHedgeContractFundingRequest(

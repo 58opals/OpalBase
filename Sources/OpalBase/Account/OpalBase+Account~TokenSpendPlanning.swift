@@ -17,6 +17,8 @@ extension _OpalBase.Account {
         feePolicy: OpalBase.Wallet.FeePolicy = .init(),
         beforeReservation: (@Sendable (OpalBase.Address.Book.Entry) async throws -> Void)?
     ) async throws -> TokenSpendPlan {
+        try requirePrivateKeyMaterial()
+
         guard !transfer.recipients.isEmpty || !transfer.burns.isEmpty else {
             throw Error.tokenTransferHasNoRecipients
         }

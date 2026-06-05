@@ -6,7 +6,7 @@ import OpalCrypto
 
 extension OpalBase {
     public actor Account: Identifiable {
-        private let rootExtendedPrivateKey: OpalCrypto.Key.ExtendedPrivate
+        private let rootExtendedPrivateKey: OpalCrypto.Key.ExtendedPrivate?
 
         let purpose: OpalBase.Key.DerivationPath.Purpose
         let coinType: OpalBase.Key.DerivationPath.CoinType
@@ -19,7 +19,8 @@ extension OpalBase {
         let privacyConfiguration: PrivacyShaperActor.Configuration
 
         init(
-            rootExtendedPrivateKey: OpalCrypto.Key.ExtendedPrivate,
+            rootExtendedPrivateKey: OpalCrypto.Key.ExtendedPrivate?,
+            serializedAccountExtendedPublicKey: String,
             purpose: OpalBase.Key.DerivationPath.Purpose,
             coinType: OpalBase.Key.DerivationPath.CoinType,
             account: OpalBase.Key.DerivationPath.Account,
@@ -32,7 +33,7 @@ extension OpalBase {
             self.account = account
 
             self.id = try [
-                try OpalCryptoAdapter.serializedExtendedKeyData(self.rootExtendedPrivateKey.serialize()),
+                try OpalCryptoAdapter.serializedExtendedKeyData(serializedAccountExtendedPublicKey),
                 self.purpose.hardenedIndex.data,
                 self.coinType.hardenedIndex.data,
                 self.account.deriveHardenedIndex().data,
@@ -40,6 +41,31 @@ extension OpalBase {
             self.addressBook = addressBook
             self.privacyConfiguration = privacyConfiguration
             self.privacyShaper = .init(configuration: privacyConfiguration)
+        }
+
+        init(
+            rootExtendedPrivateKey: OpalCrypto.Key.ExtendedPrivate,
+            purpose: OpalBase.Key.DerivationPath.Purpose,
+            coinType: OpalBase.Key.DerivationPath.CoinType,
+            account: OpalBase.Key.DerivationPath.Account,
+            addressBook: OpalBase.Address.Book,
+            privacyConfiguration: PrivacyShaperActor.Configuration = .standard
+        ) throws {
+            let accountExtendedPublicKey = try OpalCryptoAdapter.makeAccountExtendedPublicKey(
+                rootExtendedPrivateKey: rootExtendedPrivateKey,
+                purpose: purpose,
+                coinType: coinType,
+                account: account
+            )
+            try self.init(
+                rootExtendedPrivateKey: rootExtendedPrivateKey,
+                serializedAccountExtendedPublicKey: accountExtendedPublicKey.serialize(),
+                purpose: purpose,
+                coinType: coinType,
+                account: account,
+                addressBook: addressBook,
+                privacyConfiguration: privacyConfiguration
+            )
         }
 
         init(
@@ -119,6 +145,56 @@ extension OpalBase {
                 addressBook: addressBook,
                 privacyConfiguration: privacyConfiguration
             )
+        }
+
+        public init(
+            serializedAccountExtendedPublicKey: String,
+            purpose: OpalBase.Key.DerivationPath.Purpose,
+            coinType: OpalBase.Key.DerivationPath.CoinType,
+            account: UInt32,
+            snapshot: OpalBase.Account.Snapshot
+        ) async throws {
+            let accountPath = try OpalBase.Key.DerivationPath.Account(rawIndexInteger: account)
+            guard snapshot.purpose == purpose,
+                  snapshot.coinType == coinType,
+                  snapshot.accountUnhardenedIndex == accountPath.unhardenedIndex else {
+                throw Error.snapshotDoesNotMatchAccount
+            }
+
+            let accountExtendedPublicKey: OpalCrypto.Key.ExtendedPublic
+            do {
+                accountExtendedPublicKey = try OpalCryptoAdapter.parseAccountExtendedPublicKey(
+                    serializedAccountExtendedPublicKey,
+                    account: accountPath
+                )
+            } catch OpalCryptoAdapter.Error.accountExtendedPublicKeyDoesNotMatchAccount {
+                throw Error.accountExtendedPublicKeyDoesNotMatchAccount
+            } catch {
+                throw Error.invalidAccountExtendedPublicKey
+            }
+
+            let addressBook = try await OpalBase.Address.Book(
+                from: snapshot.addressBook.addressBookSnapshot,
+                accountExtendedPublicKey: accountExtendedPublicKey,
+                purpose: purpose,
+                coinType: coinType,
+                account: accountPath
+            )
+
+            try self.init(
+                rootExtendedPrivateKey: nil,
+                serializedAccountExtendedPublicKey: accountExtendedPublicKey.serialize(),
+                purpose: purpose,
+                coinType: coinType,
+                account: accountPath,
+                addressBook: addressBook
+            )
+        }
+
+        func requirePrivateKeyMaterial() throws {
+            guard rootExtendedPrivateKey != nil else {
+                throw Error.privateKeyMaterialUnavailable
+            }
         }
     }
 }

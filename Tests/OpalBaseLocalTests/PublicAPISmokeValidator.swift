@@ -8,12 +8,30 @@ import OpalBase
 
 @Suite("Public API smoke", .tags(.unit))
 struct PublicAPISmokeValidator {
-    @Test("mnemonic derives account xpubs through OpalBase only")
+    @Test("mnemonic derives account extended public keys through OpalBase only")
     func mnemonicDerivesAccountExtendedPublicKeysThroughOpalBaseOnly() throws {
         let serialized = try makeSmokeMnemonic().makeSerializedAccountExtendedPublicKey(account: 0)
 
         #expect(serialized.hasPrefix("xpub"))
         #expect(serialized.isEmpty == false)
+    }
+
+    @Test("read-only accounts initialize from descriptors through OpalBase only")
+    func verifyReadOnlyAccountsInitializeFromDescriptorsThroughOpalBaseOnly() async throws {
+        let mnemonic = try makeSmokeMnemonic()
+        let wallet = try OpalBase.Wallet(mnemonic: mnemonic)
+
+        try await wallet.addAccount(unhardenedIndex: 0)
+        let account = try await wallet.fetchAccount(at: 0)
+        let readOnlyAccount = try await OpalBase.Account(
+            serializedAccountExtendedPublicKey: mnemonic.makeSerializedAccountExtendedPublicKey(account: 0),
+            purpose: .bip44,
+            coinType: .bitcoinCash,
+            account: 0,
+            snapshot: await account.makeSnapshot()
+        )
+
+        #expect(await readOnlyAccount.unhardenedIndex == 0)
     }
 
     @Test("wallet, account, and network facades compose")

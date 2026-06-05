@@ -13,6 +13,8 @@ extension _OpalBase.Account {
         reservedChangeEntry: OpalBase.Address.Book.Entry,
         privateKeys: [OpalBase.Transaction.Output.Unspent: Data]
     ) {
+        try requirePrivateKeyMaterial()
+
         let reservation: OpalBase.Address.Book.SpendReservation
         do {
             reservation = try await addressBook.reserveSpend(utxos: utxos,
@@ -30,6 +32,9 @@ extension _OpalBase.Account {
                 try await addressBook.releaseSpendReservation(reservation, outcome: .cancelled)
             } catch let releaseError {
                 throw Error.transactionBuildFailed(releaseError)
+            }
+            if case OpalBase.Address.Book.Error.privateKeyNotFound = error {
+                throw Error.privateKeyMaterialUnavailable
             }
             throw Error.transactionBuildFailed(error)
         }

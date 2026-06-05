@@ -20,6 +20,7 @@ extension _OpalBase.Account {
             )
 
             do {
+                try requirePrivateKeyMaterial()
                 guard !payment.recipients.isEmpty else { throw Error.paymentHasNoRecipients }
 
                 if payment.recipients.contains(where: { $0.tokenData != nil }) { throw Error.paymentDoesNotSupportTokensUseTokenTransfer }
