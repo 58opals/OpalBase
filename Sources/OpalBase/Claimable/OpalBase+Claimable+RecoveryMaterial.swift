@@ -40,7 +40,7 @@ extension _OpalBase.Claimable {
             self.privateKeyData = Data(privateKeyData)
             self.compressedPublicKeyData = Data(compressedPublicKeyData)
             self.privateKeyHexadecimal = privateKeyData.hexadecimalString
-            self.privateKeyWalletImportFormat = try makeClaimableWalletImportFormat(
+            self.privateKeyWalletImportFormat = try ClaimablePrimitiveOperation.makeWalletImportFormat(
                 privateKey: privateKeyData,
                 network: contract.network
             )

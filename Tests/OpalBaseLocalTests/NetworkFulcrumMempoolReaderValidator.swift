@@ -97,9 +97,9 @@ extension NetworkFulcrumMempoolReaderValidator {
         var expectedMessage: String {
             switch self {
             case .fee:
-                return "Invalid mempool minimum fee: -1.0"
+                return "Invalid mempool minimum fee value"
             case .count:
-                return "Invalid unbroadcast count: -1"
+                return "Invalid unbroadcast count value"
             }
         }
 

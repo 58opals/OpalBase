@@ -48,7 +48,7 @@ extension _OpalBase.Claimable {
                         )
                     }
 
-                    let scriptHashHex = makeClaimableQueryScriptHashHex(
+                    let scriptHashHex = ClaimablePrimitiveOperation.makeQueryScriptHashHex(
                         from: envelope.contract.fundingLockingScriptData
                     )
                     let history = try await scriptHashReader.fetchHistory(
@@ -235,7 +235,7 @@ private extension _OpalBase.Claimable.StatusResolver {
             }
 
             for input in transaction.inputs where input.matchesClaimableOutpoint(envelope) {
-                if let spendPath = makeClaimableSpendPath(
+                if let spendPath = ClaimableSpendPathResolution.makeSpendPath(
                     from: input.unlockingScript,
                     expectedRedeemScriptData: envelope.contract.redeemScriptData
                 ) {

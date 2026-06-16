@@ -17,7 +17,7 @@ extension _OpalBase.Claimable {
             fundingOutputIndex: UInt32,
             fundingValue: UInt64
         ) throws {
-            let claimPublicKeyHash = try makeClaimablePublicKeyHash(
+            let claimPublicKeyHash = try ClaimablePrimitiveOperation.makePublicKeyHash(
                 from: claimPrivateKey,
                 invalidError: .invalidClaimPrivateKey
             )

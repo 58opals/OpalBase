@@ -78,7 +78,7 @@ enum CashFusionTestSupport {
         transaction: OpalBase.Transaction
     ) throws -> OpalFusion.Host.TransactionFinalizationProposal {
         .init(
-            unsignedTransactionBytes: [UInt8](try transaction.encode()),
+            unsignedFusionTransactionBytes: [UInt8](try transaction.encode()),
             expectedInputCount: transaction.inputs.count,
             expectedOutputCount: transaction.outputs.count
         )

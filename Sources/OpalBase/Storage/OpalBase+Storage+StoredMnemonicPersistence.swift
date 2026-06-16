@@ -2,22 +2,6 @@
 
 import Foundation
 
-private func isRecoverableStoredMnemonicLoadFailure(
-    _ error: Swift.Error
-) -> Bool {
-    switch error {
-    case OpalBase.Storage.Error.secureStoreFailure(let underlying),
-        OpalBase.Storage.Security.Error.decryptionFailure(let underlying):
-        return isRecoverableStoredMnemonicLoadFailure(underlying)
-    default:
-        break
-    }
-
-    let nsError = error as NSError
-    return nsError.domain == NSOSStatusErrorDomain
-        && nsError.code == Int(errSecItemNotFound)
-}
-
 extension _OpalBase.Storage {
     public struct StoredMnemonicPersistence: Sendable {
         private let performSaveMnemonic: @Sendable (
@@ -157,7 +141,23 @@ extension _OpalBase.Storage {
             saveMnemonicWithPolicy: saveMnemonic(_:generation:policy:),
             loadMnemonicState: loadMnemonicState(generation:),
             deleteMnemonic: deleteMnemonic(generation:),
-            recoverableLoadFailure: isRecoverableStoredMnemonicLoadFailure
+            recoverableLoadFailure: StoredMnemonicPersistence.isRecoverableLoadFailure
         )
+    }
+}
+
+private extension _OpalBase.Storage.StoredMnemonicPersistence {
+    static func isRecoverableLoadFailure(_ error: Swift.Error) -> Bool {
+        switch error {
+        case OpalBase.Storage.Error.secureStoreFailure(let underlying),
+            OpalBase.Storage.Security.Error.decryptionFailure(let underlying):
+            return isRecoverableLoadFailure(underlying)
+        default:
+            break
+        }
+
+        let nsError = error as NSError
+        return nsError.domain == NSOSStatusErrorDomain
+            && nsError.code == Int(errSecItemNotFound)
     }
 }

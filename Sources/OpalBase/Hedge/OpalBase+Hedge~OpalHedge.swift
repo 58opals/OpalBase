@@ -40,7 +40,7 @@ extension _OpalBase.Hedge {
         let preset = OpalHedge.Core.ContractPreset.usdSimpleHedgeThirtyDay
         let maturityTimestamp = try request.maturityTimestamp
             ?? (OpalHedge.Oracle.PriceMessage.parse(
-                hex: request.startingOracleProof.messageHex
+                rawHex: request.startingOracleProof.messageHex
             ).messageTimestamp + preset.durationInSeconds)
         let context = try OpalHedge.Core.ContractCreationContext(
             takerSide: request.walletParticipant.side.opalHedgeContractSide,
@@ -115,8 +115,8 @@ extension _OpalBase.Hedge {
             fundingAmount: try satoshi(from: output.satoshis),
             payoutAmount: try satoshi(from: output.payoutSatoshis),
             dustReserveAmount: try satoshi(from: output.dustReserveSatoshis),
-            redeemScriptBytecode: request.redeemScriptBytecode,
-            contractDataDocumentJSON: request.contractDataDocument.jsonText
+            redeemScriptBytecode: request.rawRedeemScriptBytecode,
+            contractDataDocumentJSON: request.domainDataDocument.jsonText
         )
     }
 
@@ -142,8 +142,8 @@ extension _OpalBase.Hedge {
         from summary: OpalHedge.BitcoinCash.AnyHedgeContractSettlementSummary,
         network _: OpalBase.Network.Environment
     ) throws -> SettlementSummary {
-        let fundingHash = try transactionHash(fromExternalHex: summary.fundingTransactionHash)
-        let settlementHash = try transactionHash(fromExternalHex: summary.settlementTransactionHash)
+        let fundingHash = try transactionHash(fromExternalHex: summary.rawFundingTransactionHash)
+        let settlementHash = try transactionHash(fromExternalHex: summary.rawSettlementTransactionHash)
         return SettlementSummary(
             kind: settlementKind(from: summary.settlementKind),
             fundingTransactionHash: fundingHash,
@@ -155,15 +155,15 @@ extension _OpalBase.Hedge {
             longPayoutAmount: try satoshi(from: summary.longPayoutInSatoshis),
             totalPayoutAmount: try satoshi(from: summary.totalPayoutInSatoshis),
             minerFeeAmount: try satoshi(from: summary.minerFeeInSatoshis),
-            previousOracleMessageHex: summary.previousOracleMessageHex,
-            previousOracleSignatureHex: summary.previousOracleSignatureHex,
+            previousOracleMessageHex: summary.rawPreviousOracleMessageHex,
+            previousOracleSignatureHex: summary.rawPreviousOracleSignatureHex,
             previousOracleTimestamp: summary.previousOracleMessageTimestamp,
             previousOracleSequence: summary.previousOracleMessageSequence,
-            settlementOracleMessageHex: summary.settlementOracleMessageHex,
-            settlementOracleSignatureHex: summary.settlementOracleSignatureHex,
+            settlementOracleMessageHex: summary.rawSettlementOracleMessageHex,
+            settlementOracleSignatureHex: summary.rawSettlementOracleSignatureHex,
             settlementOracleTimestamp: summary.settlementOracleMessageTimestamp,
             settlementOracleSequence: summary.settlementOracleMessageSequence,
-            dataDocumentJSON: summary.dataDocument.jsonText
+            dataDocumentJSON: summary.domainDataDocument.jsonText
         )
     }
 

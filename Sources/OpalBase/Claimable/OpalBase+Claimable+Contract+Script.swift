@@ -8,7 +8,7 @@ extension _OpalBase.Claimable.Contract {
         redeemScriptData.append(ScriptOperationCode._IF.data)
         redeemScriptData.append(OpalBase.Script.p2pkh_OPCHECKSIG(hash: .init(claimPublicKeyHash)).data)
         redeemScriptData.append(ScriptOperationCode._ELSE.data)
-        redeemScriptData.append(makeClaimableScriptNumberOperationData(for: expiryBlockHeight))
+        redeemScriptData.append(ClaimablePrimitiveOperation.makeScriptNumberOperationData(for: expiryBlockHeight))
         redeemScriptData.append(ScriptOperationCode._CHECKLOCKTIMEVERIFY.data)
         redeemScriptData.append(ScriptOperationCode._DROP.data)
         redeemScriptData.append(OpalBase.Script.p2pkh_OPCHECKSIG(hash: .init(refundPublicKeyHash)).data)

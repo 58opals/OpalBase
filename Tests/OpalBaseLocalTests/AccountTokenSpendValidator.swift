@@ -376,48 +376,48 @@ struct AccountTokenSpendValidator {
             try await addressBook.releaseSpendReservation(reservation, outcome: .cancelled)
         }
     }
-}
 
-private func makeAccount() async throws -> OpalBase.Account {
-    try await AccountTestFixtures.makeAccount()
-}
+    private func makeAccount() async throws -> OpalBase.Account {
+        try await AccountTestFixtures.makeAccount()
+    }
 
-private func makeTokenUnspentOutput(
-    category: OpalBase.CashTokens.CategoryID,
-    amount: UInt64,
-    nonFungibleToken: OpalBase.CashTokens.NFT? = nil,
-    previousTransactionByte: UInt8
-) -> OpalBase.Transaction.Output.Unspent {
-    OpalBase.Transaction.Output.Unspent(
-        value: 15_000,
-        lockingScript: Data([0x51]),
-        tokenData: OpalBase.CashTokens.TokenData(category: category, amount: amount, nft: nonFungibleToken),
-        previousTransactionHash: OpalBase.Transaction.Hash(naturalOrder: Data(repeating: previousTransactionByte, count: 32)),
-        previousTransactionOutputIndex: 0
-    )
-}
+    private func makeTokenUnspentOutput(
+        category: OpalBase.CashTokens.CategoryID,
+        amount: UInt64,
+        nonFungibleToken: OpalBase.CashTokens.NFT? = nil,
+        previousTransactionByte: UInt8
+    ) -> OpalBase.Transaction.Output.Unspent {
+        OpalBase.Transaction.Output.Unspent(
+            value: 15_000,
+            lockingScript: Data([0x51]),
+            tokenData: OpalBase.CashTokens.TokenData(category: category, amount: amount, nft: nonFungibleToken),
+            previousTransactionHash: OpalBase.Transaction.Hash(naturalOrder: Data(repeating: previousTransactionByte, count: 32)),
+            previousTransactionOutputIndex: 0
+        )
+    }
 
-private func makeSlicedData(from data: Data) -> Data {
-    let paddedData = Data([0x00]) + data
-    return paddedData[paddedData.index(after: paddedData.startIndex)...]
-}
+    private func makeSlicedData(from data: Data) -> Data {
+        let paddedData = Data([0x00]) + data
+        return paddedData[paddedData.index(after: paddedData.startIndex)...]
+    }
 
-private func addUnspentOutput(
-    to account: OpalBase.Account,
-    value: UInt64,
-    tokenData: OpalBase.CashTokens.TokenData?,
-    previousTransactionHash: OpalBase.Transaction.Hash,
-    previousTransactionOutputIndex: UInt32
-) async throws -> OpalBase.Transaction.Output.Unspent {
-    let addressBook = await account.addressBook
-    let receivingEntry = try await addressBook.selectNextEntry(for: OpalBase.Key.DerivationPath.Usage.receiving)
-    let unspentOutput = OpalBase.Transaction.Output.Unspent(
-        value: value,
-        lockingScript: receivingEntry.address.lockingScript.data,
-        tokenData: tokenData,
-        previousTransactionHash: previousTransactionHash,
-        previousTransactionOutputIndex: previousTransactionOutputIndex
-    )
-    await addressBook.addUTXOs([unspentOutput])
-    return unspentOutput
+    private func addUnspentOutput(
+        to account: OpalBase.Account,
+        value: UInt64,
+        tokenData: OpalBase.CashTokens.TokenData?,
+        previousTransactionHash: OpalBase.Transaction.Hash,
+        previousTransactionOutputIndex: UInt32
+    ) async throws -> OpalBase.Transaction.Output.Unspent {
+        let addressBook = await account.addressBook
+        let receivingEntry = try await addressBook.selectNextEntry(for: OpalBase.Key.DerivationPath.Usage.receiving)
+        let unspentOutput = OpalBase.Transaction.Output.Unspent(
+            value: value,
+            lockingScript: receivingEntry.address.lockingScript.data,
+            tokenData: tokenData,
+            previousTransactionHash: previousTransactionHash,
+            previousTransactionOutputIndex: previousTransactionOutputIndex
+        )
+        await addressBook.addUTXOs([unspentOutput])
+        return unspentOutput
+    }
 }

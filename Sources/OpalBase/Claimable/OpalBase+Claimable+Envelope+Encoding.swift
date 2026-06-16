@@ -12,7 +12,7 @@ extension _OpalBase.Claimable.Envelope {
             var writer = Data.Writer()
             writer.reserveCapacity(Self.encodedByteCount)
             writer.writeByte(Self.version)
-            writer.writeByte(makeClaimableNetworkTag(for: contract.network))
+            writer.writeByte(Self.makeNetworkTag(for: contract.network))
             writer.writeLittleEndian(contract.expiryBlockHeight)
             writer.writeData(contract.refundPublicKeyHash)
             writer.writeData(claimPrivateKey)
@@ -115,7 +115,7 @@ extension _OpalBase.Claimable.Envelope {
         }
 
         let networkTag: UInt8 = try reader.readLittleEndian()
-        let network = try makeClaimableNetwork(from: networkTag)
+        let network = try Self.makeNetwork(from: networkTag)
         let expiryBlockHeight: UInt32 = try reader.readLittleEndian()
         let refundPublicKeyHash = try reader.readData(count: 20)
         let claimPrivateKey = try reader.readData(count: 32)
@@ -123,7 +123,7 @@ extension _OpalBase.Claimable.Envelope {
         let fundingOutputIndex: UInt32 = try reader.readLittleEndian()
         let fundingValue: UInt64 = try reader.readLittleEndian()
 
-        let claimPublicKeyHash = try makeClaimablePublicKeyHash(
+        let claimPublicKeyHash = try ClaimablePrimitiveOperation.makePublicKeyHash(
             from: claimPrivateKey,
             invalidError: .invalidClaimPrivateKey
         )
@@ -154,28 +154,27 @@ extension _OpalBase.Claimable.Envelope {
             OpalDiagnostics.Field.publicValue(OpalDiagnostics.Field.Name.byteCount, byteCount)
         ].compactMap { $0 }
     }
-}
-
-private func makeClaimableNetworkTag(for network: OpalBase.Network.Environment) -> UInt8 {
-    switch network {
-    case .mainnet:
-        return 0
-    case .chipnet:
-        return 1
-    case .testnet:
-        return 2
+    private static func makeNetworkTag(for network: OpalBase.Network.Environment) -> UInt8 {
+        switch network {
+        case .mainnet:
+            return 0
+        case .chipnet:
+            return 1
+        case .testnet:
+            return 2
+        }
     }
-}
 
-private func makeClaimableNetwork(from networkTag: UInt8) throws -> OpalBase.Network.Environment {
-    switch networkTag {
-    case 0:
-        return .mainnet
-    case 1:
-        return .chipnet
-    case 2:
-        return .testnet
-    default:
-        throw OpalBase.Claimable.Error.invalidNetworkTag(networkTag)
+    private static func makeNetwork(from networkTag: UInt8) throws -> OpalBase.Network.Environment {
+        switch networkTag {
+        case 0:
+            return .mainnet
+        case 1:
+            return .chipnet
+        case 2:
+            return .testnet
+        default:
+            throw OpalBase.Claimable.Error.invalidNetworkTag(networkTag)
+        }
     }
 }

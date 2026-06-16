@@ -746,14 +746,14 @@ struct BitcoinCashMetadataRegistryValidator {
             sha256: try BitcoinCashMetadataRegistryTestData.registryHash,
             uris: [registryURI]
         )
-        let rawTransactionData = try makeAuthchainTransactionData(lockingScript: publicationScript)
+        let rawTransactionData = try BitcoinCashMetadataRegistryValidator.makeAuthchainTransactionData(lockingScript: publicationScript)
         let authbase = OpalBase.Transaction.Hash(naturalOrder: OpalCryptoAdapter.hash256(rawTransactionData))
         let invalidAuthheadData: Data
         switch invalidPayloadCase {
         case .trailingBytes:
             invalidAuthheadData = rawTransactionData + Data([0x00])
         case .mismatchedHash:
-            invalidAuthheadData = try makeAuthchainTransactionData()
+            invalidAuthheadData = try BitcoinCashMetadataRegistryValidator.makeAuthchainTransactionData()
         }
         let rawTransactions = RawTransactionSequence([
             rawTransactionData,
@@ -812,7 +812,7 @@ struct BitcoinCashMetadataRegistryValidator {
             sha256: try BitcoinCashMetadataRegistryTestData.registryHash,
             uris: [primaryURI, fallbackURI]
         )
-        let rawTransactionData = try makeAuthchainTransactionData(lockingScript: publicationScript)
+        let rawTransactionData = try BitcoinCashMetadataRegistryValidator.makeAuthchainTransactionData(lockingScript: publicationScript)
         let authbase = OpalBase.Transaction.Hash(naturalOrder: OpalCryptoAdapter.hash256(rawTransactionData))
         let transactionReader = OpalBase.Network.TransactionReader { _ in
             rawTransactionData
@@ -860,7 +860,7 @@ struct BitcoinCashMetadataRegistryValidator {
             sha256: try BitcoinCashMetadataRegistryTestData.registryHash,
             uris: [primaryURI, fallbackURI]
         )
-        let rawTransactionData = try makeAuthchainTransactionData(lockingScript: publicationScript)
+        let rawTransactionData = try BitcoinCashMetadataRegistryValidator.makeAuthchainTransactionData(lockingScript: publicationScript)
         let authbase = OpalBase.Transaction.Hash(naturalOrder: OpalCryptoAdapter.hash256(rawTransactionData))
         let transactionReader = OpalBase.Network.TransactionReader { _ in
             rawTransactionData
@@ -901,7 +901,7 @@ struct BitcoinCashMetadataRegistryValidator {
             sha256: try BitcoinCashMetadataRegistryTestData.registryHash,
             uris: [primaryURI, fallbackURI]
         )
-        let rawTransactionData = try makeAuthchainTransactionData(lockingScript: publicationScript)
+        let rawTransactionData = try BitcoinCashMetadataRegistryValidator.makeAuthchainTransactionData(lockingScript: publicationScript)
         let authbase = OpalBase.Transaction.Hash(naturalOrder: OpalCryptoAdapter.hash256(rawTransactionData))
         let transactionReader = OpalBase.Network.TransactionReader { _ in
             rawTransactionData
@@ -1681,154 +1681,154 @@ struct BitcoinCashMetadataRegistryValidator {
         func makeRawTransactionData() throws -> Data {
             switch self {
             case .trailingBytes:
-                return try makeAuthchainTransactionData() + Data([0x00])
+                return try BitcoinCashMetadataRegistryValidator.makeAuthchainTransactionData() + Data([0x00])
             case .mismatchedHash:
-                return try makeAuthchainTransactionData()
+                return try BitcoinCashMetadataRegistryValidator.makeAuthchainTransactionData()
             }
         }
     }
-}
 
-private func makeRegistry(
-    snapshots: [String: OpalBase.CashTokens.BCMR.Client.IdentitySnapshot]
-) -> OpalBase.CashTokens.BCMR.Client.Registry {
-    OpalBase.CashTokens.BCMR.Client.Registry(
-        version: "1",
-        registryIdentity: nil,
-        identities: ["example.identity": snapshots]
-    )
-}
-
-private func makeIdentitySnapshot(
-    name: String,
-    description: String? = nil,
-    migrated: String? = nil,
-    category: OpalBase.CashTokens.CategoryID,
-    symbol: String,
-    decimals: Int = 2
-) -> OpalBase.CashTokens.BCMR.Client.IdentitySnapshot {
-    .init(
-        name: name,
-        description: description,
-        migrated: migrated,
-        token: .init(
-            category: category.hexForDisplay,
-            symbol: symbol,
-            decimals: decimals
-        ),
-        uris: nil
-    )
-}
-
-private func makeCategoryIdentifier(byte: UInt8) throws -> OpalBase.CashTokens.CategoryID {
-    try OpalBase.CashTokens.CategoryID(
-        hexFromRPC: Data(repeating: byte, count: 32).hexadecimalString
-    )
-}
-
-private func makeDate(_ value: String) throws -> Date {
-    try #require(ISO8601DateFormatter().date(from: value))
-}
-
-private func makePublicationScript(sha256: Data, uris: [String]) -> Data {
-    let prefix = Data([0x42, 0x43, 0x4d, 0x52])
-    var script = Data([0x6a])
-    script.append(Data.push(prefix))
-    script.append(Data.push(sha256))
-    for uri in uris {
-        script.append(Data.push(Data(uri.utf8)))
+    private func makeRegistry(
+        snapshots: [String: OpalBase.CashTokens.BCMR.Client.IdentitySnapshot]
+    ) -> OpalBase.CashTokens.BCMR.Client.Registry {
+        OpalBase.CashTokens.BCMR.Client.Registry(
+            version: "1",
+            registryIdentity: nil,
+            identities: ["example.identity": snapshots]
+        )
     }
-    return script
-}
 
-private func makeAuthchainTransactionData(
-    lockingScript: Data = Data([ScriptOperationCode._1.rawValue])
-) throws -> Data {
-    let input = OpalBase.Transaction.Input(
-        previousTransactionHash: OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0x11, count: 32)),
-        previousTransactionOutputIndex: 0,
-        unlockingScript: Data()
-    )
-    let output = OpalBase.Transaction.Output(value: 0, lockingScript: lockingScript)
-    return try OpalBase.Transaction(
-        version: 1,
-        inputs: [input],
-        outputs: [output],
-        lockTime: 0
-    ).encode()
-}
-
-private func captureInvalidRegistryIdentity(
-    _ operation: () async throws -> Void
-) async throws -> String {
-    let error = try await captureRegistryClientError(operation)
-    guard case .invalidRegistryIdentity(let failedIdentity, _) = error else {
-        throw RegistryClientErrorCaptureFailure.unexpectedClientError(String(describing: error))
+    private func makeIdentitySnapshot(
+        name: String,
+        description: String? = nil,
+        migrated: String? = nil,
+        category: OpalBase.CashTokens.CategoryID,
+        symbol: String,
+        decimals: Int = 2
+    ) -> OpalBase.CashTokens.BCMR.Client.IdentitySnapshot {
+        .init(
+            name: name,
+            description: description,
+            migrated: migrated,
+            token: .init(
+                category: category.hexForDisplay,
+                symbol: symbol,
+                decimals: decimals
+            ),
+            uris: nil
+        )
     }
-    return failedIdentity
-}
 
-private func captureRegistryClientError(
-    _ operation: () async throws -> Void
-) async throws -> OpalBase.CashTokens.BCMR.Client.Error {
-    do {
-        try await operation()
-    } catch let error as OpalBase.CashTokens.BCMR.Client.Error {
-        return error
-    } catch {
-        throw RegistryClientErrorCaptureFailure.unexpectedError(String(describing: error))
+    private func makeCategoryIdentifier(byte: UInt8) throws -> OpalBase.CashTokens.CategoryID {
+        try OpalBase.CashTokens.CategoryID(
+            hexFromRPC: Data(repeating: byte, count: 32).hexadecimalString
+        )
     }
-    throw RegistryClientErrorCaptureFailure.didNotThrow
-}
 
-private func makeUnusedAddressReader() -> OpalBase.Network.AddressReader {
-    OpalBase.Network.AddressReader(
-        fetchBalance: { _, _ in throw RegistryValidatorPlaceholderError.unused },
-        fetchUnspentOutputs: { _, _ in throw RegistryValidatorPlaceholderError.unused },
-        fetchHistory: { _, _ in throw RegistryValidatorPlaceholderError.unused },
-        fetchFirstUse: { _ in throw RegistryValidatorPlaceholderError.unused },
-        fetchMempoolTransactions: { _ in throw RegistryValidatorPlaceholderError.unused },
-        fetchScriptHash: { _ in throw RegistryValidatorPlaceholderError.unused },
-        subscribeToAddress: { _ in throw RegistryValidatorPlaceholderError.unused }
-    )
-}
+    private func makeDate(_ value: String) throws -> Date {
+        try #require(ISO8601DateFormatter().date(from: value))
+    }
 
-private func makeChainRegistryTestClient(
-    transactionReader: OpalBase.Network.TransactionReader,
-    session: URLSession
-) -> OpalBase.CashTokens.BCMR.Client {
-    let scriptHashReader = OpalBase.Network.ScriptHashReader(
-        fetchHistory: { _, _ in [] },
-        fetchUnspent: { _, _ in [] }
-    )
-    let authchainResolver = OpalBase.CashTokens.BCMR.Client.AuthchainResolver(
-        transactionReader: transactionReader,
-        addressReader: makeUnusedAddressReader(),
-        scriptHashReader: scriptHashReader,
-        maxDepth: 0
-    )
-    let registryFetcher = OpalBase.CashTokens.BCMR.Client.Fetcher(
-        urlSession: session,
-        maxBytes: 1_024
-    )
-    return OpalBase.CashTokens.BCMR.Client(
-        authchainResolver: authchainResolver,
-        registryFetcher: registryFetcher
-    )
-}
-
-private func makeRegistryTestSession(
-    handler: @escaping @Sendable (URLRequest) throws -> (HTTPURLResponse, Data)
-) -> (URLSession, RegistryRequestRecorder) {
-    let recorder = RegistryRequestRecorder()
-    let configuration = URLSessionConfiguration.ephemeral
-    configuration.protocolClasses = [RegistryRedirectURLProtocol.self]
-    let session = URLSession(configuration: configuration)
-    RegistryRedirectURLProtocol.requestHandler = { request in
-        if let url = request.url {
-            recorder.append(url)
+    private func makePublicationScript(sha256: Data, uris: [String]) -> Data {
+        let prefix = Data([0x42, 0x43, 0x4d, 0x52])
+        var script = Data([0x6a])
+        script.append(Data.push(prefix))
+        script.append(Data.push(sha256))
+        for uri in uris {
+            script.append(Data.push(Data(uri.utf8)))
         }
-        return try handler(request)
+        return script
     }
-    return (session, recorder)
+
+    private static func makeAuthchainTransactionData(
+        lockingScript: Data = Data([ScriptOperationCode._1.rawValue])
+    ) throws -> Data {
+        let input = OpalBase.Transaction.Input(
+            previousTransactionHash: OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0x11, count: 32)),
+            previousTransactionOutputIndex: 0,
+            unlockingScript: Data()
+        )
+        let output = OpalBase.Transaction.Output(value: 0, lockingScript: lockingScript)
+        return try OpalBase.Transaction(
+            version: 1,
+            inputs: [input],
+            outputs: [output],
+            lockTime: 0
+        ).encode()
+    }
+
+    private func captureInvalidRegistryIdentity(
+        _ operation: () async throws -> Void
+    ) async throws -> String {
+        let error = try await captureRegistryClientError(operation)
+        guard case .invalidRegistryIdentity(let failedIdentity, _) = error else {
+            throw RegistryClientErrorCaptureFailure.unexpectedClientError(String(describing: error))
+        }
+        return failedIdentity
+    }
+
+    private func captureRegistryClientError(
+        _ operation: () async throws -> Void
+    ) async throws -> OpalBase.CashTokens.BCMR.Client.Error {
+        do {
+            try await operation()
+        } catch let error as OpalBase.CashTokens.BCMR.Client.Error {
+            return error
+        } catch {
+            throw RegistryClientErrorCaptureFailure.unexpectedError(String(describing: error))
+        }
+        throw RegistryClientErrorCaptureFailure.didNotThrow
+    }
+
+    private func makeUnusedAddressReader() -> OpalBase.Network.AddressReader {
+        OpalBase.Network.AddressReader(
+            fetchBalance: { _, _ in throw RegistryValidatorPlaceholderError.unused },
+            fetchUnspentOutputs: { _, _ in throw RegistryValidatorPlaceholderError.unused },
+            fetchHistory: { _, _ in throw RegistryValidatorPlaceholderError.unused },
+            fetchFirstUse: { _ in throw RegistryValidatorPlaceholderError.unused },
+            fetchMempoolTransactions: { _ in throw RegistryValidatorPlaceholderError.unused },
+            fetchScriptHash: { _ in throw RegistryValidatorPlaceholderError.unused },
+            subscribeToAddress: { _ in throw RegistryValidatorPlaceholderError.unused }
+        )
+    }
+
+    private func makeChainRegistryTestClient(
+        transactionReader: OpalBase.Network.TransactionReader,
+        session: URLSession
+    ) -> OpalBase.CashTokens.BCMR.Client {
+        let scriptHashReader = OpalBase.Network.ScriptHashReader(
+            fetchHistory: { _, _ in [] },
+            fetchUnspent: { _, _ in [] }
+        )
+        let authchainResolver = OpalBase.CashTokens.BCMR.Client.AuthchainResolver(
+            transactionReader: transactionReader,
+            addressReader: makeUnusedAddressReader(),
+            scriptHashReader: scriptHashReader,
+            maxDepth: 0
+        )
+        let registryFetcher = OpalBase.CashTokens.BCMR.Client.Fetcher(
+            urlSession: session,
+            maxBytes: 1_024
+        )
+        return OpalBase.CashTokens.BCMR.Client(
+            authchainResolver: authchainResolver,
+            registryFetcher: registryFetcher
+        )
+    }
+
+    private func makeRegistryTestSession(
+        handler: @escaping @Sendable (URLRequest) throws -> (HTTPURLResponse, Data)
+    ) -> (URLSession, RegistryRequestRecorder) {
+        let recorder = RegistryRequestRecorder()
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [RegistryRedirectURLProtocol.self]
+        let session = URLSession(configuration: configuration)
+        RegistryRedirectURLProtocol.requestHandler = { request in
+            if let url = request.url {
+                recorder.append(url)
+            }
+            return try handler(request)
+        }
+        return (session, recorder)
+    }
 }

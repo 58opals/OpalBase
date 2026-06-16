@@ -461,70 +461,70 @@ extension TransactionUnspentTransactionOutputValidator {
             throw BuildTransactionErrorCaptureFailure.unexpected(error)
         }
     }
-}
 
-private func decodeP2PKHUnlockingScript(
-    _ unlockingScript: Data
-) throws -> (signatureWithHashType: Data, publicKey: Data) {
-    let bytes = Array(unlockingScript)
-    var offset = 0
-    let signatureWithHashType = try Data(readPushedElement(from: bytes, offset: &offset))
-    let publicKey = try Data(readPushedElement(from: bytes, offset: &offset))
+    private func decodeP2PKHUnlockingScript(
+        _ unlockingScript: Data
+    ) throws -> (signatureWithHashType: Data, publicKey: Data) {
+        let bytes = Array(unlockingScript)
+        var offset = 0
+        let signatureWithHashType = try Data(readPushedElement(from: bytes, offset: &offset))
+        let publicKey = try Data(readPushedElement(from: bytes, offset: &offset))
 
-    guard offset == bytes.count else {
-        throw P2PKHUnlockingScriptDecodingError.trailingBytes
+        guard offset == bytes.count else {
+            throw P2PKHUnlockingScriptDecodingError.trailingBytes
+        }
+
+        return (signatureWithHashType, publicKey)
     }
 
-    return (signatureWithHashType, publicKey)
-}
-
-private func readPushedElement(
-    from bytes: [UInt8],
-    offset: inout Int
-) throws -> [UInt8] {
-    guard offset < bytes.count else {
-        throw P2PKHUnlockingScriptDecodingError.truncated
-    }
-
-    let opcode = bytes[offset]
-    offset += 1
-
-    let count: Int
-    switch opcode {
-    case 0 ... 75:
-        count = Int(opcode)
-    case ScriptOperationCode._PUSHDATA1.rawValue:
+    private func readPushedElement(
+        from bytes: [UInt8],
+        offset: inout Int
+    ) throws -> [UInt8] {
         guard offset < bytes.count else {
             throw P2PKHUnlockingScriptDecodingError.truncated
         }
-        count = Int(bytes[offset])
+
+        let opcode = bytes[offset]
         offset += 1
-    case ScriptOperationCode._PUSHDATA2.rawValue:
-        guard offset + 1 < bytes.count else {
+
+        let count: Int
+        switch opcode {
+        case 0 ... 75:
+            count = Int(opcode)
+        case ScriptOperationCode._PUSHDATA1.rawValue:
+            guard offset < bytes.count else {
+                throw P2PKHUnlockingScriptDecodingError.truncated
+            }
+            count = Int(bytes[offset])
+            offset += 1
+        case ScriptOperationCode._PUSHDATA2.rawValue:
+            guard offset + 1 < bytes.count else {
+                throw P2PKHUnlockingScriptDecodingError.truncated
+            }
+            count = Int(UInt16(bytes[offset]) | (UInt16(bytes[offset + 1]) << 8))
+            offset += 2
+        case ScriptOperationCode._PUSHDATA4.rawValue:
+            guard offset + 3 < bytes.count else {
+                throw P2PKHUnlockingScriptDecodingError.truncated
+            }
+            count = Int(
+                UInt32(bytes[offset]) |
+                    (UInt32(bytes[offset + 1]) << 8) |
+                    (UInt32(bytes[offset + 2]) << 16) |
+                    (UInt32(bytes[offset + 3]) << 24)
+            )
+            offset += 4
+        default:
+            throw P2PKHUnlockingScriptDecodingError.unsupportedPushOpcode(opcode)
+        }
+
+        guard offset + count <= bytes.count else {
             throw P2PKHUnlockingScriptDecodingError.truncated
         }
-        count = Int(UInt16(bytes[offset]) | (UInt16(bytes[offset + 1]) << 8))
-        offset += 2
-    case ScriptOperationCode._PUSHDATA4.rawValue:
-        guard offset + 3 < bytes.count else {
-            throw P2PKHUnlockingScriptDecodingError.truncated
-        }
-        count = Int(
-            UInt32(bytes[offset]) |
-                (UInt32(bytes[offset + 1]) << 8) |
-                (UInt32(bytes[offset + 2]) << 16) |
-                (UInt32(bytes[offset + 3]) << 24)
-        )
-        offset += 4
-    default:
-        throw P2PKHUnlockingScriptDecodingError.unsupportedPushOpcode(opcode)
-    }
 
-    guard offset + count <= bytes.count else {
-        throw P2PKHUnlockingScriptDecodingError.truncated
+        let element = Array(bytes[offset ..< offset + count])
+        offset += count
+        return element
     }
-
-    let element = Array(bytes[offset ..< offset + count])
-    offset += count
-    return element
 }

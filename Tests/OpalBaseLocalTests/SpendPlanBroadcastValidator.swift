@@ -1,7 +1,6 @@
 // SpendPlanBroadcastValidator.swift
 
 import Foundation
-import OpalCrypto
 import Testing
 import OpalBaseTestSupport
 @testable import OpalBase
@@ -10,7 +9,7 @@ import OpalBaseTestSupport
 struct SpendPlanBroadcastValidator {
     @Test("buildTransaction reports actual change when recipient matches reserved change")
     func spendPlanBuildTransactionReportsActualChangeWhenRecipientMatchesReservedChange() async throws {
-        let account = try await makeAccountWithoutOutputRandomization()
+        let account = try await SpendPlanBroadcastAccountFixture.makeAccountWithoutOutputRandomization()
         let selectedInput = try await AccountTestFixtures.addUnspentOutput(
             to: account,
             value: 45_000,
@@ -60,7 +59,7 @@ struct SpendPlanBroadcastValidator {
 
         let broadcasts = await handler.readBroadcastedTransactions()
         #expect(broadcasts.count == 1)
-        let expectedHash = try expectedBroadcastHash(from: broadcasts)
+        let expectedHash = try BroadcastHashExpectation.makeHash(from: broadcasts)
         #expect(result.hash == expectedHash)
 
         let changeEntries = await account.addressBook.listEntries(for: .change)
@@ -162,7 +161,7 @@ struct SpendPlanBroadcastValidator {
         )
         let successResult = try await successPlan.buildAndBroadcast(via: successHandler)
         let broadcasts = await successHandler.readBroadcastedTransactions()
-        let expectedHash = try expectedBroadcastHash(from: broadcasts)
+        let expectedHash = try BroadcastHashExpectation.makeHash(from: broadcasts)
         #expect(successResult.hash == expectedHash)
 
         _ = try await AccountTestFixtures.addUnspentOutput(
@@ -208,32 +207,4 @@ struct SpendPlanBroadcastValidator {
             throw SpendBroadcastAccountErrorCaptureFailure.unexpected(error)
         }
     }
-}
-
-private func makeAccountWithoutOutputRandomization() async throws -> OpalBase.Account {
-    let rootExtendedPrivateKey = try OpalCrypto.Key.ExtendedPrivate.root(
-        seed: AccountTestFixtures.makeMnemonic().deriveSeed()
-    )
-    return try await OpalBase.Account(
-        rootExtendedPrivateKey: rootExtendedPrivateKey,
-        purpose: .bip44,
-        coinType: .bitcoinCash,
-        account: .init(rawIndexInteger: 0),
-        privacyConfiguration: .init(
-            batchingIntervalRange: 0 ... 0,
-            operationJitterRange: 0 ... 0,
-            decoyQueryRange: 0 ... 0,
-            decoyProbability: 0,
-            shouldRandomizeUTXOOrdering: false,
-            shouldRandomizeRecipientOrdering: false
-        )
-    )
-}
-
-func expectedBroadcastHash(from broadcasts: [String]) throws -> OpalBase.Transaction.Hash {
-    let rawTransactionHexadecimal = try #require(broadcasts.first)
-    let rawTransactionData = try Data(hexadecimalString: rawTransactionHexadecimal)
-    return OpalBase.Transaction.Hash(
-        naturalOrder: OpalCryptoAdapter.hash256(rawTransactionData)
-    )
 }

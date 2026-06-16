@@ -21,11 +21,11 @@ struct ClaimableEnvelopeValidator {
         let refundPrivateKey = ClaimableTestSupport.makeClaimablePrivateKey(lastByte: 0x02)
         let contract = try OpalBase.Claimable.Contract(
             network: .chipnet,
-            claimPublicKeyHash: try makeClaimablePublicKeyHash(
+            claimPublicKeyHash: try ClaimablePrimitiveOperation.makePublicKeyHash(
                 from: claimPrivateKey,
                 invalidError: .invalidClaimPrivateKey
             ),
-            refundPublicKeyHash: try makeClaimablePublicKeyHash(
+            refundPublicKeyHash: try ClaimablePrimitiveOperation.makePublicKeyHash(
                 from: refundPrivateKey,
                 invalidError: .invalidRefundPrivateKey
             ),

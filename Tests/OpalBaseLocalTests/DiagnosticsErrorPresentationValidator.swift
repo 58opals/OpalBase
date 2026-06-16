@@ -635,6 +635,7 @@ struct DiagnosticsErrorPresentationValidator {
         case unknownEncoding
         case normalizedDecodeMessage
         case contextualMempoolMinimumFeeDecodeMessage
+        case valueMempoolMinimumFeeDecodeMessage
         case contextualUnsupportedHashFunctionDecodeMessage
 
         var translationExpectation: (input: Swift.Error, expected: OpalBase.Network.Error) {
@@ -706,6 +707,11 @@ struct DiagnosticsErrorPresentationValidator {
                 return (
                     SwiftFulcrum.Client.Error.coding(.decode(DescribedError(description: #"unexpectedFormat("[payload: 128 B] Invalid mempoolminfee: -1")"#))),
                     .init(reason: .decoding, message: "Invalid mempool minimum fee: -1")
+                )
+            case .valueMempoolMinimumFeeDecodeMessage:
+                return (
+                    SwiftFulcrum.Client.Error.coding(.decode(DescribedError(description: #"unexpectedFormat("[payload: 128 B] Invalid mempoolminfee value")"#))),
+                    .init(reason: .decoding, message: "Invalid mempool minimum fee value")
                 )
             case .contextualUnsupportedHashFunctionDecodeMessage:
                 return (

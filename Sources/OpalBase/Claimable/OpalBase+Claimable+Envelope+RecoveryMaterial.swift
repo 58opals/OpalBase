@@ -4,7 +4,7 @@ import Foundation
 
 extension _OpalBase.Claimable.Envelope {
     public func makeClaimRecoveryMaterial() throws -> OpalBase.Claimable.RecoveryMaterial {
-        let compressedPublicKey = try makeClaimableCompressedPublicKey(
+        let compressedPublicKey = try ClaimablePrimitiveOperation.makeCompressedPublicKey(
             from: claimPrivateKey,
             invalidError: .invalidClaimPrivateKey
         )
@@ -19,7 +19,7 @@ extension _OpalBase.Claimable.Envelope {
     public func makeRefundRecoveryMaterial(
         refundPrivateKey: Data
     ) throws -> OpalBase.Claimable.RecoveryMaterial {
-        let refundPublicKeyHash = try makeClaimablePublicKeyHash(
+        let refundPublicKeyHash = try ClaimablePrimitiveOperation.makePublicKeyHash(
             from: refundPrivateKey,
             invalidError: .invalidRefundPrivateKey
         )
@@ -27,7 +27,7 @@ extension _OpalBase.Claimable.Envelope {
             throw OpalBase.Claimable.Error.invalidRefundPrivateKey
         }
 
-        let compressedPublicKey = try makeClaimableCompressedPublicKey(
+        let compressedPublicKey = try ClaimablePrimitiveOperation.makeCompressedPublicKey(
             from: refundPrivateKey,
             invalidError: .invalidRefundPrivateKey
         )

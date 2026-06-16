@@ -323,26 +323,26 @@ struct AccountTokenGenesisValidator {
         }
         #expect(await account.addressBook.readActiveSpendReservations().isEmpty)
     }
-}
 
-private func makeAccount() async throws -> OpalBase.Account {
-    try await AccountTestFixtures.makeAccount()
-}
+    private func makeAccount() async throws -> OpalBase.Account {
+        try await AccountTestFixtures.makeAccount()
+    }
 
-private func addSpendableOutput(
-    to account: OpalBase.Account,
-    previousTransactionHash: OpalBase.Transaction.Hash,
-    previousTransactionOutputIndex: UInt32,
-    value: UInt64 = 50_000
-) async throws -> OpalBase.Transaction.Output.Unspent {
-    let addressBook = await account.addressBook
-    let receivingEntry = try await addressBook.selectNextEntry(for: OpalBase.Key.DerivationPath.Usage.receiving)
-    let unspentOutput = OpalBase.Transaction.Output.Unspent(
-        value: value,
-        lockingScript: receivingEntry.address.lockingScript.data,
-        previousTransactionHash: previousTransactionHash,
-        previousTransactionOutputIndex: previousTransactionOutputIndex
-    )
-    await addressBook.addUTXOs([unspentOutput])
-    return unspentOutput
+    private func addSpendableOutput(
+        to account: OpalBase.Account,
+        previousTransactionHash: OpalBase.Transaction.Hash,
+        previousTransactionOutputIndex: UInt32,
+        value: UInt64 = 50_000
+    ) async throws -> OpalBase.Transaction.Output.Unspent {
+        let addressBook = await account.addressBook
+        let receivingEntry = try await addressBook.selectNextEntry(for: OpalBase.Key.DerivationPath.Usage.receiving)
+        let unspentOutput = OpalBase.Transaction.Output.Unspent(
+            value: value,
+            lockingScript: receivingEntry.address.lockingScript.data,
+            previousTransactionHash: previousTransactionHash,
+            previousTransactionOutputIndex: previousTransactionOutputIndex
+        )
+        await addressBook.addUTXOs([unspentOutput])
+        return unspentOutput
+    }
 }

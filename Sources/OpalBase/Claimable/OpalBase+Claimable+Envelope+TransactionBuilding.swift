@@ -13,7 +13,7 @@ extension _OpalBase.Claimable.Envelope {
             throw OpalBase.Claimable.Error.claimRequiresPreExpiry
         }
 
-        let compressedPublicKey = try makeClaimableCompressedPublicKey(
+        let compressedPublicKey = try ClaimablePrimitiveOperation.makeCompressedPublicKey(
             from: claimPrivateKey,
             invalidError: .invalidClaimPrivateKey
         )
@@ -36,7 +36,7 @@ extension _OpalBase.Claimable.Envelope {
             throw OpalBase.Claimable.Error.refundRequiresExpiry
         }
 
-        let refundPublicKeyHash = try makeClaimablePublicKeyHash(
+        let refundPublicKeyHash = try ClaimablePrimitiveOperation.makePublicKeyHash(
             from: refundPrivateKey,
             invalidError: .invalidRefundPrivateKey
         )
@@ -44,7 +44,7 @@ extension _OpalBase.Claimable.Envelope {
             throw OpalBase.Claimable.Error.invalidRefundPrivateKey
         }
 
-        let compressedPublicKey = try makeClaimableCompressedPublicKey(
+        let compressedPublicKey = try ClaimablePrimitiveOperation.makeCompressedPublicKey(
             from: refundPrivateKey,
             invalidError: .invalidRefundPrivateKey
         )
@@ -86,7 +86,7 @@ private extension _OpalBase.Claimable.Envelope {
 
         let sequence: UInt32 = isRefund ? 0xFFFFFFFE : 0xFFFFFFFF
         let lockTime: UInt32 = isRefund ? contract.expiryBlockHeight : 0
-        let placeholderUnlockingScript = makeClaimablePlaceholderUnlockingScript(
+        let placeholderUnlockingScript = Self.makePlaceholderUnlockingScript(
             redeemScriptData: contract.redeemScriptData,
             isRefund: isRefund
         )
@@ -151,7 +151,7 @@ private extension _OpalBase.Claimable.Envelope {
             privateKey: OpalCrypto.Secp256k1.PrivateKey(rawRepresentation: signingPrivateKey)
         ).rawRepresentation
         let signatureWithHashType = signature + Data([UInt8(hashType.value)])
-        let unlockingScript = makeClaimableUnlockingScript(
+        let unlockingScript = Self.makeUnlockingScript(
             signatureWithHashType: signatureWithHashType,
             compressedPublicKey: compressedPublicKey,
             redeemScriptData: contract.redeemScriptData,
@@ -160,28 +160,28 @@ private extension _OpalBase.Claimable.Envelope {
 
         return try unsignedTransaction.injectUnlockingScript(unlockingScript, inputIndex: 0)
     }
-}
 
-private func makeClaimablePlaceholderUnlockingScript(
-    redeemScriptData: Data,
-    isRefund: Bool
-) -> Data {
-    makeClaimableUnlockingScript(
-        signatureWithHashType: Data(count: 65),
-        compressedPublicKey: Data(count: 33),
-        redeemScriptData: redeemScriptData,
-        isRefund: isRefund
-    )
-}
+    private static func makePlaceholderUnlockingScript(
+        redeemScriptData: Data,
+        isRefund: Bool
+    ) -> Data {
+        makeUnlockingScript(
+            signatureWithHashType: Data(count: 65),
+            compressedPublicKey: Data(count: 33),
+            redeemScriptData: redeemScriptData,
+            isRefund: isRefund
+        )
+    }
 
-private func makeClaimableUnlockingScript(
-    signatureWithHashType: Data,
-    compressedPublicKey: Data,
-    redeemScriptData: Data,
-    isRefund: Bool
-) -> Data {
-    Data.push(signatureWithHashType)
-        + Data.push(compressedPublicKey)
-        + (isRefund ? ScriptOperationCode._0.data : ScriptOperationCode._1.data)
-        + Data.push(redeemScriptData)
+    private static func makeUnlockingScript(
+        signatureWithHashType: Data,
+        compressedPublicKey: Data,
+        redeemScriptData: Data,
+        isRefund: Bool
+    ) -> Data {
+        Data.push(signatureWithHashType)
+            + Data.push(compressedPublicKey)
+            + (isRefund ? ScriptOperationCode._0.data : ScriptOperationCode._1.data)
+            + Data.push(redeemScriptData)
+    }
 }

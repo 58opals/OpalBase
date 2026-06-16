@@ -147,7 +147,7 @@ struct PublicAPISmokeValidator {
 
         #expect(completedSessionStatus.completedLocalOutputs == [unspentOutput])
 
-        let coordinatorStatus = OpalBase.Account.CashFusionSessionStatus.CoordinatorStatus(
+        let coordinatorStatus = OpalBase.Account.CashFusionSessionStatus.Coordinator(
             updateSequence: 4,
             latestMessageKind: "TierStatusUpdate",
             latestMessagePayloadByteCount: 24,
@@ -451,123 +451,123 @@ struct PublicAPISmokeValidator {
         #expect(calculatedTarget < easierTarget)
         #expect(header.isProofOfWorkSatisfied)
     }
-}
 
-private let smokeMnemonicWords = [
-    "abandon", "abandon", "abandon", "abandon", "abandon", "abandon",
-    "abandon", "abandon", "abandon", "abandon", "abandon", "about"
-]
+    private let smokeMnemonicWords = [
+        "abandon", "abandon", "abandon", "abandon", "abandon", "abandon",
+        "abandon", "abandon", "abandon", "abandon", "abandon", "about"
+    ]
 
-private func makeSmokeMnemonic() throws -> OpalBase.Key.Mnemonic {
-    try OpalBase.Key.Mnemonic(
-        words: smokeMnemonicWords.map(OpalBase.Key.Mnemonic.Word.init),
-        language: .english
-    )
-}
+    private func makeSmokeMnemonic() throws -> OpalBase.Key.Mnemonic {
+        try OpalBase.Key.Mnemonic(
+            words: smokeMnemonicWords.map(OpalBase.Key.Mnemonic.Word.init),
+            language: .english
+        )
+    }
 
-private func makeSmokeAddressReader(
-    unspentOutputsByAddress: [String: [OpalBase.Transaction.Output.Unspent]] = [:]
-) -> OpalBase.Network.AddressReader {
-    OpalBase.Network.AddressReader(
-        fetchBalance: { address, _ in
-            .init(
-                confirmed: unspentOutputsByAddress[address, default: []].reduce(UInt64(0)) { $0 + $1.value },
-                unconfirmed: 0
-            )
-        },
-        fetchUnspentOutputs: { address, _ in
-            unspentOutputsByAddress[address, default: []]
-        },
-        fetchHistory: { _, _ in [] },
-        fetchFirstUse: { _ in nil },
-        fetchMempoolTransactions: { _ in [] },
-        fetchScriptHash: { _ in "00" },
-        subscribeToAddress: { _ in
-            AsyncThrowingStream { continuation in
-                continuation.finish()
+    private func makeSmokeAddressReader(
+        unspentOutputsByAddress: [String: [OpalBase.Transaction.Output.Unspent]] = [:]
+    ) -> OpalBase.Network.AddressReader {
+        OpalBase.Network.AddressReader(
+            fetchBalance: { address, _ in
+                .init(
+                    confirmed: unspentOutputsByAddress[address, default: []].reduce(UInt64(0)) { $0 + $1.value },
+                    unconfirmed: 0
+                )
+            },
+            fetchUnspentOutputs: { address, _ in
+                unspentOutputsByAddress[address, default: []]
+            },
+            fetchHistory: { _, _ in [] },
+            fetchFirstUse: { _ in nil },
+            fetchMempoolTransactions: { _ in [] },
+            fetchScriptHash: { _ in "00" },
+            subscribeToAddress: { _ in
+                AsyncThrowingStream { continuation in
+                    continuation.finish()
+                }
             }
-        }
-    )
-}
+        )
+    }
 
-private func makeSmokeTransactionReader() -> OpalBase.Network.TransactionReader {
-    OpalBase.Network.TransactionReader(fetchRawTransaction: { _ in Data() })
-}
+    private func makeSmokeTransactionReader() -> OpalBase.Network.TransactionReader {
+        OpalBase.Network.TransactionReader(fetchRawTransaction: { _ in Data() })
+    }
 
-private func makeSmokeTransactionClient() -> OpalBase.Network.TransactionClient {
-    OpalBase.Network.TransactionClient(
-        broadcastTransaction: { _ in String(repeating: "0", count: 64) },
-        fetchConfirmations: { _ in nil },
-        fetchConfirmationStatus: { transactionHash in
-            .init(
-                transactionHash: transactionHash,
-                transactionHeight: nil,
-                tipHeight: 0,
-                confirmations: nil
-            )
-        }
-    )
-}
-
-private func makeSmokeBlockHeaderReader() -> OpalBase.Network.BlockHeaderReader {
-    OpalBase.Network.BlockHeaderReader(
-        fetchTip: { .init(height: 0, headerHexadecimal: "") },
-        subscribeToTip: {
-            AsyncThrowingStream { continuation in
-                continuation.finish()
+    private func makeSmokeTransactionClient() -> OpalBase.Network.TransactionClient {
+        OpalBase.Network.TransactionClient(
+            broadcastTransaction: { _ in String(repeating: "0", count: 64) },
+            fetchConfirmations: { _ in nil },
+            fetchConfirmationStatus: { transactionHash in
+                .init(
+                    transactionHash: transactionHash,
+                    transactionHeight: nil,
+                    tipHeight: 0,
+                    confirmations: nil
+                )
             }
-        }
-    )
-}
+        )
+    }
 
-private func makeSmokeSnapshotPersistence(state: SmokeSnapshotPersistenceState) -> OpalBase.Storage.SnapshotPersistence {
-    OpalBase.Storage.SnapshotPersistence(
-        saveWalletSnapshot: { snapshot, generation in
-            await state.saveWalletSnapshot(snapshot, generation: generation)
-        },
-        loadWalletSnapshot: { generation in
-            await state.loadWalletSnapshot(generation: generation)
-        },
-        deleteWalletSnapshot: { generation in
-            await state.deleteWalletSnapshot(generation: generation)
-        },
-        saveCommittedGeneration: { generation in
-            await state.saveCommittedGeneration(generation)
-        },
-        loadCommittedGeneration: {
-            await state.loadCommittedGeneration()
-        },
-        deleteCommittedGeneration: {
-            await state.deleteCommittedGeneration()
-        }
-    )
-}
+    private func makeSmokeBlockHeaderReader() -> OpalBase.Network.BlockHeaderReader {
+        OpalBase.Network.BlockHeaderReader(
+            fetchTip: { .init(height: 0, headerHexadecimal: "") },
+            subscribeToTip: {
+                AsyncThrowingStream { continuation in
+                    continuation.finish()
+                }
+            }
+        )
+    }
 
-private func makeSmokeStoredMnemonicPersistence(state: SmokeStoredMnemonicPersistenceState) -> OpalBase.Storage.StoredMnemonicPersistence {
-    OpalBase.Storage.StoredMnemonicPersistence(
-        saveMnemonic: { mnemonic, _, fallbackToPlaintext in
-            await state.saveMnemonic(mnemonic, fallbackToPlaintext: fallbackToPlaintext)
-        },
-        loadMnemonicState: { _ in
-            await state.loadMnemonicState()
-        },
-        deleteMnemonic: { generation in
-            await state.deleteMnemonic(generation: generation)
-        }
-    )
-}
+    private func makeSmokeSnapshotPersistence(state: SmokeSnapshotPersistenceState) -> OpalBase.Storage.SnapshotPersistence {
+        OpalBase.Storage.SnapshotPersistence(
+            saveWalletSnapshot: { snapshot, generation in
+                await state.saveWalletSnapshot(snapshot, generation: generation)
+            },
+            loadWalletSnapshot: { generation in
+                await state.loadWalletSnapshot(generation: generation)
+            },
+            deleteWalletSnapshot: { generation in
+                await state.deleteWalletSnapshot(generation: generation)
+            },
+            saveCommittedGeneration: { generation in
+                await state.saveCommittedGeneration(generation)
+            },
+            loadCommittedGeneration: {
+                await state.loadCommittedGeneration()
+            },
+            deleteCommittedGeneration: {
+                await state.deleteCommittedGeneration()
+            }
+        )
+    }
 
-private func smokeDiagnosticsConfiguration() -> OpalDiagnostics.Configuration {
-    OpalDiagnostics.Configuration(
-        minimumLevel: .debug,
-        categoryFilter: .all,
-        bufferPolicy: .enabled(capacity: 64)
-    )
-}
+    private func makeSmokeStoredMnemonicPersistence(state: SmokeStoredMnemonicPersistenceState) -> OpalBase.Storage.StoredMnemonicPersistence {
+        OpalBase.Storage.StoredMnemonicPersistence(
+            saveMnemonic: { mnemonic, _, fallbackToPlaintext in
+                await state.saveMnemonic(mnemonic, fallbackToPlaintext: fallbackToPlaintext)
+            },
+            loadMnemonicState: { _ in
+                await state.loadMnemonicState()
+            },
+            deleteMnemonic: { generation in
+                await state.deleteMnemonic(generation: generation)
+            }
+        )
+    }
 
-private func recordsContain(
-    _ records: [OpalDiagnostics.Record],
-    event: OpalDiagnostics.Event
-) -> Bool {
-    records.contains { $0.event == event }
+    private func smokeDiagnosticsConfiguration() -> OpalDiagnostics.Configuration {
+        OpalDiagnostics.Configuration(
+            minimumLevel: .debug,
+            categoryFilter: .all,
+            bufferPolicy: .enabled(capacity: 64)
+        )
+    }
+
+    private func recordsContain(
+        _ records: [OpalDiagnostics.Record],
+        event: OpalDiagnostics.Event
+    ) -> Bool {
+        records.contains { $0.event == event }
+    }
 }

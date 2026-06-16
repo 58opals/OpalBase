@@ -1,14 +1,21 @@
 # Public API Guide
 
-Opal Base exposes a workflow-shaped API under the `OpalBase.*` namespace. Normal wallet integrations should start from a small set of facade types and only drop to lower-level primitives when they need custom storage, networking, or Bitcoin Cash transaction handling.
+Opal Base exposes a workflow-shaped API under the `OpalBase.*` namespace. Normal wallet integrations should start from lane-explicit facade types and only drop to lower-level primitives when they need custom storage, networking, or Bitcoin Cash transaction handling.
 
 ## Main Entry Points
 
-- `OpalBase.Wallet`: creates, restores, snapshots, and owns accounts plus wallet-level CashTokens metadata.
-- `OpalBase.Account`: derives receiving addresses, refreshes wallet-owned UTXOs, prepares spends, and builds token operations.
-- `OpalBase.Wallet.Fulcrum`: orchestrates live Fulcrum refresh, confirmation, history, and monitor flows for wallets and accounts.
-- `OpalBase.Network.Fulcrum.Client`: connects to a Fulcrum server and feeds the wallet/network facade adapters.
-- `OpalBase.Storage.PersistenceSession`: persists and restores mnemonic and wallet snapshot state.
+- `OpalBase.WalletManagementInteractor`: account creation, account lookup, and broad wallet management around an existing `OpalBase.Wallet`.
+- `OpalBase.WalletSnapshotInteractor`: snapshot-only storage/import-export through `OpalBase.Storage.SnapshotPersistence`.
+- `OpalBase.WalletBlockchainSyncInteractor`: descriptor-backed balance/history/UTXO/confirmation refresh using `OpalBase.WalletAccountPublicDescriptor` plus `OpalBase.WalletPublicChainOperations`.
+- `OpalBase.WalletTransportInteractor`: public-chain transport clients and address/header streams through `OpalBase.Network.*` or `OpalBase.Network.Fulcrum.Client`.
+- `OpalBase.WalletReceiveAddressInteractor`: receive/change derivation and receive-address reservation.
+- `OpalBase.WalletSecretAccessInteractor`: mnemonic, Keychain, Secure Enclave-backed persistence, restore, and wipe through `OpalBase.Storage.PersistenceSession`.
+- `OpalBase.WalletTransactionAuthoringInteractor`: user-triggered BCH spend, token spend, token genesis, token mint, token commitment mutation, hedge funding, and signing-capable plans; its constructor label is `privateAccount`.
+- `OpalBase.WalletBroadcastInteractor`: transaction relay and targeted confirmation reconciliation through `OpalBase.Network.TransactionClient`.
+- `OpalBase.WalletAssetInteractor`: token holdings and wallet token metadata; mint authoring is available only through its `privateAccount` initializer.
+- `OpalBase.CashFusionInteractor`: macOS CashFusion session lifecycle over explicit private account authority.
+- `OpalBase.ClaimableInteractor`: claimable drafts, funding outputs, envelopes, share/recovery material, status, claim, and refund transaction building.
+- `OpalBase.WalletObservabilityInteractor`: redacted diagnostics record reading only.
 
 ## Wallet Creation And Restoration
 
@@ -20,9 +27,10 @@ let mnemonic = try OpalBase.Key.Mnemonic.generate(
     language: .english
 )
 let wallet = try OpalBase.Wallet(mnemonic: mnemonic)
+let management = OpalBase.WalletManagementInteractor(wallet: wallet)
 
-try await wallet.addAccount(unhardenedIndex: 0)
-let account = try await wallet.fetchAccount(at: 0)
+try await management.addAccount(unhardenedIndex: 0)
+let account = try await management.fetchAccount(at: 0)
 ```
 
 For descriptor persistence, callers can derive the account-level read-only extended public key from mnemonic material without importing lower-level cryptography packages:
@@ -36,18 +44,40 @@ let accountXpub = try mnemonic.makeSerializedAccountExtendedPublicKey(
 )
 ```
 
-To restore from persisted state, use `OpalBase.Storage.PersistenceSession` when possible. Custom import/export layers can use `OpalBase.Wallet.Snapshot`, `OpalBase.Account.Snapshot`, and `OpalBase.Storage.SnapshotStore`.
+To restore from persisted state, use `OpalBase.WalletSecretAccessInteractor` for mnemonic-bearing restore/wipe flows and `OpalBase.WalletSnapshotInteractor` for snapshot-only import/export. Custom import/export layers can use `OpalBase.Wallet.Snapshot`, `OpalBase.Account.Snapshot`, and `OpalBase.Storage.SnapshotStore`.
+
+For descriptor-only public-chain sync, keep the mnemonic in the secret lane and pass only public account data to sync:
+
+```swift
+let descriptor = OpalBase.WalletAccountPublicDescriptor(
+    serializedAccountExtendedPublicKey: accountXpub,
+    purpose: .bip44,
+    coinType: .bitcoinCash,
+    accountUnhardenedIndex: 0,
+    snapshot: accountSnapshot
+)
+let publicChain = OpalBase.WalletPublicChainOperations(
+    addressReader: addressReader,
+    transactionClient: transactionClient,
+    transactionReader: transactionReader
+)
+let sync = try await OpalBase.WalletBlockchainSyncInteractor(
+    accountDescriptor: descriptor,
+    publicChain: publicChain
+)
+```
 
 ## Receiving Addresses
 
-Use account-facing derived address types instead of address-book internals:
+Use receive-address lane APIs instead of address-book internals:
 
 ```swift
-let receiving = try await account.reserveNextReceivingDerivedAddress()
+let receiveAddresses = OpalBase.WalletReceiveAddressInteractor(account: account)
+let receiving = try await receiveAddresses.reserveNextReceivingDerivedAddress()
 print(receiving.address.string)
 ```
 
-Use `selectNextDerivedAddress(for:)` when the caller only needs to inspect the next address for a derivation usage. Use `reserveNextReceivingDerivedAddress()` when the address is being handed out and should not be reused by another concurrent receive flow.
+Use `selectNextDerivedAddress(for:)` when the caller only needs to inspect the next address for a derivation usage. Use `reserveNextReceivingDerivedAddress()` when the address is being handed out and should not be reused by another concurrent receive flow. This is intentionally not a generic sync API because reservation crosses into derivation/reservation authority.
 
 ## Spend Planning
 
@@ -63,7 +93,11 @@ let payment = OpalBase.Account.Payment(
 )
 
 let feePolicy = OpalBase.Wallet.FeePolicy(defaultFeeRate: 1)
-let plan = try await account.prepareSpend(payment, feePolicy: feePolicy)
+let authoring = OpalBase.WalletTransactionAuthoringInteractor(
+    privateAccount: account,
+    feePolicy: feePolicy
+)
+let plan = try await authoring.prepareSpend(payment)
 let result = try plan.buildTransaction()
 ```
 
@@ -71,15 +105,22 @@ Spend plans expose wallet-facing results such as `OpalBase.Account.DerivedAddres
 
 ## Fulcrum Sync
 
-Use `OpalBase.Wallet.Fulcrum` for normal live wallet flows:
+Use `OpalBase.WalletTransportInteractor` to make public-chain transport clients, then choose descriptor sync or legacy wallet Fulcrum composition:
 
 ```swift
 let client = try await OpalBase.Network.Fulcrum.Client(configuration: configuration)
-let fulcrum = OpalBase.Wallet.Fulcrum(client: client)
+let transport = OpalBase.WalletTransportInteractor(fulcrumClient: client)
+let publicChain = transport.publicChain
+let sync = try await OpalBase.WalletBlockchainSyncInteractor(
+    accountDescriptor: descriptor,
+    publicChain: publicChain
+)
 
-_ = try await fulcrum.refreshBalances(for: account)
-_ = try await fulcrum.refreshTransactionHistory(for: account)
-let monitor = fulcrum.makeMonitor(for: account)
+_ = try await sync.refreshBalances()
+_ = try await sync.refreshTransactionHistory()
+if let fulcrum = transport.makeWalletFulcrumAdapter() {
+    let monitor = fulcrum.makeMonitor(for: account)
+}
 ```
 
 Closure-backed clients stay public for tests and custom adapters:
@@ -95,17 +136,33 @@ Advanced Fulcrum readers are public under `OpalBase.Network.Fulcrum.*`:
 - `OpalBase.Network.Fulcrum.TransactionProofReader`
 - `OpalBase.Network.Fulcrum.ScriptHashReader`
 
-Prefer `Wallet.Fulcrum` unless the application is composing its own network orchestration.
+Prefer `WalletBlockchainSyncInteractor` when the Wallet lane has only descriptor/public account state. Prefer `Wallet.Fulcrum` only when composing the older wallet/account actor orchestration directly.
+
+## Broadcast And Aftermath
+
+Broadcast does not imply a whole-wallet rebuild. Use `WalletBroadcastInteractor` to relay a prepared transaction and reconcile only the transaction hashes the caller names:
+
+```swift
+let broadcast = OpalBase.WalletBroadcastInteractor(transactionClient: transactionClient)
+let hash = try await broadcast.broadcast(result.transaction)
+_ = try await broadcast.reconcileConfirmations(for: [hash], in: account)
+```
 
 ## Persistence
 
-For app persistence, prefer a session:
+For mnemonic-bearing app persistence, prefer the secret lane:
 
 ```swift
 let session = await OpalBase.Storage.PersistenceSession(storage: storage)
-let protectionMode = try await session.save(wallet: wallet)
-let restored = try await session.restore()
+let secrets = OpalBase.WalletSecretAccessInteractor(persistenceSession: session)
+let protectionMode = try await secrets.saveWalletSecretsAndSnapshot(
+    from: wallet,
+    policy: .legacyFallbackToPlaintext
+)
+let restored = try await secrets.restoreWalletSecretsAndSnapshot()
 ```
+
+For SwiftData-backed UI snapshots or import/export without secrets, use `WalletSnapshotInteractor` with `Storage.SnapshotPersistence` and pass `Wallet.Snapshot` values only.
 
 The public storage contract is:
 
@@ -127,14 +184,15 @@ CashTokens domain types remain public vocabulary:
 - `OpalBase.CashTokens.MetadataRepository`
 - `OpalBase.CashTokens.BCMR.Client`
 
-Use account token operations such as `prepareTokenSpend`, `prepareTokenGenesis`, token mint planning, and token commitment mutation planning for wallet-owned transaction flows.
+Use `WalletAssetInteractor` for token holdings and metadata. Use `WalletTransactionAuthoringInteractor` for token spend, token genesis, token mint planning, and token commitment mutation planning because those are user-triggered money-movement APIs.
 
 ## Hedge Funding
 
 Use `OpalBase.Hedge` for the wallet-facing AnyHedge beta flow. Wallets can reserve participant material from an account, pass counterparty material and a verified oracle proof into a USD thirty-day simple hedge request, and prepare the wallet-owned BCH funding spend without importing `OpalHedge`:
 
 ```swift
-let walletMaterial = try await account.reserveHedgeParticipantMaterial()
+let authoring = OpalBase.WalletTransactionAuthoringInteractor(privateAccount: account)
+let walletMaterial = try await authoring.reserveHedgeParticipantMaterial()
 let request = OpalBase.Hedge.USDThirtyDaySimpleHedgeRequest(
     walletParticipant: walletMaterial,
     counterpartyParticipant: counterpartyMaterial,
@@ -142,7 +200,7 @@ let request = OpalBase.Hedge.USDThirtyDaySimpleHedgeRequest(
     nominalUnits: 1_000
 )
 
-let plan = try await account.prepareHedgeFunding(request)
+let plan = try await authoring.prepareHedgeFunding(request)
 let review = try plan.buildReview()
 ```
 
@@ -150,7 +208,11 @@ let review = try plan.buildReview()
 
 ## Claimable
 
-Use `OpalBase.Claimable` for claimable contract drafts, envelopes, share codes, local status checks, and recovery material. These APIs are separate from wallet account state so apps can create, decode, inspect, and claim funding envelopes without exposing account internals.
+Use `OpalBase.ClaimableInteractor` for claimable contract drafts, funding outputs, envelopes, share codes, local/network status checks, recovery material, and claim/refund transaction building. These APIs are separate from wallet account state so apps can create, decode, inspect, and claim funding envelopes without exposing account internals.
+
+## CashFusion
+
+On macOS, use `OpalBase.CashFusionInteractor(privateAccount:)` for session lifecycle and coordinator state. CashFusion preparation requires private account authority because it reserves wallet-owned inputs and signs host-owned fusion transactions; public-chain transport, broadcast, and snapshots remain outside the CashFusion interactor.
 
 ## Domain Vocabulary
 
@@ -164,4 +226,4 @@ These primitives are intentionally public because they are part of the Bitcoin C
 - `OpalBase.Network.Configuration`
 - `OpalBase.Network.Fulcrum.Client`
 
-Implementation-only reservation state, address-book internals, bridge types, and adapter protocols are not part of the curated public contract.
+Implementation-only reservation state, address-book internals, bridge types, raw lower-level package collaborators, and adapter protocols are not part of the curated public contract. From constructor labels alone, prefer descriptor/public-chain surfaces for sync, `privateAccount` surfaces for signing and money movement, storage/session surfaces for secrets, and snapshot persistence surfaces for import/export DTOs.

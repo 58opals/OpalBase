@@ -20,7 +20,7 @@ struct ClaimableShareCodeValidator {
         let decodedEnvelopeData = try OpalBase.Claimable.ShareCode.decodeEnvelopeData(shareCode)
 
         #expect(shareCode.hasPrefix("OPALCLAIM:1:\(fixture.token):"))
-        #expect(shareCode.allSatisfy(isShareCodeCharacter(_:)))
+        #expect(shareCode.allSatisfy(Self.isShareCodeCharacter(_:)))
         #expect(decodedEnvelope == envelope)
         #expect(decodedEnvelopeData == envelope.encode())
     }
@@ -150,50 +150,50 @@ struct ClaimableShareCodeValidator {
                     with: "NOTCLAIM:"
                 )
             case .unsupportedVersion:
-                return try makeShareCodeReplacingNetworkEnvelope(
+                return try ClaimableShareCodeValidator.makeShareCodeReplacingNetworkEnvelope(
                     networkToken: "CHIPNET",
                     replacementNetworkToken: "CHIPNET"
                 ).replacingOccurrences(of: "OPALCLAIM:1:", with: "OPALCLAIM:2:")
             case .unknownNetwork:
-                return try makeShareCodeReplacingNetworkEnvelope(
+                return try ClaimableShareCodeValidator.makeShareCodeReplacingNetworkEnvelope(
                     networkToken: "CHIPNET",
                     replacementNetworkToken: "REGTEST"
                 )
             case .emptyPayload:
                 return "OPALCLAIM:1:CHIPNET:"
             case .invalidBase32Characters:
-                return try makeShareCodeReplacingPayload(with: "ABC0")
+                return try ClaimableShareCodeValidator.makeShareCodeReplacingPayload(with: "ABC0")
             case .malformedBase32Length:
-                return try makeShareCodeReplacingPayload(with: "A")
+                return try ClaimableShareCodeValidator.makeShareCodeReplacingPayload(with: "A")
             case .oversizedPayload:
-                return try makeShareCodeReplacingPayload(with: String(repeating: "A", count: 165))
+                return try ClaimableShareCodeValidator.makeShareCodeReplacingPayload(with: String(repeating: "A", count: 165))
             }
         }
     }
-}
 
-private func makeShareCodeReplacingNetworkEnvelope(
-    networkToken: String,
-    replacementNetworkToken: String
-) throws -> String {
-    let (envelope, _) = try ClaimableTestSupport.makeClaimableEnvelope(network: .chipnet)
-    let shareCode = try OpalBase.Claimable.ShareCode.encode(envelope: envelope)
-    return shareCode.replacingOccurrences(
-        of: "OPALCLAIM:1:\(networkToken):",
-        with: "OPALCLAIM:1:\(replacementNetworkToken):"
-    )
-}
+    private static func makeShareCodeReplacingNetworkEnvelope(
+        networkToken: String,
+        replacementNetworkToken: String
+    ) throws -> String {
+        let (envelope, _) = try ClaimableTestSupport.makeClaimableEnvelope(network: .chipnet)
+        let shareCode = try OpalBase.Claimable.ShareCode.encode(envelope: envelope)
+        return shareCode.replacingOccurrences(
+            of: "OPALCLAIM:1:\(networkToken):",
+            with: "OPALCLAIM:1:\(replacementNetworkToken):"
+        )
+    }
 
-private func makeShareCodeReplacingPayload(with payload: String) throws -> String {
-    let (envelope, _) = try ClaimableTestSupport.makeClaimableEnvelope(network: .chipnet)
-    let shareCode = try OpalBase.Claimable.ShareCode.encode(envelope: envelope)
-    let components = shareCode.split(separator: ":", omittingEmptySubsequences: false)
-    return components.prefix(3).joined(separator: ":") + ":\(payload)"
-}
+    private static func makeShareCodeReplacingPayload(with payload: String) throws -> String {
+        let (envelope, _) = try ClaimableTestSupport.makeClaimableEnvelope(network: .chipnet)
+        let shareCode = try OpalBase.Claimable.ShareCode.encode(envelope: envelope)
+        let components = shareCode.split(separator: ":", omittingEmptySubsequences: false)
+        return components.prefix(3).joined(separator: ":") + ":\(payload)"
+    }
 
-private func isShareCodeCharacter(_ character: Character) -> Bool {
-    guard let asciiValue = character.asciiValue else { return false }
-    return (0x41 ... 0x5a).contains(asciiValue)
-        || (0x30 ... 0x39).contains(asciiValue)
-        || asciiValue == 0x3a
+    private static func isShareCodeCharacter(_ character: Character) -> Bool {
+        guard let asciiValue = character.asciiValue else { return false }
+        return (0x41 ... 0x5a).contains(asciiValue)
+            || (0x30 ... 0x39).contains(asciiValue)
+            || asciiValue == 0x3a
+    }
 }

@@ -300,28 +300,28 @@ struct AccountTokenCommitmentMutationValidator {
             try await addressBook.releaseSpendReservation(reservation, outcome: .cancelled)
         }
     }
-}
 
-private func makeAccount() async throws -> OpalBase.Account {
-    try await AccountTestFixtures.makeAccount()
-}
+    private func makeAccount() async throws -> OpalBase.Account {
+        try await AccountTestFixtures.makeAccount()
+    }
 
-private func addUnspentOutput(
-    to account: OpalBase.Account,
-    value: UInt64,
-    tokenData: OpalBase.CashTokens.TokenData?,
-    previousTransactionHash: OpalBase.Transaction.Hash,
-    previousTransactionOutputIndex: UInt32
-) async throws -> OpalBase.Transaction.Output.Unspent {
-    let addressBook = await account.addressBook
-    let receivingEntry = try await addressBook.selectNextEntry(for: OpalBase.Key.DerivationPath.Usage.receiving)
-    let unspentOutput = OpalBase.Transaction.Output.Unspent(
-        value: value,
-        lockingScript: receivingEntry.address.lockingScript.data,
-        tokenData: tokenData,
-        previousTransactionHash: previousTransactionHash,
-        previousTransactionOutputIndex: previousTransactionOutputIndex
-    )
-    await addressBook.addUTXOs([unspentOutput])
-    return unspentOutput
+    private func addUnspentOutput(
+        to account: OpalBase.Account,
+        value: UInt64,
+        tokenData: OpalBase.CashTokens.TokenData?,
+        previousTransactionHash: OpalBase.Transaction.Hash,
+        previousTransactionOutputIndex: UInt32
+    ) async throws -> OpalBase.Transaction.Output.Unspent {
+        let addressBook = await account.addressBook
+        let receivingEntry = try await addressBook.selectNextEntry(for: OpalBase.Key.DerivationPath.Usage.receiving)
+        let unspentOutput = OpalBase.Transaction.Output.Unspent(
+            value: value,
+            lockingScript: receivingEntry.address.lockingScript.data,
+            tokenData: tokenData,
+            previousTransactionHash: previousTransactionHash,
+            previousTransactionOutputIndex: previousTransactionOutputIndex
+        )
+        await addressBook.addUTXOs([unspentOutput])
+        return unspentOutput
+    }
 }

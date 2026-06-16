@@ -84,15 +84,14 @@ struct NetworkFulcrumTransactionProofReaderValidator {
 
     @Test("rejects oversized merkle proof branch hashes")
     func merkleResponseRejectsOversizedBranchHashes() throws {
-        do {
+        let failure = try Self.captureError {
             _ = try Self.makeMerkleResponse(
                 merkle: [String(repeating: "a", count: 4_096)],
                 position: 0
             )
-            Issue.record("Expected oversized merkle proof hash decoding to fail")
-        } catch {
-            #expect(String(describing: error).contains("Expected merkle proof hash to be exactly 64 hex characters"))
         }
+
+        #expect(String(describing: failure).contains("Expected merkle proof hash to be exactly 64 hex characters"))
     }
 
     @Test("rejects merkle proof positions outside the branch depth")
@@ -377,6 +376,17 @@ private extension NetworkFulcrumTransactionProofReaderValidator {
             throw failure
         } catch {
             throw NetworkErrorCaptureFailure.unexpected(error)
+        }
+    }
+
+    static func captureError(_ work: () throws -> Void) throws -> Swift.Error {
+        do {
+            try work()
+            throw NetworkErrorCaptureFailure.didNotThrow
+        } catch let failure as NetworkErrorCaptureFailure {
+            throw failure
+        } catch {
+            return error
         }
     }
 }

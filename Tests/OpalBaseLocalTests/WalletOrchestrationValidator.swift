@@ -365,25 +365,25 @@ struct WalletOrchestrationValidator {
 
         #expect(nextReceiving.derivationPath.index == 1)
     }
-}
 
-private func makeCategoryIdentifier(hexadecimalString: String) throws -> OpalBase.CashTokens.CategoryID {
-    try OpalBase.CashTokens.CategoryID(hexFromRPC: hexadecimalString)
-}
+    private func makeCategoryIdentifier(hexadecimalString: String) throws -> OpalBase.CashTokens.CategoryID {
+        try OpalBase.CashTokens.CategoryID(hexFromRPC: hexadecimalString)
+    }
 
-private func makeMetadata(
-    category: OpalBase.CashTokens.CategoryID,
-    name: String,
-    symbol: String,
-    lastUpdated: Date
-) -> OpalBase.CashTokens.Metadata {
-    OpalBase.CashTokens.Metadata(
-        category: category,
-        name: name,
-        symbol: symbol,
-        decimals: 0,
-        iconURL: nil,
-        lastUpdated: lastUpdated,
-        source: .embedded
-    )
+    private func makeMetadata(
+        category: OpalBase.CashTokens.CategoryID,
+        name: String,
+        symbol: String,
+        lastUpdated: Date
+    ) -> OpalBase.CashTokens.Metadata {
+        OpalBase.CashTokens.Metadata(
+            category: category,
+            name: name,
+            symbol: symbol,
+            decimals: 0,
+            iconURL: nil,
+            lastUpdated: lastUpdated,
+            source: .embedded
+        )
+    }
 }

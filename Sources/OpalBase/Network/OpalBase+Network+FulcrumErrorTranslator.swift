@@ -190,19 +190,33 @@ extension _OpalBase.Network {
 
             let mappings = [
                 ("Invalid mempoolminfee: ", "Invalid mempool minimum fee: "),
+                ("Invalid mempoolminfee value", "Invalid mempool minimum fee value"),
                 ("Invalid minrelaytxfee: ", "Invalid minimum relay transaction fee: "),
+                ("Invalid minrelaytxfee value", "Invalid minimum relay transaction fee value"),
                 ("Invalid incrementalrelayfee: ", "Invalid incremental relay fee: "),
+                ("Invalid incrementalrelayfee value", "Invalid incremental relay fee value"),
                 ("Invalid unbroadcastcount: ", "Invalid unbroadcast count: "),
+                ("Invalid unbroadcastcount value", "Invalid unbroadcast count value"),
                 ("Invalid server.features pruning: ", "Invalid server feature pruning limit: "),
+                ("Invalid server.features pruning value", "Invalid server feature pruning limit value"),
                 ("Invalid server.features host ssl_port: ", "Invalid server feature ssl port: "),
+                ("Invalid server.features host ssl_port value", "Invalid server feature ssl port value"),
                 ("Invalid server.features host tcp_port: ", "Invalid server feature tcp port: "),
+                ("Invalid server.features host tcp_port value", "Invalid server feature tcp port value"),
                 ("Invalid server.features host ws_port: ", "Invalid server feature websocket port: "),
+                ("Invalid server.features host ws_port value", "Invalid server feature websocket port value"),
                 ("Invalid server.features host wss_port: ", "Invalid server feature secure websocket port: "),
+                ("Invalid server.features host wss_port value", "Invalid server feature secure websocket port value"),
                 ("Invalid server.features rpa history_block_limit: ", "Invalid server feature rpa history block limit: "),
+                ("Invalid server.features rpa history_block_limit value", "Invalid server feature rpa history block limit value"),
                 ("Invalid server.features rpa max_history: ", "Invalid server feature rpa maximum history items: "),
+                ("Invalid server.features rpa max_history value", "Invalid server feature rpa maximum history items value"),
                 ("Invalid server.features rpa prefix_bits: ", "Invalid server feature rpa indexed prefix bits: "),
+                ("Invalid server.features rpa prefix_bits value", "Invalid server feature rpa indexed prefix bits value"),
                 ("Invalid server.features rpa prefix_bits_min: ", "Invalid server feature rpa minimum prefix bits: "),
-                ("Invalid server.features rpa starting_height: ", "Invalid server feature rpa starting height: ")
+                ("Invalid server.features rpa prefix_bits_min value", "Invalid server feature rpa minimum prefix bits value"),
+                ("Invalid server.features rpa starting_height: ", "Invalid server feature rpa starting height: "),
+                ("Invalid server.features rpa starting_height value", "Invalid server feature rpa starting height value")
             ]
 
             for (wirePrefix, publicPrefix) in mappings {

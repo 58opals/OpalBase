@@ -204,7 +204,7 @@ struct HedgeFundingFacadeValidator {
         let result = try await plan.buildAndBroadcast(via: handler)
 
         let broadcasts = await handler.readBroadcastedTransactions()
-        let expectedHash = try expectedBroadcastHash(from: broadcasts)
+        let expectedHash = try BroadcastHashExpectation.makeHash(from: broadcasts)
         let reconstructedRecord = try OpalBase.Hedge.makeFundingRecord(
             dataDocumentJSON: result.fundingRecord.dataDocumentJSON
         )

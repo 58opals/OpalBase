@@ -79,11 +79,11 @@ struct ClaimableContractValidator {
     func draftDerivesClaimBranchAndFundingOutput() throws {
         let (draft, refundPrivateKey) = try ClaimableTestSupport.makeClaimableDraft()
         let fundingOutput = draft.makeFundingOutput(value: 42_000)
-        let expectedClaimPublicKeyHash = try makeClaimablePublicKeyHash(
+        let expectedClaimPublicKeyHash = try ClaimablePrimitiveOperation.makePublicKeyHash(
             from: draft.claimPrivateKey,
             invalidError: .invalidClaimPrivateKey
         )
-        let expectedRefundPublicKeyHash = try makeClaimablePublicKeyHash(
+        let expectedRefundPublicKeyHash = try ClaimablePrimitiveOperation.makePublicKeyHash(
             from: refundPrivateKey,
             invalidError: .invalidRefundPrivateKey
         )

@@ -16,7 +16,7 @@ extension _OpalBase.Account {
             case completed
         }
 
-        public enum CompletionStatus: String, Sendable, Equatable {
+        public enum Completion: String, Sendable, Equatable {
             case success
             case coordinatorRejected
             case hostRejected
@@ -24,6 +24,9 @@ extension _OpalBase.Account {
             case transportFailed
             case blameRequired
         }
+
+        @available(*, deprecated, renamed: "Completion")
+        public typealias CompletionStatus = Completion
 
         public enum Activity: String, Sendable, Equatable {
             case idle
@@ -48,14 +51,14 @@ extension _OpalBase.Account {
             public let identifier: String
             public let phase: Phase
             public let participantCount: Int?
-            public let completionStatus: CompletionStatus?
+            public let completionStatus: Completion?
             public let isTerminal: Bool
 
             public init(
                 identifier: String,
                 phase: Phase,
                 participantCount: Int? = nil,
-                completionStatus: CompletionStatus? = nil,
+                completionStatus: Completion? = nil,
                 isTerminal: Bool = false
             ) {
                 self.identifier = identifier
@@ -66,8 +69,8 @@ extension _OpalBase.Account {
             }
         }
 
-        public struct CoordinatorStatus: Sendable, Equatable {
-            public struct QueueStatus: Sendable, Equatable {
+        public struct Coordinator: Sendable, Equatable {
+            public struct Queue: Sendable, Equatable {
                 public let tierSatoshis: UInt64
                 public let playerCount: UInt32?
                 public let minimumPlayerCount: UInt32?
@@ -89,16 +92,19 @@ extension _OpalBase.Account {
                 }
             }
 
+            @available(*, deprecated, renamed: "Queue")
+            public typealias QueueStatus = Queue
+
             public let updateSequence: UInt64
             public let latestMessageKind: String?
             public let latestMessagePayloadByteCount: Int?
-            public let queueStatus: QueueStatus?
+            public let queueStatus: Queue?
 
             public init(
                 updateSequence: UInt64 = 0,
                 latestMessageKind: String? = nil,
                 latestMessagePayloadByteCount: Int? = nil,
-                queueStatus: QueueStatus? = nil
+                queueStatus: Queue? = nil
             ) {
                 self.updateSequence = updateSequence
                 self.latestMessageKind = latestMessageKind
@@ -107,6 +113,9 @@ extension _OpalBase.Account {
             }
         }
 
+        @available(*, deprecated, renamed: "Coordinator")
+        public typealias CoordinatorStatus = Coordinator
+
         public let isConnected: Bool
         public let round: Round?
         public let lastError: LastError?
@@ -114,7 +123,7 @@ extension _OpalBase.Account {
         public let activity: Activity
         public let retryAttempt: Int?
         public let nextRetryDelayMilliseconds: Int?
-        public let coordinatorStatus: CoordinatorStatus
+        public let coordinatorStatus: Coordinator
         public let completedLocalOutputs: [OpalBase.Transaction.Output.Unspent]
 
         public init(
@@ -125,7 +134,7 @@ extension _OpalBase.Account {
             activity: Activity = .idle,
             retryAttempt: Int? = nil,
             nextRetryDelayMilliseconds: Int? = nil,
-            coordinatorStatus: CoordinatorStatus = .init(),
+            coordinatorStatus: Coordinator = .init(),
             completedLocalOutputs: [OpalBase.Transaction.Output.Unspent] = []
         ) {
             self.isConnected = isConnected
@@ -156,7 +165,7 @@ extension _OpalBase.Account.CashFusionSessionStatus {
             activity: activityOverride ?? Self.makeActivity(snapshot),
             retryAttempt: retryAttempt,
             nextRetryDelayMilliseconds: nil,
-            coordinatorStatus: Self.makeCoordinatorStatus(snapshot.coordinatorStatus),
+            coordinatorStatus: Self.makeCoordinator(snapshot.coordinatorStatus),
             completedLocalOutputs: completedLocalOutputs
         )
     }
@@ -166,7 +175,7 @@ extension _OpalBase.Account.CashFusionSessionStatus {
             identifier: round.identifier.rawValue,
             phase: makePhase(round.phase),
             participantCount: round.participantCount,
-            completionStatus: round.completionStatus.map(Self.makeCompletionStatus(_:)),
+            completionStatus: round.completionStatus.map(Self.makeCompletion(_:)),
             isTerminal: round.isTerminal
         )
     }
@@ -194,9 +203,9 @@ extension _OpalBase.Account.CashFusionSessionStatus {
         }
     }
 
-    private static func makeCompletionStatus(
+    private static func makeCompletion(
         _ completionStatus: OpalFusion.Round.CompletionStatus
-    ) -> OpalBase.Account.CashFusionSessionStatus.CompletionStatus {
+    ) -> OpalBase.Account.CashFusionSessionStatus.Completion {
         switch completionStatus {
         case .success:
             return .success
@@ -252,20 +261,20 @@ extension _OpalBase.Account.CashFusionSessionStatus {
         return .idle
     }
 
-    private static func makeCoordinatorStatus(
+    private static func makeCoordinator(
         _ coordinatorStatus: OpalFusion.Client.Session.Snapshot.CoordinatorStatus
-    ) -> OpalBase.Account.CashFusionSessionStatus.CoordinatorStatus {
+    ) -> OpalBase.Account.CashFusionSessionStatus.Coordinator {
         .init(
             updateSequence: coordinatorStatus.updateSequence,
             latestMessageKind: coordinatorStatus.latestInboundMessageKind,
             latestMessagePayloadByteCount: coordinatorStatus.latestInboundPayloadByteCount,
-            queueStatus: coordinatorStatus.queueStatus.map(Self.makeQueueStatus(_:))
+            queueStatus: coordinatorStatus.queueStatus.map(Self.makeQueue(_:))
         )
     }
 
-    private static func makeQueueStatus(
+    private static func makeQueue(
         _ queueStatus: OpalFusion.Client.Session.Snapshot.CoordinatorStatus.TierQueue
-    ) -> OpalBase.Account.CashFusionSessionStatus.CoordinatorStatus.QueueStatus {
+    ) -> OpalBase.Account.CashFusionSessionStatus.Coordinator.Queue {
         .init(
             tierSatoshis: queueStatus.tierSatoshis,
             playerCount: queueStatus.players,

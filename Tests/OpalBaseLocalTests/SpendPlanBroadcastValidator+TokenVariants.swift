@@ -34,7 +34,7 @@ extension SpendPlanBroadcastValidator {
         #expect(await account.addressBook.readActiveSpendReservations().isEmpty)
         let broadcasts = await handler.readBroadcastedTransactions()
         #expect(broadcasts.count == 1)
-        let expectedHash = try expectedBroadcastHash(from: broadcasts)
+        let expectedHash = try BroadcastHashExpectation.makeHash(from: broadcasts)
         #expect(result.hash == expectedHash)
     }
 

@@ -35,8 +35,8 @@ extension _OpalBase.Account {
             configuration: configuration,
             genesisHash: genesisHash,
             joinPools: joinPools,
-            participantReservationSource: participantReservationSource,
-            transactionAssembler: transactionAssembler,
+            hostParticipantReservationSource: participantReservationSource,
+            hostTransactionAssembler: transactionAssembler,
             eventObserver: eventObserver,
             stateObserver: stateObserver,
             reconnectPolicy: reconnectPolicy

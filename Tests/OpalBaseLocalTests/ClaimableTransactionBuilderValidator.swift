@@ -25,7 +25,7 @@ struct ClaimableTransactionBuilderValidator {
         let encodedHashType = try #require(decodedUnlockingScript.signatureWithHashType.last)
         let signature = Data(decodedUnlockingScript.signatureWithHashType.dropLast())
         let expectedFee = try transaction.calculateFee(feePerByte: 1)
-        let expectedClaimPublicKey = try makeClaimableCompressedPublicKey(
+        let expectedClaimPublicKey = try ClaimablePrimitiveOperation.makeCompressedPublicKey(
             from: envelope.claimPrivateKey,
             invalidError: .invalidClaimPrivateKey
         )
@@ -95,7 +95,7 @@ struct ClaimableTransactionBuilderValidator {
         )
         let input = try #require(transactionAtExpiry.inputs.first)
         let decodedUnlockingScript = try ClaimableTestSupport.decodeClaimableUnlockingScript(input.unlockingScript)
-        let expectedRefundPublicKey = try makeClaimableCompressedPublicKey(
+        let expectedRefundPublicKey = try ClaimablePrimitiveOperation.makeCompressedPublicKey(
             from: refundPrivateKey,
             invalidError: .invalidRefundPrivateKey
         )
@@ -300,12 +300,12 @@ struct ClaimableTransactionBuilderValidator {
         ) throws -> Data {
             switch self {
             case .claim:
-                try makeClaimableCompressedPublicKey(
+                try ClaimablePrimitiveOperation.makeCompressedPublicKey(
                     from: envelope.claimPrivateKey,
                     invalidError: .invalidClaimPrivateKey
                 )
             case .refund:
-                try makeClaimableCompressedPublicKey(
+                try ClaimablePrimitiveOperation.makeCompressedPublicKey(
                     from: refundPrivateKey,
                     invalidError: .invalidRefundPrivateKey
                 )

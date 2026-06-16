@@ -122,62 +122,62 @@ extension StoragePersistenceValidator {
         #expect(restored.mnemonicProtectionMode == nil)
         #expect(await snapshotState.loadCommittedGeneration() == nil)
     }
-}
 
-private func makeGenerationSnapshotPersistence(
-    state: GenerationSnapshotPersistenceState
-) -> OpalBase.Storage.SnapshotPersistence {
-    OpalBase.Storage.SnapshotPersistence(
-        saveWalletSnapshot: { snapshot, generation in
-            await state.saveWalletSnapshot(snapshot, generation: generation)
-        },
-        loadWalletSnapshot: { generation in
-            await state.loadWalletSnapshot(generation: generation)
-        },
-        deleteWalletSnapshot: { generation in
-            await state.deleteWalletSnapshot(generation: generation)
-        },
-        saveCommittedGeneration: { generation in
-            await state.saveCommittedGeneration(generation)
-        },
-        loadCommittedGeneration: {
-            await state.loadCommittedGeneration()
-        },
-        deleteCommittedGeneration: {
-            await state.deleteCommittedGeneration()
-        }
-    )
-}
-
-private func expectGenerationPersistenceSimulatedFailure(
-    _ operation: () async throws -> Void
-) async throws {
-    do {
-        try await operation()
-    } catch GenerationPersistenceError.simulatedFailure {
-        return
-    } catch {
-        throw GenerationPersistenceErrorCaptureFailure.unexpected(String(describing: error))
+    private func makeGenerationSnapshotPersistence(
+        state: GenerationSnapshotPersistenceState
+    ) -> OpalBase.Storage.SnapshotPersistence {
+        OpalBase.Storage.SnapshotPersistence(
+            saveWalletSnapshot: { snapshot, generation in
+                await state.saveWalletSnapshot(snapshot, generation: generation)
+            },
+            loadWalletSnapshot: { generation in
+                await state.loadWalletSnapshot(generation: generation)
+            },
+            deleteWalletSnapshot: { generation in
+                await state.deleteWalletSnapshot(generation: generation)
+            },
+            saveCommittedGeneration: { generation in
+                await state.saveCommittedGeneration(generation)
+            },
+            loadCommittedGeneration: {
+                await state.loadCommittedGeneration()
+            },
+            deleteCommittedGeneration: {
+                await state.deleteCommittedGeneration()
+            }
+        )
     }
-    throw GenerationPersistenceErrorCaptureFailure.didNotThrow
-}
 
-private func makeGenerationMnemonicPersistence(
-    state: GenerationMnemonicPersistenceState
-) -> OpalBase.Storage.StoredMnemonicPersistence {
-    OpalBase.Storage.StoredMnemonicPersistence(
-        saveMnemonic: { mnemonic, generation, fallbackToPlaintext in
-            try await state.saveMnemonic(
-                mnemonic,
-                generation: generation,
-                fallbackToPlaintext: fallbackToPlaintext
-            )
-        },
-        loadMnemonicState: { generation in
-            await state.loadMnemonicState(generation: generation)
-        },
-        deleteMnemonic: { generation in
-            try await state.deleteMnemonic(generation: generation)
+    private func expectGenerationPersistenceSimulatedFailure(
+        _ operation: () async throws -> Void
+    ) async throws {
+        do {
+            try await operation()
+        } catch GenerationPersistenceError.simulatedFailure {
+            return
+        } catch {
+            throw GenerationPersistenceErrorCaptureFailure.unexpected(String(describing: error))
         }
-    )
+        throw GenerationPersistenceErrorCaptureFailure.didNotThrow
+    }
+
+    private func makeGenerationMnemonicPersistence(
+        state: GenerationMnemonicPersistenceState
+    ) -> OpalBase.Storage.StoredMnemonicPersistence {
+        OpalBase.Storage.StoredMnemonicPersistence(
+            saveMnemonic: { mnemonic, generation, fallbackToPlaintext in
+                try await state.saveMnemonic(
+                    mnemonic,
+                    generation: generation,
+                    fallbackToPlaintext: fallbackToPlaintext
+                )
+            },
+            loadMnemonicState: { generation in
+                await state.loadMnemonicState(generation: generation)
+            },
+            deleteMnemonic: { generation in
+                try await state.deleteMnemonic(generation: generation)
+            }
+        )
+    }
 }

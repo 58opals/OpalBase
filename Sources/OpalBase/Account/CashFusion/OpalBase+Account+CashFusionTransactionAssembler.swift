@@ -11,7 +11,7 @@ extension _OpalBase.Account {
 
         let reservation: CashFusionReservation
 
-        func finalizeTransaction(
+        func finalizeFusionTransaction(
             for roundIdentifier: OpalFusion.Round.Identifier,
             proposal: OpalFusion.Host.TransactionFinalizationProposal
         ) async throws -> OpalFusion.Host.FinalizedTransaction {
@@ -26,7 +26,7 @@ extension _OpalBase.Account {
             }
 
             do {
-                let serializedUnsignedTransaction = Data(proposal.unsignedTransactionBytes)
+                let serializedUnsignedTransaction = Data(proposal.unsignedFusionTransactionBytes)
                 let decoded = try OpalBase.Transaction.decode(from: serializedUnsignedTransaction)
                 guard decoded.bytesRead == serializedUnsignedTransaction.count else {
                     throw CashFusionTransactionAssemblyError.trailingUnsignedTransactionBytes
@@ -70,9 +70,7 @@ extension _OpalBase.Account {
                     finalizedTransactionHash: finalizedTransactionHash
                 )
 
-                return .init(
-                    transactionBytes: [UInt8](finalizedTransactionBytes)
-                )
+                return .init(signedFusionTransactionBytes: [UInt8](finalizedTransactionBytes))
             } catch let error as CancellationError {
                 throw error
             } catch {

@@ -90,7 +90,7 @@ struct ClaimableRecoveryMaterialValidator {
         privateKey: Data,
         invalidPrivateKeyError: OpalBase.Claimable.Error
     ) throws {
-        let expectedCompressedPublicKey = try makeClaimableCompressedPublicKey(
+        let expectedCompressedPublicKey = try ClaimablePrimitiveOperation.makeCompressedPublicKey(
             from: privateKey,
             invalidError: invalidPrivateKeyError
         )
@@ -99,7 +99,7 @@ struct ClaimableRecoveryMaterialValidator {
         #expect(material.spendPath == spendPath)
         #expect(material.privateKeyData == privateKey)
         #expect(material.privateKeyHexadecimal == privateKey.hexadecimalString)
-        #expect(material.privateKeyWalletImportFormat == (try makeClaimableWalletImportFormat(
+        #expect(material.privateKeyWalletImportFormat == (try ClaimablePrimitiveOperation.makeWalletImportFormat(
             privateKey: privateKey,
             network: envelope.contract.network
         )))

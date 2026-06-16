@@ -474,7 +474,7 @@ struct AccountCashFusionSessionValidator {
     func makePublicStatusMapsEveryTerminalCompletionStatus(
         statusCase: (
             fusionStatus: OpalFusion.Round.CompletionStatus,
-            expectedStatus: OpalBase.Account.CashFusionSessionStatus.CompletionStatus
+            expectedStatus: OpalBase.Account.CashFusionSessionStatus.Completion
         )
     ) {
         let publicStatus = OpalBase.Account.CashFusionSessionStatus(
@@ -490,7 +490,7 @@ struct AccountCashFusionSessionValidator {
 
     private static let terminalCompletionStatusCases: [(
         fusionStatus: OpalFusion.Round.CompletionStatus,
-        expectedStatus: OpalBase.Account.CashFusionSessionStatus.CompletionStatus
+        expectedStatus: OpalBase.Account.CashFusionSessionStatus.Completion
     )] = [
         (.success, .success),
         (.coordinatorRejected, .coordinatorRejected),
