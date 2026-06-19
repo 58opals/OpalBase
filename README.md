@@ -1,5 +1,7 @@
 # Opal Base
 
+Status: Developer Preview on develop
+
 Opal Base is a Swift package for building Bitcoin Cash wallet and transaction flows on Apple platforms. It combines actor-isolated wallet and account models, deterministic address management, transaction building and signing, Fulcrum-backed network access, snapshot persistence, and CashTokens metadata support behind a concurrency-first API.
 
 ## Who It's For
@@ -104,9 +106,17 @@ This protects the persisted mnemonic + passphrase at rest with a device-bound Se
 
 ## Validation
 
+Command:
+
 ```bash
 swift test
 ```
+
+Result: Passed on 2026-06-19: 796 tests in 88 suites passed after 128.553 seconds.
+
+## License
+
+Opal Base is available under the [Apache License 2.0](LICENSE). Copyright 2026 58 Opals.
 
 ## More Examples
 
