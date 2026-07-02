@@ -25,7 +25,7 @@
       "location" : "https://github.com/58opals/OpalFusion.git",
       "state" : {
         "branch" : "develop",
-        "revision" : "897b61c9c92aaf7ed1d6ed2f6bfb4889967dca17"
+        "revision" : "bab19e8944697f1e73941008f2278e9212e53175"
       }
     },
     {
@@ -34,7 +34,7 @@
       "location" : "https://github.com/58opals/OpalHedge.git",
       "state" : {
         "branch" : "develop",
-        "revision" : "1fc0e1a90c06248f425b92809353b58f73d1c5de"
+        "revision" : "1177702699c3d62e40e29882d17893f1cb220d58"
       }
     },
     {

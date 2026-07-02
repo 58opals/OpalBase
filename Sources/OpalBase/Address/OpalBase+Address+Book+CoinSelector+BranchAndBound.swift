@@ -56,7 +56,7 @@ extension _OpalBase.Address.Book.CoinSelector {
         }
         
         try explore(index: 0, selection: .init(), sum: 0)
-        guard !bestSelection.isEmpty else { throw OpalBase.Address.Book.Error.insufficientFunds }
+        guard bestEvaluation != nil else { throw OpalBase.Address.Book.Error.insufficientFunds }
         return bestSelection
     }
 }

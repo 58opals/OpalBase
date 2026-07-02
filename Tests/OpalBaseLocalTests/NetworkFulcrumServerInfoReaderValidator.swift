@@ -124,6 +124,14 @@ struct NetworkFulcrumServerInfoReaderValidator {
         (target: -1, expectedMessage: "Invalid fee confirmation target: -1")
     ]
 
+    private static let malformedServerFeatureHostNames = [
+        "bad_host.example.com",
+        "-leading.example.com",
+        "trailing-.example.com",
+        "empty..example.com",
+        "\(String(repeating: "a", count: 64)).example.com"
+    ]
+
     enum NegativeServerFeeRateCase: CaseIterable, Sendable {
         case relay
         case estimated
@@ -293,6 +301,29 @@ struct NetworkFulcrumServerInfoReaderValidator {
         
         #expect(failure.reason == .decoding)
         #expect(failure.message == genesisHashCase.expectedMessage)
+    }
+
+    @Test(
+        "rejects malformed server feature hosts",
+        arguments: malformedServerFeatureHostNames
+    )
+    func fetchServerFeaturesRejectsMalformedHosts(hostName: String) async throws {
+        let reader = OpalBase.Network.Fulcrum.ServerInfoReader(
+            client: try ServerInfoClientTestActor(
+                featuresResponse: Self.makeFeaturesResponse(
+                    hosts: [
+                        hostName: ["ssl_port": 50002]
+                    ]
+                )
+            )
+        )
+
+        let failure = try await Self.captureNetworkError {
+            _ = try await reader.fetchServerFeatures()
+        }
+
+        #expect(failure.reason == .decoding)
+        #expect(failure.message == "Invalid server feature host: \(hostName)")
     }
     
     @Test("rejects unsupported server feature hash functions")

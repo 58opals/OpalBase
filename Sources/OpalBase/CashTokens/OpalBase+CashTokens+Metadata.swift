@@ -93,26 +93,26 @@ extension _OpalBase.CashTokens {
 
 extension _OpalBase.CashTokens.Metadata {
     static func makeSafeMetadataURL(_ url: URL?) -> URL? {
+        let pathComponents = url?.path.split(separator: "/").map(String.init) ?? []
         guard let url,
               let scheme = url.scheme?.lowercased(),
               Self.isValidMetadataPort(url.port),
               url.user == nil,
-              url.password == nil
+              url.password == nil,
+              !URLPathTraversal.containsPathTraversal(pathComponents)
         else { return nil }
-        let pathComponents = url.path.split(separator: "/")
+
         switch scheme {
         case "https":
             guard let host = url.host,
                   !host.isEmpty,
-                  Self.isValidMetadataHost(host),
-                  !Self.containsPathTraversal(in: pathComponents)
+                  Self.isValidMetadataHost(host)
             else { return nil }
         case "ipfs":
             if let host = url.host {
                 guard Self.isValidMetadataHost(host) else { return nil }
             }
-            guard !Self.containsPathTraversal(in: pathComponents),
-                  url.host != nil || !pathComponents.isEmpty else { return nil }
+            guard url.host != nil || !pathComponents.isEmpty else { return nil }
         default:
             return nil
         }
@@ -122,10 +122,6 @@ extension _OpalBase.CashTokens.Metadata {
     private static func isValidMetadataPort(_ port: Int?) -> Bool {
         guard let port else { return true }
         return (1...65_535).contains(port)
-    }
-
-    private static func containsPathTraversal(in pathComponents: [String.SubSequence]) -> Bool {
-        URLPathTraversal.containsPathTraversal(pathComponents.map(String.init))
     }
 
     private static func isValidMetadataHost(_ host: String) -> Bool {

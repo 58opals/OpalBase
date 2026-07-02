@@ -5,6 +5,24 @@ import Testing
 @testable import OpalBase
 
 extension AddressBookCoinSelectorValidator {
+    @Test("select branch and bound returns empty selection when no funding is required")
+    func selectBranchAndBoundReturnsEmptySelectionWhenNoFundingIsRequired() throws {
+        let configuration = OpalBase.Address.Book.CoinSelection.Configuration(
+            recipientOutputs: .init(),
+            outputsWithChange: .init(),
+            strategy: .branchAndBound
+        )
+        let coinSelector = OpalBase.Address.Book.CoinSelector(
+            utxos: .init(),
+            configuration: configuration,
+            targetAmount: 0,
+            feePerByte: 0,
+            minimumRelayFeeRate: 0
+        )
+
+        #expect(try coinSelector.select().isEmpty)
+    }
+
     @Test("select branch and bound throws when minimal requirement overflows")
     func selectBranchAndBoundThrowsWhenMinimalRequirementOverflows() throws {
         let lockingScript = Data([0x51])

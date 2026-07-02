@@ -46,8 +46,6 @@ extension _OpalBase.Network {
 
 extension _OpalBase.Network.ServerCatalog {
     public static let opalDefault = Self()
-    private static let maximumDomainNameByteCount = 253
-    private static let maximumDomainLabelByteCount = 63
     
     static func makeMergedServers(primary: [URL], fallback: [URL]) -> [URL] {
         makeNormalizedServers(primary + fallback)
@@ -142,47 +140,10 @@ extension _OpalBase.Network.ServerCatalog {
     }
 
     private static func isInvalidHost(_ host: String) -> Bool {
-        guard host.utf8.count <= maximumDomainNameByteCount else {
-            return true
-        }
-
         if host.contains(":") {
             return !URLHostValidation.isValidBracketedInternetProtocolLiteral(host)
         }
-        if URLHostValidation.isMalformedInternetProtocolVersion4LiteralHost(host) {
-            return true
-        }
-
-        var labels = host.split(separator: ".", omittingEmptySubsequences: false)
-        if labels.last?.isEmpty == true {
-            labels.removeLast()
-        }
-
-        return labels.contains { label in
-            guard !isInvalidHostLabelShape(label) else {
-                return true
-            }
-            return containsInvalidDomainLabelCharacter(in: label)
-        }
-    }
-
-    private static func isInvalidHostLabelShape(_ label: some StringProtocol) -> Bool {
-        label.isEmpty
-            || label.utf8.count > maximumDomainLabelByteCount
-            || label.first == "-"
-            || label.last == "-"
-            || URLPathTraversal.isPathTraversalComponent(String(label))
-    }
-
-    private static func containsInvalidDomainLabelCharacter(in label: some StringProtocol) -> Bool {
-        label.utf8.contains { byte in
-            switch byte {
-            case 0x30 ... 0x39, 0x41 ... 0x5a, 0x61 ... 0x7a, 0x2d:
-                return false
-            default:
-                return true
-            }
-        }
+        return !URLHostValidation.isValidDomainName(host)
     }
 
     private static func defaultPort(for normalizedScheme: String) -> Int? {

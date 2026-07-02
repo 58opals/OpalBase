@@ -66,14 +66,7 @@ extension _OpalBase.Network.Fulcrum {
                     minimumProtocolVersion: .init(result.minimumProtocolVersion),
                     maximumProtocolVersion: .init(result.maximumProtocolVersion),
                     pruningLimit: try Self.validateFeatureCount(result.pruningLimit, fieldName: "pruning limit"),
-                    hosts: try result.hosts?.mapValues { host in
-                        OpalBase.Network.FulcrumServerFeatures.Host(
-                            secureSocketsLayerPort: try Self.validateFeaturePort(host.sslPort, fieldName: "ssl port"),
-                            transmissionControlProtocolPort: try Self.validateFeaturePort(host.tcpPort, fieldName: "tcp port"),
-                            webSocketPort: try Self.validateFeaturePort(host.webSocketPort, fieldName: "websocket port"),
-                            secureWebSocketPort: try Self.validateFeaturePort(host.secureWebSocketPort, fieldName: "secure websocket port")
-                        )
-                    },
+                    hosts: try Self.validateFeatureHosts(result.hosts),
                     hasDoubleSpendProofs: result.hasDoubleSpendProofs,
                     hasCashTokens: result.hasCashTokens,
                     reusablePaymentAddress: try result.reusablePaymentAddress.map { reusable in
@@ -173,6 +166,32 @@ extension _OpalBase.Network.Fulcrum {
                 )
             }
             return port
+        }
+
+        private static func validateFeatureHosts(
+            _ hosts: [String: SwiftFulcrum.Response.Server.Features.Host]?
+        ) throws -> [String: OpalBase.Network.FulcrumServerFeatures.Host]? {
+            guard let hosts else { return nil }
+            return try Dictionary(uniqueKeysWithValues: hosts.map { hostName, host in
+                let validatedHostName = try validateFeatureHostName(hostName)
+                let validatedHost = OpalBase.Network.FulcrumServerFeatures.Host(
+                    secureSocketsLayerPort: try Self.validateFeaturePort(host.sslPort, fieldName: "ssl port"),
+                    transmissionControlProtocolPort: try Self.validateFeaturePort(host.tcpPort, fieldName: "tcp port"),
+                    webSocketPort: try Self.validateFeaturePort(host.webSocketPort, fieldName: "websocket port"),
+                    secureWebSocketPort: try Self.validateFeaturePort(host.secureWebSocketPort, fieldName: "secure websocket port")
+                )
+                return (validatedHostName, validatedHost)
+            })
+        }
+
+        private static func validateFeatureHostName(_ hostName: String) throws -> String {
+            guard URLHostValidation.isValidUnbracketedHostLiteralOrName(hostName) else {
+                throw OpalBase.Network.Error(
+                    reason: .decoding,
+                    message: "Invalid server feature host: \(hostName)"
+                )
+            }
+            return hostName
         }
 
         private static func validateReusablePaymentAddressPrefixBits(

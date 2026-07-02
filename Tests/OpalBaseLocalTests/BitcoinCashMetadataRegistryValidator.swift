@@ -427,6 +427,41 @@ struct BitcoinCashMetadataRegistryValidator {
         #expect(metadata.registryURL == nil)
     }
 
+    @Test("metadata extraction ignores URI values with malformed hosts")
+    func metadataExtractionIgnoresURIValuesWithMalformedHosts() throws {
+        let registries = BitcoinCashMetadataRegistryTestClient.makeRegistries()
+        let registry = OpalBase.CashTokens.BCMR.Client.Registry(
+            version: "1",
+            registryIdentity: nil,
+            identities: [
+                "example.identity": [
+                    "2024-01-01T00:00:00Z": .init(
+                        name: "Malformed Host Token",
+                        description: nil,
+                        token: .init(
+                            category: BitcoinCashMetadataRegistryTestData.categoryHexadecimal,
+                            symbol: "BADHOST",
+                            decimals: 2
+                        ),
+                        uris: [
+                            "icon": "https://bad_host.example/icon.png",
+                            "web": "https://-leading.example/token",
+                            "registry": "ipfs://trailing-.example/registry.json"
+                        ]
+                    )
+                ]
+            ]
+        )
+
+        let metadata = try #require(
+            registries.extractTokenMetadata(from: registry)[try BitcoinCashMetadataRegistryTestData.categoryIdentifier]
+        )
+
+        #expect(metadata.iconURL == nil)
+        #expect(metadata.webURL == nil)
+        #expect(metadata.registryURL == nil)
+    }
+
     @Test("metadata extraction ignores empty IPFS URI values")
     func metadataExtractionIgnoresEmptyInterPlanetaryFileSystemURIValues() throws {
         let registries = BitcoinCashMetadataRegistryTestClient.makeRegistries()
@@ -1152,6 +1187,31 @@ struct BitcoinCashMetadataRegistryValidator {
     }
 
     @Test(
+        "registry fetcher rejects malformed HTTPS DNS labels",
+        arguments: malformedHypertextTransferProtocolSecureDomainLabelResourceIdentifiers
+    )
+    func registryFetcherRejectsMalformedHypertextTransferProtocolSecureDomainLabels(
+        invalidResourceIdentifier: String
+    ) async throws {
+        let fetcher = OpalBase.CashTokens.BCMR.Client.Fetcher(maxBytes: 1_024)
+
+        do {
+            _ = try await fetcher.fetchRegistryBytes(from: invalidResourceIdentifier)
+            Issue.record("Expected invalidResourceIdentifier for \(invalidResourceIdentifier).")
+        } catch let error as OpalBase.CashTokens.BCMR.Client.Fetcher.Error {
+            switch error {
+            case .invalidResourceIdentifier(let resourceIdentifier)
+                where resourceIdentifier == invalidResourceIdentifier:
+                break
+            default:
+                Issue.record("Expected invalidResourceIdentifier for \(invalidResourceIdentifier), got \(error).")
+            }
+        } catch {
+            Issue.record("Unexpected error for \(invalidResourceIdentifier): \(error)")
+        }
+    }
+
+    @Test(
         "registry fetcher rejects HTTPS path traversal components",
         arguments: [
             "https://registry.example/../metadata.json",
@@ -1739,6 +1799,14 @@ struct BitcoinCashMetadataRegistryValidator {
         }
         return script
     }
+
+    private static let malformedHypertextTransferProtocolSecureDomainLabelResourceIdentifiers = [
+        "https://bad_host.example/metadata.json",
+        "https://-leading.example/metadata.json",
+        "https://trailing-.example/metadata.json",
+        "https://empty..example/metadata.json",
+        "https://\(String(repeating: "a", count: 64)).example/metadata.json"
+    ]
 
     private static func makeAuthchainTransactionData(
         lockingScript: Data = Data([ScriptOperationCode._1.rawValue])
