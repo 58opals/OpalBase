@@ -11,7 +11,7 @@ Use Opal Base if you're building an Apple-platform app or service that needs BCH
 ## Role in the BCH Stack
 
 - Opal Base owns the app-facing Bitcoin Cash wallet and account domain layer for Apple-platform consumers.
-- It sits above `OpalCrypto` and `SwiftFulcrum`, so downstream apps can work with wallet flows instead of raw cryptography or raw Fulcrum transport.
+- It composes lower-level Opal packages: `OpalCrypto` for cryptography and signing primitives, `SwiftFulcrum` for Fulcrum transport, `OpalFusion` for CashFusion protocol runtime, `OpalHedge` for AnyHedge primitives, and `OpalDiagnostics` for redacted diagnostics vocabulary.
 - Downstream consumers include Opal Wallet and other Swift/BCH apps that need reusable wallet, storage, and network orchestration.
 - For package boundaries and integration notes, see [Architecture](docs/architecture.md) and the [Public API Guide](docs/public-api.md).
 
@@ -81,6 +81,9 @@ This gives you a wallet, the first account, and the first derived receiving addr
 - Opal Base is not a UI or app-shell package.
 - Raw cryptography, key primitives, and signing infrastructure remain the responsibility of `OpalCrypto`.
 - Raw Fulcrum transport and low-level network protocol concerns remain the responsibility of `SwiftFulcrum`.
+- CashFusion coordinator protocol behavior remains the responsibility of `OpalFusion`.
+- AnyHedge contract primitives and protocol behavior remain the responsibility of `OpalHedge`.
+- Shared diagnostics categories, events, records, and presentation helpers remain the responsibility of `OpalDiagnostics`.
 - Portfolio governance, weekly reporting, and repository operations policy stay outside this package repository.
 
 ## Secure Enclave Storage

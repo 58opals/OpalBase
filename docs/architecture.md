@@ -11,6 +11,8 @@ Consumers use Opal Base when they need wallet flows, CashAddr management, spend 
 - `OpalCrypto` provides the cryptography, seed and key derivation primitives, and signing support consumed by wallet, account, and transaction flows in this package.
 - `SwiftFulcrum` provides the underlying Fulcrum protocol transport used by `OpalBase.Network.Fulcrum.Client` and the readers and clients layered on top of it.
 - `OpalFusion` provides the native CashFusion runtime and protocol behavior consumed by wallet-backed CashFusion flows in this package.
+- `OpalHedge` provides the AnyHedge contract primitives and protocol behavior consumed by wallet-backed hedge funding flows in this package.
+- `OpalDiagnostics` provides the shared diagnostics vocabulary, redacted record model, and presentation helpers consumed by Opal Base observability surfaces.
 - Opal Base owns the app-facing orchestration above those packages: wallet state, address tracking, spend planning, CashFusion reservation and session preparation, history refresh, snapshotting, storage, and token metadata handling.
 
 ## Downstream Integration
@@ -56,6 +58,9 @@ Consumers use Opal Base when they need wallet flows, CashAddr management, spend 
 - UI, app-shell, or end-user product UX ownership.
 - Raw cryptography or numeric primitives that belong in `OpalCrypto`.
 - Raw network transport or protocol wiring that belong in `SwiftFulcrum`; `Network.Fulcrum` remains public-chain oriented and must not own wallet secrets or SwiftData snapshots.
+- Native CashFusion protocol runtime that belongs in `OpalFusion`.
+- AnyHedge contract primitives or protocol behavior that belong in `OpalHedge`.
+- Cross-package diagnostics infrastructure that belongs in `OpalDiagnostics`.
 - Broad wallet/account authority as the only public integration surface. New app code should prefer the lane-specific interactors when composing Wallet features.
 - Multi-chain scope. This package is Bitcoin Cash-specific.
 - Weekly reporting, portfolio prioritization, dependency drift snapshots, or operational workflow policy.
