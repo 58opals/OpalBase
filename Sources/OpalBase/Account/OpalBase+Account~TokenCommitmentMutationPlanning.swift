@@ -149,7 +149,7 @@ extension _OpalBase.Account {
                                            bchChangeOutput: reservedSpendContext.changeOutput,
                                            shouldAllowDustDonation: mutation.shouldAllowDustDonation,
                                            reservationHandle: reservedSpendContext.reservationHandle,
-                                           privateKeys: reservedSpendContext.privateKeys,
+                                           signingKeys: reservedSpendContext.signingKeys,
                                            organizedTokenOutputs: resolvedOrganizedTokenOutputs,
                                            shouldRandomizeRecipientOrdering: privacyConfiguration.shouldRandomizeRecipientOrdering)
     }

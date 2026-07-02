@@ -81,7 +81,16 @@ extension _OpalBase.Storage {
     }
 
     public func wipeAll() async throws {
-        try await removeAllEntries()
+        do {
+            try await removeAllEntries()
+        } catch {
+            try? security.resetProtectedMaterial()
+            throw error
+        }
+        try security.resetProtectedMaterial()
+    }
+
+    func resetProtectedMaterial() throws {
         try security.resetProtectedMaterial()
     }
 }

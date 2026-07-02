@@ -35,7 +35,7 @@ extension _OpalBase.Account {
         public var reservationDate: Date { reservationHandle.reservationDate }
         
         private let reservationHandle: OpalBase.Account.SpendReservation
-        private let privateKeys: [OpalBase.Transaction.Output.Unspent: Data]
+        private let signingKeys: [OpalBase.Transaction.Output.Unspent: OpalBase.Key.SigningKey]
         private let organizedTokenOutputs: [OpalBase.Transaction.Output]
         private let shouldRandomizeRecipientOrdering: Bool
         
@@ -48,7 +48,7 @@ extension _OpalBase.Account {
              bchChangeOutput: OpalBase.Transaction.Output,
              shouldAllowDustDonation: Bool,
              reservationHandle: OpalBase.Account.SpendReservation,
-             privateKeys: [OpalBase.Transaction.Output.Unspent: Data],
+             signingKeys: [OpalBase.Transaction.Output.Unspent: OpalBase.Key.SigningKey],
              organizedTokenOutputs: [OpalBase.Transaction.Output],
              shouldRandomizeRecipientOrdering: Bool) {
             self.transfer = transfer
@@ -60,14 +60,14 @@ extension _OpalBase.Account {
             self.bchChangeOutput = bchChangeOutput
             self.shouldAllowDustDonation = shouldAllowDustDonation
             self.reservationHandle = reservationHandle
-            self.privateKeys = privateKeys
+            self.signingKeys = signingKeys
             self.organizedTokenOutputs = organizedTokenOutputs
             self.shouldRandomizeRecipientOrdering = shouldRandomizeRecipientOrdering
         }
         
         public func buildTransaction(signatureFormat: OpalBase.Transaction.SignatureFormat = .schnorr,
                                      unlockers: [OpalBase.Transaction.Output.Unspent: OpalBase.Transaction.Unlocker] = .init()) throws -> TransactionResult {
-            let core = try OpalBase.Account.buildTransactionCore(privateKeys: privateKeys,
+            let core = try OpalBase.Account.buildTransactionCore(signingKeys: signingKeys,
                                                         recipientOutputs: organizedTokenOutputs,
                                                         changeOutput: bchChangeOutput,
                                                         feeRate: feeRate,

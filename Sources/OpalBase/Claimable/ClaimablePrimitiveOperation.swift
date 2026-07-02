@@ -4,24 +4,46 @@ import Foundation
 import OpalCrypto
 
 enum ClaimablePrimitiveOperation {
+    static func makeSigningKey(
+        from privateKey: Data,
+        invalidError: OpalBase.Claimable.Error
+    ) throws -> OpalBase.Key.SigningKey {
+        do {
+            return try OpalBase.Key.SigningKey(rawRepresentation: privateKey)
+        } catch {
+            throw invalidError
+        }
+    }
+
     static func makeCompressedPublicKey(
         from privateKey: Data,
         invalidError: OpalBase.Claimable.Error
     ) throws -> Data {
-        do {
-            let typedPrivateKey = try OpalCrypto.Secp256k1.PrivateKey(rawRepresentation: privateKey)
-            return try OpalCrypto.Secp256k1.derivePublicKey(from: typedPrivateKey).rawRepresentation
-        } catch {
-            throw invalidError
-        }
+        makeCompressedPublicKey(
+            from: try makeSigningKey(from: privateKey, invalidError: invalidError)
+        )
+    }
+
+    static func makeCompressedPublicKey(
+        from signingKey: OpalBase.Key.SigningKey
+    ) -> Data {
+        signingKey.publicKey.compressedData
     }
 
     static func makePublicKeyHash(
         from privateKey: Data,
         invalidError: OpalBase.Claimable.Error
     ) throws -> Data {
+        makePublicKeyHash(
+            from: try makeSigningKey(from: privateKey, invalidError: invalidError)
+        )
+    }
+
+    static func makePublicKeyHash(
+        from signingKey: OpalBase.Key.SigningKey
+    ) -> Data {
         OpalCryptoAdapter.hash160(
-            try makeCompressedPublicKey(from: privateKey, invalidError: invalidError)
+            makeCompressedPublicKey(from: signingKey)
         )
     }
 
@@ -31,12 +53,13 @@ enum ClaimablePrimitiveOperation {
 
     static func makeWalletImportFormat(
         privateKey: Data,
-        network: OpalBase.Network.Environment
+        network: OpalBase.Network.Environment,
+        invalidError: OpalBase.Claimable.Error
     ) throws -> String {
         do {
             _ = try OpalCrypto.Secp256k1.PrivateKey(rawRepresentation: privateKey)
         } catch {
-            throw OpalBase.Claimable.Error.invalidClaimPrivateKey
+            throw invalidError
         }
 
         var payload = Data([makeWalletImportFormatVersion(for: network)])

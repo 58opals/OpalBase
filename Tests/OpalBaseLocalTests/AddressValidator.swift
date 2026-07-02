@@ -14,7 +14,11 @@ struct AddressValidator {
 
     @Test("public key wrappers normalize sliced data")
     func publicKeyWrappersNormalizeSlicedData() throws {
-        let compressedPublicKeyData = Data([0x02]) + Data(repeating: 0x01, count: 32)
+        let privateKeyData = Data(repeating: 0x00, count: 31) + Data([0x01])
+        let privateKey = try OpalCrypto.Secp256k1.PrivateKey(rawRepresentation: privateKeyData)
+        let compressedPublicKeyData = try OpalCrypto.Secp256k1.derivePublicKey(
+            from: privateKey
+        ).compressedRepresentation
         let publicKeyHashData = Data(repeating: 0x02, count: 20)
         let slicedCompressedPublicKeyData = Self.makeSlicedData(from: compressedPublicKeyData)
         let slicedPublicKeyHashData = Self.makeSlicedData(from: publicKeyHashData)
@@ -28,6 +32,20 @@ struct AddressValidator {
         #expect(publicKey.compressedData.startIndex == 0)
         #expect(publicKeyHash.data == publicKeyHashData)
         #expect(publicKeyHash.data.startIndex == 0)
+    }
+
+    @Test("public key wrappers reject invalid compressed public keys")
+    func publicKeyWrappersRejectInvalidCompressedPublicKeys() {
+        #expect(throws: OpalBase.Key.PublicKey.Error.invalidFormat) {
+            _ = try OpalBase.Key.PublicKey(
+                compressedData: Data([0x01]) + Data(repeating: 0x00, count: 32)
+            )
+        }
+        #expect(throws: OpalBase.Key.PublicKey.Error.invalidFormat) {
+            _ = try OpalBase.Key.PublicKey(
+                compressedData: Data([0x02]) + Data(repeating: 0xFF, count: 32)
+            )
+        }
     }
 
     @Test("address book usage derivation cache normalizes sliced data")
@@ -329,6 +347,38 @@ struct AddressValidator {
         let changeEntry = try #require(await book.listEntries(for: OpalBase.Key.DerivationPath.Usage.change).first)
 
         #expect(receivingEntry.address != changeEntry.address)
+    }
+
+    @Test("address book derives signing keys for tracked UTXO locking scripts")
+    func addressBookDerivesSigningKeysForTrackedUTXOLockingScripts() async throws {
+        let rootExtendedPrivateKey = try OpalCrypto.Key.ExtendedPrivate.root(
+            seed: AccountTestFixtures.makeMnemonic().deriveSeed()
+        )
+        let account = try OpalBase.Key.DerivationPath.Account(rawIndexInteger: 0)
+        let book = try await OpalBase.Address.Book(
+            rootExtendedPrivateKey: rootExtendedPrivateKey,
+            purpose: .bip44,
+            coinType: .bitcoinCash,
+            account: account,
+            gapLimit: 1
+        )
+        let receivingEntry = try #require(
+            await book.listEntries(for: OpalBase.Key.DerivationPath.Usage.receiving).first
+        )
+        let unspentOutput = OpalBase.Transaction.Output.Unspent(
+            value: 25_000,
+            lockingScript: receivingEntry.address.lockingScript.data,
+            previousTransactionHash: AccountTestFixtures.makeHash(byte: 0x4A),
+            previousTransactionOutputIndex: 0
+        )
+
+        let signingKeys = try await book.deriveSigningKeys(for: [unspentOutput])
+        let signingKey = try #require(signingKeys[unspentOutput])
+        let signingAddress = try OpalBase.Address(
+            script: .p2pkh_OPCHECKSIG(hash: .init(publicKey: signingKey.publicKey))
+        )
+
+        #expect(signingAddress == receivingEntry.address)
     }
 
     @Test("address book rejects non-positive gap limits", arguments: [0, -1])

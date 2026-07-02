@@ -189,12 +189,29 @@ struct PublicAPISmokeValidator {
         #expect(OpalBase.Transaction.SignatureFormat.schnorr == .schnorr)
     }
 
+    @Test("Lockdown Mode boundary errors are Sendable")
+    func lockdownModeBoundaryErrorsAreSendable() {
+        requireSendable(OpalBase.WalletSecurityProfile.Error.self)
+        requireSendable(OpalBase.WalletUnsignedTransactionEnvelope.Error.self)
+    }
+
+    @Test("signing key facade exposes compressed public key only")
+    func signingKeyFacadeExposesCompressedPublicKeyOnly() throws {
+        let signingKey = try OpalBase.Key.SigningKey(rawRepresentation: Data(repeating: 0x02, count: 32))
+        let publicKey = signingKey.publicKey
+
+        #expect(publicKey.compressedData.count == 33)
+        #expect(publicKey.hash.count == 20)
+        #expect(signingKey.description.contains("redacted"))
+    }
+
     @Test("claimable facade composes from OpalBase only")
     func claimableFacadeComposesFromOpalBaseOnly() throws {
         let refundPrivateKey = Data(repeating: 0, count: 31) + Data([0x02])
+        let refundSigningKey = try OpalBase.Key.SigningKey(rawRepresentation: refundPrivateKey)
         let draft = try OpalBase.Claimable.Draft(
             network: .chipnet,
-            refundPrivateKey: refundPrivateKey,
+            refundSigningKey: refundSigningKey,
             expiryBlockHeight: 500
         )
         let fundingOutput = draft.makeFundingOutput(value: 20_000)
@@ -456,6 +473,8 @@ struct PublicAPISmokeValidator {
         "abandon", "abandon", "abandon", "abandon", "abandon", "abandon",
         "abandon", "abandon", "abandon", "abandon", "abandon", "about"
     ]
+
+    private func requireSendable<T: Sendable>(_ type: T.Type) {}
 
     private func makeSmokeMnemonic() throws -> OpalBase.Key.Mnemonic {
         try OpalBase.Key.Mnemonic(

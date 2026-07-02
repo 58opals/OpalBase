@@ -165,4 +165,32 @@ extension AccountReadOnlyRuntimeValidator {
             }
         }
     }
+
+    @Test("read-only account can prepare unsigned spend for external review")
+    func readOnlyAccountCanPrepareUnsignedSpendForExternalReview() async throws {
+        let privateAccount = try await AccountTestFixtures.makeAccount()
+        let selectedInput = try await AccountTestFixtures.addUnspentOutput(
+            to: privateAccount,
+            value: 45_000,
+            hashByte: 0x76
+        )
+        let readOnlyAccount = try await Self.makeReadOnlyAccount(from: privateAccount)
+        let payment = OpalBase.Account.Payment(
+            recipients: [
+                .init(
+                    address: try OpalBase.Address(AccountTestFixtures.standardAddressString),
+                    amount: try OpalBase.Satoshi(15_000)
+                )
+            ]
+        )
+        let authoring = OpalBase.WalletTransactionAuthoringInteractor(privateAccount: readOnlyAccount)
+
+        let plan = try await authoring.prepareSpendForExternalReview(payment)
+
+        #expect(plan.inputs == [selectedInput])
+        #expect(plan.envelope.unsignedTransaction.inputs.count == 1)
+        let unsignedInput = try #require(plan.envelope.unsignedTransaction.inputs.first)
+        #expect(unsignedInput.unlockingScript.isEmpty == false)
+        #expect(plan.envelope.spentOutputs.count == 1)
+    }
 }

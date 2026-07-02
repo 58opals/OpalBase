@@ -49,3 +49,26 @@ extension _OpalBase.Claimable {
 
 extension _OpalBase.Claimable.Envelope: Sendable {}
 extension _OpalBase.Claimable.Envelope: Hashable {}
+extension _OpalBase.Claimable.Envelope: CustomStringConvertible, CustomDebugStringConvertible, CustomReflectable {
+    public var description: String {
+        "OpalBase.Claimable.Envelope(network: \(contract.network), claimPrivateKey: \(OpalBase.Claimable.redactedSecretMarker), fundingOutputIndex: \(fundingOutputIndex))"
+    }
+
+    public var debugDescription: String {
+        description
+    }
+
+    public var customMirror: Mirror {
+        Mirror(
+            self,
+            children: [
+                "network": contract.network,
+                "claimPrivateKey": OpalBase.Claimable.redactedSecretMarker,
+                "fundingTransactionHash": fundingTransactionHash,
+                "fundingOutputIndex": fundingOutputIndex,
+                "fundingValue": fundingValue,
+            ],
+            displayStyle: .struct
+        )
+    }
+}

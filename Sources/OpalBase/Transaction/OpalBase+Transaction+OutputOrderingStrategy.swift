@@ -15,21 +15,12 @@ extension _OpalBase.Transaction {
         outputs.count > 1 ? outputs.shuffled() : outputs
     }
 
-    static func build(version: UInt32 = 2,
-                      utxoPrivateKeyPairs: [OpalBase.Transaction.Output.Unspent: Data],
-                      recipientOutputs: [Output],
-                      changeOutput: Output,
-                      outputOrderingStrategy: OutputOrderingStrategy = .privacyRandomized,
-                      signatureFormat: OpalBase.Transaction.SignatureFormat = .schnorr,
-                      feePerByte: UInt64 = 1,
-                      sequence: UInt32 = 0xFFFFFFFF,
-                      lockTime: UInt32 = 0,
-                      shouldAllowDustDonation: Bool = false,
-                      privacyOutputShuffle: ([Output]) -> [Output] = defaultPrivacyOutputShuffle,
-                      unlockers: [OpalBase.Transaction.Output.Unspent: Unlocker] = .init()) throws -> OpalBase.Transaction {
+    private static func makeStablePrivacyOutputShuffle(
+        _ privacyOutputShuffle: @escaping ([Output]) -> [Output]
+    ) -> ([Output]) -> [Output] {
         var privacyOutputShuffleCache: [[Output.Fingerprint]: [Output]] = .init()
         var privacyOutputOrder: [Output.Fingerprint]?
-        let stablePrivacyOutputShuffle: ([Output]) -> [Output] = { outputs in
+        return { outputs in
             let fingerprint = outputs.map(\.fingerprint)
             if let cachedOutputs = privacyOutputShuffleCache[fingerprint] {
                 return cachedOutputs
@@ -68,10 +59,70 @@ extension _OpalBase.Transaction {
             privacyOutputShuffleCache[fingerprint] = shuffledOutputs
             return shuffledOutputs
         }
-        let builder = Builder(utxoPrivateKeyPairs: utxoPrivateKeyPairs,
+    }
+
+    static func build(version: UInt32 = 2,
+                      utxoPrivateKeyPairs: [OpalBase.Transaction.Output.Unspent: Data],
+                      recipientOutputs: [Output],
+                      changeOutput: Output,
+                      outputOrderingStrategy: OutputOrderingStrategy = .privacyRandomized,
+                      signatureFormat: OpalBase.Transaction.SignatureFormat = .schnorr,
+                      feePerByte: UInt64 = 1,
+                      sequence: UInt32 = 0xFFFFFFFF,
+                      lockTime: UInt32 = 0,
+                      shouldAllowDustDonation: Bool = false,
+                      privacyOutputShuffle: @escaping ([Output]) -> [Output] = defaultPrivacyOutputShuffle,
+                      unlockers: [OpalBase.Transaction.Output.Unspent: Unlocker] = .init()) throws -> OpalBase.Transaction {
+        try requireTransactionSigningSupport(signatureFormat: signatureFormat, unlockers: unlockers.values)
+        let builder = Builder(
+            unspentOutputs: Array(utxoPrivateKeyPairs.keys),
+            signatureFormat: signatureFormat,
+            sequence: sequence,
+            unlockers: unlockers
+        )
+        try builder.requireUnlockerKeysMatchUnspentOutputs()
+
+        return try build(
+            version: version,
+            utxoSigningKeyPairs: try utxoPrivateKeyPairs.mapValues {
+                try OpalBase.Key.SigningKey(rawRepresentation: $0)
+            },
+            recipientOutputs: recipientOutputs,
+            changeOutput: changeOutput,
+            outputOrderingStrategy: outputOrderingStrategy,
+            signatureFormat: signatureFormat,
+            feePerByte: feePerByte,
+            sequence: sequence,
+            lockTime: lockTime,
+            shouldAllowDustDonation: shouldAllowDustDonation,
+            privacyOutputShuffle: privacyOutputShuffle,
+            unlockers: unlockers
+        )
+    }
+
+    static func build(version: UInt32 = 2,
+                      utxoSigningKeyPairs: [OpalBase.Transaction.Output.Unspent: OpalBase.Key.SigningKey],
+                      recipientOutputs: [Output],
+                      changeOutput: Output,
+                      outputOrderingStrategy: OutputOrderingStrategy = .privacyRandomized,
+                      signatureFormat: OpalBase.Transaction.SignatureFormat = .schnorr,
+                      feePerByte: UInt64 = 1,
+                      sequence: UInt32 = 0xFFFFFFFF,
+                      lockTime: UInt32 = 0,
+                      shouldAllowDustDonation: Bool = false,
+                      privacyOutputShuffle: @escaping ([Output]) -> [Output] = defaultPrivacyOutputShuffle,
+                      unlockers: [OpalBase.Transaction.Output.Unspent: Unlocker] = .init()) throws -> OpalBase.Transaction {
+        try requireTransactionSigningSupport(signatureFormat: signatureFormat, unlockers: unlockers.values)
+        guard utxoSigningKeyPairs.isEmpty == false else {
+            throw Error.cannotCreateTransaction
+        }
+
+        let stablePrivacyOutputShuffle = makeStablePrivacyOutputShuffle(privacyOutputShuffle)
+        let builder = Builder(utxoSigningKeyPairs: utxoSigningKeyPairs,
                               signatureFormat: signatureFormat,
                               sequence: sequence,
                               unlockers: unlockers)
+        try builder.requireUnlockerKeysMatchUnspentOutputs()
 
         let inputs = builder.makeInputs()
 
@@ -98,6 +149,70 @@ extension _OpalBase.Transaction {
                                           lockTime: lockTime,
                                           shouldAllowDustDonation: shouldAllowDustDonation,
                                           privacyOutputShuffle: stablePrivacyOutputShuffle)
+    }
+
+    static func makeUnsignedTransactionEnvelope(
+        version: UInt32 = 2,
+        unspentOutputs: [OpalBase.Transaction.Output.Unspent],
+        recipientOutputs: [Output],
+        changeOutput: Output,
+        outputOrderingStrategy: OutputOrderingStrategy = .privacyRandomized,
+        signatureFormat: OpalBase.Transaction.SignatureFormat = .schnorr,
+        feePerByte: UInt64 = 1,
+        sequence: UInt32 = 0xFFFFFFFF,
+        lockTime: UInt32 = 0,
+        shouldAllowDustDonation: Bool = false,
+        privacyOutputShuffle: @escaping ([Output]) -> [Output] = defaultPrivacyOutputShuffle,
+        unlockers: [OpalBase.Transaction.Output.Unspent: Unlocker] = .init()
+    ) throws -> OpalBase.WalletUnsignedTransactionEnvelope {
+        try requireTransactionSigningSupport(signatureFormat: signatureFormat, unlockers: unlockers.values)
+        guard unspentOutputs.isEmpty == false else {
+            throw Error.cannotCreateTransaction
+        }
+        guard Set(unspentOutputs).count == unspentOutputs.count else {
+            throw Error.cannotCreateTransaction
+        }
+
+        let stablePrivacyOutputShuffle = makeStablePrivacyOutputShuffle(privacyOutputShuffle)
+        let builder = Builder(
+            unspentOutputs: unspentOutputs,
+            signatureFormat: signatureFormat,
+            sequence: sequence,
+            unlockers: unlockers
+        )
+        try builder.requireUnlockerKeysMatchUnspentOutputs()
+
+        let inputs = builder.makeInputs()
+        let (outputs, _) = try computeOutputsAndFee(
+            version: version,
+            inputs: inputs,
+            recipientOutputs: recipientOutputs,
+            changeOutput: changeOutput,
+            outputOrderingStrategy: outputOrderingStrategy,
+            feePerByte: feePerByte,
+            lockTime: lockTime,
+            shouldAllowDustDonation: shouldAllowDustDonation,
+            privacyOutputShuffle: stablePrivacyOutputShuffle
+        )
+        let unsignedTransaction = OpalBase.Transaction(
+            version: version,
+            inputs: inputs,
+            outputs: outputs,
+            lockTime: lockTime
+        )
+        let spentOutputs = builder.orderedUnspentOutputs.map { unspentOutput in
+            Output(
+                value: unspentOutput.value,
+                lockingScript: unspentOutput.lockingScript,
+                tokenData: unspentOutput.tokenData
+            )
+        }
+
+        return OpalBase.WalletUnsignedTransactionEnvelope(
+            unsignedTransaction: unsignedTransaction,
+            spentOutputs: spentOutputs,
+            signatureFormat: signatureFormat
+        )
     }
 
     private static func computeOutputsAndFee(version: UInt32,
@@ -190,12 +305,12 @@ extension _OpalBase.Transaction {
         }
 
         for (index, unspentOutput) in builder.orderedUnspentOutputs.enumerated() {
-            guard let privateKey = builder.findPrivateKey(for: unspentOutput) else { throw Error.cannotCreateTransaction }
+            guard let signingKey = builder.findSigningKey(for: unspentOutput) else { throw Error.cannotCreateTransaction }
             let unlocker = builder.makeUnlocker(for: unspentOutput)
             transaction = try transaction.signInputInPlace(
                 at: index,
                 spending: unspentOutput,
-                privateKey: privateKey,
+                signingKey: signingKey,
                 signatureFormat: builder.signatureFormat,
                 unlocker: unlocker,
                 using: unsignedTransaction,

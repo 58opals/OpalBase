@@ -88,10 +88,8 @@ This gives you a wallet, the first account, and the first derived receiving addr
 If you need fail-closed mnemonic persistence on Apple hardware, opt into the Secure Enclave-backed storage security factory and require Secure Enclave during save:
 
 ```swift
-let security = try OpalBase.Storage.Security.makeSecureEnclaveBacked()
-let storage = try OpalBase.Storage(
-    valueClient: yourValueClient,
-    security: security
+let storage = try OpalBase.Storage.makeSecureEnclaveBacked(
+    valueClient: yourValueClient
 )
 
 let protectionMode = try await storage.persistState(
@@ -103,6 +101,12 @@ assert(protectionMode == .secureEnclave)
 ```
 
 This protects the persisted mnemonic + passphrase at rest with a device-bound Secure Enclave key and user-presence gating. It does not move BCH signing into the Secure Enclave; once a wallet is restored, secp256k1 signing still happens through OpalCrypto in process memory.
+
+Apps that build a Lockdown Mode-compatible offline Bitcoin Cash savings signer can also use `OpalBase.WalletSecurityProfile.offlineSavingsSigner` with `WalletSecretAccessInteractor` to make the strict secret-storage posture explicit at the call site.
+
+For scoped in-process signing, prefer `OpalBase.Key.SigningKey` after importing raw secp256k1 private-key bytes. It derives public keys and signs without exposing a public raw-byte export API; raw `Data` private-key APIs remain explicit compatibility, WIF/export, recovery, or wire-format surfaces.
+
+For spending from that posture, use `WalletTransactionAuthoringInteractor.prepareSpendForExternalReview` to get a `WalletUnsignedSpendPlan` rather than building a signed transaction in process. The unsigned plan reserves the selected UTXOs and change address, carries the unsigned Bitcoin Cash transaction plus the transaction outputs being spent, and leaves relay to a separate online component after external signing is complete.
 
 ## Validation
 

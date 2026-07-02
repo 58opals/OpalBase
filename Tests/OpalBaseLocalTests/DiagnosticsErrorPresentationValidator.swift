@@ -267,6 +267,32 @@ struct DiagnosticsErrorPresentationValidator {
         )
     }
 
+    @Test(
+        "wallet security profile errors classify through diagnostics",
+        arguments: WalletSecurityProfileDiagnosticCase.allCases
+    )
+    func verifyWalletSecurityProfileErrorsClassifyThroughDiagnostics(
+        diagnosticCase: WalletSecurityProfileDiagnosticCase
+    ) {
+        #expect(
+            OpalDiagnostics.ErrorCode.opalBaseCode(for: diagnosticCase.error) ==
+                OpalDiagnostics.ErrorCode.walletSecurityProfileViolation
+        )
+    }
+
+    @Test(
+        "unsigned transaction envelope errors classify through diagnostics",
+        arguments: UnsignedTransactionEnvelopeDiagnosticCase.allCases
+    )
+    func verifyUnsignedTransactionEnvelopeErrorsClassifyThroughDiagnostics(
+        diagnosticCase: UnsignedTransactionEnvelopeDiagnosticCase
+    ) {
+        #expect(
+            OpalDiagnostics.ErrorCode.opalBaseCode(for: diagnosticCase.error) ==
+                OpalDiagnostics.ErrorCode.transactionInvalid
+        )
+    }
+
     private static func findField(
         _ name: String,
         in fields: [OpalDiagnostics.Field]
@@ -835,12 +861,14 @@ struct DiagnosticsErrorPresentationValidator {
 
     enum OpalBaseErrorDomainClassificationCase: CaseIterable, Sendable {
         case wallet
+        case walletSecurityProfile
         case account
         case accountInvalidExtendedPublicKey
         case accountExtendedPublicKeyMismatch
         case accountPrivateKeyMaterialUnavailable
         case accountFeePreference
         case accountTokenSelection
+        case unsignedTransactionEnvelope
         case network
         case storage
         case storageSecurity
@@ -860,6 +888,11 @@ struct DiagnosticsErrorPresentationValidator {
             switch self {
             case .wallet:
                 return (OpalBase.Wallet.Error.accountAlreadyExists(index: 0), .walletAccountAlreadyExists)
+            case .walletSecurityProfile:
+                return (
+                    OpalBase.WalletSecurityProfile.Error.broadcastUnavailable(networkAccess: .offline),
+                    .walletSecurityProfileViolation
+                )
             case .account:
                 return (OpalBase.Account.Error.paymentHasNoRecipients, .accountPaymentInvalid)
             case .accountInvalidExtendedPublicKey:
@@ -877,6 +910,11 @@ struct DiagnosticsErrorPresentationValidator {
                 return (
                     OpalBase.Account.Error.tokenSelectionFailed(NetworkStubError.forced("selection")),
                     .accountCoinSelectionFailed
+                )
+            case .unsignedTransactionEnvelope:
+                return (
+                    OpalBase.WalletUnsignedTransactionEnvelope.Error.unsignedTransactionHasNoInputs,
+                    .transactionInvalid
                 )
             case .network:
                 return (OpalBase.Network.Error(reason: .timeout), .networkTimeout)
@@ -909,6 +947,84 @@ struct DiagnosticsErrorPresentationValidator {
                 return (OpalBase.Key.Mnemonic.Error.accountExtendedPublicKeyDerivationFailed, .keyInvalid)
             case .encoding:
                 return (OpalBase.Encoding.Error.invalidHexadecimalString, .encodingInvalid)
+            }
+        }
+    }
+
+    enum WalletSecurityProfileDiagnosticCase: CaseIterable, Sendable {
+        case broadcastUnavailable
+        case externalSigningReviewUnavailable
+        case offlineNetworkAccessRequired
+        case secureEnclaveSecretPersistenceRequired
+
+        var error: OpalBase.WalletSecurityProfile.Error {
+            switch self {
+            case .broadcastUnavailable:
+                return .broadcastUnavailable(networkAccess: .offline)
+            case .externalSigningReviewUnavailable:
+                return .externalSigningReviewUnavailable(signingAccess: .inProcess)
+            case .offlineNetworkAccessRequired:
+                return .offlineNetworkAccessRequired(actual: .publicChainSyncAndBroadcast)
+            case .secureEnclaveSecretPersistenceRequired:
+                return .secureEnclaveSecretPersistenceRequired(actual: .acceptProviderOutput)
+            }
+        }
+    }
+
+    enum UnsignedTransactionEnvelopeDiagnosticCase: CaseIterable, CustomStringConvertible, Sendable {
+        case unsignedTransactionHasNoInputs
+        case unsignedTransactionHasDuplicateInputs
+        case unsignedTransactionHasNoOutputs
+        case spentOutputCountMismatch
+        case signedInputCountMismatch
+        case signedTransactionDoesNotMatchEnvelope
+        case missingSignedUnlockingScript
+        case unchangedSignedUnlockingScript
+        case unsupportedSignatureFormat
+
+        var description: String {
+            switch self {
+            case .unsignedTransactionHasNoInputs:
+                "unsigned transaction has no inputs"
+            case .unsignedTransactionHasDuplicateInputs:
+                "unsigned transaction has duplicate inputs"
+            case .unsignedTransactionHasNoOutputs:
+                "unsigned transaction has no outputs"
+            case .spentOutputCountMismatch:
+                "spent output count mismatch"
+            case .signedInputCountMismatch:
+                "signed input count mismatch"
+            case .signedTransactionDoesNotMatchEnvelope:
+                "signed transaction does not match envelope"
+            case .missingSignedUnlockingScript:
+                "missing signed unlocking script"
+            case .unchangedSignedUnlockingScript:
+                "unchanged signed unlocking script"
+            case .unsupportedSignatureFormat:
+                "unsupported signature format"
+            }
+        }
+
+        var error: OpalBase.WalletUnsignedTransactionEnvelope.Error {
+            switch self {
+            case .unsignedTransactionHasNoInputs:
+                .unsignedTransactionHasNoInputs
+            case .unsignedTransactionHasDuplicateInputs:
+                .unsignedTransactionHasDuplicateInputs
+            case .unsignedTransactionHasNoOutputs:
+                .unsignedTransactionHasNoOutputs
+            case .spentOutputCountMismatch:
+                .spentOutputCountMismatch(expected: 1, actual: 0)
+            case .signedInputCountMismatch:
+                .signedInputCountMismatch(expected: 1, actual: 0)
+            case .signedTransactionDoesNotMatchEnvelope:
+                .signedTransactionDoesNotMatchEnvelope
+            case .missingSignedUnlockingScript:
+                .missingSignedUnlockingScript(inputIndex: 0)
+            case .unchangedSignedUnlockingScript:
+                .unchangedSignedUnlockingScript(inputIndex: 0)
+            case .unsupportedSignatureFormat:
+                .unsupportedSignatureFormat
             }
         }
     }

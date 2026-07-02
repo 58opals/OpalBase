@@ -18,7 +18,6 @@ struct ClaimableRecoveryMaterialValidator {
             privateKey: envelope.claimPrivateKey,
             invalidPrivateKeyError: .invalidClaimPrivateKey
         )
-        #expect(material.privateKeyWalletImportFormat == "KwDiBf89QgGbjEhKnhXJuH7LrciVrZi3qYjgd9M7rFU73sVHnoWn")
     }
 
     @Test("builds refund recovery material")
@@ -35,6 +34,26 @@ struct ClaimableRecoveryMaterialValidator {
             privateKey: refundPrivateKey,
             invalidPrivateKeyError: .invalidRefundPrivateKey
         )
+    }
+
+    @Test("redacts recovery material text and reflection")
+    func redactsRecoveryMaterialTextAndReflection() throws {
+        let (envelope, _) = try ClaimableTestSupport.makeClaimableEnvelope(network: .mainnet)
+        let material = try envelope.makeClaimRecoveryMaterial()
+
+        ClaimableTestSupport.expectRedactedSecretDebugSurfaces(
+            of: material,
+            secretTexts: [
+                material.privateKeyHexadecimal,
+                material.privateKeyWalletImportFormat,
+                material.encodedEnvelopeHexadecimal,
+            ],
+            redactedLabel: "privateKey"
+        )
+        let reflectedLabels = Mirror(reflecting: material).children.compactMap(\.label)
+        #expect(reflectedLabels.contains("privateKeyData") == false)
+        #expect(reflectedLabels.contains("privateKeyWalletImportFormat") == false)
+        #expect(reflectedLabels.contains("encodedEnvelopeData") == false)
     }
 
     @Test("normalizes sliced refund private key data")
@@ -62,19 +81,26 @@ struct ClaimableRecoveryMaterialValidator {
         }
     }
 
-    @Test("formats network-aware wallet import format strings")
-    func formatsNetworkAwareWalletImportFormatStrings() throws {
-        let (mainnetEnvelope, _) = try ClaimableTestSupport.makeClaimableEnvelope(network: .mainnet)
-        let (chipnetEnvelope, _) = try ClaimableTestSupport.makeClaimableEnvelope(network: .chipnet)
-        let (testnetEnvelope, _) = try ClaimableTestSupport.makeClaimableEnvelope(network: .testnet)
+    @Test(
+        "formats network-aware wallet import format strings",
+        arguments: WalletImportFormatCase.allCases
+    )
+    func formatsNetworkAwareWalletImportFormatStrings(_ formatCase: WalletImportFormatCase) throws {
+        let (envelope, _) = try ClaimableTestSupport.makeClaimableEnvelope(network: formatCase.network)
+        let material = try envelope.makeClaimRecoveryMaterial()
 
-        let mainnetMaterial = try mainnetEnvelope.makeClaimRecoveryMaterial()
-        let chipnetMaterial = try chipnetEnvelope.makeClaimRecoveryMaterial()
-        let testnetMaterial = try testnetEnvelope.makeClaimRecoveryMaterial()
+        #expect(material.privateKeyWalletImportFormat == formatCase.expectedWalletImportFormat)
+    }
 
-        #expect(mainnetMaterial.privateKeyWalletImportFormat == "KwDiBf89QgGbjEhKnhXJuH7LrciVrZi3qYjgd9M7rFU73sVHnoWn")
-        #expect(chipnetMaterial.privateKeyWalletImportFormat == "cMahea7zqjxrtgAbB7LSGbcQUr1uX1ojuat9jZodMN87JcbXMTcA")
-        #expect(testnetMaterial.privateKeyWalletImportFormat == "cMahea7zqjxrtgAbB7LSGbcQUr1uX1ojuat9jZodMN87JcbXMTcA")
+    @Test("wallet import format preserves refund invalid-key errors")
+    func walletImportFormatPreservesRefundInvalidKeyErrors() throws {
+        #expect(throws: OpalBase.Claimable.Error.invalidRefundPrivateKey) {
+            _ = try ClaimablePrimitiveOperation.makeWalletImportFormat(
+                privateKey: Data(repeating: 0x01, count: 31),
+                network: .mainnet,
+                invalidError: .invalidRefundPrivateKey
+            )
+        }
     }
 
     private func makeSlicedData(from data: Data) -> Data {
@@ -101,7 +127,8 @@ struct ClaimableRecoveryMaterialValidator {
         #expect(material.privateKeyHexadecimal == privateKey.hexadecimalString)
         #expect(material.privateKeyWalletImportFormat == (try ClaimablePrimitiveOperation.makeWalletImportFormat(
             privateKey: privateKey,
-            network: envelope.contract.network
+            network: envelope.contract.network,
+            invalidError: invalidPrivateKeyError
         )))
         #expect(material.compressedPublicKeyData == expectedCompressedPublicKey)
         #expect(material.redeemScriptData == envelope.contract.redeemScriptData)
@@ -117,5 +144,42 @@ struct ClaimableRecoveryMaterialValidator {
         #expect(material.expiryBlockHeight == envelope.contract.expiryBlockHeight)
         #expect(material.encodedEnvelopeData == envelope.encode())
         #expect(material.encodedEnvelopeHexadecimal == envelope.encode().hexadecimalString)
+    }
+
+    enum WalletImportFormatCase: CaseIterable, CustomStringConvertible, Sendable {
+        case mainnet
+        case chipnet
+        case testnet
+
+        var description: String {
+            switch self {
+            case .mainnet:
+                "mainnet"
+            case .chipnet:
+                "chipnet"
+            case .testnet:
+                "testnet"
+            }
+        }
+
+        var network: OpalBase.Network.Environment {
+            switch self {
+            case .mainnet:
+                .mainnet
+            case .chipnet:
+                .chipnet
+            case .testnet:
+                .testnet
+            }
+        }
+
+        var expectedWalletImportFormat: String {
+            switch self {
+            case .mainnet:
+                "KwDiBf89QgGbjEhKnhXJuH7LrciVrZi3qYjgd9M7rFU73sVHnoWn"
+            case .chipnet, .testnet:
+                "cMahea7zqjxrtgAbB7LSGbcQUr1uX1ojuat9jZodMN87JcbXMTcA"
+            }
+        }
     }
 }

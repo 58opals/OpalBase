@@ -98,13 +98,53 @@ extension StoragePersistenceValidator {
         #expect(restored.mnemonicProtectionMode == .plaintext)
     }
 
+    @Test("manual persistence sessions tolerate configured recoverable mnemonic load failures")
+    func manualPersistenceSessionToleratesConfiguredRecoverableMnemonicLoadFailures() async throws {
+        let snapshotState = GenerationSnapshotPersistenceState()
+        let mnemonicState = GenerationMnemonicPersistenceState()
+        let storedMnemonicPersistence = OpalBase.Storage.StoredMnemonicPersistence(
+            saveMnemonic: { mnemonic, generation, fallbackToPlaintext in
+                try await mnemonicState.saveMnemonic(
+                    mnemonic,
+                    generation: generation,
+                    fallbackToPlaintext: fallbackToPlaintext
+                )
+            },
+            loadMnemonicState: { _ in
+                throw ManualPersistenceRecoverableLoadFailure.mnemonicUnavailable
+            },
+            deleteMnemonic: { generation in
+                try await mnemonicState.deleteMnemonic(generation: generation)
+            },
+            recoverableLoadFailure: { error in
+                error as? ManualPersistenceRecoverableLoadFailure == .mnemonicUnavailable
+            }
+        )
+        let session = OpalBase.Storage.PersistenceSession(
+            snapshotPersistence: makeGenerationSnapshotPersistence(state: snapshotState),
+            storedMnemonicPersistence: storedMnemonicPersistence
+        )
+        let wallet = try await AccountTestFixtures.makeWallet(passphrase: "manual-recoverable-load")
+
+        _ = try await session.save(wallet: wallet)
+        let restored = try await session.restore()
+
+        #expect(restored.walletSnapshot != nil)
+        #expect(restored.mnemonic == nil)
+        #expect(restored.mnemonicProtectionMode == nil)
+    }
+
     @Test("failed wipes do not expose partial committed state on restore")
     func failedWipeDoesNotExposePartialCommittedState() async throws {
         let snapshotState = GenerationSnapshotPersistenceState()
         let mnemonicState = GenerationMnemonicPersistenceState()
+        let resetProbe = ProtectedMaterialResetProbe()
         let session = OpalBase.Storage.PersistenceSession(
             snapshotPersistence: makeGenerationSnapshotPersistence(state: snapshotState),
-            storedMnemonicPersistence: makeGenerationMnemonicPersistence(state: mnemonicState)
+            storedMnemonicPersistence: makeGenerationMnemonicPersistence(state: mnemonicState),
+            protectedMaterialReset: {
+                resetProbe.recordReset()
+            }
         )
 
         let wallet = try await AccountTestFixtures.makeWallet(passphrase: "wipe-failure")
@@ -121,6 +161,7 @@ extension StoragePersistenceValidator {
         #expect(restored.mnemonic == nil)
         #expect(restored.mnemonicProtectionMode == nil)
         #expect(await snapshotState.loadCommittedGeneration() == nil)
+        #expect(resetProbe.wasReset)
     }
 
     private func makeGenerationSnapshotPersistence(
@@ -180,4 +221,8 @@ extension StoragePersistenceValidator {
             }
         )
     }
+}
+
+private enum ManualPersistenceRecoverableLoadFailure: Swift.Error, Equatable {
+    case mnemonicUnavailable
 }

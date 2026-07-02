@@ -1,11 +1,37 @@
 // ClaimableTestSupport.swift
 
 import Foundation
+import Testing
 @testable import OpalBase
 
 enum ClaimableTestSupport {
     static func makeClaimablePrivateKey(lastByte: UInt8) -> Data {
         Data(repeating: 0, count: 31) + Data([lastByte])
+    }
+
+    static func expectRedactedSecretDebugSurfaces<T>(
+        of value: T,
+        secretTexts: [String],
+        redactedLabel: String
+    ) {
+        let textRepresentations = [
+            String(describing: value),
+            String(reflecting: value),
+        ]
+        let mirror = Mirror(reflecting: value)
+        let reflectedValues = mirror.children.map { String(describing: $0.value) }
+
+        for textRepresentation in textRepresentations {
+            #expect(textRepresentation.contains("redacted"))
+            for secretText in secretTexts {
+                #expect(textRepresentation.contains(secretText) == false)
+            }
+        }
+        #expect(mirror.children.compactMap(\.label).contains(redactedLabel))
+        #expect(reflectedValues.contains("redacted"))
+        for secretText in secretTexts {
+            #expect(reflectedValues.contains { $0.contains(secretText) } == false)
+        }
     }
 
     static func makeClaimableDestinationLockingScript(fillByte: UInt8 = 0x33) -> Data {

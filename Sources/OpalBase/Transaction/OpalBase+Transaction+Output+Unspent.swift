@@ -57,6 +57,14 @@ extension _OpalBase.Transaction.Output.Unspent {
         }
         return leftHash.lexicographicallyPrecedes(rightHash)
     }
+
+    func hasSameOutpointAndPayload(as other: OpalBase.Transaction.Output.Unspent) -> Bool {
+        previousTransactionHash == other.previousTransactionHash
+            && previousTransactionOutputIndex == other.previousTransactionOutputIndex
+            && value == other.value
+            && lockingScript == other.lockingScript
+            && tokenData == other.tokenData
+    }
 }
 
 extension _OpalBase.Transaction.Output.Unspent: CustomStringConvertible {

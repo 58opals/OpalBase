@@ -139,13 +139,64 @@ extension _OpalBase.Transaction {
         using templateTransaction: OpalBase.Transaction? = nil,
         spentOutputs: [Output]? = nil
     ) throws -> OpalBase.Transaction {
-        if case .ecdsa(.raw) = signatureFormat {
-            throw OpalBase.Transaction.Error.unsupportedSignatureFormat
-        }
+        try requireSigningPreconditions(
+            at: index,
+            signatureFormat: signatureFormat,
+            unlocker: unlocker,
+            using: templateTransaction,
+            spentOutputs: spentOutputs
+        )
 
+        return try signInputInPlaceAfterValidation(
+            at: index,
+            spending: outputBeingSpent,
+            signingKey: OpalBase.Key.SigningKey(rawRepresentation: privateKey),
+            signatureFormat: signatureFormat,
+            unlocker: unlocker,
+            using: templateTransaction,
+            spentOutputs: spentOutputs
+        )
+    }
+
+    func signInputInPlace(
+        at index: Int,
+        spending outputBeingSpent: Output,
+        signingKey: OpalBase.Key.SigningKey,
+        signatureFormat: OpalBase.Transaction.SignatureFormat,
+        unlocker: OpalBase.Transaction.Unlocker,
+        using templateTransaction: OpalBase.Transaction? = nil,
+        spentOutputs: [Output]? = nil
+    ) throws -> OpalBase.Transaction {
+        try requireSigningPreconditions(
+            at: index,
+            signatureFormat: signatureFormat,
+            unlocker: unlocker,
+            using: templateTransaction,
+            spentOutputs: spentOutputs
+        )
+
+        return try signInputInPlaceAfterValidation(
+            at: index,
+            spending: outputBeingSpent,
+            signingKey: signingKey,
+            signatureFormat: signatureFormat,
+            unlocker: unlocker,
+            using: templateTransaction,
+            spentOutputs: spentOutputs
+        )
+    }
+
+    private func signInputInPlaceAfterValidation(
+        at index: Int,
+        spending outputBeingSpent: Output,
+        signingKey: OpalBase.Key.SigningKey,
+        signatureFormat: OpalBase.Transaction.SignatureFormat,
+        unlocker: OpalBase.Transaction.Unlocker,
+        using templateTransaction: OpalBase.Transaction? = nil,
+        spentOutputs: [Output]? = nil
+    ) throws -> OpalBase.Transaction {
         let signingTransaction = templateTransaction ?? self
-        let publicKey = try OpalBase.Key.PublicKey(privateKeyData: privateKey)
-        let opalPrivateKey = try OpalCrypto.Secp256k1.PrivateKey(rawRepresentation: privateKey)
+        let publicKey = signingKey.publicKey
 
         switch unlocker {
         case .p2pkh_CheckSig(let hashType):
@@ -163,16 +214,12 @@ extension _OpalBase.Transaction {
             let typedSignatureDigest = try OpalCrypto.Signature.Digest(rawRepresentation: signatureDigest)
             let signature: Data = switch signatureFormat {
             case .ecdsa(let encoding):
-                try OpalCrypto.Signature.ECDSA.sign(
+                try signingKey.signECDSA(
                     digest: typedSignatureDigest,
-                    privateKey: opalPrivateKey,
                     format: encoding.opalCryptoFormat
                 ).rawRepresentation
             case .schnorr:
-                try OpalCrypto.Signature.Schnorr.sign(
-                    digest: typedSignatureDigest,
-                    privateKey: opalPrivateKey
-                ).rawRepresentation
+                try signingKey.signSchnorr(digest: typedSignatureDigest).rawRepresentation
             }
             let signatureWithType = signature + Data([UInt8(hashType.value)])
             let unlockingScript = Data.push(signatureWithType) + Data.push(publicKey.compressedData)
@@ -187,15 +234,13 @@ extension _OpalBase.Transaction {
             }
             let signature: Data = switch signatureFormat {
             case .ecdsa(let encoding):
-                try OpalCrypto.Signature.ECDSA.sign(
+                try signingKey.signECDSA(
                     message: signatureMessage,
-                    privateKey: opalPrivateKey,
                     format: encoding.opalCryptoFormat
                 ).rawRepresentation
             case .schnorr:
-                try OpalCrypto.Signature.Schnorr.sign(
-                    digest: OpalCrypto.Signature.Digest(rawRepresentation: signatureMessage),
-                    privateKey: opalPrivateKey
+                try signingKey.signSchnorr(
+                    digest: OpalCrypto.Signature.Digest(rawRepresentation: signatureMessage)
                 ).rawRepresentation
             }
             let unlockingScript = Data.push(signature) + Data.push(message) + Data.push(publicKey.compressedData)
@@ -221,6 +266,30 @@ extension _OpalBase.Transaction {
                 tokenData: unspentOutput.tokenData
             ),
             privateKey: privateKey,
+            signatureFormat: signatureFormat,
+            unlocker: unlocker,
+            using: templateTransaction,
+            spentOutputs: spentOutputs
+        )
+    }
+
+    func signInputInPlace(
+        at index: Int,
+        spending unspentOutput: OpalBase.Transaction.Output.Unspent,
+        signingKey: OpalBase.Key.SigningKey,
+        signatureFormat: OpalBase.Transaction.SignatureFormat,
+        unlocker: OpalBase.Transaction.Unlocker,
+        using templateTransaction: OpalBase.Transaction? = nil,
+        spentOutputs: [Output]? = nil
+    ) throws -> OpalBase.Transaction {
+        try signInputInPlace(
+            at: index,
+            spending: Output(
+                value: unspentOutput.value,
+                lockingScript: unspentOutput.lockingScript,
+                tokenData: unspentOutput.tokenData
+            ),
+            signingKey: signingKey,
             signatureFormat: signatureFormat,
             unlocker: unlocker,
             using: templateTransaction,
@@ -268,5 +337,78 @@ extension _OpalBase.Transaction {
             return preimage
         }
         return OpalCryptoAdapter.hash256(preimage)
+    }
+
+    private func requireSigningInputIndex(
+        _ index: Int,
+        using templateTransaction: OpalBase.Transaction?
+    ) throws {
+        let signingTransaction = templateTransaction ?? self
+        guard signingTransaction.inputs.indices.contains(index),
+              inputs.indices.contains(index) else {
+            throw OpalBase.Transaction.Error.sighashSingleIndexOutOfRange
+        }
+    }
+
+    private func requireSigningTemplateMatchesSignedFields(
+        using templateTransaction: OpalBase.Transaction?
+    ) throws {
+        guard let templateTransaction else { return }
+
+        guard templateTransaction.version == version,
+              templateTransaction.outputs == outputs,
+              templateTransaction.lockTime == lockTime,
+              templateTransaction.inputs.count == inputs.count else {
+            throw OpalBase.Transaction.Error.cannotCreateTransaction
+        }
+
+        for (templateInput, targetInput) in zip(templateTransaction.inputs, inputs) {
+            guard templateInput.previousTransactionHash == targetInput.previousTransactionHash,
+                  templateInput.previousTransactionOutputIndex == targetInput.previousTransactionOutputIndex,
+                  templateInput.sequence == targetInput.sequence else {
+                throw OpalBase.Transaction.Error.cannotCreateTransaction
+            }
+        }
+    }
+
+    private func requireSigningPreconditions(
+        at index: Int,
+        signatureFormat: OpalBase.Transaction.SignatureFormat,
+        unlocker: OpalBase.Transaction.Unlocker,
+        using templateTransaction: OpalBase.Transaction?,
+        spentOutputs: [Output]?
+    ) throws {
+        try signatureFormat.requireTransactionSigningSupport()
+        try requireSigningInputIndex(index, using: templateTransaction)
+        try requireSigningTemplateMatchesSignedFields(using: templateTransaction)
+        try requireSigningSpentOutputs(
+            spentOutputs,
+            unlocker: unlocker,
+            using: templateTransaction
+        )
+    }
+
+    private func requireSigningSpentOutputs(
+        _ spentOutputs: [Output]?,
+        unlocker: OpalBase.Transaction.Unlocker,
+        using templateTransaction: OpalBase.Transaction?
+    ) throws {
+        guard case .p2pkh_CheckSig(let hashType) = unlocker,
+              hashType.isUnspentTransactionOutputsEnabled else {
+            return
+        }
+        try hashType.validate()
+
+        guard let spentOutputs else {
+            throw OpalBase.Transaction.Error.missingUnspentTransactionOutputs
+        }
+
+        let signingTransaction = templateTransaction ?? self
+        guard spentOutputs.count == signingTransaction.inputs.count else {
+            throw OpalBase.Transaction.Error.unspentTransactionOutputsCountMismatch(
+                expected: signingTransaction.inputs.count,
+                actual: spentOutputs.count
+            )
+        }
     }
 }

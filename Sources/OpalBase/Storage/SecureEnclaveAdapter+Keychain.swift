@@ -106,6 +106,7 @@ extension SecureEnclaveAdapter {
         var query: [String: Any] = [
             kSecClass as String: kSecClassKey,
             kSecAttrApplicationTag as String: applicationTag,
+            kSecAttrKeyClass as String: kSecAttrKeyClassPrivate,
             kSecAttrKeyType as String: kSecAttrKeyTypeECSECPrimeRandom,
             kSecAttrTokenID as String: kSecAttrTokenIDSecureEnclave,
         ]

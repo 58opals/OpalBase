@@ -43,7 +43,7 @@ extension _OpalBase.Account {
         fileprivate let reservationHandle: OpalBase.Account.SpendReservation
         fileprivate let changeOutput: OpalBase.Transaction.Output
         fileprivate let recipientOutputs: [OpalBase.Transaction.Output]
-        fileprivate let privateKeys: [OpalBase.Transaction.Output.Unspent: Data]
+        fileprivate let signingKeys: [OpalBase.Transaction.Output.Unspent: OpalBase.Key.SigningKey]
         fileprivate let shouldRandomizeRecipientOrdering: Bool
         
         init(payment: Payment,
@@ -55,7 +55,7 @@ extension _OpalBase.Account {
              reservationHandle: OpalBase.Account.SpendReservation,
              changeOutput: OpalBase.Transaction.Output,
              recipientOutputs: [OpalBase.Transaction.Output],
-             privateKeys: [OpalBase.Transaction.Output.Unspent: Data],
+             signingKeys: [OpalBase.Transaction.Output.Unspent: OpalBase.Key.SigningKey],
              shouldRandomizeRecipientOrdering: Bool) {
             self.payment = payment
             self.feeRate = feeRate
@@ -66,7 +66,7 @@ extension _OpalBase.Account {
             self.reservationHandle = reservationHandle
             self.changeOutput = changeOutput
             self.recipientOutputs = recipientOutputs
-            self.privateKeys = privateKeys
+            self.signingKeys = signingKeys
             self.shouldRandomizeRecipientOrdering = shouldRandomizeRecipientOrdering
         }
         
@@ -86,7 +86,7 @@ extension _OpalBase.Account {
                 )
 
                 do {
-                    let core = try OpalBase.Account.buildTransactionCore(privateKeys: privateKeys,
+                    let core = try OpalBase.Account.buildTransactionCore(signingKeys: signingKeys,
                                                                 recipientOutputs: recipientOutputs,
                                                                 changeOutput: changeOutput,
                                                                 feeRate: feeRate,
@@ -118,7 +118,7 @@ extension _OpalBase.Account {
                 }
             }
         }
-        
+
         public func completeReservation() async throws {
             try await reservationHandle.complete()
         }

@@ -144,6 +144,11 @@ extension _OpalBase.Account.CashFusionParticipantReservationSource {
                 reason: .walletLocked,
                 summary: walletUnavailableSummary
             )
+        case .utxoDuplicated:
+            return hostPolicyRejected(
+                reason: .unsupportedInput,
+                summary: unsupportedInputSummary
+            )
         case .utxoNotFound:
             return noEligibleInputsFailure()
         case .insufficientFunds:

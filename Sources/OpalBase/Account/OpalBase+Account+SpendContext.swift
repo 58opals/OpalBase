@@ -6,7 +6,7 @@ extension _OpalBase.Account {
     struct SpendContext {
         let reservationHandle: SpendReservation
         let changeEntry: OpalBase.Address.Book.Entry
-        let privateKeys: [OpalBase.Transaction.Output.Unspent: Data]
+        let signingKeys: [OpalBase.Transaction.Output.Unspent: OpalBase.Key.SigningKey]
         let changeOutput: OpalBase.Transaction.Output
         let totalSelectedAmount: OpalBase.Satoshi
         let targetAmount: OpalBase.Satoshi
@@ -45,7 +45,7 @@ extension _OpalBase.Account {
             try await beforeReservation(changeEntry)
         }
         
-        let (reservation, reservedChangeEntry, privateKeys) = try await reserveSpendAndDeriveKeys(
+        let (reservation, reservedChangeEntry, signingKeys) = try await reserveSpendAndDeriveSigningKeys(
             utxos: inputs,
             changeEntry: changeEntry,
             tokenSelectionPolicy: tokenSelectionPolicy,
@@ -56,7 +56,7 @@ extension _OpalBase.Account {
         
         return SpendContext(reservationHandle: reservationHandle,
                             changeEntry: reservedChangeEntry,
-                            privateKeys: privateKeys,
+                            signingKeys: signingKeys,
                             changeOutput: changeOutput,
                             totalSelectedAmount: totalSelectedAmount,
                             targetAmount: targetAmount)

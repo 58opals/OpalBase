@@ -36,13 +36,14 @@ extension _OpalBase.Address.Book {
         guard !utxoSet.isEmpty else {
             throw OpalBase.Address.Book.Error.utxoNotFound
         }
+        guard utxoSet.count == utxos.count else {
+            var seenUTXOs = Set<OpalBase.Transaction.Output.Unspent>()
+            let duplicatedUTXO = utxos.first { !seenUTXOs.insert($0).inserted } ?? utxos[0]
+            throw OpalBase.Address.Book.Error.utxoDuplicated(duplicatedUTXO)
+        }
         
         if let existingReservation = findMatchingReservation(for: utxoSet) {
-            let allowedUTXOs = utxoStore.filterUTXOs(
-                utxoStore.allUTXOs,
-                tokenSelectionPolicy: tokenSelectionPolicy
-            )
-            guard utxoSet.isSubset(of: allowedUTXOs) else {
+            guard utxoStore.containsExact(utxoSet, tokenSelectionPolicy: tokenSelectionPolicy) else {
                 throw OpalBase.Address.Book.Error.utxoNotFound
             }
 
@@ -92,13 +93,24 @@ extension _OpalBase.Address.Book {
     }
     
     func releaseSpendReservation(_ reservation: SpendReservation, outcome: SpendReservation.Outcome) async throws {
-        guard let state = spendReservationStates[reservation.id],
-              state.reservedAt == reservation.reservationDate else {
+        guard let state = removeReservationState(matching: reservation) else {
             return
         }
 
-        _ = removeReservationState(for: reservation.id)
         try await finalizeRelease(for: state, outcome: outcome)
+    }
+
+    func completeSpendReservation(_ reservation: SpendReservation) async throws {
+        guard let state = removeReservationState(matching: reservation) else {
+            throw OpalBase.Address.Book.Error.spendReservationNotFound
+        }
+
+        guard utxoStore.containsExact(state.utxos) else {
+            try await finalizeRelease(for: state, outcome: .cancelled)
+            throw OpalBase.Address.Book.Error.utxoNotFound
+        }
+
+        try await finalizeRelease(for: state, outcome: .completed)
     }
     
     func forceReleaseSpendReservation(identifier: UUID,
@@ -164,6 +176,15 @@ extension _OpalBase.Address.Book {
         if !shouldKeepUsed {
             try await generateEntriesIfNeeded(for: updatedEntry.derivationPath.usage)
         }
+    }
+
+    private func removeReservationState(matching reservation: SpendReservation) -> SpendReservation.State? {
+        guard let state = spendReservationStates[reservation.id],
+              state.reservedAt == reservation.reservationDate else {
+            return nil
+        }
+
+        return removeReservationState(for: reservation.id)
     }
 
     private func reserveFreshChangeEntry(

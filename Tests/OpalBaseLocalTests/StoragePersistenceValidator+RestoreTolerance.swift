@@ -48,8 +48,13 @@ extension StoragePersistenceValidator {
         #expect(restored.mnemonicProtectionMode == nil)
     }
 
-    @Test("restore tolerates recoverable Secure Enclave mnemonic decrypt failures while preserving the snapshot")
-    func tolerateRecoverableSecureEnclaveMnemonicDecryptFailureDuringRestore() async throws {
+    @Test(
+        "restore tolerates recoverable Secure Enclave mnemonic decrypt failures while preserving the snapshot",
+        arguments: RecoverableMnemonicDecryptFailureCase.allCases
+    )
+    fileprivate func tolerateRecoverableSecureEnclaveMnemonicDecryptFailureDuringRestore(
+        _ failureCase: RecoverableMnemonicDecryptFailureCase
+    ) async throws {
         let valueClient = OpalBase.Storage.ValueClient.makeInMemory()
         let storingSecurity = OpalBase.Storage.Security(
             encrypt: { value in
@@ -66,7 +71,7 @@ extension StoragePersistenceValidator {
             valueClient: valueClient,
             security: storingSecurity
         )
-        let wallet = try await AccountTestFixtures.makeWallet(passphrase: "secure-enclave")
+        let wallet = try await AccountTestFixtures.makeWallet(passphrase: failureCase.passphrase)
 
         _ = try await storingStorage.persistState(
             for: wallet,
@@ -78,10 +83,7 @@ extension StoragePersistenceValidator {
                 .init(mode: .secureEnclave, payload: value)
             },
             decrypt: { _ in
-                throw NSError(
-                    domain: NSOSStatusErrorDomain,
-                    code: Int(errSecItemNotFound)
-                )
+                throw failureCase.error
             },
             checkSecureEnclaveErrorRecoverability: { error in
                 SecureEnclaveAdapter.isRecoverable(error)
@@ -109,54 +111,6 @@ extension StoragePersistenceValidator {
         #expect(restored.mnemonicProtectionMode == nil)
     }
 
-    @Test("restore fails closed for Secure Enclave decrypt decode failures")
-    func failClosedForSecureEnclaveMnemonicDecodeFailureDuringRestore() async throws {
-        let valueClient = OpalBase.Storage.ValueClient.makeInMemory()
-        let storingSecurity = OpalBase.Storage.Security(
-            encrypt: { value in
-                .init(mode: .secureEnclave, payload: value)
-            },
-            decrypt: { ciphertext in
-                ciphertext.payload
-            }
-        )
-        let storingStorage = try OpalBase.Storage(
-            valueClient: valueClient,
-            security: storingSecurity
-        )
-        let wallet = try await AccountTestFixtures.makeWallet(passphrase: "secure-enclave-decode")
-
-        _ = try await storingStorage.persistState(
-            for: wallet,
-            policy: .acceptProviderOutput
-        )
-
-        let restoringSecurity = OpalBase.Storage.Security(
-            encrypt: { value in
-                .init(mode: .secureEnclave, payload: value)
-            },
-            decrypt: { _ in
-                throw NSError(
-                    domain: NSOSStatusErrorDomain,
-                    code: Int(errSecDecode)
-                )
-            },
-            checkSecureEnclaveErrorRecoverability: { error in
-                SecureEnclaveAdapter.isRecoverable(error)
-            }
-        )
-        let restoringStorage = try OpalBase.Storage(
-            valueClient: valueClient,
-            security: restoringSecurity
-        )
-
-        let session = await OpalBase.Storage.PersistenceSession(storage: restoringStorage)
-
-        await #expect(throws: OpalBase.Storage.Error.self) {
-            _ = try await session.restore()
-        }
-    }
-
     @Test("wipeAll removes persisted wallet artifacts")
     func removePersistedArtifactsWithWipeAll() async throws {
         let valueClient = OpalBase.Storage.ValueClient.makeInMemory()
@@ -173,5 +127,43 @@ extension StoragePersistenceValidator {
         #expect(restored.walletSnapshot == nil)
         #expect(restored.mnemonic == nil)
         #expect(restored.mnemonicProtectionMode == nil)
+    }
+}
+
+private extension StoragePersistenceValidator {
+    enum RecoverableMnemonicDecryptFailureCase: CaseIterable, CustomStringConvertible, Sendable {
+        case missingKey
+        case corruptKeyReference
+
+        var description: String {
+            switch self {
+            case .missingKey:
+                "missing Secure Enclave key"
+            case .corruptKeyReference:
+                "corrupt Secure Enclave key reference"
+            }
+        }
+
+        var passphrase: String {
+            switch self {
+            case .missingKey:
+                "secure-enclave-missing-key"
+            case .corruptKeyReference:
+                "secure-enclave-corrupt-key"
+            }
+        }
+
+        var error: NSError {
+            switch self {
+            case .missingKey:
+                NSError(domain: NSOSStatusErrorDomain, code: Int(errSecItemNotFound))
+            case .corruptKeyReference:
+                NSError(
+                    domain: NSOSStatusErrorDomain,
+                    code: Int(errSecDecode),
+                    userInfo: [NSDebugDescriptionErrorKey: "corrupted objectID detected"]
+                )
+            }
+        }
     }
 }

@@ -6,8 +6,64 @@ import Testing
 @testable import OpalBase
 
 extension TransactionUnspentTransactionOutputValidator {
-    @Test("builder normalizes sliced private keys")
-    func builderNormalizesSlicedPrivateKeys() throws {
+    @Test("build rejects empty input set")
+    func buildRejectsEmptyInputSet() throws {
+        #expect(throws: OpalBase.Transaction.Error.cannotCreateTransaction) {
+            _ = try OpalBase.Transaction.build(
+                utxoPrivateKeyPairs: [:],
+                recipientOutputs: [],
+                changeOutput: OpalBase.Transaction.Output(value: 10_000, lockingScript: Data([0x51])),
+                feePerByte: 0,
+                privacyOutputShuffle: { $0 }
+            )
+        }
+    }
+
+    @Test("unsigned envelope rejects empty input set")
+    func unsignedEnvelopeRejectsEmptyInputSet() throws {
+        #expect(throws: OpalBase.Transaction.Error.cannotCreateTransaction) {
+            _ = try OpalBase.Transaction.makeUnsignedTransactionEnvelope(
+                unspentOutputs: [],
+                recipientOutputs: [],
+                changeOutput: OpalBase.Transaction.Output(value: 10_000, lockingScript: Data([0x51])),
+                feePerByte: 0,
+                privacyOutputShuffle: { $0 }
+            )
+        }
+    }
+
+    @Test("unsigned envelope rejects duplicate input set")
+    func unsignedEnvelopeRejectsDuplicateInputSet() throws {
+        let components = try makeTransactionBuilderComponents()
+        let unspent = try #require(components.privateKeys.keys.first)
+
+        #expect(throws: OpalBase.Transaction.Error.cannotCreateTransaction) {
+            _ = try OpalBase.Transaction.makeUnsignedTransactionEnvelope(
+                unspentOutputs: [unspent, unspent],
+                recipientOutputs: components.recipientOutputs,
+                changeOutput: components.changeOutput,
+                feePerByte: 0,
+                privacyOutputShuffle: { $0 }
+            )
+        }
+    }
+
+    @Test("unsigned envelope rejects unsupported signature format before empty input set")
+    func unsignedEnvelopeRejectsUnsupportedSignatureFormatBeforeEmptyInputSet() throws {
+        #expect(throws: OpalBase.Transaction.Error.unsupportedSignatureFormat) {
+            _ = try OpalBase.Transaction.makeUnsignedTransactionEnvelope(
+                unspentOutputs: [],
+                recipientOutputs: [],
+                changeOutput: OpalBase.Transaction.Output(value: 10_000, lockingScript: Data([0x51])),
+                signatureFormat: .ecdsa(.raw),
+                feePerByte: 0,
+                privacyOutputShuffle: { $0 }
+            )
+        }
+    }
+
+    @Test("raw private-key build accepts sliced private keys")
+    func rawPrivateKeyBuildAcceptsSlicedPrivateKeys() throws {
         let components = try makeTransactionBuilderComponents()
         let unspent = try #require(components.privateKeys.keys.first)
         let privateKey = Data(repeating: 0x02, count: 32)
@@ -16,17 +72,245 @@ extension TransactionUnspentTransactionOutputValidator {
             paddedPrivateKey.index(after: paddedPrivateKey.startIndex)...
         ]
 
-        let builder = OpalBase.Transaction.Builder(
+        let transaction = try OpalBase.Transaction.build(
             utxoPrivateKeyPairs: [unspent: slicedPrivateKey],
+            recipientOutputs: components.recipientOutputs,
+            changeOutput: components.changeOutput,
+            outputOrderingStrategy: .privacyRandomized,
             signatureFormat: .schnorr,
-            sequence: 0xFFFFFFFF,
-            unlockers: [:]
+            feePerByte: 0,
+            privacyOutputShuffle: { $0 }
         )
-        let storedPrivateKey = try #require(builder.findPrivateKey(for: unspent))
+        let input = try #require(transaction.inputs.first)
+        let decodedUnlockingScript = try decodeP2PKHUnlockingScript(input.unlockingScript)
+        let expectedPublicKey = try OpalBase.Key.PublicKey(privateKeyData: privateKey)
 
         #expect(slicedPrivateKey.startIndex != privateKey.startIndex)
-        #expect(storedPrivateKey == privateKey)
-        #expect(storedPrivateKey.startIndex == privateKey.startIndex)
+        #expect(input.unlockingScript.isEmpty == false)
+        #expect(decodedUnlockingScript.publicKey == expectedPublicKey.compressedData)
+    }
+
+    @Test("raw private-key build rejects unsupported signature format before parsing keys")
+    func rawPrivateKeyBuildRejectsUnsupportedSignatureFormatBeforeParsingKeys() throws {
+        let components = try makeTransactionBuilderComponents()
+        let unspent = try #require(components.privateKeys.keys.first)
+        let invalidPrivateKeys = [unspent: Data(repeating: 0x01, count: 31)]
+
+        #expect(throws: OpalBase.Transaction.Error.unsupportedSignatureFormat) {
+            _ = try OpalBase.Transaction.build(
+                utxoPrivateKeyPairs: invalidPrivateKeys,
+                recipientOutputs: components.recipientOutputs,
+                changeOutput: components.changeOutput,
+                signatureFormat: .ecdsa(.raw),
+                feePerByte: 0,
+                privacyOutputShuffle: { $0 }
+            )
+        }
+    }
+
+    @Test("raw private-key build rejects unsupported hash type before parsing keys")
+    func rawPrivateKeyBuildRejectsUnsupportedHashTypeBeforeParsingKeys() throws {
+        let components = try makeTransactionBuilderComponents()
+        let unspent = try #require(components.privateKeys.keys.first)
+        let invalidPrivateKeys = [unspent: Data(repeating: 0x01, count: 31)]
+        let unsupportedHashType = OpalBase.Transaction.HashType.makeAll(
+            anyoneCanPay: true,
+            includesUnspentTransactionOutputs: true
+        )
+
+        #expect(throws: OpalBase.Transaction.Error.unsupportedHashType) {
+            _ = try OpalBase.Transaction.build(
+                utxoPrivateKeyPairs: invalidPrivateKeys,
+                recipientOutputs: components.recipientOutputs,
+                changeOutput: components.changeOutput,
+                signatureFormat: .schnorr,
+                feePerByte: 0,
+                privacyOutputShuffle: { $0 },
+                unlockers: [unspent: .p2pkh_CheckSig(hashType: unsupportedHashType)]
+            )
+        }
+    }
+
+    @Test("raw private-key build rejects unselected unlockers before parsing keys")
+    func rawPrivateKeyBuildRejectsUnselectedUnlockersBeforeParsingKeys() throws {
+        let components = try makeTransactionBuilderComponents()
+        let selectedUnspent = try #require(components.privateKeys.keys.first)
+        let invalidPrivateKeys = [selectedUnspent: Data(repeating: 0x01, count: 31)]
+        let unselectedUnspent = OpalBase.Transaction.Output.Unspent(
+            value: selectedUnspent.value,
+            lockingScript: selectedUnspent.lockingScript,
+            previousTransactionHash: OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0x7B, count: 32)),
+            previousTransactionOutputIndex: selectedUnspent.previousTransactionOutputIndex
+        )
+
+        #expect(throws: OpalBase.Transaction.Error.cannotCreateTransaction) {
+            _ = try OpalBase.Transaction.build(
+                utxoPrivateKeyPairs: invalidPrivateKeys,
+                recipientOutputs: components.recipientOutputs,
+                changeOutput: components.changeOutput,
+                signatureFormat: .schnorr,
+                feePerByte: 0,
+                privacyOutputShuffle: { $0 },
+                unlockers: [
+                    unselectedUnspent: .p2pkh_CheckDataSig(message: Data([0x01]))
+                ]
+            )
+        }
+    }
+
+    @Test(
+        "transaction builders reject unlockers for unselected inputs",
+        arguments: UnselectedUnlockerBoundaryCase.allCases
+    )
+    func transactionBuildersRejectUnlockersForUnselectedInputs(
+        _ boundaryCase: UnselectedUnlockerBoundaryCase
+    ) throws {
+        let components = try makeTransactionBuilderComponents()
+        let selectedUnspent = try #require(components.privateKeys.keys.first)
+        let unselectedUnspent = OpalBase.Transaction.Output.Unspent(
+            value: selectedUnspent.value,
+            lockingScript: selectedUnspent.lockingScript,
+            previousTransactionHash: OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0x7A, count: 32)),
+            previousTransactionOutputIndex: selectedUnspent.previousTransactionOutputIndex
+        )
+
+        #expect(throws: OpalBase.Transaction.Error.cannotCreateTransaction) {
+            switch boundaryCase {
+            case .signedBuild:
+                _ = try OpalBase.Transaction.build(
+                    utxoPrivateKeyPairs: components.privateKeys,
+                    recipientOutputs: components.recipientOutputs,
+                    changeOutput: components.changeOutput,
+                    outputOrderingStrategy: .privacyRandomized,
+                    signatureFormat: .schnorr,
+                    feePerByte: 0,
+                    privacyOutputShuffle: { $0 },
+                    unlockers: [
+                        unselectedUnspent: .p2pkh_CheckDataSig(message: Data([0x01]))
+                    ]
+                )
+            case .unsignedEnvelope:
+                _ = try OpalBase.Transaction.makeUnsignedTransactionEnvelope(
+                    unspentOutputs: [selectedUnspent],
+                    recipientOutputs: components.recipientOutputs,
+                    changeOutput: components.changeOutput,
+                    outputOrderingStrategy: .privacyRandomized,
+                    signatureFormat: .schnorr,
+                    feePerByte: 0,
+                    privacyOutputShuffle: { $0 },
+                    unlockers: [
+                        unselectedUnspent: .p2pkh_CheckDataSig(message: Data([0x01]))
+                    ]
+                )
+            }
+        }
+    }
+
+    @Test("raw private-key signing rejects missing target input before parsing key")
+    func rawPrivateKeySigningRejectsMissingTargetInputBeforeParsingKey() throws {
+        let fixture = makeRawPrivateKeySigningValidationFixture()
+        let transactionWithoutInputs = OpalBase.Transaction(
+            version: fixture.transaction.version,
+            inputs: [],
+            outputs: fixture.transaction.outputs,
+            lockTime: fixture.transaction.lockTime
+        )
+
+        #expect(throws: OpalBase.Transaction.Error.sighashSingleIndexOutOfRange) {
+            try transactionWithoutInputs.signInputInPlace(
+                at: 0,
+                spending: fixture.outputBeingSpent,
+                privateKey: fixture.invalidPrivateKey,
+                signatureFormat: .schnorr,
+                unlocker: .p2pkh_CheckSig(),
+                using: fixture.transaction
+            )
+        }
+    }
+
+    @Test(
+        "signing rejects mismatched template",
+        arguments: SigningTemplateMismatchCase.allCases
+    )
+    func signingRejectsMismatchedTemplate(
+        _ mismatchCase: SigningTemplateMismatchCase
+    ) throws {
+        let fixture = makeRawPrivateKeySigningValidationFixture()
+        let mismatchedTemplate = mismatchCase.makeMismatchedTemplate(from: fixture.transaction)
+
+        #expect(throws: OpalBase.Transaction.Error.cannotCreateTransaction) {
+            try mismatchCase.sign(
+                transaction: fixture.transaction,
+                outputBeingSpent: fixture.outputBeingSpent,
+                invalidPrivateKey: fixture.invalidPrivateKey,
+                using: mismatchedTemplate
+            )
+        }
+    }
+
+    @Test(
+        "raw private-key signing rejects spent-output shape before parsing key",
+        arguments: RawPrivateKeySigningSpentOutputShapeCase.allCases
+    )
+    func rawPrivateKeySigningRejectsSpentOutputShapeBeforeParsingKey(
+        _ shapeCase: RawPrivateKeySigningSpentOutputShapeCase
+    ) throws {
+        let fixture = makeRawPrivateKeySigningValidationFixture()
+        let hashType = OpalBase.Transaction.HashType.makeAll(includesUnspentTransactionOutputs: true)
+
+        #expect(throws: shapeCase.expectedError) {
+            try fixture.transaction.signInputInPlace(
+                at: 0,
+                spending: fixture.outputBeingSpent,
+                privateKey: fixture.invalidPrivateKey,
+                signatureFormat: .schnorr,
+                unlocker: .p2pkh_CheckSig(hashType: hashType),
+                spentOutputs: shapeCase.spentOutputs
+            )
+        }
+    }
+
+    @Test(
+        "scoped signing-key signing rejects spent-output shape",
+        arguments: RawPrivateKeySigningSpentOutputShapeCase.allCases
+    )
+    func scopedSigningKeySigningRejectsSpentOutputShape(
+        _ shapeCase: RawPrivateKeySigningSpentOutputShapeCase
+    ) throws {
+        let fixture = makeRawPrivateKeySigningValidationFixture()
+        let signingKey = try OpalBase.Key.SigningKey(rawRepresentation: Data(repeating: 0x02, count: 32))
+        let hashType = OpalBase.Transaction.HashType.makeAll(includesUnspentTransactionOutputs: true)
+
+        #expect(throws: shapeCase.expectedError) {
+            try fixture.transaction.signInputInPlace(
+                at: 0,
+                spending: fixture.outputBeingSpent,
+                signingKey: signingKey,
+                signatureFormat: .schnorr,
+                unlocker: .p2pkh_CheckSig(hashType: hashType),
+                spentOutputs: shapeCase.spentOutputs
+            )
+        }
+    }
+
+    @Test("raw private-key signing rejects unsupported hash type before spent-output shape")
+    func rawPrivateKeySigningRejectsUnsupportedHashTypeBeforeSpentOutputShape() throws {
+        let fixture = makeRawPrivateKeySigningValidationFixture()
+        let hashType = OpalBase.Transaction.HashType.makeAll(
+            anyoneCanPay: true,
+            includesUnspentTransactionOutputs: true
+        )
+
+        #expect(throws: OpalBase.Transaction.Error.unsupportedHashType) {
+            try fixture.transaction.signInputInPlace(
+                at: 0,
+                spending: fixture.outputBeingSpent,
+                privateKey: fixture.invalidPrivateKey,
+                signatureFormat: .schnorr,
+                unlocker: .p2pkh_CheckSig(hashType: hashType),
+                spentOutputs: nil
+            )
+        }
     }
 
     @Test("build produces signatures verifiable through cached verification keys")
@@ -88,43 +372,18 @@ extension TransactionUnspentTransactionOutputValidator {
         let publicKey = try OpalCrypto.Secp256k1.derivePublicKey(
             from: OpalCrypto.Secp256k1.PrivateKey(rawRepresentation: privateKey)
         )
-        let lockingScript = Data([
-            ScriptOperationCode._DUP.rawValue,
-            ScriptOperationCode._HASH160.rawValue,
-            0x14
-        ] + Array(repeating: 0x01, count: 20) + [
-            ScriptOperationCode._EQUALVERIFY.rawValue,
-            ScriptOperationCode._CHECKSIG.rawValue
-        ])
-        let outputBeingSpent = OpalBase.Transaction.Output(value: 10_000, lockingScript: lockingScript)
-        let transaction = OpalBase.Transaction(
-            version: 2,
-            inputs: [
-                .init(
-                    previousTransactionHash: .init(naturalOrder: Data(repeating: 0x01, count: 32)),
-                    previousTransactionOutputIndex: 0,
-                    unlockingScript: Data()
-                ),
-                .init(
-                    previousTransactionHash: .init(naturalOrder: Data(repeating: 0x02, count: 32)),
-                    previousTransactionOutputIndex: 1,
-                    unlockingScript: Data()
-                )
-            ],
-            outputs: [
-                .init(value: 1_000, lockingScript: Data([0x51]))
-            ],
-            lockTime: 0
-        )
+        let fixture = makeSighashSingleFixedDigestFixture()
         let hashType = OpalBase.Transaction.HashType.makeSingle()
-        let signed = try transaction.signInputInPlace(
-            at: 1,
-            spending: outputBeingSpent,
+        let signed = try fixture.transaction.signInputInPlace(
+            at: fixture.signingInputIndex,
+            spending: fixture.outputBeingSpent,
             privateKey: privateKey,
             signatureFormat: OpalBase.Transaction.SignatureFormat.schnorr,
             unlocker: OpalBase.Transaction.Unlocker.p2pkh_CheckSig(hashType: hashType)
         )
-        let decodedUnlockingScript = try decodeP2PKHUnlockingScript(signed.inputs[1].unlockingScript)
+        let decodedUnlockingScript = try decodeP2PKHUnlockingScript(
+            signed.inputs[fixture.signingInputIndex].unlockingScript
+        )
         let signatureWithHashType = decodedUnlockingScript.signatureWithHashType
         let signature = try #require(signatureWithHashType.dropLast().isEmpty ? nil : Data(signatureWithHashType.dropLast()))
         var fixedDigest = Data(repeating: 0x00, count: 32)
@@ -137,6 +396,25 @@ extension TransactionUnspentTransactionOutputValidator {
 
         #expect(signatureWithHashType.last == UInt8(truncatingIfNeeded: hashType.value))
         #expect(isValid)
+    }
+
+    @Test("scoped signing-key rejects missing UTXO coverage before SIGHASH_SINGLE fixed digest")
+    func scopedSigningKeyRejectsMissingUTXOCoverageBeforeSighashSingleFixedDigest() throws {
+        let signingKey = try OpalBase.Key.SigningKey(rawRepresentation: Data(repeating: 0x02, count: 32))
+        let fixture = makeSighashSingleFixedDigestFixture()
+        let hashType = OpalBase.Transaction.HashType.makeSingle(
+            includesUnspentTransactionOutputs: true
+        )
+
+        #expect(throws: OpalBase.Transaction.Error.missingUnspentTransactionOutputs) {
+            _ = try fixture.transaction.signInputInPlace(
+                at: fixture.signingInputIndex,
+                spending: fixture.outputBeingSpent,
+                signingKey: signingKey,
+                signatureFormat: .schnorr,
+                unlocker: .p2pkh_CheckSig(hashType: hashType)
+            )
+        }
     }
 
     @Test("build applies canonical BIP-69 output ordering when requested")
@@ -247,10 +525,7 @@ extension TransactionUnspentTransactionOutputValidator {
         let feePaid = components.inputTotal - outputTotal
 
         let overpaymentTolerance = max(1, feePerByte * 2)
-        guard feePaid >= requiredFee else {
-            Issue.record("Expected feePaid to be >= requiredFee, got feePaid=\(feePaid), requiredFee=\(requiredFee)")
-            return
-        }
+        try #require(feePaid >= requiredFee)
         let feeOverpayment = feePaid - requiredFee
         #expect(feeOverpayment <= overpaymentTolerance)
     }
@@ -442,9 +717,216 @@ extension TransactionUnspentTransactionOutputValidator {
 }
 
 extension TransactionUnspentTransactionOutputValidator {
+    enum UnselectedUnlockerBoundaryCase: CaseIterable, CustomStringConvertible, Sendable {
+        case signedBuild
+        case unsignedEnvelope
+
+        var description: String {
+            switch self {
+            case .signedBuild:
+                "signed build"
+            case .unsignedEnvelope:
+                "unsigned envelope"
+            }
+        }
+    }
+
     private enum BuildTransactionErrorCaptureFailure: Swift.Error {
         case didNotThrow
         case unexpected(Swift.Error)
+    }
+
+    enum RawPrivateKeySigningSpentOutputShapeCase: CaseIterable, CustomStringConvertible, Sendable {
+        case missing
+        case countMismatch
+
+        var description: String {
+            switch self {
+            case .missing:
+                "missing spent outputs"
+            case .countMismatch:
+                "spent output count mismatch"
+            }
+        }
+
+        var spentOutputs: [OpalBase.Transaction.Output]? {
+            switch self {
+            case .missing:
+                nil
+            case .countMismatch:
+                []
+            }
+        }
+
+        var expectedError: OpalBase.Transaction.Error {
+            switch self {
+            case .missing:
+                .missingUnspentTransactionOutputs
+            case .countMismatch:
+                .unspentTransactionOutputsCountMismatch(expected: 1, actual: 0)
+            }
+        }
+    }
+
+    struct SigningTemplateMismatchCase: CaseIterable, CustomStringConvertible, Sendable {
+        static let allCases: [SigningTemplateMismatchCase] = SigningTemplateSignerCase.allCases.flatMap { signer in
+            SigningTemplateMutationCase.allCases.map { mutation in
+                SigningTemplateMismatchCase(signer: signer, mutation: mutation)
+            }
+        }
+
+        let signer: SigningTemplateSignerCase
+        let mutation: SigningTemplateMutationCase
+
+        var description: String {
+            "\(signer.description), \(mutation.description)"
+        }
+
+        func sign(
+            transaction: OpalBase.Transaction,
+            outputBeingSpent: OpalBase.Transaction.Output,
+            invalidPrivateKey: Data,
+            using mismatchedTemplate: OpalBase.Transaction
+        ) throws {
+            try signer.sign(
+                transaction: transaction,
+                outputBeingSpent: outputBeingSpent,
+                invalidPrivateKey: invalidPrivateKey,
+                using: mismatchedTemplate
+            )
+        }
+
+        func makeMismatchedTemplate(
+            from transaction: OpalBase.Transaction
+        ) -> OpalBase.Transaction {
+            mutation.makeMismatchedTemplate(from: transaction)
+        }
+    }
+
+    enum SigningTemplateSignerCase: CaseIterable, CustomStringConvertible, Sendable {
+        case rawPrivateKey
+        case scopedSigningKey
+
+        var description: String {
+            switch self {
+            case .rawPrivateKey:
+                "raw private key"
+            case .scopedSigningKey:
+                "scoped signing key"
+            }
+        }
+
+        func sign(
+            transaction: OpalBase.Transaction,
+            outputBeingSpent: OpalBase.Transaction.Output,
+            invalidPrivateKey: Data,
+            using mismatchedTemplate: OpalBase.Transaction
+        ) throws {
+            switch self {
+            case .rawPrivateKey:
+                _ = try transaction.signInputInPlace(
+                    at: 0,
+                    spending: outputBeingSpent,
+                    privateKey: invalidPrivateKey,
+                    signatureFormat: .schnorr,
+                    unlocker: .p2pkh_CheckSig(),
+                    using: mismatchedTemplate
+                )
+            case .scopedSigningKey:
+                _ = try transaction.signInputInPlace(
+                    at: 0,
+                    spending: outputBeingSpent,
+                    signingKey: OpalBase.Key.SigningKey(rawRepresentation: Data(repeating: 0x02, count: 32)),
+                    signatureFormat: .schnorr,
+                    unlocker: .p2pkh_CheckSig(),
+                    using: mismatchedTemplate
+                )
+            }
+        }
+    }
+
+    enum SigningTemplateMutationCase: CaseIterable, CustomStringConvertible, Sendable {
+        case currentInputOutpoint
+        case extraInput
+        case version
+        case output
+        case lockTime
+
+        var description: String {
+            switch self {
+            case .currentInputOutpoint:
+                "current input outpoint"
+            case .extraInput:
+                "extra input"
+            case .version:
+                "version"
+            case .output:
+                "output"
+            case .lockTime:
+                "lock time"
+            }
+        }
+
+        func makeMismatchedTemplate(
+            from transaction: OpalBase.Transaction
+        ) -> OpalBase.Transaction {
+            switch self {
+            case .currentInputOutpoint:
+                OpalBase.Transaction(
+                    version: transaction.version,
+                    inputs: [
+                        .init(
+                            previousTransactionHash: .init(naturalOrder: Data(repeating: 0x02, count: 32)),
+                            previousTransactionOutputIndex: transaction.inputs[0].previousTransactionOutputIndex,
+                            unlockingScript: transaction.inputs[0].unlockingScript,
+                            sequence: transaction.inputs[0].sequence
+                        ),
+                    ],
+                    outputs: transaction.outputs,
+                    lockTime: transaction.lockTime
+                )
+            case .extraInput:
+                OpalBase.Transaction(
+                    version: transaction.version,
+                    inputs: transaction.inputs + [
+                        .init(
+                            previousTransactionHash: .init(naturalOrder: Data(repeating: 0x03, count: 32)),
+                            previousTransactionOutputIndex: 1,
+                            unlockingScript: Data()
+                        ),
+                    ],
+                    outputs: transaction.outputs,
+                    lockTime: transaction.lockTime
+                )
+            case .version:
+                OpalBase.Transaction(
+                    version: transaction.version + 1,
+                    inputs: transaction.inputs,
+                    outputs: transaction.outputs,
+                    lockTime: transaction.lockTime
+                )
+            case .output:
+                OpalBase.Transaction(
+                    version: transaction.version,
+                    inputs: transaction.inputs,
+                    outputs: [
+                        .init(
+                            value: transaction.outputs[0].value - 1,
+                            lockingScript: transaction.outputs[0].lockingScript,
+                            tokenData: transaction.outputs[0].tokenData
+                        ),
+                    ],
+                    lockTime: transaction.lockTime
+                )
+            case .lockTime:
+                OpalBase.Transaction(
+                    version: transaction.version,
+                    inputs: transaction.inputs,
+                    outputs: transaction.outputs,
+                    lockTime: transaction.lockTime + 1
+                )
+            }
+        }
     }
 
     private static func captureBuildTransactionError(
@@ -460,6 +942,78 @@ extension TransactionUnspentTransactionOutputValidator {
         } catch {
             throw BuildTransactionErrorCaptureFailure.unexpected(error)
         }
+    }
+
+    private func makeRawPrivateKeySigningValidationFixture() -> (
+        invalidPrivateKey: Data,
+        outputBeingSpent: OpalBase.Transaction.Output,
+        transaction: OpalBase.Transaction
+    ) {
+        let outputBeingSpent = OpalBase.Transaction.Output(
+            value: 1_000,
+            lockingScript: Data([0x51])
+        )
+        let transaction = OpalBase.Transaction(
+            version: 2,
+            inputs: [
+                .init(
+                    previousTransactionHash: .init(naturalOrder: Data(repeating: 0x01, count: 32)),
+                    previousTransactionOutputIndex: 0,
+                    unlockingScript: Data()
+                )
+            ],
+            outputs: [
+                .init(value: 900, lockingScript: Data([0x51]))
+            ],
+            lockTime: 0
+        )
+
+        return (
+            invalidPrivateKey: Data(repeating: 0x01, count: 31),
+            outputBeingSpent: outputBeingSpent,
+            transaction: transaction
+        )
+    }
+
+    private func makeSighashSingleFixedDigestFixture() -> (
+        signingInputIndex: Int,
+        outputBeingSpent: OpalBase.Transaction.Output,
+        transaction: OpalBase.Transaction
+    ) {
+        let lockingScript = Data([
+            ScriptOperationCode._DUP.rawValue,
+            ScriptOperationCode._HASH160.rawValue,
+            0x14
+        ] + Array(repeating: 0x01, count: 20) + [
+            ScriptOperationCode._EQUALVERIFY.rawValue,
+            ScriptOperationCode._CHECKSIG.rawValue
+        ])
+        let outputBeingSpent = OpalBase.Transaction.Output(value: 10_000, lockingScript: lockingScript)
+        let transaction = OpalBase.Transaction(
+            version: 2,
+            inputs: [
+                .init(
+                    previousTransactionHash: .init(naturalOrder: Data(repeating: 0x01, count: 32)),
+                    previousTransactionOutputIndex: 0,
+                    unlockingScript: Data()
+                ),
+                .init(
+                    previousTransactionHash: .init(naturalOrder: Data(repeating: 0x02, count: 32)),
+                    previousTransactionOutputIndex: 1,
+                    unlockingScript: Data()
+                )
+            ],
+            outputs: [
+                .init(value: 1_000, lockingScript: Data([0x51]))
+            ],
+            lockTime: 0
+        )
+
+        return (
+            signingInputIndex: 1,
+            outputBeingSpent: outputBeingSpent,
+            transaction: transaction
+        )
     }
 
     private func decodeP2PKHUnlockingScript(

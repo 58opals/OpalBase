@@ -27,6 +27,18 @@ public extension OpalBase {
 
         public func makeDraft(
             network: OpalBase.Network.Environment,
+            refundSigningKey: OpalBase.Key.SigningKey,
+            expiryBlockHeight: UInt32
+        ) throws -> OpalBase.Claimable.Draft {
+            try OpalBase.Claimable.Draft(
+                network: network,
+                refundSigningKey: refundSigningKey,
+                expiryBlockHeight: expiryBlockHeight
+            )
+        }
+
+        public func makeDraft(
+            network: OpalBase.Network.Environment,
             refundPrivateKey: Data,
             expiryBlockHeight: UInt32
         ) throws -> OpalBase.Claimable.Draft {
@@ -119,6 +131,21 @@ public extension OpalBase {
             currentBlockHeight: UInt32
         ) throws -> OpalBase.Transaction {
             try envelope.buildClaimTransaction(
+                destinationLockingScript: destinationLockingScript,
+                feePerByte: feePerByte,
+                currentBlockHeight: currentBlockHeight
+            )
+        }
+
+        public func buildRefundTransaction(
+            from envelope: OpalBase.Claimable.Envelope,
+            refundSigningKey: OpalBase.Key.SigningKey,
+            destinationLockingScript: Data,
+            feePerByte: UInt64 = OpalBase.Transaction.defaultFeeRate,
+            currentBlockHeight: UInt32
+        ) throws -> OpalBase.Transaction {
+            try envelope.buildRefundTransaction(
+                refundSigningKey: refundSigningKey,
                 destinationLockingScript: destinationLockingScript,
                 feePerByte: feePerByte,
                 currentBlockHeight: currentBlockHeight

@@ -86,6 +86,103 @@ struct AccountCommandValidator {
         .init(transactionHash: transactionHash, transactionHeight: nil, tipHeight: 0, confirmations: nil)
     }
 
+    static func requireAccountTransactionBuildFailure(
+        underlying expectedUnderlying: OpalBase.Address.Book.Error,
+        operation: () async throws -> Void
+    ) async throws {
+        do {
+            try await operation()
+            throw ExpectedAccountTransactionBuildFailureNotThrown()
+        } catch OpalBase.Account.Error.transactionBuildFailed(let underlying) {
+            let typedUnderlying = try #require(underlying as? OpalBase.Address.Book.Error)
+            #expect(typedUnderlying == expectedUnderlying)
+        }
+    }
+
+    struct ExpectedAccountTransactionBuildFailureNotThrown: Swift.Error, CustomStringConvertible {
+        var description: String {
+            "Expected an account transaction build failure."
+        }
+    }
+
+    enum StaleSelectedUTXORefreshCase: CaseIterable, CustomStringConvertible, Sendable {
+        case missing
+        case changedMetadata
+
+        var description: String {
+            switch self {
+            case .missing:
+                "missing selected UTXO"
+            case .changedMetadata:
+                "changed selected UTXO metadata"
+            }
+        }
+
+        var hashByte: UInt8 {
+            switch self {
+            case .missing:
+                0x49
+            case .changedMetadata:
+                0x4A
+            }
+        }
+
+        func refreshedUTXOs(
+            replacing utxo: OpalBase.Transaction.Output.Unspent
+        ) -> [OpalBase.Transaction.Output.Unspent] {
+            switch self {
+            case .missing:
+                []
+            case .changedMetadata:
+                [
+                    OpalBase.Transaction.Output.Unspent(
+                        value: 30_000,
+                        lockingScript: utxo.lockingScript,
+                        previousTransactionHash: utxo.previousTransactionHash,
+                        previousTransactionOutputIndex: utxo.previousTransactionOutputIndex
+                    )
+                ]
+            }
+        }
+    }
+
+    enum StaleReservationRefreshAttemptCase: CaseIterable, CustomStringConvertible, Sendable {
+        case originalPayload
+        case replacementPayload
+
+        var description: String {
+            switch self {
+            case .originalPayload:
+                "original stale payload"
+            case .replacementPayload:
+                "replacement payload"
+            }
+        }
+
+        func attemptedUTXOs(
+            original: OpalBase.Transaction.Output.Unspent,
+            replacement: OpalBase.Transaction.Output.Unspent
+        ) -> [OpalBase.Transaction.Output.Unspent] {
+            switch self {
+            case .originalPayload:
+                [original]
+            case .replacementPayload:
+                [replacement]
+            }
+        }
+
+        func expectedError(
+            replacement: OpalBase.Transaction.Output.Unspent
+        ) -> OpalBase.Address.Book.Error {
+            switch self {
+            case .originalPayload:
+                .utxoNotFound
+            case .replacementPayload:
+                .utxoAlreadyReserved(replacement)
+            }
+        }
+    }
+
     @Test("prepareSpend reports insufficient funds when sweep-all shortfall occurs")
     func prepareSpendReportsShortfallForSweepAllCoinSelection() async throws {
         let account = try await AccountTestFixtures.makeAccount()
@@ -419,6 +516,101 @@ struct AccountCommandValidator {
         #expect(await addressBook.listSpendableUTXOs().contains(utxo))
     }
 
+    @Test(
+        "reserveSpend rejects stale reservation refresh attempts after selected UTXO metadata changes",
+        arguments: StaleReservationRefreshAttemptCase.allCases
+    )
+    func reserveSpendRejectsStaleReservationRefreshAttemptsAfterSelectedUTXOMetadataChanges(
+        _ attemptCase: StaleReservationRefreshAttemptCase
+    ) async throws {
+        let account = try await AccountTestFixtures.makeAccount()
+        let addressBook = await account.addressBook
+        let receivingEntry = try await addressBook.selectNextEntry(for: .receiving)
+        let utxo = OpalBase.Transaction.Output.Unspent(
+            value: 25_000,
+            lockingScript: receivingEntry.address.lockingScript.data,
+            previousTransactionHash: AccountTestFixtures.makeHash(byte: 0x4C),
+            previousTransactionOutputIndex: 0
+        )
+        let replacementUTXO = try #require(
+            StaleSelectedUTXORefreshCase.changedMetadata.refreshedUTXOs(replacing: utxo).first
+        )
+        await addressBook.addUTXOs([utxo])
+        let changeEntry = try await addressBook.selectNextEntry(for: .change)
+
+        let reservation = try await addressBook.reserveSpend(
+            utxos: [utxo],
+            changeEntry: changeEntry,
+            tokenSelectionPolicy: .excludeTokenUTXOs
+        )
+        _ = try await addressBook.refreshUTXOSet(
+            using: AddressReaderClient(unspentByAddress: [
+                receivingEntry.address.string: [replacementUTXO]
+            ]),
+            usage: .receiving
+        )
+
+        await #expect(throws: attemptCase.expectedError(replacement: replacementUTXO)) {
+            _ = try await addressBook.reserveSpend(
+                utxos: attemptCase.attemptedUTXOs(
+                    original: utxo,
+                    replacement: replacementUTXO
+                ),
+                changeEntry: changeEntry,
+                tokenSelectionPolicy: .excludeTokenUTXOs
+            )
+        }
+
+        let activeReservation = try #require(await addressBook.readActiveSpendReservations().first)
+        #expect(activeReservation.id == reservation.id)
+
+        try await addressBook.releaseSpendReservation(reservation, outcome: .cancelled)
+    }
+
+    @Test(
+        "completeReservation rejects reservations whose selected UTXO is stale",
+        arguments: StaleSelectedUTXORefreshCase.allCases
+    )
+    func completeReservationRejectsReservationsWithStaleSelectedUTXOs(_ refreshCase: StaleSelectedUTXORefreshCase) async throws {
+        let account = try await AccountTestFixtures.makeAccount()
+        let addressBook = await account.addressBook
+        let receivingEntry = try await addressBook.selectNextEntry(for: .receiving)
+        let transactionHash = AccountTestFixtures.makeHash(byte: refreshCase.hashByte)
+        let utxo = OpalBase.Transaction.Output.Unspent(
+            value: 25_000,
+            lockingScript: receivingEntry.address.lockingScript.data,
+            previousTransactionHash: transactionHash,
+            previousTransactionOutputIndex: 0
+        )
+        await addressBook.addUTXOs([utxo])
+
+        let recipientAddress = try OpalBase.Address(AccountTestFixtures.standardAddressString)
+        let payment = OpalBase.Account.Payment(
+            recipients: [.init(address: recipientAddress, amount: try OpalBase.Satoshi(10_000))]
+        )
+        let plan = try await account.prepareSpend(payment)
+        let reservedChangeEntry = try #require(await addressBook.listEntries(for: .change).first { $0.isReserved })
+
+        _ = try await addressBook.refreshUTXOSet(
+            using: AddressReaderClient(unspentByAddress: [
+                receivingEntry.address.string: refreshCase.refreshedUTXOs(replacing: utxo)
+            ]),
+            usage: .receiving
+        )
+
+        try await Self.requireAccountTransactionBuildFailure(underlying: .utxoNotFound) {
+            try await plan.completeReservation()
+        }
+        let refreshedChangeEntry = try #require(
+            await addressBook.listEntries(for: .change).first {
+                $0.derivationPath.index == reservedChangeEntry.derivationPath.index
+            }
+        )
+        #expect(refreshedChangeEntry.isUsed == false)
+        #expect(refreshedChangeEntry.isReserved == false)
+        #expect(await addressBook.readActiveSpendReservations().isEmpty)
+    }
+
     @Test("reserveSpend rejects empty input sets before reserving change")
     func reserveSpendRejectsEmptyInputSetsBeforeReservingChange() async throws {
         let account = try await AccountTestFixtures.makeAccount()
@@ -439,6 +631,34 @@ struct AccountCommandValidator {
         )
         #expect(firstChangeEntry.isReserved == false)
         #expect(await addressBook.readActiveSpendReservations().isEmpty)
+    }
+
+    @Test("reserveSpend rejects duplicate input sets before reserving change")
+    func reserveSpendRejectsDuplicateInputSetsBeforeReservingChange() async throws {
+        let account = try await AccountTestFixtures.makeAccount()
+        let addressBook = await account.addressBook
+        let utxo = try await AccountTestFixtures.addUnspentOutput(
+            to: account,
+            value: 25_000,
+            hashByte: 0x48
+        )
+        let changeEntry = try await addressBook.selectNextEntry(for: .change)
+
+        await #expect(throws: OpalBase.Address.Book.Error.utxoDuplicated(utxo)) {
+            _ = try await addressBook.reserveSpend(
+                utxos: [utxo, utxo],
+                changeEntry: changeEntry,
+                tokenSelectionPolicy: .excludeTokenUTXOs
+            )
+        }
+
+        let changeEntries = await addressBook.listEntries(for: .change)
+        let firstChangeEntry = try #require(
+            changeEntries.first { $0.derivationPath.index == changeEntry.derivationPath.index }
+        )
+        #expect(firstChangeEntry.isReserved == false)
+        #expect(await addressBook.readActiveSpendReservations().isEmpty)
+        #expect(await addressBook.listSpendableUTXOs().contains(utxo))
     }
 
     @Test("reserveSpend does not reuse a completed stale change entry")

@@ -21,14 +21,18 @@ extension _OpalBase.Claimable {
             guard refundPublicKeyHash.count == 20 else {
                 throw OpalBase.Claimable.Error.invalidRefundPublicKeyHash
             }
-            guard expiryBlockHeight < 500_000_000 else {
-                throw OpalBase.Claimable.Error.invalidExpiryBlockHeight
-            }
+            try Self.validateExpiryBlockHeight(expiryBlockHeight)
 
             self.network = network
             self.claimPublicKeyHash = Data(claimPublicKeyHash)
             self.refundPublicKeyHash = Data(refundPublicKeyHash)
             self.expiryBlockHeight = expiryBlockHeight
+        }
+
+        static func validateExpiryBlockHeight(_ expiryBlockHeight: UInt32) throws {
+            guard expiryBlockHeight < 500_000_000 else {
+                throw OpalBase.Claimable.Error.invalidExpiryBlockHeight
+            }
         }
     }
 }

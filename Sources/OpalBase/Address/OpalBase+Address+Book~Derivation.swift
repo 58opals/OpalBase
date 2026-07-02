@@ -71,6 +71,20 @@ extension _OpalBase.Address.Book {
         return privateKey.rawRepresentation
     }
 
+    func generateSigningKey(at index: UInt32, for usage: OpalBase.Key.DerivationPath.Usage) throws -> OpalBase.Key.SigningKey {
+        let derivationPath = try createDerivationPath(usage: usage, index: index)
+
+        if let cachedUsageDerivation = usageDerivationCache[usage] {
+            return try OpalBase.Key.SigningKey(
+                opalCryptoSigningKey: cachedUsageDerivation.baseExtendedPrivateKey.derived(indices: [index]).signingKey
+            )
+        }
+
+        guard case .rootPrivate(let extendedPrivateKey) = keyOrigin else { throw Error.privateKeyNotFound }
+        let signingKey = try extendedPrivateKey.derived(indices: derivationPath.makeIndices()).signingKey
+        return try OpalBase.Key.SigningKey(opalCryptoSigningKey: signingKey)
+    }
+
     func makeAddress(fromCompressedPublicKey compressedPublicKey: Data) throws -> OpalBase.Address {
         let publicKey = try OpalBase.Key.PublicKey(compressedData: compressedPublicKey)
         return try OpalBase.Address(script: .p2pkh_OPCHECKSIG(hash: .init(publicKey: publicKey)))

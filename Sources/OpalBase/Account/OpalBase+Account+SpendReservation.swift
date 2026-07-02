@@ -11,7 +11,11 @@ extension _OpalBase.Account {
         var changeEntry: OpalBase.Address.Book.Entry { reservation.changeEntry }
         
         func complete() async throws {
-            try await addressBook.releaseSpendReservation(reservation, outcome: .completed)
+            do {
+                try await addressBook.completeSpendReservation(reservation)
+            } catch {
+                throw OpalBase.Account.Error.transactionBuildFailed(error)
+            }
         }
         
         func cancel() async throws {

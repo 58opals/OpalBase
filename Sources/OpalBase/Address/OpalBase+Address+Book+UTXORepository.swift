@@ -106,8 +106,9 @@ extension _OpalBase.Address.Book {
         
         mutating func reserve(_ utxos: Set<OpalBase.Transaction.Output.Unspent>,
                               tokenSelectionPolicy: OpalBase.Address.Book.CoinSelection.TokenSelectionPolicy) throws {
-            let allowedUTXOs = filterUTXOs(allUTXOs, tokenSelectionPolicy: tokenSelectionPolicy)
-            guard utxos.isSubset(of: allowedUTXOs) else { throw OpalBase.Address.Book.Error.utxoNotFound }
+            guard containsExact(utxos, tokenSelectionPolicy: tokenSelectionPolicy) else {
+                throw OpalBase.Address.Book.Error.utxoNotFound
+            }
             
             if let conflict = reservedUTXOs.intersection(utxos).first {
                 throw OpalBase.Address.Book.Error.utxoAlreadyReserved(conflict)
@@ -127,6 +128,36 @@ extension _OpalBase.Address.Book {
         
         func findUTXO(matching input: OpalBase.Transaction.Input) -> OpalBase.Transaction.Output.Unspent? {
             utxosByOutpoint[Outpoint(input)]
+        }
+
+        func containsExact(_ utxos: Set<OpalBase.Transaction.Output.Unspent>) -> Bool {
+            utxos.allSatisfy(containsExact)
+        }
+
+        func containsExact(
+            _ utxos: Set<OpalBase.Transaction.Output.Unspent>,
+            tokenSelectionPolicy: OpalBase.Address.Book.CoinSelection.TokenSelectionPolicy
+        ) -> Bool {
+            utxos.allSatisfy { utxo in
+                guard containsExact(utxo) else {
+                    return false
+                }
+
+                switch tokenSelectionPolicy {
+                case .excludeTokenUTXOs:
+                    return utxo.tokenData == nil
+                case .allowTokenUTXOs:
+                    return true
+                }
+            }
+        }
+
+        private func containsExact(_ utxo: OpalBase.Transaction.Output.Unspent) -> Bool {
+            guard let stored = utxosByOutpoint[Outpoint(utxo)] else {
+                return false
+            }
+
+            return stored.hasSameOutpointAndPayload(as: utxo)
         }
         
         private mutating func store(_ utxo: OpalBase.Transaction.Output.Unspent) {
@@ -148,19 +179,19 @@ extension _OpalBase.Address.Book {
         }
         
         private mutating func discard(_ utxo: OpalBase.Transaction.Output.Unspent) {
-            guard var indexedUTXOs = utxosByLockingScript[utxo.lockingScript] else {
+            let outpoint = Outpoint(utxo)
+            let storedUTXO = utxosByOutpoint.removeValue(forKey: outpoint) ?? utxo
+            guard var indexedUTXOs = utxosByLockingScript[storedUTXO.lockingScript] else {
                 return
             }
             
-            indexedUTXOs.remove(utxo)
+            indexedUTXOs.remove(storedUTXO)
             
             if indexedUTXOs.isEmpty {
-                utxosByLockingScript.removeValue(forKey: utxo.lockingScript)
+                utxosByLockingScript.removeValue(forKey: storedUTXO.lockingScript)
             } else {
-                utxosByLockingScript[utxo.lockingScript] = indexedUTXOs
+                utxosByLockingScript[storedUTXO.lockingScript] = indexedUTXOs
             }
-            
-            utxosByOutpoint.removeValue(forKey: Outpoint(utxo))
         }
     }
 }

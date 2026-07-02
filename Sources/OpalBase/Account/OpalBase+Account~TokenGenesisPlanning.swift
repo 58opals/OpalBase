@@ -157,7 +157,7 @@ extension _OpalBase.Account {
                                 bchInputs: bchInputs,
                                 outputs: resolvedOrganizedOutputs,
                                 reservationHandle: reservedSpendContext.reservationHandle,
-                                privateKeys: reservedSpendContext.privateKeys,
+                                signingKeys: reservedSpendContext.signingKeys,
                                 changeOutput: reservedSpendContext.changeOutput,
                                 plannedMintedOutputs: resolvedRawOutputs,
                                 shouldAllowDustDonation: genesis.shouldAllowDustDonation,

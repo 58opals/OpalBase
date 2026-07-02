@@ -28,7 +28,8 @@ extension _OpalBase.Claimable {
             envelope: OpalBase.Claimable.Envelope,
             spendPath: OpalBase.Claimable.SpendPath,
             privateKeyData: Data,
-            compressedPublicKeyData: Data
+            compressedPublicKeyData: Data,
+            invalidPrivateKeyError: OpalBase.Claimable.Error
         ) throws {
             let contract = envelope.contract
             let redeemScriptData = contract.redeemScriptData
@@ -42,7 +43,8 @@ extension _OpalBase.Claimable {
             self.privateKeyHexadecimal = privateKeyData.hexadecimalString
             self.privateKeyWalletImportFormat = try ClaimablePrimitiveOperation.makeWalletImportFormat(
                 privateKey: privateKeyData,
-                network: contract.network
+                network: contract.network,
+                invalidError: invalidPrivateKeyError
             )
             self.redeemScriptData = redeemScriptData
             self.redeemScriptHexadecimal = redeemScriptData.hexadecimalString
@@ -64,3 +66,25 @@ extension _OpalBase.Claimable {
 
 extension _OpalBase.Claimable.RecoveryMaterial: Sendable {}
 extension _OpalBase.Claimable.RecoveryMaterial: Equatable {}
+extension _OpalBase.Claimable.RecoveryMaterial: CustomStringConvertible, CustomDebugStringConvertible, CustomReflectable {
+    public var description: String {
+        "OpalBase.Claimable.RecoveryMaterial(spendPath: \(spendPath), privateKey: \(OpalBase.Claimable.redactedSecretMarker), encodedEnvelope: \(OpalBase.Claimable.redactedSecretMarker))"
+    }
+
+    public var debugDescription: String {
+        description
+    }
+
+    public var customMirror: Mirror {
+        Mirror(
+            self,
+            children: [
+                "network": network,
+                "spendPath": spendPath,
+                "privateKey": OpalBase.Claimable.redactedSecretMarker,
+                "encodedEnvelope": OpalBase.Claimable.redactedSecretMarker,
+            ],
+            displayStyle: .struct
+        )
+    }
+}

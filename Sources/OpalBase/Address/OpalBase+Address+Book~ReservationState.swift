@@ -6,7 +6,7 @@ import Foundation
 extension _OpalBase.Address.Book {
     func findMatchingReservation(for utxos: Set<OpalBase.Transaction.Output.Unspent>) -> (identifier: UUID, state: SpendReservation.State)? {
         spendReservationStates.first { _, state in
-            state.utxos == utxos
+            state.utxos.hasExactPayloads(matching: utxos)
         }
         .map { element in
             (identifier: element.key, state: element.value)
@@ -28,5 +28,19 @@ extension _OpalBase.Address.Book {
         spendReservationReleaseTasks.removeAll()
         spendReservationStates.removeAll()
         utxoStore.releaseAllReservations()
+    }
+}
+
+private extension Set where Element == OpalBase.Transaction.Output.Unspent {
+    func hasExactPayloads(matching other: Self) -> Bool {
+        guard count == other.count else {
+            return false
+        }
+
+        return allSatisfy { expected in
+            other.contains { candidate in
+                candidate.hasSameOutpointAndPayload(as: expected)
+            }
+        }
     }
 }

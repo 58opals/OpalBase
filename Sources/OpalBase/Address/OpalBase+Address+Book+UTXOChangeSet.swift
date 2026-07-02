@@ -27,19 +27,19 @@ extension _OpalBase.Address.Book {
                 guard let previousOutput = previousByOutpoint[UTXORepository.Outpoint(updatedOutput)] else {
                     return true
                 }
-                return !Self.hasMatchingPayload(previousOutput, updatedOutput)
+                return !previousOutput.hasSameOutpointAndPayload(as: updatedOutput)
             }.sorted { $0.compareOrder(before: $1) }
             self.removed = previous.filter { previousOutput in
                 guard let updatedOutput = updatedByOutpoint[UTXORepository.Outpoint(previousOutput)] else {
                     return true
                 }
-                return !Self.hasMatchingPayload(previousOutput, updatedOutput)
+                return !previousOutput.hasSameOutpointAndPayload(as: updatedOutput)
             }.sorted { $0.compareOrder(before: $1) }
             self.retained = previous.filter { previousOutput in
                 guard let updatedOutput = updatedByOutpoint[UTXORepository.Outpoint(previousOutput)] else {
                     return false
                 }
-                return Self.hasMatchingPayload(previousOutput, updatedOutput)
+                return previousOutput.hasSameOutpointAndPayload(as: updatedOutput)
             }.sorted { $0.compareOrder(before: $1) }
             self.balance = try Self.makeBalance(from: Set(updated))
             self.timestamp = timestamp
@@ -57,15 +57,6 @@ private extension _OpalBase.Address.Book.UTXOChangeSet {
         utxos.reduce(into: .init()) { result, utxo in
             result[OpalBase.Address.Book.UTXORepository.Outpoint(utxo)] = utxo
         }
-    }
-    
-    static func hasMatchingPayload(
-        _ left: OpalBase.Transaction.Output.Unspent,
-        _ right: OpalBase.Transaction.Output.Unspent
-    ) -> Bool {
-        left.value == right.value
-        && left.lockingScript == right.lockingScript
-        && left.tokenData == right.tokenData
     }
     
     static func makeBalance(from utxos: Set<OpalBase.Transaction.Output.Unspent>) throws -> OpalBase.Satoshi {

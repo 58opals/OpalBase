@@ -1,6 +1,7 @@
 // HedgeFundingFacadeValidator.swift
 
 import Foundation
+import OpalCrypto
 import Testing
 import OpalBaseTestSupport
 @testable import OpalBase
@@ -75,6 +76,41 @@ struct HedgeFundingFacadeValidator {
         #expect(material.lockingScriptHex == material.payoutAddress.lockingScript.data.hexadecimalString)
         #expect(material.mutualRedeemPublicKeyHex.count == 66)
         #expect(reservedEntry.isReserved)
+    }
+
+    @Test("participant material reservation releases receiving entry when signing key derivation fails")
+    func participantMaterialReservationReleasesReceivingEntryWhenSigningKeyDerivationFails() async throws {
+        let rootExtendedPrivateKey = try OpalCrypto.Key.ExtendedPrivate.root(
+            seed: AccountTestFixtures.makeMnemonic().deriveSeed()
+        )
+        let accountPath = try OpalBase.Key.DerivationPath.Account(rawIndexInteger: 0)
+        let accountExtendedPublicKey = try OpalCryptoAdapter.makeAccountExtendedPublicKey(
+            rootExtendedPrivateKey: rootExtendedPrivateKey,
+            purpose: .bip44,
+            coinType: .bitcoinCash,
+            account: accountPath
+        )
+        let publicOnlyAddressBook = try await OpalBase.Address.Book(
+            accountExtendedPublicKey: accountExtendedPublicKey,
+            purpose: .bip44,
+            coinType: .bitcoinCash,
+            account: accountPath
+        )
+        let account = try OpalBase.Account(
+            rootExtendedPrivateKey: rootExtendedPrivateKey,
+            purpose: .bip44,
+            coinType: .bitcoinCash,
+            account: accountPath,
+            addressBook: publicOnlyAddressBook
+        )
+
+        await #expect(throws: OpalBase.Address.Book.Error.privateKeyNotFound) {
+            _ = try await account.reserveHedgeParticipantMaterial(network: .chipnet)
+        }
+
+        let receivingEntry = try #require(await publicOnlyAddressBook.listEntries(for: .receiving).first)
+        #expect(receivingEntry.isUsed == false)
+        #expect(receivingEntry.isReserved == false)
     }
 
     @Test("builds stable beta funding quote")

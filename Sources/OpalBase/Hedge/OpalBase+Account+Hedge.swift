@@ -23,33 +23,41 @@ extension _OpalBase.Account {
             do {
                 try requirePrivateKeyMaterial()
                 let entry = try await reserveNextReceivingEntry()
-                let privateKeyData = try await addressBook.generatePrivateKey(
-                    at: entry.derivationPath.index,
-                    for: .receiving
-                )
-                let publicKey = try OpalBase.Key.PublicKey(privateKeyData: privateKeyData)
-                let payoutAddress = try OpalBase.Address(
-                    script: entry.address.lockingScript,
-                    network: network
-                )
-
-                let material = OpalBase.Hedge.ParticipantMaterial(
-                    side: side,
-                    payoutAddress: payoutAddress,
-                    lockingScriptHex: payoutAddress.lockingScript.data.hexadecimalString,
-                    mutualRedeemPublicKeyHex: publicKey.compressedData.hexadecimalString,
-                    derivedAddress: .init(
-                        address: payoutAddress,
-                        derivationPath: entry.derivationPath,
-                        createdAt: entry.createdAt
+                do {
+                    let signingKey = try await addressBook.generateSigningKey(
+                        at: entry.derivationPath.index,
+                        for: .receiving
                     )
-                )
-                OpalDiagnostics.record(
-                    OpalDiagnostics.Event.hedgeParticipantMaterialReserved,
-                    category: OpalDiagnostics.Category.hedge,
-                    fields: fields
-                )
-                return material
+                    let publicKey = signingKey.publicKey
+                    let payoutAddress = try OpalBase.Address(
+                        script: entry.address.lockingScript,
+                        network: network
+                    )
+
+                    let material = OpalBase.Hedge.ParticipantMaterial(
+                        side: side,
+                        payoutAddress: payoutAddress,
+                        lockingScriptHex: payoutAddress.lockingScript.data.hexadecimalString,
+                        mutualRedeemPublicKeyHex: publicKey.compressedData.hexadecimalString,
+                        derivedAddress: .init(
+                            address: payoutAddress,
+                            derivationPath: entry.derivationPath,
+                            createdAt: entry.createdAt
+                        )
+                    )
+                    OpalDiagnostics.record(
+                        OpalDiagnostics.Event.hedgeParticipantMaterialReserved,
+                        category: OpalDiagnostics.Category.hedge,
+                        fields: fields
+                    )
+                    return material
+                } catch {
+                    _ = try? await addressBook.releaseReservation(
+                        address: entry.address,
+                        shouldKeepUsed: false
+                    )
+                    throw error
+                }
             } catch {
                 OpalDiagnostics.record(
                     OpalDiagnostics.Event.hedgeParticipantMaterialReserveFailed,

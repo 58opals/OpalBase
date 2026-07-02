@@ -10,7 +10,7 @@ public extension OpalBase {
         }
 
         public init(storage: OpalBase.Storage) async {
-            self.persistenceSession = await OpalBase.Storage.PersistenceSession(storage: storage)
+            self.init(persistenceSession: await OpalBase.Storage.PersistenceSession(storage: storage))
         }
 
         @discardableResult
@@ -19,6 +19,17 @@ public extension OpalBase {
             policy: OpalBase.Storage.Security.PersistencePolicy
         ) async throws -> OpalBase.Storage.Security.ProtectionMode {
             try await persistenceSession.save(wallet: wallet, policy: policy)
+        }
+
+        @discardableResult
+        public func saveWalletSecretsAndSnapshot(
+            from wallet: OpalBase.Wallet,
+            profile: OpalBase.WalletSecurityProfile
+        ) async throws -> OpalBase.Storage.Security.ProtectionMode {
+            try await saveWalletSecretsAndSnapshot(
+                from: wallet,
+                policy: profile.secretPersistencePolicy
+            )
         }
 
         public func restoreWalletSecretsAndSnapshot() async throws -> OpalBase.Storage.PersistenceSession.RestoredState {

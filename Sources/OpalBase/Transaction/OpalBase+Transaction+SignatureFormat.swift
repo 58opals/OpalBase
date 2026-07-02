@@ -25,3 +25,18 @@ extension _OpalBase.Transaction.SignatureFormat.ECDSAEncoding {
         }
     }
 }
+
+extension _OpalBase.Transaction.SignatureFormat {
+    var isSupportedForTransactionSigning: Bool {
+        if case .ecdsa(.raw) = self {
+            return false
+        }
+        return true
+    }
+
+    func requireTransactionSigningSupport() throws {
+        guard isSupportedForTransactionSigning else {
+            throw OpalBase.Transaction.Error.unsupportedSignatureFormat
+        }
+    }
+}

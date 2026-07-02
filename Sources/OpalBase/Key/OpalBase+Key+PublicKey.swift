@@ -4,11 +4,17 @@ import Foundation
 
 extension _OpalBase.Key {
     public struct PublicKey {
-        let compressedData: Data
+        public let compressedData: Data
         
         public init(compressedData: Data) throws {
             guard compressedData.count == 33 else { throw Error.invalidLength }
-            self.compressedData = Data(compressedData)
+            do {
+                self.compressedData = try OpalCryptoAdapter.validateCompressedPublicKey(
+                    Data(compressedData)
+                )
+            } catch {
+                throw Error.invalidFormat
+            }
         }
 
         init(privateKeyData: Data) throws {

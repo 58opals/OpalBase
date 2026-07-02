@@ -63,6 +63,32 @@ struct ClaimableContractValidator {
         }
     }
 
+    @Test("raw refund-key draft rejects invalid refund key before expiry")
+    func rawRefundKeyDraftRejectsInvalidRefundKeyBeforeExpiry() throws {
+        #expect(throws: OpalBase.Claimable.Error.invalidRefundPrivateKey) {
+            try OpalBase.Claimable.Draft(
+                network: .chipnet,
+                refundPrivateKey: Data(repeating: 0x01, count: 31),
+                expiryBlockHeight: 500_000_000
+            )
+        }
+    }
+
+    @Test("scoped refund-key draft rejects invalid expiry")
+    func scopedRefundKeyDraftRejectsInvalidExpiry() throws {
+        let refundSigningKey = try OpalBase.Key.SigningKey(
+            rawRepresentation: ClaimableTestSupport.makeClaimablePrivateKey(lastByte: 0x02)
+        )
+
+        #expect(throws: OpalBase.Claimable.Error.invalidExpiryBlockHeight) {
+            try OpalBase.Claimable.Draft(
+                network: .chipnet,
+                refundSigningKey: refundSigningKey,
+                expiryBlockHeight: 500_000_000
+            )
+        }
+    }
+
     @Test("rejects invalid public key hash lengths", arguments: InvalidPublicKeyHashCase.allCases)
     func rejectsInvalidPublicKeyHashLengths(_ invalidPublicKeyHashCase: InvalidPublicKeyHashCase) throws {
         #expect(throws: invalidPublicKeyHashCase.expectedError) {
@@ -92,6 +118,34 @@ struct ClaimableContractValidator {
         #expect(draft.contract.refundPublicKeyHash == expectedRefundPublicKeyHash)
         #expect(fundingOutput.value == 42_000)
         #expect(fundingOutput.lockingScript == draft.contract.fundingLockingScriptData)
+    }
+
+    @Test("draft accepts scoped refund signing key")
+    func draftAcceptsScopedRefundSigningKey() throws {
+        let refundPrivateKey = ClaimableTestSupport.makeClaimablePrivateKey(lastByte: 0x02)
+        let refundSigningKey = try OpalBase.Key.SigningKey(rawRepresentation: refundPrivateKey)
+        let draft = try OpalBase.Claimable.Draft(
+            network: .chipnet,
+            refundSigningKey: refundSigningKey,
+            expiryBlockHeight: 500
+        )
+        let expectedRefundPublicKeyHash = ClaimablePrimitiveOperation.makePublicKeyHash(
+            from: refundSigningKey
+        )
+
+        #expect(draft.contract.refundPublicKeyHash == expectedRefundPublicKeyHash)
+        #expect(draft.claimPrivateKey.count == 32)
+    }
+
+    @Test("draft redacts claim private key from text and reflection")
+    func draftRedactsClaimPrivateKeyFromTextAndReflection() throws {
+        let (draft, _) = try ClaimableTestSupport.makeClaimableDraft()
+
+        ClaimableTestSupport.expectRedactedSecretDebugSurfaces(
+            of: draft,
+            secretTexts: [draft.claimPrivateKey.hexadecimalString],
+            redactedLabel: "claimPrivateKey"
+        )
     }
 
     private func makeSlicedData(from data: Data) -> Data {

@@ -45,6 +45,17 @@ struct ClaimableEnvelopeValidator {
         #expect(envelope.claimPrivateKey.startIndex == 0)
     }
 
+    @Test("redacts claim private key from text and reflection")
+    func redactsClaimPrivateKeyFromTextAndReflection() throws {
+        let (envelope, _) = try ClaimableTestSupport.makeClaimableEnvelope()
+
+        ClaimableTestSupport.expectRedactedSecretDebugSurfaces(
+            of: envelope,
+            secretTexts: [envelope.claimPrivateKey.hexadecimalString],
+            redactedLabel: "claimPrivateKey"
+        )
+    }
+
     @Test("rejects unsupported version")
     func rejectsUnsupportedVersion() throws {
         let (envelope, _) = try ClaimableTestSupport.makeClaimableEnvelope()

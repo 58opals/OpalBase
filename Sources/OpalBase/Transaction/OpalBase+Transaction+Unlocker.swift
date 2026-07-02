@@ -10,7 +10,28 @@ extension _OpalBase.Transaction {
     }
 }
 
+extension _OpalBase.Transaction {
+    static func requireTransactionSigningSupport<S: Sequence>(
+        signatureFormat: OpalBase.Transaction.SignatureFormat,
+        unlockers: S
+    ) throws where S.Element == OpalBase.Transaction.Unlocker {
+        try signatureFormat.requireTransactionSigningSupport()
+        for unlocker in unlockers {
+            try unlocker.requireTransactionSigningSupport()
+        }
+    }
+}
+
 extension _OpalBase.Transaction.Unlocker {
+    func requireTransactionSigningSupport() throws {
+        switch self {
+        case .p2pkh_CheckSig(let hashType):
+            try hashType.validate()
+        case .p2pkh_CheckDataSig:
+            return
+        }
+    }
+
     func makePlaceholderUnlockingScript(signatureFormat: OpalBase.Transaction.SignatureFormat) -> Data {
         let publicKeyLength: Int = 33
         let coreSignatureLength: Int = {

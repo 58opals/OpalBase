@@ -20,6 +20,23 @@ public extension OpalBase {
             try await privateAccount.prepareSpend(payment, feePolicy: feePolicy)
         }
 
+        public func prepareSpendForExternalReview(
+            _ payment: OpalBase.Account.Payment,
+            profile: OpalBase.WalletSecurityProfile = .offlineSavingsSigner,
+            signatureFormat: OpalBase.Transaction.SignatureFormat = .schnorr,
+            unlockers: [OpalBase.Transaction.Output.Unspent: OpalBase.Transaction.Unlocker] = .init()
+        ) async throws -> OpalBase.WalletUnsignedSpendPlan {
+            try profile.requireSecureEnclaveSecretPersistence()
+            try profile.requireExternalSigningReview()
+            try profile.requireOfflineNetworkAccess()
+            return try await privateAccount.prepareSpendForExternalReview(
+                payment,
+                feePolicy: feePolicy,
+                signatureFormat: signatureFormat,
+                unlockers: unlockers
+            )
+        }
+
         public func prepareTokenSpend(
             _ transfer: OpalBase.Account.TokenTransfer
         ) async throws -> OpalBase.Account.TokenSpendPlan {

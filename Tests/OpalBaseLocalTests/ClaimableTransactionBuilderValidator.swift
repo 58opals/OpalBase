@@ -41,32 +41,32 @@ struct ClaimableTransactionBuilderValidator {
         #expect(encodedHashType == UInt8(OpalBase.Transaction.HashType.makeAll().value))
     }
 
-    @Test("rejects claim transaction at and after expiry")
-    func rejectsClaimTransactionAtAndAfterExpiry() throws {
+    @Test("rejects claim transaction at and after expiry", arguments: [UInt32(500), UInt32(700)])
+    func rejectsClaimTransactionAtAndAfterExpiry(currentBlockHeight: UInt32) throws {
         let (envelope, _) = try ClaimableTestSupport.makeClaimableEnvelope(expiryBlockHeight: 500)
         let destinationLockingScript = ClaimableTestSupport.makeClaimableDestinationLockingScript()
 
         #expect(throws: OpalBase.Claimable.Error.claimRequiresPreExpiry) {
             try envelope.buildClaimTransaction(
                 destinationLockingScript: destinationLockingScript,
-                currentBlockHeight: 500
-            )
-        }
-        #expect(throws: OpalBase.Claimable.Error.claimRequiresPreExpiry) {
-            try envelope.buildClaimTransaction(
-                destinationLockingScript: destinationLockingScript,
-                currentBlockHeight: 700
+                currentBlockHeight: currentBlockHeight
             )
         }
     }
 
-    @Test("rejects refund transaction before expiry")
-    func rejectsRefundTransactionBeforeExpiry() throws {
+    @Test(
+        "rejects refund transaction before expiry",
+        arguments: RefundCredentialCase.allCases
+    )
+    func rejectsRefundTransactionBeforeExpiry(
+        _ credentialCase: RefundCredentialCase
+    ) throws {
         let (envelope, refundPrivateKey) = try ClaimableTestSupport.makeClaimableEnvelope(expiryBlockHeight: 500)
         let destinationLockingScript = ClaimableTestSupport.makeClaimableDestinationLockingScript()
 
         #expect(throws: OpalBase.Claimable.Error.refundRequiresExpiry) {
-            try envelope.buildRefundTransaction(
+            try credentialCase.buildRefundTransaction(
+                envelope: envelope,
                 refundPrivateKey: refundPrivateKey,
                 destinationLockingScript: destinationLockingScript,
                 currentBlockHeight: 499
@@ -74,38 +74,89 @@ struct ClaimableTransactionBuilderValidator {
         }
     }
 
-    @Test("builds refund transaction at and after expiry")
-    func buildsRefundTransactionAtAndAfterExpiry() throws {
+    @Test("rejects raw refund transaction before expiry before parsing key")
+    func rejectsRawRefundTransactionBeforeExpiryBeforeParsingKey() throws {
+        let (envelope, _) = try ClaimableTestSupport.makeClaimableEnvelope(expiryBlockHeight: 500)
+        let destinationLockingScript = ClaimableTestSupport.makeClaimableDestinationLockingScript()
+        let invalidRefundPrivateKey = Data(repeating: 0x01, count: 31)
+
+        #expect(throws: OpalBase.Claimable.Error.refundRequiresExpiry) {
+            try envelope.buildRefundTransaction(
+                refundPrivateKey: invalidRefundPrivateKey,
+                destinationLockingScript: destinationLockingScript,
+                currentBlockHeight: 499
+            )
+        }
+    }
+
+    @Test("rejects refund invalid destination before parsing raw key")
+    func rejectsRefundInvalidDestinationBeforeParsingRawKey() throws {
+        let (envelope, _) = try ClaimableTestSupport.makeClaimableEnvelope(
+            expiryBlockHeight: 500,
+            fundingValue: 50_000
+        )
+        let invalidRefundPrivateKey = Data(repeating: 0x01, count: 31)
+
+        #expect(throws: OpalBase.Claimable.Error.invalidDestinationOutput) {
+            try envelope.buildRefundTransaction(
+                refundPrivateKey: invalidRefundPrivateKey,
+                destinationLockingScript: Data([ScriptOperationCode._RETURN.rawValue]),
+                feePerByte: 1,
+                currentBlockHeight: 500
+            )
+        }
+    }
+
+    @Test("builds refund transaction at and after expiry", arguments: RefundBuildCase.allCases)
+    func buildsRefundTransactionAtAndAfterExpiry(_ refundBuildCase: RefundBuildCase) throws {
         let (envelope, refundPrivateKey) = try ClaimableTestSupport.makeClaimableEnvelope(
             expiryBlockHeight: 500,
             fundingValue: 50_000
         )
         let destinationLockingScript = ClaimableTestSupport.makeClaimableDestinationLockingScript(fillByte: 0x66)
-        let transactionAtExpiry = try envelope.buildRefundTransaction(
+        let transaction = try refundBuildCase.credentialCase.buildRefundTransaction(
+            envelope: envelope,
             refundPrivateKey: refundPrivateKey,
             destinationLockingScript: destinationLockingScript,
             feePerByte: 1,
-            currentBlockHeight: 500
+            currentBlockHeight: refundBuildCase.currentBlockHeight
         )
-        let transactionAfterExpiry = try envelope.buildRefundTransaction(
-            refundPrivateKey: refundPrivateKey,
-            destinationLockingScript: destinationLockingScript,
-            feePerByte: 1,
-            currentBlockHeight: 700
-        )
-        let input = try #require(transactionAtExpiry.inputs.first)
+        let input = try #require(transaction.inputs.first)
         let decodedUnlockingScript = try ClaimableTestSupport.decodeClaimableUnlockingScript(input.unlockingScript)
         let expectedRefundPublicKey = try ClaimablePrimitiveOperation.makeCompressedPublicKey(
             from: refundPrivateKey,
             invalidError: .invalidRefundPrivateKey
         )
 
-        #expect(transactionAtExpiry.lockTime == envelope.contract.expiryBlockHeight)
-        #expect(transactionAfterExpiry.lockTime == envelope.contract.expiryBlockHeight)
+        #expect(transaction.lockTime == envelope.contract.expiryBlockHeight)
         #expect(input.sequence == 0xFFFFFFFE)
         #expect(decodedUnlockingScript.branchOpcode == ScriptOperationCode._0.rawValue)
         #expect(decodedUnlockingScript.publicKey == expectedRefundPublicKey)
         #expect(decodedUnlockingScript.redeemScriptData == envelope.contract.redeemScriptData)
+    }
+
+    @Test("builds refund transaction with scoped refund signing key")
+    func buildsRefundTransactionWithScopedRefundSigningKey() throws {
+        let (envelope, refundPrivateKey) = try ClaimableTestSupport.makeClaimableEnvelope(
+            expiryBlockHeight: 500,
+            fundingValue: 50_000
+        )
+        let refundSigningKey = try OpalBase.Key.SigningKey(rawRepresentation: refundPrivateKey)
+        let destinationLockingScript = ClaimableTestSupport.makeClaimableDestinationLockingScript(fillByte: 0x67)
+        let rawKeyTransaction = try envelope.buildRefundTransaction(
+            refundPrivateKey: refundPrivateKey,
+            destinationLockingScript: destinationLockingScript,
+            feePerByte: 1,
+            currentBlockHeight: 500
+        )
+        let signingKeyTransaction = try envelope.buildRefundTransaction(
+            refundSigningKey: refundSigningKey,
+            destinationLockingScript: destinationLockingScript,
+            feePerByte: 1,
+            currentBlockHeight: 500
+        )
+
+        #expect(try signingKeyTransaction.encode() == rawKeyTransaction.encode())
     }
 
     @Test("claimable signatures cover redeem script instead of P2SH funding script", arguments: ClaimableSignaturePathCase.allCases)
@@ -260,16 +311,72 @@ struct ClaimableTransactionBuilderValidator {
         #expect(!isValidAgainstFundingLockingScript)
     }
 
+    enum RefundCredentialCase: CaseIterable, CustomStringConvertible, Sendable {
+        case rawPrivateKey
+        case signingKey
+
+        var description: String {
+            switch self {
+            case .rawPrivateKey:
+                "raw private key"
+            case .signingKey:
+                "signing key"
+            }
+        }
+
+        func buildRefundTransaction(
+            envelope: OpalBase.Claimable.Envelope,
+            refundPrivateKey: Data,
+            destinationLockingScript: Data,
+            feePerByte: UInt64 = OpalBase.Transaction.defaultFeeRate,
+            currentBlockHeight: UInt32
+        ) throws -> OpalBase.Transaction {
+            switch self {
+            case .rawPrivateKey:
+                try envelope.buildRefundTransaction(
+                    refundPrivateKey: refundPrivateKey,
+                    destinationLockingScript: destinationLockingScript,
+                    feePerByte: feePerByte,
+                    currentBlockHeight: currentBlockHeight
+                )
+            case .signingKey:
+                try envelope.buildRefundTransaction(
+                    refundSigningKey: OpalBase.Key.SigningKey(rawRepresentation: refundPrivateKey),
+                    destinationLockingScript: destinationLockingScript,
+                    feePerByte: feePerByte,
+                    currentBlockHeight: currentBlockHeight
+                )
+            }
+        }
+    }
+
+    struct RefundBuildCase: CaseIterable, CustomStringConvertible, Sendable {
+        let credentialCase: RefundCredentialCase
+        let currentBlockHeight: UInt32
+
+        static let allCases = RefundCredentialCase.allCases.flatMap { credentialCase in
+            [UInt32(500), UInt32(700)].map { currentBlockHeight in
+                Self(credentialCase: credentialCase, currentBlockHeight: currentBlockHeight)
+            }
+        }
+
+        var description: String {
+            "\(credentialCase) at height \(currentBlockHeight)"
+        }
+    }
+
     enum ClaimableSignaturePathCase: CaseIterable, CustomStringConvertible, Sendable {
         case claim
-        case refund
+        case refund(RefundCredentialCase)
+
+        static let allCases: [Self] = [.claim] + RefundCredentialCase.allCases.map(Self.refund)
 
         var description: String {
             switch self {
             case .claim:
                 "claim"
-            case .refund:
-                "refund"
+            case .refund(let credentialCase):
+                "refund with \(credentialCase)"
             }
         }
 
@@ -284,8 +391,9 @@ struct ClaimableTransactionBuilderValidator {
                     feePerByte: 1,
                     currentBlockHeight: 499
                 )
-            case .refund:
-                try envelope.buildRefundTransaction(
+            case .refund(let credentialCase):
+                try credentialCase.buildRefundTransaction(
+                    envelope: envelope,
                     refundPrivateKey: refundPrivateKey,
                     destinationLockingScript: ClaimableTestSupport.makeClaimableDestinationLockingScript(fillByte: 0x66),
                     feePerByte: 1,

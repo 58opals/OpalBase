@@ -143,8 +143,9 @@ extension TransactionUnspentTransactionOutputValidator {
             previousTransactionHash: transactionHash,
             previousTransactionOutputIndex: 0
         )
+        let signingKey = try OpalBase.Key.SigningKey(rawRepresentation: privateKey)
         let builder = OpalBase.Transaction.Builder(
-            utxoPrivateKeyPairs: [unspent: privateKey],
+            utxoSigningKeyPairs: [unspent: signingKey],
             signatureFormat: .schnorr,
             sequence: 0xffffffff,
             unlockers: .init()

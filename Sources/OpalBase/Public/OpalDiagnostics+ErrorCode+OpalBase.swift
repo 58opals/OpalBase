@@ -8,6 +8,7 @@ public extension OpalDiagnostics.ErrorCode {
     static let cancelled = Self(rawValue: "cancelled")
     static let walletAccountAlreadyExists = Self(rawValue: "wallet.account_already_exists")
     static let walletAccountNotFound = Self(rawValue: "wallet.account_not_found")
+    static let walletSecurityProfileViolation = Self(rawValue: "wallet.security_profile_violation")
     static let accountSnapshotMismatch = Self(rawValue: "account.snapshot_mismatch")
     static let accountPaymentInvalid = Self(rawValue: "account.payment_invalid")
     static let accountBalanceRefreshFailed = Self(rawValue: "account.balance_refresh_failed")
@@ -49,7 +50,7 @@ public extension OpalDiagnostics.ErrorCode {
 
     static let all: [Self] = [
         unknown, cancelled,
-        walletAccountAlreadyExists, walletAccountNotFound,
+        walletAccountAlreadyExists, walletAccountNotFound, walletSecurityProfileViolation,
         accountSnapshotMismatch, accountPaymentInvalid, accountBalanceRefreshFailed, accountInsufficientFunds,
         accountCoinSelectionFailed, accountTransactionHistoryRefreshFailed, accountTransactionDetailsRefreshFailed,
         accountTransactionBuildFailed, accountBroadcastFailed, accountConfirmationQueryFailed,
@@ -79,8 +80,16 @@ public extension OpalDiagnostics.ErrorCode {
             return code(for: walletError)
         }
 
+        if let walletSecurityProfileError = error as? OpalBase.WalletSecurityProfile.Error {
+            return code(for: walletSecurityProfileError)
+        }
+
         if let accountError = error as? OpalBase.Account.Error {
             return code(for: accountError)
+        }
+
+        if let unsignedTransactionEnvelopeError = error as? OpalBase.WalletUnsignedTransactionEnvelope.Error {
+            return code(for: unsignedTransactionEnvelopeError)
         }
 
         if let networkError = error as? OpalBase.Network.Error {
@@ -152,6 +161,16 @@ private extension OpalDiagnostics.ErrorCode {
             .walletAccountAlreadyExists
         case .cannotFetchAccount:
             .walletAccountNotFound
+        }
+    }
+
+    static func code(for error: OpalBase.WalletSecurityProfile.Error) -> Self {
+        switch error {
+        case .broadcastUnavailable,
+             .externalSigningReviewUnavailable,
+             .offlineNetworkAccessRequired,
+             .secureEnclaveSecretPersistenceRequired:
+            .walletSecurityProfileViolation
         }
     }
 
@@ -232,6 +251,21 @@ private extension OpalDiagnostics.ErrorCode {
             .cashFusionReservationFailed
         case .cashFusionOutputReservationFailed:
             .cashFusionOutputReservationFailed
+        }
+    }
+
+    static func code(for error: OpalBase.WalletUnsignedTransactionEnvelope.Error) -> Self {
+        switch error {
+        case .unsignedTransactionHasNoInputs,
+             .unsignedTransactionHasDuplicateInputs,
+             .unsignedTransactionHasNoOutputs,
+             .spentOutputCountMismatch,
+             .signedInputCountMismatch,
+             .signedTransactionDoesNotMatchEnvelope,
+             .missingSignedUnlockingScript,
+             .unchangedSignedUnlockingScript,
+             .unsupportedSignatureFormat:
+            .transactionInvalid
         }
     }
 

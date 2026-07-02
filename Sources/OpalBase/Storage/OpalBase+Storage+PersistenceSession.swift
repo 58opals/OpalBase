@@ -5,10 +5,12 @@ import Foundation
 extension _OpalBase.Storage {
     public struct PersistenceSession: Sendable {
         public typealias ProgressHandler = @Sendable (Progress) async -> Void
+        public typealias ProtectedMaterialReset = @Sendable () async throws -> Void
         
         private let snapshotPersistence: OpalBase.Storage.SnapshotPersistence
         private let storedMnemonicPersistence: OpalBase.Storage.StoredMnemonicPersistence
         private let progressHandler: ProgressHandler
+        let protectedMaterialReset: ProtectedMaterialReset?
         
         public init(
             storage: OpalBase.Storage,
@@ -19,16 +21,21 @@ extension _OpalBase.Storage {
             self.init(
                 snapshotPersistence: snapshotPersistence,
                 storedMnemonicPersistence: storedMnemonicPersistence,
-                progressHandler: progressHandler
+                progressHandler: progressHandler,
+                protectedMaterialReset: {
+                    try await storage.resetProtectedMaterial()
+                }
             )
         }
         
         public init(snapshotPersistence: OpalBase.Storage.SnapshotPersistence,
                     storedMnemonicPersistence: OpalBase.Storage.StoredMnemonicPersistence,
-                    progressHandler: @escaping ProgressHandler = { _ in }) {
+                    progressHandler: @escaping ProgressHandler = { _ in },
+                    protectedMaterialReset: ProtectedMaterialReset? = nil) {
             self.snapshotPersistence = snapshotPersistence
             self.storedMnemonicPersistence = storedMnemonicPersistence
             self.progressHandler = progressHandler
+            self.protectedMaterialReset = protectedMaterialReset
         }
         
         @discardableResult
@@ -147,6 +154,17 @@ extension _OpalBase.Storage {
         
         public func wipe() async throws {
             await progressHandler(.beganWipe)
+            do {
+                try await deletePersistedWalletState()
+            } catch {
+                try? await protectedMaterialReset?()
+                throw error
+            }
+            try await protectedMaterialReset?()
+            await progressHandler(.finishedWipe)
+        }
+
+        private func deletePersistedWalletState() async throws {
             if let committedGeneration = try await snapshotPersistence.loadCommittedGeneration() {
                 try await snapshotPersistence.deleteCommittedGeneration()
                 var deletionError: Swift.Error?
@@ -168,7 +186,6 @@ extension _OpalBase.Storage {
             } else {
                 try await snapshotPersistence.deleteCommittedGeneration()
             }
-            await progressHandler(.finishedWipe)
         }
     }
 }

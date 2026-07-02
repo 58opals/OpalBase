@@ -110,30 +110,18 @@ extension _OpalBase.Address.Book {
         cachedUsageDerivation: UsageDerivationCache,
         isUsed: Bool
     ) async throws -> [Entry] {
-        var childPrivateKeys: [Data] = .init()
-        childPrivateKeys.reserveCapacity(indices.count)
-        var derivationPaths: [OpalBase.Key.DerivationPath] = .init()
-        derivationPaths.reserveCapacity(indices.count)
+        var entries: [Entry] = .init()
+        entries.reserveCapacity(indices.count)
         
         for index in indices {
             let derivationPath = try createDerivationPath(usage: usage, index: index)
             let childExtendedPrivateKey = try cachedUsageDerivation.baseExtendedPrivateKey.derived(indices: [index])
-            childPrivateKeys.append(childExtendedPrivateKey.privateKey.rawRepresentation)
-            derivationPaths.append(derivationPath)
-        }
-        
-        let compressedPublicKeys = try await OpalCryptoAdapter.deriveCompressedPublicKeys(
-            from: childPrivateKeys
-        )
-        var entries: [Entry] = .init()
-        entries.reserveCapacity(indices.count)
-        
-        for (position, compressedPublicKey) in compressedPublicKeys.enumerated() {
+            let compressedPublicKey = childExtendedPrivateKey.publicKey.publicKey.rawRepresentation
             let address = try makeAddress(fromCompressedPublicKey: compressedPublicKey)
             if let existingEntry = inventory.findEntry(for: address) { throw Error.entryDuplicated(existingEntry) }
             
             entries.append(Entry(address: address,
-                                 derivationPath: derivationPaths[position],
+                                 derivationPath: derivationPath,
                                  isUsed: isUsed,
                                  isReserved: false))
         }

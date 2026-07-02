@@ -17,8 +17,10 @@ extension _OpalBase.Address.Book {
         
         case insufficientFunds
         case paymentExceedsMaximumAmount
+        case spendReservationNotFound
         
         case utxoNotFound
+        case utxoDuplicated(OpalBase.Transaction.Output.Unspent)
         case utxoAlreadyReserved(OpalBase.Transaction.Output.Unspent)
         
         case cacheInvalid
@@ -74,6 +76,7 @@ extension _OpalBase.Address.Book.Error: Equatable {
             (.entryNotFound, .entryNotFound),
             (.insufficientFunds, .insufficientFunds),
             (.paymentExceedsMaximumAmount, .paymentExceedsMaximumAmount),
+            (.spendReservationNotFound, .spendReservationNotFound),
             (.tokenDeltaOverflow, .tokenDeltaOverflow),
             (.invalidSnapshotVerificationState, .invalidSnapshotVerificationState),
             (.invalidSnapshotConfirmationState, .invalidSnapshotConfirmationState),
@@ -89,6 +92,8 @@ extension _OpalBase.Address.Book.Error: Equatable {
             (.entryAlreadyReserved(let leftEntry), .entryAlreadyReserved(let rightEntry)):
             return leftEntry == rightEntry
         case (.utxoAlreadyReserved(let leftUTXO), .utxoAlreadyReserved(let rightUTXO)):
+            return leftUTXO == rightUTXO
+        case (.utxoDuplicated(let leftUTXO), .utxoDuplicated(let rightUTXO)):
             return leftUTXO == rightUTXO
         case (.cacheUpdateFailed(let leftAddress, let leftError),
               .cacheUpdateFailed(let rightAddress, let rightError)):

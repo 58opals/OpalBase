@@ -58,9 +58,10 @@ enum OpalCryptoAdapter {
         return try OpalCrypto.Secp256k1.derivePublicKey(from: privateKey).rawRepresentation
     }
 
-    static func deriveCompressedPublicKeys(from privateKeyDataList: [Data]) async throws -> [Data] {
-        let privateKeys = try privateKeyDataList.map(OpalCrypto.Secp256k1.PrivateKey.init(rawRepresentation:))
-        return try await OpalCrypto.Secp256k1.derivePublicKeys(from: privateKeys).map(\.rawRepresentation)
+    static func validateCompressedPublicKey(_ compressedPublicKeyData: Data) throws -> Data {
+        try OpalCrypto.Secp256k1.PublicKey(
+            rawRepresentation: compressedPublicKeyData
+        ).compressedRepresentation
     }
 
     static func walletImportFormat(privateKeyData: Data, isCompressed: Bool = true) throws -> String {

@@ -362,32 +362,27 @@ struct AddressBookUnspentTransactionOutputRefreshValidator {
 
     @Test("address replacement moves same outpoint between address indexes")
     func addressReplacementMovesSameOutpointBetweenAddressIndexes() async throws {
-        let book = try await AddressBookCashTokensTestData.makeAddressBook()
-        let entries = await book.listEntries(for: .receiving)
-        let firstEntry = try #require(entries.first)
-        let secondEntry = try #require(entries.dropFirst().first)
-        let transactionHash = OpalBase.Transaction.Hash(
-            naturalOrder: Data(repeating: 0x56, count: 32)
-        )
-        let original = OpalBase.Transaction.Output.Unspent(
-            value: 1_000,
-            lockingScript: firstEntry.address.lockingScript.data,
-            previousTransactionHash: transactionHash,
-            previousTransactionOutputIndex: 0
-        )
-        let moved = OpalBase.Transaction.Output.Unspent(
-            value: 2_000,
-            lockingScript: secondEntry.address.lockingScript.data,
-            previousTransactionHash: transactionHash,
-            previousTransactionOutputIndex: 0
-        )
+        let fixture = try await Self.makeSameOutpointAddressIndexFixture(hashByte: 0x56)
 
-        await book.addUTXO(original)
-        await book.replaceUTXOs(for: secondEntry.address, withValidated: [moved])
+        await fixture.book.addUTXO(fixture.original)
+        await fixture.book.replaceUTXOs(for: fixture.secondEntry.address, withValidated: [fixture.moved])
 
-        #expect(await book.listUTXOs(for: firstEntry.address).isEmpty)
-        #expect(await book.listUTXOs(for: secondEntry.address) == [moved])
-        #expect(await book.listUTXOs() == [moved])
+        #expect(await fixture.book.listUTXOs(for: fixture.firstEntry.address).isEmpty)
+        #expect(await fixture.book.listUTXOs(for: fixture.secondEntry.address) == [fixture.moved])
+        #expect(await fixture.book.listUTXOs() == [fixture.moved])
+    }
+
+    @Test("removing stale same-outpoint payload clears stored replacement")
+    func removeUTXOClearsStoredReplacementForStaleSameOutpointPayload() async throws {
+        let fixture = try await Self.makeSameOutpointAddressIndexFixture(hashByte: 0x5a)
+
+        await fixture.book.addUTXO(fixture.original)
+        await fixture.book.addUTXO(fixture.moved)
+        await fixture.book.removeUTXO(fixture.original)
+
+        #expect(await fixture.book.listUTXOs(for: fixture.firstEntry.address).isEmpty)
+        #expect(await fixture.book.listUTXOs(for: fixture.secondEntry.address).isEmpty)
+        #expect(await fixture.book.listUTXOs().isEmpty)
     }
 
     @Test("address replacement rejects mismatched UTXO locking scripts")
@@ -446,5 +441,45 @@ struct AddressBookUnspentTransactionOutputRefreshValidator {
 
         #expect(await book.listUTXOs(for: externalAddress).isEmpty)
         #expect(await book.listUTXOs().isEmpty)
+    }
+
+    private static func makeSameOutpointAddressIndexFixture(
+        hashByte: UInt8
+    ) async throws -> SameOutpointAddressIndexFixture {
+        let book = try await AddressBookCashTokensTestData.makeAddressBook()
+        let entries = await book.listEntries(for: .receiving)
+        let firstEntry = try #require(entries.first)
+        let secondEntry = try #require(entries.dropFirst().first)
+        let transactionHash = OpalBase.Transaction.Hash(
+            naturalOrder: Data(repeating: hashByte, count: 32)
+        )
+        let original = OpalBase.Transaction.Output.Unspent(
+            value: 1_000,
+            lockingScript: firstEntry.address.lockingScript.data,
+            previousTransactionHash: transactionHash,
+            previousTransactionOutputIndex: 0
+        )
+        let moved = OpalBase.Transaction.Output.Unspent(
+            value: 2_000,
+            lockingScript: secondEntry.address.lockingScript.data,
+            previousTransactionHash: transactionHash,
+            previousTransactionOutputIndex: 0
+        )
+
+        return SameOutpointAddressIndexFixture(
+            book: book,
+            firstEntry: firstEntry,
+            secondEntry: secondEntry,
+            original: original,
+            moved: moved
+        )
+    }
+
+    private struct SameOutpointAddressIndexFixture {
+        let book: OpalBase.Address.Book
+        let firstEntry: OpalBase.Address.Book.Entry
+        let secondEntry: OpalBase.Address.Book.Entry
+        let original: OpalBase.Transaction.Output.Unspent
+        let moved: OpalBase.Transaction.Output.Unspent
     }
 }

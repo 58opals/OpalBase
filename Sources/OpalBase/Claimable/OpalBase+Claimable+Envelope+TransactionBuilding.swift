@@ -13,16 +13,22 @@ extension _OpalBase.Claimable.Envelope {
             throw OpalBase.Claimable.Error.claimRequiresPreExpiry
         }
 
-        let compressedPublicKey = try ClaimablePrimitiveOperation.makeCompressedPublicKey(
+        let template = try makeClaimableSpendTemplate(
+            destinationLockingScript: destinationLockingScript,
+            feePerByte: feePerByte,
+            isRefund: false
+        )
+        let claimSigningKey = try ClaimablePrimitiveOperation.makeSigningKey(
             from: claimPrivateKey,
             invalidError: .invalidClaimPrivateKey
         )
-        return try buildClaimableSpendTransaction(
-            destinationLockingScript: destinationLockingScript,
-            feePerByte: feePerByte,
-            signingPrivateKey: claimPrivateKey,
-            compressedPublicKey: compressedPublicKey,
-            isRefund: false
+        let compressedPublicKey = ClaimablePrimitiveOperation.makeCompressedPublicKey(
+            from: claimSigningKey
+        )
+        return try signClaimableSpendTransaction(
+            template,
+            signingKey: claimSigningKey,
+            compressedPublicKey: compressedPublicKey
         )
     }
 
@@ -32,38 +38,42 @@ extension _OpalBase.Claimable.Envelope {
         feePerByte: UInt64 = OpalBase.Transaction.defaultFeeRate,
         currentBlockHeight: UInt32
     ) throws -> OpalBase.Transaction {
-        guard makeLocalStatus(currentBlockHeight: currentBlockHeight).allowsRefund else {
-            throw OpalBase.Claimable.Error.refundRequiresExpiry
-        }
-
-        let refundPublicKeyHash = try ClaimablePrimitiveOperation.makePublicKeyHash(
-            from: refundPrivateKey,
-            invalidError: .invalidRefundPrivateKey
-        )
-        guard refundPublicKeyHash == contract.refundPublicKeyHash else {
-            throw OpalBase.Claimable.Error.invalidRefundPrivateKey
-        }
-
-        let compressedPublicKey = try ClaimablePrimitiveOperation.makeCompressedPublicKey(
-            from: refundPrivateKey,
-            invalidError: .invalidRefundPrivateKey
-        )
-        return try buildClaimableSpendTransaction(
+        let template = try makeRefundSpendTemplate(
             destinationLockingScript: destinationLockingScript,
             feePerByte: feePerByte,
-            signingPrivateKey: refundPrivateKey,
-            compressedPublicKey: compressedPublicKey,
-            isRefund: true
+            currentBlockHeight: currentBlockHeight
+        )
+        return try buildRefundTransaction(
+            refundSigningKey: ClaimablePrimitiveOperation.makeSigningKey(
+                from: refundPrivateKey,
+                invalidError: .invalidRefundPrivateKey
+            ),
+            template: template
+        )
+    }
+
+    public func buildRefundTransaction(
+        refundSigningKey: OpalBase.Key.SigningKey,
+        destinationLockingScript: Data,
+        feePerByte: UInt64 = OpalBase.Transaction.defaultFeeRate,
+        currentBlockHeight: UInt32
+    ) throws -> OpalBase.Transaction {
+        let template = try makeRefundSpendTemplate(
+            destinationLockingScript: destinationLockingScript,
+            feePerByte: feePerByte,
+            currentBlockHeight: currentBlockHeight
+        )
+        return try buildRefundTransaction(
+            refundSigningKey: refundSigningKey,
+            template: template
         )
     }
 }
 
 private extension _OpalBase.Claimable.Envelope {
-    var fundingOutput: OpalBase.Transaction.Output {
-        OpalBase.Transaction.Output(
-            value: fundingValue,
-            lockingScript: contract.fundingLockingScriptData
-        )
+    struct ClaimableSpendTemplate {
+        let unsignedTransaction: OpalBase.Transaction
+        let isRefund: Bool
     }
 
     var signingOutput: OpalBase.Transaction.Output {
@@ -73,13 +83,42 @@ private extension _OpalBase.Claimable.Envelope {
         )
     }
 
-    func buildClaimableSpendTransaction(
+    func buildRefundTransaction(
+        refundSigningKey: OpalBase.Key.SigningKey,
+        template: ClaimableSpendTemplate
+    ) throws -> OpalBase.Transaction {
+        let compressedPublicKey = try makeValidatedRefundCompressedPublicKey(
+            from: refundSigningKey
+        )
+
+        return try signClaimableSpendTransaction(
+            template,
+            signingKey: refundSigningKey,
+            compressedPublicKey: compressedPublicKey
+        )
+    }
+
+    func makeRefundSpendTemplate(
         destinationLockingScript: Data,
         feePerByte: UInt64,
-        signingPrivateKey: Data,
-        compressedPublicKey: Data,
+        currentBlockHeight: UInt32
+    ) throws -> ClaimableSpendTemplate {
+        guard makeLocalStatus(currentBlockHeight: currentBlockHeight).allowsRefund else {
+            throw OpalBase.Claimable.Error.refundRequiresExpiry
+        }
+
+        return try makeClaimableSpendTemplate(
+            destinationLockingScript: destinationLockingScript,
+            feePerByte: feePerByte,
+            isRefund: true
+        )
+    }
+
+    func makeClaimableSpendTemplate(
+        destinationLockingScript: Data,
+        feePerByte: UInt64,
         isRefund: Bool
-    ) throws -> OpalBase.Transaction {
+    ) throws -> ClaimableSpendTemplate {
         guard fundingValue > 0 else {
             throw OpalBase.Claimable.Error.invalidFundingOutput
         }
@@ -140,25 +179,36 @@ private extension _OpalBase.Claimable.Envelope {
             lockTime: lockTime
         )
 
+        return ClaimableSpendTemplate(
+            unsignedTransaction: unsignedTransaction,
+            isRefund: isRefund
+        )
+    }
+
+    func signClaimableSpendTransaction(
+        _ template: ClaimableSpendTemplate,
+        signingKey: OpalBase.Key.SigningKey,
+        compressedPublicKey: Data
+    ) throws -> OpalBase.Transaction {
         let hashType = OpalBase.Transaction.HashType.makeAll(anyoneCanPay: false)
-        let preimage = try unsignedTransaction.generatePreimage(
+        let preimage = try template.unsignedTransaction.generatePreimage(
             for: 0,
             hashType: hashType,
             outputBeingSpent: signingOutput
         )
-        let signature = try OpalCrypto.Signature.Schnorr.sign(
-            digest: OpalCrypto.Signature.Digest(rawRepresentation: OpalCryptoAdapter.hash256(preimage)),
-            privateKey: OpalCrypto.Secp256k1.PrivateKey(rawRepresentation: signingPrivateKey)
-        ).rawRepresentation
+        let signatureDigest = try OpalCrypto.Signature.Digest(
+            rawRepresentation: OpalCryptoAdapter.hash256(preimage)
+        )
+        let signature = try signingKey.signSchnorr(digest: signatureDigest).rawRepresentation
         let signatureWithHashType = signature + Data([UInt8(hashType.value)])
         let unlockingScript = Self.makeUnlockingScript(
             signatureWithHashType: signatureWithHashType,
             compressedPublicKey: compressedPublicKey,
             redeemScriptData: contract.redeemScriptData,
-            isRefund: isRefund
+            isRefund: template.isRefund
         )
 
-        return try unsignedTransaction.injectUnlockingScript(unlockingScript, inputIndex: 0)
+        return try template.unsignedTransaction.injectUnlockingScript(unlockingScript, inputIndex: 0)
     }
 
     private static func makePlaceholderUnlockingScript(

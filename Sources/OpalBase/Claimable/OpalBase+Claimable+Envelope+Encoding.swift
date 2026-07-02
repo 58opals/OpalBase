@@ -35,54 +35,42 @@ extension _OpalBase.Claimable.Envelope {
     }
 
     public static func decode(from data: Data) throws -> Self {
-        try OpalDiagnostics.withTraceID {
-            let fields = makeDecodeDiagnosticsFields(byteCount: data.count)
-            do {
-                let envelope = try decodeEnvelope(from: data)
-                OpalDiagnostics.record(
-                    OpalDiagnostics.Event.claimableEnvelopeDecodeSucceeded,
-                    category: OpalDiagnostics.Category.claimable,
-                    fields: makeDecodeDiagnosticsFields(
-                        byteCount: data.count,
-                        network: envelope.contract.network
-                    )
-                )
-                return envelope
-            } catch {
-                OpalDiagnostics.record(
-                    OpalDiagnostics.Event.claimableEnvelopeDecodeFailed,
-                    category: OpalDiagnostics.Category.claimable,
-                    fields: fields + OpalDiagnostics.Field.errorFields(
-                        for: error,
-                        fallback: OpalDiagnostics.ErrorCode.claimableInvalidEnvelope
-                    )
-                )
-                throw error
-            }
-        }
+        try decodeEnvelopeWithDiagnostics(from: data, expectedNetwork: nil)
     }
 
     public static func decode(
         from data: Data,
         on network: OpalBase.Network.Environment
     ) throws -> Self {
+        try decodeEnvelopeWithDiagnostics(from: data, expectedNetwork: network)
+    }
+
+    private static func decodeEnvelopeWithDiagnostics(
+        from data: Data,
+        expectedNetwork: OpalBase.Network.Environment?
+    ) throws -> Self {
         try OpalDiagnostics.withTraceID {
             let fields = makeDecodeDiagnosticsFields(
                 byteCount: data.count,
-                network: network
+                network: expectedNetwork
             )
             do {
                 let envelope = try decodeEnvelope(from: data)
-                guard envelope.contract.network == network else {
-                    throw OpalBase.Claimable.Error.networkMismatch(
-                        expected: network,
-                        actual: envelope.contract.network
-                    )
+                if let expectedNetwork {
+                    guard envelope.contract.network == expectedNetwork else {
+                        throw OpalBase.Claimable.Error.networkMismatch(
+                            expected: expectedNetwork,
+                            actual: envelope.contract.network
+                        )
+                    }
                 }
                 OpalDiagnostics.record(
                     OpalDiagnostics.Event.claimableEnvelopeDecodeSucceeded,
                     category: OpalDiagnostics.Category.claimable,
-                    fields: fields
+                    fields: makeDecodeDiagnosticsFields(
+                        byteCount: data.count,
+                        network: expectedNetwork ?? envelope.contract.network
+                    )
                 )
                 return envelope
             } catch {
@@ -154,6 +142,7 @@ extension _OpalBase.Claimable.Envelope {
             OpalDiagnostics.Field.publicValue(OpalDiagnostics.Field.Name.byteCount, byteCount)
         ].compactMap { $0 }
     }
+
     private static func makeNetworkTag(for network: OpalBase.Network.Environment) -> UInt8 {
         switch network {
         case .mainnet:

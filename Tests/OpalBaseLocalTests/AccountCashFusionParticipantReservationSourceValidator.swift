@@ -163,6 +163,7 @@ struct AccountCashFusionParticipantReservationSourceValidator {
     enum DirectReservationFailureMappingCase: CaseIterable, Sendable, CustomStringConvertible {
         case unsupportedSelectedInputs
         case missingReservedInput
+        case duplicatedReservedInput
         case alreadyReservedInput
         case walletKeyUnavailable
         case userCancelled
@@ -173,6 +174,8 @@ struct AccountCashFusionParticipantReservationSourceValidator {
                 "unsupportedSelectedInputs"
             case .missingReservedInput:
                 "missingReservedInput"
+            case .duplicatedReservedInput:
+                "duplicatedReservedInput"
             case .alreadyReservedInput:
                 "alreadyReservedInput"
             case .walletKeyUnavailable:
@@ -190,6 +193,10 @@ struct AccountCashFusionParticipantReservationSourceValidator {
                 OpalBase.Account.Error.cashFusionReservationFailed(
                     OpalBase.Address.Book.Error.utxoNotFound
                 )
+            case .duplicatedReservedInput:
+                OpalBase.Account.Error.cashFusionReservationFailed(
+                    OpalBase.Address.Book.Error.utxoDuplicated(Self.reservedInputFixture)
+                )
             case .alreadyReservedInput:
                 OpalBase.Account.Error.cashFusionReservationFailed(
                     OpalBase.Address.Book.Error.utxoAlreadyReserved(Self.reservedInputFixture)
@@ -206,6 +213,11 @@ struct AccountCashFusionParticipantReservationSourceValidator {
         var expectedFailure: OpalFusion.Host.ParticipantReservationFailure {
             switch self {
             case .unsupportedSelectedInputs:
+                .hostPolicyRejected(
+                    reason: .unsupportedInput,
+                    summary: "CashFusion input selection is unsupported."
+                )
+            case .duplicatedReservedInput:
                 .hostPolicyRejected(
                     reason: .unsupportedInput,
                     summary: "CashFusion input selection is unsupported."
@@ -235,7 +247,7 @@ struct AccountCashFusionParticipantReservationSourceValidator {
 
         var expectedErrorCode: String {
             switch self {
-            case .unsupportedSelectedInputs, .missingReservedInput:
+            case .unsupportedSelectedInputs, .missingReservedInput, .duplicatedReservedInput:
                 "participant_reservation_host_policy_rejected"
             case .alreadyReservedInput, .walletKeyUnavailable, .userCancelled:
                 "participant_reservation_unavailable"
@@ -244,7 +256,7 @@ struct AccountCashFusionParticipantReservationSourceValidator {
 
         var expectedHostResponseClass: String {
             switch self {
-            case .unsupportedSelectedInputs, .missingReservedInput:
+            case .unsupportedSelectedInputs, .missingReservedInput, .duplicatedReservedInput:
                 "participant_reservation_rejected"
             case .alreadyReservedInput, .walletKeyUnavailable, .userCancelled:
                 "reservation_unavailable"
@@ -253,7 +265,7 @@ struct AccountCashFusionParticipantReservationSourceValidator {
 
         var expectedReasonCode: String {
             switch self {
-            case .unsupportedSelectedInputs:
+            case .unsupportedSelectedInputs, .duplicatedReservedInput:
                 "unsupported_input"
             case .missingReservedInput:
                 "no_eligible_inputs"

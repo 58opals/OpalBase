@@ -9,6 +9,14 @@ public extension OpalBase {
             self.transactionClient = transactionClient
         }
 
+        public init(
+            profile: OpalBase.WalletSecurityProfile,
+            transactionClient: OpalBase.Network.TransactionClient
+        ) throws {
+            try profile.requireBroadcastingAllowed()
+            self.transactionClient = transactionClient
+        }
+
         public func broadcast(
             _ transaction: OpalBase.Transaction
         ) async throws -> OpalBase.Transaction.Hash {

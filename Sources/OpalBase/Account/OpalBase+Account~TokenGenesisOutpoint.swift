@@ -60,7 +60,7 @@ extension _OpalBase.Account {
             throw Error.tokenGenesisInvalidGenesisInput
         }
         
-        let (reservation, reservedEntry, privateKeys) = try await reserveSpendAndDeriveKeys(
+        let (reservation, reservedEntry, signingKeys) = try await reserveSpendAndDeriveSigningKeys(
             utxos: [selectedOutput],
             changeEntry: changeEntry,
             tokenSelectionPolicy: .excludeTokenUTXOs,
@@ -83,7 +83,7 @@ extension _OpalBase.Account {
                          reservationHandle: reservationHandle,
                          changeOutput: changeOutput,
                          recipientOutputs: [recipientOutput],
-                         privateKeys: privateKeys,
+                         signingKeys: signingKeys,
                          shouldRandomizeRecipientOrdering: privacyConfiguration.shouldRandomizeRecipientOrdering)
     }
 }

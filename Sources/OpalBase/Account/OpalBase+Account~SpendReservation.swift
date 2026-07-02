@@ -3,7 +3,7 @@
 import Foundation
 
 extension _OpalBase.Account {
-    func reserveSpendAndDeriveKeys(
+    func reserveSpendAndDeriveSigningKeys(
         utxos: [OpalBase.Transaction.Output.Unspent],
         changeEntry: OpalBase.Address.Book.Entry,
         tokenSelectionPolicy: OpalBase.Address.Book.CoinSelection.TokenSelectionPolicy,
@@ -11,7 +11,7 @@ extension _OpalBase.Account {
     ) async throws -> (
         reservation: OpalBase.Address.Book.SpendReservation,
         reservedChangeEntry: OpalBase.Address.Book.Entry,
-        privateKeys: [OpalBase.Transaction.Output.Unspent: Data]
+        signingKeys: [OpalBase.Transaction.Output.Unspent: OpalBase.Key.SigningKey]
     ) {
         try requirePrivateKeyMaterial()
 
@@ -25,7 +25,7 @@ extension _OpalBase.Account {
         }
         
         do {
-            let keys = try await addressBook.derivePrivateKeys(for: utxos)
+            let keys = try await addressBook.deriveSigningKeys(for: utxos)
             return (reservation, reservation.changeEntry, keys)
         } catch {
             do {
@@ -39,4 +39,5 @@ extension _OpalBase.Account {
             throw Error.transactionBuildFailed(error)
         }
     }
+
 }

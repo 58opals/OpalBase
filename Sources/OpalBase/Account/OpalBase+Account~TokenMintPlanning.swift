@@ -234,7 +234,7 @@ extension _OpalBase.Account {
                              bchChangeOutput: reservedSpendContext.changeOutput,
                              shouldAllowDustDonation: mint.shouldAllowDustDonation,
                              reservationHandle: reservedSpendContext.reservationHandle,
-                             privateKeys: reservedSpendContext.privateKeys,
+                             signingKeys: reservedSpendContext.signingKeys,
                              organizedTokenOutputs: resolvedOrganizedTokenOutputs,
                              shouldRandomizeRecipientOrdering: privacyConfiguration.shouldRandomizeRecipientOrdering)
     }

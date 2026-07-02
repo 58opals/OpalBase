@@ -26,7 +26,10 @@ Consumers use Opal Base when they need wallet flows, CashAddr management, spend 
 - `WalletBlockchainSyncInteractor` is the descriptor-backed public-chain sync lane. Its primary constructor takes `WalletAccountPublicDescriptor` and `WalletPublicChainOperations`, so balances, history, UTXOs, and confirmation freshness can run from account public data.
 - `WalletTransportInteractor` is the public-chain transport lane. It wraps `Network.AddressReader`, `Network.TransactionClient`, optional `Network.TransactionReader`, optional `Network.BlockHeaderReader`, or a `Network.Fulcrum.Client`; it does not own wallet snapshots or secrets.
 - `WalletReceiveAddressInteractor` is the receive derivation and reservation lane. Reservation is intentionally separate from generic sync because handing out a receive address mutates reservation/cache state.
+- `WalletSecurityProfile` is the app posture lane for secret persistence, network access, and signing review boundaries. The offline savings signer profile requires Secure Enclave-backed secret persistence, no public-chain networking, and external transaction review.
 - `WalletSecretAccessInteractor` is the mnemonic and secure persistence lane. It is the explicit surface for `Storage.PersistenceSession` restore/save/wipe flows, including Keychain and Secure Enclave-backed providers.
+- `WalletUnsignedSpendPlan` is the reserved external-review spend lane. It carries an unsigned transaction envelope and reservation lifecycle without retaining private-key material.
+- `WalletUnsignedTransactionEnvelope` is the external signing boundary scaffold. It carries an unsigned Bitcoin Cash transaction, the transaction outputs being spent, and the requested signature format without owning QR transport, UI review, script verification, cryptographic signature verification, or broadcast behavior.
 - `WalletTransactionAuthoringInteractor` is the user-triggered money-movement lane. Its constructor label is `privateAccount` and it prepares BCH spends, token spends, token genesis, token minting, token commitment mutation, hedge funding, and signing-capable plans.
 - `WalletBroadcastInteractor` is the relay and targeted aftermath lane. It owns a `Network.TransactionClient` and updates confirmations for explicitly supplied transaction hashes instead of implying a whole-wallet rebuild.
 - `WalletManagementInteractor` is the broad wallet management lane for account creation, account lookup, account count, and snapshot composition around an existing `OpalBase.Wallet`.
@@ -38,8 +41,10 @@ Consumers use Opal Base when they need wallet flows, CashAddr management, spend 
 ## Owned Capabilities
 
 - Actor-isolated wallet and account surfaces through `OpalBase.Wallet` and `OpalBase.Account`, with lane-explicit public interactors for Wallet composition.
+- Scoped secp256k1 signing through `OpalBase.Key.SigningKey`, which derives public keys and signs without exposing raw private-key export as part of the preferred signing path.
 - Deterministic address management and gap-limit-aware address-book behavior for BCH receiving and change flows.
 - BCH spend planning, transaction construction, signing, broadcast helpers, and confirmation or history refresh flows, split between authoring, broadcast, and public-chain sync lanes.
+- Security posture scaffolding for Lockdown Mode-compatible app layers through `WalletSecurityProfile.offlineSavingsSigner`, `WalletTransactionAuthoringInteractor.prepareSpendForExternalReview`, and external signing review data contracts.
 - Wallet-backed CashFusion pilot orchestration over `OpalFusion.Client.Session` for explicitly selected wallet UTXOs and fresh wallet-owned receiving outputs, with OpalFusion host callbacks hidden behind OpalBase CashFusion operation surfaces.
 - Snapshotting and restoration of wallet, account, and token metadata state.
 - Storage helpers, including Secure Enclave-backed mnemonic protection through `OpalBase.Storage.Security.makeSecureEnclaveBacked`.

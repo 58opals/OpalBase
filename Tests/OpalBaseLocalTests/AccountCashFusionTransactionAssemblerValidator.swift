@@ -63,15 +63,15 @@ struct AccountCashFusionTransactionAssemblerValidator {
             lockTime: 0
         )
 
-        let finalized = try await assembler.finalizeTransaction(
+        let finalized = try await assembler.finalizeFusionTransaction(
             for: roundIdentifier,
             proposal: CashFusionTestSupport.makeProposal(transaction: unsignedTransaction)
         )
         let decoded = try OpalBase.Transaction.decode(
-            from: Data(finalized.transactionBytes)
+            from: Data(finalized.signedFusionTransactionBytes)
         ).transaction
         let finalizedTransactionHash = OpalBase.Transaction.Hash(
-            naturalOrder: OpalCryptoAdapter.hash256(Data(finalized.transactionBytes))
+            naturalOrder: OpalCryptoAdapter.hash256(Data(finalized.signedFusionTransactionBytes))
         )
         let completedLocalOutput = try #require(
             await reservation.completedLocalOutputs(for: roundIdentifier).first
@@ -128,7 +128,7 @@ struct AccountCashFusionTransactionAssemblerValidator {
             lockTime: 0
         )
 
-        _ = try await assembler.finalizeTransaction(
+        _ = try await assembler.finalizeFusionTransaction(
             for: roundIdentifier,
             proposal: CashFusionTestSupport.makeProposal(transaction: unsignedTransaction)
         )
@@ -192,12 +192,12 @@ struct AccountCashFusionTransactionAssemblerValidator {
             lockTime: 0
         )
 
-        let finalized = try await assembler.finalizeTransaction(
+        let finalized = try await assembler.finalizeFusionTransaction(
             for: .init(rawValue: "round-reordered"),
             proposal: CashFusionTestSupport.makeProposal(transaction: reorderedTransaction)
         )
         let decoded = try OpalBase.Transaction.decode(
-            from: Data(finalized.transactionBytes)
+            from: Data(finalized.signedFusionTransactionBytes)
         ).transaction
         let firstReservedInput = try #require(reservation.reservedInputs.first)
         let secondReservedInput = try #require(reservation.reservedInputs.dropFirst().first)
@@ -253,7 +253,7 @@ struct AccountCashFusionTransactionAssemblerValidator {
                 summary: "CashFusion transaction assembly failed"
             )
         ) {
-            _ = try await assembler.finalizeTransaction(
+            _ = try await assembler.finalizeFusionTransaction(
                 for: .init(rawValue: "round-missing-output"),
                 proposal: CashFusionTestSupport.makeProposal(transaction: unsignedTransaction)
             )
@@ -304,7 +304,7 @@ struct AccountCashFusionTransactionAssemblerValidator {
                 summary: "CashFusion transaction assembly failed"
             )
         ) {
-            _ = try await assembler.finalizeTransaction(
+            _ = try await assembler.finalizeFusionTransaction(
                 for: .init(rawValue: "round-token-output"),
                 proposal: CashFusionTestSupport.makeProposal(transaction: unsignedTransaction)
             )
@@ -355,7 +355,7 @@ struct AccountCashFusionTransactionAssemblerValidator {
                 summary: "CashFusion transaction assembly failed"
             )
         ) {
-            _ = try await assembler.finalizeTransaction(
+            _ = try await assembler.finalizeFusionTransaction(
                 for: .init(rawValue: "round-mismatched"),
                 proposal: CashFusionTestSupport.makeProposal(transaction: mismatchedTransaction)
             )
@@ -403,17 +403,17 @@ struct AccountCashFusionTransactionAssemblerValidator {
             outputs: [.init(value: 80_000, lockingScript: Data([0x51]))],
             lockTime: 0
         )
-        let unsignedTransactionBytes = [UInt8](try unsignedTransaction.encode())
+        let unsignedFusionTransactionBytes = [UInt8](try unsignedTransaction.encode())
 
         await #expect(
             throws: OpalFusion.Host.TransactionFinalizationFailure.transactionAssemblyFailed(
                 summary: "CashFusion transaction assembly failed"
             )
         ) {
-            _ = try await assembler.finalizeTransaction(
+            _ = try await assembler.finalizeFusionTransaction(
                 for: .init(rawValue: mismatchCase.roundIdentifier),
                 proposal: .init(
-                    unsignedTransactionBytes: unsignedTransactionBytes,
+                    unsignedFusionTransactionBytes: unsignedFusionTransactionBytes,
                     expectedInputCount: mismatchCase.expectedInputCount,
                     expectedOutputCount: mismatchCase.expectedOutputCount
                 )
@@ -464,18 +464,18 @@ struct AccountCashFusionTransactionAssemblerValidator {
             lockTime: 0
         )
         let roundIdentifier = OpalFusion.Round.Identifier(rawValue: "round-trailing-bytes")
-        var unsignedTransactionBytes = [UInt8](try unsignedTransaction.encode())
-        unsignedTransactionBytes.append(0x00)
+        var unsignedFusionTransactionBytes = [UInt8](try unsignedTransaction.encode())
+        unsignedFusionTransactionBytes.append(0x00)
 
         await #expect(
             throws: OpalFusion.Host.TransactionFinalizationFailure.transactionAssemblyFailed(
                 summary: "CashFusion transaction assembly failed"
             )
         ) {
-            _ = try await assembler.finalizeTransaction(
+            _ = try await assembler.finalizeFusionTransaction(
                 for: roundIdentifier,
                 proposal: .init(
-                    unsignedTransactionBytes: unsignedTransactionBytes,
+                    unsignedFusionTransactionBytes: unsignedFusionTransactionBytes,
                     expectedInputCount: unsignedTransaction.inputs.count,
                     expectedOutputCount: unsignedTransaction.outputs.count
                 )
@@ -522,7 +522,7 @@ struct AccountCashFusionTransactionAssemblerValidator {
                 summary: "CashFusion host policy rejected transaction"
             )
         ) {
-            _ = try await assembler.finalizeTransaction(
+            _ = try await assembler.finalizeFusionTransaction(
                 for: .init(rawValue: "round-policy-refusal"),
                 proposal: CashFusionTestSupport.makeProposal(transaction: unsignedTransaction)
             )
@@ -563,12 +563,12 @@ struct AccountCashFusionTransactionAssemblerValidator {
             lockTime: 0
         )
 
-        let finalized = try await assembler.finalizeTransaction(
+        let finalized = try await assembler.finalizeFusionTransaction(
             for: .init(rawValue: "round-schnorr"),
             proposal: CashFusionTestSupport.makeProposal(transaction: unsignedTransaction)
         )
         let decoded = try OpalBase.Transaction.decode(
-            from: Data(finalized.transactionBytes)
+            from: Data(finalized.signedFusionTransactionBytes)
         ).transaction
         try #require(decoded.inputs.count == unsignedTransaction.inputs.count)
         let unlockingScript = try CashFusionTestSupport.decodePayToPublicKeyHashUnlockingScript(

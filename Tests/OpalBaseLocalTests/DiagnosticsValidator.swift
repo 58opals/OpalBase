@@ -779,6 +779,7 @@ struct DiagnosticsValidator {
     enum StableErrorCodeRawValueCase: CaseIterable, Sendable {
         case walletAccountAlreadyExists
         case walletAccountNotFound
+        case walletSecurityProfileViolation
         case accountBalanceRefreshFailed
         case accountTransactionHistoryRefreshFailed
         case networkTransport
@@ -796,6 +797,8 @@ struct DiagnosticsValidator {
                 return (.walletAccountAlreadyExists, "wallet.account_already_exists")
             case .walletAccountNotFound:
                 return (.walletAccountNotFound, "wallet.account_not_found")
+            case .walletSecurityProfileViolation:
+                return (.walletSecurityProfileViolation, "wallet.security_profile_violation")
             case .accountBalanceRefreshFailed:
                 return (.accountBalanceRefreshFailed, "account.balance_refresh_failed")
             case .accountTransactionHistoryRefreshFailed:

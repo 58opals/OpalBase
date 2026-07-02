@@ -34,7 +34,7 @@ extension _OpalBase.Account {
         public var reservationDate: Date { reservationHandle.reservationDate }
         
         private let reservationHandle: OpalBase.Account.SpendReservation
-        private let privateKeys: [OpalBase.Transaction.Output.Unspent: Data]
+        private let signingKeys: [OpalBase.Transaction.Output.Unspent: OpalBase.Key.SigningKey]
         private let changeOutput: OpalBase.Transaction.Output
         private let shouldAllowDustDonation: Bool
         private let shouldRandomizeRecipientOrdering: Bool
@@ -47,7 +47,7 @@ extension _OpalBase.Account {
              bchInputs: [OpalBase.Transaction.Output.Unspent],
              outputs: [OpalBase.Transaction.Output],
              reservationHandle: OpalBase.Account.SpendReservation,
-             privateKeys: [OpalBase.Transaction.Output.Unspent: Data],
+             signingKeys: [OpalBase.Transaction.Output.Unspent: OpalBase.Key.SigningKey],
              changeOutput: OpalBase.Transaction.Output,
              plannedMintedOutputs: [OpalBase.Transaction.Output],
              shouldAllowDustDonation: Bool,
@@ -59,7 +59,7 @@ extension _OpalBase.Account {
             self.bchInputs = bchInputs
             self.outputs = outputs
             self.reservationHandle = reservationHandle
-            self.privateKeys = privateKeys
+            self.signingKeys = signingKeys
             self.changeOutput = changeOutput
             self.plannedMintedOutputs = plannedMintedOutputs
             self.shouldAllowDustDonation = shouldAllowDustDonation
@@ -68,7 +68,7 @@ extension _OpalBase.Account {
         
         public func buildTransaction(signatureFormat: OpalBase.Transaction.SignatureFormat = .schnorr,
                                      unlockers: [OpalBase.Transaction.Output.Unspent: OpalBase.Transaction.Unlocker] = .init()) throws -> TransactionResult {
-            let core = try OpalBase.Account.buildTransactionCore(privateKeys: privateKeys,
+            let core = try OpalBase.Account.buildTransactionCore(signingKeys: signingKeys,
                                                         recipientOutputs: outputs,
                                                         changeOutput: changeOutput,
                                                         feeRate: feeRate,

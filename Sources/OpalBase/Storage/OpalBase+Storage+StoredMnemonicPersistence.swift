@@ -16,7 +16,8 @@ extension _OpalBase.Storage {
         public init(
             saveMnemonic: @escaping @Sendable (OpalBase.Storage.StoredMnemonic, String, Bool) async throws -> OpalBase.Storage.Security.ProtectionMode,
             loadMnemonicState: @escaping @Sendable (String) async throws -> (mnemonic: OpalBase.Storage.StoredMnemonic, protectionMode: OpalBase.Storage.Security.ProtectionMode)?,
-            deleteMnemonic: @escaping @Sendable (String) async throws -> Void
+            deleteMnemonic: @escaping @Sendable (String) async throws -> Void,
+            recoverableLoadFailure: @escaping @Sendable (Swift.Error) -> Bool = { _ in false }
         ) {
             let saveMnemonicWithPolicy: @Sendable (
                 OpalBase.Storage.StoredMnemonic,
@@ -29,13 +30,12 @@ extension _OpalBase.Storage {
                     policy == .legacyFallbackToPlaintext
                 )
             }
-            self.performSaveMnemonic = Self.makePolicyEnforcingSave(
-                saveMnemonicWithPolicy,
-                deleteMnemonic: deleteMnemonic
+            self.init(
+                enforcingSaveMnemonicWithPolicy: saveMnemonicWithPolicy,
+                loadMnemonicState: loadMnemonicState,
+                deleteMnemonic: deleteMnemonic,
+                recoverableLoadFailure: recoverableLoadFailure
             )
-            self.performLoadMnemonicState = loadMnemonicState
-            self.performDeleteMnemonic = deleteMnemonic
-            self.isLoadFailureRecoverable = { _ in false }
         }
 
         public init(
@@ -45,19 +45,19 @@ extension _OpalBase.Storage {
                 OpalBase.Storage.Security.PersistencePolicy
             ) async throws -> OpalBase.Storage.Security.ProtectionMode,
             loadMnemonicState: @escaping @Sendable (String) async throws -> (mnemonic: OpalBase.Storage.StoredMnemonic, protectionMode: OpalBase.Storage.Security.ProtectionMode)?,
-            deleteMnemonic: @escaping @Sendable (String) async throws -> Void
+            deleteMnemonic: @escaping @Sendable (String) async throws -> Void,
+            recoverableLoadFailure: @escaping @Sendable (Swift.Error) -> Bool = { _ in false }
         ) {
-            self.performSaveMnemonic = Self.makePolicyEnforcingSave(
-                saveMnemonicWithPolicy,
-                deleteMnemonic: deleteMnemonic
+            self.init(
+                enforcingSaveMnemonicWithPolicy: saveMnemonicWithPolicy,
+                loadMnemonicState: loadMnemonicState,
+                deleteMnemonic: deleteMnemonic,
+                recoverableLoadFailure: recoverableLoadFailure
             )
-            self.performLoadMnemonicState = loadMnemonicState
-            self.performDeleteMnemonic = deleteMnemonic
-            self.isLoadFailureRecoverable = { _ in false }
         }
 
-        init(
-            saveMnemonicWithPolicy: @escaping @Sendable (
+        private init(
+            enforcingSaveMnemonicWithPolicy saveMnemonicWithPolicy: @escaping @Sendable (
                 OpalBase.Storage.StoredMnemonic,
                 String,
                 OpalBase.Storage.Security.PersistencePolicy
@@ -125,7 +125,7 @@ extension _OpalBase.Storage {
             { mnemonic, generation, policy in
                 let protectionMode = try await saveMnemonicWithPolicy(mnemonic, generation, policy)
                 if policy == .requireSecureEnclave, protectionMode != .secureEnclave {
-                    try? await deleteMnemonic(generation)
+                    try await deleteMnemonic(generation)
                     throw OpalBase.Storage.Security.Error.insufficientProtection(
                         required: .secureEnclave,
                         actual: protectionMode
@@ -137,27 +137,33 @@ extension _OpalBase.Storage {
     }
 
     public func makeStoredMnemonicPersistence() -> StoredMnemonicPersistence {
+        let security = security
         return StoredMnemonicPersistence(
             saveMnemonicWithPolicy: saveMnemonic(_:generation:policy:),
             loadMnemonicState: loadMnemonicState(generation:),
             deleteMnemonic: deleteMnemonic(generation:),
-            recoverableLoadFailure: StoredMnemonicPersistence.isRecoverableLoadFailure
+            recoverableLoadFailure: { error in
+                Self.isRecoverableMnemonicLoadFailure(error, security: security)
+            }
         )
     }
 }
 
-private extension _OpalBase.Storage.StoredMnemonicPersistence {
-    static func isRecoverableLoadFailure(_ error: Swift.Error) -> Bool {
+private extension _OpalBase.Storage {
+    static func isRecoverableMnemonicLoadFailure(
+        _ error: Swift.Error,
+        security: OpalBase.Storage.Security
+    ) -> Bool {
         switch error {
         case OpalBase.Storage.Error.secureStoreFailure(let underlying),
+            OpalBase.Storage.Security.Error.encryptionFailure(let underlying),
             OpalBase.Storage.Security.Error.decryptionFailure(let underlying):
-            return isRecoverableLoadFailure(underlying)
+            return isRecoverableMnemonicLoadFailure(underlying, security: security)
+        case OpalBase.Storage.Security.Error.protectionUnavailable,
+            OpalBase.Storage.Security.Error.insufficientProtection:
+            return true
         default:
-            break
+            return security.checkSecureEnclaveErrorRecoverability(error)
         }
-
-        let nsError = error as NSError
-        return nsError.domain == NSOSStatusErrorDomain
-            && nsError.code == Int(errSecItemNotFound)
     }
 }

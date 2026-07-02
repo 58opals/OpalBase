@@ -3,45 +3,42 @@
 import Foundation
 
 extension _OpalBase.Address.Book {
-    private func loadPrivateKey(for address: OpalBase.Address) throws -> Data {
-        guard let entry = findEntry(for: address) else { throw Error.entryNotFound }
-        let privateKey = try generatePrivateKey(at: entry.derivationPath.index,
-                                                for: entry.derivationPath.usage)
-        return privateKey
+    private func loadSigningKey(for entry: Entry) throws -> OpalBase.Key.SigningKey {
+        return try generateSigningKey(
+            at: entry.derivationPath.index,
+            for: entry.derivationPath.usage
+        )
     }
-    
-    func derivePrivateKeys(for utxos: [OpalBase.Transaction.Output.Unspent]) throws -> [OpalBase.Transaction.Output.Unspent: Data] {
-        var derived: [OpalBase.Transaction.Output.Unspent: Data] = .init()
+
+    func deriveSigningKeys(for utxos: [OpalBase.Transaction.Output.Unspent]) throws -> [OpalBase.Transaction.Output.Unspent: OpalBase.Key.SigningKey] {
+        var derived: [OpalBase.Transaction.Output.Unspent: OpalBase.Key.SigningKey] = .init()
         derived.reserveCapacity(utxos.count)
-        
-        var addressByLockingScript: [Data: OpalBase.Address] = .init()
-        addressByLockingScript.reserveCapacity(utxos.count)
-        
-        var privateKeyByAddress: [OpalBase.Address: Data] = .init()
-        privateKeyByAddress.reserveCapacity(utxos.count)
-        
+
+        let entries = listAllEntries()
+        var entryByLockingScript: [Data: Entry] = .init()
+        entryByLockingScript.reserveCapacity(entries.count)
+        for entry in entries {
+            entryByLockingScript[entry.address.lockingScript.data] = entry
+        }
+
+        var signingKeyByLockingScript: [Data: OpalBase.Key.SigningKey] = .init()
+        signingKeyByLockingScript.reserveCapacity(utxos.count)
+
         for utxo in utxos {
             let lockingScript = utxo.lockingScript
-            let address: OpalBase.Address
-            if let cachedAddress = addressByLockingScript[lockingScript] {
-                address = cachedAddress
+            guard let entry = entryByLockingScript[lockingScript] else { throw Error.entryNotFound }
+
+            let signingKey: OpalBase.Key.SigningKey
+            if let cachedSigningKey = signingKeyByLockingScript[lockingScript] {
+                signingKey = cachedSigningKey
             } else {
-                let script = try OpalBase.Script.decode(lockingScript: lockingScript)
-                address = try OpalBase.Address(script: script)
-                addressByLockingScript[lockingScript] = address
+                signingKey = try loadSigningKey(for: entry)
+                signingKeyByLockingScript[lockingScript] = signingKey
             }
-            
-            let privateKey: Data
-            if let cachedPrivateKey = privateKeyByAddress[address] {
-                privateKey = cachedPrivateKey
-            } else {
-                privateKey = try loadPrivateKey(for: address)
-                privateKeyByAddress[address] = privateKey
-            }
-            
-            derived[utxo] = privateKey
+
+            derived[utxo] = signingKey
         }
-        
+
         return derived
     }
 }

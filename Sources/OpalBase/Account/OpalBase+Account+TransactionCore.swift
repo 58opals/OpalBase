@@ -11,7 +11,7 @@ extension _OpalBase.Account {
     }
     
     static func buildTransactionCore(
-        privateKeys: [OpalBase.Transaction.Output.Unspent: Data],
+        signingKeys: [OpalBase.Transaction.Output.Unspent: OpalBase.Key.SigningKey],
         recipientOutputs: [OpalBase.Transaction.Output],
         changeOutput: OpalBase.Transaction.Output,
         feeRate: UInt64,
@@ -29,7 +29,7 @@ extension _OpalBase.Account {
         let transaction: OpalBase.Transaction
         do {
             transaction = try OpalBase.Transaction.build(
-                utxoPrivateKeyPairs: privateKeys,
+                utxoSigningKeyPairs: signingKeys,
                 recipientOutputs: recipientOutputs,
                 changeOutput: changeOutput,
                 outputOrderingStrategy: outputOrderingStrategy,
@@ -46,7 +46,7 @@ extension _OpalBase.Account {
             try OpalBase.Satoshi($0.value)
         }
         
-        let inputTotal = try privateKeys.keys.sumSatoshi(or: Error.paymentExceedsMaximumAmount) {
+        let inputTotal = try signingKeys.keys.sumSatoshi(or: Error.paymentExceedsMaximumAmount) {
             try OpalBase.Satoshi($0.value)
         }
         

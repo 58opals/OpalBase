@@ -96,9 +96,10 @@ struct WalletTrustDomainInteractorValidator {
     func claimableInteractorKeepsClaimableAuthoringDomainSpecific() throws {
         let interactor = OpalBase.ClaimableInteractor()
         let refundPrivateKey = ClaimableTestSupport.makeClaimablePrivateKey(lastByte: 0x02)
+        let refundSigningKey = try OpalBase.Key.SigningKey(rawRepresentation: refundPrivateKey)
         let draft = try interactor.makeDraft(
             network: .chipnet,
-            refundPrivateKey: refundPrivateKey,
+            refundSigningKey: refundSigningKey,
             expiryBlockHeight: 720
         )
         let fundingOutput = interactor.makeFundingOutput(from: draft, value: 25_000)
@@ -117,12 +118,20 @@ struct WalletTrustDomainInteractorValidator {
             destinationLockingScript: ClaimableTestSupport.makeClaimableDestinationLockingScript(),
             currentBlockHeight: 700
         )
+        let refundTransaction = try interactor.buildRefundTransaction(
+            from: decodedEnvelope,
+            refundSigningKey: refundSigningKey,
+            destinationLockingScript: ClaimableTestSupport.makeClaimableDestinationLockingScript(fillByte: 0x34),
+            currentBlockHeight: 720
+        )
 
         #expect(fundingOutput.lockingScript == draft.contract.fundingLockingScriptData)
         #expect(decodedEnvelope.contract == envelope.contract)
         #expect(status.allowsClaim)
         #expect(claimTransaction.inputs.count == 1)
         #expect(claimTransaction.outputs.count == 1)
+        #expect(refundTransaction.inputs.count == 1)
+        #expect(refundTransaction.outputs.count == 1)
     }
 
     @Test("public constructor labels expose trust-domain authority")
@@ -134,13 +143,21 @@ struct WalletTrustDomainInteractorValidator {
         #expect(source.contains("struct WalletBlockchainSyncInteractor"))
         #expect(source.contains("accountDescriptor: OpalBase.WalletAccountPublicDescriptor"))
         #expect(source.contains("publicChain: OpalBase.WalletPublicChainOperations"))
+        #expect(source.contains("struct WalletSecurityProfile"))
+        #expect(source.contains("static let offlineSavingsSigner"))
         #expect(source.contains("struct WalletSecretAccessInteractor"))
         #expect(source.contains("persistenceSession: OpalBase.Storage.PersistenceSession"))
+        #expect(source.contains("profile: OpalBase.WalletSecurityProfile"))
+        #expect(source.contains("struct WalletUnsignedSpendPlan"))
+        #expect(source.contains("struct WalletUnsignedTransactionEnvelope"))
+        #expect(source.contains("validateSignedTransactionStructure"))
         #expect(source.contains("struct WalletTransactionAuthoringInteractor"))
         #expect(source.contains("privateAccount: OpalBase.Account"))
+        #expect(source.contains("prepareSpendForExternalReview"))
         #expect(source.contains("struct WalletBroadcastInteractor"))
         #expect(source.contains("transactionClient: OpalBase.Network.TransactionClient"))
         #expect(source.contains("struct ClaimableInteractor"))
+        #expect(source.contains("refundSigningKey: OpalBase.Key.SigningKey"))
         #expect(source.contains("makeFundingOutput"))
         #expect(source.contains("encodeShareCode"))
         #expect(source.contains("buildRefundTransaction"))
