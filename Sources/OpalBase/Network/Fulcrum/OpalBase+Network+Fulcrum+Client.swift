@@ -85,7 +85,11 @@ extension _OpalBase.Network.Fulcrum {
         func subscribe<Initial: Decodable & Sendable, Notification: Decodable & Sendable>(
             _ endpoint: SwiftFulcrum.API.Subscription<Initial, Notification>,
             options: SwiftFulcrum.Client.Call.Options = .init()
-        ) async throws -> (Initial, AsyncThrowingStream<Notification, Swift.Error>, @Sendable () async -> Void) {
+        ) async throws -> (
+            Initial,
+            SwiftFulcrum.Client.Subscription<Initial, Notification>.Updates,
+            @Sendable () async -> Void
+        ) {
             let subscription = try await fulcrum.subscribe(
                 endpoint,
                 options: options

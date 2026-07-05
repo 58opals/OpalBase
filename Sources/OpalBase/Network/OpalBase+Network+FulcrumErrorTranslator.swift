@@ -133,6 +133,11 @@ extension _OpalBase.Network {
                     reason: .network,
                     message: underlying?.localizedDescription ?? "TLS negotiation failed"
                 )
+            case .urlSessionFailed(let underlying):
+                return OpalBase.Network.Error(
+                    reason: .network,
+                    message: underlying?.localizedDescription ?? "URL session failed"
+                )
             }
         }
 
@@ -295,8 +300,8 @@ extension _OpalBase.Network {
                     message: "Invalid server URL",
                     metadata: [OpalBase.Network.Error.DiagnosticMetadataKey.serverURL: string]
                 )
-            case .duplicateHandler:
-                return OpalBase.Network.Error(reason: .transport, message: "Duplicate handler registered")
+            case .duplicateRegistration:
+                return OpalBase.Network.Error(reason: .transport, message: "Duplicate response registration")
             case .cancelled:
                 return OpalBase.Network.Error(reason: .cancelled, message: "Operation cancelled")
             case .timeout(let duration):
@@ -304,6 +309,18 @@ extension _OpalBase.Network {
                     reason: .timeout,
                     message: "Operation timed out",
                     metadata: [OpalBase.Network.Error.DiagnosticMetadataKey.timeoutSeconds: String(duration.totalSeconds)]
+                )
+            case .invalidSubscriptionBufferCapacity(let capacity):
+                return OpalBase.Network.Error(
+                    reason: .transport,
+                    message: "Invalid subscription buffer capacity",
+                    metadata: ["subscriptionBufferCapacity": String(capacity)]
+                )
+            case .subscriptionUpdateBufferOverflow(let capacity):
+                return OpalBase.Network.Error(
+                    reason: .transport,
+                    message: "Subscription update buffer overflow",
+                    metadata: ["subscriptionBufferCapacity": String(capacity)]
                 )
             case .emptyResponse(let identifier):
                 return OpalBase.Network.Error(reason: .protocolViolation,

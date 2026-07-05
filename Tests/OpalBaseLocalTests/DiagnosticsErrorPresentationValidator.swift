@@ -757,7 +757,10 @@ struct DiagnosticsErrorPresentationValidator {
         case cancelled
         case unknownCancellation
         case timeout
-        case duplicateHandler
+        case duplicateRegistration
+        case invalidSubscriptionBufferCapacity
+        case subscriptionUpdateBufferOverflow
+        case urlSessionFailed
         case emptyResponse
         case invalidURL
 
@@ -779,8 +782,14 @@ struct DiagnosticsErrorPresentationValidator {
                 return .client(.unknown(CancellationError()))
             case .timeout:
                 return .client(.timeout(.seconds(3)))
-            case .duplicateHandler:
-                return .client(.duplicateHandler)
+            case .duplicateRegistration:
+                return .client(.duplicateRegistration)
+            case .invalidSubscriptionBufferCapacity:
+                return .client(.invalidSubscriptionBufferCapacity(0))
+            case .subscriptionUpdateBufferOverflow:
+                return .client(.subscriptionUpdateBufferOverflow(3))
+            case .urlSessionFailed:
+                return .transport(.network(.urlSessionFailed(nil)))
             case .emptyResponse:
                 return .client(.emptyResponse(nil))
             case .invalidURL:
@@ -792,8 +801,12 @@ struct DiagnosticsErrorPresentationValidator {
             switch self {
             case .connectionClosed,
                  .reconnectFailed,
-                 .duplicateHandler,
+                 .duplicateRegistration,
+                 .invalidSubscriptionBufferCapacity,
+                 .subscriptionUpdateBufferOverflow,
                  .invalidURL:
+                return .networkTransport
+            case .urlSessionFailed:
                 return .networkTransport
             case .heartbeatTimeout,
                  .timeout:

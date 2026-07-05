@@ -3,14 +3,14 @@
 import Foundation
 
 extension _OpalBase.Network {
-    static func makeSubscriptionStream<Initial: Sendable, Notification: Sendable, Update: Sendable, DeduplicationKey: Sendable & Equatable>(
+    static func makeSubscriptionStream<Initial: Sendable, Updates: AsyncSequence & Sendable, Update: Sendable, DeduplicationKey: Sendable & Equatable>(
         initial: Initial,
-        updates: AsyncThrowingStream<Notification, Swift.Error>,
+        updates: Updates,
         cancel: @escaping @Sendable () async -> Void,
         makeInitialUpdates: @escaping @Sendable (Initial) throws -> [Update],
-        makeUpdates: @escaping @Sendable (Notification) throws -> [Update],
+        makeUpdates: @escaping @Sendable (Updates.Element) throws -> [Update],
         deduplicationKey: @escaping @Sendable (Update) -> DeduplicationKey
-    ) -> AsyncThrowingStream<Update, Swift.Error> {
+    ) -> AsyncThrowingStream<Update, Swift.Error> where Updates.Element: Sendable {
         AsyncThrowingStream { continuation in
             var lastKey: DeduplicationKey?
             let initialValue = initial
