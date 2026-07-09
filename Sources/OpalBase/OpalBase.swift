@@ -3,7 +3,7 @@
 import Foundation
 
 public enum OpalBase {
-    public static let version = "0.3.0"
+    public static let version = "0.4.0"
 }
 
 typealias _OpalBase = OpalBase

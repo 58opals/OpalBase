@@ -24,7 +24,7 @@ For released-package consumers, depend on the latest tag:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/58opals/OpalBase.git", from: "0.3.0")
+    .package(url: "https://github.com/58opals/OpalBase.git", from: "0.4.0")
 ]
 ```
 

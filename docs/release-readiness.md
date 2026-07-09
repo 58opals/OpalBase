@@ -1,19 +1,21 @@
 # Release Readiness
 
-This page tracks public-safe release posture for builders evaluating Opal Base. It does not create a release, tag a release, or change dependency requirements.
+This page tracks public-safe release posture for builders evaluating the Opal Base `v0.4.0` release line. It does not create a release, tag a release, or change dependency requirements.
 
 ## Current Public Status
 
-- Latest released tag: `v0.3.0`.
-- Builder-review surface: public `develop` branch.
-- Next possible release line: `v0.4.0`, not yet released.
-- License posture for the next release notes: Apache License 2.0, matching the repository `LICENSE` file.
+- Release line: `v0.4.0`.
+- Previous public tag before this release line: `v0.3.0`.
+- Builder-review surface between tags: public `develop` branch.
+- Release source: annotated `v0.4.0` tag after release promotion completes.
+- Package version constant: `OpalBase.version == "0.4.0"`.
+- License posture for release notes: Apache License 2.0, matching the repository `LICENSE` file.
 
 ## Builder Review Versus SemVer Release
 
 The public `develop` branch is acceptable for builder review when all SwiftPM dependency URLs are public and the tracked `Package.resolved` file does not expose private-only topology. It is not a SemVer release.
 
-A true `v0.4.0` release should coordinate sibling package releases first, then move Opal Base dependencies to public tags/version requirements after explicit maintainer approval. Exact public revisions can support a review candidate, but coordinated tags are the preferred release state.
+The `v0.4.0` release candidate currently uses public sibling package URLs with public `develop` branch requirements and tracked `Package.resolved` revisions. Moving sibling dependencies from public `develop` branches to public SemVer tags is a separate maintainer-approved dependency change because it changes `Package.swift` dependency requirements.
 
 ## Release Hardening Checklist
 
@@ -21,9 +23,19 @@ A true `v0.4.0` release should coordinate sibling package releases first, then m
 - Confirm `swift test` passes from a clean checkout.
 - Confirm optional live Fulcrum validation is either intentionally run or explicitly skipped: `OPAL_RUN_LIVE_NETWORK_TESTS=1 OPAL_FULCRUM_URL=<server> swift test --filter NetworkLiveSmokeValidator`.
 - Confirm `Package.swift` and `Package.resolved` use only public dependency URLs and do not expose private-only branch topology.
-- Decide whether sibling packages need public tags before the Opal Base release tag.
+- Confirm the branch-based sibling dependency posture is accepted for this release, or explicitly approve a `Package.swift` dependency requirement change before promotion.
 - Treat the license posture change from the older README's MIT claim to Apache License 2.0 as explicit release-note material.
 - Confirm README, docs, changelog, package files, and license use strict Bitcoin Cash terminology and contain no private process artifacts.
+
+## Validation Status
+
+- `swift build`: passed on 2026-07-09.
+- `swift test`: passed on 2026-07-09 with 875 tests across 96 suites.
+- Optional live Fulcrum validation: not run in the local suite because `OPAL_RUN_LIVE_NETWORK_TESTS` was unset.
+- Public artifact guard: passed on 2026-07-09.
+- Release-lane refs: live refs matched local tracking refs and the promotion path was fast-forwardable at validation time.
+- Public `v0.4.0` tag: not present before release tagging.
+- Dependency topology: `Package.swift` and `Package.resolved` use public GitHub URLs and public `develop` branch requirements for sibling Opal packages; no non-public dependency URL or draft branch requirement was found.
 
 ## Documentation Readiness Checklist
 
