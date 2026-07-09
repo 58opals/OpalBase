@@ -73,6 +73,16 @@ struct ScriptDecodeValidator {
         #expect(script.data.isEmpty)
     }
 
+    @Test(
+        "invalid standard hash lengths do not serialize malformed scripts",
+        arguments: invalidStandardHashScriptFixtures
+    )
+    func invalidStandardHashLengthsDoNotSerializeMalformedScripts(fixture: InvalidStandardHashScriptFixture) {
+        let script = fixture.makeScript(from: Data(repeating: 0x11, count: fixture.byteCount))
+
+        #expect(script.data.isEmpty)
+    }
+
     @Test("serializes largest standard P2MS script")
     func serializesLargestStandardP2MSScript() throws {
         let publicKeys = try (1...16).map { try makePublicKey(privateKeyByte: UInt8($0)) }
@@ -107,8 +117,50 @@ struct ScriptDecodeValidator {
         .init(numberOfRequiredSignatures: 17, publicKeyCount: 1)
     ]
 
+    private static let invalidStandardHashScriptFixtures: [InvalidStandardHashScriptFixture] = [
+        .init(kind: .p2pkhCheckSignature, byteCount: 0),
+        .init(kind: .p2pkhCheckSignature, byteCount: 19),
+        .init(kind: .p2pkhCheckSignature, byteCount: 21),
+        .init(kind: .p2pkhCheckDataSignature, byteCount: 0),
+        .init(kind: .p2pkhCheckDataSignature, byteCount: 19),
+        .init(kind: .p2pkhCheckDataSignature, byteCount: 21),
+        .init(kind: .p2sh, byteCount: 0),
+        .init(kind: .p2sh, byteCount: 19),
+        .init(kind: .p2sh, byteCount: 21)
+    ]
+
     struct InvalidP2MSFixture: Sendable {
         let numberOfRequiredSignatures: Int
         let publicKeyCount: Int
+    }
+
+    struct InvalidStandardHashScriptFixture: CustomStringConvertible, Sendable {
+        let kind: StandardHashScriptKind
+        let byteCount: Int
+
+        var description: String {
+            "\(kind), \(byteCount) bytes"
+        }
+
+        func makeScript(from data: Data) -> OpalBase.Script {
+            switch kind {
+            case .p2pkhCheckSignature:
+                .p2pkh_OPCHECKSIG(hash: .init(data))
+            case .p2pkhCheckDataSignature:
+                .p2pkh_OPCHECKDATASIG(hash: .init(data))
+            case .p2sh:
+                .p2sh(scriptHash: data)
+            }
+        }
+    }
+
+    enum StandardHashScriptKind: String, CustomStringConvertible, Sendable {
+        case p2pkhCheckSignature
+        case p2pkhCheckDataSignature
+        case p2sh
+
+        var description: String {
+            rawValue
+        }
     }
 }

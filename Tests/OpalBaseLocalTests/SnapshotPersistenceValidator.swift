@@ -341,16 +341,7 @@ struct SnapshotPersistenceValidator {
         )
 
         let snapshot = await book.makeSnapshot()
-        let alteredReceivingEntries = snapshot.receivingEntries.map { snapshotEntry in
-            OpalBase.Address.Book.Snapshot.Entry(
-                usage: snapshotEntry.usage,
-                index: snapshotEntry.index,
-                isUsed: snapshotEntry.isUsed,
-                isReserved: snapshotEntry.isReserved,
-                balance: snapshotEntry.index == entry.derivationPath.index ? 9_999 : snapshotEntry.balance,
-                lastUpdated: snapshotEntry.lastUpdated
-            )
-        }
+        let alteredReceivingEntries = makeReceivingEntriesWithChangedBalance(from: snapshot, for: entry)
         let malformedUTXO = OpalBase.Address.Book.Snapshot.UTXO(
             value: 500,
             lockingScript: "not-hex",
@@ -435,16 +426,7 @@ struct SnapshotPersistenceValidator {
         )
 
         let snapshot = await book.makeSnapshot()
-        let alteredReceivingEntries = snapshot.receivingEntries.map { snapshotEntry in
-            OpalBase.Address.Book.Snapshot.Entry(
-                usage: snapshotEntry.usage,
-                index: snapshotEntry.index,
-                isUsed: snapshotEntry.isUsed,
-                isReserved: snapshotEntry.isReserved,
-                balance: snapshotEntry.index == entry.derivationPath.index ? 9_999 : snapshotEntry.balance,
-                lastUpdated: snapshotEntry.lastUpdated
-            )
-        }
+        let alteredReceivingEntries = makeReceivingEntriesWithChangedBalance(from: snapshot, for: entry)
         let foreignUTXO = OpalBase.Address.Book.Snapshot.UTXO(
             value: 500,
             lockingScript: foreignEntry.address.lockingScript.data.hexadecimalString,
@@ -485,16 +467,7 @@ struct SnapshotPersistenceValidator {
         )
 
         let snapshot = await book.makeSnapshot()
-        let alteredReceivingEntries = snapshot.receivingEntries.map { snapshotEntry in
-            OpalBase.Address.Book.Snapshot.Entry(
-                usage: snapshotEntry.usage,
-                index: snapshotEntry.index,
-                isUsed: snapshotEntry.isUsed,
-                isReserved: snapshotEntry.isReserved,
-                balance: snapshotEntry.index == entry.derivationPath.index ? 9_999 : snapshotEntry.balance,
-                lastUpdated: snapshotEntry.lastUpdated
-            )
-        }
+        let alteredReceivingEntries = makeReceivingEntriesWithChangedBalance(from: snapshot, for: entry)
         let prefixedLockingScript = "0x\(entry.address.lockingScript.data.hexadecimalString)"
         let malformedUTXO = OpalBase.Address.Book.Snapshot.UTXO(
             value: 500,
@@ -534,16 +507,7 @@ struct SnapshotPersistenceValidator {
         )
 
         let snapshot = await book.makeSnapshot()
-        let alteredReceivingEntries = snapshot.receivingEntries.map { snapshotEntry in
-            OpalBase.Address.Book.Snapshot.Entry(
-                usage: snapshotEntry.usage,
-                index: snapshotEntry.index,
-                isUsed: snapshotEntry.isUsed,
-                isReserved: snapshotEntry.isReserved,
-                balance: snapshotEntry.index == entry.derivationPath.index ? 9_999 : snapshotEntry.balance,
-                lastUpdated: snapshotEntry.lastUpdated
-            )
-        }
+        let alteredReceivingEntries = makeReceivingEntriesWithChangedBalance(from: snapshot, for: entry)
         let oversizedValue = OpalBase.Satoshi.maximumSatoshi + 1
         let malformedUTXO = OpalBase.Address.Book.Snapshot.UTXO(
             value: oversizedValue,
@@ -631,16 +595,7 @@ struct SnapshotPersistenceValidator {
         )
 
         let snapshot = await book.makeSnapshot()
-        let alteredReceivingEntries = snapshot.receivingEntries.map { snapshotEntry in
-            OpalBase.Address.Book.Snapshot.Entry(
-                usage: snapshotEntry.usage,
-                index: snapshotEntry.index,
-                isUsed: snapshotEntry.isUsed,
-                isReserved: snapshotEntry.isReserved,
-                balance: snapshotEntry.index == entry.derivationPath.index ? 9_999 : snapshotEntry.balance,
-                lastUpdated: snapshotEntry.lastUpdated
-            )
-        }
+        let alteredReceivingEntries = makeReceivingEntriesWithChangedBalance(from: snapshot, for: entry)
         let malformedTransaction = OpalBase.Address.Book.Snapshot.Transaction(
             transactionHash: invalidCase.transactionHash,
             height: 1,
@@ -683,16 +638,7 @@ struct SnapshotPersistenceValidator {
         )
 
         let snapshot = await book.makeSnapshot()
-        let alteredReceivingEntries = snapshot.receivingEntries.map { snapshotEntry in
-            OpalBase.Address.Book.Snapshot.Entry(
-                usage: snapshotEntry.usage,
-                index: snapshotEntry.index,
-                isUsed: snapshotEntry.isUsed,
-                isReserved: snapshotEntry.isReserved,
-                balance: snapshotEntry.index == entry.derivationPath.index ? 9_999 : snapshotEntry.balance,
-                lastUpdated: snapshotEntry.lastUpdated
-            )
-        }
+        let alteredReceivingEntries = makeReceivingEntriesWithChangedBalance(from: snapshot, for: entry)
         let oversizedFee = OpalBase.Satoshi.maximumSatoshi + 1
         let malformedTransaction = OpalBase.Address.Book.Snapshot.Transaction(
             transactionHash: String(repeating: "1", count: 64),
@@ -740,16 +686,7 @@ struct SnapshotPersistenceValidator {
         )
 
         let snapshot = await book.makeSnapshot()
-        let alteredReceivingEntries = snapshot.receivingEntries.map { snapshotEntry in
-            OpalBase.Address.Book.Snapshot.Entry(
-                usage: snapshotEntry.usage,
-                index: snapshotEntry.index,
-                isUsed: snapshotEntry.isUsed,
-                isReserved: snapshotEntry.isReserved,
-                balance: snapshotEntry.index == receivingEntry.derivationPath.index ? 9_999 : snapshotEntry.balance,
-                lastUpdated: snapshotEntry.lastUpdated
-            )
-        }
+        let alteredReceivingEntries = makeReceivingEntriesWithChangedBalance(from: snapshot, for: receivingEntry)
         let transactionHashData = Data(repeating: 2, count: OpalBase.Transaction.Hash.expectedByteCount)
         let transactionHash = OpalBase.Transaction.Hash(naturalOrder: transactionHashData)
         let firstTransaction = OpalBase.Address.Book.Snapshot.Transaction(
@@ -807,16 +744,7 @@ struct SnapshotPersistenceValidator {
         )
 
         let snapshot = await book.makeSnapshot()
-        let alteredReceivingEntries = snapshot.receivingEntries.map { snapshotEntry in
-            OpalBase.Address.Book.Snapshot.Entry(
-                usage: snapshotEntry.usage,
-                index: snapshotEntry.index,
-                isUsed: snapshotEntry.isUsed,
-                isReserved: snapshotEntry.isReserved,
-                balance: snapshotEntry.index == entry.derivationPath.index ? 9_999 : snapshotEntry.balance,
-                lastUpdated: snapshotEntry.lastUpdated
-            )
-        }
+        let alteredReceivingEntries = makeReceivingEntriesWithChangedBalance(from: snapshot, for: entry)
         let malformedTransaction = OpalBase.Address.Book.Snapshot.Transaction(
             transactionHash: String(repeating: "1", count: 64),
             height: 0,
@@ -904,16 +832,7 @@ struct SnapshotPersistenceValidator {
         )
 
         let snapshot = await book.makeSnapshot()
-        let alteredReceivingEntries = snapshot.receivingEntries.map { snapshotEntry in
-            OpalBase.Address.Book.Snapshot.Entry(
-                usage: snapshotEntry.usage,
-                index: snapshotEntry.index,
-                isUsed: snapshotEntry.isUsed,
-                isReserved: snapshotEntry.isReserved,
-                balance: snapshotEntry.index == entry.derivationPath.index ? 9_999 : snapshotEntry.balance,
-                lastUpdated: snapshotEntry.lastUpdated
-            )
-        }
+        let alteredReceivingEntries = makeReceivingEntriesWithChangedBalance(from: snapshot, for: entry)
         let malformedTransaction = OpalBase.Address.Book.Snapshot.Transaction(
             transactionHash: String(repeating: "1", count: 64),
             height: 0,
@@ -954,16 +873,7 @@ struct SnapshotPersistenceValidator {
         )
 
         let snapshot = await book.makeSnapshot()
-        let alteredReceivingEntries = snapshot.receivingEntries.map { snapshotEntry in
-            OpalBase.Address.Book.Snapshot.Entry(
-                usage: snapshotEntry.usage,
-                index: snapshotEntry.index,
-                isUsed: snapshotEntry.isUsed,
-                isReserved: snapshotEntry.isReserved,
-                balance: snapshotEntry.index == entry.derivationPath.index ? 9_999 : snapshotEntry.balance,
-                lastUpdated: snapshotEntry.lastUpdated
-            )
-        }
+        let alteredReceivingEntries = makeReceivingEntriesWithChangedBalance(from: snapshot, for: entry)
         let scriptHash = entry.address.makeScriptHash().hexadecimalString
         let malformedTransaction = OpalBase.Address.Book.Snapshot.Transaction(
             transactionHash: String(repeating: "1", count: 64),
@@ -1051,16 +961,7 @@ struct SnapshotPersistenceValidator {
         )
 
         let snapshot = await book.makeSnapshot()
-        let alteredReceivingEntries = snapshot.receivingEntries.map { snapshotEntry in
-            OpalBase.Address.Book.Snapshot.Entry(
-                usage: snapshotEntry.usage,
-                index: snapshotEntry.index,
-                isUsed: snapshotEntry.isUsed,
-                isReserved: snapshotEntry.isReserved,
-                balance: snapshotEntry.index == entry.derivationPath.index ? 9_999 : snapshotEntry.balance,
-                lastUpdated: snapshotEntry.lastUpdated
-            )
-        }
+        let alteredReceivingEntries = makeReceivingEntriesWithChangedBalance(from: snapshot, for: entry)
         let scriptHash = entry.address.makeScriptHash().hexadecimalString
         let malformedTransaction = OpalBase.Address.Book.Snapshot.Transaction(
             transactionHash: String(repeating: "1", count: 64),
@@ -1106,16 +1007,7 @@ struct SnapshotPersistenceValidator {
         )
 
         let snapshot = await book.makeSnapshot()
-        let alteredReceivingEntries = snapshot.receivingEntries.map { snapshotEntry in
-            OpalBase.Address.Book.Snapshot.Entry(
-                usage: snapshotEntry.usage,
-                index: snapshotEntry.index,
-                isUsed: snapshotEntry.isUsed,
-                isReserved: snapshotEntry.isReserved,
-                balance: snapshotEntry.index == entry.derivationPath.index ? 9_999 : snapshotEntry.balance,
-                lastUpdated: snapshotEntry.lastUpdated
-            )
-        }
+        let alteredReceivingEntries = makeReceivingEntriesWithChangedBalance(from: snapshot, for: entry)
         let foreignScriptHash = foreignEntry.address.makeScriptHash().hexadecimalString
         let malformedTransaction = OpalBase.Address.Book.Snapshot.Transaction(
             transactionHash: String(repeating: "1", count: 64),
@@ -1158,16 +1050,7 @@ struct SnapshotPersistenceValidator {
         )
 
         let snapshot = await book.makeSnapshot()
-        let alteredReceivingEntries = snapshot.receivingEntries.map { snapshotEntry in
-            OpalBase.Address.Book.Snapshot.Entry(
-                usage: snapshotEntry.usage,
-                index: snapshotEntry.index,
-                isUsed: snapshotEntry.isUsed,
-                isReserved: snapshotEntry.isReserved,
-                balance: snapshotEntry.index == entry.derivationPath.index ? 9_999 : snapshotEntry.balance,
-                lastUpdated: snapshotEntry.lastUpdated
-            )
-        }
+        let alteredReceivingEntries = makeReceivingEntriesWithChangedBalance(from: snapshot, for: entry)
         let tokenData = try makeTokenDataWithNonFungibleToken()
         let nonFungibleToken = try #require(tokenData.nft)
         let canonicalTokenData = OpalBase.CashTokens.TokenData(
@@ -1363,16 +1246,7 @@ struct SnapshotPersistenceValidator {
         )
 
         let snapshot = await book.makeSnapshot()
-        let alteredReceivingEntries = snapshot.receivingEntries.map { snapshotEntry in
-            OpalBase.Address.Book.Snapshot.Entry(
-                usage: snapshotEntry.usage,
-                index: snapshotEntry.index,
-                isUsed: snapshotEntry.isUsed,
-                isReserved: snapshotEntry.isReserved,
-                balance: snapshotEntry.index == entry.derivationPath.index ? 9_999 : snapshotEntry.balance,
-                lastUpdated: snapshotEntry.lastUpdated
-            )
-        }
+        let alteredReceivingEntries = makeReceivingEntriesWithChangedBalance(from: snapshot, for: entry)
         let malformedTransaction = OpalBase.Address.Book.Snapshot.Transaction(
             transactionHash: String(repeating: "1", count: 64),
             height: 1,
@@ -1563,16 +1437,7 @@ struct SnapshotPersistenceValidator {
         )
 
         let snapshot = await book.makeSnapshot()
-        let alteredReceivingEntries = snapshot.receivingEntries.map { snapshotEntry in
-            OpalBase.Address.Book.Snapshot.Entry(
-                usage: snapshotEntry.usage,
-                index: snapshotEntry.index,
-                isUsed: snapshotEntry.isUsed,
-                isReserved: snapshotEntry.isReserved,
-                balance: snapshotEntry.index == entry.derivationPath.index ? 9_999 : snapshotEntry.balance,
-                lastUpdated: snapshotEntry.lastUpdated
-            )
-        }
+        let alteredReceivingEntries = makeReceivingEntriesWithChangedBalance(from: snapshot, for: entry)
         let malformedTransaction = OpalBase.Address.Book.Snapshot.Transaction(
             transactionHash: String(repeating: "1", count: 64),
             height: 1,
@@ -1613,16 +1478,7 @@ struct SnapshotPersistenceValidator {
         )
 
         let snapshot = await book.makeSnapshot()
-        let alteredReceivingEntries = snapshot.receivingEntries.map { snapshotEntry in
-            OpalBase.Address.Book.Snapshot.Entry(
-                usage: snapshotEntry.usage,
-                index: snapshotEntry.index,
-                isUsed: snapshotEntry.isUsed,
-                isReserved: snapshotEntry.isReserved,
-                balance: snapshotEntry.index == entry.derivationPath.index ? 9_999 : snapshotEntry.balance,
-                lastUpdated: snapshotEntry.lastUpdated
-            )
-        }
+        let alteredReceivingEntries = makeReceivingEntriesWithChangedBalance(from: snapshot, for: entry)
         let malformedTransaction = OpalBase.Address.Book.Snapshot.Transaction(
             transactionHash: String(repeating: "1", count: 64),
             height: 2,
@@ -1668,16 +1524,7 @@ struct SnapshotPersistenceValidator {
         )
 
         let snapshot = await book.makeSnapshot()
-        let alteredReceivingEntries = snapshot.receivingEntries.map { snapshotEntry in
-            OpalBase.Address.Book.Snapshot.Entry(
-                usage: snapshotEntry.usage,
-                index: snapshotEntry.index,
-                isUsed: snapshotEntry.isUsed,
-                isReserved: snapshotEntry.isReserved,
-                balance: snapshotEntry.index == entry.derivationPath.index ? 9_999 : snapshotEntry.balance,
-                lastUpdated: snapshotEntry.lastUpdated
-            )
-        }
+        let alteredReceivingEntries = makeReceivingEntriesWithChangedBalance(from: snapshot, for: entry)
         let malformedTransaction = OpalBase.Address.Book.Snapshot.Transaction(
             transactionHash: String(repeating: "1", count: 64),
             height: 2,
@@ -1723,16 +1570,7 @@ struct SnapshotPersistenceValidator {
         )
 
         let snapshot = await book.makeSnapshot()
-        let alteredReceivingEntries = snapshot.receivingEntries.map { snapshotEntry in
-            OpalBase.Address.Book.Snapshot.Entry(
-                usage: snapshotEntry.usage,
-                index: snapshotEntry.index,
-                isUsed: snapshotEntry.isUsed,
-                isReserved: snapshotEntry.isReserved,
-                balance: snapshotEntry.index == entry.derivationPath.index ? 9_999 : snapshotEntry.balance,
-                lastUpdated: snapshotEntry.lastUpdated
-            )
-        }
+        let alteredReceivingEntries = makeReceivingEntriesWithChangedBalance(from: snapshot, for: entry)
         let malformedTransaction = OpalBase.Address.Book.Snapshot.Transaction(
             transactionHash: String(repeating: "1", count: 64),
             height: 10,
@@ -1773,16 +1611,7 @@ struct SnapshotPersistenceValidator {
         )
 
         let snapshot = await book.makeSnapshot()
-        let alteredReceivingEntries = snapshot.receivingEntries.map { snapshotEntry in
-            OpalBase.Address.Book.Snapshot.Entry(
-                usage: snapshotEntry.usage,
-                index: snapshotEntry.index,
-                isUsed: snapshotEntry.isUsed,
-                isReserved: snapshotEntry.isReserved,
-                balance: snapshotEntry.index == entry.derivationPath.index ? 9_999 : snapshotEntry.balance,
-                lastUpdated: snapshotEntry.lastUpdated
-            )
-        }
+        let alteredReceivingEntries = makeReceivingEntriesWithChangedBalance(from: snapshot, for: entry)
         let malformedTransaction = OpalBase.Address.Book.Snapshot.Transaction(
             transactionHash: String(repeating: "1", count: 64),
             height: 10,
@@ -1823,16 +1652,7 @@ struct SnapshotPersistenceValidator {
         )
 
         let snapshot = await book.makeSnapshot()
-        let alteredReceivingEntries = snapshot.receivingEntries.map { snapshotEntry in
-            OpalBase.Address.Book.Snapshot.Entry(
-                usage: snapshotEntry.usage,
-                index: snapshotEntry.index,
-                isUsed: snapshotEntry.isUsed,
-                isReserved: snapshotEntry.isReserved,
-                balance: snapshotEntry.index == entry.derivationPath.index ? 9_999 : snapshotEntry.balance,
-                lastUpdated: snapshotEntry.lastUpdated
-            )
-        }
+        let alteredReceivingEntries = makeReceivingEntriesWithChangedBalance(from: snapshot, for: entry)
         let malformedTransaction = OpalBase.Address.Book.Snapshot.Transaction(
             transactionHash: String(repeating: "1", count: 64),
             height: 9,
@@ -1873,16 +1693,7 @@ struct SnapshotPersistenceValidator {
         )
 
         let snapshot = await book.makeSnapshot()
-        let alteredReceivingEntries = snapshot.receivingEntries.map { snapshotEntry in
-            OpalBase.Address.Book.Snapshot.Entry(
-                usage: snapshotEntry.usage,
-                index: snapshotEntry.index,
-                isUsed: snapshotEntry.isUsed,
-                isReserved: snapshotEntry.isReserved,
-                balance: snapshotEntry.index == entry.derivationPath.index ? 9_999 : snapshotEntry.balance,
-                lastUpdated: snapshotEntry.lastUpdated
-            )
-        }
+        let alteredReceivingEntries = makeReceivingEntriesWithChangedBalance(from: snapshot, for: entry)
         let malformedTransaction = OpalBase.Address.Book.Snapshot.Transaction(
             transactionHash: String(repeating: "1", count: 64),
             height: 0,
@@ -1923,16 +1734,7 @@ struct SnapshotPersistenceValidator {
         )
 
         let snapshot = await book.makeSnapshot()
-        let alteredReceivingEntries = snapshot.receivingEntries.map { snapshotEntry in
-            OpalBase.Address.Book.Snapshot.Entry(
-                usage: snapshotEntry.usage,
-                index: snapshotEntry.index,
-                isUsed: snapshotEntry.isUsed,
-                isReserved: snapshotEntry.isReserved,
-                balance: snapshotEntry.index == entry.derivationPath.index ? 9_999 : snapshotEntry.balance,
-                lastUpdated: snapshotEntry.lastUpdated
-            )
-        }
+        let alteredReceivingEntries = makeReceivingEntriesWithChangedBalance(from: snapshot, for: entry)
         let malformedTransaction = OpalBase.Address.Book.Snapshot.Transaction(
             transactionHash: String(repeating: "1", count: 64),
             height: 10,
@@ -2044,6 +1846,7 @@ struct SnapshotPersistenceValidator {
 
     enum InvalidSnapshotTransactionHashCase: CaseIterable, CustomStringConvertible, Sendable {
         case shortHex
+        case malformedHex
         case prefixedHex
         case oversizedHex
 
@@ -2051,6 +1854,8 @@ struct SnapshotPersistenceValidator {
             switch self {
             case .shortHex:
                 "short hex"
+            case .malformedHex:
+                "malformed hex"
             case .prefixedHex:
                 "prefixed hex"
             case .oversizedHex:
@@ -2062,6 +1867,8 @@ struct SnapshotPersistenceValidator {
             switch self {
             case .shortHex:
                 "abcd"
+            case .malformedHex:
+                String(repeating: "0", count: 62) + "zz"
             case .prefixedHex:
                 "0x\(String(repeating: "1", count: 64))"
             case .oversizedHex:
@@ -2076,6 +1883,8 @@ struct SnapshotPersistenceValidator {
                     expected: OpalBase.Transaction.Hash.expectedByteCount,
                     actual: 2
                 )
+            case .malformedHex:
+                OpalBase.Address.Book.Error.invalidSnapshotTransactionHash(transactionHash)
             case .prefixedHex:
                 OpalBase.Address.Book.Error.invalidSnapshotTransactionHash(transactionHash)
             case .oversizedHex:
@@ -2089,12 +1898,15 @@ struct SnapshotPersistenceValidator {
 
     enum InvalidSnapshotUTXOTransactionHashCase: CaseIterable, CustomStringConvertible, Sendable {
         case shortHex
+        case malformedHex
         case prefixedHex
 
         var description: String {
             switch self {
             case .shortHex:
                 "short hex"
+            case .malformedHex:
+                "malformed hex"
             case .prefixedHex:
                 "prefixed hex"
             }
@@ -2104,6 +1916,8 @@ struct SnapshotPersistenceValidator {
             switch self {
             case .shortHex:
                 "abcd"
+            case .malformedHex:
+                String(repeating: "0", count: 62) + "zz"
             case .prefixedHex:
                 "0x\(String(repeating: "0", count: 64))"
             }
@@ -2116,6 +1930,8 @@ struct SnapshotPersistenceValidator {
                     expected: OpalBase.Transaction.Hash.expectedByteCount,
                     actual: 2
                 )
+            case .malformedHex:
+                OpalBase.Address.Book.Error.invalidSnapshotTransactionHash(transactionHash)
             case .prefixedHex:
                 OpalBase.Address.Book.Error.invalidSnapshotTransactionHash(transactionHash)
             }

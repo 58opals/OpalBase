@@ -484,7 +484,12 @@ extension _OpalBase.Address.Book {
            decodedByteCount != OpalBase.Transaction.Hash.expectedByteCount {
             throw invalidLengthError(decodedByteCount)
         }
-        let data = try Data(hexadecimalString: hexadecimalString)
+        let data: Data
+        do {
+            data = try Data(hexadecimalString: hexadecimalString)
+        } catch {
+            throw invalidHexadecimalError()
+        }
         guard data.count == OpalBase.Transaction.Hash.expectedByteCount else {
             throw invalidLengthError(data.count)
         }

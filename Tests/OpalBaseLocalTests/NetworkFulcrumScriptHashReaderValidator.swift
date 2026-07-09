@@ -12,6 +12,7 @@ struct NetworkFulcrumScriptHashReaderValidator {
         let scriptHash = String(repeating: "d", count: 64)
         
         #expect(try OpalBase.Network.Fulcrum.ScriptHashReader.validateScriptHash(scriptHash) == scriptHash)
+        #expect(try OpalBase.Network.Fulcrum.ScriptHashReader.validateScriptHash(scriptHash.uppercased()) == scriptHash)
         
         let failure = try Self.captureNetworkError {
             _ = try OpalBase.Network.Fulcrum.ScriptHashReader.validateScriptHash("dd")

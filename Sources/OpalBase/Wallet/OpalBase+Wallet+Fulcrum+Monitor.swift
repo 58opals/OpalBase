@@ -63,7 +63,7 @@ extension _OpalBase.Wallet.Fulcrum {
                 transactionClient: transactionClient,
                 transactionReader: transactionReader,
                 shouldIncludeUnconfirmed: includeUnconfirmed,
-                retryDelay: retryDelay,
+                retryDelay: Self.clampedRetryDelay(retryDelay),
                 eventHub: eventHub
             )
             self.addressSubscriptions = .init()
@@ -201,6 +201,10 @@ extension _OpalBase.Wallet.Fulcrum {
         private func cancelHeaderTask() {
             headerTask?.cancel()
             headerTask = nil
+        }
+
+        private static func clampedRetryDelay(_ retryDelay: Duration) -> Duration {
+            max(.milliseconds(1), retryDelay)
         }
     }
 }

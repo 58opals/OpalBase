@@ -350,13 +350,21 @@ struct TransactionHistoryTokenDeltaValidator {
         )
         let rawTransactionData = try transaction.encode()
         let requestedHash = OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0x7A, count: 32))
+        let actualHash = Self.hash(for: rawTransactionData)
         let transactionReader = OpalBase.Network.TransactionReader(
             TransactionReaderClient(rawTransactionsByHash: [
                 requestedHash: rawTransactionData
             ])
         )
 
-        await #expect(throws: OpalBase.Network.Error.self) {
+        await #expect(throws: OpalBase.Network.Error(
+            reason: .protocolViolation,
+            message: "Transaction payload hash mismatch",
+            metadata: [
+                "expected": requestedHash.reverseOrder.hexadecimalString,
+                "actual": actualHash.reverseOrder.hexadecimalString
+            ]
+        )) {
             _ = try await book.makeTokenDelta(
                 for: requestedHash,
                 transactionReader: transactionReader,
@@ -386,7 +394,8 @@ struct TransactionHistoryTokenDeltaValidator {
         )
         let previousRawTransactionData = try previousTransaction.encode()
         let requestedPreviousHash = OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0x7B, count: 32))
-        #expect(requestedPreviousHash != Self.hash(for: previousRawTransactionData))
+        let actualPreviousHash = Self.hash(for: previousRawTransactionData)
+        #expect(requestedPreviousHash != actualPreviousHash)
         let currentTransaction = OpalBase.Transaction(
             version: 2,
             inputs: [
@@ -407,7 +416,14 @@ struct TransactionHistoryTokenDeltaValidator {
             ])
         )
 
-        await #expect(throws: OpalBase.Network.Error.self) {
+        await #expect(throws: OpalBase.Network.Error(
+            reason: .protocolViolation,
+            message: "Transaction payload hash mismatch",
+            metadata: [
+                "expected": requestedPreviousHash.reverseOrder.hexadecimalString,
+                "actual": actualPreviousHash.reverseOrder.hexadecimalString
+            ]
+        )) {
             _ = try await book.makeTokenDelta(
                 from: currentTransaction,
                 transactionReader: transactionReader,

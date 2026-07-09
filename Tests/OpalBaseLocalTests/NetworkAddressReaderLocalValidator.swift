@@ -192,6 +192,14 @@ struct NetworkAddressReaderLocalValidator {
         )
     }
 
+    @Test("script hash results normalize uppercase hashes")
+    func scriptHashResultsNormalizeUppercaseHashes() throws {
+        #expect(
+            try OpalBase.Network.Fulcrum.AddressReader.validateScriptHash(Self.validScriptHash.uppercased())
+                == Self.validScriptHash
+        )
+    }
+
     @Test(
         "script hash results reject invalid hashes",
         arguments: scriptHashInvalidCases
@@ -219,6 +227,19 @@ struct NetworkAddressReaderLocalValidator {
 
         #expect(failure.reason == .protocolViolation)
         #expect(failure.message == "Address script hash mismatch")
+    }
+
+    @Test("script hash match validation normalizes uppercase hashes")
+    func scriptHashMatchValidationNormalizesUppercaseHashes() throws {
+        let address = try OpalBase.Address("bitcoincash:qpm2qsznhks23z7629mms6s4cwef74vcwvy22gdx6a")
+        let expectedScriptHash = address.makeScriptHash().hexadecimalString
+
+        #expect(
+            try OpalBase.Network.Fulcrum.AddressReader.validateScriptHash(
+                expectedScriptHash.uppercased(),
+                matches: address
+            ) == expectedScriptHash
+        )
     }
 
     @Test("address balance conversion rejects confirmed values above maximum supply")
@@ -286,6 +307,40 @@ struct NetworkAddressReaderLocalValidator {
                 confirmed: 0,
                 unconfirmed: -1
             )
+        }
+    }
+
+    @Test(
+        "address balance totals include unconfirmed deltas",
+        arguments: AddressBalanceSatoshiTotalCase.allCases
+    )
+    fileprivate func addressBalanceTotalsIncludeUnconfirmedDeltas(
+        _ totalCase: AddressBalanceSatoshiTotalCase
+    ) throws {
+        let balance = OpalBase.Network.AddressBalance(
+            confirmed: totalCase.confirmed,
+            unconfirmed: totalCase.unconfirmed
+        )
+
+        let total = try balance.confirmedPlusUnconfirmedSatoshi()
+
+        #expect(total.uint64 == totalCase.expectedSatoshi)
+    }
+
+    @Test(
+        "address balance totals reject invalid totals",
+        arguments: InvalidAddressBalanceSatoshiTotalCase.allCases
+    )
+    fileprivate func addressBalanceTotalsRejectInvalidTotals(
+        _ totalCase: InvalidAddressBalanceSatoshiTotalCase
+    ) {
+        let balance = OpalBase.Network.AddressBalance(
+            confirmed: totalCase.confirmed,
+            unconfirmed: totalCase.unconfirmed
+        )
+
+        #expect(throws: totalCase.expectedError) {
+            _ = try balance.confirmedPlusUnconfirmedSatoshi()
         }
     }
 
@@ -366,6 +421,104 @@ struct NetworkAddressReaderLocalValidator {
         let blockHash: String
         let transactionIdentifier: String
         let expectedMessage: String
+    }
+
+    enum AddressBalanceSatoshiTotalCase: CaseIterable, CustomStringConvertible, Sendable {
+        case positiveUnconfirmed
+        case negativeUnconfirmed
+        case maximumWithNegativeUnconfirmed
+
+        var description: String {
+            switch self {
+            case .positiveUnconfirmed:
+                "positive unconfirmed"
+            case .negativeUnconfirmed:
+                "negative unconfirmed"
+            case .maximumWithNegativeUnconfirmed:
+                "maximum with negative unconfirmed"
+            }
+        }
+
+        var confirmed: UInt64 {
+            switch self {
+            case .positiveUnconfirmed:
+                1_200
+            case .negativeUnconfirmed:
+                1_200
+            case .maximumWithNegativeUnconfirmed:
+                OpalBase.Satoshi.maximumSatoshi
+            }
+        }
+
+        var unconfirmed: Int64 {
+            switch self {
+            case .positiveUnconfirmed:
+                300
+            case .negativeUnconfirmed:
+                -300
+            case .maximumWithNegativeUnconfirmed:
+                -1
+            }
+        }
+
+        var expectedSatoshi: UInt64 {
+            switch self {
+            case .positiveUnconfirmed:
+                1_500
+            case .negativeUnconfirmed:
+                900
+            case .maximumWithNegativeUnconfirmed:
+                OpalBase.Satoshi.maximumSatoshi - 1
+            }
+        }
+    }
+
+    enum InvalidAddressBalanceSatoshiTotalCase: CaseIterable, CustomStringConvertible, Sendable {
+        case confirmedOverflow
+        case aggregateOverflow
+        case negativeTotal
+
+        var description: String {
+            switch self {
+            case .confirmedOverflow:
+                "confirmed overflow"
+            case .aggregateOverflow:
+                "aggregate overflow"
+            case .negativeTotal:
+                "negative total"
+            }
+        }
+
+        var confirmed: UInt64 {
+            switch self {
+            case .confirmedOverflow:
+                OpalBase.Satoshi.maximumSatoshi + 1
+            case .aggregateOverflow:
+                OpalBase.Satoshi.maximumSatoshi
+            case .negativeTotal:
+                0
+            }
+        }
+
+        var unconfirmed: Int64 {
+            switch self {
+            case .confirmedOverflow:
+                0
+            case .aggregateOverflow:
+                1
+            case .negativeTotal:
+                -1
+            }
+        }
+
+        var expectedError: OpalBase.Satoshi.Error {
+            switch self {
+            case .confirmedOverflow, .aggregateOverflow:
+                OpalBase.Satoshi.Error.exceedsMaximumAmount
+            case .negativeTotal:
+                OpalBase.Satoshi.Error.negativeResult
+            }
+        }
     }
 
     private static let invalidUnconfirmedBalanceMagnitudes: [Int64] = {

@@ -172,7 +172,8 @@ extension _OpalBase.Network.Fulcrum {
             _ hosts: [String: SwiftFulcrum.Response.Server.Features.Host]?
         ) throws -> [String: OpalBase.Network.FulcrumServerFeatures.Host]? {
             guard let hosts else { return nil }
-            return try Dictionary(uniqueKeysWithValues: hosts.map { hostName, host in
+            var validatedHosts: [String: OpalBase.Network.FulcrumServerFeatures.Host] = .init()
+            for (hostName, host) in hosts {
                 let validatedHostName = try validateFeatureHostName(hostName)
                 let validatedHost = OpalBase.Network.FulcrumServerFeatures.Host(
                     secureSocketsLayerPort: try Self.validateFeaturePort(host.sslPort, fieldName: "ssl port"),
@@ -180,8 +181,15 @@ extension _OpalBase.Network.Fulcrum {
                     webSocketPort: try Self.validateFeaturePort(host.webSocketPort, fieldName: "websocket port"),
                     secureWebSocketPort: try Self.validateFeaturePort(host.secureWebSocketPort, fieldName: "secure websocket port")
                 )
-                return (validatedHostName, validatedHost)
-            })
+                guard validatedHosts[validatedHostName] == nil else {
+                    throw OpalBase.Network.Error(
+                        reason: .decoding,
+                        message: "Duplicate server feature host: \(validatedHostName)"
+                    )
+                }
+                validatedHosts[validatedHostName] = validatedHost
+            }
+            return validatedHosts
         }
 
         private static func validateFeatureHostName(_ hostName: String) throws -> String {
@@ -191,7 +199,7 @@ extension _OpalBase.Network.Fulcrum {
                     message: "Invalid server feature host: \(hostName)"
                 )
             }
-            return hostName
+            return hostName.lowercased()
         }
 
         private static func validateReusablePaymentAddressPrefixBits(
@@ -210,7 +218,7 @@ extension _OpalBase.Network.Fulcrum {
         
         private static func validateFeatureHash(_ hash: String, fieldName: String) throws -> String {
             _ = try OpalBase.Network.decodeHashData(from: hash, label: "server feature \(fieldName)")
-            return hash
+            return hash.lowercased()
         }
         
         private static func validateReusablePaymentAddressPrefixRange(

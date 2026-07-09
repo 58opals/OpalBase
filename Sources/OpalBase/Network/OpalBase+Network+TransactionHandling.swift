@@ -7,6 +7,25 @@ extension _OpalBase.Network {
 }
 
 extension _OpalBase.Network {
+    static func decodeRawTransactionData(from rawTransactionHexadecimal: String) throws -> Data {
+        guard !rawTransactionHexadecimal.hasPrefix("0x"),
+              !rawTransactionHexadecimal.hasPrefix("0X") else {
+            throw OpalBase.Network.Error(
+                reason: .decoding,
+                message: "Cannot decode raw transaction hex"
+            )
+        }
+
+        do {
+            return try Data(hexadecimalString: rawTransactionHexadecimal)
+        } catch {
+            throw OpalBase.Network.Error(
+                reason: .decoding,
+                message: "Cannot decode raw transaction hex"
+            )
+        }
+    }
+
     static func decodeHashData(
         from hexadecimalString: String,
         label: String

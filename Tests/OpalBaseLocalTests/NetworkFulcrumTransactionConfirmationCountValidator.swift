@@ -98,6 +98,28 @@ struct NetworkFulcrumTransactionConfirmationCountValidator {
         }
     }
 
+    @Test("history mapping normalizes uppercase transaction identifiers")
+    func historyMappingNormalizesUppercaseTransactionIdentifiers() throws {
+        let transactionIdentifier = String(repeating: "a", count: 64)
+        let transactions = [
+            HistoryTransactionFixture(
+                transactionIdentifier: transactionIdentifier.uppercased(),
+                blockHeight: 1,
+                fee: nil
+            )
+        ]
+
+        let entries = try OpalBase.Network.Fulcrum.mapHistoryTransactions(
+            transactions,
+            transactionIdentifier: \.transactionIdentifier,
+            blockHeight: \.blockHeight,
+            fee: \.fee
+        )
+
+        let entry = try #require(entries.first)
+        #expect(entry.transactionIdentifier == transactionIdentifier)
+    }
+
     @Test("mempool mapping rejects confirmed transaction heights")
     func mempoolMappingRejectsConfirmedTransactionHeights() throws {
         let transactions = [

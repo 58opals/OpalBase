@@ -227,7 +227,7 @@ extension _OpalBase.Network.Fulcrum {
         
         static func validateScriptHash(_ scriptHash: String) throws -> String {
             _ = try OpalBase.Network.decodeHashData(from: scriptHash, label: "script hash")
-            return scriptHash
+            return scriptHash.lowercased()
         }
 
         static func validateScriptHash(_ scriptHash: String, matches address: OpalBase.Address) throws -> String {

@@ -44,6 +44,10 @@ extension OpalBase {
             let transactionCount = try reader.readCompactSize()
             guard transactionCount.value <= UInt64(Int.max) else { throw Error.transactionCountOverflow(transactionCount.value) }
             guard transactionCount.value > 0 else { throw Error.emptyTransactionList }
+            try validateDeclaredTransactionCount(
+                transactionCount.value,
+                remainingByteCount: reader.remainingData.count
+            )
             let transactions = try (0..<Int(transactionCount.value)).map { _ -> OpalBase.Transaction in
                 try OpalBase.Transaction.decode(from: &reader)
             }
@@ -79,6 +83,17 @@ extension OpalBase {
             let computedMerkleRoot = try computeMerkleRoot(for: transactions)
             guard merkleRoot == computedMerkleRoot else {
                 throw Error.merkleRootMismatch(computed: computedMerkleRoot, header: merkleRoot)
+            }
+        }
+
+        private static let minimumEncodedTransactionByteCount = 60
+
+        private static func validateDeclaredTransactionCount(
+            _ count: UInt64,
+            remainingByteCount: Int
+        ) throws {
+            guard count <= UInt64(remainingByteCount / minimumEncodedTransactionByteCount) else {
+                throw Data.Error.indexOutOfRange
             }
         }
     }

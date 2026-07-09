@@ -12,7 +12,11 @@ extension _OpalBase.Network {
         public var serverCatalog: ServerCatalog
         /// Time allowed to establish the WebSocket connection.
         /// This does not cap the lifetime of an established socket.
-        public var connectTimeout: Duration
+        public var connectTimeout: Duration {
+            didSet {
+                connectTimeout = Self.clampedConnectTimeout(connectTimeout)
+            }
+        }
         public var maximumMessageSize: Int {
             didSet {
                 maximumMessageSize = Self.clampedMaximumMessageSize(maximumMessageSize)
@@ -31,7 +35,7 @@ extension _OpalBase.Network {
         ) {
             self.normalizedServerURLs = ServerCatalog.makeNormalizedServers(serverURLs)
             self.serverCatalog = serverCatalog
-            self.connectTimeout = connectTimeout
+            self.connectTimeout = Self.clampedConnectTimeout(connectTimeout)
             self.maximumMessageSize = Self.clampedMaximumMessageSize(maximumMessageSize)
             self.reconnectConfiguration = reconnect
             self.network = network
@@ -39,6 +43,10 @@ extension _OpalBase.Network {
 
         private static func clampedMaximumMessageSize(_ maximumMessageSize: Int) -> Int {
             max(1, maximumMessageSize)
+        }
+
+        private static func clampedConnectTimeout(_ connectTimeout: Duration) -> Duration {
+            max(.milliseconds(1), connectTimeout)
         }
     }
 }

@@ -646,13 +646,11 @@ struct WalletFulcrumAddressMonitorValidator {
         let addressReader = WalletAddressReaderTestActor()
         let confirmationClient = TransactionConfirmationClientTestActor()
         let headerReader = BlockHeaderReaderTestActor(snapshots: .init())
-        let fulcrum = OpalBase.Wallet.Fulcrum(
-            addressReader: addressReader,
-            transactionHandler: confirmationClient
-        )
-        let monitor = await fulcrum.makeMonitor(
+        let monitor = await Self.makeMonitor(
             for: account,
-            blockHeaderReader: headerReader,
+            headerReader: headerReader,
+            addressReader: addressReader,
+            confirmationClient: confirmationClient,
             retryDelay: .seconds(20)
         )
 
@@ -679,13 +677,11 @@ struct WalletFulcrumAddressMonitorValidator {
             snapshots: [],
             shouldKeepSubscriptionOpen: false
         )
-        let fulcrum = OpalBase.Wallet.Fulcrum(
-            addressReader: addressReader,
-            transactionHandler: confirmationClient
-        )
-        let monitor = await fulcrum.makeMonitor(
+        let monitor = await Self.makeMonitor(
             for: account,
-            blockHeaderReader: headerReader,
+            headerReader: headerReader,
+            addressReader: addressReader,
+            confirmationClient: confirmationClient,
             retryDelay: .seconds(20)
         )
 
@@ -708,6 +704,18 @@ struct WalletFulcrumAddressMonitorValidator {
         await monitor.stop()
     }
 
+    @Test("monitor clamps non-positive retry delays", arguments: [Duration.zero, .seconds(-1)])
+    func monitorClampsNonPositiveRetryDelays(_ retryDelay: Duration) async throws {
+        let account = try await AccountTestFixtures.makeAccount()
+        let monitor = await Self.makeMonitor(
+            for: account,
+            headerReader: BlockHeaderReaderTestActor(snapshots: .init()),
+            retryDelay: retryDelay
+        )
+
+        #expect(await monitor.dependencies.retryDelay == .milliseconds(1))
+    }
+
     @Test("monitor deinit cancels address and header subscriptions without explicit stop")
     func monitorDeinitCancelsSubscriptions() async throws {
         let account = try await AccountTestFixtures.makeAccount()
@@ -721,15 +729,13 @@ struct WalletFulcrumAddressMonitorValidator {
         let headerReader = BlockHeaderReaderTestActor(
             snapshots: [.init(height: 15, headerHexadecimal: String(repeating: "c", count: 160))]
         )
-        let fulcrum = OpalBase.Wallet.Fulcrum(
-            addressReader: addressReader,
-            transactionHandler: confirmationClient
-        )
 
         weak var weakMonitor: OpalBase.Wallet.Fulcrum.Monitor?
-        var strongMonitor: OpalBase.Wallet.Fulcrum.Monitor? = await fulcrum.makeMonitor(
+        var strongMonitor: OpalBase.Wallet.Fulcrum.Monitor? = await Self.makeMonitor(
             for: account,
-            blockHeaderReader: headerReader,
+            headerReader: headerReader,
+            addressReader: addressReader,
+            confirmationClient: confirmationClient,
             retryDelay: .milliseconds(10)
         )
         weakMonitor = strongMonitor
@@ -762,5 +768,23 @@ struct WalletFulcrumAddressMonitorValidator {
             let tipTerminations = await headerReader.readTerminationCount()
             return addressTerminations > 0 && tipTerminations > 0
         }
+    }
+
+    private static func makeMonitor(
+        for account: OpalBase.Account,
+        headerReader: BlockHeaderReaderTestActor,
+        addressReader: WalletAddressReaderTestActor = .init(),
+        confirmationClient: TransactionConfirmationClientTestActor = .init(),
+        retryDelay: Duration = .milliseconds(10)
+    ) async -> OpalBase.Wallet.Fulcrum.Monitor {
+        let fulcrum = OpalBase.Wallet.Fulcrum(
+            addressReader: addressReader,
+            transactionHandler: confirmationClient
+        )
+        return await fulcrum.makeMonitor(
+            for: account,
+            blockHeaderReader: headerReader,
+            retryDelay: retryDelay
+        )
     }
 }

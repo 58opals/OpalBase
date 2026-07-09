@@ -52,7 +52,7 @@ extension _OpalBase.Wallet {
                                                        includeUnconfirmed: includeUnconfirmedHistory)
             return try await account.refreshBalances(for: usage) { address in
                 let balance = try await self.addressReader.fetchBalance(for: address.string, tokenFilter: .include)
-                return try Self.makeBalance(from: balance)
+                return try balance.confirmedPlusUnconfirmedSatoshi()
             }
         }
         
@@ -210,22 +210,5 @@ private extension _OpalBase.Wallet.Fulcrum {
                 }
             }
         )
-    }
-
-    static func makeBalance(from balance: OpalBase.Network.AddressBalance) throws -> OpalBase.Satoshi {
-        guard balance.confirmed <= OpalBase.Satoshi.maximumSatoshi else {
-            throw OpalBase.Satoshi.Error.exceedsMaximumAmount
-        }
-        let confirmed = Int64(balance.confirmed)
-
-        let (total, overflow) = confirmed.addingReportingOverflow(balance.unconfirmed)
-        guard !overflow else {
-            throw OpalBase.Satoshi.Error.exceedsMaximumAmount
-        }
-        guard total >= 0 else {
-            throw OpalBase.Satoshi.Error.negativeResult
-        }
-
-        return try OpalBase.Satoshi(UInt64(total))
     }
 }

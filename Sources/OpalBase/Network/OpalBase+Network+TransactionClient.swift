@@ -48,7 +48,12 @@ extension _OpalBase.Network {
         }
 
         public func broadcastTransaction(rawTransactionHexadecimal: String) async throws -> String {
-            try await performBroadcastTransaction(rawTransactionHexadecimal)
+            let rawTransactionData = try OpalBase.Network.decodeRawTransactionData(from: rawTransactionHexadecimal)
+            let transactionHash = try await validatedBroadcast(
+                rawTransactionHexadecimal: rawTransactionHexadecimal,
+                rawTransactionData: rawTransactionData
+            )
+            return transactionHash.reverseOrder.hexadecimalString
         }
 
         public func fetchConfirmations(forTransactionIdentifier transactionIdentifier: String) async throws -> UInt? {
@@ -62,7 +67,17 @@ extension _OpalBase.Network {
         public func broadcast(transaction: OpalBase.Transaction) async throws -> OpalBase.Transaction.Hash {
             let rawTransactionData = try transaction.encode()
             let rawHexadecimal = rawTransactionData.hexadecimalString
-            let transactionIdentifier = try await broadcastTransaction(rawTransactionHexadecimal: rawHexadecimal)
+            return try await validatedBroadcast(
+                rawTransactionHexadecimal: rawHexadecimal,
+                rawTransactionData: rawTransactionData
+            )
+        }
+
+        private func validatedBroadcast(
+            rawTransactionHexadecimal: String,
+            rawTransactionData: Data
+        ) async throws -> OpalBase.Transaction.Hash {
+            let transactionIdentifier = try await performBroadcastTransaction(rawTransactionHexadecimal)
             return try OpalBase.Network.decodeBroadcastTransactionHash(
                 from: transactionIdentifier,
                 rawTransactionData: rawTransactionData

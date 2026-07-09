@@ -71,4 +71,15 @@ struct AccountPrivacyShaperValidator {
         #expect(configuration.decoyProbability == expectedDecoyProbability)
     }
 
+    @Test("configuration clamps zero timing ranges")
+    func configurationClampsZeroTimingRanges() {
+        let configuration = OpalBase.Account.PrivacyShaperActor.Configuration(
+            batchingIntervalRange: 0 ... 0,
+            operationJitterRange: 0 ... 5
+        )
+
+        #expect(configuration.batchingIntervalRange == 1 ... 1)
+        #expect(configuration.operationJitterRange == 1 ... 5)
+    }
+
 }

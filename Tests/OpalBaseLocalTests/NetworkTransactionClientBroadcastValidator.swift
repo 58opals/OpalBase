@@ -7,8 +7,8 @@ import OpalBaseTestSupport
 
 @Suite("OpalBase.Network.TransactionClient broadcast", .tags(.unit, .network, .transaction))
 struct NetworkTransactionClientBroadcastValidator {
-    @Test("broadcast returns the hash derived from the serialized transaction")
-    func broadcastReturnsDerivedTransactionHash() async throws {
+    @Test("broadcast returns the hash derived from the submitted transaction", arguments: BroadcastInvocationKind.allCases)
+    private func broadcastReturnsDerivedTransactionHash(kind: BroadcastInvocationKind) async throws {
         let transaction = makeTransaction()
         let rawTransactionData = try transaction.encode()
         let expectedHash = OpalBase.Transaction.Hash(
@@ -16,28 +16,31 @@ struct NetworkTransactionClientBroadcastValidator {
         )
         let client = makeTransactionClient(returning: expectedHash.reverseOrder.hexadecimalString)
 
-        let hash = try await client.broadcast(transaction: transaction)
+        let hash = try await broadcast(
+            using: kind,
+            client: client,
+            transaction: transaction,
+            rawTransactionData: rawTransactionData
+        )
 
         #expect(hash == expectedHash)
     }
 
-    @Test("broadcast rejects a mismatched returned transaction hash")
-    func broadcastRejectsMismatchedTransactionHash() async throws {
+    @Test("broadcast rejects a mismatched returned transaction hash", arguments: BroadcastInvocationKind.allCases)
+    private func broadcastRejectsMismatchedTransactionHash(kind: BroadcastInvocationKind) async throws {
         let transaction = makeTransaction()
+        let rawTransactionData = try transaction.encode()
         let wrongHash = OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0x99, count: 32))
         let client = makeTransactionClient(returning: wrongHash.reverseOrder.hexadecimalString)
+        let expectedError = try makeBroadcastMismatchError(transaction: transaction, actualHash: wrongHash)
 
-        await #expect(throws: OpalBase.Network.Error(
-            reason: .protocolViolation,
-            message: "Broadcast transaction hash mismatch",
-            metadata: [
-                "expected": OpalBase.Transaction.Hash(
-                    naturalOrder: OpalCryptoAdapter.hash256(try transaction.encode())
-                ).reverseOrder.hexadecimalString,
-                "actual": wrongHash.reverseOrder.hexadecimalString
-            ]
-        )) {
-            _ = try await client.broadcast(transaction: transaction)
+        await #expect(throws: expectedError) {
+            _ = try await broadcast(
+                using: kind,
+                client: client,
+                transaction: transaction,
+                rawTransactionData: rawTransactionData
+            )
         }
     }
 
@@ -74,5 +77,48 @@ struct NetworkTransactionClientBroadcastValidator {
             ],
             lockTime: 0
         )
+    }
+
+    private func makeBroadcastMismatchError(
+        transaction: OpalBase.Transaction,
+        actualHash: OpalBase.Transaction.Hash
+    ) throws -> OpalBase.Network.Error {
+        OpalBase.Network.Error(
+            reason: .protocolViolation,
+            message: "Broadcast transaction hash mismatch",
+            metadata: [
+                "expected": OpalBase.Transaction.Hash(
+                    naturalOrder: OpalCryptoAdapter.hash256(try transaction.encode())
+                ).reverseOrder.hexadecimalString,
+                "actual": actualHash.reverseOrder.hexadecimalString
+            ]
+        )
+    }
+
+    private func broadcast(
+        using kind: BroadcastInvocationKind,
+        client: OpalBase.Network.TransactionClient,
+        transaction: OpalBase.Transaction,
+        rawTransactionData: Data
+    ) async throws -> OpalBase.Transaction.Hash {
+        switch kind {
+        case .transaction:
+            return try await client.broadcast(transaction: transaction)
+        case .rawTransaction:
+            let transactionIdentifier = try await client.broadcastTransaction(
+                rawTransactionHexadecimal: rawTransactionData.hexadecimalString
+            )
+            return try OpalBase.Network.decodeTransactionHash(
+                from: transactionIdentifier,
+                label: "broadcast transaction identifier"
+            )
+        }
+    }
+
+    private enum BroadcastInvocationKind: String, CaseIterable, CustomStringConvertible, Sendable {
+        case transaction
+        case rawTransaction
+
+        var description: String { rawValue }
     }
 }

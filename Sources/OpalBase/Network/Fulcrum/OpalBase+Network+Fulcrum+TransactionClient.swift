@@ -14,12 +14,16 @@ extension _OpalBase.Network.Fulcrum {
         }
         
         public func broadcastTransaction(rawTransactionHexadecimal: String) async throws -> String {
-            try await OpalBase.Network.performWithFailureTranslation {
+            let rawTransactionData = try OpalBase.Network.decodeRawTransactionData(from: rawTransactionHexadecimal)
+            return try await OpalBase.Network.performWithFailureTranslation {
                 let response = try await client.request(
                     SwiftFulcrum.API.blockchain.transaction.broadcast(rawTransaction: rawTransactionHexadecimal),
                     options: .init(timeout: timeouts.transactionBroadcast)
                 )
-                return response.transactionHash.hexadecimalString
+                return try OpalBase.Network.decodeBroadcastTransactionHash(
+                    from: response.transactionHash.hexadecimalString,
+                    rawTransactionData: rawTransactionData
+                ).reverseOrder.hexadecimalString
             }
         }
         
@@ -131,7 +135,7 @@ extension _OpalBase.Network.Fulcrum {
     ) throws -> [OpalBase.Network.TransactionHistoryEntry] {
         try historyTransactions.map { transaction in
             let identifier = transaction[keyPath: transactionIdentifier]
-            _ = try OpalBase.Network.decodeTransactionHash(
+            let transactionHash = try OpalBase.Network.decodeTransactionHash(
                 from: identifier,
                 label: "history transaction hash"
             )
@@ -143,7 +147,7 @@ extension _OpalBase.Network.Fulcrum {
                 )
             }
             return OpalBase.Network.TransactionHistoryEntry(
-                transactionIdentifier: identifier,
+                transactionIdentifier: transactionHash.reverseOrder.hexadecimalString,
                 blockHeight: resolvedBlockHeight,
                 fee: try resolveFee(transaction[keyPath: fee])
             )

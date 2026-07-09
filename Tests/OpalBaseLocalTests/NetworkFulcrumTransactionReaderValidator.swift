@@ -10,12 +10,10 @@ import OpalBaseTestSupport
 struct NetworkFulcrumTransactionReaderValidator {
     @Test("fetches raw transactions from raw hex responses without caching raw-only reads")
     func fetchRawTransactionReturnsDecodedBytes() async throws {
-        let fixture = try TransactionFixture.make()
-        let client = TransactionReaderClientTestActor(
-            rawTransactionHex: fixture.rawTransactionHexadecimal,
-            verboseTransaction: fixture.verboseResponse
-        )
-        let reader = OpalBase.Network.Fulcrum.TransactionReader(client: client)
+        let harness = try Self.makeReaderHarness()
+        let fixture = harness.fixture
+        let client = harness.client
+        let reader = harness.reader
 
         let first = try await reader.fetchRawTransaction(for: fixture.transactionHash)
         let second = try await reader.fetchRawTransaction(for: fixture.transactionHash)
@@ -53,11 +51,12 @@ struct NetworkFulcrumTransactionReaderValidator {
     @Test("fetchRawTransaction rejects prefixed raw transaction hex")
     func fetchRawTransactionRejectsPrefixedRawTransactionHex() async throws {
         let fixture = try TransactionFixture.make()
-        let client = TransactionReaderClientTestActor(
+        let harness = try Self.makeReaderHarness(
+            fixture: fixture,
             rawTransactionHex: "0x" + fixture.rawTransactionHexadecimal,
-            verboseTransaction: fixture.verboseResponse
         )
-        let reader = OpalBase.Network.Fulcrum.TransactionReader(client: client)
+        let client = harness.client
+        let reader = harness.reader
 
         let failure = try await Self.captureNetworkError {
             _ = try await reader.fetchRawTransaction(for: fixture.transactionHash)
@@ -71,12 +70,10 @@ struct NetworkFulcrumTransactionReaderValidator {
 
     @Test("fetches detailed transactions from verbose responses")
     func fetchDetailedTransactionMapsVerboseResponses() async throws {
-        let fixture = try TransactionFixture.make()
-        let client = TransactionReaderClientTestActor(
-            rawTransactionHex: fixture.rawTransactionHexadecimal,
-            verboseTransaction: fixture.verboseResponse
-        )
-        let reader = OpalBase.Network.Fulcrum.TransactionReader(client: client)
+        let harness = try Self.makeReaderHarness()
+        let fixture = harness.fixture
+        let client = harness.client
+        let reader = harness.reader
 
         let detail = try await reader.fetchDetailedTransaction(for: fixture.transactionHash)
 
@@ -133,11 +130,12 @@ struct NetworkFulcrumTransactionReaderValidator {
             transactionTime: nil,
             size: fixture.rawTransactionData.count
         )
-        let client = TransactionReaderClientTestActor(
-            rawTransactionHex: fixture.rawTransactionHexadecimal,
+        let harness = try Self.makeReaderHarness(
+            fixture: fixture,
             verboseTransaction: verboseResponse
         )
-        let reader = OpalBase.Network.Fulcrum.TransactionReader(client: client)
+        let client = harness.client
+        let reader = harness.reader
 
         let detail = try await reader.fetchDetailedTransaction(for: fixture.transactionHash)
 
@@ -159,13 +157,12 @@ struct NetworkFulcrumTransactionReaderValidator {
     func fetchDetailedTransactionFallsBackToRawAfterVerboseDecodeFailures(
         _ fallbackCase: VerboseDecodingFallbackCase
     ) async throws {
-        let fixture = try TransactionFixture.make()
-        let client = TransactionReaderClientTestActor(
-            rawTransactionHex: fixture.rawTransactionHexadecimal,
-            verboseTransaction: fixture.verboseResponse,
+        let harness = try Self.makeReaderHarness(
             verboseError: fallbackCase.verboseError
         )
-        let reader = OpalBase.Network.Fulcrum.TransactionReader(client: client)
+        let fixture = harness.fixture
+        let client = harness.client
+        let reader = harness.reader
 
         let detail = try await reader.fetchDetailedTransaction(for: fixture.transactionHash)
 
@@ -189,11 +186,12 @@ struct NetworkFulcrumTransactionReaderValidator {
     ) async throws {
         let fixture = try TransactionFixture.make()
         let verboseResponse = try fallbackCase.makeVerboseResponse(for: fixture)
-        let client = TransactionReaderClientTestActor(
-            rawTransactionHex: fixture.rawTransactionHexadecimal,
+        let harness = try Self.makeReaderHarness(
+            fixture: fixture,
             verboseTransaction: verboseResponse
         )
-        let reader = OpalBase.Network.Fulcrum.TransactionReader(client: client)
+        let client = harness.client
+        let reader = harness.reader
 
         let detail = try await reader.fetchDetailedTransaction(for: fixture.transactionHash)
 
@@ -221,11 +219,12 @@ struct NetworkFulcrumTransactionReaderValidator {
             transactionTime: nil,
             size: fixture.rawTransactionData.count
         )
-        let client = TransactionReaderClientTestActor(
-            rawTransactionHex: fixture.rawTransactionHexadecimal,
+        let harness = try Self.makeReaderHarness(
+            fixture: fixture,
             verboseTransaction: verboseResponse
         )
-        let reader = OpalBase.Network.Fulcrum.TransactionReader(client: client)
+        let client = harness.client
+        let reader = harness.reader
 
         let detail = try await reader.fetchDetailedTransaction(for: fixture.transactionHash)
 
@@ -332,14 +331,12 @@ struct NetworkFulcrumTransactionReaderValidator {
         arguments: NonDecodingFailureCase.allCases
     )
     func fetchDetailedTransactionDoesNotRetryRawForNonDecodingFailures(_ failureCase: NonDecodingFailureCase) async throws {
-        let fixture = try TransactionFixture.make()
-
-        let client = TransactionReaderClientTestActor(
-            rawTransactionHex: fixture.rawTransactionHexadecimal,
-            verboseTransaction: fixture.verboseResponse,
+        let harness = try Self.makeReaderHarness(
             verboseError: failureCase.verboseError
         )
-        let reader = OpalBase.Network.Fulcrum.TransactionReader(client: client)
+        let fixture = harness.fixture
+        let client = harness.client
+        let reader = harness.reader
 
         let failure = try await Self.captureNetworkError {
             _ = try await reader.fetchDetailedTransaction(for: fixture.transactionHash)
@@ -352,13 +349,11 @@ struct NetworkFulcrumTransactionReaderValidator {
 
     @Test("reuses cached detailed transactions for repeated detailed and raw reads")
     func detailedTransactionCacheServesRepeatedRequests() async throws {
-        let fixture = try TransactionFixture.make()
-        let client = TransactionReaderClientTestActor(
-            rawTransactionHex: fixture.rawTransactionHexadecimal,
-            verboseTransaction: fixture.verboseResponse
-        )
         let cache = OpalBase.Transaction.Cache()
-        let reader = OpalBase.Network.Fulcrum.TransactionReader(client: client, cache: cache)
+        let harness = try Self.makeReaderHarness(cache: cache)
+        let fixture = harness.fixture
+        let client = harness.client
+        let reader = harness.reader
 
         let first = try await reader.fetchDetailedTransaction(for: fixture.transactionHash)
         let second = try await reader.fetchDetailedTransaction(for: fixture.transactionHash)
@@ -510,8 +505,36 @@ extension NetworkFulcrumTransactionReaderValidator {
         case unexpected(Swift.Error)
     }
 
+    struct ReaderHarness {
+        let fixture: TransactionFixture
+        let client: TransactionReaderClientTestActor
+        let reader: OpalBase.Network.Fulcrum.TransactionReader
+    }
+
     static func makeDecodeError(_ message: String) -> SwiftFulcrum.Client.Error {
         .coding(.decode(DecodeFailure(description: ".unexpectedFormat(\"\(message)\")")))
+    }
+
+    static func makeReaderHarness(
+        fixture providedFixture: TransactionFixture? = nil,
+        rawTransactionHex: String? = nil,
+        verboseTransaction: SwiftFulcrum.Response.Blockchain.Transaction.Verbose? = nil,
+        verboseError: Swift.Error? = nil,
+        cache: OpalBase.Transaction.Cache? = nil
+    ) throws -> ReaderHarness {
+        let fixture = try providedFixture ?? TransactionFixture.make()
+        let client = TransactionReaderClientTestActor(
+            rawTransactionHex: rawTransactionHex ?? fixture.rawTransactionHexadecimal,
+            verboseTransaction: verboseTransaction ?? fixture.verboseResponse,
+            verboseError: verboseError
+        )
+        let reader: OpalBase.Network.Fulcrum.TransactionReader
+        if let cache {
+            reader = OpalBase.Network.Fulcrum.TransactionReader(client: client, cache: cache)
+        } else {
+            reader = OpalBase.Network.Fulcrum.TransactionReader(client: client)
+        }
+        return ReaderHarness(fixture: fixture, client: client, reader: reader)
     }
 
     static func makeSlicedData(from data: Data) -> Data {

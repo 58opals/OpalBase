@@ -103,15 +103,13 @@ extension _OpalBase.Storage {
                 await progressHandler(.committedGeneration(generation: stagedGeneration))
 
                 if let previousCommittedGeneration, previousCommittedGeneration != stagedGeneration {
-                    try? await snapshotPersistence.deleteWalletSnapshot(generation: previousCommittedGeneration)
-                    try? await storedMnemonicPersistence.deleteMnemonic(generation: previousCommittedGeneration)
+                    await deleteGenerationArtifacts(previousCommittedGeneration)
                 }
 
                 await progressHandler(.finishedSave(mode: protectionMode))
                 return protectionMode
             } catch {
-                try? await snapshotPersistence.deleteWalletSnapshot(generation: stagedGeneration)
-                try? await storedMnemonicPersistence.deleteMnemonic(generation: stagedGeneration)
+                await deleteGenerationArtifacts(stagedGeneration)
                 throw error
             }
         }
@@ -167,25 +165,30 @@ extension _OpalBase.Storage {
         private func deletePersistedWalletState() async throws {
             if let committedGeneration = try await snapshotPersistence.loadCommittedGeneration() {
                 try await snapshotPersistence.deleteCommittedGeneration()
-                var deletionError: Swift.Error?
-                do {
-                    try await snapshotPersistence.deleteWalletSnapshot(generation: committedGeneration)
-                } catch {
-                    deletionError = error
-                }
-                do {
-                    try await storedMnemonicPersistence.deleteMnemonic(generation: committedGeneration)
-                } catch {
-                    if deletionError == nil {
-                        deletionError = error
-                    }
-                }
-                if let deletionError {
+                if let deletionError = await deleteGenerationArtifacts(committedGeneration) {
                     throw deletionError
                 }
             } else {
                 try await snapshotPersistence.deleteCommittedGeneration()
             }
+        }
+
+        @discardableResult
+        private func deleteGenerationArtifacts(_ generation: String) async -> Swift.Error? {
+            var deletionError: Swift.Error?
+            do {
+                try await snapshotPersistence.deleteWalletSnapshot(generation: generation)
+            } catch {
+                deletionError = error
+            }
+            do {
+                try await storedMnemonicPersistence.deleteMnemonic(generation: generation)
+            } catch {
+                if deletionError == nil {
+                    deletionError = error
+                }
+            }
+            return deletionError
         }
     }
 }

@@ -13,3 +13,22 @@ extension _OpalBase.Network {
         }
     }
 }
+
+extension _OpalBase.Network.AddressBalance {
+    func confirmedPlusUnconfirmedSatoshi() throws -> OpalBase.Satoshi {
+        guard confirmed <= OpalBase.Satoshi.maximumSatoshi else {
+            throw OpalBase.Satoshi.Error.exceedsMaximumAmount
+        }
+
+        let confirmed = Int64(confirmed)
+        let (total, overflow) = confirmed.addingReportingOverflow(unconfirmed)
+        guard !overflow else {
+            throw OpalBase.Satoshi.Error.exceedsMaximumAmount
+        }
+        guard total >= 0 else {
+            throw OpalBase.Satoshi.Error.negativeResult
+        }
+
+        return try OpalBase.Satoshi(UInt64(total))
+    }
+}

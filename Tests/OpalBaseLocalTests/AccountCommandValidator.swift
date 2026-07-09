@@ -99,9 +99,26 @@ struct AccountCommandValidator {
         }
     }
 
+    static func requireCoinSelectionTransactionError(
+        operation: () async throws -> Void
+    ) async throws -> OpalBase.Transaction.Error {
+        do {
+            try await operation()
+            throw ExpectedCoinSelectionFailureNotThrown()
+        } catch OpalBase.Account.Error.coinSelectionFailed(let underlying) {
+            return try #require(underlying as? OpalBase.Transaction.Error)
+        }
+    }
+
     struct ExpectedAccountTransactionBuildFailureNotThrown: Swift.Error, CustomStringConvertible {
         var description: String {
             "Expected an account transaction build failure."
+        }
+    }
+
+    struct ExpectedCoinSelectionFailureNotThrown: Swift.Error, CustomStringConvertible {
+        var description: String {
+            "Expected a coin selection failure."
         }
     }
 
@@ -186,17 +203,11 @@ struct AccountCommandValidator {
     @Test("prepareSpend reports insufficient funds when sweep-all shortfall occurs")
     func prepareSpendReportsShortfallForSweepAllCoinSelection() async throws {
         let account = try await AccountTestFixtures.makeAccount()
-
-        let addressBook = await account.addressBook
-        let receivingEntry = try await addressBook.selectNextEntry(for: OpalBase.Key.DerivationPath.Usage.receiving)
-        let previousTransactionHash = OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0, count: 32))
-        let utxo = OpalBase.Transaction.Output.Unspent(
+        let utxo = try await AccountTestFixtures.addUnspentOutput(
+            to: account,
             value: 1_000,
-            lockingScript: receivingEntry.address.lockingScript.data,
-            previousTransactionHash: previousTransactionHash,
-            previousTransactionOutputIndex: 0
+            hashByte: 0
         )
-        await addressBook.addUTXOs([utxo])
 
         let recipientAddress = try OpalBase.Address("bitcoincash:qpm2qsznhks23z7629mms6s4cwef74vcwvy22gdx6a")
         let paymentAmount = try OpalBase.Satoshi(2_000)
@@ -205,49 +216,27 @@ struct AccountCommandValidator {
             coinSelection: .sweepAll
         )
 
-        do {
+        let transactionError = try await Self.requireCoinSelectionTransactionError {
             _ = try await account.prepareSpend(payment)
-            Issue.record("Expected prepareSpend to surface insufficient funds")
-        } catch let error as OpalBase.Account.Error {
-            switch error {
-            case .coinSelectionFailed(let underlyingError):
-                guard let transactionError = underlyingError as? OpalBase.Transaction.Error else {
-                    Issue.record("Expected OpalBase.Transaction.Error but received \(type(of: underlyingError))")
-                    return
-                }
-
-                switch transactionError {
-                case .insufficientFunds(required: let requiredAmount):
-                    let feeWithoutChange = try OpalBase.Transaction.estimateFee(
-                        inputCount: 1,
-                        outputs: [OpalBase.Transaction.Output(value: paymentAmount.uint64, address: recipientAddress, tokenData: nil)],
-                        feePerByte: OpalBase.Wallet.FeePolicy().recommendFeeRate(for: payment.feeContext)
-                    )
-                    #expect(requiredAmount == paymentAmount.uint64 + feeWithoutChange - utxo.value)
-                default:
-                    Issue.record("Expected insufficient funds but received \(transactionError)")
-                }
-            default:
-                Issue.record("Expected coinSelectionFailed but received \(error)")
-            }
-        } catch {
-            Issue.record("Unexpected error: \(error)")
         }
+        let requiredAmount = try #require(transactionError.insufficientFundsRequiredAmount)
+        let feeWithoutChange = try OpalBase.Transaction.estimateFee(
+            inputCount: 1,
+            outputs: [OpalBase.Transaction.Output(value: paymentAmount.uint64, address: recipientAddress, tokenData: nil)],
+            feePerByte: OpalBase.Wallet.FeePolicy().recommendFeeRate(for: payment.feeContext)
+        )
+        #expect(requiredAmount == paymentAmount.uint64 + feeWithoutChange - utxo.value)
     }
 
     @Test("prepareSpend reports fee shortfall before reserving sweep-all funds")
     func prepareSpendReportsFeeShortfallBeforeReservingSweepAllFunds() async throws {
         let account = try await AccountTestFixtures.makeAccount()
         let addressBook = await account.addressBook
-        let receivingEntry = try await addressBook.selectNextEntry(for: OpalBase.Key.DerivationPath.Usage.receiving)
-        let previousTransactionHash = OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 3, count: 32))
-        let utxo = OpalBase.Transaction.Output.Unspent(
+        _ = try await AccountTestFixtures.addUnspentOutput(
+            to: account,
             value: 1_000,
-            lockingScript: receivingEntry.address.lockingScript.data,
-            previousTransactionHash: previousTransactionHash,
-            previousTransactionOutputIndex: 0
+            hashByte: 3
         )
-        await addressBook.addUTXOs([utxo])
 
         let recipientAddress = try OpalBase.Address("bitcoincash:qpm2qsznhks23z7629mms6s4cwef74vcwvy22gdx6a")
         let payment = OpalBase.Account.Payment(
@@ -255,23 +244,11 @@ struct AccountCommandValidator {
             coinSelection: .sweepAll
         )
 
-        do {
+        let transactionError = try await Self.requireCoinSelectionTransactionError {
             _ = try await account.prepareSpend(payment)
-            Issue.record("Expected prepareSpend to reject sweep-all fee shortfall")
-        } catch let error as OpalBase.Account.Error {
-            switch error {
-            case .coinSelectionFailed(let underlyingError):
-                guard case OpalBase.Transaction.Error.insufficientFunds(required: let requiredAmount) = underlyingError else {
-                    Issue.record("Expected insufficient funds but received \(underlyingError)")
-                    return
-                }
-                #expect(requiredAmount > 0)
-            default:
-                Issue.record("Expected coinSelectionFailed but received \(error)")
-            }
-        } catch {
-            Issue.record("Unexpected error: \(error)")
         }
+        let requiredAmount = try #require(transactionError.insufficientFundsRequiredAmount)
+        #expect(requiredAmount > 0)
 
         #expect(await addressBook.readActiveSpendReservations().isEmpty)
     }
@@ -291,18 +268,10 @@ struct AccountCommandValidator {
             recipients: [.init(address: recipientAddress, amount: try OpalBase.Satoshi(1))]
         )
 
-        do {
+        let transactionError = try await Self.requireCoinSelectionTransactionError {
             _ = try await account.prepareSpend(payment)
-            Issue.record("Expected prepareSpend to reject a dust recipient output")
-        } catch let error as OpalBase.Account.Error {
-            guard case .coinSelectionFailed(let underlyingError) = error,
-                  case OpalBase.Transaction.Error.outputValueIsLessThanTheDustLimit = underlyingError else {
-                Issue.record("Expected outputValueIsLessThanTheDustLimit but received \(error)")
-                return
-            }
-        } catch {
-            Issue.record("Unexpected error: \(error)")
         }
+        try #require(transactionError == .outputValueIsLessThanTheDustLimit)
 
         #expect(await addressBook.readActiveSpendReservations().isEmpty)
     }
@@ -335,10 +304,9 @@ struct AccountCommandValidator {
         let initialUnusedCount = initialChangeEntries.filter { !$0.isUsed }.count
         #expect(initialUnusedCount >= gapLimit)
 
-        do {
+        await #expect(throws: OpalBase.Account.Error.self) {
             _ = try await account.prepareSpend(payment)
-            Issue.record("Expected subsequent prepareSpend call to fail while reservation is active")
-        } catch { }
+        }
 
         try await initialPlan.cancelReservation()
 
@@ -723,5 +691,14 @@ struct AccountCommandValidator {
         #expect(nextAvailableEntry.derivationPath.index == 2)
         #expect(nextAvailableEntry.isReserved == false)
         #expect(nextAvailableEntry.isUsed == false)
+    }
+}
+
+private extension OpalBase.Transaction.Error {
+    var insufficientFundsRequiredAmount: UInt64? {
+        guard case .insufficientFunds(required: let requiredAmount) = self else {
+            return nil
+        }
+        return requiredAmount
     }
 }

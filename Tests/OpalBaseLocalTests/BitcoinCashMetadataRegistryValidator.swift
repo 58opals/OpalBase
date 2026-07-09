@@ -1108,12 +1108,24 @@ struct BitcoinCashMetadataRegistryValidator {
             maxBytes: 1_024
         )
 
-        await #expect(throws: OpalBase.CashTokens.BCMR.Client.Fetcher.Error.self) {
+        let hypertextTransferProtocolSecureError = try await captureRegistryFetcherError {
             _ = try await fetcher.fetchRegistryBytes(from: "https://user:secret@registry.example/metadata.json")
         }
+        switch hypertextTransferProtocolSecureError {
+        case .invalidResourceIdentifier("https://user:secret@registry.example/metadata.json"):
+            break
+        case let error:
+            Issue.record("Expected invalidResourceIdentifier for HTTPS credentials, got \(error).")
+        }
 
-        await #expect(throws: OpalBase.CashTokens.BCMR.Client.Fetcher.Error.self) {
+        let interPlanetaryFileSystemError = try await captureRegistryFetcherError {
             _ = try await fetcher.fetchRegistryBytes(from: "ipfs://user@bafybeigdyrzt/metadata.json")
+        }
+        switch interPlanetaryFileSystemError {
+        case .invalidResourceIdentifier("ipfs://user@bafybeigdyrzt/metadata.json"):
+            break
+        case let error:
+            Issue.record("Expected invalidResourceIdentifier for IPFS credentials, got \(error).")
         }
     }
 
@@ -1141,13 +1153,25 @@ struct BitcoinCashMetadataRegistryValidator {
             ipfsGateway: invalidGateway,
             maxBytes: 1_024
         )
-        await #expect(throws: OpalBase.CashTokens.BCMR.Client.Fetcher.Error.self) {
+        let invalidGatewayError = try await captureRegistryFetcherError {
             _ = try await invalidGatewayFetcher.fetchRegistryBytes(from: "ipfs://bafybeigdyrzt/metadata.json")
+        }
+        switch invalidGatewayError {
+        case .invalidInterPlanetaryFileSystemGateway(let gateway) where gateway == invalidGateway:
+            break
+        case let error:
+            Issue.record("Expected invalidInterPlanetaryFileSystemGateway for \(invalidGateway), got \(error).")
         }
 
         let fetcher = OpalBase.CashTokens.BCMR.Client.Fetcher(maxBytes: 1_024)
-        await #expect(throws: OpalBase.CashTokens.BCMR.Client.Fetcher.Error.self) {
+        let invalidResourceError = try await captureRegistryFetcherError {
             _ = try await fetcher.fetchRegistryBytes(from: "https://../metadata.json")
+        }
+        switch invalidResourceError {
+        case .invalidResourceIdentifier("https://../metadata.json"):
+            break
+        case let error:
+            Issue.record("Expected invalidResourceIdentifier for traversal authority, got \(error).")
         }
     }
 
@@ -1703,6 +1727,21 @@ struct BitcoinCashMetadataRegistryValidator {
         }
     }
 
+    @Test(
+        "location traversal detection covers authorities",
+        arguments: [
+            LocationTraversalDetectionCase(locationValue: "https://../metadata.json", containsTraversal: true),
+            LocationTraversalDetectionCase(locationValue: "https://%2e/metadata.json", containsTraversal: true),
+            LocationTraversalDetectionCase(locationValue: "https://registry.example/metadata.json", containsTraversal: false)
+        ]
+    )
+    func locationTraversalDetectionCoversAuthorities(_ detectionCase: LocationTraversalDetectionCase) {
+        #expect(
+            URLPathTraversal.containsPathTraversal(inLocationValue: detectionCase.locationValue)
+                == detectionCase.containsTraversal
+        )
+    }
+
     enum AuthchainInvalidPayloadCase: CaseIterable, Sendable {
         case trailingBytes
         case mismatchedHash
@@ -1746,6 +1785,11 @@ struct BitcoinCashMetadataRegistryValidator {
                 return try BitcoinCashMetadataRegistryValidator.makeAuthchainTransactionData()
             }
         }
+    }
+
+    struct LocationTraversalDetectionCase: Sendable {
+        let locationValue: String
+        let containsTraversal: Bool
     }
 
     private func makeRegistry(
@@ -1841,6 +1885,19 @@ struct BitcoinCashMetadataRegistryValidator {
         do {
             try await operation()
         } catch let error as OpalBase.CashTokens.BCMR.Client.Error {
+            return error
+        } catch {
+            throw RegistryClientErrorCaptureFailure.unexpectedError(String(describing: error))
+        }
+        throw RegistryClientErrorCaptureFailure.didNotThrow
+    }
+
+    private func captureRegistryFetcherError(
+        _ operation: () async throws -> Void
+    ) async throws -> OpalBase.CashTokens.BCMR.Client.Fetcher.Error {
+        do {
+            try await operation()
+        } catch let error as OpalBase.CashTokens.BCMR.Client.Fetcher.Error {
             return error
         } catch {
             throw RegistryClientErrorCaptureFailure.unexpectedError(String(describing: error))

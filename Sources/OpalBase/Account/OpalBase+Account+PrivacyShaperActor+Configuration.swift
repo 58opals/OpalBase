@@ -19,8 +19,8 @@ extension _OpalBase.Account.PrivacyShaperActor {
              decoyProbability: Double = 0.35,
              shouldRandomizeUTXOOrdering: Bool = true,
              shouldRandomizeRecipientOrdering: Bool = true) {
-            self.batchingIntervalRange = batchingIntervalRange
-            self.operationJitterRange = operationJitterRange
+            self.batchingIntervalRange = Self.positiveNanosecondRange(batchingIntervalRange)
+            self.operationJitterRange = Self.positiveNanosecondRange(operationJitterRange)
             self.decoyQueryRange = Self.nonNegativeDecoyQueryRange(decoyQueryRange)
             self.decoyProbability = Self.clampedDecoyProbability(decoyProbability)
             self.shouldRandomizeUTXOOrdering = shouldRandomizeUTXOOrdering
@@ -37,6 +37,12 @@ extension _OpalBase.Account.PrivacyShaperActor {
         private static func nonNegativeDecoyQueryRange(_ decoyQueryRange: ClosedRange<Int>) -> ClosedRange<Int> {
             let lowerBound = max(0, decoyQueryRange.lowerBound)
             let upperBound = max(lowerBound, decoyQueryRange.upperBound)
+            return lowerBound ... upperBound
+        }
+
+        private static func positiveNanosecondRange(_ range: ClosedRange<UInt64>) -> ClosedRange<UInt64> {
+            let lowerBound = max(1, range.lowerBound)
+            let upperBound = max(lowerBound, range.upperBound)
             return lowerBound ... upperBound
         }
 

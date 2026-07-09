@@ -143,6 +143,45 @@ struct CashTokensMetadataRepositoryValidator {
         try await assertRepositoryRejectsUnsafeURLSurfaces(metadata, for: category)
     }
 
+    @Test("metadata snapshot restore keeps the newest duplicate decoded category")
+    func metadataSnapshotRestoreKeepsNewestDuplicateDecodedCategory() async throws {
+        let category = try OpalBase.CashTokens.CategoryID(
+            transactionOrderData: Data(repeating: 0xab, count: 32)
+        )
+        let olderMetadata = OpalBase.CashTokens.Metadata(
+            category: category,
+            name: "Older Token",
+            symbol: "OLD",
+            decimals: 0,
+            iconURL: nil,
+            lastUpdated: Date(timeIntervalSince1970: 0),
+            source: .embedded
+        )
+        let newerMetadata = OpalBase.CashTokens.Metadata(
+            category: category,
+            name: "Newer Token",
+            symbol: "NEW",
+            decimals: 0,
+            iconURL: nil,
+            lastUpdated: Date(timeIntervalSince1970: 1),
+            source: .embedded
+        )
+        let snapshot = OpalBase.CashTokens.MetadataRepository.Snapshot(
+            byCategory: [
+                category.hexForDisplay: olderMetadata,
+                category.hexForDisplay.uppercased(): newerMetadata
+            ]
+        )
+        let repository = OpalBase.CashTokens.MetadataRepository()
+
+        await repository.applySnapshot(snapshot)
+
+        let restored = try #require(await repository.fetchMetadata(for: category))
+        #expect(restored.name == "Newer Token")
+        #expect(restored.symbol == "NEW")
+        #expect(restored.category == category)
+    }
+
     private func assertRepositoryRejectsUnsafeURLSurfaces(
         _ metadata: OpalBase.CashTokens.Metadata,
         for category: OpalBase.CashTokens.CategoryID

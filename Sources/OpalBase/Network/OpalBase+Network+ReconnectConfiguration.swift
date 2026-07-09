@@ -4,10 +4,27 @@ import Foundation
 
 extension _OpalBase.Network {
     public struct ReconnectConfiguration: Sendable, Equatable {
-        public var maximumAttempts: Int
-        public var initialDelay: Duration
-        public var maximumDelay: Duration
-        public var jitterMultiplierRange: ClosedRange<Double>
+        public var maximumAttempts: Int {
+            didSet {
+                maximumAttempts = Self.clampedMaximumAttempts(maximumAttempts)
+            }
+        }
+        public var initialDelay: Duration {
+            didSet {
+                initialDelay = Self.clampedReconnectDelay(initialDelay)
+                maximumDelay = Self.clampedMaximumDelay(maximumDelay, minimum: initialDelay)
+            }
+        }
+        public var maximumDelay: Duration {
+            didSet {
+                maximumDelay = Self.clampedMaximumDelay(maximumDelay, minimum: initialDelay)
+            }
+        }
+        public var jitterMultiplierRange: ClosedRange<Double> {
+            didSet {
+                jitterMultiplierRange = Self.clampedJitterMultiplierRange(jitterMultiplierRange)
+            }
+        }
         
         public static let defaultValue = Self(
             maximumAttempts: 8,
@@ -22,10 +39,35 @@ extension _OpalBase.Network {
             maximumDelay: Duration,
             jitterMultiplierRange: ClosedRange<Double>
         ) {
-            self.maximumAttempts = maximumAttempts
-            self.initialDelay = initialDelay
-            self.maximumDelay = maximumDelay
-            self.jitterMultiplierRange = jitterMultiplierRange
+            self.maximumAttempts = Self.clampedMaximumAttempts(maximumAttempts)
+            self.initialDelay = Self.clampedReconnectDelay(initialDelay)
+            self.maximumDelay = Self.clampedMaximumDelay(maximumDelay, minimum: self.initialDelay)
+            self.jitterMultiplierRange = Self.clampedJitterMultiplierRange(jitterMultiplierRange)
+        }
+
+        private static func clampedMaximumAttempts(_ maximumAttempts: Int) -> Int {
+            max(0, maximumAttempts)
+        }
+
+        private static func clampedReconnectDelay(_ delay: Duration) -> Duration {
+            max(.milliseconds(1), delay)
+        }
+
+        private static func clampedMaximumDelay(_ maximumDelay: Duration, minimum initialDelay: Duration) -> Duration {
+            max(clampedReconnectDelay(initialDelay), maximumDelay)
+        }
+
+        private static func clampedJitterMultiplierRange(_ jitterMultiplierRange: ClosedRange<Double>) -> ClosedRange<Double> {
+            let lowerBound = clampedJitterMultiplier(jitterMultiplierRange.lowerBound, fallback: 1.0)
+            let upperBound = clampedJitterMultiplier(jitterMultiplierRange.upperBound, fallback: max(1.0, lowerBound))
+            return lowerBound ... max(lowerBound, upperBound)
+        }
+
+        private static func clampedJitterMultiplier(_ jitterMultiplier: Double, fallback: Double) -> Double {
+            guard jitterMultiplier.isFinite, jitterMultiplier > 0 else {
+                return fallback
+            }
+            return jitterMultiplier
         }
     }
 }

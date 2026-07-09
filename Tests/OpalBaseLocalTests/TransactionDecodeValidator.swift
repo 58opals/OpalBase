@@ -340,6 +340,23 @@ struct TransactionDecodeValidator {
         }
     }
 
+    @Test("block decode rejects impossible transaction counts before allocation")
+    func blockDecodeRejectsImpossibleTransactionCountsBeforeAllocation() {
+        let header = OpalBase.Block.Header(
+            version: 2,
+            previousBlockHash: Data(repeating: 0xaa, count: 32),
+            merkleRoot: Data(repeating: 0xbb, count: 32),
+            time: 1,
+            bits: 2,
+            nonce: 3
+        )
+        let encodedBlock = header.encode() + CompactSize(value: UInt64(Int.max)).encode()
+
+        #expect(throws: Data.Error.indexOutOfRange) {
+            _ = try OpalBase.Block.decode(from: encodedBlock)
+        }
+    }
+
     @Test("block encode rejects malformed header hash lengths")
     func blockEncodeRejectsMalformedHeaderHashLengths() throws {
         let previousHash = OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 2, count: 32))

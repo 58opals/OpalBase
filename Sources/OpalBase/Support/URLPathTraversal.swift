@@ -17,6 +17,9 @@ enum URLPathTraversal {
 
     static func containsPathTraversal(inLocationValue locationValue: String) -> Bool {
         guard let components = URLComponents(string: locationValue) else { return false }
+        if let host = components.host, isPathTraversalComponent(host) {
+            return true
+        }
         return containsPathTraversal(inPath: components.path)
     }
 

@@ -27,9 +27,14 @@ extension _OpalBase.CashTokens {
 
         public func applySnapshot(_ snapshot: Snapshot) {
             byCategory.removeAll(keepingCapacity: true)
-            for (hexadecimalString, metadata) in snapshot.byCategory {
+            for (hexadecimalString, metadata) in snapshot.byCategory.sorted(by: { $0.key < $1.key }) {
                 guard let category = try? OpalBase.CashTokens.CategoryID(hexFromRPC: hexadecimalString) else { continue }
-                byCategory[category] = makeNormalizedMetadata(metadata, for: category)
+                let normalizedMetadata = makeNormalizedMetadata(metadata, for: category)
+                if let current = byCategory[category],
+                   current.lastUpdated > normalizedMetadata.lastUpdated {
+                    continue
+                }
+                byCategory[category] = normalizedMetadata
             }
         }
 

@@ -131,7 +131,7 @@ extension _OpalBase.Network.Fulcrum {
                     options: .init(timeout: timeouts.transactionConfirmations)
                 )
                 
-                let rawTransactionData = try Self.decodeRawTransactionData(from: rawTransactionHex)
+                let rawTransactionData = try OpalBase.Network.decodeRawTransactionData(from: rawTransactionHex)
                 try validatePayloadHash(rawTransactionData, expected: transactionHash)
                 _ = try Self.decodeTransaction(from: rawTransactionData)
                 return rawTransactionData
@@ -190,7 +190,7 @@ extension _OpalBase.Network.Fulcrum {
         ) async throws -> OpalBase.Transaction.Detail {
             try await OpalBase.Network.performWithFailureTranslation {
                 let verbose = try await fetchVerboseTransaction(for: transactionHash)
-                let rawTransactionData = try Self.decodeRawTransactionData(from: verbose.hex)
+                let rawTransactionData = try OpalBase.Network.decodeRawTransactionData(from: verbose.hex)
                 return try makeDetailed(
                     transactionHash: transactionHash,
                     rawTransactionData: rawTransactionData,
@@ -219,23 +219,6 @@ extension _OpalBase.Network.Fulcrum {
             let confirmations: UInt32?
             let size: UInt32
             let time: UInt32?
-        }
-
-        private static func decodeRawTransactionData(from rawTransactionHex: String) throws -> Data {
-            guard !rawTransactionHex.hasPrefix("0x"), !rawTransactionHex.hasPrefix("0X") else {
-                throw OpalBase.Network.Error(
-                    reason: .decoding,
-                    message: "Cannot decode raw transaction hex"
-                )
-            }
-            do {
-                return try Data(hexadecimalString: rawTransactionHex)
-            } catch {
-                throw OpalBase.Network.Error(
-                    reason: .decoding,
-                    message: "Cannot decode raw transaction hex"
-                )
-            }
         }
 
         private static func decodeTransaction(from rawTransactionData: Data) throws -> OpalBase.Transaction {

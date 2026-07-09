@@ -20,24 +20,10 @@ extension OpalBase {
                 return data
                 
             case .p2pkh_OPCHECKSIG(let hash):
-                var data = Data()
-                data.append(ScriptOperationCode._DUP.data)
-                data.append(ScriptOperationCode._HASH160.data)
-                data.append(ScriptOperationCode._PUSHBYTES_20.data)
-                data.append(hash.data)
-                data.append(ScriptOperationCode._EQUALVERIFY.data)
-                data.append(ScriptOperationCode._CHECKSIG.data)
-                return data
+                return Self.payToPublicKeyHashData(hash: hash, finalOpcode: ._CHECKSIG)
                 
             case .p2pkh_OPCHECKDATASIG(let hash):
-                var data = Data()
-                data.append(ScriptOperationCode._DUP.data)
-                data.append(ScriptOperationCode._HASH160.data)
-                data.append(ScriptOperationCode._PUSHBYTES_20.data)
-                data.append(hash.data)
-                data.append(ScriptOperationCode._EQUALVERIFY.data)
-                data.append(ScriptOperationCode._CHECKDATASIG.data)
-                return data
+                return Self.payToPublicKeyHashData(hash: hash, finalOpcode: ._CHECKDATASIG)
                 
             case .p2ms(let numberOfRequiredSignatures, let publicKeys):
                 guard let requiredSignatureOpcode = Self.multisigSmallIntegerOpcode(for: numberOfRequiredSignatures),
@@ -56,6 +42,7 @@ extension OpalBase {
                 return data
                 
             case .p2sh(let scriptHash):
+                guard scriptHash.count == 20 else { return Data() }
                 var data = Data()
                 data.append(ScriptOperationCode._HASH160.data)
                 data.append(ScriptOperationCode._PUSHBYTES_20.data)
@@ -71,6 +58,21 @@ extension OpalBase {
             return ScriptOperationCode(
                 rawValue: rawValue
             )
+        }
+
+        private static func payToPublicKeyHashData(
+            hash: OpalBase.Key.PublicKey.Hash,
+            finalOpcode: ScriptOperationCode
+        ) -> Data {
+            guard hash.data.count == 20 else { return Data() }
+            var data = Data()
+            data.append(ScriptOperationCode._DUP.data)
+            data.append(ScriptOperationCode._HASH160.data)
+            data.append(ScriptOperationCode._PUSHBYTES_20.data)
+            data.append(hash.data)
+            data.append(ScriptOperationCode._EQUALVERIFY.data)
+            data.append(finalOpcode.data)
+            return data
         }
     }
 }

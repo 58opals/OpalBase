@@ -14,7 +14,7 @@ struct NetworkFulcrumServerInfoReaderValidator {
         let expectedMaximumProtocolVersion = try #require(OpalBase.Network.ProtocolVersion(major: 1, minor: 5))
         let client = try ServerInfoClientTestActor(
             versionResponse: try Self.makeVersionResponse(serverVersion: "Fulcrum 1.9.0", protocolVersion: "1.5"),
-            featuresResponse: try Self.makeFeaturesResponse(),
+            featuresResponse: try Self.makeFeaturesResponse(genesisHash: String(repeating: "A", count: 64)),
             relayFeeResponse: try Self.makeRelayFeeResponse(fee: 0.00001),
             estimatedFeeResponse: try Self.makeEstimateFeeResponse(fee: 0.00002)
         )
@@ -308,15 +308,9 @@ struct NetworkFulcrumServerInfoReaderValidator {
         arguments: malformedServerFeatureHostNames
     )
     func fetchServerFeaturesRejectsMalformedHosts(hostName: String) async throws {
-        let reader = OpalBase.Network.Fulcrum.ServerInfoReader(
-            client: try ServerInfoClientTestActor(
-                featuresResponse: Self.makeFeaturesResponse(
-                    hosts: [
-                        hostName: ["ssl_port": 50002]
-                    ]
-                )
-            )
-        )
+        let reader = try Self.makeServerFeaturesReader(hosts: [
+            hostName: ["ssl_port": 50002]
+        ])
 
         let failure = try await Self.captureNetworkError {
             _ = try await reader.fetchServerFeatures()
@@ -324,6 +318,33 @@ struct NetworkFulcrumServerInfoReaderValidator {
 
         #expect(failure.reason == .decoding)
         #expect(failure.message == "Invalid server feature host: \(hostName)")
+    }
+
+    @Test("normalizes server feature hosts to lowercase")
+    func fetchServerFeaturesNormalizesHostsToLowercase() async throws {
+        let reader = try Self.makeServerFeaturesReader(hosts: [
+            "Fulcrum.Example.com": ["ssl_port": 50002, "wss_port": 50004]
+        ])
+
+        let features = try await reader.fetchServerFeatures()
+
+        #expect(features.hosts?["fulcrum.example.com"]?.secureWebSocketPort == 50004)
+        #expect(features.hosts?["Fulcrum.Example.com"] == nil)
+    }
+
+    @Test("rejects duplicate server feature hosts after canonicalization")
+    func fetchServerFeaturesRejectsDuplicateCanonicalHosts() async throws {
+        let reader = try Self.makeServerFeaturesReader(hosts: [
+            "Fulcrum.Example.com": ["ssl_port": 50002],
+            "fulcrum.example.com": ["wss_port": 50004]
+        ])
+
+        let failure = try await Self.captureNetworkError {
+            _ = try await reader.fetchServerFeatures()
+        }
+
+        #expect(failure.reason == .decoding)
+        #expect(failure.message == "Duplicate server feature host: fulcrum.example.com")
     }
     
     @Test("rejects unsupported server feature hash functions")
@@ -394,6 +415,16 @@ extension NetworkFulcrumServerInfoReaderValidator {
         ]
         let payload = try JSONSerialization.data(withJSONObject: payloadObject)
         return try JSONDecoder().decode(SwiftFulcrum.Response.Server.Features.self, from: payload)
+    }
+
+    static func makeServerFeaturesReader(
+        hosts: [String: [String: Int]]
+    ) throws -> OpalBase.Network.Fulcrum.ServerInfoReader {
+        OpalBase.Network.Fulcrum.ServerInfoReader(
+            client: try ServerInfoClientTestActor(
+                featuresResponse: Self.makeFeaturesResponse(hosts: hosts)
+            )
+        )
     }
 
     static func makeReusablePaymentAddressFeatures(
