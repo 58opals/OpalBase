@@ -1,259 +1,125 @@
 # Public API Guide
 
-Opal Base exposes a workflow-shaped API under the `OpalBase.*` namespace. Normal wallet integrations should start from lane-explicit facade types and only drop to lower-level primitives when they need custom storage, networking, or Bitcoin Cash transaction handling.
+Opal Base exposes a workflow-shaped API under the `OpalBase.*` namespace. Builder-facing integrations should start from the public facades in `Sources/OpalBase/Public` and only drop lower when custom storage, networking, transaction handling, or protocol research requires it.
 
-## Main Entry Points
+## How To Read The API
 
-- `OpalBase.WalletManagementInteractor`: account creation, account lookup, and broad wallet management around an existing `OpalBase.Wallet`.
-- `OpalBase.WalletSnapshotInteractor`: snapshot-only storage/import-export through `OpalBase.Storage.SnapshotPersistence`.
-- `OpalBase.WalletBlockchainSyncInteractor`: descriptor-backed balance/history/UTXO/confirmation refresh using `OpalBase.WalletAccountPublicDescriptor` plus `OpalBase.WalletPublicChainOperations`.
-- `OpalBase.WalletTransportInteractor`: public-chain transport clients and address/header streams through `OpalBase.Network.*` or `OpalBase.Network.Fulcrum.Client`.
-- `OpalBase.WalletReceiveAddressInteractor`: receive/change derivation and receive-address reservation.
-- `OpalBase.WalletSecurityProfile`: security posture contract for secret persistence, network access, and signing review boundaries.
-- `OpalBase.WalletSecretAccessInteractor`: mnemonic, Keychain, Secure Enclave-backed persistence, restore, and wipe through `OpalBase.Storage.PersistenceSession`.
-- `OpalBase.WalletUnsignedSpendPlan`: reserved spend plan for external transaction review and signing without retained private-key material.
-- `OpalBase.WalletUnsignedTransactionEnvelope`: unsigned Bitcoin Cash transaction material for an external signing review boundary.
-- `OpalBase.WalletTransactionAuthoringInteractor`: user-triggered BCH spend, token spend, token genesis, token mint, token commitment mutation, hedge funding, and signing-capable plans; its constructor label is `privateAccount`.
-- `OpalBase.Key.SigningKey`: scoped secp256k1 signing capability for public-key derivation and ECDSA/Schnorr signing without public raw private-key export.
-- `OpalBase.WalletBroadcastInteractor`: transaction relay and targeted confirmation reconciliation through `OpalBase.Network.TransactionClient`.
-- `OpalBase.WalletAssetInteractor`: token holdings and wallet token metadata; mint authoring is available only through its `privateAccount` initializer.
-- `OpalBase.CashFusionInteractor`: macOS CashFusion session lifecycle over explicit private account authority.
-- `OpalBase.ClaimableInteractor`: claimable drafts, funding outputs, envelopes, share/recovery material, status, claim, and refund transaction building.
-- `OpalBase.WalletObservabilityInteractor`: redacted diagnostics record reading only.
+- Prefer facade names over internal domain types when wiring app features.
+- Treat initializer labels as trust-boundary signals: `privateAccount` means the facade can reserve or move wallet-owned value.
+- Use descriptor-backed surfaces for public-chain sync whenever mnemonic/private account authority is not required.
+- Use [Recipes](recipes.md) for task-shaped examples and [Trust Boundaries](trust-boundaries.md) for security posture.
 
-## Wallet Creation And Restoration
+## Wallet And Account Facades
 
-Create a wallet from a mnemonic, add an account, then fetch the account by its unhardened index:
+### `WalletManagementInteractor`
 
-```swift
-let mnemonic = try OpalBase.Key.Mnemonic.generate(
-    length: .words12,
-    language: .english
-)
-let wallet = try OpalBase.Wallet(mnemonic: mnemonic)
-let management = OpalBase.WalletManagementInteractor(wallet: wallet)
+Broad wallet management around an existing `OpalBase.Wallet`. Use it for account creation, account lookup, account count, and wallet snapshot composition when the caller already has wallet authority.
 
-try await management.addAccount(unhardenedIndex: 0)
-let account = try await management.fetchAccount(at: 0)
-```
+Typical tasks: create the first account, fetch an account by unhardened index, and prepare a wallet for app-owned storage.
 
-For descriptor persistence, callers can derive the account-level read-only extended public key from mnemonic material without importing lower-level cryptography packages:
+### `WalletAccountPublicDescriptor`
 
-```swift
-let accountXpub = try mnemonic.makeSerializedAccountExtendedPublicKey(
-    passphrase: passphrase,
-    purpose: .bip44,
-    coinType: .bitcoinCash,
-    account: 0
-)
-```
+Public account handoff for sync and receive lanes. It contains a serialized account extended public key, derivation metadata, and an account snapshot, and can create a read-only `OpalBase.Account`.
 
-To restore from persisted state, use `OpalBase.WalletSecretAccessInteractor` for mnemonic-bearing restore/wipe flows and `OpalBase.WalletSnapshotInteractor` for snapshot-only import/export. Custom import/export layers can use `OpalBase.Wallet.Snapshot`, `OpalBase.Account.Snapshot`, and `OpalBase.Storage.SnapshotStore`.
+Typical tasks: run public-chain sync without mnemonic, Keychain, Secure Enclave, or root private account authority.
 
-For descriptor-only public-chain sync, keep the mnemonic in the secret lane and pass only public account data to sync:
+### `WalletReceiveAddressInteractor`
 
-```swift
-let descriptor = OpalBase.WalletAccountPublicDescriptor(
-    serializedAccountExtendedPublicKey: accountXpub,
-    purpose: .bip44,
-    coinType: .bitcoinCash,
-    accountUnhardenedIndex: 0,
-    snapshot: accountSnapshot
-)
-let publicChain = OpalBase.WalletPublicChainOperations(
-    addressReader: addressReader,
-    transactionClient: transactionClient,
-    transactionReader: transactionReader
-)
-let sync = try await OpalBase.WalletBlockchainSyncInteractor(
-    accountDescriptor: descriptor,
-    publicChain: publicChain
-)
-```
+Receive-address lane for derivation, reservation, and address cache validity. `reserveNextReceivingDerivedAddress()` is the receive-flow method; `selectNextDerivedAddress(for:)` is inspection-only.
 
-## Receiving Addresses
+Typical tasks: reserve a CashAddr receive address before showing it to a payer, list derived receiving/change addresses, and persist the resulting account snapshot.
 
-Use receive-address lane APIs instead of address-book internals:
+## Public-Chain And Network Facades
 
-```swift
-let receiveAddresses = OpalBase.WalletReceiveAddressInteractor(account: account)
-let receiving = try await receiveAddresses.reserveNextReceivingDerivedAddress()
-print(receiving.address.string)
-```
+### `WalletTransportInteractor`
 
-Use `selectNextDerivedAddress(for:)` when the caller only needs to inspect the next address for a derivation usage. Use `reserveNextReceivingDerivedAddress()` when the address is being handed out and should not be reused by another concurrent receive flow. This is intentionally not a generic sync API because reservation crosses into derivation/reservation authority.
+Public transport lane for chain readers, broadcast clients, and public streams. It can wrap `WalletPublicChainOperations` directly or derive them from `OpalBase.Network.Fulcrum.Client`.
 
-## Spend Planning
+Typical tasks: connect to Fulcrum, subscribe to an address, subscribe to tip updates, and provide readers to sync or broadcast lanes.
 
-Build a `Payment`, then ask the account to prepare the spend:
+### `WalletPublicChainOperations`
 
-```swift
-let payment = OpalBase.Account.Payment(
-    recipients: [
-        .init(address: destination, amount: try OpalBase.Satoshi(10_000))
-    ],
-    coinSelection: .branchAndBound,
-    tokenInputPolicy: .excludeTokenUTXOs
-)
+Small dependency container for public-chain operations: address reader, transaction client, optional transaction reader, and optional block header reader.
 
-let feePolicy = OpalBase.Wallet.FeePolicy(defaultFeeRate: 1)
-let authoring = OpalBase.WalletTransactionAuthoringInteractor(
-    privateAccount: account,
-    feePolicy: feePolicy
-)
-let plan = try await authoring.prepareSpend(payment)
-let result = try plan.buildTransaction()
-```
+Typical tasks: inject test doubles, custom Fulcrum adapters, or app-specific public-chain clients into sync and broadcast features.
 
-Spend plans expose wallet-facing results such as `OpalBase.Account.DerivedAddress` for change. Reservation and address-book machinery remains behind the account facade.
+### `WalletBlockchainSyncInteractor`
 
-For a Lockdown Mode-compatible offline Bitcoin Cash savings signer, prepare a spend for external review instead of building a signed transaction in process:
+Descriptor-backed public-chain sync lane for balances, transaction history, UTXOs, and confirmation freshness.
 
-```swift
-let unsignedPlan = try await authoring.prepareSpendForExternalReview(
-    payment,
-    profile: .offlineSavingsSigner
-)
-let envelope = unsignedPlan.envelope
-```
+Typical tasks: refresh BCH balances, include or exclude unconfirmed history, refresh UTXOs, update named transaction hashes, refresh all cached confirmations, and emit a new account snapshot.
 
-`WalletUnsignedSpendPlan` reserves the selected UTXOs and change address, carries an unsigned Bitcoin Cash transaction plus the transaction outputs being spent, and does not retain private-key material. After the app layer has reviewed and signed the transaction through its offline exchange flow, complete the reservation with the structurally matching signed transaction:
+### `WalletBroadcastInteractor`
 
-```swift
-let signedTransaction = try await offlineSigner.sign(envelope)
-let completedTransaction = try await unsignedPlan.completeExternalSigning(
-    with: signedTransaction
-)
-```
+Broadcast lane for transaction relay and targeted post-broadcast confirmation reconciliation. It owns a transaction client and does not need mnemonic authority.
 
-The completion step calls `validateSignedTransactionStructure(_:)`, which validates that the requested signature format is supported and that the signed transaction keeps the same version, inputs, non-empty output set, lock time, and non-empty changed unlocking scripts before marking the reservation complete. This is structural validation only; it does not execute Bitcoin Cash script or cryptographically verify signatures, and it does not broadcast. Use a separate online component for relay.
+Typical tasks: broadcast a prepared transaction, fetch confirmation status for a transaction hash, and reconcile confirmations for transaction hashes named by the caller.
 
-## Fulcrum Sync
+## Secret, Snapshot, And Security Facades
 
-Use `OpalBase.WalletTransportInteractor` to make public-chain transport clients, then choose descriptor sync or legacy wallet Fulcrum composition:
+### `WalletSecretAccessInteractor`
 
-```swift
-let client = try await OpalBase.Network.Fulcrum.Client(configuration: configuration)
-let transport = OpalBase.WalletTransportInteractor(fulcrumClient: client)
-let publicChain = transport.publicChain
-let sync = try await OpalBase.WalletBlockchainSyncInteractor(
-    accountDescriptor: descriptor,
-    publicChain: publicChain
-)
+Secret-loading and wipe lane for mnemonic, Keychain, Secure Enclave, migration, and recovery flows.
 
-_ = try await sync.refreshBalances()
-_ = try await sync.refreshTransactionHistory()
-if let fulcrum = transport.makeWalletFulcrumAdapter() {
-    let monitor = fulcrum.makeMonitor(for: account)
-}
-```
+Typical tasks: save wallet secrets and snapshot, restore wallet secrets and snapshot, wipe wallet secrets and snapshots, and apply a `WalletSecurityProfile` secret persistence policy.
 
-Closure-backed clients stay public for tests and custom adapters:
+### `WalletSnapshotInteractor`
 
-- `OpalBase.Network.AddressReader`
-- `OpalBase.Network.TransactionClient`
-- `OpalBase.Network.TransactionReader`
-- `OpalBase.Network.BlockHeaderReader`
+Snapshot-only storage/import-export lane. This surface moves `OpalBase.Wallet.Snapshot` values and must not retain transport clients, raw transactions, or secrets.
 
-Advanced Fulcrum readers are public under `OpalBase.Network.Fulcrum.*`:
+Typical tasks: save/load/delete wallet snapshots by generation and save/load/delete the committed generation marker.
 
-- `OpalBase.Network.Fulcrum.TransactionReader`
-- `OpalBase.Network.Fulcrum.TransactionProofReader`
-- `OpalBase.Network.Fulcrum.ScriptHashReader`
+### `WalletSecurityProfile`
 
-Prefer `WalletBlockchainSyncInteractor` when the Wallet lane has only descriptor/public account state. Prefer `Wallet.Fulcrum` only when composing the older wallet/account actor orchestration directly.
+Security posture contract for secret persistence, network access, and signing review boundaries. `offlineSavingsSigner` requires Secure Enclave-backed secret persistence, offline network access, and external signing review.
 
-## Broadcast And Aftermath
+Typical tasks: make offline signer posture explicit, fail closed on weaker secret persistence, and prevent broadcast from profiles that do not allow network relay.
 
-Broadcast does not imply a whole-wallet rebuild. Use `WalletBroadcastInteractor` to relay a prepared transaction and reconcile only the transaction hashes the caller names:
+## Money Movement Facades
 
-```swift
-let broadcast = OpalBase.WalletBroadcastInteractor(transactionClient: transactionClient)
-let hash = try await broadcast.broadcast(result.transaction)
-_ = try await broadcast.reconcileConfirmations(for: [hash], in: account)
-```
+### `WalletTransactionAuthoringInteractor`
 
-## Persistence
+User-triggered money-movement lane. Its initializer label is `privateAccount` because the facade can reserve wallet-owned inputs, reserve change addresses, prepare signing-capable plans, and build funding plans.
 
-For mnemonic-bearing app persistence, prefer the secret lane:
+Typical tasks: prepare BCH spends, prepare external-review unsigned BCH spends, prepare token spends, prepare token genesis, prepare token mint, prepare token commitment mutation, reserve AnyHedge participant material, and prepare AnyHedge funding.
 
-```swift
-let session = await OpalBase.Storage.PersistenceSession(storage: storage)
-let secrets = OpalBase.WalletSecretAccessInteractor(persistenceSession: session)
-let protectionMode = try await secrets.saveWalletSecretsAndSnapshot(
-    from: wallet,
-    policy: .legacyFallbackToPlaintext
-)
-let restored = try await secrets.restoreWalletSecretsAndSnapshot()
-```
+### `WalletUnsignedSpendPlan`
 
-For an offline Bitcoin Cash savings signer, use the profile-aware secret lane and fail closed on weaker storage:
+Reserved spend plan for external transaction review and signing without retained private-key material. It carries a `WalletUnsignedTransactionEnvelope`, selected UTXO/change reservation lifecycle, and completion/cancellation methods.
 
-```swift
-let storage = try OpalBase.Storage.makeSecureEnclaveBacked(
-    valueClient: yourValueClient
-)
-let secrets = await OpalBase.WalletSecretAccessInteractor(storage: storage)
-let protectionMode = try await secrets.saveWalletSecretsAndSnapshot(
-    from: wallet,
-    profile: .offlineSavingsSigner
-)
-assert(protectionMode == .secureEnclave)
-```
+Typical tasks: hand an unsigned Bitcoin Cash transaction to an external signing flow, complete reservation after a structurally matching signed transaction returns, or cancel the reservation when review is abandoned.
 
-`OpalBase.WalletSecurityProfile.offlineSavingsSigner` is a posture contract for Lockdown Mode-compatible app layers: secrets require Secure Enclave-backed persistence, network access is `offline`, and signing expects external review. App code still owns the actual device posture, QR or file exchange, Lockdown Mode instructions, and transaction broadcast separation.
+### `WalletUnsignedTransactionEnvelope`
 
-For SwiftData-backed UI snapshots or import/export without secrets, use `WalletSnapshotInteractor` with `Storage.SnapshotPersistence` and pass `Wallet.Snapshot` values only.
+External signing boundary scaffold. It carries an unsigned Bitcoin Cash transaction, transaction outputs being spent, and requested signature format.
 
-The public storage contract is:
+Typical tasks: pass review material to an app-owned QR, file, hardware-device, or offline UI flow without exposing account internals.
 
-- `OpalBase.Storage.PersistenceSession`
-- `OpalBase.Storage.SnapshotStore`
-- `OpalBase.Storage.StoredMnemonicStore`
-- `OpalBase.Wallet.Snapshot`
-- `OpalBase.Account.Snapshot`
+## Token, Fusion, Hedge, Claimable, And Diagnostics Facades
 
-Direct account/address-book snapshot operations are implementation details. Snapshot data is still public for storage adapters and import/export, but it no longer exposes `Address.Book` names.
+### `WalletAssetInteractor`
 
-## CashTokens And BCMR
+Asset lane for token holdings and token metadata. Read-oriented inventory/metadata operations can use `account`; mint authoring remains explicit through the `privateAccount` initializer.
 
-CashTokens domain types remain public vocabulary:
+Typical tasks: load token inventory, fetch/upsert token metadata through a metadata wallet, make a token metadata snapshot, and prepare token minting when private account authority is intentionally provided.
 
-- `OpalBase.CashTokens.TokenData`
-- `OpalBase.CashTokens.CategoryID`
-- `OpalBase.CashTokens.Metadata`
-- `OpalBase.CashTokens.MetadataRepository`
-- `OpalBase.CashTokens.BCMR.Client`
+### `CashFusionInteractor`
 
-Use `WalletAssetInteractor` for token holdings and metadata. Use `WalletTransactionAuthoringInteractor` for token spend, token genesis, token mint planning, and token commitment mutation planning because those are user-triggered money-movement APIs.
+macOS CashFusion lane for session lifecycle and coordinator state using explicit wallet-owned private account authority.
 
-## Hedge Funding
+Typical tasks: evaluate CashFusion readiness and prepare a CashFusion session from a caller-provided coordinator configuration and request.
 
-Use `OpalBase.Hedge` for the wallet-facing AnyHedge beta flow. Wallets can reserve participant material from an account, pass counterparty material and a verified oracle proof into a USD thirty-day simple hedge request, and prepare the wallet-owned BCH funding spend without importing `OpalHedge`:
+### `ClaimableInteractor`
 
-```swift
-let authoring = OpalBase.WalletTransactionAuthoringInteractor(privateAccount: account)
-let walletMaterial = try await authoring.reserveHedgeParticipantMaterial()
-let request = OpalBase.Hedge.USDThirtyDaySimpleHedgeRequest(
-    walletParticipant: walletMaterial,
-    counterpartyParticipant: counterpartyMaterial,
-    startingOracleProof: startingOracleProof,
-    nominalUnits: 1_000
-)
+Claimable contract lane for drafts, funding outputs, envelopes, status resolution, claim/refund transaction building, and recovery material without turning Claimable into a wallet/account backdoor.
 
-let plan = try await authoring.prepareHedgeFunding(request)
-let review = try plan.buildReview()
-```
+Typical tasks: create and decode claimable envelopes, resolve local/network claimability, build claim/refund transactions, and handle share/recovery material.
 
-`FundingPlan` keeps the account spend reservation active until the caller builds and broadcasts, completes, or cancels it. A successful `buildAndBroadcast` returns an `OpalBase.Hedge.FundingRecord` with OpalBase-native transaction hash, funding output index, funding amount, and persisted data-document JSON. Settlement summaries can be reconstructed later with `OpalBase.Hedge.makeSettlementSummary(...)` using persisted funding JSON plus verified oracle proofs.
+### `WalletObservabilityInteractor`
 
-## Claimable
+Observability lane for redacted `OpalDiagnostics` records only.
 
-Use `OpalBase.ClaimableInteractor` for claimable contract drafts, funding outputs, envelopes, share codes, local/network status checks, recovery material, and claim/refund transaction building. Prefer `refundSigningKey: OpalBase.Key.SigningKey` for refund authoring; `refundPrivateKey: Data`, encoded envelopes, WIF/recovery material, and protocol payloads remain intentional raw-secret surfaces. These APIs are separate from wallet account state so apps can create, decode, inspect, and claim funding envelopes without exposing account internals.
-
-## CashFusion
-
-On macOS, use `OpalBase.CashFusionInteractor(privateAccount:)` for session lifecycle and coordinator state. CashFusion preparation requires private account authority because it reserves wallet-owned inputs and signs host-owned fusion transactions; public-chain transport, broadcast, and snapshots remain outside the CashFusion interactor.
+Typical tasks: read recent diagnostics records filtered by category, level, trace ID, event, or date range.
 
 ## Domain Vocabulary
 
@@ -263,6 +129,7 @@ These primitives are intentionally public because they are part of the Bitcoin C
 - `OpalBase.Satoshi`
 - `OpalBase.Transaction`
 - `OpalBase.Transaction.Hash`
+- `OpalBase.Transaction.Output.Unspent`
 - `OpalBase.Block`
 - `OpalBase.Network.Configuration`
 - `OpalBase.Network.Fulcrum.Client`
@@ -270,4 +137,9 @@ These primitives are intentionally public because they are part of the Bitcoin C
 - `OpalBase.WalletUnsignedSpendPlan`
 - `OpalBase.WalletUnsignedTransactionEnvelope`
 
-Implementation-only reservation state, address-book internals, bridge types, raw lower-level package collaborators, and adapter protocols are not part of the curated public contract. From constructor labels alone, prefer descriptor/public-chain surfaces for sync, `privateAccount` surfaces for signing and money movement, `SigningKey` surfaces for scoped signing, storage/session surfaces for secrets, and snapshot persistence surfaces for import/export DTOs.
+## Where To See It Running
+
+- `Tests/OpalBaseLocalTests/PublicAPISmokeValidator.swift` covers public-surface composition across wallet, descriptor, receive, storage, token metadata, CashFusion, AnyHedge, claimable, and diagnostics areas.
+- `Tests/OpalBaseLocalTests/WalletTrustDomainInteractorValidator.swift` checks trust-domain interactor separation.
+- `Tests/OpalBaseLocalTests/WalletSecurityProfileValidator.swift` checks offline signer posture and secret persistence policy behavior.
+- `Tests/OpalBaseNetworkTests/NetworkLiveSmokeValidator.swift` shows opt-in live Fulcrum usage behind `OPAL_RUN_LIVE_NETWORK_TESTS` and `OPAL_FULCRUM_URL`.

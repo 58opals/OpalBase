@@ -1,77 +1,77 @@
 # Opal Base Architecture
 
-## Role
+Opal Base is the Bitcoin Cash application-layer package in the Opal stack. It sits above raw cryptography and transport packages, and below app UI, persistence policy, offline signing ceremonies, support tooling, and product-specific workflow decisions.
 
-Opal Base is the Bitcoin Cash application-layer foundation in the Opal package stack for Apple platforms. It owns the reusable wallet and account domain behavior that apps need after cryptography and Fulcrum transport are abstracted into lower-level packages.
+## Package Boundary
 
-Consumers use Opal Base when they need wallet flows, CashAddr management, spend planning, snapshotting, and token-aware orchestration rather than raw key or socket primitives. See the [Public API Guide](public-api.md) for the intended workflow entry points and lane-explicit interactor surfaces.
+| Package | Responsibility |
+| --- | --- |
+| `OpalBase` | Wallet/account orchestration, CashAddr reservation, BCH balance/history/UTXO/confirmation refresh, spend planning, transaction construction, snapshots, storage helpers, CashTokens metadata, CashFusion wallet preparation, AnyHedge funding preparation, and redacted diagnostics integration |
+| `OpalCrypto` | Cryptography, seed/key derivation primitives, public key support, and signing primitives |
+| `SwiftFulcrum` | Fulcrum protocol transport and low-level network communication |
+| `OpalFusion` | CashFusion protocol runtime and coordinator/session behavior |
+| `OpalHedge` | AnyHedge contract primitives and protocol behavior |
+| `OpalDiagnostics` | Shared diagnostics vocabulary, redacted record model, and presentation helpers |
 
-## Upstream Boundaries
+Opal Base owns the app-facing orchestration above those packages. It should not become a UI toolkit, hardware-wallet firmware layer, raw socket library, cross-chain abstraction, or portfolio operations surface.
 
-- `OpalCrypto` provides the cryptography, seed and key derivation primitives, and signing support consumed by wallet, account, and transaction flows in this package.
-- `SwiftFulcrum` provides the underlying Fulcrum protocol transport used by `OpalBase.Network.Fulcrum.Client` and the readers and clients layered on top of it.
-- `OpalFusion` provides the native CashFusion runtime and protocol behavior consumed by wallet-backed CashFusion flows in this package.
-- `OpalHedge` provides the AnyHedge contract primitives and protocol behavior consumed by wallet-backed hedge funding flows in this package.
-- `OpalDiagnostics` provides the shared diagnostics vocabulary, redacted record model, and presentation helpers consumed by Opal Base observability surfaces.
-- Opal Base owns the app-facing orchestration above those packages: wallet state, address tracking, spend planning, CashFusion reservation and session preparation, history refresh, snapshotting, storage, and token metadata handling.
+## Builder Integration Lanes
 
-## Downstream Integration
+- Wallet management lane: `WalletManagementInteractor` works around an existing `OpalBase.Wallet` for account creation, account lookup, and snapshot composition.
+- Secret lane: `WalletSecretAccessInteractor` owns mnemonic-bearing save, restore, and wipe flows through `OpalBase.Storage.PersistenceSession`.
+- Snapshot lane: `WalletSnapshotInteractor` moves `OpalBase.Wallet.Snapshot` values without retaining secrets, transport clients, or raw transactions.
+- Public-chain lane: `WalletAccountPublicDescriptor`, `WalletPublicChainOperations`, `WalletTransportInteractor`, and `WalletBlockchainSyncInteractor` refresh BCH balances, transaction history, UTXOs, and confirmations from public account data.
+- Receive lane: `WalletReceiveAddressInteractor` reserves CashAddr receive addresses and keeps reservation/cache mutation separate from generic sync.
+- Money-movement lane: `WalletTransactionAuthoringInteractor(privateAccount:)` prepares BCH spends, token transactions, AnyHedge funding, and external-review unsigned spend plans.
+- Broadcast lane: `WalletBroadcastInteractor` relays prepared transactions and reconciles confirmations for explicitly named transaction hashes.
+- Asset lane: `WalletAssetInteractor` reads token inventory/metadata and makes token mint authoring explicit when private account authority is supplied.
+- CashFusion lane: `CashFusionInteractor(privateAccount:)` is macOS-only and requires wallet-owned private account authority.
+- Diagnostics lane: `WalletObservabilityInteractor` reads redacted diagnostics records only.
 
-- Primary downstream consumers are Opal Wallet and other Swift/BCH apps on Apple platforms.
-- A typical integration starts with `OpalBase.Wallet` for management and secret-backed account creation, then exposes narrower composition lanes such as `WalletBlockchainSyncInteractor`, `WalletReceiveAddressInteractor`, `WalletTransactionAuthoringInteractor`, `WalletBroadcastInteractor`, `WalletSecretAccessInteractor`, and `WalletSnapshotInteractor`.
-- Descriptor-backed integrations can construct `OpalBase.WalletAccountPublicDescriptor` from a serialized account extended public key plus `OpalBase.Account.Snapshot`, then run public-chain sync without mnemonic, Keychain, Secure Enclave, or root private account authority.
-- The package keeps app code focused on wallet workflows instead of re-implementing address books, reservation logic, UTXO caching, transaction history sync, or token metadata plumbing.
+## Data Flow
 
-## Trust-Domain Lanes
+```text
+mnemonic/private wallet lane
+    -> wallet/account actor state
+    -> public descriptor + snapshots
+    -> Fulcrum-backed public-chain sync
+    -> refreshed account snapshot
+```
 
-- `WalletSnapshotInteractor` is the storage/import-export snapshot lane. It accepts `OpalBase.Storage.SnapshotPersistence` or `OpalBase.Storage`, moves `OpalBase.Wallet.Snapshot` values, and does not own transport clients, mnemonics, raw transactions, or signing keys.
-- `WalletBlockchainSyncInteractor` is the descriptor-backed public-chain sync lane. Its primary constructor takes `WalletAccountPublicDescriptor` and `WalletPublicChainOperations`, so balances, history, UTXOs, and confirmation freshness can run from account public data.
-- `WalletTransportInteractor` is the public-chain transport lane. It wraps `Network.AddressReader`, `Network.TransactionClient`, optional `Network.TransactionReader`, optional `Network.BlockHeaderReader`, or a `Network.Fulcrum.Client`; it does not own wallet snapshots or secrets.
-- `WalletReceiveAddressInteractor` is the receive derivation and reservation lane. Reservation is intentionally separate from generic sync because handing out a receive address mutates reservation/cache state.
-- `WalletSecurityProfile` is the app posture lane for secret persistence, network access, and signing review boundaries. The offline savings signer profile requires Secure Enclave-backed secret persistence, no public-chain networking, and external transaction review.
-- `WalletSecretAccessInteractor` is the mnemonic and secure persistence lane. It is the explicit surface for `Storage.PersistenceSession` restore/save/wipe flows, including Keychain and Secure Enclave-backed providers.
-- `WalletUnsignedSpendPlan` is the reserved external-review spend lane. It carries an unsigned transaction envelope and reservation lifecycle without retaining private-key material.
-- `WalletUnsignedTransactionEnvelope` is the external signing boundary scaffold. It carries an unsigned Bitcoin Cash transaction, the transaction outputs being spent, and the requested signature format without owning QR transport, UI review, script verification, cryptographic signature verification, or broadcast behavior.
-- `WalletTransactionAuthoringInteractor` is the user-triggered money-movement lane. Its constructor label is `privateAccount` and it prepares BCH spends, token spends, token genesis, token minting, token commitment mutation, hedge funding, and signing-capable plans.
-- `WalletBroadcastInteractor` is the relay and targeted aftermath lane. It owns a `Network.TransactionClient` and updates confirmations for explicitly supplied transaction hashes instead of implying a whole-wallet rebuild.
-- `WalletManagementInteractor` is the broad wallet management lane for account creation, account lookup, account count, and snapshot composition around an existing `OpalBase.Wallet`.
-- `WalletAssetInteractor` is the token holdings and metadata lane. Token mint authoring remains explicit through the `privateAccount` initializer and otherwise inventory/metadata operations can stay read-oriented.
-- `CashFusionInteractor` is the CashFusion session lifecycle lane on macOS. It requires `privateAccount` because coordinator session preparation signs and reserves wallet-owned inputs.
-- `ClaimableInteractor` is the claimable contract lane for drafts, funding outputs, envelopes, status resolution, claim/refund transaction building, and recovery material without turning Claimable into a wallet/account backdoor.
-- `WalletObservabilityInteractor` is the diagnostics lane. It only reads redacted `OpalDiagnostics.Record` values; event recording stays in the domain operations so sensitive payloads are not accepted through a generic logging facade.
+```text
+private account lane
+    -> spend/token/hedge authoring
+    -> signed transaction or external-review unsigned plan
+    -> app-owned signing/review/broadcast policy
+    -> targeted confirmation reconciliation
+```
 
-## Owned Capabilities
+The first flow can run without mnemonic authority after descriptor construction. The second flow is user-triggered money movement and stays behind `privateAccount` surfaces.
 
-- Actor-isolated wallet and account surfaces through `OpalBase.Wallet` and `OpalBase.Account`, with lane-explicit public interactors for Wallet composition.
-- Scoped secp256k1 signing through `OpalBase.Key.SigningKey`, which derives public keys and signs without exposing raw private-key export as part of the preferred signing path.
-- Deterministic address management and gap-limit-aware address-book behavior for BCH receiving and change flows.
-- BCH spend planning, transaction construction, signing, broadcast helpers, and confirmation or history refresh flows, split between authoring, broadcast, and public-chain sync lanes.
-- Security posture scaffolding for Lockdown Mode-compatible app layers through `WalletSecurityProfile.offlineSavingsSigner`, `WalletTransactionAuthoringInteractor.prepareSpendForExternalReview`, and external signing review data contracts.
-- Wallet-backed CashFusion pilot orchestration over `OpalFusion.Client.Session` for explicitly selected wallet UTXOs and fresh wallet-owned receiving outputs, with OpalFusion host callbacks hidden behind OpalBase CashFusion operation surfaces.
-- Snapshotting and restoration of wallet, account, and token metadata state.
-- Storage helpers, including Secure Enclave-backed mnemonic protection through `OpalBase.Storage.Security.makeSecureEnclaveBacked`.
-- CashTokens and BCMR metadata support through `OpalBase.CashTokens.*`.
-- Fulcrum-facing orchestration and monitoring through `OpalBase.Network.Fulcrum.Client`, `OpalBase.Wallet.Fulcrum`, and `OpalBase.WalletTransportInteractor`.
+## State And Persistence
+
+Wallet and account objects are actor-isolated so mutation stays serialized. Snapshot persistence is intentionally separate from secret persistence: `WalletSnapshotInteractor` handles snapshot values, while `WalletSecretAccessInteractor` handles mnemonic-bearing state and storage protection policy.
+
+Secure Enclave-backed persistence protects stored mnemonic material at rest. It does not move BCH secp256k1 signing into the Secure Enclave; apps that need external signing review should use `WalletUnsignedSpendPlan` and keep review, signature verification policy, and relay outside the signing boundary.
+
+## Public-Chain Sync
+
+Descriptor-backed sync starts from `WalletAccountPublicDescriptor` and `WalletPublicChainOperations`. `WalletBlockchainSyncInteractor` can refresh BCH balances, transaction history, UTXOs, and confirmations without root private account authority. Confirmed and unconfirmed state should remain distinct in app UI and storage because unconfirmed state can change at the mempool level.
 
 ## Non-Goals
 
-- UI, app-shell, or end-user product UX ownership.
-- Raw cryptography or numeric primitives that belong in `OpalCrypto`.
-- Raw network transport or protocol wiring that belong in `SwiftFulcrum`; `Network.Fulcrum` remains public-chain oriented and must not own wallet secrets or SwiftData snapshots.
-- Native CashFusion protocol runtime that belongs in `OpalFusion`.
-- AnyHedge contract primitives or protocol behavior that belong in `OpalHedge`.
-- Cross-package diagnostics infrastructure that belongs in `OpalDiagnostics`.
-- Broad wallet/account authority as the only public integration surface. New app code should prefer the lane-specific interactors when composing Wallet features.
-- Multi-chain scope. This package is Bitcoin Cash-specific.
-- Weekly reporting, portfolio prioritization, dependency drift snapshots, or operational workflow policy.
+- UI, app shell, onboarding screens, settings screens, or end-user product UX.
+- Raw cryptography or key primitive ownership that belongs in `OpalCrypto`.
+- Raw Fulcrum protocol ownership that belongs in `SwiftFulcrum`.
+- CashFusion coordinator/session protocol ownership that belongs in `OpalFusion`.
+- AnyHedge contract primitive ownership that belongs in `OpalHedge`.
+- Diagnostics infrastructure ownership that belongs in `OpalDiagnostics`.
+- Multi-chain abstractions. Opal Base is Bitcoin Cash-specific.
 
-## Integration Pointers
+## Review Pointers
 
-- Start with the quick start in the root README and the [Public API Guide](public-api.md), then layer in live Fulcrum connectivity with `OpalBase.Network.Fulcrum.Client` and `OpalBase.Wallet.Fulcrum`.
-- See `Tests/OpalBaseLocalTests/PublicAPISmokeValidator.swift` for public-surface composition across wallet, network, storage, block, and token metadata APIs.
-- See `Tests/OpalBaseNetworkTests/NetworkLiveSmokeValidator.swift` for a minimal live-network example using `OPAL_FULCRUM_URL` and `OPAL_RUN_LIVE_NETWORK_TESTS`.
-- Use `swift test` for package validation. Network tests remain opt-in through environment variables.
-
-## Current Direction
-
-Near-term work should keep the app-layer contract clear, examples legible, and downstream integration expectations stable for Apple-platform Bitcoin Cash apps.
+- Start with [BCH Builder Starter Guide](starter-guide.md) for the first-success path.
+- Use [Recipes](recipes.md) for task lookup.
+- Use [Trust Boundaries](trust-boundaries.md) before wiring secrets, signing, broadcast, or diagnostics.
+- Use [Public API Guide](public-api.md) for facade-level reference.
+- Use `Tests/OpalBaseLocalTests/PublicAPISmokeValidator.swift` and `Tests/OpalBaseNetworkTests/NetworkLiveSmokeValidator.swift` as runnable public API examples.
