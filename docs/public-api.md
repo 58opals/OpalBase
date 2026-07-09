@@ -71,7 +71,7 @@ Typical tasks: save/load/delete wallet snapshots by generation and save/load/del
 
 ### `WalletSecurityProfile`
 
-Security posture contract for secret persistence, network access, and signing review boundaries. `offlineSavingsSigner` requires Secure Enclave-backed secret persistence, offline network access, and external signing review.
+Security posture contract for secret persistence, network posture, and signing review boundaries. `offlineSavingsSigner` requires Secure Enclave-backed secret persistence, `networkAccess: .offline` with no public-chain sync or relay, and external signing review.
 
 Typical tasks: make offline signer posture explicit, fail closed on weaker secret persistence, and prevent broadcast from profiles that do not allow network relay.
 
