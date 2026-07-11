@@ -76,7 +76,7 @@ struct AddressValidator {
     func deriveStableWalletAndAddressArtifacts() throws {
         let privateKeyData = Data(repeating: 0x00, count: 31) + Data([0x01])
         let privateKey = try OpalCrypto.Secp256k1.PrivateKey(rawRepresentation: privateKeyData)
-        let walletImportFormat = try OpalCrypto.Key.WIF(privateKey: privateKey).serialize()
+        let walletImportFormat = OpalCrypto.Key.WIF(privateKey: privateKey).serialize()
         let publicKey = try OpalBase.Key.PublicKey(privateKeyData: privateKeyData)
         let hash = OpalBase.Key.PublicKey.Hash(publicKey: publicKey)
         let script = OpalBase.Script.p2pkh_OPCHECKSIG(hash: hash)

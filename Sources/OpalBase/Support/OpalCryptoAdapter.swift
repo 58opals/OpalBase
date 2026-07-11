@@ -66,7 +66,7 @@ enum OpalCryptoAdapter {
 
     static func walletImportFormat(privateKeyData: Data, isCompressed: Bool = true) throws -> String {
         let privateKey = try OpalCrypto.Secp256k1.PrivateKey(rawRepresentation: privateKeyData)
-        return try OpalCrypto.Key.WIF(privateKey: privateKey, isCompressed: isCompressed).serialize()
+        return OpalCrypto.Key.WIF(privateKey: privateKey, isCompressed: isCompressed).serialize()
     }
 
     static func parseWalletImportFormat(_ text: String) throws -> OpalCrypto.Key.WIF {
