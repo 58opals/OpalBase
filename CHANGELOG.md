@@ -6,6 +6,24 @@ All notable public-facing changes to Opal Base are tracked here.
 
 - No public-facing changes yet.
 
+## v0.4.1 - 2026-07-11
+
+### Changed
+
+- Updated the tracked public `develop` revisions for `OpalCrypto`, `OpalFusion`, and `OpalHedge`; `SwiftFulcrum` and `OpalDiagnostics` were already current.
+
+### Fixed
+
+- Hardened Fulcrum configuration and reconnect behavior by clamping invalid timeout, retry, delay, jitter, and message-size values.
+- Canonicalized transaction and block hash handling, validated returned broadcast identifiers, and rejected malformed or prefixed transaction hexadecimal input.
+- Tightened Bitcoin Cash balance bounds, standard locking-script serialization, transaction decoding, token metadata URL handling, and path traversal validation.
+- Improved wallet snapshot persistence cleanup, stale reservation validation, unconfirmed transaction handling, and failure-path consistency.
+
+### Release Notes
+
+- This patch release applies stricter normalization and rejection of invalid network, hash, locking-script, token metadata, and persistence inputs. Apps that passed malformed values may now receive validation errors or clamped configuration values.
+- The `v0.4.1` release uses public sibling package URLs and tracked `Package.resolved` revisions while the manifest continues to depend on sibling public `develop` branches.
+
 ## v0.4.0 - 2026-07-09
 
 ### Added

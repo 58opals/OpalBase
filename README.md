@@ -1,6 +1,6 @@
 # Opal Base
 
-Status: Developer Preview. The current release line is `v0.4.0`; the public `develop` branch remains the builder-review surface between SemVer tags.
+Status: Developer Preview. The current release line is `v0.4.1`; the public `develop` branch remains the builder-review surface between SemVer tags.
 
 Opal Base is a Swift package for building Bitcoin Cash wallet and transaction flows on Apple platforms. It gives BCH builders a curated app-facing layer for wallet/account orchestration, CashAddr receive-address reservation, Fulcrum-backed public-chain sync, BCH spend planning, transaction review boundaries, snapshot persistence, CashTokens metadata, CashFusion preparation, AnyHedge funding preparation, and redacted diagnostics.
 
@@ -32,7 +32,7 @@ For released-package consumers, use the latest tag:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/58opals/OpalBase.git", from: "0.4.0")
+    .package(url: "https://github.com/58opals/OpalBase.git", from: "0.4.1")
 ],
 targets: [
     .target(
@@ -52,7 +52,7 @@ dependencies: [
 ]
 ```
 
-Do not treat the `develop` branch as a SemVer release. The `v0.4.0` release candidate keeps sibling Opal dependencies on public `develop` branches with tracked revisions in `Package.resolved`; moving those dependencies to public SemVer tags is a separate maintainer-approved dependency change.
+Do not treat the `develop` branch as a SemVer release. The `v0.4.1` release keeps sibling Opal dependencies on public `develop` branches with tracked revisions in `Package.resolved`; moving those dependencies to public SemVer tags is a separate maintainer-approved dependency change.
 
 ## 5-Minute Quick Start
 

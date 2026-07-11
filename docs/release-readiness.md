@@ -1,21 +1,21 @@
 # Release Readiness
 
-This page tracks public-safe release posture for builders evaluating the Opal Base `v0.4.0` release line. It does not create a release, tag a release, or change dependency requirements.
+This page tracks public-safe release posture for builders evaluating the Opal Base `v0.4.1` release line. It does not create a release, tag a release, or change dependency requirements.
 
 ## Current Public Status
 
-- Release line: `v0.4.0`.
-- Previous public tag before this release line: `v0.3.0`.
+- Release line: `v0.4.1`.
+- Previous public tag before this release line: `v0.4.0`.
 - Builder-review surface between tags: public `develop` branch.
-- Release source: annotated `v0.4.0` tag after release promotion completes.
-- Package version constant: `OpalBase.version == "0.4.0"`.
+- Release source: annotated `v0.4.1` tag after release promotion completes.
+- Package version constant: `OpalBase.version == "0.4.1"`.
 - License posture for release notes: Apache License 2.0, matching the repository `LICENSE` file.
 
 ## Builder Review Versus SemVer Release
 
 The public `develop` branch is acceptable for builder review when all SwiftPM dependency URLs are public and the tracked `Package.resolved` file does not expose private-only topology. It is not a SemVer release.
 
-The `v0.4.0` release candidate currently uses public sibling package URLs with public `develop` branch requirements and tracked `Package.resolved` revisions. Moving sibling dependencies from public `develop` branches to public SemVer tags is a separate maintainer-approved dependency change because it changes `Package.swift` dependency requirements.
+The `v0.4.1` release candidate uses public sibling package URLs with public `develop` branch requirements and tracked `Package.resolved` revisions. Moving sibling dependencies from public `develop` branches to public SemVer tags is a separate maintainer-approved dependency change because it changes `Package.swift` dependency requirements.
 
 ## Release Hardening Checklist
 
@@ -29,12 +29,12 @@ The `v0.4.0` release candidate currently uses public sibling package URLs with p
 
 ## Validation Status
 
-- `swift build`: passed on 2026-07-09.
-- `swift test`: passed on 2026-07-09 with 875 tests across 96 suites.
+- `swift build`: passed on 2026-07-11.
+- `swift test`: passed on 2026-07-11 with 893 tests across 96 suites.
 - Optional live Fulcrum validation: not run in the local suite because `OPAL_RUN_LIVE_NETWORK_TESTS` was unset.
-- Public artifact guard: passed on 2026-07-09.
+- Public artifact guard: passed on 2026-07-11.
 - Release-lane refs: live refs matched local tracking refs and the promotion path was fast-forwardable at validation time.
-- Public `v0.4.0` tag: not present before release tagging.
+- Public `v0.4.1` tag: not present before release tagging.
 - Dependency topology: `Package.swift` and `Package.resolved` use public GitHub URLs and public `develop` branch requirements for sibling Opal packages; no non-public dependency URL or draft branch requirement was found.
 
 ## Documentation Readiness Checklist
