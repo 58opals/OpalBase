@@ -1038,8 +1038,8 @@ struct SnapshotPersistenceValidator {
         #expect(await book.listTransactionRecords().isEmpty)
     }
 
-    @Test("address book restore rejects duplicate non-fungible token deltas before mutation")
-    func addressBookRestoreRejectsDuplicateNonFungibleTokenDeltasBeforeMutation() async throws {
+    @Test("address book restore preserves duplicate non-fungible token deltas")
+    func preserveDuplicateNonFungibleTokenDeltasDuringAddressBookRestore() async throws {
         let account = try await AccountTestFixtures.makeAccount()
         let book = await account.addressBook
         let entry = try #require(await book.listEntries(for: .receiving).first)
@@ -1063,7 +1063,7 @@ struct SnapshotPersistenceValidator {
             amount: 42,
             nft: nonFungibleToken
         )
-        let malformedTransaction = OpalBase.Address.Book.Snapshot.Transaction(
+        let restoredTransaction = OpalBase.Address.Book.Snapshot.Transaction(
             transactionHash: String(repeating: "1", count: 64),
             height: 0,
             fee: nil,
@@ -1079,17 +1079,21 @@ struct SnapshotPersistenceValidator {
             lastCheckedAt: nil,
             nonFungibleTokenAdditions: [tokenData, duplicateTokenData]
         )
-        let malformedSnapshot = OpalBase.Address.Book.Snapshot(
+        let restoredSnapshot = OpalBase.Address.Book.Snapshot(
             receivingEntries: alteredReceivingEntries,
             changeEntries: snapshot.changeEntries,
             utxos: snapshot.utxos,
-            transactions: [malformedTransaction]
+            transactions: [restoredTransaction]
         )
 
-        await #expect(throws: OpalBase.Address.Book.Error.invalidSnapshotDuplicateTokenDelta(canonicalTokenData)) {
-            try await book.refresh(with: malformedSnapshot)
-        }
-        #expect(try await book.readCachedBalance(for: entry.address) == OpalBase.Satoshi(1_234))
+        try await book.refresh(with: restoredSnapshot)
+
+        #expect(try await book.readCachedBalance(for: entry.address) == OpalBase.Satoshi(9_999))
+        let restoredRecord = try #require(await book.listTransactionRecords().first)
+        #expect(restoredRecord.tokenDelta.nonFungibleTokenAdditions == [
+            canonicalTokenData,
+            canonicalTokenData
+        ])
     }
 
     @Test("address book restore rejects impossible BCH token lock deltas before mutation")

@@ -3,6 +3,10 @@
 import Foundation
 
 extension OpalBase.CashTokens.BCMR.Client {
+    /// Fetches registries while rejecting private or reserved IP literals and local-use hostnames.
+    ///
+    /// DNS resolution is not pinned by `URLSession`. Do not pass attacker-controlled DNS names
+    /// unless the supplied session routes through a trusted proxy or enforces destination policy.
     public struct Fetcher: Sendable {
         public let urlSession: URLSession
         public let ipfsGateway: URL?
@@ -46,6 +50,7 @@ extension OpalBase.CashTokens.BCMR.Client.Fetcher {
         case responseTooLarge(limit: Int, actual: Int)
         case unexpectedResponseStatus(Int)
         case invalidMaximumBytes(Int)
+        case disallowedNetworkLocation(URL)
     }
     
     public func fetchRegistry(from resourceIdentifier: String) async throws -> RegistryFetchResult {
@@ -260,11 +265,14 @@ private extension OpalBase.CashTokens.BCMR.Client.Fetcher {
         guard scheme == "https" else {
             throw Error.unsupportedScheme(scheme ?? "")
         }
-        guard Self.makeHypertextTransferProtocolSecureAuthority(from: resourceLocation) != nil else {
+        guard let authority = Self.makeHypertextTransferProtocolSecureAuthority(from: resourceLocation) else {
             throw Error.invalidResourceIdentifier(resourceLocation.absoluteString)
         }
         guard !URLPathTraversal.containsPathTraversal(in: resourceLocation) else {
             throw Error.invalidResourceIdentifier(resourceLocation.absoluteString)
+        }
+        guard URLHostValidation.isAllowedFetchHostSyntax(authority.host) else {
+            throw Error.disallowedNetworkLocation(resourceLocation)
         }
     }
     

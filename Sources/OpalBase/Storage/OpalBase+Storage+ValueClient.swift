@@ -3,6 +3,12 @@
 import Foundation
 
 extension _OpalBase.Storage {
+    /// Storage backend closures owned and coordinated by `Storage`.
+    ///
+    /// After passing a value to `Storage`, do not invoke retained copies of its
+    /// closures concurrently with Storage APIs. Cross-process or other
+    /// out-of-band mutation requires backend-level transactions or
+    /// compare-and-swap semantics.
     public struct ValueClient: Sendable {
         public var valueWriter: @Sendable (Data, OpalBase.Storage.Key) async throws -> Void
         public var valueReader: @Sendable (OpalBase.Storage.Key) async throws -> Data?

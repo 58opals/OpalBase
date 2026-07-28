@@ -25,6 +25,7 @@ See [Trust Boundaries](docs/trust-boundaries.md) for the full integration model.
 
 - Swift tools version: `6.2`
 - Platforms: `macOS 26`, `iOS 26`, `watchOS 26`, `tvOS 26`, `visionOS 26`
+- Xcode's Metal Toolchain component, required by the `OpalCrypto` Metal verification target. If it is not installed, run `xcodebuild -downloadComponent MetalToolchain`.
 
 ## Installation
 

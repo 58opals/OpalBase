@@ -53,6 +53,10 @@ After the app completes its own external signing flow, `completeExternalSigning(
 
 Broadcast is separate from spend authoring. `WalletBroadcastInteractor` owns a transaction client and can reconcile confirmations for the transaction hashes the caller names. It does not imply a whole-wallet rebuild and it does not need mnemonic authority.
 
+## BCMR Metadata Fetching
+
+`CashTokens.BCMR.Client.Fetcher` rejects private and reserved IP literals and local-use hostnames before each initial or redirected HTTPS request. `URLSession` does not expose resolution pinning, so this check does not make attacker-controlled DNS names safe from rebinding. Route untrusted registry locations through a trusted proxy or a transport that enforces destination policy.
+
 ## Diagnostics
 
 Diagnostics records are intended to be redacted before they are read through `WalletObservabilityInteractor`. Do not add mnemonics, private keys, passphrases, raw recovery payloads, unsigned transaction envelopes, signed transaction payloads, or transaction review payloads to generic logging paths.

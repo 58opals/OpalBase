@@ -5,22 +5,46 @@ import Testing
 @testable import OpalBase
 
 extension AddressBookCoinSelectorValidator {
-    @Test("select branch and bound returns empty selection when no funding is required")
-    func selectBranchAndBoundReturnsEmptySelectionWhenNoFundingIsRequired() throws {
-        let configuration = OpalBase.Address.Book.CoinSelection.Configuration(
-            recipientOutputs: .init(),
-            outputsWithChange: .init(),
-            strategy: .branchAndBound
-        )
-        let coinSelector = OpalBase.Address.Book.CoinSelector(
-            utxos: .init(),
-            configuration: configuration,
-            targetAmount: 0,
-            feePerByte: 0,
-            minimumRelayFeeRate: 0
+    @Test("select branch and bound returns promptly for a zero target with many equal-value UTXOs")
+    func returnPromptlyForZeroTargetWithManyUnspentOutputs() throws {
+        let coinSelector = makeBranchAndBoundSelector(
+            values: Array(repeating: 1, count: 32),
+            targetAmount: 0
         )
 
         #expect(try coinSelector.select().isEmpty)
+    }
+
+    @Test("select branch and bound uses a deterministic fallback when its search budget is exhausted")
+    func useDeterministicFallbackAtSearchLimit() throws {
+        let coinSelector = makeBranchAndBoundSelector(
+            values: [8, 7, 3],
+            targetAmount: 10
+        )
+
+        let fallbackSelection = try coinSelector.selectBranchAndBound(searchNodeCountLimit: 1)
+        let exactSelection = try coinSelector.selectBranchAndBound()
+
+        #expect(fallbackSelection.map(\.previousTransactionOutputIndex) == [0, 1])
+        #expect(exactSelection.map(\.previousTransactionOutputIndex) == [1, 2])
+    }
+
+    @Test("select branch and bound preserves fewest-input and deterministic selection ties")
+    func preserveSelectionTieBehavior() throws {
+        let fewestInputSelector = makeBranchAndBoundSelector(
+            values: [10, 6, 4],
+            targetAmount: 10
+        )
+        let equalCountSelector = makeBranchAndBoundSelector(
+            values: [6, 4, 6, 4],
+            targetAmount: 10
+        )
+
+        let fewestInputSelection = try fewestInputSelector.selectBranchAndBound()
+        let equalCountSelection = try equalCountSelector.selectBranchAndBound()
+
+        #expect(fewestInputSelection.map(\.previousTransactionOutputIndex) == [0])
+        #expect(equalCountSelection.map(\.previousTransactionOutputIndex) == [0, 1])
     }
 
     @Test("select branch and bound throws when minimal requirement overflows")
@@ -140,5 +164,33 @@ extension AddressBookCoinSelectorValidator {
                 )
             }
         }
+    }
+
+    private func makeBranchAndBoundSelector(
+        values: [UInt64],
+        targetAmount: UInt64
+    ) -> OpalBase.Address.Book.CoinSelector {
+        let previousTransactionHash = OpalBase.Transaction.Hash(
+            naturalOrder: Data(repeating: 0, count: 32)
+        )
+        let unspentOutputs = values.enumerated().map { index, value in
+            OpalBase.Transaction.Output.Unspent(
+                value: value,
+                lockingScript: Data([0x51]),
+                previousTransactionHash: previousTransactionHash,
+                previousTransactionOutputIndex: UInt32(index)
+            )
+        }
+        let configuration = OpalBase.Address.Book.CoinSelection.Configuration.makeTemplateConfiguration(
+            strategy: .branchAndBound
+        )
+
+        return OpalBase.Address.Book.CoinSelector(
+            utxos: unspentOutputs,
+            configuration: configuration,
+            targetAmount: targetAmount,
+            feePerByte: 0,
+            minimumRelayFeeRate: 0
+        )
     }
 }

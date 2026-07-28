@@ -98,6 +98,80 @@ extension StoragePersistenceValidator {
         #expect(restored.mnemonicProtectionMode == .plaintext)
     }
 
+    @Test("commit marker failures restore the previous generation after partial writes")
+    func restorePreviouslyCommittedStateAfterCommitMarkerFailure() async throws {
+        let snapshotState = GenerationSnapshotPersistenceState()
+        let mnemonicState = GenerationMnemonicPersistenceState()
+        let session = OpalBase.Storage.PersistenceSession(
+            snapshotPersistence: makeGenerationSnapshotPersistence(state: snapshotState),
+            storedMnemonicPersistence: makeGenerationMnemonicPersistence(state: mnemonicState)
+        )
+
+        let initialWallet = try await AccountTestFixtures.makeWallet(passphrase: "first-passphrase")
+        let initialAccount = try await initialWallet.fetchAccount(at: 0)
+        _ = try await initialAccount.reserveNextReceivingAddress()
+
+        _ = try await session.save(wallet: initialWallet)
+        let initialCommittedGeneration = try #require(await snapshotState.loadCommittedGeneration())
+
+        let replacementWallet = try await AccountTestFixtures.makeWallet(
+            accountIndices: [0, 1],
+            passphrase: "second-passphrase"
+        )
+        await snapshotState.failNextCommittedGenerationSaveAfterMutation()
+
+        try await expectGenerationPersistenceSimulatedFailure {
+            _ = try await session.save(wallet: replacementWallet)
+        }
+
+        #expect(await snapshotState.loadCommittedGeneration() == initialCommittedGeneration)
+
+        let restored = try await session.restore()
+        let restoredWalletSnapshot = try #require(restored.walletSnapshot)
+        let restoredMnemonic = try #require(restored.mnemonic)
+
+        #expect(restoredWalletSnapshot.accounts.count == 1)
+        #expect(restoredWalletSnapshot.accounts.first?.accountUnhardenedIndex == 0)
+        #expect(restoredMnemonic.passphrase == "first-passphrase")
+        #expect(restored.mnemonicProtectionMode == .plaintext)
+    }
+
+    @Test("rollback failures preserve artifacts for the still-committed staged generation")
+    func preserveStagedArtifactsAfterCommitMarkerRollbackFailure() async throws {
+        let snapshotState = GenerationSnapshotPersistenceState()
+        let mnemonicState = GenerationMnemonicPersistenceState()
+        let session = OpalBase.Storage.PersistenceSession(
+            snapshotPersistence: makeGenerationSnapshotPersistence(state: snapshotState),
+            storedMnemonicPersistence: makeGenerationMnemonicPersistence(state: mnemonicState)
+        )
+
+        let initialWallet = try await AccountTestFixtures.makeWallet(passphrase: "first-passphrase")
+        _ = try await session.save(wallet: initialWallet)
+        let initialCommittedGeneration = try #require(await snapshotState.loadCommittedGeneration())
+
+        let replacementWallet = try await AccountTestFixtures.makeWallet(
+            accountIndices: [0, 1],
+            passphrase: "second-passphrase"
+        )
+        await snapshotState.failNextCommittedGenerationSaveAfterMutation()
+        await snapshotState.failNextCommittedGenerationSaveBeforeMutation()
+
+        try await expectGenerationPersistenceSimulatedFailure {
+            _ = try await session.save(wallet: replacementWallet)
+        }
+
+        let stagedGeneration = try #require(await snapshotState.loadCommittedGeneration())
+        #expect(stagedGeneration != initialCommittedGeneration)
+
+        let restored = try await session.restore()
+        let restoredWalletSnapshot = try #require(restored.walletSnapshot)
+        let restoredMnemonic = try #require(restored.mnemonic)
+
+        #expect(restoredWalletSnapshot.accounts.count == 2)
+        #expect(restoredMnemonic.passphrase == "second-passphrase")
+        #expect(restored.mnemonicProtectionMode == .plaintext)
+    }
+
     @Test("manual persistence sessions tolerate configured recoverable mnemonic load failures")
     func manualPersistenceSessionToleratesConfiguredRecoverableMnemonicLoadFailures() async throws {
         let snapshotState = GenerationSnapshotPersistenceState()
@@ -164,7 +238,7 @@ extension StoragePersistenceValidator {
         #expect(resetProbe.wasReset)
     }
 
-    private func makeGenerationSnapshotPersistence(
+    func makeGenerationSnapshotPersistence(
         state: GenerationSnapshotPersistenceState
     ) -> OpalBase.Storage.SnapshotPersistence {
         OpalBase.Storage.SnapshotPersistence(
@@ -178,7 +252,7 @@ extension StoragePersistenceValidator {
                 await state.deleteWalletSnapshot(generation: generation)
             },
             saveCommittedGeneration: { generation in
-                await state.saveCommittedGeneration(generation)
+                try await state.saveCommittedGeneration(generation)
             },
             loadCommittedGeneration: {
                 await state.loadCommittedGeneration()
@@ -202,7 +276,7 @@ extension StoragePersistenceValidator {
         throw GenerationPersistenceErrorCaptureFailure.didNotThrow
     }
 
-    private func makeGenerationMnemonicPersistence(
+    func makeGenerationMnemonicPersistence(
         state: GenerationMnemonicPersistenceState
     ) -> OpalBase.Storage.StoredMnemonicPersistence {
         OpalBase.Storage.StoredMnemonicPersistence(

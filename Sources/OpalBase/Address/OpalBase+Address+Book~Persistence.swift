@@ -4,6 +4,8 @@ import Foundation
 import OpalCrypto
 
 extension _OpalBase.Address.Book {
+    static let maximumImplicitSnapshotEntryCount = 1_000
+
     init(from snapshot: Snapshot,
          rootExtendedPrivateKey: OpalCrypto.Key.ExtendedPrivate? = nil,
          accountExtendedPublicKey: OpalCrypto.Key.ExtendedPublic? = nil,
@@ -64,8 +66,8 @@ extension _OpalBase.Address.Book {
                 lastVerifiedHeight: verificationMetadata.lastVerifiedHeight,
                 lastCheckedAt: verificationMetadata.lastCheckedAt,
                 fungibleTokenDeltasByCategory: tokenDelta.fungibleDeltasByCategory,
-                nonFungibleTokenAdditions: Array(tokenDelta.nonFungibleTokenAdditions),
-                nonFungibleTokenRemovals: Array(tokenDelta.nonFungibleTokenRemovals),
+                nonFungibleTokenAdditions: tokenDelta.nonFungibleTokenAdditions,
+                nonFungibleTokenRemovals: tokenDelta.nonFungibleTokenRemovals,
                 bchLockedInTokenOutputDelta: tokenDelta.bchLockedInTokenOutputDelta
             )
         }
@@ -97,6 +99,8 @@ extension _OpalBase.Address.Book {
         }
         try validateUniqueEntryIndices(in: snapshot.receivingEntries, usage: .receiving)
         try validateUniqueEntryIndices(in: snapshot.changeEntries, usage: .change)
+        try validateRestorableEntrySpan(in: snapshot.receivingEntries, usage: .receiving)
+        try validateRestorableEntrySpan(in: snapshot.changeEntries, usage: .change)
         let restoredEntryBalances = try makeRestoredEntryBalances(in: entrySnapshots)
         let restoredEntryReferences = try makeRestoredEntryReferences(
             from: entrySnapshots
@@ -110,17 +114,23 @@ extension _OpalBase.Address.Book {
             restoredEntryScriptHashes: restoredEntryReferences.scriptHashes
         )
 
-        inventory = .init(cacheValidityDuration: inventory.cacheValidityDuration)
-        try await restore(
-            entrySnapshots: snapshot.receivingEntries,
-            usage: .receiving,
-            restoredEntryBalances: restoredEntryBalances[.receiving] ?? [:]
-        )
-        try await restore(
-            entrySnapshots: snapshot.changeEntries,
-            usage: .change,
-            restoredEntryBalances: restoredEntryBalances[.change] ?? [:]
-        )
+        let previousInventory = inventory
+        inventory = .init(cacheValidityDuration: previousInventory.cacheValidityDuration)
+        do {
+            try restore(
+                entrySnapshots: snapshot.receivingEntries,
+                usage: .receiving,
+                restoredEntryBalances: restoredEntryBalances[.receiving] ?? [:]
+            )
+            try restore(
+                entrySnapshots: snapshot.changeEntries,
+                usage: .change,
+                restoredEntryBalances: restoredEntryBalances[.change] ?? [:]
+            )
+        } catch {
+            inventory = previousInventory
+            throw error
+        }
 
         utxoStore.replace(with: Set(restoredUTXOs))
         clearSpendReservationState()
@@ -177,6 +187,22 @@ extension _OpalBase.Address.Book {
             throw OpalBase.Address.Book.Error.invalidSnapshotDuplicateEntry(
                 usage: usage,
                 index: entry.index
+            )
+        }
+    }
+
+    private func validateRestorableEntrySpan(
+        in entries: [Snapshot.Entry],
+        usage: OpalBase.Key.DerivationPath.Usage
+    ) throws {
+        guard let highestIndex = entries.map(\.index).max() else { return }
+        let requiredEntryCount = Int(highestIndex) + 1
+        let implicitEntryCount = requiredEntryCount - entries.count
+        guard implicitEntryCount <= Self.maximumImplicitSnapshotEntryCount else {
+            throw OpalBase.Address.Book.Error.invalidSnapshotEntrySpan(
+                usage: usage,
+                implicitEntryCount: implicitEntryCount,
+                maximumImplicitEntryCount: Self.maximumImplicitSnapshotEntryCount
             )
         }
     }
@@ -304,10 +330,10 @@ extension _OpalBase.Address.Book {
                                                                                        merkleProof: proof,
                                                                                        lastVerifiedHeight: transaction.lastVerifiedHeight,
                                                                                        lastCheckedAt: transaction.lastCheckedAt)
-            let nonFungibleTokenAdditions = try validateUniqueTokenDeltas(
+            let nonFungibleTokenAdditions = try validateSnapshotNonFungibleTokenDeltas(
                 in: transaction.nonFungibleTokenAdditions ?? .init()
             )
-            let nonFungibleTokenRemovals = try validateUniqueTokenDeltas(
+            let nonFungibleTokenRemovals = try validateSnapshotNonFungibleTokenDeltas(
                 in: transaction.nonFungibleTokenRemovals ?? .init()
             )
             let fungibleTokenDeltas = try validateSnapshotFungibleTokenDeltas(
@@ -400,21 +426,17 @@ extension _OpalBase.Address.Book {
         value.hasPrefix("0x") || value.hasPrefix("0X")
     }
 
-    private func validateUniqueTokenDeltas(
+    private func validateSnapshotNonFungibleTokenDeltas(
         in tokenDeltas: [OpalBase.CashTokens.TokenData]
-    ) throws -> Set<OpalBase.CashTokens.TokenData> {
-        var uniqueTokenDeltas: Set<OpalBase.CashTokens.TokenData> = .init()
-        for tokenDelta in tokenDeltas {
+    ) throws -> [OpalBase.CashTokens.TokenData] {
+        try tokenDeltas.map { tokenDelta in
             guard let nonFungibleTokenDelta = makeNonFungibleTokenData(from: tokenDelta) else {
                 throw OpalBase.Address.Book.Error.invalidSnapshotTokenData(
                     reason: OpalBase.CashTokens.Error.invalidTokenPrefix
                 )
             }
-            guard uniqueTokenDeltas.insert(nonFungibleTokenDelta).inserted else {
-                throw OpalBase.Address.Book.Error.invalidSnapshotDuplicateTokenDelta(nonFungibleTokenDelta)
-            }
+            return nonFungibleTokenDelta
         }
-        return uniqueTokenDeltas
     }
 
     private func validateSnapshotFungibleTokenDeltas(
@@ -500,13 +522,14 @@ extension _OpalBase.Address.Book {
         entrySnapshots: [Snapshot.Entry],
         usage: OpalBase.Key.DerivationPath.Usage,
         restoredEntryBalances: [UInt32: OpalBase.Satoshi]
-    ) async throws {
+    ) throws {
         if let highestIndex = entrySnapshots.map(\.index).max() {
             let entryCount = Int(highestIndex) + 1
-            try await generateEntries(for: usage,
-                                      entryCount: entryCount,
-                                      isUsed: false,
-                                      shouldNotifyNewEntries: false)
+            try generateEntriesForRestoration(
+                for: usage,
+                entryCount: entryCount,
+                isUsed: false
+            )
         }
 
         for snapshotEntry in entrySnapshots {
@@ -523,10 +546,11 @@ extension _OpalBase.Address.Book {
             usage: usage
         )
         if numberOfMissingUnusedEntries > 0 {
-            try await generateEntries(for: usage,
-                                      entryCount: numberOfMissingUnusedEntries,
-                                      isUsed: false,
-                                      shouldNotifyNewEntries: false)
+            try generateEntriesForRestoration(
+                for: usage,
+                entryCount: numberOfMissingUnusedEntries,
+                isUsed: false
+            )
         }
     }
 

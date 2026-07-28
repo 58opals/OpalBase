@@ -4,11 +4,15 @@ import Foundation
 
 extension _OpalBase.Storage {
     public func saveWalletSnapshot(_ snapshot: OpalBase.Wallet.Snapshot) async throws {
-        try await saveWalletSnapshot(snapshot, key: .walletSnapshot)
+        try await PersistenceOperationCoordinator.processWideCoordinator.performExclusively {
+            try await saveWalletSnapshot(snapshot, key: .walletSnapshot)
+        }
     }
 
     public func loadWalletSnapshot() async throws -> OpalBase.Wallet.Snapshot? {
-        try await loadWalletSnapshot(key: .walletSnapshot)
+        try await PersistenceOperationCoordinator.processWideCoordinator.performExclusively {
+            try await loadWalletSnapshot(key: .walletSnapshot)
+        }
     }
 
     func saveAccountSnapshot(_ snapshot: OpalBase.Account.Snapshot,
@@ -44,19 +48,25 @@ extension _OpalBase.Storage {
         _ mnemonic: OpalBase.Storage.StoredMnemonic,
         policy: Security.PersistencePolicy
     ) async throws -> Security.ProtectionMode {
-        try await saveMnemonic(
-            mnemonic,
-            key: .mnemonicCiphertext,
-            policy: policy
-        )
+        try await PersistenceOperationCoordinator.processWideCoordinator.performExclusively {
+            try await saveMnemonic(
+                mnemonic,
+                key: .mnemonicCiphertext,
+                policy: policy
+            )
+        }
     }
 
     public func loadMnemonicState() async throws -> (mnemonic: OpalBase.Storage.StoredMnemonic, protectionMode: Security.ProtectionMode)? {
-        try await loadMnemonicState(key: .mnemonicCiphertext)
+        try await PersistenceOperationCoordinator.processWideCoordinator.performExclusively {
+            try await loadMnemonicState(key: .mnemonicCiphertext)
+        }
     }
 
     public func deleteMnemonic() async throws {
-        try await removeValue(for: .mnemonicCiphertext)
+        try await PersistenceOperationCoordinator.processWideCoordinator.performExclusively {
+            try await removeValue(for: .mnemonicCiphertext)
+        }
     }
 
     public func loadMnemonic() async throws -> OpalBase.Storage.StoredMnemonic? {
@@ -77,10 +87,18 @@ extension _OpalBase.Storage {
     }
 
     public func delete(key: String) async throws {
-        try await removeValue(for: .custom(key))
+        try await PersistenceOperationCoordinator.processWideCoordinator.performExclusively {
+            try await removeValue(for: .custom(key))
+        }
     }
 
     public func wipeAll() async throws {
+        try await PersistenceOperationCoordinator.processWideCoordinator.performExclusively {
+            try await wipeAllExclusively()
+        }
+    }
+
+    private func wipeAllExclusively() async throws {
         do {
             try await removeAllEntries()
         } catch {
@@ -96,6 +114,7 @@ extension _OpalBase.Storage {
 }
 
 extension _OpalBase.Storage {
+    // Facade and session code calls these only while holding operation access.
     func saveWalletSnapshot(_ snapshot: OpalBase.Wallet.Snapshot, generation: String) async throws {
         try await saveWalletSnapshot(snapshot, key: .walletSnapshotGeneration(generation))
     }

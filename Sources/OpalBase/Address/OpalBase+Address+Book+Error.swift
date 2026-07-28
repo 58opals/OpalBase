@@ -40,6 +40,11 @@ extension _OpalBase.Address.Book {
             usage: OpalBase.Key.DerivationPath.Usage,
             index: UInt32
         )
+        case invalidSnapshotEntrySpan(
+            usage: OpalBase.Key.DerivationPath.Usage,
+            implicitEntryCount: Int,
+            maximumImplicitEntryCount: Int
+        )
         case invalidSnapshotDuplicateUTXO(
             transactionHash: OpalBase.Transaction.Hash,
             outputIndex: UInt32
@@ -57,7 +62,6 @@ extension _OpalBase.Address.Book {
         case invalidSnapshotMerkleProofHash(String)
         case invalidSnapshotMerkleProofHashLength(expected: Int, actual: Int)
         case invalidSnapshotTokenData(reason: Swift.Error)
-        case invalidSnapshotDuplicateTokenDelta(OpalBase.CashTokens.TokenData)
         case invalidSnapshotVerificationState
         case invalidSnapshotConfirmationState
         case tokenDeltaOverflow
@@ -113,6 +117,18 @@ extension _OpalBase.Address.Book.Error: Equatable {
         case (.invalidSnapshotDuplicateEntry(let leftUsage, let leftIndex),
               .invalidSnapshotDuplicateEntry(let rightUsage, let rightIndex)):
             return leftUsage == rightUsage && leftIndex == rightIndex
+        case (.invalidSnapshotEntrySpan(
+            let leftUsage,
+            let leftImplicitEntryCount,
+            let leftMaximumImplicitEntryCount
+        ), .invalidSnapshotEntrySpan(
+            let rightUsage,
+            let rightImplicitEntryCount,
+            let rightMaximumImplicitEntryCount
+        )):
+            return leftUsage == rightUsage
+                && leftImplicitEntryCount == rightImplicitEntryCount
+                && leftMaximumImplicitEntryCount == rightMaximumImplicitEntryCount
         case (.invalidSnapshotDuplicateUTXO(let leftHash, let leftIndex),
               .invalidSnapshotDuplicateUTXO(let rightHash, let rightIndex)):
             return leftHash == rightHash && leftIndex == rightIndex
@@ -152,9 +168,6 @@ extension _OpalBase.Address.Book.Error: Equatable {
         case (.invalidSnapshotTokenData(let leftError),
               .invalidSnapshotTokenData(let rightError)):
             return OpalBase.Network.areFailuresEquivalent(leftError, rightError)
-        case (.invalidSnapshotDuplicateTokenDelta(let leftTokenData),
-              .invalidSnapshotDuplicateTokenDelta(let rightTokenData)):
-            return leftTokenData == rightTokenData
         case (.transactionHistoryRefreshFailed(let leftAddress, let leftError),
               .transactionHistoryRefreshFailed(let rightAddress, let rightError)):
             return leftAddress == rightAddress && OpalBase.Network.areFailuresEquivalent(leftError, rightError)

@@ -56,37 +56,66 @@ extension _OpalBase.Address.Book {
                          entryCount: Int,
                          isUsed: Bool,
                          shouldNotifyNewEntries: Bool = true) async throws {
-        guard entryCount > 0 else { return }
-        
+        let newEntries = try makeEntries(
+            for: usage,
+            entryCount: entryCount,
+            isUsed: isUsed
+        )
+        for newEntry in newEntries {
+            inventory.append(newEntry, usage: usage)
+            if shouldNotifyNewEntries {
+                await notifyNewEntry(newEntry)
+            }
+        }
+    }
+
+    func generateEntriesForRestoration(
+        for usage: OpalBase.Key.DerivationPath.Usage,
+        entryCount: Int,
+        isUsed: Bool
+    ) throws {
+        let newEntries = try makeEntries(
+            for: usage,
+            entryCount: entryCount,
+            isUsed: isUsed
+        )
+        for newEntry in newEntries {
+            inventory.append(newEntry, usage: usage)
+        }
+    }
+
+    private func makeEntries(
+        for usage: OpalBase.Key.DerivationPath.Usage,
+        entryCount: Int,
+        isUsed: Bool
+    ) throws -> [Entry] {
+        guard entryCount > 0 else { return [] }
+
         let currentCount = inventory.countEntries(for: usage)
-        let desiredCount = currentCount + entryCount
-        
+        let (desiredCount, didOverflow) = currentCount.addingReportingOverflow(entryCount)
+        guard !didOverflow else { throw Error.indexOutOfBounds }
+
         var indices: [UInt32] = .init()
         indices.reserveCapacity(entryCount)
         for indexValue in currentCount ..< desiredCount {
             guard let index = UInt32(exactly: indexValue) else { throw Error.indexOutOfBounds }
             indices.append(index)
         }
-        
-        let newEntries: [Entry]
+
         if let cachedUsageDerivation = usageDerivationCache[usage] {
-            newEntries = try await makeEntriesUsingUsageDerivationCache(usage: usage,
-                                                                        indices: indices,
-                                                                        cachedUsageDerivation: cachedUsageDerivation,
-                                                                        isUsed: isUsed)
-        } else {
-            newEntries = try indices.map { index in
-                try makeEntry(for: usage,
-                              index: index,
-                              isUsed: isUsed)
-            }
+            return try makeEntriesUsingUsageDerivationCache(
+                usage: usage,
+                indices: indices,
+                cachedUsageDerivation: cachedUsageDerivation,
+                isUsed: isUsed
+            )
         }
-        
-        for newEntry in newEntries {
-            inventory.append(newEntry, usage: usage)
-            if shouldNotifyNewEntries {
-                await notifyNewEntry(newEntry)
-            }
+        return try indices.map { index in
+            try makeEntry(
+                for: usage,
+                index: index,
+                isUsed: isUsed
+            )
         }
     }
     
@@ -109,7 +138,7 @@ extension _OpalBase.Address.Book {
         indices: [UInt32],
         cachedUsageDerivation: UsageDerivationCache,
         isUsed: Bool
-    ) async throws -> [Entry] {
+    ) throws -> [Entry] {
         var entries: [Entry] = .init()
         entries.reserveCapacity(indices.count)
         

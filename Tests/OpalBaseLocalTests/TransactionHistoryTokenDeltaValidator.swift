@@ -433,7 +433,7 @@ struct TransactionHistoryTokenDeltaValidator {
     }
 }
 
-private extension TransactionHistoryTokenDeltaValidator {
+extension TransactionHistoryTokenDeltaValidator {
     enum TestError: Swift.Error {
         case unexpectedRequest
         case missingTransaction

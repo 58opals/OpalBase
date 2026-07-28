@@ -66,8 +66,8 @@ extension _OpalBase.Address.Book {
         let previousTransactionsByHash = Dictionary(uniqueKeysWithValues: previousTransactions)
         
         var fungibleDeltas: [OpalBase.CashTokens.CategoryID: Int64] = .init()
-        var nonFungibleAdditions: Set<OpalBase.CashTokens.TokenData> = .init()
-        var nonFungibleRemovals: Set<OpalBase.CashTokens.TokenData> = .init()
+        var nonFungibleAdditions: [OpalBase.CashTokens.TokenData] = .init()
+        var nonFungibleRemovals: [OpalBase.CashTokens.TokenData] = .init()
         var lockedBCHDelta: Int64 = 0
         
         for output in transaction.outputs {
@@ -76,7 +76,7 @@ extension _OpalBase.Address.Book {
             guard let tokenData = output.tokenData else { continue }
             try addFungibleDelta(from: tokenData, sign: 1, into: &fungibleDeltas)
             if let nonFungibleTokenData = makeNonFungibleTokenData(from: tokenData) {
-                nonFungibleAdditions.insert(nonFungibleTokenData)
+                nonFungibleAdditions.append(nonFungibleTokenData)
             }
             try addLockedBCHDelta(output.value, sign: 1, into: &lockedBCHDelta)
         }
@@ -95,7 +95,7 @@ extension _OpalBase.Address.Book {
             guard let tokenData = previousOutput.tokenData else { continue }
             try addFungibleDelta(from: tokenData, sign: -1, into: &fungibleDeltas)
             if let nonFungibleTokenData = makeNonFungibleTokenData(from: tokenData) {
-                nonFungibleRemovals.insert(nonFungibleTokenData)
+                nonFungibleRemovals.append(nonFungibleTokenData)
             }
             try addLockedBCHDelta(previousOutput.value, sign: -1, into: &lockedBCHDelta)
         }
@@ -157,12 +157,39 @@ extension _OpalBase.Address.Book {
     }
 
     func netNonFungibleTokenDeltas(
-        additions: inout Set<OpalBase.CashTokens.TokenData>,
-        removals: inout Set<OpalBase.CashTokens.TokenData>
+        additions: inout [OpalBase.CashTokens.TokenData],
+        removals: inout [OpalBase.CashTokens.TokenData]
     ) {
-        let unchangedTokens = additions.intersection(removals)
-        additions.subtract(unchangedTokens)
-        removals.subtract(unchangedTokens)
+        let additionCounts: [OpalBase.CashTokens.TokenData: Int] = additions.reduce(
+            into: [:]
+        ) { counts, tokenData in
+            counts[tokenData, default: 0] += 1
+        }
+        let removalCounts: [OpalBase.CashTokens.TokenData: Int] = removals.reduce(
+            into: [:]
+        ) { counts, tokenData in
+            counts[tokenData, default: 0] += 1
+        }
+        let cancellationCounts: [OpalBase.CashTokens.TokenData: Int] = additionCounts.reduce(
+            into: [:]
+        ) { counts, addition in
+            guard let removalCount = removalCounts[addition.key] else { return }
+            counts[addition.key] = min(addition.value, removalCount)
+        }
+
+        var remainingAdditionCancellations = cancellationCounts
+        additions.removeAll { tokenData in
+            guard remainingAdditionCancellations[tokenData, default: 0] > 0 else { return false }
+            remainingAdditionCancellations[tokenData, default: 0] -= 1
+            return true
+        }
+
+        var remainingRemovalCancellations = cancellationCounts
+        removals.removeAll { tokenData in
+            guard remainingRemovalCancellations[tokenData, default: 0] > 0 else { return false }
+            remainingRemovalCancellations[tokenData, default: 0] -= 1
+            return true
+        }
     }
     
     func makeNonFungibleTokenData(from tokenData: OpalBase.CashTokens.TokenData) -> OpalBase.CashTokens.TokenData? {

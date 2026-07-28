@@ -3,6 +3,11 @@
 import Foundation
 
 extension _OpalBase.Storage {
+    /// Coordinated stored-mnemonic persistence closures.
+    ///
+    /// All values share the process-wide persistence coordinator. Backend
+    /// closures run inside coordination and must not reenter public persistence
+    /// operations.
     public struct StoredMnemonicPersistence: Sendable {
         private let performSaveMnemonic: @Sendable (
             OpalBase.Storage.StoredMnemonic,
@@ -92,17 +97,47 @@ extension _OpalBase.Storage {
             generation: String,
             policy: OpalBase.Storage.Security.PersistencePolicy
         ) async throws -> OpalBase.Storage.Security.ProtectionMode {
-            try await performSaveMnemonic(mnemonic, generation, policy)
+            try await PersistenceOperationCoordinator.processWideCoordinator.performExclusively {
+                try await saveMnemonicAssumingExclusiveAccess(
+                    mnemonic,
+                    generation: generation,
+                    policy: policy
+                )
+            }
         }
 
         public func loadMnemonicState(generation: String) async throws -> (
             mnemonic: OpalBase.Storage.StoredMnemonic,
             protectionMode: OpalBase.Storage.Security.ProtectionMode
         )? {
-            try await performLoadMnemonicState(generation)
+            try await PersistenceOperationCoordinator.processWideCoordinator.performExclusively {
+                try await loadMnemonicStateAssumingExclusiveAccess(generation: generation)
+            }
         }
 
         public func deleteMnemonic(generation: String) async throws {
+            try await PersistenceOperationCoordinator.processWideCoordinator.performExclusively {
+                try await deleteMnemonicAssumingExclusiveAccess(generation: generation)
+            }
+        }
+
+        // Call only while holding operation access.
+        func saveMnemonicAssumingExclusiveAccess(
+            _ mnemonic: OpalBase.Storage.StoredMnemonic,
+            generation: String,
+            policy: OpalBase.Storage.Security.PersistencePolicy
+        ) async throws -> OpalBase.Storage.Security.ProtectionMode {
+            try await performSaveMnemonic(mnemonic, generation, policy)
+        }
+
+        func loadMnemonicStateAssumingExclusiveAccess(generation: String) async throws -> (
+            mnemonic: OpalBase.Storage.StoredMnemonic,
+            protectionMode: OpalBase.Storage.Security.ProtectionMode
+        )? {
+            try await performLoadMnemonicState(generation)
+        }
+
+        func deleteMnemonicAssumingExclusiveAccess(generation: String) async throws {
             try await performDeleteMnemonic(generation)
         }
 
@@ -146,24 +181,5 @@ extension _OpalBase.Storage {
                 Self.isRecoverableMnemonicLoadFailure(error, security: security)
             }
         )
-    }
-}
-
-private extension _OpalBase.Storage {
-    static func isRecoverableMnemonicLoadFailure(
-        _ error: Swift.Error,
-        security: OpalBase.Storage.Security
-    ) -> Bool {
-        switch error {
-        case OpalBase.Storage.Error.secureStoreFailure(let underlying),
-            OpalBase.Storage.Security.Error.encryptionFailure(let underlying),
-            OpalBase.Storage.Security.Error.decryptionFailure(let underlying):
-            return isRecoverableMnemonicLoadFailure(underlying, security: security)
-        case OpalBase.Storage.Security.Error.protectionUnavailable,
-            OpalBase.Storage.Security.Error.insufficientProtection:
-            return true
-        default:
-            return security.checkSecureEnclaveErrorRecoverability(error)
-        }
     }
 }

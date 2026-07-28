@@ -8,6 +8,15 @@ All notable public-facing changes to Opal Base are tracked here.
 
 - Moved `OpalDiagnostics` to its public `0.2.0` SemVer requirement and refreshed the tracked public `develop` revisions for `SwiftFulcrum`, `OpalCrypto`, `OpalFusion`, and `OpalHedge`.
 - Updated decoding limits, diagnostics privacy, mnemonic validation errors, and Fulcrum configuration error translation for the newer dependency APIs.
+- Changed non-fungible token additions and removals in `Transaction.History.Record.TokenDelta` from sets to ordered arrays so repeated equivalent CashTokens are preserved.
+
+### Fixed
+
+- Bounded branch-and-bound coin selection and added a deterministic fallback so adversarial UTXO sets cannot trigger exponential recursion.
+- Rejected snapshots with excessive implicit address spans and made address inventory restoration atomic on derivation failure.
+- Preserved duplicate non-fungible token occurrences when computing, netting, persisting, and restoring transaction history.
+- Serialized in-process wallet persistence transactions and public storage facades, restored the previous generation marker after partial commit failures, and retained staged artifacts when rollback could not be confirmed.
+- Rejected private and reserved BCMR IP literals and local-use hostnames—including redirect targets—before issuing network requests, and documented that callers need a trusted transport for untrusted DNS names.
 
 ## v0.4.1 - 2026-07-11
 

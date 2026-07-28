@@ -1,10 +1,15 @@
 // OpalBase+Storage+PersistenceSession.swift
 
 import Foundation
+import Synchronization
 
 extension _OpalBase.Storage {
     public struct PersistenceSession: Sendable {
+        /// Receives each began event before exclusive access is acquired.
+        /// Later events are delivered in order after backend access is released.
         public typealias ProgressHandler = @Sendable (Progress) async -> Void
+        /// Runs inside exclusive wipe coordination so key reset stays atomic.
+        /// The callback must not reenter save, restore, wipe, or `wipeAll()`.
         public typealias ProtectedMaterialReset = @Sendable () async throws -> Void
         
         private let snapshotPersistence: OpalBase.Storage.SnapshotPersistence
@@ -85,38 +90,77 @@ extension _OpalBase.Storage {
             policy: OpalBase.Storage.Security.PersistencePolicy
         ) async throws -> OpalBase.Storage.Security.ProtectionMode {
             await progressHandler(.beganSave)
-            let previousCommittedGeneration = try await snapshotPersistence.loadCommittedGeneration()
+            return try await performPersistenceOperation { recordProgress in
+                try await saveExclusively(
+                    snapshot: snapshot,
+                    mnemonic: mnemonic,
+                    policy: policy,
+                    recordProgress: recordProgress
+                )
+            }
+        }
+
+        private func saveExclusively(
+            snapshot: OpalBase.Wallet.Snapshot,
+            mnemonic: OpalBase.Storage.StoredMnemonic,
+            policy: OpalBase.Storage.Security.PersistencePolicy,
+            recordProgress: @Sendable (Progress) -> Void
+        ) async throws -> OpalBase.Storage.Security.ProtectionMode {
+            let previousCommittedGeneration =
+                try await snapshotPersistence.loadCommittedGenerationAssumingExclusiveAccess()
             let stagedGeneration = UUID().uuidString.lowercased()
 
             do {
-                try await snapshotPersistence.saveWalletSnapshot(snapshot, generation: stagedGeneration)
-                await progressHandler(.savedWalletSnapshot(generation: stagedGeneration))
-
-                let protectionMode = try await storedMnemonicPersistence.saveMnemonic(
-                    mnemonic,
-                    generation: stagedGeneration,
-                    policy: policy
+                try await snapshotPersistence.saveWalletSnapshotAssumingExclusiveAccess(
+                    snapshot,
+                    generation: stagedGeneration
                 )
-                await progressHandler(.savedMnemonic(mode: protectionMode))
+                recordProgress(.savedWalletSnapshot(generation: stagedGeneration))
 
-                try await snapshotPersistence.saveCommittedGeneration(stagedGeneration)
-                await progressHandler(.committedGeneration(generation: stagedGeneration))
+                let protectionMode =
+                    try await storedMnemonicPersistence.saveMnemonicAssumingExclusiveAccess(
+                        mnemonic,
+                        generation: stagedGeneration,
+                        policy: policy
+                    )
+                recordProgress(.savedMnemonic(mode: protectionMode))
+
+                try await snapshotPersistence.saveCommittedGenerationAssumingExclusiveAccess(
+                    stagedGeneration
+                )
+                recordProgress(.committedGeneration(generation: stagedGeneration))
 
                 if let previousCommittedGeneration, previousCommittedGeneration != stagedGeneration {
                     await deleteGenerationArtifacts(previousCommittedGeneration)
                 }
 
-                await progressHandler(.finishedSave(mode: protectionMode))
+                recordProgress(.finishedSave(mode: protectionMode))
                 return protectionMode
             } catch {
-                await deleteGenerationArtifacts(stagedGeneration)
-                throw error
+                let saveError = error
+                let canDeleteStagedArtifacts = await restoreCommittedGenerationIfNeeded(
+                    stagedGeneration: stagedGeneration,
+                    previousCommittedGeneration: previousCommittedGeneration
+                )
+                if canDeleteStagedArtifacts {
+                    await deleteGenerationArtifacts(stagedGeneration)
+                }
+                throw saveError
             }
         }
         
         public func restore() async throws -> RestoredState {
             await progressHandler(.beganRestore)
-            let committedGeneration = try await snapshotPersistence.loadCommittedGeneration()
+            return try await performPersistenceOperation { recordProgress in
+                try await restoreExclusively(recordProgress: recordProgress)
+            }
+        }
+
+        private func restoreExclusively(
+            recordProgress: @Sendable (Progress) -> Void
+        ) async throws -> RestoredState {
+            let committedGeneration =
+                try await snapshotPersistence.loadCommittedGenerationAssumingExclusiveAccess()
             let walletSnapshot: OpalBase.Wallet.Snapshot?
             let mnemonicState: (
                 mnemonic: OpalBase.Storage.StoredMnemonic,
@@ -124,11 +168,15 @@ extension _OpalBase.Storage {
             )?
 
             if let committedGeneration {
-                walletSnapshot = try await snapshotPersistence.loadWalletSnapshot(generation: committedGeneration)
-                do {
-                    mnemonicState = try await storedMnemonicPersistence.loadMnemonicState(
+                walletSnapshot =
+                    try await snapshotPersistence.loadWalletSnapshotAssumingExclusiveAccess(
                         generation: committedGeneration
                     )
+                do {
+                    mnemonicState =
+                        try await storedMnemonicPersistence.loadMnemonicStateAssumingExclusiveAccess(
+                            generation: committedGeneration
+                        )
                 } catch {
                     guard storedMnemonicPersistence.isRecoverableLoadFailure(error) else {
                         throw error
@@ -139,9 +187,9 @@ extension _OpalBase.Storage {
                 walletSnapshot = nil
                 mnemonicState = nil
             }
-            await progressHandler(.loadedWalletSnapshot(found: walletSnapshot != nil))
-            await progressHandler(.loadedMnemonic(mode: mnemonicState?.protectionMode))
-            await progressHandler(.finishedRestore)
+            recordProgress(.loadedWalletSnapshot(found: walletSnapshot != nil))
+            recordProgress(.loadedMnemonic(mode: mnemonicState?.protectionMode))
+            recordProgress(.finishedRestore)
             
             return RestoredState(
                 walletSnapshot: walletSnapshot,
@@ -152,6 +200,14 @@ extension _OpalBase.Storage {
         
         public func wipe() async throws {
             await progressHandler(.beganWipe)
+            try await performPersistenceOperation { recordProgress in
+                try await wipeExclusively(recordProgress: recordProgress)
+            }
+        }
+
+        private func wipeExclusively(
+            recordProgress: @Sendable (Progress) -> Void
+        ) async throws {
             do {
                 try await deletePersistedWalletState()
             } catch {
@@ -159,17 +215,80 @@ extension _OpalBase.Storage {
                 throw error
             }
             try await protectedMaterialReset?()
-            await progressHandler(.finishedWipe)
+            recordProgress(.finishedWipe)
+        }
+
+        private func performPersistenceOperation<Result: Sendable>(
+            _ operation: @escaping @Sendable (
+                @Sendable (Progress) -> Void
+            ) async throws -> Result
+        ) async throws -> Result {
+            let recordedProgressEvents = Mutex<[Progress]>(.init())
+
+            do {
+                let result = try await snapshotPersistence.performExclusively {
+                    try await operation { progress in
+                        recordedProgressEvents.withLock { events in
+                            events.append(progress)
+                        }
+                    }
+                }
+                await deliverProgress(recordedProgressEvents.withLock { $0 })
+                return result
+            } catch {
+                await deliverProgress(recordedProgressEvents.withLock { $0 })
+                throw error
+            }
+        }
+
+        private func deliverProgress(_ events: [Progress]) async {
+            for event in events {
+                await progressHandler(event)
+            }
         }
 
         private func deletePersistedWalletState() async throws {
-            if let committedGeneration = try await snapshotPersistence.loadCommittedGeneration() {
-                try await snapshotPersistence.deleteCommittedGeneration()
+            if let committedGeneration =
+                try await snapshotPersistence.loadCommittedGenerationAssumingExclusiveAccess()
+            {
+                try await snapshotPersistence.deleteCommittedGenerationAssumingExclusiveAccess()
                 if let deletionError = await deleteGenerationArtifacts(committedGeneration) {
                     throw deletionError
                 }
             } else {
-                try await snapshotPersistence.deleteCommittedGeneration()
+                try await snapshotPersistence.deleteCommittedGenerationAssumingExclusiveAccess()
+            }
+        }
+
+        private func restoreCommittedGenerationIfNeeded(
+            stagedGeneration: String,
+            previousCommittedGeneration: String?
+        ) async -> Bool {
+            let committedGeneration: String?
+            do {
+                committedGeneration =
+                    try await snapshotPersistence.loadCommittedGenerationAssumingExclusiveAccess()
+            } catch {
+                return false
+            }
+
+            guard committedGeneration == stagedGeneration else {
+                return true
+            }
+
+            if let previousCommittedGeneration {
+                try? await snapshotPersistence.saveCommittedGenerationAssumingExclusiveAccess(
+                    previousCommittedGeneration
+                )
+            } else {
+                try? await snapshotPersistence.deleteCommittedGenerationAssumingExclusiveAccess()
+            }
+
+            do {
+                return try await snapshotPersistence
+                    .loadCommittedGenerationAssumingExclusiveAccess() != stagedGeneration
+            } catch {
+                return false
             }
         }
 
@@ -177,12 +296,16 @@ extension _OpalBase.Storage {
         private func deleteGenerationArtifacts(_ generation: String) async -> Swift.Error? {
             var deletionError: Swift.Error?
             do {
-                try await snapshotPersistence.deleteWalletSnapshot(generation: generation)
+                try await snapshotPersistence.deleteWalletSnapshotAssumingExclusiveAccess(
+                    generation: generation
+                )
             } catch {
                 deletionError = error
             }
             do {
-                try await storedMnemonicPersistence.deleteMnemonic(generation: generation)
+                try await storedMnemonicPersistence.deleteMnemonicAssumingExclusiveAccess(
+                    generation: generation
+                )
             } catch {
                 if deletionError == nil {
                     deletionError = error

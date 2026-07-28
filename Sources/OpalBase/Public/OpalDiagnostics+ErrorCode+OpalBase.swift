@@ -413,7 +413,8 @@ private extension OpalDiagnostics.ErrorCode {
              .permanentRedirect,
              .responseTooLarge,
              .unexpectedResponseStatus,
-             .invalidMaximumBytes:
+             .invalidMaximumBytes,
+             .disallowedNetworkLocation:
             .cashTokensBCMRFetchFailed
         }
     }
