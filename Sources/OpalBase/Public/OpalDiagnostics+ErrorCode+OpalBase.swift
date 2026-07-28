@@ -459,6 +459,9 @@ private extension OpalDiagnostics.ErrorCode {
     static func code(for error: OpalBase.Key.Mnemonic.Error) -> Self {
         switch error {
         case .invalidWordCount,
+             .wordCountExceedsMaximum,
+             .phraseByteCountExceedsMaximum,
+             .wordByteCountExceedsMaximum,
              .invalidEntropyLength,
              .invalidWord,
              .invalidChecksum,

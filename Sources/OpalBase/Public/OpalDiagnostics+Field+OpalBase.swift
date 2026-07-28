@@ -57,15 +57,15 @@ public extension OpalDiagnostics.Field {
     }
 
     static func publicValue(_ name: String, _ value: Int) -> Self {
-        Self(name: name, value: value)
+        Self(name: name, value: value, privacy: .public)
     }
 
     static func publicValue(_ name: String, _ value: UInt64) -> Self {
-        Self(name: name, value: value)
+        Self(name: name, value: value, privacy: .public)
     }
 
     static func publicValue(_ name: String, _ value: Bool) -> Self {
-        Self(name: name, value: value)
+        Self(name: name, value: value, privacy: .public)
     }
 
     static func privateValue(_ name: String, _ value: String) -> Self {

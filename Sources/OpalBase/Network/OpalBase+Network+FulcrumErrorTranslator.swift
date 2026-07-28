@@ -310,6 +310,11 @@ extension _OpalBase.Network {
                     message: "Operation timed out",
                     metadata: [OpalBase.Network.Error.DiagnosticMetadataKey.timeoutSeconds: String(duration.totalSeconds)]
                 )
+            case .invalidConfiguration(let reason):
+                return OpalBase.Network.Error(
+                    reason: .transport,
+                    message: "Invalid client configuration: \(reason)"
+                )
             case .invalidSubscriptionBufferCapacity(let capacity):
                 return OpalBase.Network.Error(
                     reason: .transport,

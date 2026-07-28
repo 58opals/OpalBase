@@ -21,7 +21,7 @@ let package = Package(
         .package(url: "https://github.com/58opals/OpalCrypto.git", branch: "develop"),
         .package(url: "https://github.com/58opals/OpalFusion.git", branch: "develop"),
         .package(url: "https://github.com/58opals/OpalHedge.git", branch: "develop"),
-        .package(url: "https://github.com/58opals/OpalDiagnostics.git", branch: "develop")
+        .package(url: "https://github.com/58opals/OpalDiagnostics.git", from: "0.2.0")
     ],
     targets: [
         .target(name: "OpalBase",

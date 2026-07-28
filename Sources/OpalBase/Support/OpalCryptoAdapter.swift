@@ -28,8 +28,14 @@ enum OpalCryptoAdapter {
         OpalCrypto.Encoding.encodeBase58(data)
     }
 
-    static func decodeBase58(_ text: String) -> Data? {
-        OpalCrypto.Encoding.decodeBase58(text)
+    static func decodeBase58(
+        _ text: String,
+        maximumDecodedByteCount: Int
+    ) -> Data? {
+        OpalCrypto.Encoding.decodeBase58(
+            text,
+            maximumDecodedByteCount: maximumDecodedByteCount
+        )
     }
 
     static func encodeBase32(_ data: Data, interpretedAsFiveBitValues: Bool) throws -> String {
@@ -41,11 +47,8 @@ enum OpalCryptoAdapter {
         return try OpalCrypto.Encoding.encodeBase32Bytes(data)
     }
 
-    static func decodeBase32(_ text: String, interpretedAsFiveBitValues: Bool) throws -> Data {
-        if interpretedAsFiveBitValues {
-            return try OpalCrypto.Encoding.decodeBase32Values(text).rawRepresentation
-        }
-        return try OpalCrypto.Encoding.decodeBase32Bytes(text)
+    static func decodeBase32Values(_ text: String) throws -> Data {
+        try OpalCrypto.Encoding.decodeBase32Values(text).rawRepresentation
     }
 
     static func computePolymod(_ values: [UInt8]) throws -> UInt64 {
@@ -130,7 +133,10 @@ enum OpalCryptoAdapter {
     }
 
     static func serializedExtendedKeyData(_ serialized: String) throws -> Data {
-        guard let data = decodeBase58(serialized) else {
+        guard let data = decodeBase58(
+            serialized,
+            maximumDecodedByteCount: 82
+        ) else {
             throw Error.invalidSerializedExtendedKey
         }
         return data

@@ -4,7 +4,10 @@ All notable public-facing changes to Opal Base are tracked here.
 
 ## Unreleased
 
-- No public-facing changes yet.
+### Changed
+
+- Moved `OpalDiagnostics` to its public `0.2.0` SemVer requirement and refreshed the tracked public `develop` revisions for `SwiftFulcrum`, `OpalCrypto`, `OpalFusion`, and `OpalHedge`.
+- Updated decoding limits, diagnostics privacy, mnemonic validation errors, and Fulcrum configuration error translation for the newer dependency APIs.
 
 ## v0.4.1 - 2026-07-11
 

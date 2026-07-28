@@ -75,6 +75,9 @@ extension _OpalBase.Key {
 
         public enum Error: Swift.Error, Equatable {
             case invalidWordCount(actual: Int)
+            case wordCountExceedsMaximum(maximum: Int)
+            case phraseByteCountExceedsMaximum(maximum: Int, actual: Int)
+            case wordByteCountExceedsMaximum(maximum: Int, actual: Int)
             case invalidEntropyLength(actual: Int)
             case invalidWord(String)
             case invalidChecksum
@@ -177,6 +180,12 @@ extension _OpalBase.Key {
             switch mnemonicError {
             case .invalidWordCount(let actual):
                 return .invalidWordCount(actual: actual)
+            case .wordCountExceedsMaximum(let maximum):
+                return .wordCountExceedsMaximum(maximum: maximum)
+            case .phraseByteCountExceedsMaximum(let maximum, let actual):
+                return .phraseByteCountExceedsMaximum(maximum: maximum, actual: actual)
+            case .wordByteCountExceedsMaximum(let maximum, let actual):
+                return .wordByteCountExceedsMaximum(maximum: maximum, actual: actual)
             case .invalidEntropyLength(let actual):
                 return .invalidEntropyLength(actual: actual)
             case .invalidWord(let word):
