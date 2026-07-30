@@ -3,14 +3,14 @@
 import Foundation
 
 extension _OpalBase.ReusablePaymentAddress {
-    public struct PrefixLength: Sendable, Hashable, Codable {
-        public let bitCount: Int
+    public enum PrefixLength: UInt8, Sendable, Hashable, Codable {
+        case fourBits = 4
+        case eightBits = 8
+        case twelveBits = 12
+        case sixteenBits = 16
 
-        public init(bitCount: Int) throws {
-            guard bitCount >= 0 else {
-                throw OpalBase.ReusablePaymentAddress.Error.invalidPrefixLength(bitCount)
-            }
-            self.bitCount = bitCount
+        public var bitCount: Int {
+            Int(rawValue)
         }
     }
 }

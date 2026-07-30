@@ -121,6 +121,37 @@ Observability lane for redacted `OpalDiagnostics` records only.
 
 Typical tasks: read recent diagnostics records filtered by category, level, trace ID, event, or date range.
 
+## Cash Code Candidate API
+
+`OpalBase.ReusablePaymentAddress` contains the reference implementation for
+the proposed Cash Code v1 compressed-P2PKH profile. It is a protocol-level
+surface, not a wallet restore or background-scanning facade.
+
+- Construct a new profile with
+  `init(cashCodeV1For:scanPublicKey:spendPublicKey:)`.
+- Use `Codec.parse(_:network:)` and `Codec.encode(_:)` for strict,
+  network-bound identifier handling. Legacy Electron Cash `paycode:` values
+  parse as read-only migration data and cannot be encoded, used for payment
+  derivation, or matched as Cash Code v1.
+- Use `derivePayment(from:spending:)` on the sender path with the signing key
+  and outpoint of the designated transaction input.
+- Use `Matcher.matches(in:for:scanSigningKey:spendSigningKey:)` on exact
+  serialized transaction bytes from accepted confirmed history or a node
+  mempool. A match retains the original output and any CashToken data.
+- Use `filterPrefix` with
+  `Network.Fulcrum.ReusablePaymentAddressReader` to load confirmed and
+  mempool candidate references through distinct return types.
+
+The integrating wallet owns scan/spend key origin, secret storage, consent,
+restore height and cursor, match persistence, reorganization handling,
+scheduling, and migration UX. Complete Cash Codes/paycodes, filter prefixes,
+raw wallet transactions, shared material, and signing capabilities must not be
+logged.
+
+See [Cash Code v1](cash-code-v1.md), the
+[compatibility decision](rpa-compatibility-decision.md), and the
+[historical-scan benchmark gate](rpa-historical-scan-benchmark-gate.md).
+
 ## Domain Vocabulary
 
 These primitives are intentionally public because they are part of the Bitcoin Cash domain contract:
@@ -134,6 +165,7 @@ These primitives are intentionally public because they are part of the Bitcoin C
 - `OpalBase.Network.Configuration`
 - `OpalBase.Network.Fulcrum.Client`
 - `OpalBase.Key.SigningKey`
+- `OpalBase.ReusablePaymentAddress`
 - `OpalBase.WalletUnsignedSpendPlan`
 - `OpalBase.WalletUnsignedTransactionEnvelope`
 

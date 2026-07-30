@@ -206,6 +206,8 @@ private extension NetworkConfigurationLocalValidator {
             addressFirstUse: timeout,
             addressMempool: timeout,
             addressScriptHash: timeout,
+            reusablePaymentAddressHistory: timeout,
+            reusablePaymentAddressMempool: timeout,
             scriptHashHistory: timeout,
             scriptHashUnspent: timeout,
             transactionBroadcast: timeout,
@@ -232,6 +234,8 @@ private extension NetworkConfigurationLocalValidator {
         case addressFirstUse
         case addressMempool
         case addressScriptHash
+        case reusablePaymentAddressHistory
+        case reusablePaymentAddressMempool
         case scriptHashHistory
         case scriptHashUnspent
         case transactionBroadcast
@@ -257,6 +261,10 @@ private extension NetworkConfigurationLocalValidator {
             case .addressFirstUse: \.addressFirstUse
             case .addressMempool: \.addressMempool
             case .addressScriptHash: \.addressScriptHash
+            case .reusablePaymentAddressHistory:
+                \.reusablePaymentAddressHistory
+            case .reusablePaymentAddressMempool:
+                \.reusablePaymentAddressMempool
             case .scriptHashHistory: \.scriptHashHistory
             case .scriptHashUnspent: \.scriptHashUnspent
             case .transactionBroadcast: \.transactionBroadcast

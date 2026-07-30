@@ -20,6 +20,8 @@ extension _OpalBase.Network {
         public var addressFirstUse: Duration { didSet { addressFirstUse = Self.clampedTimeout(addressFirstUse) } }
         public var addressMempool: Duration { didSet { addressMempool = Self.clampedTimeout(addressMempool) } }
         public var addressScriptHash: Duration { didSet { addressScriptHash = Self.clampedTimeout(addressScriptHash) } }
+        public var reusablePaymentAddressHistory: Duration { didSet { reusablePaymentAddressHistory = Self.clampedTimeout(reusablePaymentAddressHistory) } }
+        public var reusablePaymentAddressMempool: Duration { didSet { reusablePaymentAddressMempool = Self.clampedTimeout(reusablePaymentAddressMempool) } }
         public var scriptHashHistory: Duration { didSet { scriptHashHistory = Self.clampedTimeout(scriptHashHistory) } }
         public var scriptHashUnspent: Duration { didSet { scriptHashUnspent = Self.clampedTimeout(scriptHashUnspent) } }
         public var transactionBroadcast: Duration { didSet { transactionBroadcast = Self.clampedTimeout(transactionBroadcast) } }
@@ -44,6 +46,8 @@ extension _OpalBase.Network {
             addressFirstUse: Duration = .seconds(8),
             addressMempool: Duration = .seconds(8),
             addressScriptHash: Duration = .seconds(5),
+            reusablePaymentAddressHistory: Duration = .seconds(15),
+            reusablePaymentAddressMempool: Duration = .seconds(8),
             scriptHashHistory: Duration = .seconds(15),
             scriptHashUnspent: Duration = .seconds(10),
             transactionBroadcast: Duration = .seconds(10),
@@ -67,6 +71,12 @@ extension _OpalBase.Network {
             self.addressFirstUse = Self.clampedTimeout(addressFirstUse)
             self.addressMempool = Self.clampedTimeout(addressMempool)
             self.addressScriptHash = Self.clampedTimeout(addressScriptHash)
+            self.reusablePaymentAddressHistory = Self.clampedTimeout(
+                reusablePaymentAddressHistory
+            )
+            self.reusablePaymentAddressMempool = Self.clampedTimeout(
+                reusablePaymentAddressMempool
+            )
             self.scriptHashHistory = Self.clampedTimeout(scriptHashHistory)
             self.scriptHashUnspent = Self.clampedTimeout(scriptHashUnspent)
             self.transactionBroadcast = Self.clampedTimeout(transactionBroadcast)

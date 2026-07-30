@@ -7,7 +7,7 @@
       "location" : "https://github.com/58opals/OpalCrypto.git",
       "state" : {
         "branch" : "develop",
-        "revision" : "9903d6fc6fb90f2a4e8e8a27319db9e2049ae5af"
+        "revision" : "d698e2809d0bc1a52a4227a0315392916e29c307"
       }
     },
     {
@@ -43,7 +43,7 @@
       "location" : "https://github.com/58opals/SwiftFulcrum.git",
       "state" : {
         "branch" : "develop",
-        "revision" : "611a53f2047660e0dd221f75526ce11335be901a"
+        "revision" : "66a5a8ba9381b21881ad074d3a8dec3dc473ba0f"
       }
     }
   ],

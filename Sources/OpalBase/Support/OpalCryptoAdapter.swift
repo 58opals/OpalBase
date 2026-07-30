@@ -67,6 +67,60 @@ enum OpalCryptoAdapter {
         ).compressedRepresentation
     }
 
+    static func deriveSharedPointXCoordinate(
+        signingKey: OpalBase.Key.SigningKey,
+        publicKey: OpalBase.Key.PublicKey
+    ) throws -> Data {
+        let peerPublicKey = try OpalCrypto.Secp256k1.PublicKey(
+            rawRepresentation: publicKey.compressedData
+        )
+        return OpalCrypto.Secp256k1.deriveSharedPointXCoordinate(
+            signingKey: signingKey.opalCryptoSigningKey,
+            publicKey: peerPublicKey
+        ).rawRepresentation
+    }
+
+    static func deriveNonHardenedChildPublicKey(
+        from parentPublicKey: OpalBase.Key.PublicKey,
+        chainCode: Data,
+        at index: UInt32
+    ) throws -> OpalBase.Key.PublicKey {
+        let publicKey = try OpalCrypto.Secp256k1.PublicKey(
+            rawRepresentation: parentPublicKey.compressedData
+        )
+        let chainCode = try OpalCrypto.Key.ChainCode(
+            rawRepresentation: chainCode
+        )
+        let childPublicKey = try OpalCrypto.Key
+            .deriveNonHardenedChildPublicKey(
+                from: publicKey,
+                chainCode: chainCode,
+                at: index
+            )
+        return try OpalBase.Key.PublicKey(
+            compressedData: childPublicKey.compressedRepresentation
+        )
+    }
+
+    static func deriveNonHardenedChildSigningKey(
+        from parentSigningKey: OpalBase.Key.SigningKey,
+        chainCode: Data,
+        at index: UInt32
+    ) throws -> OpalBase.Key.SigningKey {
+        let chainCode = try OpalCrypto.Key.ChainCode(
+            rawRepresentation: chainCode
+        )
+        let childSigningKey = try OpalCrypto.Key
+            .deriveNonHardenedChildSigningKey(
+                from: parentSigningKey.opalCryptoSigningKey,
+                chainCode: chainCode,
+                at: index
+            )
+        return try OpalBase.Key.SigningKey(
+            opalCryptoSigningKey: childSigningKey
+        )
+    }
+
     static func walletImportFormat(privateKeyData: Data, isCompressed: Bool = true) throws -> String {
         let privateKey = try OpalCrypto.Secp256k1.PrivateKey(rawRepresentation: privateKeyData)
         return OpalCrypto.Key.WIF(privateKey: privateKey, isCompressed: isCompressed).serialize()

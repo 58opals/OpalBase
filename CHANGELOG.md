@@ -4,9 +4,20 @@ All notable public-facing changes to Opal Base are tracked here.
 
 ## Unreleased
 
+### Added
+
+- Added the proposed Cash Code v1 compressed-P2PKH reference implementation,
+  strict `cashcode:`/`cashcodetest:` codec, sender derivation, transaction
+  matcher, typed Fulcrum candidate readers, and deterministic public
+  conformance vectors.
+
 ### Changed
 
 - Moved `OpalDiagnostics` to its public `0.2.0` SemVer requirement and refreshed the tracked public `develop` revisions for `SwiftFulcrum`, `OpalCrypto`, `OpalFusion`, and `OpalHedge`.
+- Replaced the experimental reusable-payment-address closure scaffold with
+  profile-aware value APIs; legacy Electron Cash `paycode:` values are now
+  strict read-only migration data and cannot be generated, sent to, or matched
+  as Cash Code v1.
 - Updated decoding limits, diagnostics privacy, mnemonic validation errors, and Fulcrum configuration error translation for the newer dependency APIs.
 - Changed non-fungible token additions and removals in `Transaction.History.Record.TokenDelta` from sets to ordered arrays so repeated equivalent CashTokens are preserved.
 

@@ -205,6 +205,92 @@ struct PublicAPISmokeValidator {
         #expect(signingKey.description.contains("redacted"))
     }
 
+    @Test("Cash Code facades compose through OpalBase only")
+    func cashCodeFacadesComposeThroughOpalBaseOnly() throws {
+        let scanSigningKey = try makeSmokeSigningKey(scalar: 7)
+        let spendSigningKey = try makeSmokeSigningKey(scalar: 13)
+        let senderInputSigningKey = try makeSmokeSigningKey(scalar: 37)
+        let cashCode = OpalBase.ReusablePaymentAddress(
+            cashCodeV1For: .mainnet,
+            scanPublicKey: scanSigningKey.publicKey,
+            spendPublicKey: spendSigningKey.publicKey
+        )
+        let encoded = try OpalBase.ReusablePaymentAddress.Codec()
+            .encode(cashCode)
+        let parsed = try OpalBase.ReusablePaymentAddress.Codec().parse(
+            encoded,
+            network: .mainnet
+        )
+        let payment = try parsed.derivePayment(
+            from: senderInputSigningKey,
+            spending: .init(
+                transactionHash: .init(
+                    naturalOrder: Data(repeating: 0x11, count: 32)
+                ),
+                outputIndex: 0
+            )
+        )
+        let matcher = OpalBase.ReusablePaymentAddress.Matcher()
+        do {
+            _ = try matcher.matches(
+                in: Data(),
+                for: parsed,
+                scanSigningKey: scanSigningKey,
+                spendSigningKey: spendSigningKey
+            )
+            Issue.record("Expected an empty transaction payload to be rejected")
+        } catch OpalBase.ReusablePaymentAddress.Error
+            .invalidSerializedTransaction
+        {
+            // Expected: this call exists to compile the exact public matcher surface.
+        }
+        let confirmedReference =
+            OpalBase.ReusablePaymentAddress.ConfirmedTransactionReference(
+                transactionHash: .init(
+                    naturalOrder: Data(repeating: 0x22, count: 32)
+                ),
+                blockHeight: 1
+            )
+        let mempoolReference =
+            OpalBase.ReusablePaymentAddress.MempoolTransactionReference(
+                transactionHash: .init(
+                    naturalOrder: Data(repeating: 0x33, count: 32)
+                ),
+                fee: 500,
+                hasUnconfirmedParent: false
+            )
+        let readerType:
+            OpalBase.Network.Fulcrum.ReusablePaymentAddressReader.Type =
+                OpalBase.Network.Fulcrum
+                .ReusablePaymentAddressReader.self
+        let compileReaderSurface:
+            (
+                OpalBase.Network.Fulcrum.Client,
+                OpalBase.ReusablePaymentAddress.FilterPrefix
+            ) async throws -> Void = { client, filterPrefix in
+                let reader = OpalBase.Network.Fulcrum
+                    .ReusablePaymentAddressReader(client: client)
+                _ = try await reader.fetchConfirmedTransactionReferences(
+                    matching: filterPrefix,
+                    fromHeight: 0,
+                    toHeight: nil
+                )
+                _ = try await reader.fetchMempoolTransactionReferences(
+                    matching: filterPrefix
+                )
+            }
+
+        #expect(parsed.profile == .cashCodeV1)
+        #expect(parsed.filterPrefix.bitCount == 16)
+        #expect(payment.childIndex == 0)
+        #expect(payment.lockingScript.count == 25)
+        #expect(confirmedReference.blockHeight == 1)
+        #expect(mempoolReference.fee == 500)
+        _ = matcher
+        _ = readerType
+        _ = compileReaderSurface
+    }
+
     @Test("claimable facade composes from OpalBase only")
     func claimableFacadeComposesFromOpalBaseOnly() throws {
         let refundPrivateKey = Data(repeating: 0, count: 31) + Data([0x02])
@@ -588,5 +674,16 @@ struct PublicAPISmokeValidator {
         event: OpalDiagnostics.Event
     ) -> Bool {
         records.contains { $0.event == event }
+    }
+}
+
+private extension PublicAPISmokeValidator {
+    func makeSmokeSigningKey(
+        scalar: UInt8
+    ) throws -> OpalBase.Key.SigningKey {
+        try OpalBase.Key.SigningKey(
+            rawRepresentation: Data(repeating: 0, count: 31)
+                + Data([scalar])
+        )
     }
 }
