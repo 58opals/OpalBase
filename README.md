@@ -125,6 +125,7 @@ Opal Base is available under the [Apache License 2.0](LICENSE). Copyright 2026 5
 - [Trust Boundaries](docs/trust-boundaries.md)
 - [Public API Guide](docs/public-api.md)
 - [Architecture](docs/architecture.md)
+- [RPA Historical Scan Benchmark Gate](docs/rpa-historical-scan-benchmark-gate.md)
 - [Release Readiness](docs/release-readiness.md)
 - [Changelog](CHANGELOG.md)
 - [Public API smoke test](Tests/OpalBaseLocalTests/PublicAPISmokeValidator.swift)
