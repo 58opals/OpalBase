@@ -30,6 +30,17 @@ struct ReusablePaymentAddressMatcherValidator {
                 == ReusablePaymentAddressFixtureData.positiveTransactionID
         )
         #expect(match.qualifyingInputIndex == 0)
+        #expect(
+            match.senderPublicKey.compressedData.hexadecimalString
+                == ReusablePaymentAddressFixtureData
+                    .senderCompressedPublicKey
+        )
+        #expect(
+            match.senderOutpoint.transactionHash.reverseOrder
+                .hexadecimalString
+                == "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"
+        )
+        #expect(match.senderOutpoint.outputIndex == 0)
         #expect(match.childIndex == 0)
         #expect(match.outputIndex == 0)
         #expect(match.output == decoded.transaction.outputs[0])

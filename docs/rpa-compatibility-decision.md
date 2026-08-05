@@ -2,21 +2,14 @@
 
 ## Outcome
 
-OpalBase selects the profile in
-[`cash-code-v1.md`](cash-code-v1.md) as a proposed, versioned Cash Code v1
-candidate and reference implementation.
-
-This is an intentional standardization proposal, not a claim that the profile
-is already a Bitcoin Cash standard. The scheme change, strict decoder, fixed
-compressed-key behavior, and independent vectors prevent the proposal from
-silently changing the meaning of deployed Electron Cash `paycode:` values.
+OpalBase selects the profile in [`cash-code-v1.md`](cash-code-v1.md) as its owned, versioned Cash Code v1 candidate and production reference implementation. OpalBase does not wait for community consensus to implement or use this profile, and it does not claim that the profile is a Bitcoin Cash ecosystem standard. The scheme change, strict decoder, fixed compressed-key behavior, and independent vectors prevent the candidate from silently changing the meaning of deployed Electron Cash `paycode:` values.
 
 ## Compatibility Matrix
 
 | Concern | Legacy Electron Cash 4.4.5 | Cash Code v1 candidate |
 | --- | --- | --- |
 | User-facing scheme | `paycode:` / `paycodetest:` | `cashcode:` / `cashcodetest:` |
-| Opal behavior | Strict read-only migration parse | Generate, parse, derive, and match |
+| Opal behavior | Strict read-only migration parse | Generate, parse, derive, restore, spend, and send |
 | Payload | 72 application bytes, no CashAddr format byte | Same byte layout, strict exact length |
 | Checksum | HRP-bound RPA/CashAddr polymod | Same construction with the new HRP |
 | Version/network | Generated v1 mainnet, v5 test networks; historical parser is loose | v1 mainnet and v5 expected test context; strict scheme/version/context binding |
@@ -31,7 +24,7 @@ silently changing the meaning of deployed Electron Cash `paycode:` values.
 | Prefix | Generated as 16 bits; parser/sender accept exactly 4, 8, 12, or 16 bits | Fixed 16 bits = 2 bytes = 4 hex characters |
 | Expiration | Unsigned big-endian Unix time; generation writes zero | Zero only |
 | CashTokens | Predates CashTokens | Match the underlying locking bytecode and retain the original token-aware output |
-| Recovery | Old wallet file and legacy key path | Explicit profile/key-origin binding; no silent seed reinterpretation |
+| Recovery | Old wallet file and legacy key path | Explicit profile/network/key-origin binding, durable window cursor, confirmed/mempool separation, reorganization rollback and replay; no silent seed reinterpretation |
 
 ## Evidence And Intentional Corrections
 
@@ -133,9 +126,7 @@ payment. OpalBase must:
 6. derive the compressed child key; and
 7. compare exact output locking bytecode.
 
-The concrete SwiftFulcrum handoff adds typed protocol 1.6 history and mempool
-requests with capability and limit validation. It does not add historical
-restore orchestration.
+The concrete SwiftFulcrum handoff adds typed protocol 1.6 history and mempool requests with capability and limit validation. OpalBase wraps it in `Network.ReusablePaymentAddressReader`, independently hash-verifies raw transactions, and owns the restoration lifecycle above that transport.
 
 The completed dependency contracts are deliberately narrow:
 
@@ -150,36 +141,24 @@ The completed dependency contracts are deliberately narrow:
   Protocol negotiation and advertised RPA capability validation remain owned
   by SwiftFulcrum.
 
-Neither dependency owns Cash Code profile policy, wallet recovery, persistence,
-or background scheduling.
+Neither dependency owns Cash Code profile policy, restoration state, persistence, sender selection and grinding, or background scheduling.
 
 ## Recovery Boundary
 
-No reviewed protocol source defines a portable seed path, durable scan cursor,
-idempotent match repository, or chain-reorganization contract. Cash Code v1
-therefore makes the absence explicit:
+No reviewed protocol source defines a portable seed path, durable scan cursor, idempotent match repository, or chain-reorganization contract. OpalBase therefore owns a candidate-specific lifecycle without presenting those wallet mechanics as protocol wire rules:
 
-- scan and spend signing capabilities are supplied to OpalBase;
-- a match contains exact input/output/child metadata and an opaque receiving
-  signing capability;
-- Wallet owns key-origin persistence, consent, scheduling, migration UX, and
-  app lifecycle; and
-- seed-only recovery MUST NOT be advertised as portable.
+- scan and spend signing capabilities are supplied explicitly to `CashCodeInteractor` and retained only in the restoration actor;
+- production state generation-stages the exact profile/network/public-key/key-origin binding, recovery start, next unscanned height, confirmed and mempool output records, public derivation context, revision, and bounded reorganization event history;
+- confirmed restoration commits bounded half-open windows atomically, cancellation does not advance incomplete work, restart resumes from the durable cursor, and replay is idempotent;
+- mempool refresh is a deterministic full replacement, confirmation transitions remove unconfirmed duplicates, and trusted reorganization intake removes affected confirmed matches and rewinds the cursor before replay;
+- matched outputs remain distinct from UTXOs until an exact current unspent query succeeds;
+- receiving signing authority is rederived after authorized access and enters spending through an opaque capability rather than exported private bytes; and
+- wallet/app code still owns secret storage, consent, scheduling, chain-event detection, stable registration identity, migration UX, broadcast policy, and application lifecycle.
 
-Legacy Electron Cash recovery remains an explicit migration workflow using the
-old wallet file and a compatible legacy implementation. OpalBase does not
-pretend that a new Cash Code wallet can recover those outputs from the old
-seed under a new path or compression mode.
+Seed-only recovery MUST NOT be advertised as portable. Legacy Electron Cash recovery remains an explicit migration workflow using the old wallet file and a compatible legacy implementation. OpalBase does not pretend that a new Cash Code wallet can recover those outputs from the old seed under a new path or compression mode.
 
-## Remaining Standardization Gate
+## Ecosystem Claims Boundary
 
-The Opal implementation and independent vector reproduction establish a
-candidate contract. The remaining external standardization prerequisite is a
-second implementation that consumes
-[`cash-code-v1-vectors.json`](cash-code-v1-vectors.json) and
-[`cash-code-v1-negative-vectors.json`](cash-code-v1-negative-vectors.json),
-and agrees on the encoded identifiers, child keys, raw transaction match, and
-negative cases.
+The Opal implementation and independent vector reproduction establish an Opal-owned candidate contract and are sufficient for OpalBase production work. They do not establish ecosystem standardization. A broader interoperability claim requires another implementation to consume [`cash-code-v1-vectors.json`](cash-code-v1-vectors.json) and [`cash-code-v1-negative-vectors.json`](cash-code-v1-negative-vectors.json) and agree on encoded identifiers, child keys, raw transaction matching, sender construction, and negative cases.
 
-Until that occurs, documentation and public communication must call Cash Code
-v1 a proposal or candidate, not an ecosystem standard.
+Until that occurs, documentation and public communication must call Cash Code v1 a candidate, not an ecosystem standard. This external boundary does not block OpalBase implementation, testing, or adoption.

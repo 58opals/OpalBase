@@ -4,7 +4,7 @@ import Foundation
 import SwiftFulcrum
 
 extension _OpalBase.Network {
-    public enum Environment: Sendable, Equatable, Hashable {
+    public enum Environment: String, Codable, Sendable, Equatable, Hashable {
         case mainnet
         case testnet
         case chipnet

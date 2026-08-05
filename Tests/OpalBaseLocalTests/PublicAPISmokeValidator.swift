@@ -291,6 +291,66 @@ struct PublicAPISmokeValidator {
         _ = compileReaderSurface
     }
 
+    @Test("Cash Code restoration and sender facades compose through OpalBase only")
+    func cashCodeLifecycleFacadesComposeThroughOpalBaseOnly() async throws {
+        let scanSigningKey = try makeSmokeSigningKey(scalar: 7)
+        let spendSigningKey = try makeSmokeSigningKey(scalar: 13)
+        let address = OpalBase.ReusablePaymentAddress(
+            cashCodeV1For: .mainnet,
+            scanPublicKey: scanSigningKey.publicKey,
+            spendPublicKey: spendSigningKey.publicKey
+        )
+        let candidates = OpalBase.Network.ReusablePaymentAddressReader(
+            fetchConfirmedTransactionReferences: { _, _ in [] },
+            fetchMempoolTransactionReferences: { _ in [] }
+        )
+        let transactions = OpalBase.Network.TransactionReader { _ in
+            Data()
+        }
+        let storage = try OpalBase.Storage()
+        let persistence = await storage
+            .makeReusablePaymentAddressStatePersistence(
+                identifier: Data("cash-code-smoke".utf8)
+            )
+        let restoration = try await OpalBase.CashCodeInteractor(
+            transport: .init(
+                candidates: candidates,
+                transactions: transactions
+            ),
+            persistence: persistence
+        ).openRestoration(
+            for: address,
+            keyOrigin: .init(
+                scanKeyIdentifier: "smoke/scan",
+                spendKeyIdentifier: "smoke/spend"
+            ),
+            restoreStartHeight: 100,
+            scanSigningKey: scanSigningKey,
+            spendSigningKey: spendSigningKey
+        )
+        let request = OpalBase.ReusablePaymentAddress.CashCodePaymentRequest(
+            amount: try OpalBase.Satoshi(1_000)
+        )
+        let compileSenderSurface: @Sendable (
+            OpalBase.WalletTransactionAuthoringInteractor,
+            OpalBase.ReusablePaymentAddress.CashCodePaymentRequest,
+            OpalBase.ReusablePaymentAddress
+        ) async throws -> OpalBase.ReusablePaymentAddress.CashCodeSpendPlan = {
+            interactor,
+            request,
+            address in
+            try await interactor.prepareCashCodePayment(
+                request,
+                to: address,
+                expectedNetwork: .mainnet
+            )
+        }
+
+        #expect((await restoration.stateSnapshot).nextUnscannedHeight == 100)
+        #expect(request.amount.uint64 == 1_000)
+        _ = compileSenderSurface
+    }
+
     @Test("claimable facade composes from OpalBase only")
     func claimableFacadeComposesFromOpalBaseOnly() throws {
         let refundPrivateKey = Data(repeating: 0, count: 31) + Data([0x02])

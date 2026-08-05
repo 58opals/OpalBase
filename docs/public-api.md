@@ -123,34 +123,50 @@ Typical tasks: read recent diagnostics records filtered by category, level, trac
 
 ## Cash Code Candidate API
 
-`OpalBase.ReusablePaymentAddress` contains the reference implementation for
-the proposed Cash Code v1 compressed-P2PKH profile. It is a protocol-level
-surface, not a wallet restore or background-scanning facade.
+`OpalBase.ReusablePaymentAddress` implements the Opal-owned Cash Code v1 compressed-P2PKH candidate profile. It is production-capable inside OpalBase but is not presented as an ecosystem standard.
 
-- Construct a new profile with
-  `init(cashCodeV1For:scanPublicKey:spendPublicKey:)`.
-- Use `Codec.parse(_:network:)` and `Codec.encode(_:)` for strict,
-  network-bound identifier handling. Legacy Electron Cash `paycode:` values
-  parse as read-only migration data and cannot be encoded, used for payment
-  derivation, or matched as Cash Code v1.
-- Use `derivePayment(from:spending:)` on the sender path with the signing key
-  and outpoint of the designated transaction input.
-- Use `Matcher.matches(in:for:scanSigningKey:spendSigningKey:)` on exact
-  serialized transaction bytes from accepted confirmed history or a node
-  mempool. A match retains the original output and any CashToken data.
-- Use `filterPrefix` with
-  `Network.Fulcrum.ReusablePaymentAddressReader` to load confirmed and
-  mempool candidate references through distinct return types.
+- Construct a profile with `init(cashCodeV1For:scanPublicKey:spendPublicKey:)` and use `Codec.parse(_:network:)` plus `Codec.encode(_:)` for strict network-bound identifier handling. Legacy Electron Cash `paycode:` values remain read-only migration data and cannot be encoded, sent to, or matched as Cash Code v1.
+- Use `Network.ReusablePaymentAddressReader` as the transport-neutral confirmed/mempool candidate boundary. `init(_:)` adapts `Network.Fulcrum.ReusablePaymentAddressReader`; `ReusablePaymentAddress.Transport` keeps that reader separate from `Network.TransactionReader`.
+- Obtain registration-scoped durable state with `await storage.makeReusablePaymentAddressStatePersistence(identifier:)`, then construct `CashCodeInteractor(transport:persistence:)`.
+- Open the authorized lifecycle with `openRestoration(for:keyOrigin:restoreStartHeight:scanSigningKey:spendSigningKey:)`. Existing durable state must exactly match the profile, network, public keys, key origin, and restore start.
+- Call `restoreConfirmed(upToHeightExclusive:windowSize:)` for bounded half-open confirmed windows, `refreshMempool()` for a full verified unconfirmed snapshot replacement, and `applyReorganization(eventIdentifier:firstAffectedHeight:)` before deterministic confirmed replay after trusted chain-event intake.
+- Inspect `stateSnapshot` for public-only confirmed and mempool matched-output records. State retains the original BCH value and complete CashToken data plus public derivation context; it never stores `Match`, receiving signing capabilities, raw transactions, filter prefixes, complete Cash Codes, or shared material.
+- Call `confirmUnspentOutput(for:using:)` with an explicit `Network.AddressReader` before treating a match as spendable. `prepareSpend(spending:recipientOutputs:changeOutput:feeRate:shouldAllowDustDonation:)` signs through rederived opaque capabilities without exporting private-key bytes and requires exact token-payload conservation.
+- Prepare sending through `WalletTransactionAuthoringInteractor.prepareCashCodePayment(_:to:expectedNetwork:)`. The returned `CashCodeSpendPlan` uses normal account selection and reservation, chooses a qualifying compressed-P2PKH input among final positions 0 through 29, derives the exact destination, and exposes `buildTransaction(maximumGrindingAttempts:)`, `completeReservation()`, and `cancelReservation()`.
+- `CashCodeSpendPlan.buildTransaction(maximumGrindingAttempts:)` fee-corrects and signs first, then varies only the designated fixed-size Schnorr signature with random nonces. It checks cancellation, yields during long work, enforces the hard attempt bound, and re-verifies the final serialized prefix, selected outpoint/public key, unchanged transaction fields, requested satoshi value, and complete CashToken data.
 
-The integrating wallet owns scan/spend key origin, secret storage, consent,
-restore height and cursor, match persistence, reorganization handling,
-scheduling, and migration UX. Complete Cash Codes/paycodes, filter prefixes,
-raw wallet transactions, shared material, and signing capabilities must not be
-logged.
+Typical receiver composition:
 
-See [Cash Code v1](cash-code-v1.md), the
-[compatibility decision](rpa-compatibility-decision.md), and the
-[historical-scan benchmark gate](rpa-historical-scan-benchmark-gate.md).
+```swift
+let candidates = OpalBase.Network.ReusablePaymentAddressReader(fulcrumReader)
+let persistence = await storage.makeReusablePaymentAddressStatePersistence(identifier: registrationID)
+let cashCode = OpalBase.CashCodeInteractor(
+    transport: .init(candidates: candidates, transactions: transactionReader),
+    persistence: persistence
+)
+let restoration = try await cashCode.openRestoration(
+    for: address,
+    keyOrigin: keyOrigin,
+    restoreStartHeight: restoreStartHeight,
+    scanSigningKey: scanSigningKey,
+    spendSigningKey: spendSigningKey
+)
+try await restoration.restoreConfirmed(upToHeightExclusive: tipHeight + 1, windowSize: 1_000)
+try await restoration.refreshMempool()
+```
+
+Typical sender composition:
+
+```swift
+let plan = try await authoring.prepareCashCodePayment(
+    .init(amount: amount, tokenData: tokenData),
+    to: address,
+    expectedNetwork: .mainnet
+)
+let transaction = try await plan.buildTransaction(maximumGrindingAttempts: 1_000_000)
+```
+
+Wallet/app code still owns secret storage and authorization, stable registration identity, scheduling, trusted chain-event detection, consent, migration UX, broadcast policy, and reservation completion after an accepted transaction lifecycle. See [Cash Code v1](cash-code-v1.md), the [compatibility decision](rpa-compatibility-decision.md), and the [historical-scan benchmark gate](rpa-historical-scan-benchmark-gate.md).
 
 ## Domain Vocabulary
 

@@ -17,6 +17,12 @@ extension _OpalBase.ReusablePaymentAddress {
         /// The qualifying transaction-input position used for derivation.
         public let qualifyingInputIndex: UInt32
 
+        /// The compressed public key revealed by the qualifying sender input.
+        public let senderPublicKey: OpalBase.Key.PublicKey
+
+        /// The outpoint spent by the qualifying sender input.
+        public let senderOutpoint: OpalBase.Transaction.Outpoint
+
         /// The fixed non-hardened child index used by Cash Code v1.
         public let childIndex: UInt32
 
@@ -35,12 +41,16 @@ extension _OpalBase.ReusablePaymentAddress {
         init(
             transactionHash: OpalBase.Transaction.Hash,
             qualifyingInputIndex: UInt32,
+            senderPublicKey: OpalBase.Key.PublicKey,
+            senderOutpoint: OpalBase.Transaction.Outpoint,
             outputIndex: UInt32,
             output: OpalBase.Transaction.Output,
             receivingSigningKey: OpalBase.Key.SigningKey
         ) {
             self.transactionHash = transactionHash
             self.qualifyingInputIndex = qualifyingInputIndex
+            self.senderPublicKey = senderPublicKey
+            self.senderOutpoint = senderOutpoint
             self.childIndex = CashCodeDerivation.childIndex
             self.outputIndex = outputIndex
             self.output = output

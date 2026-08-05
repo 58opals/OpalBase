@@ -100,6 +100,8 @@ extension _OpalBase.ReusablePaymentAddress {
                         Match(
                             transactionHash: transactionHash,
                             qualifyingInputIndex: qualifyingInputIndex,
+                            senderPublicKey: qualifyingInput.publicKey,
+                            senderOutpoint: .init(qualifyingInput.input),
                             outputIndex: outputIndex,
                             output: output,
                             receivingSigningKey: receivingSigningKey

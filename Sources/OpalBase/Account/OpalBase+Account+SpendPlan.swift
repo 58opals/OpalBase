@@ -40,11 +40,11 @@ extension _OpalBase.Account {
         public let shouldAllowDustDonation: Bool
         public var reservationDate: Date { reservationHandle.reservationDate }
         
-        fileprivate let reservationHandle: OpalBase.Account.SpendReservation
-        fileprivate let changeOutput: OpalBase.Transaction.Output
-        fileprivate let recipientOutputs: [OpalBase.Transaction.Output]
-        fileprivate let signingKeys: [OpalBase.Transaction.Output.Unspent: OpalBase.Key.SigningKey]
-        fileprivate let shouldRandomizeRecipientOrdering: Bool
+        let reservationHandle: OpalBase.Account.SpendReservation
+        let changeOutput: OpalBase.Transaction.Output
+        let recipientOutputs: [OpalBase.Transaction.Output]
+        let signingKeys: [OpalBase.Transaction.Output.Unspent: OpalBase.Key.SigningKey]
+        let shouldRandomizeRecipientOrdering: Bool
         
         init(payment: Payment,
              feeRate: UInt64,

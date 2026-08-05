@@ -95,8 +95,7 @@ You now have mnemonic-backed wallet authority, the first BCH account, and a rese
 - Deterministic CashAddr receiving and change address tracking, BCH balance refresh, UTXO refresh, transaction history caching, and confirmation refresh.
 - Spend planning, transaction construction, external-review unsigned spend plans, in-process signing paths, broadcast helpers, and targeted broadcast aftermath reconciliation.
 - Fulcrum-facing public-chain orchestration for address, transaction, header, and monitoring workflows.
-- Cash Code v1 candidate identifiers, compressed-P2PKH payment derivation,
-  transaction matching, and typed Fulcrum candidate references.
+- Cash Code v1 candidate identifiers, compressed-P2PKH derivation, production confirmed and mempool restoration, reorganization rollback, durable public-only state, opaque-key spending integration, and bounded sender prefix grinding.
 - CashTokens vocabulary, BCMR metadata support, token holdings, token genesis, token mint, token spend, and token commitment mutation preparation.
 - Wallet-backed CashFusion pilot orchestration on macOS and wallet-facing AnyHedge funding preparation.
 - Snapshot persistence, Secure Enclave-backed mnemonic persistence helpers, and redacted diagnostics surfaces.

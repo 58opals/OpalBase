@@ -78,8 +78,12 @@ extension _OpalBase.Key.SigningKey {
     }
 
     func signSchnorr(
-        digest: OpalCrypto.Signature.Digest
+        digest: OpalCrypto.Signature.Digest,
+        noncePolicy: OpalCrypto.Signature.SchnorrNoncePolicy = .bchDeterministic
     ) throws -> OpalCrypto.Signature.Schnorr {
-        try opalCryptoSigningKey.signSchnorr(digest: digest)
+        try opalCryptoSigningKey.signSchnorr(
+            digest: digest,
+            noncePolicy: noncePolicy
+        )
     }
 }

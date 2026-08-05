@@ -3,8 +3,8 @@
 public extension OpalBase {
     /// User-triggered money-movement lane for spend, token, claimable funding, hedge funding, and signing plans.
     struct WalletTransactionAuthoringInteractor: Sendable {
-        private let privateAccount: OpalBase.Account
-        private let feePolicy: OpalBase.Wallet.FeePolicy
+        let privateAccount: OpalBase.Account
+        let feePolicy: OpalBase.Wallet.FeePolicy
 
         public init(
             privateAccount: OpalBase.Account,

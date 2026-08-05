@@ -165,7 +165,8 @@ extension _OpalBase.Transaction {
         signatureFormat: OpalBase.Transaction.SignatureFormat,
         unlocker: OpalBase.Transaction.Unlocker,
         using templateTransaction: OpalBase.Transaction? = nil,
-        spentOutputs: [Output]? = nil
+        spentOutputs: [Output]? = nil,
+        schnorrNoncePolicy: OpalCrypto.Signature.SchnorrNoncePolicy = .bchDeterministic
     ) throws -> OpalBase.Transaction {
         try requireSigningPreconditions(
             at: index,
@@ -182,7 +183,8 @@ extension _OpalBase.Transaction {
             signatureFormat: signatureFormat,
             unlocker: unlocker,
             using: templateTransaction,
-            spentOutputs: spentOutputs
+            spentOutputs: spentOutputs,
+            schnorrNoncePolicy: schnorrNoncePolicy
         )
     }
 
@@ -193,7 +195,8 @@ extension _OpalBase.Transaction {
         signatureFormat: OpalBase.Transaction.SignatureFormat,
         unlocker: OpalBase.Transaction.Unlocker,
         using templateTransaction: OpalBase.Transaction? = nil,
-        spentOutputs: [Output]? = nil
+        spentOutputs: [Output]? = nil,
+        schnorrNoncePolicy: OpalCrypto.Signature.SchnorrNoncePolicy = .bchDeterministic
     ) throws -> OpalBase.Transaction {
         let signingTransaction = templateTransaction ?? self
         let publicKey = signingKey.publicKey
@@ -219,7 +222,10 @@ extension _OpalBase.Transaction {
                     format: encoding.opalCryptoFormat
                 ).rawRepresentation
             case .schnorr:
-                try signingKey.signSchnorr(digest: typedSignatureDigest).rawRepresentation
+                try signingKey.signSchnorr(
+                    digest: typedSignatureDigest,
+                    noncePolicy: schnorrNoncePolicy
+                ).rawRepresentation
             }
             let signatureWithType = signature + Data([UInt8(hashType.value)])
             let unlockingScript = Data.push(signatureWithType) + Data.push(publicKey.compressedData)
@@ -240,7 +246,8 @@ extension _OpalBase.Transaction {
                 ).rawRepresentation
             case .schnorr:
                 try signingKey.signSchnorr(
-                    digest: OpalCrypto.Signature.Digest(rawRepresentation: signatureMessage)
+                    digest: OpalCrypto.Signature.Digest(rawRepresentation: signatureMessage),
+                    noncePolicy: schnorrNoncePolicy
                 ).rawRepresentation
             }
             let unlockingScript = Data.push(signature) + Data.push(message) + Data.push(publicKey.compressedData)
@@ -280,7 +287,8 @@ extension _OpalBase.Transaction {
         signatureFormat: OpalBase.Transaction.SignatureFormat,
         unlocker: OpalBase.Transaction.Unlocker,
         using templateTransaction: OpalBase.Transaction? = nil,
-        spentOutputs: [Output]? = nil
+        spentOutputs: [Output]? = nil,
+        schnorrNoncePolicy: OpalCrypto.Signature.SchnorrNoncePolicy = .bchDeterministic
     ) throws -> OpalBase.Transaction {
         try signInputInPlace(
             at: index,
@@ -293,7 +301,8 @@ extension _OpalBase.Transaction {
             signatureFormat: signatureFormat,
             unlocker: unlocker,
             using: templateTransaction,
-            spentOutputs: spentOutputs
+            spentOutputs: spentOutputs,
+            schnorrNoncePolicy: schnorrNoncePolicy
         )
     }
 

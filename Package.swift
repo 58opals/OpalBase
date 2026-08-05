@@ -37,7 +37,7 @@ let package = Package(
                     .product(name: "OpalDiagnostics", package: "OpalDiagnostics")
                 ]
                ),
-        .target(
+        .testTarget(
             name: "OpalBaseTestSupport",
             dependencies: ["OpalBase"],
             path: "Tests/OpalBaseTestSupport"

@@ -21,5 +21,24 @@ extension _OpalBase.ReusablePaymentAddress {
         case invalidOutpointTransactionHash
         case invalidDerivationDigest
         case childKeyDerivationFailed
+        case invalidKeyOrigin
+        case invalidHeightRange
+        case invalidWindowSize
+        case candidateReferenceConflict
+        case candidateOutsideRequestedWindow
+        case transactionHashMismatch
+        case invalidPersistentState
+        case persistentStateBindingMismatch
+        case stateRevisionConflict
+        case restorationOperationInProgress
+        case matchedOutputNotFound
+        case unspentOutputNotFound
+        case unspentOutputPayloadMismatch
+        case noQualifyingSenderInput
+        case senderNetworkMismatch
+        case invalidPrefixGrindingAttemptLimit
+        case prefixGrindingExhausted(attempts: Int)
+        case invalidPrefixGrindingCandidate
+        case cashTokenPreservationRequired
     }
 }

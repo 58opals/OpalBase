@@ -2,155 +2,49 @@
 
 ## Decision
 
-Do not add an OpalBase historical Reusable Payment Address (RPA) benchmark
-target yet.
+The production-implementation gate is satisfied, but the release benchmark gate remains closed. Do not add or publish a historical Cash Code benchmark until it can exercise a production-representative Fulcrum RPA index and raw-transaction service through the real `Network.Fulcrum.ReusablePaymentAddressReader`, `Network.TransactionReader`, `CashCodeInteractor`, and generation-staged storage path.
 
-Cash Code v1 encoding, derivation, input qualification, and output matching now
-have a byte-exact candidate contract and independent vectors. The remaining
-blocker is no longer cryptographic ambiguity. It is the absence of a concrete,
-durable historical-restore pipeline whose work and recovery behavior can be
-measured honestly.
+The deterministic local test corpus intentionally uses actor-backed transport and persistence doubles to prove correctness. Timing those injected closures, preloaded transactions, the matcher alone, or an invented wallet lifecycle would not measure production restoration and is not an acceptable release benchmark.
 
-Do not benchmark injected closures, precomputed candidate transactions, the
-stateless matcher alone, or an invented wallet lifecycle. None represents a
-historical restore.
+## Implemented Production Path
 
-## Proven Production Primitives
+Cash Code v1 now has the concrete lifecycle that the earlier gate required:
 
-The following components are suitable inputs to a future restore pipeline:
+- `Network.ReusablePaymentAddressReader` is a transport-neutral candidate boundary with a production Fulcrum adapter and distinct confirmed/mempool reference types.
+- `ReusablePaymentAddress.Transport` keeps candidate lookup separate from the hash-validating raw-transaction reader.
+- `CashCodeInteractor.openRestoration(for:keyOrigin:restoreStartHeight:scanSigningKey:spendSigningKey:)` creates or resumes an exactly bound, authorized restoration actor.
+- Confirmed restoration uses bounded half-open windows, rejects out-of-window and conflicting references, deduplicates exact references, independently checks raw transaction hashes, matches exact serialized transactions, and atomically commits the complete window plus cursor.
+- Cancellation before commit leaves the current window unapplied; restart resumes at `nextUnscannedHeight`; replay does not duplicate outputs.
+- Mempool refresh atomically replaces the verified unconfirmed snapshot, removes stale entries, gives confirmed outpoints precedence, and handles confirmation transitions deterministically.
+- Trusted reorganization intake removes affected confirmed outputs, rewinds to the bounded safe height, stores a bounded history of event identifiers for durable idempotence, and reuses confirmed restoration for deterministic replay.
+- `Storage.makeReusablePaymentAddressStatePersistence(identifier:)` hashes the registration identifier, generation-stages complete state, commits through a generation marker, coordinates process-wide operations, and checks expected revisions.
+- Durable state contains the exact Cash Code profile/network/public-key/key-origin binding, restore start, cursor, public derivation context, exact matched-output BCH and CashToken data, confirmed/mempool separation, revision, and reorganization metadata. It excludes signing capabilities, complete Cash Codes/paycodes, filter prefixes, shared material, and raw transactions.
+- A matched output remains distinct from a UTXO until `confirmUnspentOutput(for:using:)` verifies the exact current outpoint payload.
 
-- [`cash-code-v1.md`](cash-code-v1.md) defines the versioned compressed-P2PKH
-  candidate profile and its explicit legacy boundary.
-- [`cash-code-v1-vectors.json`](cash-code-v1-vectors.json) and
-  [`cash-code-v1-negative-vectors.json`](cash-code-v1-negative-vectors.json)
-  contain deterministic, nonsecret encoding, derivation, transaction, token,
-  and rejection vectors reproduced outside OpalBase.
-- `ReusablePaymentAddress.Codec` strictly encodes Cash Code v1 and parses
-  legacy Electron Cash `paycode:` values as read-only migration data.
-- `ReusablePaymentAddress.derivePayment(from:spending:)` derives the sender
-  destination for an explicit qualifying input key and outpoint.
-- `ReusablePaymentAddress.Matcher.matches(in:for:scanSigningKey:spendSigningKey:)`
-  exactly decodes one serialized transaction, examines at most its first 30
-  inputs, derives compressed P2PKH locking bytecode, and retains the original
-  matching output including CashToken data.
-- `Network.Fulcrum.ReusablePaymentAddressReader` returns confirmed and mempool
-  candidate transaction references through distinct types.
-- SwiftFulcrum validates protocol 1.6 negotiation, advertised RPA capabilities,
-  prefix limits, history limits, and method responses before OpalBase mapping.
-- OpalCrypto provides the exact 32-byte shared-point x-coordinate operation
-  and explicit-chain-code non-hardened CKDpub/CKDpriv operations required by
-  the vectors. The opaque `SigningKey` path does not export private-key bytes.
+The deterministic Swift Testing corpus covers bounded windows, duplicate and conflicting references, raw hash mismatch, atomic failure, cancellation, restart/resume, replay, mempool replacement, confirmation transitions, reorganization rollback and old-event idempotence, production state serialization, binding rejection, capability rederivation, exact UTXO confirmation, CashToken preservation, sender preparation, prefix success and exhaustion, cancellation, network/profile rejection, and the first-30-input limit.
 
-The legacy `deriveSharedSecrets(privateKey:publicKeys:)` API is not compatible
-with Cash Code v1: it hashes compressed SEC1 shared-point serialization.
-A future benchmark MUST use the profile-compatible x-coordinate operation and
-MUST NOT substitute that legacy batch API.
+## Why The Release Benchmark Gate Is Still Closed
 
-## Current Data Flow
+No repository benchmark target currently owns a production-representative Fulcrum lifecycle. A valid benchmark needs either a controlled local Fulcrum instance built from a documented chain/index snapshot or a separately approved stable benchmark service with nonsecret workload registration. A closure-backed replay server would collapse network/index work into fixture lookup and would violate the benchmark objective.
 
-The implemented components can be composed as follows:
+The production code also does not expose phase timing solely for benchmark consumption. Adding timing hooks before a representative lifecycle exists would risk optimizing an invented workload and broadening diagnostics around wallet-identifying candidates.
 
-```text
-Cash Code v1
-    -> derive 16-bit FilterPrefix
-    -> fetch confirmed references or mempool references from Fulcrum
-    -> fetch and hash-verify each referenced serialized transaction
-    -> Matcher validates exact decoding, qualifying inputs, and prefix
-    -> derive receiving signing capability and exact P2PKH locking bytecode
-    -> retain matching transaction output and CashToken data
-```
+## Remaining Entry Criteria
 
-OpalBase does not yet own a production operation that performs this sequence
-over historical block windows, commits the results, resumes after
-cancellation, or rolls them back after a chain reorganization.
+Open the release benchmark gate only when all of the following are true:
 
-## Missing Restore Boundary
+- a controlled Fulcrum endpoint exposes protocol 1.6 RPA capability values and deterministic confirmed and mempool data for the benchmark corpus;
+- benchmark setup creates or resets an isolated temporary production storage backend outside timed regions;
+- the timed path uses the real Fulcrum candidate reader, hash-validating transaction reader, restoration actor, matcher, and production state serializer/commit marker;
+- fixture construction, server startup/indexing, key authorization, and expected-result calculation occur outside timed regions;
+- correctness is asserted before every workload is sampled, including exact hashes, indices, BCH values, CashToken data, cursor, and reorganization result;
+- no complete Cash Code, filter prefix, signing capability, raw wallet transaction, shared material, or wallet-identifying candidate appears in output; and
+- the benchmark can run in release mode repeatably enough for medians and percentiles to be meaningful.
 
-The benchmark gate remains closed until a production restore path defines and
-implements all of the following:
+## Required Release Benchmark Shape
 
-- wallet-authorized access to the exact Cash Code v1 scan and spend signing
-  capabilities and their persisted key origin;
-- an explicit recovery start height and bounded confirmed-history windows that
-  respect the server’s `starting_height`, `history_block_limit`, and
-  `max_history` values;
-- separate confirmed-history and mempool processing;
-- hash-verified raw transaction loading for every candidate reference;
-- deterministic deduplication of transaction references and matched outputs;
-- an idempotent match repository that preserves the full decoded output and
-  the metadata required to recover its receiving key;
-- a durable last-completed-window cursor;
-- cancellation and partial-window semantics that cannot advance the cursor
-  past uncommitted work;
-- restart/resume behavior;
-- chain-reorganization rollback and replay behavior; and
-- privacy-safe diagnostics that omit complete Cash Codes/paycodes, filter
-  prefixes, raw wallet transactions, shared material, private keys, and
-  wallet-identifying candidates.
+When those criteria are met, add a release-mode executable covering one small incremental confirmed scan, one maximum advertised history window, a multi-window restoration with restart, a mempool refresh after confirmed scanning, and a reorganization rollback followed by replay.
 
-Wallet owns consent, secret storage, scheduling, migration UX, and application
-lifecycle. OpalBase should own the deterministic restore operation and its
-persistence-facing contracts so a wallet integration and the benchmark execute
-the same core behavior.
+Measure Fulcrum candidate loading, raw transaction loading and hash verification, exact decoding and input qualification, shared-point and child-key derivation, output matching, state serialization and commit, and total wall time. Emit deterministic JSON Lines with a versioned schema, nonsecret workload identifier, workload sizes, sample count, median and percentile durations, match count, final cursor, and a nonsecret correctness digest.
 
-## Required Correctness Corpus
-
-Before timing is accepted, extend the current per-transaction corpus with
-deterministic restore cases covering:
-
-- multiple confirmed windows and the advertised window boundary;
-- a server history-limit failure;
-- duplicate references across retries;
-- confirmed and mempool versions of the same transaction;
-- cancellation before and after an atomic window commit;
-- resume from the last completed window;
-- idempotent replay;
-- a chain reorganization that removes and replaces matches; and
-- a mixture of positive, prefix-miss, nonqualifying, malformed, and
-  CashToken-bearing transactions.
-
-Correctness tests MUST assert exact transaction hashes, input and output
-indices, locking bytecode, BCH values in satoshis, CashToken data, cursor
-state, and reorganization results before performance samples are collected.
-
-## Benchmark Entry Criteria
-
-The gate opens only when all of these statements are true:
-
-- the concrete restore orchestrator uses the production Fulcrum reader,
-  transaction reader, Cash Code matcher, and persistence boundary;
-- the deterministic restore corpus passes end to end;
-- confirmed/mempool separation, cancellation, resume, idempotency, and
-  reorganization behavior are covered;
-- the benchmark can use an isolated temporary store while executing the same
-  serialization and commit path as production;
-- fixture construction and server simulation are outside timed regions; and
-- no secret or wallet-identifying material enters benchmark output.
-
-## Release Benchmark Shape
-
-When the gate opens, add a release-mode executable covering:
-
-- one small incremental confirmed scan;
-- one maximum advertised history window;
-- a multi-window historical restore; and
-- a mempool refresh following a completed confirmed scan.
-
-Measure candidate loading, raw transaction loading and verification,
-transaction decoding, qualifying-input filtering, shared-point and child-key
-derivation, output matching, persistence, and total wall time separately.
-Emit deterministic JSON Lines with a versioned schema, workload sizes, sample
-counts, median and percentile durations, match count, and a nonsecret
-correctness digest.
-
-Only recommend further cryptographic optimization when the compatible
-shared-point and child-key stage is both the largest measured stage and more
-than half of total wall time in representative bulk restores. Until then,
-there is no evidence-backed performance claim.
-
-## Next Prerequisite
-
-The next safe gate is the durable OpalBase restore boundary: window/cursor
-semantics, an idempotent match repository, and reorganization behavior using
-the already-proven Cash Code v1 primitives. Historical restore implementation
-and benchmarking remain outside the current task.
+Only recommend cryptographic optimization when the profile-compatible shared-point and child-key stage is both the largest measured stage and more than half of total representative restore time. Until a qualifying benchmark exists, OpalBase makes no historical-scan performance claim.

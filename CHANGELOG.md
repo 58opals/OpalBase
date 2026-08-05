@@ -6,10 +6,7 @@ All notable public-facing changes to Opal Base are tracked here.
 
 ### Added
 
-- Added the proposed Cash Code v1 compressed-P2PKH reference implementation,
-  strict `cashcode:`/`cashcodetest:` codec, sender derivation, transaction
-  matcher, typed Fulcrum candidate readers, and deterministic public
-  conformance vectors.
+- Added the Opal-owned Cash Code v1 candidate implementation: strict `cashcode:`/`cashcodetest:` codec, sender and receiver derivation, exact transaction matching, transport-neutral and Fulcrum candidate readers, deterministic public conformance vectors, bounded confirmed restoration, deterministic mempool replacement, trusted reorganization rollback and replay, generation-staged public-only state, authorized receiving-capability rederivation, exact UTXO confirmation, opaque-key spend plans, account-backed sender preparation, and cancellable bounded Schnorr prefix grinding.
 
 ### Changed
 
@@ -18,6 +15,7 @@ All notable public-facing changes to Opal Base are tracked here.
   profile-aware value APIs; legacy Electron Cash `paycode:` values are now
   strict read-only migration data and cannot be generated, sent to, or matched
   as Cash Code v1.
+- Bound Cash Code restoration state to the exact profile, network, public keys, non-secret key origin, restore start, cursor, matched outputs, derivation contexts, revisions, and bounded reorganization history while excluding signing capabilities, complete Cash Codes/paycodes, filter prefixes, shared material, and raw transactions.
 - Updated decoding limits, diagnostics privacy, mnemonic validation errors, and Fulcrum configuration error translation for the newer dependency APIs.
 - Changed non-fungible token additions and removals in `Transaction.History.Record.TokenDelta` from sets to ordered arrays so repeated equivalent CashTokens are preserved.
 

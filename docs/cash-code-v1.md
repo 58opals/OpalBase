@@ -7,10 +7,8 @@ P2PKH profile of Bitcoin Cash Reusable Payment Addresses (RPA).
 
 - “Reusable Payment Address” is the technical term.
 - “Cash Code” is the user-facing name and the name of this versioned profile.
-- This is a candidate specification with a reference implementation and public
-  deterministic vectors. It is not yet a Bitcoin Cash ecosystem standard.
-- The profile becomes an interoperability claim only after an independent
-  implementation consumes the same vectors and produces the same bytes.
+- This is an Opal-owned candidate profile with a production reference implementation and public deterministic vectors. Opal adoption does not depend on community consensus or a second implementation.
+- It is not a Bitcoin Cash ecosystem standard. Broader interoperability claims require independent implementations to consume the same vectors and produce the same bytes.
 
 The normative words MUST, MUST NOT, SHOULD, SHOULD NOT, and MAY describe this
 candidate profile.
@@ -229,10 +227,7 @@ The units are deliberately distinct:
 “Four hexadecimal characters” does not mean four bytes. Cash Code v1 does not
 allow the sender or recipient to configure another length.
 
-The sender grinds a valid signature or another permitted transaction input
-degree of freedom until the designated input digest has the required prefix.
-Prefix grinding integration is outside the OpalBase core API; the core exposes
-exact prefix derivation and matching.
+The sender grinds a valid signature or another permitted transaction-input degree of freedom until the designated input digest has the required prefix. OpalBase transaction authoring selects a qualifying compressed-P2PKH input after final canonical input ordering, considers only positions 0 through 29, derives the payment from that input's signing key and outpoint, and varies only that input's fixed-size Schnorr signature through random nonces. Grinding is cancellable and bounded, preserves fee-corrected outputs, and re-verifies the final serialized input and exact requested output before returning.
 
 ## Expiration
 
@@ -254,16 +249,14 @@ A match retains:
 
 - the transaction ID;
 - qualifying input index;
+- qualifying sender compressed public key and spent outpoint;
 - child index zero;
 - transaction output index;
 - the original decoded transaction output;
 - the derived compressed public key; and
 - an opaque receiving signing capability on the receiver path.
 
-The original output MUST be retained without reconstructing it. In particular,
-its BCH value and complete CashToken data remain unchanged. A matching
-transaction output is not called a UTXO until current unspent status has been
-established separately.
+The original output MUST be retained without reconstructing it. In particular, its BCH value and complete CashToken data remain unchanged. A matching transaction output is not called a UTXO until current unspent status has been established separately. Durable restoration stores only the public derivation context needed to rederive the opaque capability after authorized scan-key and spend-key access; it never stores `ReusablePaymentAddress.Match` or a receiving signing capability.
 
 ## Backend Contract
 
@@ -279,6 +272,10 @@ Clients MUST respect advertised RPA capability values including
 `history_block_limit`, and `max_history`. Confirmed history and mempool state
 remain distinct. A server result is a candidate transaction reference, not a
 payment match.
+
+OpalBase exposes a transport-neutral candidate reader over the Fulcrum reader and a separate raw-transaction reader. Confirmed restoration uses bounded half-open block-height windows, rejects out-of-window or conflicting references, deduplicates exact references, independently verifies every raw transaction hash, performs exact local matching, and atomically commits the complete window with its next-unscanned cursor. Cancellation or failure before a window commit leaves that window unapplied.
+
+Mempool refresh is a complete verified snapshot replacement: confirmed outpoints take precedence, absent entries are removed, exact duplicates collapse, and confirmation transitions remove corresponding mempool records. Trusted chain-reorganization intake identifies each event, removes confirmed matches at or above the bounded rollback height, rewinds the cursor, persists bounded event history for idempotence, and permits deterministic replay through the same confirmed restoration method. Chain detection and scheduling remain caller-owned.
 
 ## Legacy Electron Cash Boundary
 
@@ -297,24 +294,13 @@ The safe legacy recovery instruction is to open the original wallet file with
 Electron Cash 4.4.5 or an explicitly compatible legacy implementation, then
 move funds to a newly generated wallet/profile.
 
-## Recovery And Diagnostics
+## Recovery, Persistence, And Diagnostics
 
-Cash Code v1 defines deterministic per-payment derivation and match metadata;
-it does not define wallet persistence, consent, scheduling, or reorganization
-policy. An integrating wallet owns:
+OpalBase owns deterministic restoration mechanics and a persistence-facing state contract. Durable state binds the schema, Cash Code profile, expected network, prefix length, expiration, compressed scan and spend public keys, non-secret key-origin identifiers, restore start height, next unscanned height, confirmed and mempool matched-output records, public derivation context, revision, and bounded reorganization event history. Generation staging and revision checks make each complete state replacement atomic within the storage coordination boundary.
 
-- exact scan/spend key origin and secret storage;
-- user authorization for scan-key use;
-- network and profile binding;
-- recovery start height and completed-window cursor;
-- confirmed and mempool state separation;
-- idempotent matched-output persistence;
-- reorganization rollback; and
-- migration UX.
+The integrating wallet still owns exact scan/spend secret storage, authorized access to those capabilities, consent, scheduling, chain-event detection, stable registration identity, migration UX, and application lifecycle. Opening restoration requires both signing capabilities explicitly and rejects a mismatched profile, network, key origin, restore start height, or public key. Matched transaction outputs remain separate from UTXOs; `confirmUnspentOutput(for:using:)` establishes exact current unspent status before an opaque receiving capability can enter `ReceivedOutputSpendPlan`.
 
-Implementations MUST NOT log or place in general diagnostics private keys,
-shared points or digests, complete Cash Codes/paycodes, filter prefixes, raw
-wallet transactions, or wallet-identifying candidate material.
+Implementations MUST NOT log or place in general diagnostics private keys, receiving signing capabilities, shared points or digests, complete Cash Codes/paycodes, filter prefixes, raw wallet transactions, or wallet-identifying candidate material. Production persistence excludes the secret and discovery values in that list, but necessarily retains exact matched-output and public derivation records; those wallet-identifying records must not be emitted to diagnostics.
 
 ## Conformance Vectors
 
