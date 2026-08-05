@@ -10,6 +10,7 @@ This page tracks public-safe release posture for builders evaluating the Opal Ba
 - Release source: annotated `v0.4.1` tag.
 - Package version constant: `OpalBase.version == "0.4.1"`.
 - License posture for release notes: Apache License 2.0, matching the repository `LICENSE` file.
+- Cash Code v1 status: tracked under `Unreleased` and not included in `v0.4.1`; see [Cash Code v1 Readiness](cash-code-readiness.md) for its separate feature and release gates.
 
 ## Builder Review Versus SemVer Release
 
@@ -45,6 +46,7 @@ The `v0.4.1` release candidate uses public sibling package URLs with public `dev
 - Trust boundaries make secret handling, descriptor-backed sync, `privateAccount` authoring, external signing review, Secure Enclave limits, and redacted diagnostics explicit.
 - Public API guide maps facades in `Sources/OpalBase/Public` to the builder tasks they support.
 - Architecture guide explains package boundaries relative to `OpalCrypto`, `SwiftFulcrum`, `OpalFusion`, `OpalHedge`, and `OpalDiagnostics`.
+- Cash Code v1 readiness separates candidate-profile status, implementation completeness, production evidence, stable release availability, and ecosystem standardization.
 
 ## Notes For Release Notes
 

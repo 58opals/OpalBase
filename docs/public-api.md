@@ -123,7 +123,7 @@ Typical tasks: read recent diagnostics records filtered by category, level, trac
 
 ## Cash Code Candidate API
 
-`OpalBase.ReusablePaymentAddress` implements the Opal-owned Cash Code v1 compressed-P2PKH candidate profile. It is production-capable inside OpalBase but is not presented as an ecosystem standard.
+`OpalBase.ReusablePaymentAddress` implements the Opal-owned Cash Code v1 compressed-P2PKH candidate profile as an unreleased reference implementation. Production-readiness gates remain open, and the profile is not presented as an ecosystem standard. See [Cash Code v1 Readiness](cash-code-readiness.md).
 
 - Construct a profile with `init(cashCodeV1For:scanPublicKey:spendPublicKey:)` and use `Codec.parse(_:network:)` plus `Codec.encode(_:)` for strict network-bound identifier handling. Legacy Electron Cash `paycode:` values remain read-only migration data and cannot be encoded, sent to, or matched as Cash Code v1.
 - Use `Network.ReusablePaymentAddressReader` as the transport-neutral confirmed/mempool candidate boundary. `init(_:)` adapts `Network.Fulcrum.ReusablePaymentAddressReader`; `ReusablePaymentAddress.Transport` keeps that reader separate from `Network.TransactionReader`.
@@ -138,6 +138,13 @@ Typical tasks: read recent diagnostics records filtered by category, level, trac
 Typical receiver composition:
 
 ```swift
+let features = try await OpalBase.Network.Fulcrum.ServerInfoReader(
+    client: fulcrumClient
+).fetchServerFeatures()
+let windowSize = UInt(
+    features.reusablePaymentAddress?.historyBlockLimit ?? 60
+)
+
 let candidates = OpalBase.Network.ReusablePaymentAddressReader(fulcrumReader)
 let persistence = await storage.makeReusablePaymentAddressStatePersistence(identifier: registrationID)
 let cashCode = OpalBase.CashCodeInteractor(
@@ -151,9 +158,14 @@ let restoration = try await cashCode.openRestoration(
     scanSigningKey: scanSigningKey,
     spendSigningKey: spendSigningKey
 )
-try await restoration.restoreConfirmed(upToHeightExclusive: tipHeight + 1, windowSize: 1_000)
+try await restoration.restoreConfirmed(
+    upToHeightExclusive: tipHeight + 1,
+    windowSize: windowSize
+)
 try await restoration.refreshMempool()
 ```
+
+The server's advertised history block limit bounds each confirmed scan window. [Electrum Cash protocol 1.6](https://electrum-cash-protocol.readthedocs.io/en/latest/protocol-methods.html#blockchain-rpa-get-history) uses 60 blocks when `history_block_limit` is omitted; the Fulcrum reader rejects unsupported RPA capabilities and out-of-range requests.
 
 Typical sender composition:
 
@@ -166,7 +178,7 @@ let plan = try await authoring.prepareCashCodePayment(
 let transaction = try await plan.buildTransaction(maximumGrindingAttempts: 1_000_000)
 ```
 
-Wallet/app code still owns secret storage and authorization, stable registration identity, scheduling, trusted chain-event detection, consent, migration UX, broadcast policy, and reservation completion after an accepted transaction lifecycle. See [Cash Code v1](cash-code-v1.md), the [compatibility decision](rpa-compatibility-decision.md), and the [historical-scan benchmark gate](rpa-historical-scan-benchmark-gate.md).
+Wallet/app code still owns secret storage and authorization, stable registration identity, scheduling, trusted chain-event detection, consent, migration UX, broadcast policy, and reservation completion after an accepted transaction lifecycle. See [Cash Code v1](cash-code-v1.md), [Cash Code v1 Readiness](cash-code-readiness.md), the [compatibility decision](rpa-compatibility-decision.md), and the [historical-scan benchmark gate](rpa-historical-scan-benchmark-gate.md).
 
 ## Domain Vocabulary
 

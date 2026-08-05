@@ -2,11 +2,11 @@
 
 ## Decision
 
-The production-implementation gate is satisfied, but the release benchmark gate remains closed. Do not add or publish a historical Cash Code benchmark until it can exercise a production-representative Fulcrum RPA index and raw-transaction service through the real `Network.Fulcrum.ReusablePaymentAddressReader`, `Network.TransactionReader`, `CashCodeInteractor`, and generation-staged storage path.
+The implementation-completeness gate is satisfied, but the release benchmark gate remains closed. Do not add or publish a historical Cash Code benchmark until it can exercise a production-representative Fulcrum RPA index and raw-transaction service through the real `Network.Fulcrum.ReusablePaymentAddressReader`, `Network.TransactionReader`, `CashCodeInteractor`, and generation-staged storage path. The complete Cash Code status is tracked in [Cash Code v1 Readiness](cash-code-readiness.md).
 
 The deterministic local test corpus intentionally uses actor-backed transport and persistence doubles to prove correctness. Timing those injected closures, preloaded transactions, the matcher alone, or an invented wallet lifecycle would not measure production restoration and is not an acceptable release benchmark.
 
-## Implemented Production Path
+## Implemented Reference Path
 
 Cash Code v1 now has the concrete lifecycle that the earlier gate required:
 

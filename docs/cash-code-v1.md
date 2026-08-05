@@ -7,7 +7,7 @@ P2PKH profile of Bitcoin Cash Reusable Payment Addresses (RPA).
 
 - “Reusable Payment Address” is the technical term.
 - “Cash Code” is the user-facing name and the name of this versioned profile.
-- This is an Opal-owned candidate profile with a production reference implementation and public deterministic vectors. Opal adoption does not depend on community consensus or a second implementation.
+- This is an Opal-owned candidate profile with an unreleased reference implementation and public deterministic vectors. Production-readiness gates remain open and are tracked in [Cash Code v1 Readiness](cash-code-readiness.md). Opal adoption does not depend on community consensus or a second implementation.
 - It is not a Bitcoin Cash ecosystem standard. Broader interoperability claims require independent implementations to consume the same vectors and produce the same bytes.
 
 The normative words MUST, MUST NOT, SHOULD, SHOULD NOT, and MAY describe this

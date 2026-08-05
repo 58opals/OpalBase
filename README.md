@@ -2,6 +2,8 @@
 
 Status: Developer Preview. The current release line is `v0.4.1`; the public `develop` branch remains the builder-review surface between SemVer tags.
 
+Cash Code v1 is an unreleased Opal-owned candidate with an implemented reference path and open production-readiness gates. It is not included in `v0.4.1` or presented as a Bitcoin Cash ecosystem standard. See [Cash Code v1 Readiness](docs/cash-code-readiness.md).
+
 Opal Base is a Swift package for building Bitcoin Cash wallet and transaction flows on Apple platforms. It gives BCH builders a curated app-facing layer for wallet/account orchestration, CashAddr receive-address reservation, Fulcrum-backed public-chain sync, BCH spend planning, transaction review boundaries, snapshot persistence, CashTokens metadata, CashFusion preparation, AnyHedge funding preparation, and redacted diagnostics.
 
 ## Why Builders Use It
@@ -87,6 +89,7 @@ You now have mnemonic-backed wallet authority, the first BCH account, and a rese
 - Checking secret and signing boundaries: [Trust Boundaries](docs/trust-boundaries.md)
 - Reviewing available facades: [Public API Guide](docs/public-api.md)
 - Understanding package boundaries: [Architecture](docs/architecture.md)
+- Evaluating Cash Code maturity: [Cash Code v1 Readiness](docs/cash-code-readiness.md)
 - Evaluating release state: [Release Readiness](docs/release-readiness.md)
 
 ## Key Capabilities
@@ -95,7 +98,7 @@ You now have mnemonic-backed wallet authority, the first BCH account, and a rese
 - Deterministic CashAddr receiving and change address tracking, BCH balance refresh, UTXO refresh, transaction history caching, and confirmation refresh.
 - Spend planning, transaction construction, external-review unsigned spend plans, in-process signing paths, broadcast helpers, and targeted broadcast aftermath reconciliation.
 - Fulcrum-facing public-chain orchestration for address, transaction, header, and monitoring workflows.
-- Cash Code v1 candidate identifiers, compressed-P2PKH derivation, production confirmed and mempool restoration, reorganization rollback, durable public-only state, opaque-key spending integration, and bounded sender prefix grinding.
+- Cash Code v1 candidate identifiers, compressed-P2PKH derivation, durable confirmed and mempool restoration, reorganization rollback, public-only state, opaque-key spending integration, and bounded sender prefix grinding.
 - CashTokens vocabulary, BCMR metadata support, token holdings, token genesis, token mint, token spend, and token commitment mutation preparation.
 - Wallet-backed CashFusion pilot orchestration on macOS and wallet-facing AnyHedge funding preparation.
 - Snapshot persistence, Secure Enclave-backed mnemonic persistence helpers, and redacted diagnostics surfaces.
@@ -127,6 +130,7 @@ Opal Base is available under the [Apache License 2.0](LICENSE). Copyright 2026 5
 - [Public API Guide](docs/public-api.md)
 - [Architecture](docs/architecture.md)
 - [Cash Code v1 Candidate Profile](docs/cash-code-v1.md)
+- [Cash Code v1 Readiness](docs/cash-code-readiness.md)
 - [Cash Code v1 Conformance Vectors](docs/cash-code-v1-vectors.json)
 - [Cash Code v1 Negative Vectors](docs/cash-code-v1-negative-vectors.json)
 - [RPA Compatibility Decision](docs/rpa-compatibility-decision.md)

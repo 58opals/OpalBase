@@ -10,6 +10,7 @@ All notable public-facing changes to Opal Base are tracked here.
 
 ### Changed
 
+- Added a public [Cash Code v1 readiness](docs/cash-code-readiness.md) source of truth that separates implementation completeness, production readiness, stable release availability, and ecosystem standardization.
 - Moved `OpalDiagnostics` to its public `0.2.0` SemVer requirement and refreshed the tracked public `develop` revisions for `SwiftFulcrum`, `OpalCrypto`, `OpalFusion`, and `OpalHedge`.
 - Replaced the experimental reusable-payment-address closure scaffold with
   profile-aware value APIs; legacy Electron Cash `paycode:` values are now

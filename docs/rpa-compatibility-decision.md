@@ -2,7 +2,7 @@
 
 ## Outcome
 
-OpalBase selects the profile in [`cash-code-v1.md`](cash-code-v1.md) as its owned, versioned Cash Code v1 candidate and production reference implementation. OpalBase does not wait for community consensus to implement or use this profile, and it does not claim that the profile is a Bitcoin Cash ecosystem standard. The scheme change, strict decoder, fixed compressed-key behavior, and independent vectors prevent the candidate from silently changing the meaning of deployed Electron Cash `paycode:` values.
+OpalBase selects the profile in [`cash-code-v1.md`](cash-code-v1.md) as its owned, versioned Cash Code v1 candidate with an unreleased reference implementation. Production-readiness gates remain open and are tracked in [Cash Code v1 Readiness](cash-code-readiness.md). OpalBase does not wait for community consensus to implement or use this profile, and it does not claim that the profile is a Bitcoin Cash ecosystem standard. The scheme change, strict decoder, fixed compressed-key behavior, and independent vectors prevent the candidate from silently changing the meaning of deployed Electron Cash `paycode:` values.
 
 ## Compatibility Matrix
 
@@ -159,6 +159,6 @@ Seed-only recovery MUST NOT be advertised as portable. Legacy Electron Cash reco
 
 ## Ecosystem Claims Boundary
 
-The Opal implementation and independent vector reproduction establish an Opal-owned candidate contract and are sufficient for OpalBase production work. They do not establish ecosystem standardization. A broader interoperability claim requires another implementation to consume [`cash-code-v1-vectors.json`](cash-code-v1-vectors.json) and [`cash-code-v1-negative-vectors.json`](cash-code-v1-negative-vectors.json) and agree on encoded identifiers, child keys, raw transaction matching, sender construction, and negative cases.
+The Opal implementation and independent vector reproduction establish an Opal-owned candidate contract and are sufficient for continued OpalBase production hardening and adoption work. They do not establish ecosystem standardization. A broader interoperability claim requires another implementation to consume [`cash-code-v1-vectors.json`](cash-code-v1-vectors.json) and [`cash-code-v1-negative-vectors.json`](cash-code-v1-negative-vectors.json) and agree on encoded identifiers, child keys, raw transaction matching, sender construction, and negative cases.
 
 Until that occurs, documentation and public communication must call Cash Code v1 a candidate, not an ecosystem standard. This external boundary does not block OpalBase implementation, testing, or adoption.
