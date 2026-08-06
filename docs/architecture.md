@@ -6,7 +6,7 @@ Opal Base is the Bitcoin Cash application-layer package in the Opal stack. It si
 
 | Package | Responsibility |
 | --- | --- |
-| `OpalBase` | Wallet/account orchestration, CashAddr reservation, BCH balance/history/UTXO/confirmation refresh, spend planning, transaction construction, snapshots, storage helpers, CashTokens metadata, CashFusion wallet preparation, and redacted diagnostics integration |
+| `OpalBase` | Wallet/account orchestration, CashAddr reservation, BCH balance/history/UTXO/confirmation refresh, spend planning, transaction construction, snapshots, storage helpers, CashTokens metadata, CashFusion wallet preparation, internal Mosaic wallet-host validation, and redacted diagnostics integration |
 | `OpalCrypto` | Cryptography, seed/key derivation primitives, public key support, and signing primitives |
 | `SwiftFulcrum` | Fulcrum protocol transport and low-level network communication |
 | `OpalFusion` | CashFusion protocol runtime and coordinator/session behavior |
@@ -25,6 +25,7 @@ Opal Base owns the app-facing orchestration above those packages. It should not 
 - Broadcast lane: `WalletBroadcastInteractor` relays prepared transactions and reconciles confirmations for explicitly named transaction hashes.
 - Asset lane: `WalletAssetInteractor` reads token inventory/metadata and makes token mint authoring explicit when private account authority is supplied.
 - CashFusion lane: `CashFusionInteractor(privateAccount:)` is macOS-only and requires wallet-owned private account authority.
+- Mosaic research lane: the internal `MosaicTransactionHostActor` is macOS-only and binds one non-resumable, non-mainnet attempt to token-free P2PKH inputs, fresh receiving outputs, transcript-gated local signing, and terminal commit or release. An injected transaction policy owns the draft's unresolved fee allocation, remote-prevout validation, and complete transaction-profile checks; no production default or public session facade exists.
 - Diagnostics lane: `WalletObservabilityInteractor` reads redacted diagnostics records only.
 
 ## Data Flow
@@ -63,6 +64,7 @@ Descriptor-backed sync starts from `WalletAccountPublicDescriptor` and `WalletPu
 - Raw cryptography or key primitive ownership that belongs in `OpalCrypto`.
 - Raw Fulcrum protocol ownership that belongs in `SwiftFulcrum`.
 - CashFusion coordinator/session protocol ownership that belongs in `OpalFusion`.
+- Mosaic transport, wire schemas, mailbox cryptography, remote-input proofs, and interoperability policy that remain unresolved by the protocol draft.
 - Diagnostics infrastructure ownership that belongs in `OpalDiagnostics`.
 - Multi-chain abstractions. Opal Base is Bitcoin Cash-specific.
 

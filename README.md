@@ -6,6 +6,8 @@ Cash Code v1 is an unreleased Opal-owned candidate with an implemented reference
 
 Opal Base is a Swift package for building Bitcoin Cash wallet and transaction flows on Apple platforms. It gives BCH builders a curated app-facing layer for wallet/account orchestration, CashAddr receive-address reservation, Fulcrum-backed public-chain sync, BCH spend planning, transaction review boundaries, snapshot persistence, CashTokens metadata, CashFusion preparation, and redacted diagnostics.
 
+The internal Mosaic wallet-host alpha is limited to deterministic, in-process reservation and contributor-signing validation on non-mainnet networks. It has no public session facade, live transport, default transaction-policy adapter, or mainnet support and must not be presented as live Mosaic support.
+
 ## Why Builders Use It
 
 - Build Bitcoin Cash wallet flows without wiring raw key derivation, address tracking, UTXO refresh, transaction history, and Fulcrum transport by hand.
@@ -101,6 +103,7 @@ You now have mnemonic-backed wallet authority, the first BCH account, and a rese
 - Cash Code v1 candidate identifiers, compressed-P2PKH derivation, durable confirmed and mempool restoration, reorganization rollback, public-only state, opaque-key spending integration, and bounded sender prefix grinding.
 - CashTokens vocabulary, BCMR metadata support, token holdings, token genesis, token mint, token spend, and token commitment mutation preparation.
 - Wallet-backed CashFusion pilot orchestration on macOS.
+- Internal, mainnet-disabled Mosaic reservation and contributor-signing host validation on macOS; protocol transport and production transaction policy remain deferred.
 - Snapshot persistence, Secure Enclave-backed mnemonic persistence helpers, and redacted diagnostics surfaces.
 
 ## Validation
