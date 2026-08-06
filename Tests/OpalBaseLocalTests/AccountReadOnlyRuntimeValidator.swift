@@ -35,8 +35,6 @@ struct AccountReadOnlyRuntimeValidator {
         case tokenMint
         case tokenCommitmentMutation
         case cashFusionReservation
-        case hedgeParticipantMaterial
-        case hedgeFunding
 
         var description: String {
             switch self {
@@ -52,10 +50,6 @@ struct AccountReadOnlyRuntimeValidator {
                 "token commitment mutation"
             case .cashFusionReservation:
                 "CashFusion reservation"
-            case .hedgeParticipantMaterial:
-                "hedge participant material"
-            case .hedgeFunding:
-                "hedge funding"
             }
         }
     }
@@ -110,19 +104,6 @@ struct AccountReadOnlyRuntimeValidator {
             lockingScript: address.lockingScript.data,
             previousTransactionHash: AccountTestFixtures.makeHash(byte: hashByte),
             previousTransactionOutputIndex: 0
-        )
-    }
-
-    static func makeHedgeParticipantMaterial(
-        from participant: OpalBase.Hedge.ParticipantMaterial,
-        lockingScriptHex: String
-    ) -> OpalBase.Hedge.ParticipantMaterial {
-        OpalBase.Hedge.ParticipantMaterial(
-            side: participant.side,
-            payoutAddress: participant.payoutAddress,
-            lockingScriptHex: lockingScriptHex,
-            mutualRedeemPublicKeyHex: participant.mutualRedeemPublicKeyHex,
-            derivedAddress: participant.derivedAddress
         )
     }
 

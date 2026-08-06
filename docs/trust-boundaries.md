@@ -12,7 +12,7 @@ Opal Base is designed around narrow integration lanes. The important rule for bu
 | Public account sync | `WalletAccountPublicDescriptor`, `WalletBlockchainSyncInteractor` | No | BCH balance, transaction history, UTXO, and confirmation refresh from public account data |
 | Transport | `WalletTransportInteractor` | No | Fulcrum-backed public-chain readers, streams, and transaction clients |
 | Receive address | `WalletReceiveAddressInteractor` | No mnemonic authority, but mutates reservation/cache state | Reserving CashAddr receive addresses and listing derived addresses |
-| Money movement | `WalletTransactionAuthoringInteractor(privateAccount:)` | Yes, through private account authority | BCH spends, token spends, token genesis, token mint, token commitment mutation, AnyHedge funding |
+| Money movement | `WalletTransactionAuthoringInteractor(privateAccount:)` | Yes, through private account authority | BCH spends, token spends, token genesis, token mint, token commitment mutation |
 | External signing review | `WalletUnsignedSpendPlan`, `WalletUnsignedTransactionEnvelope` | No retained private-key material | Unsigned Bitcoin Cash transaction review and reservation completion after external signing |
 | Broadcast | `WalletBroadcastInteractor` | No | Transaction relay and targeted confirmation reconciliation |
 | Diagnostics | `WalletObservabilityInteractor` | No | Reading redacted diagnostics records |
@@ -39,7 +39,7 @@ This boundary is not secret-bearing in the mnemonic sense, but it is stateful. T
 
 ## Money Movement And `privateAccount`
 
-`WalletTransactionAuthoringInteractor` uses the initializer label `privateAccount` deliberately. BCH spends, token spends, token genesis, token mint, token commitment mutation, AnyHedge participant reservation, and AnyHedge funding preparation all reserve or move wallet-owned value.
+`WalletTransactionAuthoringInteractor` uses the initializer label `privateAccount` deliberately. BCH spends, token spends, token genesis, token mint, and token commitment mutation all reserve or move wallet-owned value.
 
 Use this facade only in user-triggered money-movement flows. Public-chain sync, address monitoring, and read-only UI refresh should not need it.
 
@@ -65,6 +65,6 @@ Diagnostics records are intended to be redacted before they are read through `Wa
 
 - Can this component run from `WalletAccountPublicDescriptor` instead of `OpalBase.Wallet` or `OpalBase.Account`?
 - Is this flow handing out a CashAddr receive address? If yes, reserve it instead of selecting it.
-- Is this flow moving BCH, tokens, or hedge funding value? If yes, keep it behind `WalletTransactionAuthoringInteractor(privateAccount:)`.
+- Is this flow moving BCH or tokens? If yes, keep it behind `WalletTransactionAuthoringInteractor(privateAccount:)`.
 - Is this flow external-signing oriented? If yes, keep signing ceremony, signature verification policy, and broadcast outside the unsigned plan.
 - Does this log path accept arbitrary values? If yes, keep secret and transaction review payloads out of it.

@@ -387,46 +387,6 @@ struct PublicAPISmokeValidator {
         #expect(recoveryMaterial.privateKeyWalletImportFormat.isEmpty == false)
     }
 
-    @Test("hedge funding facade composes from OpalBase only")
-    func hedgeFundingFacadeComposesFromOpalBaseOnly() async throws {
-        let wallet = try OpalBase.Wallet(mnemonic: makeSmokeMnemonic())
-        try await wallet.addAccount(unhardenedIndex: 0)
-        let account = try await wallet.fetchAccount(at: 0)
-        let fundingInputAddress = try await account.selectNextDerivedAddress(
-            for: .receiving
-        )
-        let unspentOutput = OpalBase.Transaction.Output.Unspent(
-            output: .init(
-                value: 6_000_000,
-                address: fundingInputAddress.address
-            ),
-            previousTransactionHash: .init(naturalOrder: Data(repeating: 0x45, count: 32)),
-            previousTransactionOutputIndex: 0
-        )
-        _ = try await account.refreshUTXOSet(
-            using: makeSmokeAddressReader(
-                unspentOutputsByAddress: [
-                    fundingInputAddress.address.string: [unspentOutput]
-                ]
-            ),
-            usage: .receiving
-        )
-        let walletMaterial = try await account.reserveHedgeParticipantMaterial()
-        let request = try HedgeFixtureData.betaRequest(
-            walletParticipant: walletMaterial
-        )
-
-        let plan = try await account.prepareHedgeFunding(request)
-        let review = try plan.buildReview()
-
-        #expect(walletMaterial.side == .hedge)
-        #expect(walletMaterial.payoutAddress.network == .mainnet)
-        #expect(plan.quote.fundingAmount.uint64 > 0)
-        #expect(review.fundingOutput.value == plan.quote.fundingAmount.uint64)
-        #expect(review.transaction.outputs.indices.contains(Int(review.fundingOutputIndex)))
-        try await plan.cancelReservation()
-    }
-
     @Test("cash token metadata facades interoperate")
     func cashTokenMetadataFacadesInterop() async throws {
         let client = OpalBase.CashTokens.BCMR.Client(

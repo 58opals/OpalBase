@@ -37,7 +37,7 @@ This page is the source of truth for the current implementation and release read
 | --- | --- | --- |
 | Clean validation | Cash Code has deterministic local test coverage and Opal Base documents its Xcode and Metal Toolchain requirements. | Pass a clean-checkout release build and the full test suite under the supported toolchain after all Cash Code feature gates are closed. |
 | Automation | The repository does not currently contain repository-owned continuous integration configuration. | Add public continuous integration that enforces the clean build, full tests, and public-boundary checks required for release. |
-| Dependency requirements | Public sibling package URLs and resolved revisions are tracked, while `SwiftFulcrum`, `OpalCrypto`, `OpalFusion`, and `OpalHedge` remain branch-based requirements. | Replace mutable sibling `develop` requirements with approved immutable tags or SemVer requirements before treating the Cash Code release as reproducible for package consumers. |
+| Dependency requirements | Public sibling package URLs and resolved revisions are tracked, while `SwiftFulcrum`, `OpalCrypto`, and `OpalFusion` remain branch-based requirements. | Replace mutable sibling `develop` requirements with approved immutable tags or SemVer requirements before treating the Cash Code release as reproducible for package consumers. |
 | Stable publication | Cash Code v1 remains under `Unreleased`. | Publish it only through a validated SemVer release after the feature, validation, automation, and dependency gates are closed. |
 
 These Cash Code release gates are intentionally stricter than the branch-based dependency posture accepted for the `v0.4.1` developer-preview release line.

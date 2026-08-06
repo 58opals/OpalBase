@@ -6,11 +6,10 @@ Opal Base is the Bitcoin Cash application-layer package in the Opal stack. It si
 
 | Package | Responsibility |
 | --- | --- |
-| `OpalBase` | Wallet/account orchestration, CashAddr reservation, BCH balance/history/UTXO/confirmation refresh, spend planning, transaction construction, snapshots, storage helpers, CashTokens metadata, CashFusion wallet preparation, AnyHedge funding preparation, and redacted diagnostics integration |
+| `OpalBase` | Wallet/account orchestration, CashAddr reservation, BCH balance/history/UTXO/confirmation refresh, spend planning, transaction construction, snapshots, storage helpers, CashTokens metadata, CashFusion wallet preparation, and redacted diagnostics integration |
 | `OpalCrypto` | Cryptography, seed/key derivation primitives, public key support, and signing primitives |
 | `SwiftFulcrum` | Fulcrum protocol transport and low-level network communication |
 | `OpalFusion` | CashFusion protocol runtime and coordinator/session behavior |
-| `OpalHedge` | AnyHedge contract primitives and protocol behavior |
 | `OpalDiagnostics` | Shared diagnostics vocabulary, redacted record model, and presentation helpers |
 
 Opal Base owns the app-facing orchestration above those packages. It should not become a UI toolkit, hardware-wallet firmware layer, raw socket library, cross-chain abstraction, or portfolio operations surface.
@@ -22,7 +21,7 @@ Opal Base owns the app-facing orchestration above those packages. It should not 
 - Snapshot lane: `WalletSnapshotInteractor` moves `OpalBase.Wallet.Snapshot` values without retaining secrets, transport clients, or raw transactions.
 - Public-chain lane: `WalletAccountPublicDescriptor`, `WalletPublicChainOperations`, `WalletTransportInteractor`, and `WalletBlockchainSyncInteractor` refresh BCH balances, transaction history, UTXOs, and confirmations from public account data.
 - Receive lane: `WalletReceiveAddressInteractor` reserves CashAddr receive addresses and keeps reservation/cache mutation separate from generic sync.
-- Money-movement lane: `WalletTransactionAuthoringInteractor(privateAccount:)` prepares BCH spends, token transactions, AnyHedge funding, and external-review unsigned spend plans.
+- Money-movement lane: `WalletTransactionAuthoringInteractor(privateAccount:)` prepares BCH spends, token transactions, and external-review unsigned spend plans.
 - Broadcast lane: `WalletBroadcastInteractor` relays prepared transactions and reconciles confirmations for explicitly named transaction hashes.
 - Asset lane: `WalletAssetInteractor` reads token inventory/metadata and makes token mint authoring explicit when private account authority is supplied.
 - CashFusion lane: `CashFusionInteractor(privateAccount:)` is macOS-only and requires wallet-owned private account authority.
@@ -40,7 +39,7 @@ mnemonic/private wallet lane
 
 ```text
 private account lane
-    -> spend/token/hedge authoring
+    -> spend/token authoring
     -> signed transaction or external-review unsigned plan
     -> app-owned signing/review/broadcast policy
     -> targeted confirmation reconciliation
@@ -64,7 +63,6 @@ Descriptor-backed sync starts from `WalletAccountPublicDescriptor` and `WalletPu
 - Raw cryptography or key primitive ownership that belongs in `OpalCrypto`.
 - Raw Fulcrum protocol ownership that belongs in `SwiftFulcrum`.
 - CashFusion coordinator/session protocol ownership that belongs in `OpalFusion`.
-- AnyHedge contract primitive ownership that belongs in `OpalHedge`.
 - Diagnostics infrastructure ownership that belongs in `OpalDiagnostics`.
 - Multi-chain abstractions. Opal Base is Bitcoin Cash-specific.
 

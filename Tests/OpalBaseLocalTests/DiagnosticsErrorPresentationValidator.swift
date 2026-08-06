@@ -890,7 +890,6 @@ struct DiagnosticsErrorPresentationValidator {
         case cashTokens
         case bcmrClient
         case bcmrFetcher
-        case hedge
         case publicKey
         case derivationPath
         case mnemonic
@@ -948,8 +947,6 @@ struct DiagnosticsErrorPresentationValidator {
                 )
             case .bcmrFetcher:
                 return (OpalBase.CashTokens.BCMR.Client.Fetcher.Error.unsupportedScheme("ftp"), .cashTokensBCMRFetchFailed)
-            case .hedge:
-                return (OpalBase.Hedge.Error.invalidFundingAmount(-1), .hedgeInvalid)
             case .publicKey:
                 return (OpalBase.Key.PublicKey.Error.invalidFormat, .keyInvalid)
             case .derivationPath:

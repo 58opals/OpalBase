@@ -149,20 +149,6 @@ extension AccountReadOnlyRuntimeValidator {
         #else
             return
         #endif
-        case .hedgeParticipantMaterial:
-            await #expect(throws: OpalBase.Account.Error.privateKeyMaterialUnavailable) {
-                _ = try await readOnlyAccount.reserveHedgeParticipantMaterial()
-            }
-            #expect((await readOnlyAccount.makeSnapshot()).addressBook.receivingEntries.allSatisfy { !$0.isReserved })
-        case .hedgeFunding:
-            let mismatchedWalletParticipant = Self.makeHedgeParticipantMaterial(
-                from: try HedgeFixtureData.shortParticipant(),
-                lockingScriptHex: HedgeFixtureData.longLockScriptHex
-            )
-            let request = try HedgeFixtureData.betaRequest(walletParticipant: mismatchedWalletParticipant)
-            await #expect(throws: OpalBase.Account.Error.privateKeyMaterialUnavailable) {
-                _ = try await readOnlyAccount.prepareHedgeFunding(request)
-            }
         }
     }
 

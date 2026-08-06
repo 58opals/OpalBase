@@ -4,9 +4,9 @@ This guide is the fastest path from an empty Apple-platform Swift target to the 
 
 ## What Opal Base Is
 
-Opal Base is the Bitcoin Cash application layer in the Opal package stack. It owns wallet/account orchestration, deterministic CashAddr derivation and reservation, BCH balance/history/UTXO refresh, spend planning, transaction construction, wallet snapshots, storage helpers, CashTokens metadata, CashFusion wallet preparation, AnyHedge wallet funding preparation, and redacted diagnostics integration.
+Opal Base is the Bitcoin Cash application layer in the Opal package stack. It owns wallet/account orchestration, deterministic CashAddr derivation and reservation, BCH balance/history/UTXO refresh, spend planning, transaction construction, wallet snapshots, storage helpers, CashTokens metadata, CashFusion wallet preparation, and redacted diagnostics integration.
 
-Use it when you want app-facing Bitcoin Cash wallet behavior on Apple platforms without directly composing raw cryptography, raw Fulcrum transport, CashFusion coordinator protocol logic, AnyHedge contract primitives, or diagnostics infrastructure.
+Use it when you want app-facing Bitcoin Cash wallet behavior on Apple platforms without directly composing raw cryptography, raw Fulcrum transport, CashFusion coordinator protocol logic, or diagnostics infrastructure.
 
 ## What Opal Base Is Not
 
@@ -15,7 +15,6 @@ Use it when you want app-facing Bitcoin Cash wallet behavior on Apple platforms 
 - It is not the raw cryptography package; `OpalCrypto` owns key and signing primitives.
 - It is not the raw Fulcrum protocol package; `SwiftFulcrum` owns low-level transport.
 - It is not the CashFusion protocol runtime; `OpalFusion` owns coordinator/session protocol behavior.
-- It is not the AnyHedge primitive package; `OpalHedge` owns contract-level primitives.
 - It is not a place to store mnemonics, passphrases, private keys, transaction review payloads, or recovery material in logs.
 
 ## 1. Install The Package
@@ -191,12 +190,11 @@ What you have now: a `WalletUnsignedSpendPlan` that reserves selected UTXOs and 
 
 - CashTokens: use `OpalBase.CashTokens.*` for token vocabulary and BCMR metadata, `WalletAssetInteractor` for token holdings/metadata, and `WalletTransactionAuthoringInteractor` for token spend, genesis, mint, and commitment-mutation plans.
 - CashFusion: use `CashFusionInteractor(privateAccount:)` on macOS for wallet-backed session lifecycle. CashFusion requires private account authority because it reserves wallet-owned inputs and signs host-owned fusion transactions.
-- AnyHedge: use `OpalBase.Hedge` through `WalletTransactionAuthoringInteractor` for wallet-facing participant reservation and BCH funding preparation without importing `OpalHedge` directly.
 - Diagnostics: use `WalletObservabilityInteractor` and `OpalDiagnostics` records for redacted diagnostics. Do not pass secret material into generic logging paths.
 
 ## Tests That Demonstrate Public API Usage
 
-- `Tests/OpalBaseLocalTests/PublicAPISmokeValidator.swift` shows wallet, descriptor, receive, storage, CashFusion, CashTokens, claimable, hedge, and diagnostics-facing public API composition.
+- `Tests/OpalBaseLocalTests/PublicAPISmokeValidator.swift` shows wallet, descriptor, receive, storage, CashFusion, CashTokens, claimable, and diagnostics-facing public API composition.
 - `Tests/OpalBaseLocalTests/WalletTrustDomainInteractorValidator.swift` checks trust-domain interactor boundaries.
 - `Tests/OpalBaseLocalTests/WalletSecurityProfileValidator.swift` checks offline signer and secret persistence policy behavior.
 - `Tests/OpalBaseNetworkTests/NetworkLiveSmokeValidator.swift` is the opt-in live Fulcrum smoke test using `OPAL_FULCRUM_URL` and `OPAL_RUN_LIVE_NETWORK_TESTS`.

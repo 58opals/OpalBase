@@ -11,7 +11,7 @@ All notable public-facing changes to Opal Base are tracked here.
 ### Changed
 
 - Added a public [Cash Code v1 readiness](docs/cash-code-readiness.md) source of truth that separates implementation completeness, production readiness, stable release availability, and ecosystem standardization.
-- Moved `OpalDiagnostics` to its public `0.2.0` SemVer requirement and refreshed the tracked public `develop` revisions for `SwiftFulcrum`, `OpalCrypto`, `OpalFusion`, and `OpalHedge`.
+- Moved `OpalDiagnostics` to its public `0.2.0` SemVer requirement and refreshed the tracked public `develop` revisions for `SwiftFulcrum`, `OpalCrypto`, and `OpalFusion`.
 - Replaced the experimental reusable-payment-address closure scaffold with
   profile-aware value APIs; legacy Electron Cash `paycode:` values are now
   strict read-only migration data and cannot be generated, sent to, or matched
@@ -19,6 +19,10 @@ All notable public-facing changes to Opal Base are tracked here.
 - Bound Cash Code restoration state to the exact profile, network, public keys, non-secret key origin, restore start, cursor, matched outputs, derivation contexts, revisions, and bounded reorganization history while excluding signing capabilities, complete Cash Codes/paycodes, filter prefixes, shared material, and raw transactions.
 - Updated decoding limits, diagnostics privacy, mnemonic validation errors, and Fulcrum configuration error translation for the newer dependency APIs.
 - Changed non-fungible token additions and removals in `Transaction.History.Record.TokenDelta` from sets to ordered arrays so repeated equivalent CashTokens are preserved.
+
+### Removed
+
+- Temporarily removed the source-breaking experimental `OpalBase.Hedge` public API and its `OpalHedge` dependency while OpalHedge is not ready for adoption. Reintroducing AnyHedge will use a newly reviewed API.
 
 ### Fixed
 

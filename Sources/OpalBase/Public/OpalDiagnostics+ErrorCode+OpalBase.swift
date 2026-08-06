@@ -30,9 +30,6 @@ public extension OpalDiagnostics.ErrorCode {
     static let cashFusionReservationFailed = Self(rawValue: "cash_fusion.reservation_failed")
     static let cashFusionOutputReservationFailed = Self(rawValue: "cash_fusion.output_reservation_failed")
     static let cashFusionSessionFailed = Self(rawValue: "cash_fusion.session_failed")
-    static let hedgeFundingFailed = Self(rawValue: "hedge.funding_failed")
-    static let hedgeInvalid = Self(rawValue: "hedge.invalid")
-    static let hedgeSettlementFailed = Self(rawValue: "hedge.settlement_failed")
     static let claimableInvalidEnvelope = Self(rawValue: "claimable.invalid_envelope")
     static let claimableInvalidShareCode = Self(rawValue: "claimable.invalid_share_code")
     static let claimableStatusFailed = Self(rawValue: "claimable.status_failed")
@@ -59,7 +56,6 @@ public extension OpalDiagnostics.ErrorCode {
         networkDecoding, networkProtocolViolation,
         cashFusionInvalidRequest, cashFusionReservationFailed,
         cashFusionOutputReservationFailed, cashFusionSessionFailed,
-        hedgeFundingFailed, hedgeInvalid, hedgeSettlementFailed,
         claimableInvalidEnvelope, claimableInvalidShareCode, claimableStatusFailed,
         transactionInvalid, transactionInsufficientFunds, transactionBuildFailed,
         transactionBroadcastFailed,
@@ -126,10 +122,6 @@ public extension OpalDiagnostics.ErrorCode {
 
         if let bcmrFetcherError = error as? OpalBase.CashTokens.BCMR.Client.Fetcher.Error {
             return code(for: bcmrFetcherError)
-        }
-
-        if let hedgeError = error as? OpalBase.Hedge.Error {
-            return code(for: hedgeError)
         }
 
         if let publicKeyError = error as? OpalBase.Key.PublicKey.Error {
@@ -416,22 +408,6 @@ private extension OpalDiagnostics.ErrorCode {
              .invalidMaximumBytes,
              .disallowedNetworkLocation:
             .cashTokensBCMRFetchFailed
-        }
-    }
-
-    static func code(for error: OpalBase.Hedge.Error) -> Self {
-        switch error {
-        case .unsupportedWalletSide,
-             .unsupportedCounterpartySide,
-             .networkMismatch,
-             .invalidFundingAmount,
-             .invalidFundingOutputIndex,
-             .invalidTransactionHash,
-             .oraclePublicKeyMismatch,
-             .participantLockingScriptMismatch,
-             .fundingOutputNotFound,
-             .fundingOutputAmbiguous:
-            .hedgeInvalid
         }
     }
 

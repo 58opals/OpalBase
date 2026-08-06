@@ -215,28 +215,6 @@ Use this when: a wallet-backed CashFusion flow needs to reserve wallet-owned inp
 
 Review with: `Tests/OpalBaseLocalTests/AccountCashFusionReadinessValidator.swift` and `Tests/OpalBaseLocalTests/PublicAPISmokeValidator.swift`.
 
-## Prepare AnyHedge Funding
-
-Use the wallet-facing hedge APIs through `WalletTransactionAuthoringInteractor`:
-
-```swift
-let authoring = OpalBase.WalletTransactionAuthoringInteractor(privateAccount: account)
-let walletMaterial = try await authoring.reserveHedgeParticipantMaterial()
-let request = OpalBase.Hedge.USDThirtyDaySimpleHedgeRequest(
-    walletParticipant: walletMaterial,
-    counterpartyParticipant: counterpartyMaterial,
-    startingOracleProof: startingOracleProof,
-    nominalUnits: 1_000
-)
-
-let fundingPlan = try await authoring.prepareHedgeFunding(request)
-let review = try fundingPlan.buildReview()
-```
-
-Use this when: an app needs OpalBase-native wallet reservation and BCH funding preparation without importing `OpalHedge` directly.
-
-Review with: `Tests/OpalBaseLocalTests/HedgeFundingFacadeValidator.swift`.
-
 ## Read Redacted Diagnostics
 
 Use `WalletObservabilityInteractor` for diagnostics records that are already redacted through `OpalDiagnostics`:

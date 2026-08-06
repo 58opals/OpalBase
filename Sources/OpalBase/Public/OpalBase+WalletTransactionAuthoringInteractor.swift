@@ -1,7 +1,7 @@
 // OpalBase+WalletTransactionAuthoringInteractor.swift
 
 public extension OpalBase {
-    /// User-triggered money-movement lane for spend, token, claimable funding, hedge funding, and signing plans.
+    /// User-triggered money-movement lane for spend, token, and external-signing plans.
     struct WalletTransactionAuthoringInteractor: Sendable {
         let privateAccount: OpalBase.Account
         let feePolicy: OpalBase.Wallet.FeePolicy
@@ -81,22 +81,6 @@ public extension OpalBase {
                 mutation,
                 feePolicy: feePolicy
             )
-        }
-
-        public func reserveHedgeParticipantMaterial(
-            side: OpalBase.Hedge.Side = .hedge,
-            network: OpalBase.Network.Environment = .mainnet
-        ) async throws -> OpalBase.Hedge.ParticipantMaterial {
-            try await privateAccount.reserveHedgeParticipantMaterial(
-                side: side,
-                network: network
-            )
-        }
-
-        public func prepareHedgeFunding(
-            _ request: OpalBase.Hedge.USDThirtyDaySimpleHedgeRequest
-        ) async throws -> OpalBase.Hedge.FundingPlan {
-            try await privateAccount.prepareHedgeFunding(request, feePolicy: feePolicy)
         }
     }
 }

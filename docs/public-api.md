@@ -79,9 +79,9 @@ Typical tasks: make offline signer posture explicit, fail closed on weaker secre
 
 ### `WalletTransactionAuthoringInteractor`
 
-User-triggered money-movement lane. Its initializer label is `privateAccount` because the facade can reserve wallet-owned inputs, reserve change addresses, prepare signing-capable plans, and build funding plans.
+User-triggered money-movement lane. Its initializer label is `privateAccount` because the facade can reserve wallet-owned inputs, reserve change addresses, and prepare signing-capable transaction plans.
 
-Typical tasks: prepare BCH spends, prepare external-review unsigned BCH spends, prepare token spends, prepare token genesis, prepare token mint, prepare token commitment mutation, reserve AnyHedge participant material, and prepare AnyHedge funding.
+Typical tasks: prepare BCH spends, prepare external-review unsigned BCH spends, prepare token spends, prepare token genesis, prepare token mint, and prepare token commitment mutation.
 
 ### `WalletUnsignedSpendPlan`
 
@@ -95,7 +95,7 @@ External signing boundary scaffold. It carries an unsigned Bitcoin Cash transact
 
 Typical tasks: pass review material to an app-owned QR, file, hardware-device, or offline UI flow without exposing account internals.
 
-## Token, Fusion, Hedge, Claimable, And Diagnostics Facades
+## Token, Fusion, Claimable, And Diagnostics Facades
 
 ### `WalletAssetInteractor`
 
@@ -199,7 +199,7 @@ These primitives are intentionally public because they are part of the Bitcoin C
 
 ## Where To See It Running
 
-- `Tests/OpalBaseLocalTests/PublicAPISmokeValidator.swift` covers public-surface composition across wallet, descriptor, receive, storage, token metadata, CashFusion, AnyHedge, claimable, and diagnostics areas.
+- `Tests/OpalBaseLocalTests/PublicAPISmokeValidator.swift` covers public-surface composition across wallet, descriptor, receive, storage, token metadata, CashFusion, claimable, and diagnostics areas.
 - `Tests/OpalBaseLocalTests/WalletTrustDomainInteractorValidator.swift` checks trust-domain interactor separation.
 - `Tests/OpalBaseLocalTests/WalletSecurityProfileValidator.swift` checks offline signer posture and secret persistence policy behavior.
 - `Tests/OpalBaseNetworkTests/NetworkLiveSmokeValidator.swift` shows opt-in live Fulcrum usage behind `OPAL_RUN_LIVE_NETWORK_TESTS` and `OPAL_FULCRUM_URL`.

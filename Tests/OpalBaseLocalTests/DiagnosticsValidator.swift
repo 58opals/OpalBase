@@ -192,84 +192,6 @@ struct DiagnosticsValidator {
         #expect(records.allSatisfy { $0.traceID == traceID })
     }
 
-    @Test("hedge participant reservation emits boundary diagnostics")
-    func hedgeParticipantReservationEmitsBoundaryDiagnostics() async throws {
-        let records = try await OpalDiagnostics.withConfiguration(diagnosticsConfiguration()) {
-            let account = try await AccountTestFixtures.makeAccount()
-            _ = try await account.reserveHedgeParticipantMaterial(network: .chipnet)
-
-            return OpalDiagnostics.recentRecords(
-                category: OpalDiagnostics.Category.hedge
-            )
-        }
-
-        #expect(records.contains {
-            $0.event == OpalDiagnostics.Event.hedgeParticipantMaterialReserveStarted
-        })
-        #expect(records.contains {
-            $0.event == OpalDiagnostics.Event.hedgeParticipantMaterialReserved
-        })
-    }
-
-    @Test("hedge funding prepare failures use the hedge error code")
-    func hedgeFundingPrepareFailuresUseHedgeErrorCode() async throws {
-        let records = try await OpalDiagnostics.withConfiguration(diagnosticsConfiguration()) {
-            let account = try await AccountTestFixtures.makeAccount()
-            let request = try await makeDiagnosticsHedgeFundingRequest(for: account)
-
-            await #expect(throws: OpalBase.Account.Error.self) {
-                _ = try await account.prepareHedgeFunding(request)
-            }
-
-            return OpalDiagnostics.recentRecords(category: OpalDiagnostics.Category.hedge)
-        }
-
-        #expect(recordsContain(
-            records,
-            event: OpalDiagnostics.Event.hedgeFundingPrepareFailed,
-            errorCode: OpalDiagnostics.ErrorCode.hedgeFundingFailed
-        ))
-    }
-
-    @Test("hedge funding broadcast failures use the hedge error code")
-    func hedgeFundingBroadcastFailuresUseHedgeErrorCode() async throws {
-        let records = try await OpalDiagnostics.withConfiguration(diagnosticsConfiguration()) {
-            let account = try await AccountTestFixtures.makeAccount()
-            _ = try await AccountTestFixtures.addUnspentOutput(
-                to: account,
-                value: 6_000_000,
-                hashByte: 0x53
-            )
-            let request = try await makeDiagnosticsHedgeFundingRequest(for: account)
-            let plan = try await account.prepareHedgeFunding(request)
-            let client = OpalBase.Network.TransactionClient(
-                broadcastTransaction: { _ in throw NetworkStubError.forced("hedge-broadcast") },
-                fetchConfirmations: { _ in nil },
-                fetchConfirmationStatus: { transactionHash in
-                    .init(
-                        transactionHash: transactionHash,
-                        transactionHeight: nil,
-                        tipHeight: 0,
-                        confirmations: nil
-                    )
-                }
-            )
-
-            await #expect(throws: OpalBase.Account.Error.self) {
-                _ = try await plan.buildAndBroadcast(via: client)
-            }
-            try await plan.cancelReservation()
-
-            return OpalDiagnostics.recentRecords(category: OpalDiagnostics.Category.hedge)
-        }
-
-        #expect(recordsContain(
-            records,
-            event: OpalDiagnostics.Event.hedgeFundingBroadcastFailed,
-            errorCode: OpalDiagnostics.ErrorCode.hedgeFundingFailed
-        ))
-    }
-
     @Test("recent diagnostics redact sensitive values and use safe field names")
     func recentDiagnosticsRedactSensitiveValuesAndUseSafeFieldNames() async throws {
         let mnemonic = try AccountTestFixtures.makeMnemonic()
@@ -660,8 +582,6 @@ struct DiagnosticsValidator {
         case utxoRefreshFailed
         case spendPrepareStarted
         case cashFusionSessionFinalized
-        case hedgeParticipantMaterialReserveStarted
-        case hedgeFundingBroadcastFailed
         case claimableShareCodeDecodeFailed
         case tokenMetadataSyncSucceeded
         case networkDiagnosticsCountersRecorded
@@ -679,10 +599,6 @@ struct DiagnosticsValidator {
                 return .spendPrepareStarted
             case .cashFusionSessionFinalized:
                 return .cashFusionSessionFinalized
-            case .hedgeParticipantMaterialReserveStarted:
-                return .hedgeParticipantMaterialReserveStarted
-            case .hedgeFundingBroadcastFailed:
-                return .hedgeFundingBroadcastFailed
             case .claimableShareCodeDecodeFailed:
                 return .claimableShareCodeDecodeFailed
             case .tokenMetadataSyncSucceeded:
@@ -789,7 +705,6 @@ struct DiagnosticsValidator {
         case networkDecoding
         case networkProtocolViolation
         case claimableInvalidShareCode
-        case hedgeFundingFailed
 
         var rawValueExpectation: (errorCode: OpalDiagnostics.ErrorCode, rawValue: String) {
             switch self {
@@ -817,8 +732,6 @@ struct DiagnosticsValidator {
                 return (.networkProtocolViolation, "network.protocol_violation")
             case .claimableInvalidShareCode:
                 return (.claimableInvalidShareCode, "claimable.invalid_share_code")
-            case .hedgeFundingFailed:
-                return (.hedgeFundingFailed, "hedge.funding_failed")
             }
         }
     }
@@ -888,13 +801,6 @@ struct DiagnosticsValidator {
             OpalDiagnostics.Event.networkFulcrumClientStarted,
             OpalDiagnostics.Event.networkFulcrumClientFailed
         ].contains(record.event)
-    }
-
-    private func makeDiagnosticsHedgeFundingRequest(
-        for account: OpalBase.Account
-    ) async throws -> OpalBase.Hedge.USDThirtyDaySimpleHedgeRequest {
-        let walletMaterial = try await account.reserveHedgeParticipantMaterial()
-        return try HedgeFixtureData.betaRequest(walletParticipant: walletMaterial)
     }
 
     private func makeDiagnosticsAddressReader(

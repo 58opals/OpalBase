@@ -1,5 +1,5 @@
 {
-  "originHash" : "255889fb7ba66ba87120139b9c466680921fec0c1c02133a38793a3cb2bfa9b6",
+  "originHash" : "f759f4518c2a33eec49949184b860439e7260540118572f6caa860a0a6332670",
   "pins" : [
     {
       "identity" : "opalcrypto",
@@ -26,15 +26,6 @@
       "state" : {
         "branch" : "develop",
         "revision" : "2f19fab6e4c40ff99c57dc8de4560a0b1efb9efe"
-      }
-    },
-    {
-      "identity" : "opalhedge",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/58opals/OpalHedge.git",
-      "state" : {
-        "branch" : "develop",
-        "revision" : "a945ab1cb1402bd5e28d813c258036b2ad022bbd"
       }
     },
     {

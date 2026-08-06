@@ -4,13 +4,13 @@ Status: Developer Preview. The current release line is `v0.4.1`; the public `dev
 
 Cash Code v1 is an unreleased Opal-owned candidate with an implemented reference path and open production-readiness gates. It is not included in `v0.4.1` or presented as a Bitcoin Cash ecosystem standard. See [Cash Code v1 Readiness](docs/cash-code-readiness.md).
 
-Opal Base is a Swift package for building Bitcoin Cash wallet and transaction flows on Apple platforms. It gives BCH builders a curated app-facing layer for wallet/account orchestration, CashAddr receive-address reservation, Fulcrum-backed public-chain sync, BCH spend planning, transaction review boundaries, snapshot persistence, CashTokens metadata, CashFusion preparation, AnyHedge funding preparation, and redacted diagnostics.
+Opal Base is a Swift package for building Bitcoin Cash wallet and transaction flows on Apple platforms. It gives BCH builders a curated app-facing layer for wallet/account orchestration, CashAddr receive-address reservation, Fulcrum-backed public-chain sync, BCH spend planning, transaction review boundaries, snapshot persistence, CashTokens metadata, CashFusion preparation, and redacted diagnostics.
 
 ## Why Builders Use It
 
 - Build Bitcoin Cash wallet flows without wiring raw key derivation, address tracking, UTXO refresh, transaction history, and Fulcrum transport by hand.
 - Keep secret-bearing wallet authority separate from descriptor-backed public-chain sync, receive-address reservation, external signing review, broadcast, and diagnostics.
-- Compose higher-level BCH features through Swift facades under `OpalBase.*` while lower-level packages keep their responsibilities: `OpalCrypto`, `SwiftFulcrum`, `OpalFusion`, `OpalHedge`, and `OpalDiagnostics`.
+- Compose higher-level BCH features through Swift facades under `OpalBase.*` while lower-level packages keep their responsibilities: `OpalCrypto`, `SwiftFulcrum`, `OpalFusion`, and `OpalDiagnostics`.
 - Point reviewers to runnable public API examples in `Tests/OpalBaseLocalTests/PublicAPISmokeValidator.swift` and opt-in live Fulcrum examples in `Tests/OpalBaseNetworkTests/NetworkLiveSmokeValidator.swift`.
 
 ## Trust Boundaries
@@ -100,7 +100,7 @@ You now have mnemonic-backed wallet authority, the first BCH account, and a rese
 - Fulcrum-facing public-chain orchestration for address, transaction, header, and monitoring workflows.
 - Cash Code v1 candidate identifiers, compressed-P2PKH derivation, durable confirmed and mempool restoration, reorganization rollback, public-only state, opaque-key spending integration, and bounded sender prefix grinding.
 - CashTokens vocabulary, BCMR metadata support, token holdings, token genesis, token mint, token spend, and token commitment mutation preparation.
-- Wallet-backed CashFusion pilot orchestration on macOS and wallet-facing AnyHedge funding preparation.
+- Wallet-backed CashFusion pilot orchestration on macOS.
 - Snapshot persistence, Secure Enclave-backed mnemonic persistence helpers, and redacted diagnostics surfaces.
 
 ## Validation
