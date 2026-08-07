@@ -2,6 +2,7 @@
 
 #if os(macOS)
 import Foundation
+import OpalCrypto
 import OpalFusion
 
 extension _OpalBase.Account.MosaicTransactionHostActor {
@@ -150,6 +151,102 @@ extension _OpalBase.Account.MosaicTransactionHostActor {
             total = addition.partialValue
         }
         return total
+    }
+
+    func validateCompleteTransaction(
+        _ completeTransaction: OpalFusion.Host.MosaicCompleteTransaction
+    ) throws -> OpalBase.Transaction {
+        guard let finalizedRequest else {
+            throw OpalBase.Account.MosaicHostFailure.finalizationRequired
+        }
+        let proposal = try validateTransactionProposal(finalizedRequest).transaction
+        let encoded = Data(completeTransaction.transactionBytes)
+        let decoded: (transaction: OpalBase.Transaction, bytesRead: Int)
+        do {
+            decoded = try OpalBase.Transaction.decode(from: encoded)
+        } catch {
+            throw OpalBase.Account.MosaicHostFailure.invalidCompleteTransaction
+        }
+        guard decoded.bytesRead == encoded.count,
+              try decoded.transaction.encode() == encoded,
+              hasSameTransactionBody(decoded.transaction, as: proposal),
+              decoded.transaction.inputs.count == finalizedRequest.spentInputs.count else {
+            throw OpalBase.Account.MosaicHostFailure.invalidCompleteTransaction
+        }
+
+        do {
+            for index in decoded.transaction.inputs.indices {
+                try validateCompleteSignature(
+                    transaction: decoded.transaction,
+                    inputIndex: index,
+                    spentInput: finalizedRequest.spentInputs[index]
+                )
+            }
+        } catch {
+            throw OpalBase.Account.MosaicHostFailure.invalidCompleteTransaction
+        }
+        return decoded.transaction
+    }
+
+    private func hasSameTransactionBody(
+        _ complete: OpalBase.Transaction,
+        as proposal: OpalBase.Transaction
+    ) -> Bool {
+        guard complete.version == proposal.version,
+              complete.lockTime == proposal.lockTime,
+              complete.inputs.count == proposal.inputs.count,
+              complete.outputs == proposal.outputs else {
+            return false
+        }
+        return complete.inputs.indices.allSatisfy { index in
+            let completeInput = complete.inputs[index]
+            let proposalInput = proposal.inputs[index]
+            return completeInput.previousTransactionHash
+                    == proposalInput.previousTransactionHash
+                && completeInput.previousTransactionOutputIndex
+                    == proposalInput.previousTransactionOutputIndex
+                && completeInput.sequence == proposalInput.sequence
+        }
+    }
+
+    private func validateCompleteSignature(
+        transaction: OpalBase.Transaction,
+        inputIndex: Int,
+        spentInput: OpalFusion.Host.ParticipantInput
+    ) throws {
+        let unlockingScript = transaction.inputs[inputIndex].unlockingScript
+        let hashType = OpalBase.Transaction.HashType.makeAll(
+            anyoneCanPay: false
+        )
+        guard unlockingScript.count == 100,
+              unlockingScript[0] == 65,
+              unlockingScript[65] == UInt8(truncatingIfNeeded: hashType.value),
+              unlockingScript[66] == 33,
+              let expectedPublicKey = spentInput.publicKey,
+              Data(expectedPublicKey) == unlockingScript[67 ..< 100] else {
+            throw OpalBase.Account.MosaicHostFailure.invalidCompleteTransaction
+        }
+        let outputBeingSpent = OpalBase.Transaction.Output(
+            value: spentInput.amountSatoshis,
+            lockingScript: Data(spentInput.lockingScriptBytes)
+        )
+        let preimage = try transaction.generatePreimage(
+            for: inputIndex,
+            hashType: hashType,
+            outputBeingSpent: outputBeingSpent
+        )
+        let signature = try OpalCrypto.Signature.Schnorr(
+            rawRepresentation: Data(unlockingScript[1 ..< 65])
+        )
+        let publicKey = try OpalCrypto.Secp256k1.PublicKey(
+            rawRepresentation: Data(expectedPublicKey)
+        )
+        let digest = try OpalCrypto.Signature.Digest(
+            rawRepresentation: OpalCrypto.Hashing.hash256(preimage)
+        )
+        guard try signature.verify(digest: digest, publicKey: publicKey) else {
+            throw OpalBase.Account.MosaicHostFailure.invalidCompleteTransaction
+        }
     }
 }
 #endif

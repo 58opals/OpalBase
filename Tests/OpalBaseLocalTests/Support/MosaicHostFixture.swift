@@ -12,10 +12,12 @@ struct MosaicHostFixture {
     let selectedInput: OpalBase.Transaction.Output.Unspent
     let host: OpalBase.Account.MosaicTransactionHostActor
     let reservationRequest: OpalFusion.Host.MosaicReservationRequest
+    let journalProbe: MosaicAttemptJournalProbeActor
 
     static func make(
         generation: UInt64 = 7,
         transactionPolicy: OpalBase.Account.MosaicTransactionPolicy,
+        journalProbe: MosaicAttemptJournalProbeActor = .init(),
         reserveReceivingEntry: @escaping @Sendable (
             OpalBase.Address.Book
         ) async throws -> OpalBase.Address.Book.Entry = { addressBook in
@@ -47,6 +49,7 @@ struct MosaicHostFixture {
             selectedInputs: [selectedInput],
             outputAmountsSatoshis: [90_000],
             transactionPolicy: transactionPolicy,
+            attemptJournal: journalProbe.makeJournal(),
             currentDate: { currentDate },
             makeReservationIdentifier: { identifier },
             reserveReceivingEntry: reserveReceivingEntry,
@@ -68,7 +71,8 @@ struct MosaicHostFixture {
             addressBook: addressBook,
             selectedInput: selectedInput,
             host: host,
-            reservationRequest: request
+            reservationRequest: request,
+            journalProbe: journalProbe
         )
     }
 

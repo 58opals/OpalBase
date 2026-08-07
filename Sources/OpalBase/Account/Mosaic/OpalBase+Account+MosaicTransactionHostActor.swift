@@ -6,13 +6,14 @@ import OpalFusion
 
 extension _OpalBase.Account {
     /// Mainnet-disabled wallet authority for one non-resumable Mosaic attempt.
-    actor MosaicTransactionHostActor: OpalFusion.Host.MosaicTransactionHost {
+    actor MosaicTransactionHostActor: OpalFusion.Host.MosaicCompleteTransactionHost {
         let addressBook: OpalBase.Address.Book
         let expectedNetworkGenesisHash: [UInt8]
         let generation: UInt64
         let selectedInputs: [OpalBase.Transaction.Output.Unspent]
         let outputAmountsSatoshis: [UInt64]
         let transactionPolicy: MosaicTransactionPolicy
+        let attemptJournal: MosaicAttemptJournal
         let currentDate: @Sendable () -> Date
         let makeReservationIdentifier: @Sendable () -> UUID
         let reserveReceivingEntry: @Sendable (
@@ -30,7 +31,9 @@ extension _OpalBase.Account {
         var isReleased = false
         var finalizedRequest: OpalFusion.Host.MosaicTransactionSigningRequest?
         var finalizedTransaction: OpalFusion.Host.FinalizedTransaction?
-        var committedTransaction: OpalFusion.Host.FinalizedTransaction?
+        var locallySignedPersisted = false
+        var committedCompleteTransaction: OpalFusion.Host.MosaicCompleteTransaction?
+        var signingStarted = false
         var signingInvocationCount = 0
 
         init(
@@ -40,6 +43,7 @@ extension _OpalBase.Account {
             selectedInputs: [OpalBase.Transaction.Output.Unspent],
             outputAmountsSatoshis: [UInt64],
             transactionPolicy: MosaicTransactionPolicy,
+            attemptJournal: MosaicAttemptJournal,
             currentDate: @escaping @Sendable () -> Date = Date.init,
             makeReservationIdentifier: @escaping @Sendable () -> UUID = UUID.init,
             reserveReceivingEntry: @escaping @Sendable (
@@ -72,6 +76,7 @@ extension _OpalBase.Account {
             self.selectedInputs = selectedInputs
             self.outputAmountsSatoshis = outputAmountsSatoshis
             self.transactionPolicy = transactionPolicy
+            self.attemptJournal = attemptJournal
             self.currentDate = currentDate
             self.makeReservationIdentifier = makeReservationIdentifier
             self.reserveReceivingEntry = reserveReceivingEntry
@@ -94,6 +99,18 @@ extension _OpalBase.Account {
                 total = addition.partialValue
             }
             return total
+        }
+
+        func persist(
+            _ record: MosaicAttemptJournal.Record
+        ) async throws {
+            do {
+                try await attemptJournal.append(record)
+            } catch let cancellation as CancellationError {
+                throw cancellation
+            } catch {
+                throw MosaicHostFailure.journalPersistenceFailed
+            }
         }
     }
 }

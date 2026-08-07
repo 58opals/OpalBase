@@ -50,14 +50,14 @@ extension AccountMosaicTransactionHostValidator {
 
         let finalized = try await fixture.host.finalizeMosaicTransaction(for: request)
         let duplicate = try await fixture.host.finalizeMosaicTransaction(for: request)
-        let decoded = try OpalBase.Transaction.decode(
+        let locallySigned = try OpalBase.Transaction.decode(
             from: Data(finalized.signedFusionTransactionBytes)
         ).transaction
 
         #expect(duplicate == finalized)
-        #expect(decoded.inputs[0].unlockingScript.isEmpty)
-        #expect(decoded.inputs[1].unlockingScript.count == 100)
-        #expect(decoded.inputs[1].unlockingScript[65] == 0x41)
+        #expect(locallySigned.inputs[0].unlockingScript.isEmpty)
+        #expect(locallySigned.inputs[1].unlockingScript.count == 100)
+        #expect(locallySigned.inputs[1].unlockingScript[65] == 0x41)
         #expect(await probe.readInvocationCount() == 1)
         #expect(await fixture.host.readSigningInvocationCount() == 1)
 
@@ -72,29 +72,151 @@ extension AccountMosaicTransactionHostValidator {
         await #expect(throws: OpalBase.Account.MosaicHostFailure.conflictingFinalization) {
             _ = try await fixture.host.finalizeMosaicTransaction(for: conflictingRequest)
         }
-        await #expect(throws: OpalBase.Account.MosaicHostFailure.finalizationRequired) {
+        await #expect(throws: OpalBase.Account.MosaicHostFailure.completeTransactionRequired) {
             try await fixture.host.commitMosaicReservation(
                 lease.reference,
-                finalizedTransaction: .init(signedFusionTransactionBytes: [0x00])
+                finalizedTransaction: finalized
+            )
+        }
+        await #expect(throws: OpalBase.Account.MosaicHostFailure.reconciliationRequired) {
+            try await fixture.host.releaseMosaicReservation(lease.reference)
+        }
+
+        let incomplete = try OpalFusion.Host.MosaicCompleteTransaction(
+            transactionBytes: finalized.signedFusionTransactionBytes
+        )
+        await #expect(throws: OpalBase.Account.MosaicHostFailure.invalidCompleteTransaction) {
+            try await fixture.host.commitMosaicReservation(
+                lease.reference,
+                completeTransaction: incomplete
             )
         }
 
+        let completeTransaction = try locallySigned.signInputInPlace(
+            at: 0,
+            spending: remote.unspentOutput,
+            signingKey: remote.signingKey,
+            signatureFormat: .schnorr,
+            unlocker: .p2pkh_CheckSig(
+                hashType: .makeAll(anyoneCanPay: false)
+            ),
+            using: unsignedTransaction
+        )
+        let complete = try OpalFusion.Host.MosaicCompleteTransaction(
+            transactionBytes: [UInt8](try completeTransaction.encode())
+        )
+
         try await fixture.host.commitMosaicReservation(
             lease.reference,
-            finalizedTransaction: finalized
+            completeTransaction: complete
         )
         try await fixture.host.commitMosaicReservation(
             lease.reference,
-            finalizedTransaction: finalized
+            completeTransaction: complete
         )
         #expect(!(await fixture.addressBook.listSpendableUTXOs()).contains(fixture.selectedInput))
+
+        var conflictingBytes = complete.transactionBytes
+        conflictingBytes[conflictingBytes.index(before: conflictingBytes.endIndex)] ^= 0x01
+        let conflictingComplete = try OpalFusion.Host.MosaicCompleteTransaction(
+            transactionBytes: conflictingBytes
+        )
+        await #expect(
+            throws: OpalBase.Account.MosaicHostFailure.conflictingCompleteTransaction
+        ) {
+            try await fixture.host.commitMosaicReservation(
+                lease.reference,
+                completeTransaction: conflictingComplete
+            )
+        }
+    }
+
+    @Test("Reject malformed body and signature changes before complete commit")
+    func rejectMalformedCompleteTransactions() async throws {
+        let policy = await MosaicPolicyProbeActor().transactionPolicy
+        let fixture = try await MosaicHostFixture.make(transactionPolicy: policy)
+        let lease = try await fixture.reserve()
+        let request = try fixture.makeSigningRequest(lease: lease)
+        let finalized = try await fixture.host.finalizeMosaicTransaction(for: request)
+        let signed = try OpalBase.Transaction.decode(
+            from: Data(finalized.signedFusionTransactionBytes)
+        ).transaction
+
+        var trailingBytes = finalized.signedFusionTransactionBytes
+        trailingBytes.append(0)
+        let trailing = try OpalFusion.Host.MosaicCompleteTransaction(
+            transactionBytes: trailingBytes
+        )
+        await #expect(throws: OpalBase.Account.MosaicHostFailure.invalidCompleteTransaction) {
+            try await fixture.host.commitMosaicReservation(
+                lease.reference,
+                completeTransaction: trailing
+            )
+        }
+
+        var tamperedScript = signed.inputs[0].unlockingScript
+        tamperedScript[1] ^= 0x01
+        let tamperedSignature = OpalBase.Transaction(
+            version: signed.version,
+            inputs: [
+                .init(
+                    previousTransactionHash: signed.inputs[0].previousTransactionHash,
+                    previousTransactionOutputIndex:
+                        signed.inputs[0].previousTransactionOutputIndex,
+                    unlockingScript: tamperedScript,
+                    sequence: signed.inputs[0].sequence
+                )
+            ],
+            outputs: signed.outputs,
+            lockTime: signed.lockTime
+        )
+        let invalidSignature = try OpalFusion.Host.MosaicCompleteTransaction(
+            transactionBytes: [UInt8](try tamperedSignature.encode())
+        )
+        await #expect(throws: OpalBase.Account.MosaicHostFailure.invalidCompleteTransaction) {
+            try await fixture.host.commitMosaicReservation(
+                lease.reference,
+                completeTransaction: invalidSignature
+            )
+        }
+
+        let changedBody = OpalBase.Transaction(
+            version: signed.version,
+            inputs: signed.inputs,
+            outputs: signed.outputs.map {
+                .init(
+                    value: $0.value - 1,
+                    lockingScript: $0.lockingScript,
+                    tokenData: $0.tokenData
+                )
+            },
+            lockTime: signed.lockTime
+        )
+        let invalidBody = try OpalFusion.Host.MosaicCompleteTransaction(
+            transactionBytes: [UInt8](try changedBody.encode())
+        )
+        await #expect(throws: OpalBase.Account.MosaicHostFailure.invalidCompleteTransaction) {
+            try await fixture.host.commitMosaicReservation(
+                lease.reference,
+                completeTransaction: invalidBody
+            )
+        }
+
+        let complete = try OpalFusion.Host.MosaicCompleteTransaction(
+            transactionBytes: finalized.signedFusionTransactionBytes
+        )
+        try await fixture.host.commitMosaicReservation(
+            lease.reference,
+            completeTransaction: complete
+        )
     }
 }
 
 private extension AccountMosaicTransactionHostValidator {
     func makeRemoteInput() async throws -> (
         unspentOutput: OpalBase.Transaction.Output.Unspent,
-        participantInput: OpalFusion.Host.ParticipantInput
+        participantInput: OpalFusion.Host.ParticipantInput,
+        signingKey: OpalBase.Key.SigningKey
     ) {
         let account = try await AccountTestFixtures.makeAccount(unhardenedIndex: 1)
         let unspentOutput = try await AccountTestFixtures.addUnspentOutput(
@@ -119,7 +241,8 @@ private extension AccountMosaicTransactionHostValidator {
                 amountSatoshis: unspentOutput.value,
                 lockingScriptBytes: [UInt8](unspentOutput.lockingScript),
                 publicKey: [UInt8](signingKey.publicKey.compressedData)
-            )
+            ),
+            signingKey
         )
     }
 

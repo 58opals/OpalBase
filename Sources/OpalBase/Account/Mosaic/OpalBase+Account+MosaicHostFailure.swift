@@ -17,7 +17,13 @@ extension _OpalBase.Account {
         case invalidTransactionProposal
         case transactionPolicyRejected
         case conflictingFinalization
+        case conflictingCompleteTransaction
         case finalizationRequired
+        case completeTransactionRequired
+        case invalidCompleteTransaction
+        case reconciliationRequired
+        case journalPersistenceFailed
+        case conflictingBroadcast
     }
 }
 #endif

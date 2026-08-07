@@ -7,7 +7,7 @@
       "location" : "https://github.com/58opals/OpalCrypto.git",
       "state" : {
         "branch" : "develop",
-        "revision" : "5b8fd0fef551fabdf9457648c72434eccedcc1ca"
+        "revision" : "f2985329b8458249a14781f4ce48d030250f8c94"
       }
     },
     {
@@ -25,7 +25,7 @@
       "location" : "https://github.com/58opals/OpalFusion.git",
       "state" : {
         "branch" : "develop",
-        "revision" : "43fb6663c26a3258d32380e2cd356310b9aab34d"
+        "revision" : "e1dcedb09c3fbbc896fa111c87ee502fb314e29d"
       }
     },
     {

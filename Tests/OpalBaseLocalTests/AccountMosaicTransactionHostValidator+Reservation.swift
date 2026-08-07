@@ -26,7 +26,8 @@ extension AccountMosaicTransactionHostValidator {
                 generation: 1,
                 selectedInputs: [input],
                 outputAmountsSatoshis: [90_000],
-                transactionPolicy: policy
+                transactionPolicy: policy,
+                attemptJournal: .init { _ in }
             )
         }
         #expect(throws: OpalBase.Account.MosaicHostFailure.invalidContributionPolicy) {
@@ -36,7 +37,8 @@ extension AccountMosaicTransactionHostValidator {
                 generation: 1,
                 selectedInputs: [],
                 outputAmountsSatoshis: [90_000],
-                transactionPolicy: policy
+                transactionPolicy: policy,
+                attemptJournal: .init { _ in }
             )
         }
     }

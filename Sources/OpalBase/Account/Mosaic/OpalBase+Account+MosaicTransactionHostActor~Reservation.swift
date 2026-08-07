@@ -29,6 +29,20 @@ extension _OpalBase.Account.MosaicTransactionHostActor {
             throw OpalBase.Account.MosaicHostFailure.invalidContributionPolicy
         }
 
+        let reference = OpalFusion.Host.MosaicReservationReference(
+            identifier: makeReservationIdentifier(),
+            generation: generation
+        )
+        try await persist(
+            .reservationIntent(
+                reference: reference,
+                request: request,
+                selectedInputs: selectedInputs.map(
+                    OpalBase.Account.MosaicAttemptJournal.SelectedInput.init
+                ),
+                outputAmountsSatoshis: outputAmountsSatoshis
+            )
+        )
         reservationRequest = request
         let inputEntries: [OpalBase.Address.Book.Entry]
         do {
@@ -60,10 +74,6 @@ extension _OpalBase.Account.MosaicTransactionHostActor {
                     amountSatoshis: amountSatoshis
                 )
             }
-            let reference = OpalFusion.Host.MosaicReservationReference(
-                identifier: makeReservationIdentifier(),
-                generation: generation
-            )
             let lease = try OpalFusion.Host.MosaicReservationLease(
                 reference: reference,
                 expiresAt: request.expiresAt,
@@ -76,18 +86,28 @@ extension _OpalBase.Account.MosaicTransactionHostActor {
             guard request.expiresAt > currentDate() else {
                 throw OpalBase.Account.MosaicHostFailure.reservationExpired
             }
+            try await persist(.reserved(lease))
             reservedInputs = inputRecords
             reservedReceivingEntries = receivingEntries
             reservationLease = lease
             scheduleExpiration(for: lease)
             return lease
         } catch {
+            do {
+                try await persist(.releaseIntent(reference))
+            } catch {
+                releaseStarted = true
+                throw error
+            }
+            releaseStarted = true
             await addressBook.releaseUTXOs(Set(selectedInputs))
             do {
                 try await retireReceivingEntries(receivingEntries)
             } catch {
                 throw OpalBase.Account.MosaicHostFailure.reservationCleanupFailed
             }
+            try await persist(.released(reference))
+            isReleased = true
             if let cancellation = error as? CancellationError {
                 throw cancellation
             }

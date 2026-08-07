@@ -10,7 +10,7 @@ extension _OpalBase.Account.MosaicTransactionHostActor {
     ) async throws -> OpalFusion.Host.FinalizedTransaction {
         try requireMatchingReference(request.reservationReference)
         guard !releaseStarted, !commitStarted, !isReleased,
-              committedTransaction == nil,
+              committedCompleteTransaction == nil,
               let reservationLease else {
             throw OpalBase.Account.MosaicHostFailure.terminalReservation
         }
@@ -21,6 +21,15 @@ extension _OpalBase.Account.MosaicTransactionHostActor {
         if let finalizedRequest, let finalizedTransaction {
             guard finalizedRequest == request else {
                 throw OpalBase.Account.MosaicHostFailure.conflictingFinalization
+            }
+            if !locallySignedPersisted {
+                try await persist(
+                    .locallySigned(
+                        reference: request.reservationReference,
+                        transaction: finalizedTransaction
+                    )
+                )
+                locallySignedPersisted = true
             }
             return finalizedTransaction
         }
@@ -38,7 +47,9 @@ extension _OpalBase.Account.MosaicTransactionHostActor {
             throw OpalBase.Account.MosaicHostFailure.transactionPolicyRejected
         }
 
+        try await persist(.signingIntent(request))
         var signedTransaction = proposal.transaction
+        signingStarted = true
         do {
             for assignment in proposal.assignments.sorted(by: { $0.index < $1.index }) {
                 signingInvocationCount += 1
@@ -58,7 +69,18 @@ extension _OpalBase.Account.MosaicTransactionHostActor {
             )
             finalizedRequest = request
             finalizedTransaction = finalized
+            try await persist(
+                .locallySigned(
+                    reference: request.reservationReference,
+                    transaction: finalized
+                )
+            )
+            locallySignedPersisted = true
             return finalized
+        } catch let cancellation as CancellationError {
+            throw cancellation
+        } catch let hostFailure as OpalBase.Account.MosaicHostFailure {
+            throw hostFailure
         } catch {
             throw OpalBase.Account.MosaicHostFailure.invalidTransactionProposal
         }
