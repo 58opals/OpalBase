@@ -6,7 +6,7 @@ Cash Code v1 is an unreleased Opal-owned candidate with an implemented reference
 
 Opal Base is a Swift package for building Bitcoin Cash wallet and transaction flows on Apple platforms. It gives BCH builders a curated app-facing layer for wallet/account orchestration, CashAddr receive-address reservation, Fulcrum-backed public-chain sync, BCH spend planning, transaction review boundaries, snapshot persistence, CashTokens metadata, CashFusion preparation, and redacted diagnostics.
 
-The internal Mosaic wallet-host alpha is limited to deterministic, in-process reservation, contributor signing, complete-transaction signature verification, write-ahead recovery planning, and exact-transaction broadcast ordering on non-mainnet networks. It has no public session facade, durable-storage implementation, live Mosaic transport, default transaction-policy adapter, or mainnet support and must not be presented as live Mosaic support.
+The internal Mosaic wallet-host alpha is limited to deterministic, in-process reservation, the chipnet-only Opal v0 transaction policy, contributor signing, complete-transaction signature verification, write-ahead recovery planning, and exact-transaction broadcast ordering. It has no public session facade, durable-storage implementation, live Mosaic transport, production reader wiring, or mainnet support and must not be presented as live Mosaic support.
 
 ## Why Builders Use It
 
@@ -103,7 +103,7 @@ You now have mnemonic-backed wallet authority, the first BCH account, and a rese
 - Cash Code v1 candidate identifiers, compressed-P2PKH derivation, durable confirmed and mempool restoration, reorganization rollback, public-only state, opaque-key spending integration, and bounded sender prefix grinding.
 - CashTokens vocabulary, BCMR metadata support, token holdings, token genesis, token mint, token spend, and token commitment mutation preparation.
 - Wallet-backed CashFusion pilot orchestration on macOS.
-- Internal, mainnet-disabled Mosaic reservation, contributor signing, complete P2PKH Schnorr transaction verification, recovery-journal seam, and exact-byte broadcast coordination on macOS; durable storage, protocol transport, and production transaction policy remain deferred.
+- Internal, chipnet-only Mosaic reservation, exact previous-output and fee-policy validation, contributor signing, complete P2PKH Schnorr transaction verification, recovery-journal seam, and exact-byte broadcast coordination on macOS; durable storage, protocol transport, and public runtime wiring remain deferred.
 - Snapshot persistence, Secure Enclave-backed mnemonic persistence helpers, and redacted diagnostics surfaces.
 
 ## Validation

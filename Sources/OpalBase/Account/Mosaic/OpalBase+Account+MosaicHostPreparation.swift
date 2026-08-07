@@ -9,7 +9,7 @@ extension _OpalBase.Account {
         generation: UInt64,
         selectedInputs: [OpalBase.Transaction.Output.Unspent],
         outputAmountsSatoshis: [UInt64],
-        transactionPolicy: MosaicTransactionPolicy,
+        transactionReader: OpalBase.Network.TransactionReader,
         attemptJournal: MosaicAttemptJournal
     ) throws -> MosaicTransactionHostActor {
         try requirePrivateKeyMaterial()
@@ -19,7 +19,10 @@ extension _OpalBase.Account {
             generation: generation,
             selectedInputs: selectedInputs,
             outputAmountsSatoshis: outputAmountsSatoshis,
-            transactionPolicy: transactionPolicy,
+            transactionPolicy: try .opalV0(
+                network: network,
+                transactionReader: transactionReader
+            ),
             attemptJournal: attemptJournal
         )
     }

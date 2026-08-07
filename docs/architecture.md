@@ -9,7 +9,7 @@ Opal Base is the Bitcoin Cash application-layer package in the Opal stack. It si
 | `OpalBase` | Wallet/account orchestration, CashAddr reservation, BCH balance/history/UTXO/confirmation refresh, spend planning, transaction construction, snapshots, storage helpers, CashTokens metadata, CashFusion wallet preparation, internal Mosaic wallet-host validation, and redacted diagnostics integration |
 | `OpalCrypto` | Cryptography, seed/key derivation primitives, public key support, and signing primitives |
 | `SwiftFulcrum` | Fulcrum protocol transport and low-level network communication |
-| `OpalFusion` | CashFusion protocol runtime and coordinator/session behavior |
+| `OpalFusion` | CashFusion protocol runtime and Mosaic conformance contracts |
 | `OpalDiagnostics` | Shared diagnostics vocabulary, redacted record model, and presentation helpers |
 
 Opal Base owns the app-facing orchestration above those packages. It should not become a UI toolkit, hardware-wallet firmware layer, raw socket library, cross-chain abstraction, or portfolio operations surface.
@@ -25,7 +25,7 @@ Opal Base owns the app-facing orchestration above those packages. It should not 
 - Broadcast lane: `WalletBroadcastInteractor` relays prepared transactions and reconciles confirmations for explicitly named transaction hashes.
 - Asset lane: `WalletAssetInteractor` reads token inventory/metadata and makes token mint authoring explicit when private account authority is supplied.
 - CashFusion lane: `CashFusionInteractor(privateAccount:)` is macOS-only and requires wallet-owned private account authority.
-- Mosaic research lane: the internal `MosaicTransactionHostActor` is macOS-only and binds one non-resumable, non-mainnet attempt to token-free P2PKH inputs, fresh receiving outputs, transcript-gated local signing, independent verification of every complete P2PKH Schnorr `ALL|FORKID` input, and terminal commit or pre-sign release. A write-ahead journal seam and deterministic recovery planner prevent silent input reuse after signing, while the broadcast coordinator persists exact transaction bytes before network I/O. An injected transaction policy owns the draft's unresolved fee allocation, remote-prevout validation, and complete transaction-profile checks; durable storage, a production default, and a public session facade do not exist.
+- Mosaic research lane: the internal `MosaicTransactionHostActor` is macOS-only and binds one non-resumable, chipnet-only Opal v0 attempt to token-free P2PKH inputs, fresh receiving outputs, transcript-gated local signing, independent verification of every complete P2PKH Schnorr `ALL|FORKID` input, and terminal commit or pre-sign release. Its concrete transaction policy fetches every referenced previous transaction, verifies the exact previous output, enforces canonical transaction ordering and an exact one-satoshi-per-estimated-final-byte fee, and fails before signing on any mismatch. A write-ahead journal seam and deterministic recovery planner prevent silent input reuse after signing, while the broadcast coordinator persists exact transaction bytes before network I/O. Durable storage, production reader wiring, live transport, and a public session facade do not exist.
 - Diagnostics lane: `WalletObservabilityInteractor` reads redacted diagnostics records only.
 
 ## Data Flow
@@ -64,7 +64,7 @@ Descriptor-backed sync starts from `WalletAccountPublicDescriptor` and `WalletPu
 - Raw cryptography or key primitive ownership that belongs in `OpalCrypto`.
 - Raw Fulcrum protocol ownership that belongs in `SwiftFulcrum`.
 - CashFusion coordinator/session protocol ownership that belongs in `OpalFusion`.
-- Mosaic transport, wire schemas, mailbox cryptography, remote-input proofs, and interoperability policy that remain unresolved by the protocol draft.
+- Mosaic live transport, wire schemas, mailbox cryptography, and interoperability behavior beyond the frozen Opal v0 conformance profile.
 - Diagnostics infrastructure ownership that belongs in `OpalDiagnostics`.
 - Multi-chain abstractions. Opal Base is Bitcoin Cash-specific.
 

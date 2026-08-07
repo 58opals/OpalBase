@@ -254,11 +254,16 @@ private extension AccountMosaicTransactionHostValidator {
         localInputIndices: [Int],
         transcriptByte: UInt8
     ) throws -> OpalFusion.Host.MosaicTransactionSigningRequest {
-        try .init(
+        let unsignedTransactionBytes = [UInt8](try transaction.encode())
+        return try .init(
             reservationReference: lease.reference,
             roundIdentifier: fixture.reservationRequest.roundIdentifier,
-            transcriptRoot: Array(repeating: transcriptByte, count: 32),
-            unsignedTransactionBytes: [UInt8](try transaction.encode()),
+            transcriptBinding: try MosaicHostFixture.makeTranscriptBinding(
+                profile: fixture.profile,
+                unsignedTransactionBytes: unsignedTransactionBytes,
+                discriminator: transcriptByte
+            ),
+            unsignedTransactionBytes: unsignedTransactionBytes,
             spentInputs: spentInputs,
             localInputIndices: localInputIndices,
             expectedLocalOutputs: lease.participantReservation.outputs,

@@ -4,10 +4,7 @@
 import OpalFusion
 
 extension _OpalBase.Account {
-    /// Supplies transaction-profile checks that remain unresolved by the Mosaic draft.
-    ///
-    /// A live adapter must validate fee allocation, remote previous outputs, and the
-    /// complete draft transaction profile here before the host can sign.
+    /// Type-erases a transaction-profile validator for the one-attempt wallet host.
     struct MosaicTransactionPolicy: Sendable {
         private let validation: @Sendable (
             OpalBase.Transaction,
@@ -31,6 +28,23 @@ extension _OpalBase.Account {
             feeSatoshis: UInt64
         ) async throws {
             try await validation(transaction, request, feeSatoshis)
+        }
+
+        static func opalV0(
+            network: OpalBase.Network.Environment,
+            transactionReader: OpalBase.Network.TransactionReader
+        ) throws -> Self {
+            let policy = try MosaicV0TransactionPolicy(
+                network: network,
+                transactionReader: transactionReader
+            )
+            return .init { transaction, request, feeSatoshis in
+                try await policy.validate(
+                    transaction: transaction,
+                    request: request,
+                    feeSatoshis: feeSatoshis
+                )
+            }
         }
     }
 }

@@ -21,6 +21,14 @@ extension _OpalBase.Account.MosaicTransactionHostActor {
               request.maximumExcessFeeSatoshis == reservationRequest.maximumExcessFeeSatoshis,
               request.transactionProfileIdentifier
                 == reservationRequest.transactionProfileIdentifier,
+              request.transactionProfileIdentifier
+                == request.transcriptBinding.profile.transactionProfileIdentifier,
+              request.transcriptBinding.profile.networkGenesisHash == nil
+                || request.transcriptBinding.profile.networkGenesisHash
+                    == expectedNetworkGenesisHash,
+              request.transcriptBinding.matches(
+                unsignedTransactionBytes: request.unsignedTransactionBytes
+              ),
               request.expectedLocalOutputs == reservationLease.participantReservation.outputs else {
             throw OpalBase.Account.MosaicHostFailure.invalidTransactionProposal
         }

@@ -13,10 +13,15 @@ struct MosaicHostFixture {
     let host: OpalBase.Account.MosaicTransactionHostActor
     let reservationRequest: OpalFusion.Host.MosaicReservationRequest
     let journalProbe: MosaicAttemptJournalProbeActor
+    let profile: OpalFusion.Mosaic.Profile
 
     static func make(
         generation: UInt64 = 7,
         transactionPolicy: OpalBase.Account.MosaicTransactionPolicy,
+        network: OpalBase.Network.Environment = .chipnet,
+        profile: OpalFusion.Mosaic.Profile = .draft1,
+        minimumExcessFeeSatoshis: UInt64 = 100,
+        maximumExcessFeeSatoshis: UInt64 = 200,
         journalProbe: MosaicAttemptJournalProbeActor = .init(),
         reserveReceivingEntry: @escaping @Sendable (
             OpalBase.Address.Book
@@ -44,7 +49,7 @@ struct MosaicHostFixture {
         )
         let host = try OpalBase.Account.MosaicTransactionHostActor(
             addressBook: addressBook,
-            network: .chipnet,
+            network: network,
             generation: generation,
             selectedInputs: [selectedInput],
             outputAmountsSatoshis: [90_000],
@@ -57,14 +62,14 @@ struct MosaicHostFixture {
         )
         let request = try OpalFusion.Host.MosaicReservationRequest(
             attemptIdentifier: [0x11],
-            networkGenesisHash: OpalBase.Network.Environment.chipnet.mosaicGenesisHash,
+            networkGenesisHash: network.mosaicGenesisHash,
             roundIdentifier: Array(repeating: 0x33, count: 32),
             expiresAt: expirationDate,
             componentCount: 2,
             feeRateSatoshisPerByte: 1,
-            minimumExcessFeeSatoshis: 100,
-            maximumExcessFeeSatoshis: 200,
-            transactionProfileIdentifier: "mosaic-bch-p2pkh-draft"
+            minimumExcessFeeSatoshis: minimumExcessFeeSatoshis,
+            maximumExcessFeeSatoshis: maximumExcessFeeSatoshis,
+            transactionProfileIdentifier: profile.transactionProfileIdentifier
         )
         return .init(
             account: account,
@@ -72,7 +77,8 @@ struct MosaicHostFixture {
             selectedInput: selectedInput,
             host: host,
             reservationRequest: request,
-            journalProbe: journalProbe
+            journalProbe: journalProbe,
+            profile: profile
         )
     }
 
@@ -83,7 +89,8 @@ struct MosaicHostFixture {
     func makeSigningRequest(
         lease: OpalFusion.Host.MosaicReservationLease,
         transaction: OpalBase.Transaction? = nil,
-        transcriptByte: UInt8 = 0x44
+        transcriptByte: UInt8 = 0x44,
+        transcriptProfile: OpalFusion.Mosaic.Profile? = nil
     ) throws -> OpalFusion.Host.MosaicTransactionSigningRequest {
         let unsignedTransaction = transaction ?? OpalBase.Transaction(
             version: 2,
@@ -102,11 +109,16 @@ struct MosaicHostFixture {
             },
             lockTime: 0
         )
+        let unsignedTransactionBytes = [UInt8](try unsignedTransaction.encode())
         return try .init(
             reservationReference: lease.reference,
             roundIdentifier: reservationRequest.roundIdentifier,
-            transcriptRoot: Array(repeating: transcriptByte, count: 32),
-            unsignedTransactionBytes: [UInt8](try unsignedTransaction.encode()),
+            transcriptBinding: try Self.makeTranscriptBinding(
+                profile: transcriptProfile ?? profile,
+                unsignedTransactionBytes: unsignedTransactionBytes,
+                discriminator: transcriptByte
+            ),
+            unsignedTransactionBytes: unsignedTransactionBytes,
             spentInputs: lease.participantReservation.inputs,
             localInputIndices: [0],
             expectedLocalOutputs: lease.participantReservation.outputs,
@@ -114,6 +126,31 @@ struct MosaicHostFixture {
             minimumExcessFeeSatoshis: reservationRequest.minimumExcessFeeSatoshis,
             maximumExcessFeeSatoshis: reservationRequest.maximumExcessFeeSatoshis,
             transactionProfileIdentifier: reservationRequest.transactionProfileIdentifier
+        )
+    }
+
+    static func makeTranscriptBinding(
+        profile: OpalFusion.Mosaic.Profile,
+        unsignedTransactionBytes: [UInt8],
+        discriminator: UInt8
+    ) throws -> OpalFusion.Host.MosaicTranscriptBinding {
+        let manifestDigest = Array(repeating: discriminator, count: 32)
+        let commitmentSetDigest = Array(repeating: UInt8(0x42), count: 32)
+        let componentSetDigest = Array(repeating: UInt8(0x43), count: 32)
+        let root = try OpalFusion.Host.MosaicTranscriptBinding.transcriptRoot(
+            profile: profile,
+            manifestDigest: manifestDigest,
+            commitmentSetDigest: commitmentSetDigest,
+            componentSetDigest: componentSetDigest,
+            unsignedTransactionBytes: unsignedTransactionBytes
+        )
+        return try .init(
+            profile: profile,
+            manifestDigest: manifestDigest,
+            commitmentSetDigest: commitmentSetDigest,
+            componentSetDigest: componentSetDigest,
+            unsignedTransactionBytes: unsignedTransactionBytes,
+            acknowledgedTranscriptRoot: root
         )
     }
 }
