@@ -3,10 +3,6 @@
 #if os(macOS)
 @testable import OpalBase
 
-enum MosaicAttemptJournalProbeFailure: Swift.Error {
-    case scripted
-}
-
 actor MosaicAttemptJournalProbeActor {
     private var records: [OpalBase.Account.MosaicAttemptJournal.Record] = []
     private var appendAttemptIndex = 0

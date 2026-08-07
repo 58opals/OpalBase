@@ -4,10 +4,6 @@
 import Foundation
 @testable import OpalBase
 
-enum MosaicBroadcastProbeFailure: Swift.Error {
-    case scripted
-}
-
 actor MosaicBroadcastProbeActor {
     private let journalProbe: MosaicAttemptJournalProbeActor
     private var failuresRemaining: Int
