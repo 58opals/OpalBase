@@ -68,9 +68,11 @@ struct AccountMosaicV0TransactionPolicyValidator {
 
     @Test("Profile, transcript, transaction-profile, and fee-term substitutions fail closed")
     func rejectBindingAndTermSubstitutions() async throws {
-        let wrongProfile = try Fixture.makeScenario(profile: .draft1)
-        await #expect(throws: Failure.incompatibleProfile) {
-            try await validate(wrongProfile)
+        #expect(
+            throws: OpalFusion.Host.MosaicHostContractError
+                .unsupportedProfile(.draft1)
+        ) {
+            _ = try Fixture.makeScenario(profile: .draft1)
         }
 
         let valid = try Fixture.makeScenario()
@@ -88,11 +90,17 @@ struct AccountMosaicV0TransactionPolicyValidator {
             )
         }
 
-        let wrongTransactionProfile = try Fixture.makeScenario(
-            transactionProfileIdentifier: "different-profile"
-        )
-        await #expect(throws: Failure.invalidTransactionProfile) {
-            try await validate(wrongTransactionProfile)
+        #expect(
+            throws: OpalFusion.Host.MosaicHostContractError
+                .transactionProfileIdentifierMismatch(
+                    expected: OpalFusion.Mosaic.Profile.opalV0
+                        .transactionProfileIdentifier,
+                    actual: "different-profile"
+                )
+        ) {
+            _ = try Fixture.makeScenario(
+                transactionProfileIdentifier: "different-profile"
+            )
         }
 
         let wrongRate = try Fixture.makeScenario(feeRateSatoshisPerByte: 2)

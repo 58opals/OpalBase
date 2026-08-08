@@ -108,14 +108,13 @@ extension AccountMosaicTransactionHostValidator {
             transactionPolicy: await profileProbe.transactionPolicy
         )
         let opalV0Lease = try await opalV0Fixture.reserve()
-        let substitutedProfile = try opalV0Fixture.makeSigningRequest(
-            lease: opalV0Lease,
-            transcriptProfile: .draft1
-        )
-
-        await #expect(throws: OpalBase.Account.MosaicHostFailure.invalidTransactionProposal) {
-            _ = try await opalV0Fixture.host.finalizeMosaicTransaction(
-                for: substitutedProfile
+        #expect(
+            throws: OpalFusion.Host.MosaicHostContractError
+                .unsupportedProfile(.draft1)
+        ) {
+            _ = try opalV0Fixture.makeSigningRequest(
+                lease: opalV0Lease,
+                transcriptProfile: .draft1
             )
         }
         #expect(await profileProbe.readInvocationCount() == 0)
