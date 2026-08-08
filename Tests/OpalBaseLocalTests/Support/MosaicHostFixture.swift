@@ -19,10 +19,13 @@ struct MosaicHostFixture {
         generation: UInt64 = 7,
         transactionPolicy: OpalBase.Account.MosaicTransactionPolicy,
         network: OpalBase.Network.Environment = .chipnet,
-        profile: OpalFusion.Mosaic.Profile = .draft1,
-        minimumExcessFeeSatoshis: UInt64 = 100,
-        maximumExcessFeeSatoshis: UInt64 = 200,
+        profile: OpalFusion.Mosaic.Profile = .opalV0,
+        minimumExcessFeeSatoshis: UInt64 = 0,
+        maximumExcessFeeSatoshis: UInt64 = 0,
         journalProbe: MosaicAttemptJournalProbeActor = .init(),
+        currentDate: @escaping @Sendable () -> Date = {
+            Date(timeIntervalSince1970: 1_800_000_000)
+        },
         reserveReceivingEntry: @escaping @Sendable (
             OpalBase.Address.Book
         ) async throws -> OpalBase.Address.Book.Entry = { addressBook in
@@ -42,7 +45,6 @@ struct MosaicHostFixture {
             hashByte: 0xa1
         )
         let addressBook = await account.addressBook
-        let currentDate = Date(timeIntervalSince1970: 1_800_000_000)
         let expirationDate = Date(timeIntervalSince1970: 1_900_000_000)
         let identifier = try #require(
             UUID(uuidString: "00000000-0000-0000-0000-000000000007")
@@ -55,7 +57,7 @@ struct MosaicHostFixture {
             outputAmountsSatoshis: [90_000],
             transactionPolicy: transactionPolicy,
             attemptJournal: journalProbe.makeJournal(),
-            currentDate: { currentDate },
+            currentDate: currentDate,
             makeReservationIdentifier: { identifier },
             reserveReceivingEntry: reserveReceivingEntry,
             sleepUntilDate: sleepUntilDate
@@ -65,7 +67,7 @@ struct MosaicHostFixture {
             networkGenesisHash: network.mosaicGenesisHash,
             roundIdentifier: Array(repeating: 0x33, count: 32),
             expiresAt: expirationDate,
-            componentCount: 2,
+            componentCount: profile.rosterPolicy.componentCountPerContributor,
             feeRateSatoshisPerByte: 1,
             minimumExcessFeeSatoshis: minimumExcessFeeSatoshis,
             maximumExcessFeeSatoshis: maximumExcessFeeSatoshis,

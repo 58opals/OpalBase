@@ -104,23 +104,23 @@ extension AccountMosaicTransactionHostValidator {
     @Test("Transcript profile substitutions fail before policy validation or signing")
     func rejectTranscriptProfileSubstitution() async throws {
         let profileProbe = MosaicPolicyProbeActor()
-        let draftFixture = try await MosaicHostFixture.make(
+        let opalV0Fixture = try await MosaicHostFixture.make(
             transactionPolicy: await profileProbe.transactionPolicy
         )
-        let draftLease = try await draftFixture.reserve()
-        let substitutedProfile = try draftFixture.makeSigningRequest(
-            lease: draftLease,
-            transcriptProfile: .opalV0
+        let opalV0Lease = try await opalV0Fixture.reserve()
+        let substitutedProfile = try opalV0Fixture.makeSigningRequest(
+            lease: opalV0Lease,
+            transcriptProfile: .draft1
         )
 
         await #expect(throws: OpalBase.Account.MosaicHostFailure.invalidTransactionProposal) {
-            _ = try await draftFixture.host.finalizeMosaicTransaction(
+            _ = try await opalV0Fixture.host.finalizeMosaicTransaction(
                 for: substitutedProfile
             )
         }
         #expect(await profileProbe.readInvocationCount() == 0)
-        #expect(await draftFixture.host.readSigningInvocationCount() == 0)
-        try await draftFixture.host.releaseMosaicReservation(draftLease.reference)
+        #expect(await opalV0Fixture.host.readSigningInvocationCount() == 0)
+        try await opalV0Fixture.host.releaseMosaicReservation(opalV0Lease.reference)
 
         let networkProbe = MosaicPolicyProbeActor()
         let testnetFixture = try await MosaicHostFixture.make(
@@ -130,15 +130,15 @@ extension AccountMosaicTransactionHostValidator {
             minimumExcessFeeSatoshis: 0,
             maximumExcessFeeSatoshis: 0
         )
-        let testnetLease = try await testnetFixture.reserve()
-        let wrongNetwork = try testnetFixture.makeSigningRequest(lease: testnetLease)
-
-        await #expect(throws: OpalBase.Account.MosaicHostFailure.invalidTransactionProposal) {
-            _ = try await testnetFixture.host.finalizeMosaicTransaction(for: wrongNetwork)
+        await #expect(throws: OpalBase.Account.MosaicHostFailure.invalidReservationProfile) {
+            _ = try await testnetFixture.reserve()
         }
         #expect(await networkProbe.readInvocationCount() == 0)
         #expect(await testnetFixture.host.readSigningInvocationCount() == 0)
-        try await testnetFixture.host.releaseMosaicReservation(testnetLease.reference)
+        #expect(
+            await testnetFixture.addressBook.listSpendableUTXOs()
+                .contains(testnetFixture.selectedInput)
+        )
     }
 }
 #endif

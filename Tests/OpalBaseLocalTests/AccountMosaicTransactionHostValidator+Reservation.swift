@@ -68,25 +68,91 @@ extension AccountMosaicTransactionHostValidator {
         try await fixture.host.releaseMosaicReservation(lease.reference)
     }
 
-    @Test("Component overflow fails without reserving wallet material")
-    func rejectComponentOverflowBeforeReservation() async throws {
+    @Test("Non-Opal v0 reservation terms fail before wallet mutation")
+    func rejectNonOpalV0ReservationTerms() async throws {
         let policy = await MosaicPolicyProbeActor().transactionPolicy
         let fixture = try await MosaicHostFixture.make(transactionPolicy: policy)
-        let request = try OpalFusion.Host.MosaicReservationRequest(
-            attemptIdentifier: fixture.reservationRequest.attemptIdentifier,
-            networkGenesisHash: fixture.reservationRequest.networkGenesisHash,
-            roundIdentifier: fixture.reservationRequest.roundIdentifier,
-            expiresAt: fixture.reservationRequest.expiresAt,
-            componentCount: 1,
-            feeRateSatoshisPerByte: fixture.reservationRequest.feeRateSatoshisPerByte,
-            minimumExcessFeeSatoshis: fixture.reservationRequest.minimumExcessFeeSatoshis,
-            maximumExcessFeeSatoshis: fixture.reservationRequest.maximumExcessFeeSatoshis,
-            transactionProfileIdentifier: fixture.reservationRequest.transactionProfileIdentifier
+        let valid = fixture.reservationRequest
+        let invalidRequests = [
+            try OpalFusion.Host.MosaicReservationRequest(
+                attemptIdentifier: valid.attemptIdentifier,
+                networkGenesisHash: valid.networkGenesisHash,
+                roundIdentifier: valid.roundIdentifier,
+                expiresAt: valid.expiresAt,
+                componentCount: valid.componentCount - 1,
+                feeRateSatoshisPerByte: valid.feeRateSatoshisPerByte,
+                minimumExcessFeeSatoshis: valid.minimumExcessFeeSatoshis,
+                maximumExcessFeeSatoshis: valid.maximumExcessFeeSatoshis,
+                transactionProfileIdentifier: valid.transactionProfileIdentifier
+            ),
+            try OpalFusion.Host.MosaicReservationRequest(
+                attemptIdentifier: valid.attemptIdentifier,
+                networkGenesisHash: valid.networkGenesisHash,
+                roundIdentifier: valid.roundIdentifier,
+                expiresAt: valid.expiresAt,
+                componentCount: valid.componentCount,
+                feeRateSatoshisPerByte: 2,
+                minimumExcessFeeSatoshis: valid.minimumExcessFeeSatoshis,
+                maximumExcessFeeSatoshis: valid.maximumExcessFeeSatoshis,
+                transactionProfileIdentifier: valid.transactionProfileIdentifier
+            ),
+            try OpalFusion.Host.MosaicReservationRequest(
+                attemptIdentifier: valid.attemptIdentifier,
+                networkGenesisHash: valid.networkGenesisHash,
+                roundIdentifier: valid.roundIdentifier,
+                expiresAt: valid.expiresAt,
+                componentCount: valid.componentCount,
+                feeRateSatoshisPerByte: valid.feeRateSatoshisPerByte,
+                minimumExcessFeeSatoshis: 1,
+                maximumExcessFeeSatoshis: 1,
+                transactionProfileIdentifier: valid.transactionProfileIdentifier
+            ),
+            try OpalFusion.Host.MosaicReservationRequest(
+                attemptIdentifier: valid.attemptIdentifier,
+                networkGenesisHash: valid.networkGenesisHash,
+                roundIdentifier: valid.roundIdentifier,
+                expiresAt: valid.expiresAt,
+                componentCount: valid.componentCount,
+                feeRateSatoshisPerByte: valid.feeRateSatoshisPerByte,
+                minimumExcessFeeSatoshis: valid.minimumExcessFeeSatoshis,
+                maximumExcessFeeSatoshis: valid.maximumExcessFeeSatoshis,
+                transactionProfileIdentifier: OpalFusion.Mosaic.Profile.draft1
+                    .transactionProfileIdentifier
+            )
+        ]
+
+        for request in invalidRequests {
+            await #expect(
+                throws: OpalBase.Account.MosaicHostFailure.invalidReservationProfile
+            ) {
+                _ = try await fixture.host.reserveMosaicContribution(for: request)
+            }
+        }
+        #expect(await fixture.addressBook.listSpendableUTXOs().contains(fixture.selectedInput))
+        #expect(await fixture.journalProbe.readRecords().isEmpty)
+
+        let lease = try await fixture.reserve()
+        try await fixture.host.releaseMosaicReservation(lease.reference)
+    }
+
+    @Test("A failed Mosaic reserve cannot clear another UTXO reservation")
+    func preservePreexistingInputReservation() async throws {
+        let policy = await MosaicPolicyProbeActor().transactionPolicy
+        let fixture = try await MosaicHostFixture.make(transactionPolicy: policy)
+        let selectedInputs = Set([fixture.selectedInput])
+        try await fixture.addressBook.reserveUTXOs(
+            selectedInputs,
+            tokenSelectionPolicy: .excludeTokenUTXOs
         )
 
-        await #expect(throws: OpalBase.Account.MosaicHostFailure.invalidContributionPolicy) {
-            _ = try await fixture.host.reserveMosaicContribution(for: request)
+        await #expect(throws: OpalBase.Account.MosaicHostFailure.reservationUnavailable) {
+            _ = try await fixture.reserve()
         }
+        #expect(
+            !(await fixture.addressBook.listSpendableUTXOs()).contains(fixture.selectedInput)
+        )
+
+        await fixture.addressBook.releaseUTXOs(selectedInputs)
         #expect(await fixture.addressBook.listSpendableUTXOs().contains(fixture.selectedInput))
     }
 

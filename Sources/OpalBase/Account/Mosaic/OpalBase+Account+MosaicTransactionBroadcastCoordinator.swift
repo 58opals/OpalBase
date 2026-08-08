@@ -12,6 +12,8 @@ extension _OpalBase.Account {
         let transactionClient: OpalBase.Network.TransactionClient
 
         private var pendingTransaction: OpalFusion.Host.MosaicCompleteTransaction?
+        private var broadcastIntentPersisted = false
+        private var broadcastInFlight = false
         private var acceptedTransaction: (
             transaction: OpalFusion.Host.MosaicCompleteTransaction,
             hash: OpalBase.Transaction.Hash
@@ -40,16 +42,26 @@ extension _OpalBase.Account {
                 guard pendingTransaction == completeTransaction else {
                     throw OpalBase.Account.MosaicHostFailure.conflictingBroadcast
                 }
+                guard !broadcastInFlight else {
+                    throw OpalBase.Account.MosaicHostFailure.reconciliationRequired
+                }
             } else {
                 _ = try decodeExactTransaction(completeTransaction)
+                pendingTransaction = completeTransaction
+            }
+
+            broadcastInFlight = true
+            defer { broadcastInFlight = false }
+            if !broadcastIntentPersisted {
                 try await persist(
                     .broadcastIntent(
                         reference: reservationReference,
                         transaction: completeTransaction
                     )
                 )
-                pendingTransaction = completeTransaction
+                broadcastIntentPersisted = true
             }
+            try Task.checkCancellation()
 
             let transaction = try decodeExactTransaction(completeTransaction)
             let hash = try await transactionClient.broadcast(transaction: transaction)

@@ -7,6 +7,7 @@ extension _OpalBase.Account {
     enum MosaicHostFailure: Swift.Error, Sendable, Equatable {
         case mainnetUnavailable
         case invalidNetworkBinding
+        case invalidReservationProfile
         case invalidContributionPolicy
         case reservationUnavailable
         case reservationExpired

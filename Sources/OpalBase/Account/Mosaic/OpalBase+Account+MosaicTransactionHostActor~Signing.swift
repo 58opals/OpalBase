@@ -22,7 +22,12 @@ extension _OpalBase.Account.MosaicTransactionHostActor {
             guard finalizedRequest == request else {
                 throw OpalBase.Account.MosaicHostFailure.conflictingFinalization
             }
+            guard !finalizationInFlight else {
+                throw OpalBase.Account.MosaicHostFailure.reconciliationRequired
+            }
             if !locallySignedPersisted {
+                finalizationInFlight = true
+                defer { finalizationInFlight = false }
                 try await persist(
                     .locallySigned(
                         reference: request.reservationReference,
@@ -33,6 +38,19 @@ extension _OpalBase.Account.MosaicTransactionHostActor {
             }
             return finalizedTransaction
         }
+
+        if let pendingFinalizationRequest {
+            guard pendingFinalizationRequest == request else {
+                throw OpalBase.Account.MosaicHostFailure.conflictingFinalization
+            }
+            guard !finalizationInFlight, !signingStarted else {
+                throw OpalBase.Account.MosaicHostFailure.reconciliationRequired
+            }
+        } else {
+            pendingFinalizationRequest = request
+        }
+        finalizationInFlight = true
+        defer { finalizationInFlight = false }
 
         let proposal = try validateTransactionProposal(request)
         do {
@@ -47,9 +65,20 @@ extension _OpalBase.Account.MosaicTransactionHostActor {
             throw OpalBase.Account.MosaicHostFailure.transactionPolicyRejected
         }
 
-        try await persist(.signingIntent(request))
-        var signedTransaction = proposal.transaction
+        try Task.checkCancellation()
+        if currentDate() >= reservationLease.expiresAt {
+            finalizationInFlight = false
+            try await releaseMosaicReservation(request.reservationReference)
+            throw OpalBase.Account.MosaicHostFailure.reservationExpired
+        }
+
         signingStarted = true
+        try await persist(.signingIntent(request))
+        try Task.checkCancellation()
+        guard currentDate() < reservationLease.expiresAt else {
+            throw OpalBase.Account.MosaicHostFailure.reservationExpired
+        }
+        var signedTransaction = proposal.transaction
         do {
             for assignment in proposal.assignments.sorted(by: { $0.index < $1.index }) {
                 signingInvocationCount += 1

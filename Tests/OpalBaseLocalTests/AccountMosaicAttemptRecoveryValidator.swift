@@ -12,6 +12,7 @@ struct AccountMosaicAttemptRecoveryValidator {
 
     @Test("Derive conservative recovery at every write-ahead boundary")
     func deriveRecoveryAtEveryBoundary() async throws {
+        #expect(try Planner.plan(for: []) == .noAction)
         let prepared = try await makeCommittedAttempt()
         let records = await prepared.fixture.journalProbe.readRecords()
         #expect(records.count == 6)
@@ -84,6 +85,25 @@ struct AccountMosaicAttemptRecoveryValidator {
                 ]
             )
         }
+    }
+
+    @Test("A failed terminal release write yields an exact recovery plan")
+    func recoverReleaseAfterTerminalPersistenceFailure() async throws {
+        let journalProbe = MosaicAttemptJournalProbeActor(failingAppendIndices: [3])
+        let policy = await MosaicPolicyProbeActor().transactionPolicy
+        let fixture = try await MosaicHostFixture.make(
+            transactionPolicy: policy,
+            journalProbe: journalProbe
+        )
+        let lease = try await fixture.reserve()
+
+        await #expect(throws: OpalBase.Account.MosaicHostFailure.journalPersistenceFailed) {
+            try await fixture.host.releaseMosaicReservation(lease.reference)
+        }
+        let records = await journalProbe.readRecords()
+        #expect(records.count == 3)
+        #expect(try Planner.plan(for: records) == .finishRelease(lease.reference))
+        #expect(await fixture.addressBook.listSpendableUTXOs().contains(fixture.selectedInput))
     }
 
     @Test("A pre-sign release is terminal and idempotently recoverable")

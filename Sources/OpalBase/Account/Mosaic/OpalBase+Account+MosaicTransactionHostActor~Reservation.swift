@@ -12,8 +12,10 @@ extension _OpalBase.Account.MosaicTransactionHostActor {
             guard existingRequest == request else {
                 throw OpalBase.Account.MosaicHostFailure.inPlaceRetryNotPermitted
             }
-            guard !releaseStarted, !commitStarted, !isReleased,
-                  let reservationLease else {
+            guard let reservationLease else {
+                throw OpalBase.Account.MosaicHostFailure.reconciliationRequired
+            }
+            guard !releaseStarted, !commitStarted, !isReleased else {
                 throw OpalBase.Account.MosaicHostFailure.terminalReservation
             }
             return reservationLease
@@ -25,6 +27,15 @@ extension _OpalBase.Account.MosaicTransactionHostActor {
         guard request.expiresAt > currentDate() else {
             throw OpalBase.Account.MosaicHostFailure.reservationExpired
         }
+        let profile = OpalFusion.Mosaic.Profile.opalV0
+        guard expectedNetworkGenesisHash == profile.networkGenesisHash,
+              request.transactionProfileIdentifier == profile.transactionProfileIdentifier,
+              request.componentCount == profile.rosterPolicy.componentCountPerContributor,
+              request.feeRateSatoshisPerByte == 1,
+              request.minimumExcessFeeSatoshis == 0,
+              request.maximumExcessFeeSatoshis == 0 else {
+            throw OpalBase.Account.MosaicHostFailure.invalidReservationProfile
+        }
         guard selectedInputs.count + outputAmountsSatoshis.count <= request.componentCount else {
             throw OpalBase.Account.MosaicHostFailure.invalidContributionPolicy
         }
@@ -33,6 +44,7 @@ extension _OpalBase.Account.MosaicTransactionHostActor {
             identifier: makeReservationIdentifier(),
             generation: generation
         )
+        reservationRequest = request
         try await persist(
             .reservationIntent(
                 reference: reference,
@@ -43,17 +55,26 @@ extension _OpalBase.Account.MosaicTransactionHostActor {
                 outputAmountsSatoshis: outputAmountsSatoshis
             )
         )
-        reservationRequest = request
+        try Task.checkCancellation()
         let inputEntries: [OpalBase.Address.Book.Entry]
+        var didReserveInputs = false
         do {
             inputEntries = try await validateSelectedInputs()
             try await addressBook.reserveUTXOs(
                 Set(selectedInputs),
                 tokenSelectionPolicy: .excludeTokenUTXOs
             )
+            didReserveInputs = true
+            try Task.checkCancellation()
         } catch let cancellation as CancellationError {
+            if didReserveInputs {
+                await addressBook.releaseUTXOs(Set(selectedInputs))
+            }
             throw cancellation
         } catch {
+            if didReserveInputs {
+                await addressBook.releaseUTXOs(Set(selectedInputs))
+            }
             throw OpalBase.Account.MosaicHostFailure.reservationUnavailable
         }
 
@@ -64,9 +85,11 @@ extension _OpalBase.Account.MosaicTransactionHostActor {
                 receivingEntries.append(
                     try await reserveReceivingEntry(addressBook)
                 )
+                try Task.checkCancellation()
             }
 
             let inputRecords = try await makeReservedInputRecords(entries: inputEntries)
+            try Task.checkCancellation()
             let participantOutputs = zip(receivingEntries, outputAmountsSatoshis).map {
                 entry, amountSatoshis in
                 OpalFusion.Host.ParticipantOutput(
@@ -87,6 +110,10 @@ extension _OpalBase.Account.MosaicTransactionHostActor {
                 throw OpalBase.Account.MosaicHostFailure.reservationExpired
             }
             try await persist(.reserved(lease))
+            try Task.checkCancellation()
+            guard request.expiresAt > currentDate() else {
+                throw OpalBase.Account.MosaicHostFailure.reservationExpired
+            }
             reservedInputs = inputRecords
             reservedReceivingEntries = receivingEntries
             reservationLease = lease
@@ -180,7 +207,7 @@ extension _OpalBase.Account.MosaicTransactionHostActor {
             do {
                 try await sleepUntilDate(lease.expiresAt)
                 try Task.checkCancellation()
-                try await expireMosaicReservation(
+                try await expireScheduledMosaicReservation(
                     lease.reference,
                     at: lease.expiresAt
                 )
@@ -188,6 +215,14 @@ extension _OpalBase.Account.MosaicTransactionHostActor {
                 return
             }
         }
+    }
+
+    func expireScheduledMosaicReservation(
+        _ reservationReference: OpalFusion.Host.MosaicReservationReference,
+        at date: Date
+    ) async throws {
+        expirationTask = nil
+        try await expireMosaicReservation(reservationReference, at: date)
     }
 }
 #endif

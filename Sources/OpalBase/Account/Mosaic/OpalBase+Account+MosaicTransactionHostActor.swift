@@ -28,10 +28,15 @@ extension _OpalBase.Account {
         var expirationTask: Task<Void, Never>?
         var releaseStarted = false
         var commitStarted = false
+        var commitInFlight = false
+        var commitIntentPersisted = false
         var isReleased = false
+        var pendingFinalizationRequest: OpalFusion.Host.MosaicTransactionSigningRequest?
+        var finalizationInFlight = false
         var finalizedRequest: OpalFusion.Host.MosaicTransactionSigningRequest?
         var finalizedTransaction: OpalFusion.Host.FinalizedTransaction?
         var locallySignedPersisted = false
+        var pendingCompleteTransaction: OpalFusion.Host.MosaicCompleteTransaction?
         var committedCompleteTransaction: OpalFusion.Host.MosaicCompleteTransaction?
         var signingStarted = false
         var signingInvocationCount = 0
