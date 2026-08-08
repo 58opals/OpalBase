@@ -9,7 +9,7 @@ import Testing
 extension AccountMosaicTransactionHostValidator {
     @Test("Only local inputs receive Schnorr ALL|FORKID signatures")
     func signOnlyLocalInputsAndCommitIdempotently() async throws {
-        let remote = try await makeRemoteInput()
+        let remote = try await makeRemoteInput(includesPublicKey: false)
         let probe = MosaicPolicyProbeActor(expectedFeeSatoshis: 90_000)
         let fixture = try await MosaicHostFixture.make(
             transactionPolicy: await probe.transactionPolicy
@@ -89,6 +89,27 @@ extension AccountMosaicTransactionHostValidator {
             try await fixture.host.commitMosaicReservation(
                 lease.reference,
                 completeTransaction: incomplete
+            )
+        }
+
+        let unrelated = try await makeRemoteInput(unhardenedIndex: 2)
+        let wrongRemoteKeyTransaction = try locallySigned.signInputInPlace(
+            at: 0,
+            spending: remote.unspentOutput,
+            signingKey: unrelated.signingKey,
+            signatureFormat: .schnorr,
+            unlocker: .p2pkh_CheckSig(
+                hashType: .makeAll(anyoneCanPay: false)
+            ),
+            using: unsignedTransaction
+        )
+        let wrongRemoteKey = try OpalFusion.Host.MosaicCompleteTransaction(
+            transactionBytes: [UInt8](try wrongRemoteKeyTransaction.encode())
+        )
+        await #expect(throws: OpalBase.Account.MosaicHostFailure.invalidCompleteTransaction) {
+            try await fixture.host.commitMosaicReservation(
+                lease.reference,
+                completeTransaction: wrongRemoteKey
             )
         }
 
@@ -213,12 +234,17 @@ extension AccountMosaicTransactionHostValidator {
 }
 
 private extension AccountMosaicTransactionHostValidator {
-    func makeRemoteInput() async throws -> (
+    func makeRemoteInput(
+        includesPublicKey: Bool = true,
+        unhardenedIndex: UInt32 = 1
+    ) async throws -> (
         unspentOutput: OpalBase.Transaction.Output.Unspent,
         participantInput: OpalFusion.Host.ParticipantInput,
         signingKey: OpalBase.Key.SigningKey
     ) {
-        let account = try await AccountTestFixtures.makeAccount(unhardenedIndex: 1)
+        let account = try await AccountTestFixtures.makeAccount(
+            unhardenedIndex: unhardenedIndex
+        )
         let unspentOutput = try await AccountTestFixtures.addUnspentOutput(
             to: account,
             value: 80_000,
@@ -240,7 +266,9 @@ private extension AccountMosaicTransactionHostValidator {
                 outpointIndex: unspentOutput.previousTransactionOutputIndex,
                 amountSatoshis: unspentOutput.value,
                 lockingScriptBytes: [UInt8](unspentOutput.lockingScript),
-                publicKey: [UInt8](signingKey.publicKey.compressedData)
+                publicKey: includesPublicKey
+                    ? [UInt8](signingKey.publicKey.compressedData)
+                    : nil
             ),
             signingKey
         )

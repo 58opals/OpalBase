@@ -47,7 +47,8 @@ extension _OpalBase.Account.MosaicTransactionHostActor {
 
         try validateInputs(
             decoded.transaction.inputs,
-            spentInputs: request.spentInputs
+            spentInputs: request.spentInputs,
+            localInputIndices: Set(request.localInputIndices)
         )
         try validateOutputs(
             decoded.transaction.outputs,
@@ -64,7 +65,8 @@ extension _OpalBase.Account.MosaicTransactionHostActor {
 
     func validateInputs(
         _ transactionInputs: [OpalBase.Transaction.Input],
-        spentInputs: [OpalFusion.Host.ParticipantInput]
+        spentInputs: [OpalFusion.Host.ParticipantInput],
+        localInputIndices: Set<Int>
     ) throws {
         for index in transactionInputs.indices {
             let transactionInput = transactionInputs[index]
@@ -74,14 +76,18 @@ extension _OpalBase.Account.MosaicTransactionHostActor {
                     == transactionInput.previousTransactionHash.reverseOrder,
                   spentInput.outpointIndex
                     == transactionInput.previousTransactionOutputIndex,
-                  let publicKeyBytes = spentInput.publicKey,
-                  let publicKey = try? OpalBase.Key.PublicKey(
-                    compressedData: Data(publicKeyBytes)
-                  ),
                   case .p2pkh_OPCHECKSIG(let expectedHash) = try OpalBase.Script.decode(
                     lockingScript: Data(spentInput.lockingScriptBytes)
-                  ),
-                  OpalBase.Key.PublicKey.Hash(publicKey: publicKey) == expectedHash else {
+                  ) else {
+                throw OpalBase.Account.MosaicHostFailure.invalidTransactionProposal
+            }
+            if let publicKeyBytes = spentInput.publicKey {
+                guard let publicKey = try? OpalBase.Key.PublicKey(
+                    compressedData: Data(publicKeyBytes)
+                ), OpalBase.Key.PublicKey.Hash(publicKey: publicKey) == expectedHash else {
+                    throw OpalBase.Account.MosaicHostFailure.invalidTransactionProposal
+                }
+            } else if localInputIndices.contains(index) {
                 throw OpalBase.Account.MosaicHostFailure.invalidTransactionProposal
             }
             for previousIndex in transactionInputs.indices where previousIndex < index {
@@ -229,9 +235,18 @@ extension _OpalBase.Account.MosaicTransactionHostActor {
         guard unlockingScript.count == 100,
               unlockingScript[0] == 65,
               unlockingScript[65] == UInt8(truncatingIfNeeded: hashType.value),
-              unlockingScript[66] == 33,
-              let expectedPublicKey = spentInput.publicKey,
-              Data(expectedPublicKey) == unlockingScript[67 ..< 100] else {
+              unlockingScript[66] == 33 else {
+            throw OpalBase.Account.MosaicHostFailure.invalidCompleteTransaction
+        }
+        let publicKeyData = Data(unlockingScript[67 ..< 100])
+        guard spentInput.publicKey.map({ Data($0) == publicKeyData }) ?? true,
+              let decodedPublicKey = try? OpalBase.Key.PublicKey(
+                  compressedData: publicKeyData
+              ),
+              case .p2pkh_OPCHECKSIG(let expectedHash) = try? OpalBase.Script.decode(
+                  lockingScript: Data(spentInput.lockingScriptBytes)
+              ),
+              OpalBase.Key.PublicKey.Hash(publicKey: decodedPublicKey) == expectedHash else {
             throw OpalBase.Account.MosaicHostFailure.invalidCompleteTransaction
         }
         let outputBeingSpent = OpalBase.Transaction.Output(
@@ -247,7 +262,7 @@ extension _OpalBase.Account.MosaicTransactionHostActor {
             rawRepresentation: Data(unlockingScript[1 ..< 65])
         )
         let publicKey = try OpalCrypto.Secp256k1.PublicKey(
-            rawRepresentation: Data(expectedPublicKey)
+            rawRepresentation: publicKeyData
         )
         let digest = try OpalCrypto.Signature.Digest(
             rawRepresentation: OpalCrypto.Hashing.hash256(preimage)

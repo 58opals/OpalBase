@@ -49,6 +49,39 @@ struct AccountMosaicV0TransactionPolicyValidator {
         #expect(await probe.requestedHashes == materials.map(\.transactionHash))
     }
 
+    @Test("Remote public keys may be deferred, but local public keys are required")
+    func validateDeferredRemotePublicKeys() async throws {
+        let materials = try [
+            Fixture.makeInputMaterial(seed: 3, amountSatoshis: 80_000),
+            Fixture.makeInputMaterial(seed: 4, amountSatoshis: 70_000)
+        ].sorted {
+            $0.transactionHash.reverseOrder.lexicographicallyPrecedes(
+                $1.transactionHash.reverseOrder
+            )
+        }
+        let localInput = materials[0].participantInput
+        let remoteInput = participantInputWithoutPublicKey(
+            materials[1].participantInput
+        )
+        let remoteDeferred = try Fixture.makeScenario(
+            materials: materials,
+            spentInputs: [localInput, remoteInput]
+        )
+
+        try await validate(remoteDeferred)
+
+        let localMissing = try Fixture.makeScenario(
+            materials: materials,
+            spentInputs: [
+                participantInputWithoutPublicKey(localInput),
+                materials[1].participantInput
+            ]
+        )
+        await #expect(throws: Failure.invalidInput(index: 0)) {
+            try await validate(localMissing)
+        }
+    }
+
     @Test("Only chipnet can construct an Opal v0 transaction policy")
     func rejectUnsupportedNetworks() throws {
         let reader = OpalBase.Network.TransactionReader { _ in Data() }
@@ -351,6 +384,18 @@ struct AccountMosaicV0TransactionPolicyValidator {
             transaction: scenario.transaction,
             request: scenario.request,
             feeSatoshis: scenario.feeSatoshis
+        )
+    }
+
+    private func participantInputWithoutPublicKey(
+        _ input: OpalFusion.Host.ParticipantInput
+    ) -> OpalFusion.Host.ParticipantInput {
+        .init(
+            outpointTransactionHashBytes: input.outpointTransactionHashBytes,
+            outpointIndex: input.outpointIndex,
+            amountSatoshis: input.amountSatoshis,
+            lockingScriptBytes: input.lockingScriptBytes,
+            publicKey: nil
         )
     }
 }

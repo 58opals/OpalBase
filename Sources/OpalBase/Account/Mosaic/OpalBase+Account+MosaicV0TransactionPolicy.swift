@@ -98,14 +98,18 @@ extension _OpalBase.Account {
                       input.previousTransactionHash.reverseOrder
                         == Data(spentInput.outpointTransactionHashBytes),
                       input.previousTransactionOutputIndex == spentInput.outpointIndex,
-                      let publicKeyBytes = spentInput.publicKey,
-                      let publicKey = try? OpalBase.Key.PublicKey(
-                        compressedData: Data(publicKeyBytes)
-                      ),
                       case .p2pkh_OPCHECKSIG(let publicKeyHash) = try? OpalBase.Script.decode(
                         lockingScript: Data(spentInput.lockingScriptBytes)
-                      ),
-                      OpalBase.Key.PublicKey.Hash(publicKey: publicKey) == publicKeyHash else {
+                      ) else {
+                    throw Failure.invalidInput(index: index)
+                }
+                if let publicKeyBytes = spentInput.publicKey {
+                    guard let publicKey = try? OpalBase.Key.PublicKey(
+                        compressedData: Data(publicKeyBytes)
+                    ), OpalBase.Key.PublicKey.Hash(publicKey: publicKey) == publicKeyHash else {
+                        throw Failure.invalidInput(index: index)
+                    }
+                } else if request.localInputIndices.contains(index) {
                     throw Failure.invalidInput(index: index)
                 }
                 guard input.sequence == UInt32.max else {
