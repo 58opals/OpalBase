@@ -13,6 +13,7 @@ extension _OpalBase.Account {
         let generation: UInt64
         let selectedInputs: [OpalBase.Transaction.Output.Unspent]
         let outputAmountsSatoshis: [UInt64]
+        let contributionPolicy: MosaicProfileContributionPolicy
         let transactionPolicy: MosaicTransactionPolicy
         let attemptJournal: MosaicAttemptJournal
         let currentDate: @Sendable () -> Date
@@ -64,7 +65,10 @@ extension _OpalBase.Account {
                 try await Task.sleep(for: .seconds(interval))
             }
         ) throws {
-            guard network.supportsMosaicProfile(profile),
+            guard let contributionPolicy = MosaicProfileContributionPolicy(
+                profile: profile
+            ),
+                  network.supportsMosaicProfile(profile),
                   profile.networkGenesisHash == network.mosaicGenesisHash,
                   transactionPolicy.profile == profile,
                   transactionPolicy.network == network else {
@@ -86,6 +90,7 @@ extension _OpalBase.Account {
             self.generation = generation
             self.selectedInputs = selectedInputs
             self.outputAmountsSatoshis = outputAmountsSatoshis
+            self.contributionPolicy = contributionPolicy
             self.transactionPolicy = transactionPolicy
             self.attemptJournal = attemptJournal
             self.currentDate = currentDate

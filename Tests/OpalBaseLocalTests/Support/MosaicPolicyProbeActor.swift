@@ -1,6 +1,7 @@
 // MosaicPolicyProbeActor.swift
 
 #if os(macOS)
+import OpalFusion
 @testable import OpalBase
 
 actor MosaicPolicyProbeActor {
@@ -37,7 +38,14 @@ actor MosaicPolicyProbeActor {
     }
 
     var transactionPolicy: OpalBase.Account.MosaicTransactionPolicy {
-        .init { [self] _, _, feeSatoshis in
+        makeTransactionPolicy()
+    }
+
+    func makeTransactionPolicy(
+        profile: OpalFusion.Mosaic.Profile = .opalV0,
+        network: OpalBase.Network.Environment = .chipnet
+    ) -> OpalBase.Account.MosaicTransactionPolicy {
+        .init(profile: profile, network: network) { [self] _, _, feeSatoshis in
             try await validate(feeSatoshis: feeSatoshis)
         }
     }

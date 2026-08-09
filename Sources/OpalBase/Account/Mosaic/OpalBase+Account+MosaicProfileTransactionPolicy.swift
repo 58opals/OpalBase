@@ -31,6 +31,7 @@ extension _OpalBase.Account {
         }
 
         private let profile: OpalFusion.Mosaic.Profile
+        private let contributionPolicy: MosaicProfileContributionPolicy
         private let transactionReader: OpalBase.Network.TransactionReader
 
         init(
@@ -38,10 +39,14 @@ extension _OpalBase.Account {
             network: OpalBase.Network.Environment,
             transactionReader: OpalBase.Network.TransactionReader
         ) throws {
-            guard network.supportsMosaicProfile(profile) else {
+            guard network.supportsMosaicProfile(profile),
+                  let contributionPolicy = MosaicProfileContributionPolicy(
+                    profile: profile
+                  ) else {
                 throw Failure.unsupportedProfileNetworkPair
             }
             self.profile = profile
+            self.contributionPolicy = contributionPolicy
             self.transactionReader = transactionReader
         }
 
@@ -73,9 +78,12 @@ extension _OpalBase.Account {
                     == profile.transactionProfileIdentifier else {
                 throw Failure.invalidTransactionProfile
             }
-            guard request.feeRateSatoshisPerByte == 1,
-                  request.minimumExcessFeeSatoshis == 0,
-                  request.maximumExcessFeeSatoshis == 0 else {
+            guard contributionPolicy.accepts(
+                feeRateSatoshisPerByte: request.feeRateSatoshisPerByte,
+                minimumExcessFeeSatoshis: request.minimumExcessFeeSatoshis,
+                maximumExcessFeeSatoshis: request.maximumExcessFeeSatoshis,
+                requiredExcessFeeSatoshis: request.requiredExcessFeeSatoshis
+            ) else {
                 throw Failure.invalidFeeTerms
             }
         }

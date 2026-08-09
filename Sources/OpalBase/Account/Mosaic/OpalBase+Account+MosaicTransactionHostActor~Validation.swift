@@ -19,6 +19,8 @@ extension _OpalBase.Account.MosaicTransactionHostActor {
               request.feeRateSatoshisPerByte == reservationRequest.feeRateSatoshisPerByte,
               request.minimumExcessFeeSatoshis == reservationRequest.minimumExcessFeeSatoshis,
               request.maximumExcessFeeSatoshis == reservationRequest.maximumExcessFeeSatoshis,
+              request.requiredExcessFeeSatoshis
+                == reservationRequest.requiredExcessFeeSatoshis,
               request.transcriptBinding.profile == profile,
               request.transactionProfileIdentifier
                 == reservationRequest.transactionProfileIdentifier,

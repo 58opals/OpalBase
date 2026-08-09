@@ -20,8 +20,10 @@ struct MosaicHostFixture {
         transactionPolicy: OpalBase.Account.MosaicTransactionPolicy,
         network: OpalBase.Network.Environment = .chipnet,
         profile: OpalFusion.Mosaic.Profile = .opalV0,
-        minimumExcessFeeSatoshis: UInt64 = 0,
-        maximumExcessFeeSatoshis: UInt64 = 0,
+        minimumExcessFeeSatoshis: UInt64? = nil,
+        maximumExcessFeeSatoshis: UInt64? = nil,
+        requiredExcessFeeSatoshis: UInt64? = nil,
+        outputAmountsSatoshis suppliedOutputAmountsSatoshis: [UInt64]? = nil,
         journalProbe: MosaicAttemptJournalProbeActor = .init(),
         currentDate: @escaping @Sendable () -> Date = {
             Date(timeIntervalSince1970: 1_800_000_000)
@@ -45,6 +47,30 @@ struct MosaicHostFixture {
             hashByte: 0xa1
         )
         let addressBook = await account.addressBook
+        let contributionPolicy = try #require(
+            OpalBase.Account.MosaicProfileContributionPolicy(profile: profile)
+        )
+        let minimumExcessFeeSatoshis = minimumExcessFeeSatoshis
+            ?? contributionPolicy.minimumExcessFeeSatoshis
+        let maximumExcessFeeSatoshis = maximumExcessFeeSatoshis
+            ?? contributionPolicy.maximumExcessFeeSatoshis
+        let requiredExcessFeeSatoshis = requiredExcessFeeSatoshis
+            ?? contributionPolicy.maximumExcessFeeSatoshis
+        let outputAmountsSatoshis: [UInt64]
+        if let suppliedOutputAmountsSatoshis {
+            outputAmountsSatoshis = suppliedOutputAmountsSatoshis
+        } else if profile == .opalV0 {
+            outputAmountsSatoshis = [90_000]
+        } else {
+            let localContribution = try #require(
+                contributionPolicy.expectedLocalContributionSatoshis(
+                    inputCount: 1,
+                    outputCount: 1,
+                    requiredExcessFeeSatoshis: requiredExcessFeeSatoshis
+                )
+            )
+            outputAmountsSatoshis = [selectedInput.value - localContribution]
+        }
         let expirationDate = Date(timeIntervalSince1970: 1_900_000_000)
         let identifier = try #require(
             UUID(uuidString: "00000000-0000-0000-0000-000000000007")
@@ -55,7 +81,7 @@ struct MosaicHostFixture {
             network: network,
             generation: generation,
             selectedInputs: [selectedInput],
-            outputAmountsSatoshis: [90_000],
+            outputAmountsSatoshis: outputAmountsSatoshis,
             transactionPolicy: transactionPolicy,
             attemptJournal: journalProbe.makeJournal(),
             currentDate: currentDate,
@@ -72,6 +98,7 @@ struct MosaicHostFixture {
             feeRateSatoshisPerByte: 1,
             minimumExcessFeeSatoshis: minimumExcessFeeSatoshis,
             maximumExcessFeeSatoshis: maximumExcessFeeSatoshis,
+            requiredExcessFeeSatoshis: requiredExcessFeeSatoshis,
             transactionProfileIdentifier: profile.transactionProfileIdentifier
         )
         return .init(
@@ -129,6 +156,8 @@ struct MosaicHostFixture {
             feeRateSatoshisPerByte: reservationRequest.feeRateSatoshisPerByte,
             minimumExcessFeeSatoshis: reservationRequest.minimumExcessFeeSatoshis,
             maximumExcessFeeSatoshis: reservationRequest.maximumExcessFeeSatoshis,
+            requiredExcessFeeSatoshis: reservationRequest
+                .requiredExcessFeeSatoshis,
             transactionProfileIdentifier: transactionProfileIdentifier
                 ?? reservationRequest.transactionProfileIdentifier
         )

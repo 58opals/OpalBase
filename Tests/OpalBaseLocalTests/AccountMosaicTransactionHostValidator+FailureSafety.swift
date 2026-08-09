@@ -20,6 +20,8 @@ extension AccountMosaicTransactionHostValidator {
             feeRateSatoshisPerByte: fixture.reservationRequest.feeRateSatoshisPerByte,
             minimumExcessFeeSatoshis: fixture.reservationRequest.minimumExcessFeeSatoshis,
             maximumExcessFeeSatoshis: fixture.reservationRequest.maximumExcessFeeSatoshis,
+            requiredExcessFeeSatoshis: fixture.reservationRequest
+                .requiredExcessFeeSatoshis,
             transactionProfileIdentifier: fixture.reservationRequest.transactionProfileIdentifier
         )
 

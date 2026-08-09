@@ -52,12 +52,18 @@ struct AccountMosaicProfileTransactionPolicyValidator {
 
     @Test("Mainnet alpha applies the same exact transaction rules")
     func acceptValidMainnetAlphaTransaction() async throws {
-        let scenario = try Fixture.makeScenario(
+        let higherShare = try Fixture.makeScenario(
             profile: .opalMainnetAlpha,
             network: .mainnet
         )
+        let lowerShare = try Fixture.makeScenario(
+            profile: .opalMainnetAlpha,
+            network: .mainnet,
+            requiredExcessFeeSatoshis: 1
+        )
 
-        try await validate(scenario)
+        try await validate(higherShare)
+        try await validate(lowerShare)
     }
 
     @Test("Remote public keys may be deferred, but local public keys are required")

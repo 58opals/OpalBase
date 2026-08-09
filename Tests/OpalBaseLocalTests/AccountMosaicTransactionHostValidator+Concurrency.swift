@@ -655,6 +655,7 @@ private extension AccountMosaicTransactionHostValidator {
             feeRateSatoshisPerByte: request.feeRateSatoshisPerByte,
             minimumExcessFeeSatoshis: request.minimumExcessFeeSatoshis,
             maximumExcessFeeSatoshis: request.maximumExcessFeeSatoshis,
+            requiredExcessFeeSatoshis: request.requiredExcessFeeSatoshis,
             transactionProfileIdentifier: request.transactionProfileIdentifier
         )
     }

@@ -12,14 +12,16 @@ extension AccountMosaicTransactionHostValidator {
     func completeSyntheticMainnetAlphaHostLifecycle() async throws {
         let profile = OpalFusion.Mosaic.Profile.opalMainnetAlpha
         let network = OpalBase.Network.Environment.mainnet
+        let localRequiredExcessFeeSatoshis: UInt64 = 2
+        let remoteRequiredExcessFeeSatoshis: [UInt64] = [2, 2, 2, 1, 1]
         let account = try await AccountTestFixtures.makeAccount()
         let addressBook = await account.addressBook
         let inputEntry = try await addressBook.selectNextEntry(for: .change)
-        let previousOutput = OpalBase.Transaction.Output(
+        let localPreviousOutput = OpalBase.Transaction.Output(
             value: 100_000,
             lockingScript: inputEntry.address.lockingScript.data
         )
-        let previousTransaction = OpalBase.Transaction(
+        let localPreviousTransaction = OpalBase.Transaction(
             version: 2,
             inputs: [
                 .init(
@@ -30,45 +32,66 @@ extension AccountMosaicTransactionHostValidator {
                     unlockingScript: Data([0x51])
                 )
             ],
-            outputs: [previousOutput],
+            outputs: [localPreviousOutput],
             lockTime: 0
         )
-        let rawPreviousTransaction = try previousTransaction.encode()
-        let previousTransactionHash = OpalBase.Transaction.Hash(
-            naturalOrder: OpalCrypto.Hashing.hash256(rawPreviousTransaction)
+        let rawLocalPreviousTransaction = try localPreviousTransaction.encode()
+        let localPreviousTransactionHash = OpalBase.Transaction.Hash(
+            naturalOrder: OpalCrypto.Hashing.hash256(rawLocalPreviousTransaction)
         )
         let selectedInput = OpalBase.Transaction.Output.Unspent(
-            output: previousOutput,
-            previousTransactionHash: previousTransactionHash,
+            output: localPreviousOutput,
+            previousTransactionHash: localPreviousTransactionHash,
             previousTransactionOutputIndex: 0
         )
         await addressBook.addUTXOs([selectedInput])
 
-        let unsignedTemplate = OpalBase.Transaction(
-            version: 2,
-            inputs: [
+        var remoteContributions: [SyntheticMainnetAlphaContribution] = []
+        var rawPreviousTransactions: [OpalBase.Transaction.Hash: Data] = [
+            localPreviousTransactionHash: rawLocalPreviousTransaction
+        ]
+        for (offset, share) in remoteRequiredExcessFeeSatoshis.enumerated() {
+            let seed = UInt8(0x31 + offset)
+            let amountSatoshis = UInt64(110_000 + (offset * 10_000))
+            let material = try MosaicProfileTransactionPolicyFixture.makeInputMaterial(
+                seed: seed,
+                amountSatoshis: amountSatoshis
+            )
+            let signingKey = try OpalBase.Key.SigningKey(
+                rawRepresentation: Data(repeating: seed, count: 32)
+            )
+            let unspentOutput = OpalBase.Transaction.Output.Unspent(
+                value: material.participantInput.amountSatoshis,
+                lockingScript: Data(material.participantInput.lockingScriptBytes),
+                previousTransactionHash: material.transactionHash,
+                previousTransactionOutputIndex: material.participantInput.outpointIndex
+            )
+            let contributionSatoshis = 141 + 34 + share
+            let outputLockingScript = try MosaicProfileTransactionPolicyFixture
+                .makeP2PKHLockingScript(seed: seed &+ 0x20)
+            remoteContributions.append(
                 .init(
-                    previousTransactionHash: previousTransactionHash,
-                    previousTransactionOutputIndex: 0,
-                    unlockingScript: Data()
+                    participantInput: material.participantInput,
+                    transactionInput: material.transactionInput,
+                    unspentOutput: unspentOutput,
+                    output: .init(
+                        value: amountSatoshis - contributionSatoshis,
+                        lockingScript: outputLockingScript
+                    ),
+                    signingKey: signingKey,
+                    isLocal: false
                 )
-            ],
-            outputs: [
-                .init(
-                    value: 1,
-                    lockingScript: inputEntry.address.lockingScript.data
-                )
-            ],
-            lockTime: 0
-        )
-        let feeSatoshis = try unsignedTemplate.calculateFee(feePerByte: 1)
-        let outputAmountSatoshis = previousOutput.value - feeSatoshis
+            )
+            rawPreviousTransactions[material.transactionHash] = material.rawPreviousTransaction
+        }
+
+        let previousTransactions = rawPreviousTransactions
         let transactionReader = OpalBase.Network.TransactionReader { hash in
-            guard hash == previousTransactionHash else {
+            guard let transaction = previousTransactions[hash] else {
                 throw MosaicProfileTransactionPolicyFixture.FixtureFailure
                     .missingPreviousTransaction
             }
-            return rawPreviousTransaction
+            return transaction
         }
         let journalProbe = MosaicAttemptJournalProbeActor()
         let reservationIdentifier = try #require(
@@ -80,7 +103,9 @@ extension AccountMosaicTransactionHostValidator {
             network: network,
             generation: 2,
             selectedInputs: [selectedInput],
-            outputAmountsSatoshis: [outputAmountSatoshis],
+            outputAmountsSatoshis: [
+                localPreviousOutput.value - 141 - 34 - localRequiredExcessFeeSatoshis
+            ],
             transactionPolicy: try .init(
                 profile: profile,
                 network: network,
@@ -97,8 +122,9 @@ extension AccountMosaicTransactionHostValidator {
             expiresAt: Date(timeIntervalSince1970: 1_900_000_000),
             componentCount: profile.rosterPolicy.componentCountPerContributor,
             feeRateSatoshisPerByte: 1,
-            minimumExcessFeeSatoshis: 0,
-            maximumExcessFeeSatoshis: 0,
+            minimumExcessFeeSatoshis: 1,
+            maximumExcessFeeSatoshis: 2,
+            requiredExcessFeeSatoshis: localRequiredExcessFeeSatoshis,
             transactionProfileIdentifier: profile.transactionProfileIdentifier
         )
         let lease = try await host.reserveMosaicContribution(
@@ -107,17 +133,58 @@ extension AccountMosaicTransactionHostValidator {
         let localOutput = try #require(
             lease.participantReservation.outputs.first
         )
+        let localParticipantInput = try #require(
+            lease.participantReservation.inputs.first
+        )
+        let localContribution = SyntheticMainnetAlphaContribution(
+            participantInput: localParticipantInput,
+            transactionInput: .init(
+                previousTransactionHash: localPreviousTransactionHash,
+                previousTransactionOutputIndex: 0,
+                unlockingScript: Data()
+            ),
+            unspentOutput: selectedInput,
+            output: .init(
+                value: localOutput.amountSatoshis,
+                lockingScript: Data(localOutput.lockingScriptBytes)
+            ),
+            signingKey: nil,
+            isLocal: true
+        )
+        let orderedContributions = (remoteContributions + [localContribution]).sorted {
+            let leftHash = $0.transactionInput.previousTransactionHash.reverseOrder
+            let rightHash = $1.transactionInput.previousTransactionHash.reverseOrder
+            if leftHash != rightHash {
+                return leftHash.lexicographicallyPrecedes(rightHash)
+            }
+            return $0.transactionInput.previousTransactionOutputIndex
+                < $1.transactionInput.previousTransactionOutputIndex
+        }
+        let localInputIndex = try #require(
+            orderedContributions.firstIndex { $0.isLocal }
+        )
+        let orderedOutputs = orderedContributions.map(\.output).sorted {
+            if $0.value != $1.value {
+                return $0.value < $1.value
+            }
+            return $0.lockingScript.lexicographicallyPrecedes($1.lockingScript)
+        }
         let unsignedTransaction = OpalBase.Transaction(
             version: 2,
-            inputs: unsignedTemplate.inputs,
-            outputs: [
-                .init(
-                    value: localOutput.amountSatoshis,
-                    lockingScript: Data(localOutput.lockingScriptBytes)
-                )
-            ],
+            inputs: orderedContributions.map(\.transactionInput),
+            outputs: orderedOutputs,
             lockTime: 0
         )
+        let inputValue = orderedContributions.reduce(UInt64(0)) {
+            $0 + $1.participantInput.amountSatoshis
+        }
+        let outputValue = orderedOutputs.reduce(UInt64(0)) { $0 + $1.value }
+        let contributionDeltas = orderedContributions.map {
+            $0.participantInput.amountSatoshis - $0.output.value
+        }.sorted()
+        #expect(contributionDeltas == [176, 176, 177, 177, 177, 177])
+        #expect(inputValue - outputValue == 1_060)
+        #expect(try unsignedTransaction.calculateFee(feePerByte: 1) == 1_060)
         let unsignedTransactionBytes = [UInt8](try unsignedTransaction.encode())
         let signingRequest = try OpalFusion.Host.MosaicTransactionSigningRequest(
             reservationReference: lease.reference,
@@ -128,12 +195,13 @@ extension AccountMosaicTransactionHostValidator {
                 discriminator: 0xA4
             ),
             unsignedTransactionBytes: unsignedTransactionBytes,
-            spentInputs: lease.participantReservation.inputs,
-            localInputIndices: [0],
+            spentInputs: orderedContributions.map(\.participantInput),
+            localInputIndices: [localInputIndex],
             expectedLocalOutputs: lease.participantReservation.outputs,
             feeRateSatoshisPerByte: 1,
-            minimumExcessFeeSatoshis: 0,
-            maximumExcessFeeSatoshis: 0,
+            minimumExcessFeeSatoshis: 1,
+            maximumExcessFeeSatoshis: 2,
+            requiredExcessFeeSatoshis: localRequiredExcessFeeSatoshis,
             transactionProfileIdentifier: profile.transactionProfileIdentifier
         )
 
@@ -143,13 +211,37 @@ extension AccountMosaicTransactionHostValidator {
         let signedTransaction = try OpalBase.Transaction.decode(
             from: Data(finalized.signedFusionTransactionBytes)
         ).transaction
-        let unlockingScript = try #require(
-            signedTransaction.inputs.first?.unlockingScript
+        #expect(
+            signedTransaction.inputs.enumerated().filter {
+                !$0.element.unlockingScript.isEmpty
+            }.map(\.offset) == [localInputIndex]
         )
-        try #require(unlockingScript.count == 100)
-        #expect(unlockingScript[65] == 0x41)
+        #expect(signedTransaction.inputs[localInputIndex].unlockingScript.count == 100)
+
+        var fullySignedTransaction = signedTransaction
+        for (index, contribution) in orderedContributions.enumerated()
+            where !contribution.isLocal {
+            let signingKey = try #require(contribution.signingKey)
+            fullySignedTransaction = try fullySignedTransaction.signInputInPlace(
+                at: index,
+                spending: contribution.unspentOutput,
+                signingKey: signingKey,
+                signatureFormat: .schnorr,
+                unlocker: .p2pkh_CheckSig(
+                    hashType: .makeAll(anyoneCanPay: false)
+                ),
+                using: unsignedTransaction
+            )
+        }
+        let completeTransactionBytes = [UInt8](try fullySignedTransaction.encode())
+        #expect(completeTransactionBytes.count == 1_060)
+        #expect(
+            fullySignedTransaction.inputs.allSatisfy {
+                $0.unlockingScript.count == 100 && $0.unlockingScript[65] == 0x41
+            }
+        )
         let completeTransaction = try OpalFusion.Host.MosaicCompleteTransaction(
-            transactionBytes: finalized.signedFusionTransactionBytes
+            transactionBytes: completeTransactionBytes
         )
 
         try await host.commitMosaicReservation(
@@ -161,7 +253,8 @@ extension AccountMosaicTransactionHostValidator {
             completeTransaction: completeTransaction
         )
 
-        #expect(completeTransaction.transactionBytes == finalized.signedFusionTransactionBytes)
+        #expect(completeTransaction.transactionBytes == completeTransactionBytes)
+        #expect(await host.readSigningInvocationCount() == 1)
         #expect(
             Array((await journalProbe.readRecords()).suffix(2)) == [
                 .commitIntent(
@@ -175,6 +268,49 @@ extension AccountMosaicTransactionHostValidator {
             ]
         )
         #expect(!(await addressBook.listSpendableUTXOs()).contains(selectedInput))
+    }
+
+    @Test("Signing cannot substitute a different valid mainnet alpha fee share")
+    func rejectMainnetAlphaSigningShareSubstitution() async throws {
+        let profile = OpalFusion.Mosaic.Profile.opalMainnetAlpha
+        let network = OpalBase.Network.Environment.mainnet
+        let probe = MosaicPolicyProbeActor()
+        let policy = await probe.makeTransactionPolicy(
+            profile: profile,
+            network: network
+        )
+        let fixture = try await MosaicHostFixture.make(
+            transactionPolicy: policy,
+            network: network,
+            profile: profile
+        )
+        let lease = try await fixture.reserve()
+        let valid = try fixture.makeSigningRequest(lease: lease)
+        let substituted = try OpalFusion.Host.MosaicTransactionSigningRequest(
+            reservationReference: valid.reservationReference,
+            roundIdentifier: valid.roundIdentifier,
+            transcriptBinding: valid.transcriptBinding,
+            unsignedTransactionBytes: valid.unsignedTransactionBytes,
+            spentInputs: valid.spentInputs,
+            localInputIndices: valid.localInputIndices,
+            expectedLocalOutputs: valid.expectedLocalOutputs,
+            feeRateSatoshisPerByte: valid.feeRateSatoshisPerByte,
+            minimumExcessFeeSatoshis: valid.minimumExcessFeeSatoshis,
+            maximumExcessFeeSatoshis: valid.maximumExcessFeeSatoshis,
+            requiredExcessFeeSatoshis: 1,
+            transactionProfileIdentifier: valid.transactionProfileIdentifier
+        )
+
+        await #expect(
+            throws: OpalBase.Account.MosaicHostFailure.invalidTransactionProposal
+        ) {
+            _ = try await fixture.host.finalizeMosaicTransaction(for: substituted)
+        }
+        #expect(await probe.readInvocationCount() == 0)
+        #expect(await fixture.host.readSigningInvocationCount() == 0)
+        #expect(await fixture.journalProbe.readRecords().count == 2)
+
+        try await fixture.host.releaseMosaicReservation(lease.reference)
     }
 
     @Test("Only local inputs receive Schnorr ALL|FORKID signatures")
@@ -403,6 +539,15 @@ extension AccountMosaicTransactionHostValidator {
     }
 }
 
+private struct SyntheticMainnetAlphaContribution {
+    let participantInput: OpalFusion.Host.ParticipantInput
+    let transactionInput: OpalBase.Transaction.Input
+    let unspentOutput: OpalBase.Transaction.Output.Unspent
+    let output: OpalBase.Transaction.Output
+    let signingKey: OpalBase.Key.SigningKey?
+    let isLocal: Bool
+}
+
 private extension AccountMosaicTransactionHostValidator {
     func makeRemoteInput(
         includesPublicKey: Bool = true,
@@ -468,6 +613,8 @@ private extension AccountMosaicTransactionHostValidator {
             feeRateSatoshisPerByte: fixture.reservationRequest.feeRateSatoshisPerByte,
             minimumExcessFeeSatoshis: fixture.reservationRequest.minimumExcessFeeSatoshis,
             maximumExcessFeeSatoshis: fixture.reservationRequest.maximumExcessFeeSatoshis,
+            requiredExcessFeeSatoshis: fixture.reservationRequest
+                .requiredExcessFeeSatoshis,
             transactionProfileIdentifier: fixture.reservationRequest.transactionProfileIdentifier
         )
     }

@@ -90,11 +90,27 @@ enum MosaicProfileTransactionPolicyFixture {
         profile: OpalFusion.Mosaic.Profile = .opalV0,
         network: OpalBase.Network.Environment = .chipnet,
         feeRateSatoshisPerByte: UInt64 = 1,
-        minimumExcessFeeSatoshis: UInt64 = 0,
-        maximumExcessFeeSatoshis: UInt64 = 0,
+        minimumExcessFeeSatoshis suppliedMinimumExcessFeeSatoshis: UInt64? = nil,
+        maximumExcessFeeSatoshis suppliedMaximumExcessFeeSatoshis: UInt64? = nil,
+        requiredExcessFeeSatoshis suppliedRequiredExcessFeeSatoshis: UInt64? = nil,
         transactionProfileIdentifier: String? = nil,
         transactionReader suppliedReader: OpalBase.Network.TransactionReader? = nil
     ) throws -> Scenario {
+        let contributionPolicy = OpalBase.Account
+            .MosaicProfileContributionPolicy(profile: profile)
+        let minimumExcessFeeSatoshis = suppliedMinimumExcessFeeSatoshis
+            ?? contributionPolicy?.minimumExcessFeeSatoshis ?? 0
+        let maximumExcessFeeSatoshis = suppliedMaximumExcessFeeSatoshis
+            ?? contributionPolicy?.maximumExcessFeeSatoshis ?? 0
+        let requiredExcessFeeSatoshis: UInt64
+        if let suppliedRequiredExcessFeeSatoshis {
+            requiredExcessFeeSatoshis = suppliedRequiredExcessFeeSatoshis
+        } else if minimumExcessFeeSatoshis == maximumExcessFeeSatoshis {
+            requiredExcessFeeSatoshis = minimumExcessFeeSatoshis
+        } else {
+            requiredExcessFeeSatoshis = contributionPolicy?
+                .maximumExcessFeeSatoshis ?? maximumExcessFeeSatoshis
+        }
         let materials = try suppliedMaterials ?? [makeInputMaterial()]
         let inputs = transactionInputs ?? materials.map(\.transactionInput)
         let participantInputs = spentInputs ?? materials.map(\.participantInput)
@@ -149,6 +165,7 @@ enum MosaicProfileTransactionPolicyFixture {
             feeRateSatoshisPerByte: feeRateSatoshisPerByte,
             minimumExcessFeeSatoshis: minimumExcessFeeSatoshis,
             maximumExcessFeeSatoshis: maximumExcessFeeSatoshis,
+            requiredExcessFeeSatoshis: requiredExcessFeeSatoshis,
             transactionProfileIdentifier: transactionProfileIdentifier
                 ?? profile.transactionProfileIdentifier
         )

@@ -30,12 +30,22 @@ extension _OpalBase.Account.MosaicTransactionHostActor {
         guard profile.networkGenesisHash == expectedNetworkGenesisHash,
               request.transactionProfileIdentifier == profile.transactionProfileIdentifier,
               request.componentCount == profile.rosterPolicy.componentCountPerContributor,
-              request.feeRateSatoshisPerByte == 1,
-              request.minimumExcessFeeSatoshis == 0,
-              request.maximumExcessFeeSatoshis == 0 else {
+              contributionPolicy.accepts(
+                feeRateSatoshisPerByte: request.feeRateSatoshisPerByte,
+                minimumExcessFeeSatoshis: request.minimumExcessFeeSatoshis,
+                maximumExcessFeeSatoshis: request.maximumExcessFeeSatoshis,
+                requiredExcessFeeSatoshis: request.requiredExcessFeeSatoshis
+              ) else {
             throw OpalBase.Account.MosaicHostFailure.invalidReservationProfile
         }
         guard selectedInputs.count + outputAmountsSatoshis.count <= request.componentCount else {
+            throw OpalBase.Account.MosaicHostFailure.invalidContributionPolicy
+        }
+        guard contributionPolicy.matchesLocalContribution(
+            inputAmountsSatoshis: selectedInputs.map(\.value),
+            outputAmountsSatoshis: outputAmountsSatoshis,
+            requiredExcessFeeSatoshis: request.requiredExcessFeeSatoshis
+        ) else {
             throw OpalBase.Account.MosaicHostFailure.invalidContributionPolicy
         }
 
