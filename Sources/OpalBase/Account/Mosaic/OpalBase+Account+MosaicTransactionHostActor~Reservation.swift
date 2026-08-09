@@ -27,8 +27,7 @@ extension _OpalBase.Account.MosaicTransactionHostActor {
         guard request.expiresAt > currentDate() else {
             throw OpalBase.Account.MosaicHostFailure.reservationExpired
         }
-        let profile = OpalFusion.Mosaic.Profile.opalV0
-        guard expectedNetworkGenesisHash == profile.networkGenesisHash,
+        guard profile.networkGenesisHash == expectedNetworkGenesisHash,
               request.transactionProfileIdentifier == profile.transactionProfileIdentifier,
               request.componentCount == profile.rosterPolicy.componentCountPerContributor,
               request.feeRateSatoshisPerByte == 1,

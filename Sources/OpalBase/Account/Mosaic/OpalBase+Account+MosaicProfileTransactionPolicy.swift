@@ -1,4 +1,4 @@
-// OpalBase+Account+MosaicV0TransactionPolicy.swift
+// OpalBase+Account+MosaicProfileTransactionPolicy.swift
 
 #if os(macOS)
 import Foundation
@@ -6,10 +6,10 @@ import OpalCrypto
 import OpalFusion
 
 extension _OpalBase.Account {
-    /// Fail-closed validation for the chipnet-only Opal Mosaic v0 transaction profile.
-    struct MosaicV0TransactionPolicy: Sendable {
+    /// Fail-closed validation shared by the two explicitly supported Mosaic profiles.
+    struct MosaicProfileTransactionPolicy: Sendable {
         enum Failure: Swift.Error, Sendable, Equatable {
-            case unsupportedNetwork
+            case unsupportedProfileNetworkPair
             case incompatibleProfile
             case invalidTranscriptBinding
             case invalidTransactionProfile
@@ -30,15 +30,18 @@ extension _OpalBase.Account {
             case feeMismatch(expected: UInt64, actual: UInt64)
         }
 
+        private let profile: OpalFusion.Mosaic.Profile
         private let transactionReader: OpalBase.Network.TransactionReader
 
         init(
+            profile: OpalFusion.Mosaic.Profile,
             network: OpalBase.Network.Environment,
             transactionReader: OpalBase.Network.TransactionReader
         ) throws {
-            guard network == .chipnet else {
-                throw Failure.unsupportedNetwork
+            guard network.supportsMosaicProfile(profile) else {
+                throw Failure.unsupportedProfileNetworkPair
             }
+            self.profile = profile
             self.transactionReader = transactionReader
         }
 
@@ -57,7 +60,7 @@ extension _OpalBase.Account {
             transaction: OpalBase.Transaction,
             request: OpalFusion.Host.MosaicTransactionSigningRequest
         ) throws {
-            guard request.transcriptBinding.profile == .opalV0 else {
+            guard request.transcriptBinding.profile == profile else {
                 throw Failure.incompatibleProfile
             }
             guard request.transcriptBinding.matches(
@@ -67,7 +70,7 @@ extension _OpalBase.Account {
                 throw Failure.invalidTranscriptBinding
             }
             guard request.transactionProfileIdentifier
-                    == OpalFusion.Mosaic.Profile.opalV0.transactionProfileIdentifier else {
+                    == profile.transactionProfileIdentifier else {
                 throw Failure.invalidTransactionProfile
             }
             guard request.feeRateSatoshisPerByte == 1,

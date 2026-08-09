@@ -5,7 +5,7 @@ import Foundation
 
 extension _OpalBase.Account {
     enum MosaicHostFailure: Swift.Error, Sendable, Equatable {
-        case mainnetUnavailable
+        case invalidProfileNetworkBinding
         case invalidNetworkBinding
         case invalidReservationProfile
         case invalidContributionPolicy

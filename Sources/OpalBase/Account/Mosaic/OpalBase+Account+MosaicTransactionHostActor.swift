@@ -5,10 +5,11 @@ import Foundation
 import OpalFusion
 
 extension _OpalBase.Account {
-    /// Mainnet-disabled wallet authority for one non-resumable Mosaic attempt.
+    /// Profile-bound wallet authority for one non-resumable Mosaic attempt.
     actor MosaicTransactionHostActor: OpalFusion.Host.MosaicCompleteTransactionHost {
         let addressBook: OpalBase.Address.Book
         let expectedNetworkGenesisHash: [UInt8]
+        let profile: OpalFusion.Mosaic.Profile
         let generation: UInt64
         let selectedInputs: [OpalBase.Transaction.Output.Unspent]
         let outputAmountsSatoshis: [UInt64]
@@ -43,6 +44,7 @@ extension _OpalBase.Account {
 
         init(
             addressBook: OpalBase.Address.Book,
+            profile: OpalFusion.Mosaic.Profile,
             network: OpalBase.Network.Environment,
             generation: UInt64,
             selectedInputs: [OpalBase.Transaction.Output.Unspent],
@@ -62,8 +64,11 @@ extension _OpalBase.Account {
                 try await Task.sleep(for: .seconds(interval))
             }
         ) throws {
-            guard network != .mainnet else {
-                throw MosaicHostFailure.mainnetUnavailable
+            guard network.supportsMosaicProfile(profile),
+                  profile.networkGenesisHash == network.mosaicGenesisHash,
+                  transactionPolicy.profile == profile,
+                  transactionPolicy.network == network else {
+                throw MosaicHostFailure.invalidProfileNetworkBinding
             }
             guard !selectedInputs.isEmpty,
                   Set(selectedInputs).count == selectedInputs.count,
@@ -77,6 +82,7 @@ extension _OpalBase.Account {
 
             self.addressBook = addressBook
             self.expectedNetworkGenesisHash = network.mosaicGenesisHash
+            self.profile = profile
             self.generation = generation
             self.selectedInputs = selectedInputs
             self.outputAmountsSatoshis = outputAmountsSatoshis

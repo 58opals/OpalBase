@@ -7,8 +7,8 @@ import Testing
 @testable import OpalBase
 
 extension AccountMosaicTransactionHostValidator {
-    @Test("Mainnet and malformed contribution policies remain unavailable")
-    func rejectMainnetAndMalformedContributionPolicies() async throws {
+    @Test("Reject unsupported profile-network pairs and malformed contributions")
+    func rejectUnsupportedBindingsAndMalformedContributions() async throws {
         let account = try await AccountTestFixtures.makeAccount()
         let input = try await AccountTestFixtures.addUnspentOutput(
             to: account,
@@ -17,22 +17,75 @@ extension AccountMosaicTransactionHostValidator {
             hashByte: 0xb1
         )
         let addressBook = await account.addressBook
-        let policy = await MosaicPolicyProbeActor().transactionPolicy
-
-        #expect(throws: OpalBase.Account.MosaicHostFailure.mainnetUnavailable) {
-            _ = try OpalBase.Account.MosaicTransactionHostActor(
-                addressBook: addressBook,
-                network: .mainnet,
-                generation: 1,
-                selectedInputs: [input],
-                outputAmountsSatoshis: [90_000],
-                transactionPolicy: policy,
-                attemptJournal: .init { _ in }
+        let journalProbe = MosaicAttemptJournalProbeActor()
+        let mismatchedPolicyBindings: [
+            (
+                hostProfile: OpalFusion.Mosaic.Profile,
+                hostNetwork: OpalBase.Network.Environment,
+                policyProfile: OpalFusion.Mosaic.Profile,
+                policyNetwork: OpalBase.Network.Environment
             )
+        ] = [
+            (.opalV0, .chipnet, .opalMainnetAlpha, .chipnet),
+            (.opalV0, .chipnet, .opalV0, .mainnet)
+        ]
+        for binding in mismatchedPolicyBindings {
+            let policy = OpalBase.Account.MosaicTransactionPolicy(
+                profile: binding.policyProfile,
+                network: binding.policyNetwork
+            ) { _, _, _ in }
+            #expect(
+                throws: OpalBase.Account.MosaicHostFailure
+                    .invalidProfileNetworkBinding
+            ) {
+                _ = try OpalBase.Account.MosaicTransactionHostActor(
+                    addressBook: addressBook,
+                    profile: binding.hostProfile,
+                    network: binding.hostNetwork,
+                    generation: 1,
+                    selectedInputs: [input],
+                    outputAmountsSatoshis: [90_000],
+                    transactionPolicy: policy,
+                    attemptJournal: journalProbe.makeJournal()
+                )
+            }
         }
+        let unsupportedPairs: [
+            (OpalFusion.Mosaic.Profile, OpalBase.Network.Environment)
+        ] = [
+            (.draft1, .chipnet),
+            (.opalV0, .mainnet),
+            (.opalV0, .testnet),
+            (.opalMainnetAlpha, .chipnet),
+            (.opalMainnetAlpha, .testnet)
+        ]
+        for (profile, network) in unsupportedPairs {
+            let policy = OpalBase.Account.MosaicTransactionPolicy(
+                profile: profile,
+                network: network
+            ) { _, _, _ in }
+            #expect(
+                throws: OpalBase.Account.MosaicHostFailure
+                    .invalidProfileNetworkBinding
+            ) {
+                _ = try OpalBase.Account.MosaicTransactionHostActor(
+                    addressBook: addressBook,
+                    profile: profile,
+                    network: network,
+                    generation: 1,
+                    selectedInputs: [input],
+                    outputAmountsSatoshis: [90_000],
+                    transactionPolicy: policy,
+                    attemptJournal: .init { _ in }
+                )
+            }
+        }
+
+        let policy = await MosaicPolicyProbeActor().transactionPolicy
         #expect(throws: OpalBase.Account.MosaicHostFailure.invalidContributionPolicy) {
             _ = try OpalBase.Account.MosaicTransactionHostActor(
                 addressBook: addressBook,
+                profile: .opalV0,
                 network: .chipnet,
                 generation: 1,
                 selectedInputs: [],
@@ -41,6 +94,8 @@ extension AccountMosaicTransactionHostValidator {
                 attemptJournal: .init { _ in }
             )
         }
+        #expect(await journalProbe.readRecords().isEmpty)
+        #expect(await addressBook.listSpendableUTXOs().contains(input))
     }
 
     @Test("Wallet material remains unreserved until the manifest-bound callback")
@@ -68,8 +123,8 @@ extension AccountMosaicTransactionHostValidator {
         try await fixture.host.releaseMosaicReservation(lease.reference)
     }
 
-    @Test("Non-Opal v0 reservation terms fail before wallet mutation")
-    func rejectNonOpalV0ReservationTerms() async throws {
+    @Test("Profile-incompatible reservation terms fail before wallet mutation")
+    func rejectProfileIncompatibleReservationTerms() async throws {
         let policy = await MosaicPolicyProbeActor().transactionPolicy
         let fixture = try await MosaicHostFixture.make(transactionPolicy: policy)
         let valid = fixture.reservationRequest

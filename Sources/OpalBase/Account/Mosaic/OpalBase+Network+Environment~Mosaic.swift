@@ -2,8 +2,18 @@
 
 #if os(macOS)
 import Foundation
+import OpalFusion
 
 extension _OpalBase.Network.Environment {
+    func supportsMosaicProfile(_ profile: OpalFusion.Mosaic.Profile) -> Bool {
+        switch (self, profile) {
+        case (.chipnet, .opalV0), (.mainnet, .opalMainnetAlpha):
+            true
+        default:
+            false
+        }
+    }
+
     var mosaicGenesisHash: [UInt8] {
         let hexadecimalString = switch self {
         case .mainnet:

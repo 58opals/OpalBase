@@ -1,4 +1,4 @@
-// AccountMosaicV0TransactionPolicyValidator.swift
+// AccountMosaicProfileTransactionPolicyValidator.swift
 
 #if os(macOS)
 import Foundation
@@ -6,10 +6,10 @@ import OpalFusion
 import Testing
 @testable import OpalBase
 
-@Suite("OpalBase.Account Mosaic v0 transaction policy", .tags(.unit, .wallet, .transaction))
-struct AccountMosaicV0TransactionPolicyValidator {
-    typealias Failure = OpalBase.Account.MosaicV0TransactionPolicy.Failure
-    typealias Fixture = MosaicV0TransactionPolicyFixture
+@Suite("OpalBase.Account Mosaic profile transaction policy", .tags(.unit, .wallet, .transaction))
+struct AccountMosaicProfileTransactionPolicyValidator {
+    typealias Failure = OpalBase.Account.MosaicProfileTransactionPolicy.Failure
+    typealias Fixture = MosaicProfileTransactionPolicyFixture
 
     @Test("The profile fetches every previous transaction and accepts the exact final-size fee")
     func acceptValidProfileTransaction() async throws {
@@ -34,7 +34,8 @@ struct AccountMosaicV0TransactionPolicyValidator {
             materials: materials,
             transactionReader: reader
         )
-        let policy = try OpalBase.Account.MosaicTransactionPolicy.opalV0(
+        let policy = try OpalBase.Account.MosaicTransactionPolicy(
+            profile: .opalV0,
             network: .chipnet,
             transactionReader: reader
         )
@@ -47,6 +48,16 @@ struct AccountMosaicV0TransactionPolicyValidator {
 
         #expect(scenario.feeSatoshis == 326)
         #expect(await probe.requestedHashes == materials.map(\.transactionHash))
+    }
+
+    @Test("Mainnet alpha applies the same exact transaction rules")
+    func acceptValidMainnetAlphaTransaction() async throws {
+        let scenario = try Fixture.makeScenario(
+            profile: .opalMainnetAlpha,
+            network: .mainnet
+        )
+
+        try await validate(scenario)
     }
 
     @Test("Remote public keys may be deferred, but local public keys are required")
@@ -82,20 +93,40 @@ struct AccountMosaicV0TransactionPolicyValidator {
         }
     }
 
-    @Test("Only chipnet can construct an Opal v0 transaction policy")
-    func rejectUnsupportedNetworks() throws {
+    @Test("Exactly two profile and network pairs can construct a policy")
+    func validateSupportedProfileNetworkPairs() throws {
         let reader = OpalBase.Network.TransactionReader { _ in Data() }
-        #expect(throws: Failure.unsupportedNetwork) {
-            _ = try OpalBase.Account.MosaicV0TransactionPolicy(
-                network: .mainnet,
-                transactionReader: reader
-            )
-        }
-        #expect(throws: Failure.unsupportedNetwork) {
-            _ = try OpalBase.Account.MosaicV0TransactionPolicy(
-                network: .testnet,
-                transactionReader: reader
-            )
+        let profiles: [OpalFusion.Mosaic.Profile] = [
+            .draft1,
+            .opalV0,
+            .opalMainnetAlpha
+        ]
+        let networks: [OpalBase.Network.Environment] = [
+            .mainnet,
+            .testnet,
+            .chipnet
+        ]
+
+        for profile in profiles {
+            for network in networks {
+                let isSupported = (profile == .opalV0 && network == .chipnet)
+                    || (profile == .opalMainnetAlpha && network == .mainnet)
+                if isSupported {
+                    _ = try OpalBase.Account.MosaicProfileTransactionPolicy(
+                        profile: profile,
+                        network: network,
+                        transactionReader: reader
+                    )
+                } else {
+                    #expect(throws: Failure.unsupportedProfileNetworkPair) {
+                        _ = try OpalBase.Account.MosaicProfileTransactionPolicy(
+                            profile: profile,
+                            network: network,
+                            transactionReader: reader
+                        )
+                    }
+                }
+            }
         }
     }
 
@@ -150,6 +181,36 @@ struct AccountMosaicV0TransactionPolicyValidator {
         let wrongMaximum = try Fixture.makeScenario(maximumExcessFeeSatoshis: 1)
         await #expect(throws: Failure.invalidFeeTerms) {
             try await validate(wrongMaximum)
+        }
+
+        let mainnetPolicy = try OpalBase.Account.MosaicProfileTransactionPolicy(
+            profile: .opalMainnetAlpha,
+            network: .mainnet,
+            transactionReader: .init { _ in Data() }
+        )
+        await #expect(throws: Failure.incompatibleProfile) {
+            try await mainnetPolicy.validate(
+                transaction: valid.transaction,
+                request: valid.request,
+                feeSatoshis: valid.feeSatoshis
+            )
+        }
+
+        let mainnetScenario = try Fixture.makeScenario(
+            profile: .opalMainnetAlpha,
+            network: .mainnet
+        )
+        let chipnetPolicy = try OpalBase.Account.MosaicProfileTransactionPolicy(
+            profile: .opalV0,
+            network: .chipnet,
+            transactionReader: .init { _ in Data() }
+        )
+        await #expect(throws: Failure.incompatibleProfile) {
+            try await chipnetPolicy.validate(
+                transaction: mainnetScenario.transaction,
+                request: mainnetScenario.request,
+                feeSatoshis: mainnetScenario.feeSatoshis
+            )
         }
     }
 
@@ -411,7 +472,8 @@ private actor PreviousTransactionProbe {
     func fetch(_ transactionHash: OpalBase.Transaction.Hash) throws -> Data {
         requestedHashes.append(transactionHash)
         guard let rawTransaction = rawTransactions[transactionHash] else {
-            throw MosaicV0TransactionPolicyFixture.FixtureFailure.missingPreviousTransaction
+            throw MosaicProfileTransactionPolicyFixture.FixtureFailure
+                .missingPreviousTransaction
         }
         return rawTransaction
     }

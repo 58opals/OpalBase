@@ -1,4 +1,4 @@
-// MosaicV0TransactionPolicyFixture.swift
+// MosaicProfileTransactionPolicyFixture.swift
 
 #if os(macOS)
 import Foundation
@@ -6,7 +6,7 @@ import OpalCrypto
 import OpalFusion
 @testable import OpalBase
 
-enum MosaicV0TransactionPolicyFixture {
+enum MosaicProfileTransactionPolicyFixture {
     struct InputMaterial {
         let rawPreviousTransaction: Data
         let transactionHash: OpalBase.Transaction.Hash
@@ -15,7 +15,7 @@ enum MosaicV0TransactionPolicyFixture {
     }
 
     struct Scenario {
-        let policy: OpalBase.Account.MosaicV0TransactionPolicy
+        let policy: OpalBase.Account.MosaicProfileTransactionPolicy
         let transaction: OpalBase.Transaction
         let request: OpalFusion.Host.MosaicTransactionSigningRequest
         let feeSatoshis: UInt64
@@ -88,6 +88,7 @@ enum MosaicV0TransactionPolicyFixture {
         version: UInt32 = 2,
         lockTime: UInt32 = 0,
         profile: OpalFusion.Mosaic.Profile = .opalV0,
+        network: OpalBase.Network.Environment = .chipnet,
         feeRateSatoshisPerByte: UInt64 = 1,
         minimumExcessFeeSatoshis: UInt64 = 0,
         maximumExcessFeeSatoshis: UInt64 = 0,
@@ -167,7 +168,11 @@ enum MosaicV0TransactionPolicyFixture {
         }
         let outputValue = outputs.reduce(UInt64(0)) { $0 + $1.value }
         return .init(
-            policy: try .init(network: .chipnet, transactionReader: transactionReader),
+            policy: try .init(
+                profile: profile,
+                network: network,
+                transactionReader: transactionReader
+            ),
             transaction: transaction,
             request: request,
             feeSatoshis: inputValue >= outputValue ? inputValue - outputValue : 0

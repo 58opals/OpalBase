@@ -19,13 +19,12 @@ extension _OpalBase.Account.MosaicTransactionHostActor {
               request.feeRateSatoshisPerByte == reservationRequest.feeRateSatoshisPerByte,
               request.minimumExcessFeeSatoshis == reservationRequest.minimumExcessFeeSatoshis,
               request.maximumExcessFeeSatoshis == reservationRequest.maximumExcessFeeSatoshis,
+              request.transcriptBinding.profile == profile,
               request.transactionProfileIdentifier
                 == reservationRequest.transactionProfileIdentifier,
               request.transactionProfileIdentifier
-                == request.transcriptBinding.profile.transactionProfileIdentifier,
-              request.transcriptBinding.profile.networkGenesisHash == nil
-                || request.transcriptBinding.profile.networkGenesisHash
-                    == expectedNetworkGenesisHash,
+                == profile.transactionProfileIdentifier,
+              profile.networkGenesisHash == expectedNetworkGenesisHash,
               request.transcriptBinding.matches(
                 unsignedTransactionBytes: request.unsignedTransactionBytes
               ),

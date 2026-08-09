@@ -51,6 +51,7 @@ struct MosaicHostFixture {
         )
         let host = try OpalBase.Account.MosaicTransactionHostActor(
             addressBook: addressBook,
+            profile: profile,
             network: network,
             generation: generation,
             selectedInputs: [selectedInput],
@@ -92,7 +93,8 @@ struct MosaicHostFixture {
         lease: OpalFusion.Host.MosaicReservationLease,
         transaction: OpalBase.Transaction? = nil,
         transcriptByte: UInt8 = 0x44,
-        transcriptProfile: OpalFusion.Mosaic.Profile? = nil
+        transcriptProfile: OpalFusion.Mosaic.Profile? = nil,
+        transactionProfileIdentifier: String? = nil
     ) throws -> OpalFusion.Host.MosaicTransactionSigningRequest {
         let unsignedTransaction = transaction ?? OpalBase.Transaction(
             version: 2,
@@ -127,7 +129,8 @@ struct MosaicHostFixture {
             feeRateSatoshisPerByte: reservationRequest.feeRateSatoshisPerByte,
             minimumExcessFeeSatoshis: reservationRequest.minimumExcessFeeSatoshis,
             maximumExcessFeeSatoshis: reservationRequest.maximumExcessFeeSatoshis,
-            transactionProfileIdentifier: reservationRequest.transactionProfileIdentifier
+            transactionProfileIdentifier: transactionProfileIdentifier
+                ?? reservationRequest.transactionProfileIdentifier
         )
     }
 

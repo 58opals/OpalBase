@@ -117,27 +117,36 @@ extension AccountMosaicTransactionHostValidator {
                 transcriptProfile: .draft1
             )
         }
+        let crossProfileRequest = try opalV0Fixture.makeSigningRequest(
+            lease: opalV0Lease,
+            transcriptProfile: .opalMainnetAlpha,
+            transactionProfileIdentifier: OpalFusion.Mosaic.Profile
+                .opalMainnetAlpha.transactionProfileIdentifier
+        )
+        await #expect(
+            throws: OpalBase.Account.MosaicHostFailure
+                .invalidTransactionProposal
+        ) {
+            _ = try await opalV0Fixture.host.finalizeMosaicTransaction(
+                for: crossProfileRequest
+            )
+        }
         #expect(await profileProbe.readInvocationCount() == 0)
         #expect(await opalV0Fixture.host.readSigningInvocationCount() == 0)
         try await opalV0Fixture.host.releaseMosaicReservation(opalV0Lease.reference)
 
         let networkProbe = MosaicPolicyProbeActor()
-        let testnetFixture = try await MosaicHostFixture.make(
-            transactionPolicy: await networkProbe.transactionPolicy,
-            network: .testnet,
-            profile: .opalV0,
-            minimumExcessFeeSatoshis: 0,
-            maximumExcessFeeSatoshis: 0
-        )
-        await #expect(throws: OpalBase.Account.MosaicHostFailure.invalidReservationProfile) {
-            _ = try await testnetFixture.reserve()
+        await #expect(
+            throws: OpalBase.Account.MosaicHostFailure
+                .invalidProfileNetworkBinding
+        ) {
+            _ = try await MosaicHostFixture.make(
+                transactionPolicy: await networkProbe.transactionPolicy,
+                network: .testnet,
+                profile: .opalV0
+            )
         }
         #expect(await networkProbe.readInvocationCount() == 0)
-        #expect(await testnetFixture.host.readSigningInvocationCount() == 0)
-        #expect(
-            await testnetFixture.addressBook.listSpendableUTXOs()
-                .contains(testnetFixture.selectedInput)
-        )
     }
 }
 #endif

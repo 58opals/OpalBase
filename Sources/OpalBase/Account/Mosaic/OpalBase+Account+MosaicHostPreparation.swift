@@ -5,6 +5,7 @@ import OpalFusion
 
 extension _OpalBase.Account {
     func makeMosaicTransactionHost(
+        profile: OpalFusion.Mosaic.Profile,
         network: OpalBase.Network.Environment,
         generation: UInt64,
         selectedInputs: [OpalBase.Transaction.Output.Unspent],
@@ -15,11 +16,13 @@ extension _OpalBase.Account {
         try requirePrivateKeyMaterial()
         return try MosaicTransactionHostActor(
             addressBook: addressBook,
+            profile: profile,
             network: network,
             generation: generation,
             selectedInputs: selectedInputs,
             outputAmountsSatoshis: outputAmountsSatoshis,
-            transactionPolicy: try .opalV0(
+            transactionPolicy: try .init(
+                profile: profile,
                 network: network,
                 transactionReader: transactionReader
             ),
