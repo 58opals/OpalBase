@@ -37,6 +37,7 @@ private extension _OpalBase.Account.MosaicAttemptJournal.Record {
              let .released(reference),
              let .commitIntent(reference, _),
              let .committed(reference, _),
+             let .broadcastApproved(reference, _),
              let .broadcastIntent(reference, _),
              let .broadcastAccepted(reference, _, _):
             reference

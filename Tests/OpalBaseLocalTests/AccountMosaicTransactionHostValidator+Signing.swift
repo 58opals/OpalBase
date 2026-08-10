@@ -252,8 +252,15 @@ extension AccountMosaicTransactionHostValidator {
             lease.reference,
             completeTransaction: completeTransaction
         )
+        let broadcastCandidate = try await host.makeCommittedBroadcastCandidate()
 
         #expect(completeTransaction.transactionBytes == completeTransactionBytes)
+        #expect(broadcastCandidate.reservationRequest == reservationRequest)
+        #expect(broadcastCandidate.reservationReference == lease.reference)
+        #expect(broadcastCandidate.completeTransaction == completeTransaction)
+        #expect(broadcastCandidate.profile == .opalMainnetAlpha)
+        #expect(!broadcastCandidate.approvalPersisted)
+        #expect(!broadcastCandidate.broadcastIntentPersisted)
         #expect(await host.readSigningInvocationCount() == 1)
         #expect(
             Array((await journalProbe.readRecords()).suffix(2)) == [

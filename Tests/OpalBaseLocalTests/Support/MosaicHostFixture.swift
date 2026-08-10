@@ -14,6 +14,7 @@ struct MosaicHostFixture {
     let reservationRequest: OpalFusion.Host.MosaicReservationRequest
     let journalProbe: MosaicAttemptJournalProbeActor
     let profile: OpalFusion.Mosaic.Profile
+    let network: OpalBase.Network.Environment
 
     static func make(
         generation: UInt64 = 7,
@@ -108,7 +109,8 @@ struct MosaicHostFixture {
             host: host,
             reservationRequest: request,
             journalProbe: journalProbe,
-            profile: profile
+            profile: profile,
+            network: network
         )
     }
 

@@ -551,7 +551,7 @@ extension AccountMosaicTransactionHostValidator {
     func serializeBroadcastDuringIntentSuspension() async throws {
         let suspension = MosaicOperationSuspensionProbeActor()
         let journalProbe = MosaicAttemptJournalProbeActor(
-            suspendedAppendIndex: 6,
+            suspendedAppendIndex: 7,
             suspensionProbe: suspension
         )
         let prepared = try await makeFinalizedAttempt(journalProbe: journalProbe)
@@ -559,31 +559,31 @@ extension AccountMosaicTransactionHostValidator {
             prepared.lease.reference,
             completeTransaction: prepared.complete
         )
+        let candidate = try await prepared.fixture.host
+            .makeCommittedBroadcastCandidate()
         let broadcastProbe = MosaicBroadcastProbeActor(journalProbe: journalProbe)
-        let coordinator = OpalBase.Account.MosaicTransactionBroadcastCoordinator(
-            reservationReference: prepared.lease.reference,
-            journal: journalProbe.makeJournal(),
-            transactionClient: broadcastProbe.makeClient()
+        let coordinator = try OpalBase.Account.MosaicTransactionBroadcastCoordinator(
+            candidate: candidate,
+            expectedNetwork: prepared.fixture.network,
+            securityProfile: MosaicBroadcastApprovalTestSupport.securityProfile,
+            transactionClient: broadcastProbe.makeClient(),
+            requestApproval: MosaicBroadcastApprovalTestSupport.approve
         )
         let firstBroadcast = Task {
-            try await coordinator.broadcast(prepared.complete)
+            try await coordinator.broadcast()
         }
         await suspension.waitUntilSuspended()
 
         await #expect(throws: OpalBase.Account.MosaicHostFailure.reconciliationRequired) {
-            _ = try await coordinator.broadcast(prepared.complete)
-        }
-        let conflicting = try makeConflictingCompleteTransaction(prepared.complete)
-        await #expect(throws: OpalBase.Account.MosaicHostFailure.conflictingBroadcast) {
-            _ = try await coordinator.broadcast(conflicting)
+            _ = try await coordinator.broadcast()
         }
 
         await suspension.resume()
         let hash = try await firstBroadcast.value
-        let duplicateHash = try await coordinator.broadcast(prepared.complete)
+        let duplicateHash = try await coordinator.broadcast()
         #expect(duplicateHash == hash)
         #expect(await broadcastProbe.readBroadcasts().count == 1)
-        #expect(await journalProbe.readRecords().count == 8)
+        #expect(await journalProbe.readRecords().count == 9)
     }
 
     @Test(
@@ -593,7 +593,7 @@ extension AccountMosaicTransactionHostValidator {
     func cancelAfterBroadcastIntentPersistence() async throws {
         let suspension = MosaicOperationSuspensionProbeActor()
         let journalProbe = MosaicAttemptJournalProbeActor(
-            suspendedAppendIndex: 6,
+            suspendedAppendIndex: 7,
             suspensionProbe: suspension
         )
         let prepared = try await makeFinalizedAttempt(journalProbe: journalProbe)
@@ -601,14 +601,18 @@ extension AccountMosaicTransactionHostValidator {
             prepared.lease.reference,
             completeTransaction: prepared.complete
         )
+        let candidate = try await prepared.fixture.host
+            .makeCommittedBroadcastCandidate()
         let broadcastProbe = MosaicBroadcastProbeActor(journalProbe: journalProbe)
-        let coordinator = OpalBase.Account.MosaicTransactionBroadcastCoordinator(
-            reservationReference: prepared.lease.reference,
-            journal: journalProbe.makeJournal(),
-            transactionClient: broadcastProbe.makeClient()
+        let coordinator = try OpalBase.Account.MosaicTransactionBroadcastCoordinator(
+            candidate: candidate,
+            expectedNetwork: prepared.fixture.network,
+            securityProfile: MosaicBroadcastApprovalTestSupport.securityProfile,
+            transactionClient: broadcastProbe.makeClient(),
+            requestApproval: MosaicBroadcastApprovalTestSupport.approve
         )
         let broadcast = Task {
-            try await coordinator.broadcast(prepared.complete)
+            try await coordinator.broadcast()
         }
         await suspension.waitUntilSuspended()
         broadcast.cancel()
@@ -619,18 +623,19 @@ extension AccountMosaicTransactionHostValidator {
         }
         #expect(await broadcastProbe.readBroadcasts().isEmpty)
         let interruptedRecords = await journalProbe.readRecords()
-        #expect(interruptedRecords.count == 7)
+        #expect(interruptedRecords.count == 8)
         #expect(
             try OpalBase.Account.MosaicAttemptRecoveryPlanner.plan(for: interruptedRecords)
-                == .broadcast(
+                == .resumeApprovedBroadcast(
                     reference: prepared.lease.reference,
-                    transaction: prepared.complete
+                    transaction: prepared.complete,
+                    broadcastIntentPersisted: true
                 )
         )
 
-        _ = try await coordinator.broadcast(prepared.complete)
+        _ = try await coordinator.broadcast()
         #expect(await broadcastProbe.readBroadcasts().count == 1)
-        #expect(await journalProbe.readRecords().count == 8)
+        #expect(await journalProbe.readRecords().count == 9)
     }
 
     @Test("Ambiguous intent failures retain exact operation pins")
@@ -739,29 +744,29 @@ private extension AccountMosaicTransactionHostValidator {
     }
 
     func verifyBroadcastIntentFailurePin() async throws {
-        let journalProbe = MosaicAttemptJournalProbeActor(failingAppendIndices: [6])
+        let journalProbe = MosaicAttemptJournalProbeActor(failingAppendIndices: [7])
         let prepared = try await makeFinalizedAttempt(journalProbe: journalProbe)
         try await prepared.fixture.host.commitMosaicReservation(
             prepared.lease.reference,
             completeTransaction: prepared.complete
         )
+        let candidate = try await prepared.fixture.host
+            .makeCommittedBroadcastCandidate()
         let broadcastProbe = MosaicBroadcastProbeActor(journalProbe: journalProbe)
-        let coordinator = OpalBase.Account.MosaicTransactionBroadcastCoordinator(
-            reservationReference: prepared.lease.reference,
-            journal: journalProbe.makeJournal(),
-            transactionClient: broadcastProbe.makeClient()
+        let coordinator = try OpalBase.Account.MosaicTransactionBroadcastCoordinator(
+            candidate: candidate,
+            expectedNetwork: prepared.fixture.network,
+            securityProfile: MosaicBroadcastApprovalTestSupport.securityProfile,
+            transactionClient: broadcastProbe.makeClient(),
+            requestApproval: MosaicBroadcastApprovalTestSupport.approve
         )
 
         await #expect(throws: OpalBase.Account.MosaicHostFailure.journalPersistenceFailed) {
-            _ = try await coordinator.broadcast(prepared.complete)
+            _ = try await coordinator.broadcast()
         }
-        let conflicting = try makeConflictingCompleteTransaction(prepared.complete)
-        await #expect(throws: OpalBase.Account.MosaicHostFailure.conflictingBroadcast) {
-            _ = try await coordinator.broadcast(conflicting)
-        }
-        _ = try await coordinator.broadcast(prepared.complete)
+        _ = try await coordinator.broadcast()
         #expect(await broadcastProbe.readBroadcasts().count == 1)
-        #expect(await journalProbe.readRecords().count == 8)
+        #expect(await journalProbe.readRecords().count == 9)
     }
 }
 #endif

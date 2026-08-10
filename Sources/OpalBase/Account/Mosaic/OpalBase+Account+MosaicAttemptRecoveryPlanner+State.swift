@@ -22,7 +22,15 @@ extension _OpalBase.Account.MosaicAttemptRecoveryPlanner {
             OpalFusion.Host.MosaicReservationReference,
             OpalFusion.Host.MosaicCompleteTransaction
         )
-        case broadcastIntent(
+        case broadcastApproved(
+            OpalFusion.Host.MosaicReservationReference,
+            OpalFusion.Host.MosaicCompleteTransaction
+        )
+        case unapprovedBroadcastIntent(
+            OpalFusion.Host.MosaicReservationReference,
+            OpalFusion.Host.MosaicCompleteTransaction
+        )
+        case approvedBroadcastIntent(
             OpalFusion.Host.MosaicReservationReference,
             OpalFusion.Host.MosaicCompleteTransaction
         )
@@ -55,14 +63,38 @@ extension _OpalBase.Account.MosaicAttemptRecoveryPlanner {
                 }
                 return .committed(reference, transaction)
             case let (.committed(expectedReference, expectedTransaction),
+                      .broadcastApproved(reference, transaction)):
+                guard expectedReference == reference,
+                      expectedTransaction == transaction else {
+                    throw Error.conflictingTransaction
+                }
+                return .broadcastApproved(reference, transaction)
+            case let (.committed(expectedReference, expectedTransaction),
                       .broadcastIntent(reference, transaction)):
                 guard expectedReference == reference,
                       expectedTransaction == transaction else {
                     throw Error.conflictingTransaction
                 }
-                return .broadcastIntent(reference, transaction)
-            case let (.broadcastIntent(expectedReference, expectedTransaction),
-                      .broadcastAccepted(reference, transaction, hash)):
+                return .unapprovedBroadcastIntent(reference, transaction)
+            case let (.broadcastApproved(expectedReference, expectedTransaction),
+                      .broadcastIntent(reference, transaction)),
+                     let (.unapprovedBroadcastIntent(
+                         expectedReference,
+                         expectedTransaction
+                     ), .broadcastApproved(reference, transaction)):
+                guard expectedReference == reference,
+                      expectedTransaction == transaction else {
+                    throw Error.conflictingTransaction
+                }
+                return .approvedBroadcastIntent(reference, transaction)
+            case let (.approvedBroadcastIntent(
+                          expectedReference,
+                          expectedTransaction
+                      ), .broadcastAccepted(reference, transaction, hash)),
+                     let (.unapprovedBroadcastIntent(
+                          expectedReference,
+                          expectedTransaction
+                      ), .broadcastAccepted(reference, transaction, hash)):
                 guard expectedReference == reference,
                       expectedTransaction == transaction else {
                     throw Error.conflictingTransaction
@@ -93,9 +125,30 @@ extension _OpalBase.Account.MosaicAttemptRecoveryPlanner {
                 .released
             case let .commitIntent(reference, transaction):
                 .finishCommit(reference: reference, transaction: transaction)
-            case let .committed(reference, transaction),
-                 let .broadcastIntent(reference, transaction):
-                .broadcast(reference: reference, transaction: transaction)
+            case let .committed(reference, transaction):
+                .broadcastApprovalRequired(
+                    reference: reference,
+                    transaction: transaction,
+                    broadcastIntentPersisted: false
+                )
+            case let .unapprovedBroadcastIntent(reference, transaction):
+                .broadcastApprovalRequired(
+                    reference: reference,
+                    transaction: transaction,
+                    broadcastIntentPersisted: true
+                )
+            case let .broadcastApproved(reference, transaction):
+                .resumeApprovedBroadcast(
+                    reference: reference,
+                    transaction: transaction,
+                    broadcastIntentPersisted: false
+                )
+            case let .approvedBroadcastIntent(reference, transaction):
+                .resumeApprovedBroadcast(
+                    reference: reference,
+                    transaction: transaction,
+                    broadcastIntentPersisted: true
+                )
             case let .broadcastAccepted(hash):
                 .complete(hash)
             }

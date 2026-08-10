@@ -21,9 +21,15 @@ extension _OpalBase.Account.MosaicAttemptRecoveryPlanner {
             reference: OpalFusion.Host.MosaicReservationReference,
             transaction: OpalFusion.Host.MosaicCompleteTransaction
         )
-        case broadcast(
+        case broadcastApprovalRequired(
             reference: OpalFusion.Host.MosaicReservationReference,
-            transaction: OpalFusion.Host.MosaicCompleteTransaction
+            transaction: OpalFusion.Host.MosaicCompleteTransaction,
+            broadcastIntentPersisted: Bool
+        )
+        case resumeApprovedBroadcast(
+            reference: OpalFusion.Host.MosaicReservationReference,
+            transaction: OpalFusion.Host.MosaicCompleteTransaction,
+            broadcastIntentPersisted: Bool
         )
         case complete(OpalBase.Transaction.Hash)
     }

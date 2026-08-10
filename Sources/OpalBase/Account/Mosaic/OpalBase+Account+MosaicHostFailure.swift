@@ -24,7 +24,8 @@ extension _OpalBase.Account {
         case invalidCompleteTransaction
         case reconciliationRequired
         case journalPersistenceFailed
-        case conflictingBroadcast
+        case broadcastCandidateUnavailable
+        case broadcastNotApproved
     }
 }
 #endif

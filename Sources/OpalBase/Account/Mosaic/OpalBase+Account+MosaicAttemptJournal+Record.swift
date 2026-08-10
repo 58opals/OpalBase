@@ -27,6 +27,10 @@ extension _OpalBase.Account.MosaicAttemptJournal {
             reference: OpalFusion.Host.MosaicReservationReference,
             transaction: OpalFusion.Host.MosaicCompleteTransaction
         )
+        case broadcastApproved(
+            reference: OpalFusion.Host.MosaicReservationReference,
+            transaction: OpalFusion.Host.MosaicCompleteTransaction
+        )
         case broadcastIntent(
             reference: OpalFusion.Host.MosaicReservationReference,
             transaction: OpalFusion.Host.MosaicCompleteTransaction

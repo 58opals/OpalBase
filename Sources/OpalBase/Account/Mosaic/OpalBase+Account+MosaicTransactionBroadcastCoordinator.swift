@@ -5,74 +5,106 @@ import Foundation
 import OpalFusion
 
 extension _OpalBase.Account {
-    /// Persists one exact complete transaction before any broadcast attempt.
+    /// Relays one exact host-committed transaction only after app approval.
     actor MosaicTransactionBroadcastCoordinator {
-        let reservationReference: OpalFusion.Host.MosaicReservationReference
-        let journal: MosaicAttemptJournal
+        let candidate: MosaicCommittedBroadcastCandidate
+        let expectedNetwork: OpalBase.Network.Environment
         let transactionClient: OpalBase.Network.TransactionClient
+        let requestApproval: RequestApproval
 
-        private var pendingTransaction: OpalFusion.Host.MosaicCompleteTransaction?
-        private var broadcastIntentPersisted = false
+        private var approvalPersisted: Bool
+        private var broadcastIntentPersisted: Bool
         private var broadcastInFlight = false
-        private var acceptedTransaction: (
-            transaction: OpalFusion.Host.MosaicCompleteTransaction,
-            hash: OpalBase.Transaction.Hash
-        )?
+        private var acceptedTransactionHash: OpalBase.Transaction.Hash?
 
         init(
-            reservationReference: OpalFusion.Host.MosaicReservationReference,
-            journal: MosaicAttemptJournal,
-            transactionClient: OpalBase.Network.TransactionClient
-        ) {
-            self.reservationReference = reservationReference
-            self.journal = journal
+            candidate: MosaicCommittedBroadcastCandidate,
+            expectedNetwork: OpalBase.Network.Environment,
+            securityProfile: OpalBase.WalletSecurityProfile,
+            transactionClient: OpalBase.Network.TransactionClient,
+            requestApproval: @escaping RequestApproval
+        ) throws {
+            try securityProfile.requireBroadcastingAllowed()
+            guard expectedNetwork.supportsMosaicProfile(candidate.profile),
+                  candidate.reservationRequest.networkGenesisHash
+                    == expectedNetwork.mosaicGenesisHash else {
+                throw MosaicHostFailure.invalidNetworkBinding
+            }
+
+            self.candidate = candidate
+            self.expectedNetwork = expectedNetwork
             self.transactionClient = transactionClient
+            self.requestApproval = requestApproval
+            approvalPersisted = candidate.approvalPersisted
+            broadcastIntentPersisted = candidate.broadcastIntentPersisted
         }
 
-        func broadcast(
-            _ completeTransaction: OpalFusion.Host.MosaicCompleteTransaction
-        ) async throws -> OpalBase.Transaction.Hash {
-            if let acceptedTransaction {
-                guard acceptedTransaction.transaction == completeTransaction else {
-                    throw OpalBase.Account.MosaicHostFailure.conflictingBroadcast
-                }
-                return acceptedTransaction.hash
-            }
-            if let pendingTransaction {
-                guard pendingTransaction == completeTransaction else {
-                    throw OpalBase.Account.MosaicHostFailure.conflictingBroadcast
-                }
-                guard !broadcastInFlight else {
-                    throw OpalBase.Account.MosaicHostFailure.reconciliationRequired
-                }
-            } else {
-                _ = try decodeExactTransaction(completeTransaction)
-                pendingTransaction = completeTransaction
+        func broadcast() async throws -> OpalBase.Transaction.Hash {
+            if let acceptedTransactionHash { return acceptedTransactionHash }
+            guard !broadcastInFlight else {
+                throw OpalBase.Account.MosaicHostFailure.reconciliationRequired
             }
 
             broadcastInFlight = true
             defer { broadcastInFlight = false }
+            try Task.checkCancellation()
+            let transaction = try decodeExactTransaction(
+                candidate.completeTransaction
+            )
+
+            if !approvalPersisted {
+                let decision: ApprovalDecision
+                do {
+                    decision = try await requestApproval(
+                        .init(
+                            reservationRequest: candidate.reservationRequest,
+                            reservationReference: candidate.reservationReference,
+                            completeTransaction: candidate.completeTransaction,
+                            profile: candidate.profile,
+                            network: expectedNetwork
+                        )
+                    )
+                } catch let cancellation as CancellationError {
+                    throw cancellation
+                } catch {
+                    throw OpalBase.Account.MosaicHostFailure
+                        .broadcastNotApproved
+                }
+                try Task.checkCancellation()
+                guard decision == .approved else {
+                    throw OpalBase.Account.MosaicHostFailure
+                        .broadcastNotApproved
+                }
+                try await persist(
+                    .broadcastApproved(
+                        reference: candidate.reservationReference,
+                        transaction: candidate.completeTransaction
+                    )
+                )
+                approvalPersisted = true
+            }
+
             if !broadcastIntentPersisted {
+                try Task.checkCancellation()
                 try await persist(
                     .broadcastIntent(
-                        reference: reservationReference,
-                        transaction: completeTransaction
+                        reference: candidate.reservationReference,
+                        transaction: candidate.completeTransaction
                     )
                 )
                 broadcastIntentPersisted = true
             }
             try Task.checkCancellation()
 
-            let transaction = try decodeExactTransaction(completeTransaction)
             let hash = try await transactionClient.broadcast(transaction: transaction)
             try await persist(
                 .broadcastAccepted(
-                    reference: reservationReference,
-                    transaction: completeTransaction,
+                    reference: candidate.reservationReference,
+                    transaction: candidate.completeTransaction,
                     transactionHash: hash
                 )
             )
-            acceptedTransaction = (completeTransaction, hash)
+            acceptedTransactionHash = hash
             return hash
         }
 
@@ -98,7 +130,7 @@ extension _OpalBase.Account {
             _ record: MosaicAttemptJournal.Record
         ) async throws {
             do {
-                try await journal.append(record)
+                try await candidate.journal.append(record)
             } catch let cancellation as CancellationError {
                 throw cancellation
             } catch {
