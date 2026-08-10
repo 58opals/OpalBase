@@ -223,8 +223,21 @@ extension AccountMosaicTransactionHostValidator {
             maximumExcessFeeSatoshis: 3,
             requiredExcessFeeSatoshis: 3
         )
+        let legacyAlpha3Profile = try OpalFusion.Host.MosaicReservationRequest(
+            attemptIdentifier: valid.attemptIdentifier,
+            networkGenesisHash: valid.networkGenesisHash,
+            roundIdentifier: valid.roundIdentifier,
+            expiresAt: valid.expiresAt,
+            componentCount: valid.componentCount,
+            feeRateSatoshisPerByte: valid.feeRateSatoshisPerByte,
+            minimumExcessFeeSatoshis: valid.minimumExcessFeeSatoshis,
+            maximumExcessFeeSatoshis: valid.maximumExcessFeeSatoshis,
+            requiredExcessFeeSatoshis: valid.requiredExcessFeeSatoshis,
+            transactionProfileIdentifier:
+                "bch-mainnet-p2pkh-schnorr/0-opal-mainnet-alpha.3"
+        )
 
-        for request in [zeroShare, excessiveShare] {
+        for request in [zeroShare, excessiveShare, legacyAlpha3Profile] {
             await #expect(
                 throws: OpalBase.Account.MosaicHostFailure.invalidReservationProfile
             ) {
