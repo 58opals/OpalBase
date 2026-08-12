@@ -82,7 +82,8 @@ extension _OpalBase.Account {
 extension _OpalBase.Account.MosaicTransactionHostActor {
     func makeCommittedBroadcastCandidate() throws
         -> OpalBase.Account.MosaicCommittedBroadcastCandidate {
-        guard let reservationRequest,
+        guard lifecycle == .committed,
+              let reservationRequest,
               let reservationLease,
               let committedCompleteTransaction else {
             throw OpalBase.Account.MosaicHostFailure.broadcastCandidateUnavailable

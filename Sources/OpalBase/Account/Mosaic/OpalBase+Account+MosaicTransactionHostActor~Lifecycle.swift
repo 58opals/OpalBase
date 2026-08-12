@@ -9,18 +9,22 @@ extension _OpalBase.Account.MosaicTransactionHostActor {
         _ reservationReference: OpalFusion.Host.MosaicReservationReference
     ) async throws {
         try requireMatchingReference(reservationReference)
-        if isReleased { return }
-        guard !releaseStarted else {
+        switch lifecycle {
+        case .released:
+            return
+        case .releaseIntent, .validating, .signingIntent,
+             .localSignaturePending, .localSignaturePersisting, .locallySigned:
             throw OpalBase.Account.MosaicHostFailure.reconciliationRequired
-        }
-        guard !commitStarted, committedCompleteTransaction == nil else {
+        case .commitPending, .commitIntentPersisting, .commitRecovery,
+             .committing, .committed:
             throw OpalBase.Account.MosaicHostFailure.terminalReservation
-        }
-        guard !finalizationInFlight, !signingStarted, finalizedTransaction == nil else {
+        case .idle, .reservationIntent:
             throw OpalBase.Account.MosaicHostFailure.reconciliationRequired
+        case .reserved, .finalizationPending:
+            break
         }
 
-        releaseStarted = true
+        lifecycle = .releaseIntent
         try await persist(.releaseIntent(reservationReference))
         expirationTask?.cancel()
         await addressBook.releaseUTXOs(Set(selectedInputs))
@@ -34,7 +38,7 @@ extension _OpalBase.Account.MosaicTransactionHostActor {
         finalizedRequest = nil
         finalizedTransaction = nil
         try await persist(.released(reservationReference))
-        isReleased = true
+        lifecycle = .released
     }
 
     func commitMosaicReservation(
@@ -50,65 +54,90 @@ extension _OpalBase.Account.MosaicTransactionHostActor {
         completeTransaction requestedTransaction: OpalFusion.Host.MosaicCompleteTransaction
     ) async throws {
         try requireMatchingReference(reservationReference)
-        if let committedCompleteTransaction {
+        switch lifecycle {
+        case .committed:
+            guard let committedCompleteTransaction else {
+                throw OpalBase.Account.MosaicHostFailure.reconciliationRequired
+            }
             guard committedCompleteTransaction == requestedTransaction else {
                 throw OpalBase.Account.MosaicHostFailure.conflictingCompleteTransaction
             }
             return
-        }
-        if let pendingCompleteTransaction {
+        case .commitIntentPersisting, .committing:
+            guard let pendingCompleteTransaction else {
+                throw OpalBase.Account.MosaicHostFailure.reconciliationRequired
+            }
             guard pendingCompleteTransaction == requestedTransaction else {
                 throw OpalBase.Account.MosaicHostFailure.conflictingCompleteTransaction
             }
-            guard !commitInFlight else {
+            throw OpalBase.Account.MosaicHostFailure.reconciliationRequired
+        case .commitPending, .commitRecovery:
+            guard let pendingCompleteTransaction else {
                 throw OpalBase.Account.MosaicHostFailure.reconciliationRequired
             }
-        }
-        guard !releaseStarted, !isReleased else {
+            guard pendingCompleteTransaction == requestedTransaction else {
+                throw OpalBase.Account.MosaicHostFailure.conflictingCompleteTransaction
+            }
+        case .releaseIntent, .released:
             throw OpalBase.Account.MosaicHostFailure.terminalReservation
-        }
-        guard !finalizationInFlight,
-              finalizedRequest != nil,
-              finalizedTransaction != nil else {
+        case .validating, .localSignaturePersisting, .reserved,
+             .finalizationPending, .signingIntent:
             throw OpalBase.Account.MosaicHostFailure.finalizationRequired
-        }
-        guard locallySignedPersisted else {
+        case .localSignaturePending:
             throw OpalBase.Account.MosaicHostFailure.reconciliationRequired
-        }
-        if pendingCompleteTransaction == nil {
+        case .locallySigned:
+            guard finalizedRequest != nil,
+                  finalizedTransaction != nil,
+                  pendingCompleteTransaction == nil else {
+                throw OpalBase.Account.MosaicHostFailure.reconciliationRequired
+            }
             _ = try validateCompleteTransaction(requestedTransaction)
             pendingCompleteTransaction = requestedTransaction
+            lifecycle = .commitPending
+        case .idle, .reservationIntent:
+            throw OpalBase.Account.MosaicHostFailure.reconciliationRequired
         }
 
-        commitStarted = true
-        commitInFlight = true
-        defer { commitInFlight = false }
-        if !commitIntentPersisted {
+        switch lifecycle {
+        case .commitPending:
+            lifecycle = .commitIntentPersisting
+            do {
+                try await persist(
+                    .commitIntent(
+                        reference: reservationReference,
+                        transaction: requestedTransaction
+                    )
+                )
+            } catch {
+                lifecycle = .commitPending
+                throw error
+            }
+            lifecycle = .committing
+        case .commitRecovery:
+            lifecycle = .committing
+        default:
+            throw OpalBase.Account.MosaicHostFailure.reconciliationRequired
+        }
+
+        do {
+            expirationTask?.cancel()
+            for selectedInput in selectedInputs {
+                await addressBook.removeUTXO(selectedInput)
+            }
+            try await retireReceivingEntries(reservedReceivingEntries)
             try await persist(
-                .commitIntent(
+                .committed(
                     reference: reservationReference,
                     transaction: requestedTransaction
                 )
             )
-            commitIntentPersisted = true
-        }
-        expirationTask?.cancel()
-        for selectedInput in selectedInputs {
-            await addressBook.removeUTXO(selectedInput)
-        }
-        do {
-            try await retireReceivingEntries(reservedReceivingEntries)
         } catch {
-            throw OpalBase.Account.MosaicHostFailure.reservationCleanupFailed
+            lifecycle = .commitRecovery
+            throw error
         }
-        try await persist(
-            .committed(
-                reference: reservationReference,
-                transaction: requestedTransaction
-            )
-        )
         reservedInputs.removeAll()
         committedCompleteTransaction = requestedTransaction
+        lifecycle = .committed
     }
 
     func expireMosaicReservation(
@@ -118,8 +147,8 @@ extension _OpalBase.Account.MosaicTransactionHostActor {
         try requireMatchingReference(reservationReference)
         guard let reservationLease,
               date >= reservationLease.expiresAt,
-              !isReleased,
-              committedCompleteTransaction == nil else {
+              lifecycle != .released,
+              lifecycle != .committed else {
             return
         }
         try await releaseMosaicReservation(reservationReference)

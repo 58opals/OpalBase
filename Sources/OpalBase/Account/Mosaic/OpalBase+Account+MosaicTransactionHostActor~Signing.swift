@@ -9,70 +9,122 @@ extension _OpalBase.Account.MosaicTransactionHostActor {
         for request: OpalFusion.Host.MosaicTransactionSigningRequest
     ) async throws -> OpalFusion.Host.FinalizedTransaction {
         try requireMatchingReference(request.reservationReference)
-        guard !releaseStarted, !commitStarted, !isReleased,
-              committedCompleteTransaction == nil,
-              let reservationLease else {
+        guard let reservationLease else {
             throw OpalBase.Account.MosaicHostFailure.terminalReservation
+        }
+        switch lifecycle {
+        case .commitPending, .commitIntentPersisting, .commitRecovery,
+             .committing, .committed, .releaseIntent, .released:
+            throw OpalBase.Account.MosaicHostFailure.terminalReservation
+        case .idle, .reservationIntent, .reserved, .finalizationPending,
+             .validating, .signingIntent, .localSignaturePending,
+             .localSignaturePersisting, .locallySigned:
+            break
         }
         if currentDate() >= reservationLease.expiresAt {
             try await releaseMosaicReservation(request.reservationReference)
             throw OpalBase.Account.MosaicHostFailure.reservationExpired
         }
-        if let finalizedRequest, let finalizedTransaction {
+        switch lifecycle {
+        case .localSignaturePending:
+            guard let finalizedRequest, let finalizedTransaction else {
+                throw OpalBase.Account.MosaicHostFailure.reconciliationRequired
+            }
             guard finalizedRequest == request else {
                 throw OpalBase.Account.MosaicHostFailure.conflictingFinalization
             }
-            guard !finalizationInFlight else {
-                throw OpalBase.Account.MosaicHostFailure.reconciliationRequired
-            }
-            if !locallySignedPersisted {
-                finalizationInFlight = true
-                defer { finalizationInFlight = false }
+            lifecycle = .localSignaturePersisting
+            do {
                 try await persist(
                     .locallySigned(
                         reference: request.reservationReference,
                         transaction: finalizedTransaction
                     )
                 )
-                locallySignedPersisted = true
+            } catch {
+                lifecycle = .localSignaturePending
+                throw error
+            }
+            lifecycle = .locallySigned
+            return finalizedTransaction
+        case .localSignaturePersisting:
+            guard let finalizedRequest else {
+                throw OpalBase.Account.MosaicHostFailure.reconciliationRequired
+            }
+            guard finalizedRequest == request else {
+                throw OpalBase.Account.MosaicHostFailure.conflictingFinalization
+            }
+            throw OpalBase.Account.MosaicHostFailure.reconciliationRequired
+        case .locallySigned:
+            guard let finalizedRequest, let finalizedTransaction else {
+                throw OpalBase.Account.MosaicHostFailure.reconciliationRequired
+            }
+            guard finalizedRequest == request else {
+                throw OpalBase.Account.MosaicHostFailure.conflictingFinalization
             }
             return finalizedTransaction
-        }
-
-        if let pendingFinalizationRequest {
+        case .finalizationPending:
+            guard let pendingFinalizationRequest else {
+                throw OpalBase.Account.MosaicHostFailure.reconciliationRequired
+            }
             guard pendingFinalizationRequest == request else {
                 throw OpalBase.Account.MosaicHostFailure.conflictingFinalization
             }
-            guard !finalizationInFlight, !signingStarted else {
+        case .reserved:
+            pendingFinalizationRequest = request
+            lifecycle = .finalizationPending
+        case .validating, .signingIntent:
+            guard let pendingFinalizationRequest else {
                 throw OpalBase.Account.MosaicHostFailure.reconciliationRequired
             }
-        } else {
-            pendingFinalizationRequest = request
+            guard pendingFinalizationRequest == request else {
+                throw OpalBase.Account.MosaicHostFailure.conflictingFinalization
+            }
+            throw OpalBase.Account.MosaicHostFailure.reconciliationRequired
+        case .idle, .reservationIntent:
+            throw OpalBase.Account.MosaicHostFailure.reconciliationRequired
+        case .commitPending, .commitIntentPersisting, .commitRecovery,
+             .committing, .committed, .releaseIntent, .released:
+            throw OpalBase.Account.MosaicHostFailure.terminalReservation
         }
-        finalizationInFlight = true
-        defer { finalizationInFlight = false }
 
-        let proposal = try validateTransactionProposal(request)
+        lifecycle = .validating
+        let proposal: (
+            transaction: OpalBase.Transaction,
+            feeSatoshis: UInt64,
+            assignments: [(
+                index: Int,
+                record: OpalBase.Account.MosaicReservedInputRecord
+            )]
+        )
         do {
-            try await transactionPolicy.validate(
-                transaction: proposal.transaction,
-                request: request,
-                feeSatoshis: proposal.feeSatoshis
-            )
-        } catch let cancellation as CancellationError {
-            throw cancellation
+            proposal = try validateTransactionProposal(request)
+            do {
+                try await transactionPolicy.validate(
+                    transaction: proposal.transaction,
+                    request: request,
+                    feeSatoshis: proposal.feeSatoshis
+                )
+            } catch let cancellation as CancellationError {
+                throw cancellation
+            } catch {
+                throw OpalBase.Account.MosaicHostFailure.transactionPolicyRejected
+            }
+
+            try Task.checkCancellation()
+            if currentDate() >= reservationLease.expiresAt {
+                lifecycle = .finalizationPending
+                try await releaseMosaicReservation(request.reservationReference)
+                throw OpalBase.Account.MosaicHostFailure.reservationExpired
+            }
         } catch {
-            throw OpalBase.Account.MosaicHostFailure.transactionPolicyRejected
+            if lifecycle == .validating {
+                lifecycle = .finalizationPending
+            }
+            throw error
         }
 
-        try Task.checkCancellation()
-        if currentDate() >= reservationLease.expiresAt {
-            finalizationInFlight = false
-            try await releaseMosaicReservation(request.reservationReference)
-            throw OpalBase.Account.MosaicHostFailure.reservationExpired
-        }
-
-        signingStarted = true
+        lifecycle = .signingIntent
         try await persist(.signingIntent(request))
         try Task.checkCancellation()
         guard currentDate() < reservationLease.expiresAt else {
@@ -98,13 +150,19 @@ extension _OpalBase.Account.MosaicTransactionHostActor {
             )
             finalizedRequest = request
             finalizedTransaction = finalized
-            try await persist(
-                .locallySigned(
-                    reference: request.reservationReference,
-                    transaction: finalized
+            lifecycle = .localSignaturePersisting
+            do {
+                try await persist(
+                    .locallySigned(
+                        reference: request.reservationReference,
+                        transaction: finalized
+                    )
                 )
-            )
-            locallySignedPersisted = true
+            } catch {
+                lifecycle = .localSignaturePending
+                throw error
+            }
+            lifecycle = .locallySigned
             return finalized
         } catch let cancellation as CancellationError {
             throw cancellation

@@ -8,17 +8,31 @@ extension _OpalBase.Account.MosaicTransactionHostActor {
     func reserveMosaicContribution(
         for request: OpalFusion.Host.MosaicReservationRequest
     ) async throws -> OpalFusion.Host.MosaicReservationLease {
-        if let existingRequest = reservationRequest {
+        switch lifecycle {
+        case .idle:
+            break
+        case .reservationIntent, .reserved, .finalizationPending, .validating,
+             .signingIntent, .localSignaturePending, .localSignaturePersisting,
+             .locallySigned, .commitPending, .commitIntentPersisting,
+             .commitRecovery, .committing, .committed, .releaseIntent, .released:
+            guard let existingRequest = reservationRequest else {
+                throw OpalBase.Account.MosaicHostFailure.reconciliationRequired
+            }
             guard existingRequest == request else {
                 throw OpalBase.Account.MosaicHostFailure.inPlaceRetryNotPermitted
             }
             guard let reservationLease else {
                 throw OpalBase.Account.MosaicHostFailure.reconciliationRequired
             }
-            guard !releaseStarted, !commitStarted, !isReleased else {
+            switch lifecycle {
+            case .commitPending, .commitIntentPersisting, .commitRecovery,
+                 .committing, .committed, .releaseIntent, .released:
                 throw OpalBase.Account.MosaicHostFailure.terminalReservation
+            case .idle, .reservationIntent, .reserved, .finalizationPending,
+                 .validating, .signingIntent, .localSignaturePending,
+                .localSignaturePersisting, .locallySigned:
+                return reservationLease
             }
-            return reservationLease
         }
 
         guard request.networkGenesisHash == expectedNetworkGenesisHash else {
@@ -54,6 +68,7 @@ extension _OpalBase.Account.MosaicTransactionHostActor {
             generation: generation
         )
         reservationRequest = request
+        lifecycle = .reservationIntent
         try await persist(
             .reservationIntent(
                 reference: reference,
@@ -126,16 +141,17 @@ extension _OpalBase.Account.MosaicTransactionHostActor {
             reservedInputs = inputRecords
             reservedReceivingEntries = receivingEntries
             reservationLease = lease
+            lifecycle = .reserved
             scheduleExpiration(for: lease)
             return lease
         } catch {
             do {
                 try await persist(.releaseIntent(reference))
             } catch {
-                releaseStarted = true
+                lifecycle = .releaseIntent
                 throw error
             }
-            releaseStarted = true
+            lifecycle = .releaseIntent
             await addressBook.releaseUTXOs(Set(selectedInputs))
             do {
                 try await retireReceivingEntries(receivingEntries)
@@ -143,7 +159,7 @@ extension _OpalBase.Account.MosaicTransactionHostActor {
                 throw OpalBase.Account.MosaicHostFailure.reservationCleanupFailed
             }
             try await persist(.released(reference))
-            isReleased = true
+            lifecycle = .released
             if let cancellation = error as? CancellationError {
                 throw cancellation
             }

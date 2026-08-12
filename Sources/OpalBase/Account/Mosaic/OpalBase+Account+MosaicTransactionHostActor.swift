@@ -7,6 +7,25 @@ import OpalFusion
 extension _OpalBase.Account {
     /// Profile-bound wallet authority for one non-resumable Mosaic attempt.
     actor MosaicTransactionHostActor: OpalFusion.Host.MosaicCompleteTransactionHost {
+        enum Lifecycle: Sendable, Equatable {
+            case idle
+            case reservationIntent
+            case reserved
+            case finalizationPending
+            case validating
+            case signingIntent
+            case localSignaturePending
+            case localSignaturePersisting
+            case locallySigned
+            case commitPending
+            case commitIntentPersisting
+            case commitRecovery
+            case committing
+            case committed
+            case releaseIntent
+            case released
+        }
+
         let addressBook: OpalBase.Address.Book
         let expectedNetworkGenesisHash: [UInt8]
         let profile: OpalFusion.Mosaic.Profile
@@ -28,19 +47,12 @@ extension _OpalBase.Account {
         var reservedInputs: [MosaicReservedInputRecord] = []
         var reservedReceivingEntries: [OpalBase.Address.Book.Entry] = []
         var expirationTask: Task<Void, Never>?
-        var releaseStarted = false
-        var commitStarted = false
-        var commitInFlight = false
-        var commitIntentPersisted = false
-        var isReleased = false
+        var lifecycle: Lifecycle = .idle
         var pendingFinalizationRequest: OpalFusion.Host.MosaicTransactionSigningRequest?
-        var finalizationInFlight = false
         var finalizedRequest: OpalFusion.Host.MosaicTransactionSigningRequest?
         var finalizedTransaction: OpalFusion.Host.FinalizedTransaction?
-        var locallySignedPersisted = false
         var pendingCompleteTransaction: OpalFusion.Host.MosaicCompleteTransaction?
         var committedCompleteTransaction: OpalFusion.Host.MosaicCompleteTransaction?
-        var signingStarted = false
         var signingInvocationCount = 0
 
         init(
