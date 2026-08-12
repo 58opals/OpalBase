@@ -817,7 +817,7 @@ struct AccountMosaicAttemptRecoveryValidator {
         }
 
         await prepared.fixture.addressBook.addUTXO(prepared.fixture.selectedInput)
-        let invalidRequest = try OpalFusion.Host.MosaicReservationRequest(
+        let futureVersionRequest = try OpalFusion.Host.MosaicReservationRequest(
             attemptIdentifier: request.attemptIdentifier,
             networkGenesisHash: request.networkGenesisHash,
             roundIdentifier: request.roundIdentifier,
@@ -827,12 +827,13 @@ struct AccountMosaicAttemptRecoveryValidator {
             minimumExcessFeeSatoshis: request.minimumExcessFeeSatoshis,
             maximumExcessFeeSatoshis: request.maximumExcessFeeSatoshis,
             requiredExcessFeeSatoshis: request.requiredExcessFeeSatoshis,
-            transactionProfileIdentifier: "invalid-mosaic-profile"
+            transactionProfileIdentifier:
+                "bch-mainnet-p2pkh-schnorr/0-opal-mainnet-alpha.5"
         )
-        var invalidCandidateRecords = records
-        invalidCandidateRecords[0] = .reservationIntent(
+        var futureVersionRecords = records
+        futureVersionRecords[0] = .reservationIntent(
             reference: reference,
-            request: invalidRequest,
+            request: futureVersionRequest,
             selectedInputs: selectedInputs,
             outputAmountsSatoshis: outputAmountsSatoshis
         )
@@ -841,7 +842,7 @@ struct AccountMosaicAttemptRecoveryValidator {
                 .invalidBroadcastCandidate
         ) {
             _ = try await gate.restoreInputQuarantineAndPlan(
-                from: invalidCandidateRecords
+                from: futureVersionRecords
             )
         }
         #expect(

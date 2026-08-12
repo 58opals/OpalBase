@@ -52,6 +52,15 @@ struct AccountMosaicProfileTransactionPolicyValidator {
 
     @Test("Mainnet alpha applies the same exact transaction rules")
     func acceptValidMainnetAlphaTransaction() async throws {
+        #expect(
+            OpalFusion.Mosaic.Profile.opalMainnetAlpha.rawValue
+                == "Mosaic/0-opal-mainnet-alpha.4"
+        )
+        #expect(
+            OpalFusion.Mosaic.Profile.opalMainnetAlpha
+                .transactionProfileIdentifier
+                == "bch-mainnet-p2pkh-schnorr/0-opal-mainnet-alpha.4"
+        )
         let higherShare = try Fixture.makeScenario(
             profile: .opalMainnetAlpha,
             network: .mainnet

@@ -6,6 +6,11 @@ import OpalFusion
 extension _OpalBase.Account {
     /// Exact wallet-side fee terms for the two explicitly supported Mosaic profiles.
     struct MosaicProfileContributionPolicy: Sendable, Equatable {
+        private static let mainnetAlphaProfileIdentifier =
+            "Mosaic/0-opal-mainnet-alpha.4"
+        private static let mainnetAlphaTransactionProfileIdentifier =
+            "bch-mainnet-p2pkh-schnorr/0-opal-mainnet-alpha.4"
+
         let profile: OpalFusion.Mosaic.Profile
         let feeRateSatoshisPerByte: UInt64
         let minimumExcessFeeSatoshis: UInt64
@@ -19,6 +24,11 @@ extension _OpalBase.Account {
                 minimumExcessFeeSatoshis = 0
                 maximumExcessFeeSatoshis = 0
             case .opalMainnetAlpha:
+                guard profile.rawValue == Self.mainnetAlphaProfileIdentifier,
+                      profile.transactionProfileIdentifier
+                        == Self.mainnetAlphaTransactionProfileIdentifier else {
+                    return nil
+                }
                 feeRateSatoshisPerByte = 1
                 minimumExcessFeeSatoshis = 1
                 maximumExcessFeeSatoshis = 2
