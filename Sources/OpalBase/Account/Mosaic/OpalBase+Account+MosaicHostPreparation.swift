@@ -11,7 +11,7 @@ extension _OpalBase.Account {
         selectedInputs: [OpalBase.Transaction.Output.Unspent],
         outputAmountsSatoshis: [UInt64],
         transactionReader: OpalBase.Network.TransactionReader,
-        attemptJournal: MosaicAttemptJournal
+        freshAttempt: consuming MosaicAttemptJournalStore.FreshAttempt
     ) throws -> MosaicTransactionHostActor {
         try requirePrivateKeyMaterial()
         return try MosaicTransactionHostActor(
@@ -26,7 +26,7 @@ extension _OpalBase.Account {
                 network: network,
                 transactionReader: transactionReader
             ),
-            attemptJournal: attemptJournal
+            freshAttempt: freshAttempt
         )
     }
 }

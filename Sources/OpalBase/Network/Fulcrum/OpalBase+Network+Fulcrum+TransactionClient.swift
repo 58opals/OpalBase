@@ -7,10 +7,12 @@ extension _OpalBase.Network.Fulcrum {
     public struct TransactionClient: OpalBase.Network.TransactionBroadcastClient, OpalBase.Network.TransactionConfirmationClient {
         private let client: Client
         private let timeouts: OpalBase.Network.FulcrumRequestTimeout
+        let network: OpalBase.Network.Environment
         
         public init(client: Client, timeouts: OpalBase.Network.FulcrumRequestTimeout = .init()) {
             self.client = client
             self.timeouts = timeouts
+            network = client.configuration.network
         }
         
         public func broadcastTransaction(rawTransactionHexadecimal: String) async throws -> String {

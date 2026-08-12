@@ -10,11 +10,25 @@ extension _OpalBase.Account.MosaicAttemptJournal {
         let amountSatoshis: UInt64
         let lockingScript: Data
 
+        init(
+            transactionHash: Data,
+            outputIndex: UInt32,
+            amountSatoshis: UInt64,
+            lockingScript: Data
+        ) {
+            self.transactionHash = Data(transactionHash)
+            self.outputIndex = outputIndex
+            self.amountSatoshis = amountSatoshis
+            self.lockingScript = Data(lockingScript)
+        }
+
         init(_ input: OpalBase.Transaction.Output.Unspent) {
-            transactionHash = input.previousTransactionHash.naturalOrder
-            outputIndex = input.previousTransactionOutputIndex
-            amountSatoshis = input.value
-            lockingScript = input.lockingScript
+            self.init(
+                transactionHash: input.previousTransactionHash.naturalOrder,
+                outputIndex: input.previousTransactionOutputIndex,
+                amountSatoshis: input.value,
+                lockingScript: input.lockingScript
+            )
         }
     }
 }

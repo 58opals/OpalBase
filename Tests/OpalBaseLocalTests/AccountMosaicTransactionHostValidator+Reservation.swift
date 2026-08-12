@@ -17,7 +17,6 @@ extension AccountMosaicTransactionHostValidator {
             hashByte: 0xb1
         )
         let addressBook = await account.addressBook
-        let journalProbe = MosaicAttemptJournalProbeActor()
         let mismatchedPolicyBindings: [
             (
                 hostProfile: OpalFusion.Mosaic.Profile,
@@ -30,14 +29,13 @@ extension AccountMosaicTransactionHostValidator {
             (.opalV0, .chipnet, .opalV0, .mainnet)
         ]
         for binding in mismatchedPolicyBindings {
+            let journalProbe = MosaicAttemptJournalProbeActor()
+            let freshAttempt = try await journalProbe.makeFreshAttempt()
             let policy = OpalBase.Account.MosaicTransactionPolicy(
                 profile: binding.policyProfile,
                 network: binding.policyNetwork
             ) { _, _, _ in }
-            #expect(
-                throws: OpalBase.Account.MosaicHostFailure
-                    .invalidProfileNetworkBinding
-            ) {
+            do {
                 _ = try OpalBase.Account.MosaicTransactionHostActor(
                     addressBook: addressBook,
                     profile: binding.hostProfile,
@@ -46,8 +44,11 @@ extension AccountMosaicTransactionHostValidator {
                     selectedInputs: [input],
                     outputAmountsSatoshis: [90_000],
                     transactionPolicy: policy,
-                    attemptJournal: journalProbe.makeJournal()
+                    freshAttempt: freshAttempt
                 )
+                Issue.record("Expected invalid profile-network binding")
+            } catch let failure as OpalBase.Account.MosaicHostFailure {
+                #expect(failure == .invalidProfileNetworkBinding)
             }
         }
         let unsupportedPairs: [
@@ -60,14 +61,13 @@ extension AccountMosaicTransactionHostValidator {
             (.opalMainnetAlpha, .testnet)
         ]
         for (profile, network) in unsupportedPairs {
+            let journalProbe = MosaicAttemptJournalProbeActor()
+            let freshAttempt = try await journalProbe.makeFreshAttempt()
             let policy = OpalBase.Account.MosaicTransactionPolicy(
                 profile: profile,
                 network: network
             ) { _, _, _ in }
-            #expect(
-                throws: OpalBase.Account.MosaicHostFailure
-                    .invalidProfileNetworkBinding
-            ) {
+            do {
                 _ = try OpalBase.Account.MosaicTransactionHostActor(
                     addressBook: addressBook,
                     profile: profile,
@@ -76,13 +76,19 @@ extension AccountMosaicTransactionHostValidator {
                     selectedInputs: [input],
                     outputAmountsSatoshis: [90_000],
                     transactionPolicy: policy,
-                    attemptJournal: .init { _ in }
+                    freshAttempt: freshAttempt
                 )
+                Issue.record("Expected unsupported profile-network binding")
+            } catch let failure as OpalBase.Account.MosaicHostFailure {
+                #expect(failure == .invalidProfileNetworkBinding)
             }
         }
 
         let policy = await MosaicPolicyProbeActor().transactionPolicy
-        #expect(throws: OpalBase.Account.MosaicHostFailure.invalidContributionPolicy) {
+        let malformedJournalProbe = MosaicAttemptJournalProbeActor()
+        let malformedFreshAttempt = try await malformedJournalProbe
+            .makeFreshAttempt()
+        do {
             _ = try OpalBase.Account.MosaicTransactionHostActor(
                 addressBook: addressBook,
                 profile: .opalV0,
@@ -91,10 +97,13 @@ extension AccountMosaicTransactionHostValidator {
                 selectedInputs: [],
                 outputAmountsSatoshis: [90_000],
                 transactionPolicy: policy,
-                attemptJournal: .init { _ in }
+                freshAttempt: malformedFreshAttempt
             )
+            Issue.record("Expected malformed contribution rejection")
+        } catch let failure as OpalBase.Account.MosaicHostFailure {
+            #expect(failure == .invalidContributionPolicy)
         }
-        #expect(await journalProbe.readRecords().isEmpty)
+        #expect(await malformedJournalProbe.readRecords().isEmpty)
         #expect(await addressBook.listSpendableUTXOs().contains(input))
     }
 
@@ -338,14 +347,13 @@ extension AccountMosaicTransactionHostValidator {
         )
         let addressBook = await account.addressBook
         let journalProbe = MosaicAttemptJournalProbeActor()
+        let freshAttempt = try await journalProbe.makeFreshAttempt()
         let policy = OpalBase.Account.MosaicTransactionPolicy(
             profile: profile,
             network: network
         ) { _, _, _ in }
 
-        #expect(
-            throws: OpalBase.Account.MosaicHostFailure.invalidContributionPolicy
-        ) {
+        do {
             _ = try OpalBase.Account.MosaicTransactionHostActor(
                 addressBook: addressBook,
                 profile: profile,
@@ -354,8 +362,11 @@ extension AccountMosaicTransactionHostValidator {
                 selectedInputs: [firstInput, secondInput],
                 outputAmountsSatoshis: [1],
                 transactionPolicy: policy,
-                attemptJournal: journalProbe.makeJournal()
+                freshAttempt: freshAttempt
             )
+            Issue.record("Expected contribution overflow rejection")
+        } catch let failure as OpalBase.Account.MosaicHostFailure {
+            #expect(failure == .invalidContributionPolicy)
         }
         #expect(await journalProbe.readRecords().isEmpty)
         let spendable = await addressBook.listSpendableUTXOs()

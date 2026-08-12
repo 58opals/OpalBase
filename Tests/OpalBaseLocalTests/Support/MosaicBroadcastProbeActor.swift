@@ -18,8 +18,10 @@ actor MosaicBroadcastProbeActor {
         self.failuresRemaining = failuresRemaining
     }
 
-    nonisolated func makeClient() -> OpalBase.Network.TransactionClient {
-        .init(
+    nonisolated func makeClient(
+        testingNetwork network: OpalBase.Network.Environment
+    ) -> OpalBase.Account.MosaicNetworkAttestedTransactionClient {
+        let client = OpalBase.Network.TransactionClient(
             broadcastTransaction: { rawTransaction in
                 try await self.broadcast(rawTransaction)
             },
@@ -33,6 +35,7 @@ actor MosaicBroadcastProbeActor {
                 )
             }
         )
+        return .init(testingNetwork: network, transactionClient: client)
     }
 
     func readBroadcasts() -> [String] {

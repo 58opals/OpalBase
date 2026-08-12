@@ -2,10 +2,23 @@
 
 #if os(macOS)
 import OpalFusion
+import Synchronization
 
 extension _OpalBase.Account {
     /// Exact host-committed authority carried to the app-owned broadcast boundary.
     struct MosaicCommittedBroadcastCandidate: Sendable {
+        final class CoordinatorClaim: Sendable {
+            private let claimed = Mutex(false)
+
+            func claim() -> Bool {
+                claimed.withLock { claimed in
+                    guard !claimed else { return false }
+                    claimed = true
+                    return true
+                }
+            }
+        }
+
         let reservationRequest: OpalFusion.Host.MosaicReservationRequest
         let reservationReference: OpalFusion.Host.MosaicReservationReference
         let completeTransaction: OpalFusion.Host.MosaicCompleteTransaction
@@ -13,6 +26,7 @@ extension _OpalBase.Account {
         let journal: MosaicAttemptJournal
         let approvalPersisted: Bool
         let broadcastIntentPersisted: Bool
+        private let coordinatorClaim: CoordinatorClaim
 
         fileprivate init(
             reservationRequest: OpalFusion.Host.MosaicReservationRequest,
@@ -20,7 +34,8 @@ extension _OpalBase.Account {
             completeTransaction: OpalFusion.Host.MosaicCompleteTransaction,
             journal: MosaicAttemptJournal,
             approvalPersisted: Bool,
-            broadcastIntentPersisted: Bool
+            broadcastIntentPersisted: Bool,
+            coordinatorClaim: CoordinatorClaim = .init()
         ) throws {
             let supportedProfiles: [OpalFusion.Mosaic.Profile] = [
                 .opalV0,
@@ -56,6 +71,7 @@ extension _OpalBase.Account {
             self.journal = journal
             self.approvalPersisted = approvalPersisted
             self.broadcastIntentPersisted = broadcastIntentPersisted
+            self.coordinatorClaim = coordinatorClaim
         }
 
         init(
@@ -76,6 +92,10 @@ extension _OpalBase.Account {
                 broadcastIntentPersisted: broadcastIntentPersisted
             )
         }
+
+        func claimBroadcastCoordinator() -> Bool {
+            coordinatorClaim.claim()
+        }
     }
 }
 
@@ -94,7 +114,8 @@ extension _OpalBase.Account.MosaicTransactionHostActor {
             completeTransaction: committedCompleteTransaction,
             journal: attemptJournal,
             approvalPersisted: false,
-            broadcastIntentPersisted: false
+            broadcastIntentPersisted: false,
+            coordinatorClaim: broadcastCoordinatorClaim
         )
     }
 }

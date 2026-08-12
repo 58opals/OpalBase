@@ -1,6 +1,7 @@
 // AccountMosaicAttemptRecoveryValidator.swift
 
 #if os(macOS)
+import CryptoKit
 import Foundation
 import OpalFusion
 import Testing
@@ -191,9 +192,10 @@ struct AccountMosaicAttemptRecoveryValidator {
         let approvalProbe = MosaicBroadcastApprovalProbeActor()
         let coordinator = try OpalBase.Account.MosaicTransactionBroadcastCoordinator(
             candidate: prepared.candidate,
-            expectedNetwork: prepared.fixture.network,
             securityProfile: MosaicBroadcastApprovalTestSupport.securityProfile,
-            transactionClient: broadcastProbe.makeClient(),
+            transactionClient: broadcastProbe.makeClient(
+                testingNetwork: prepared.fixture.network
+            ),
             requestApproval: approvalProbe.makeRequester()
         )
 
@@ -220,13 +222,11 @@ struct AccountMosaicAttemptRecoveryValidator {
         #expect(
             try Planner.plan(for: completedRecords) == .complete(hash)
         )
-        let gate = OpalBase.Account.MosaicAttemptRecoveryGate(
+        let gate = try await makeRecoveryGate(
             addressBook: prepared.fixture.addressBook,
-            journal: prepared.fixture.journalProbe.makeJournal()
+            journalProbe: prepared.fixture.journalProbe
         )
-        let recoveryOutcome = try await gate.restoreInputQuarantineAndPlan(
-            from: completedRecords
-        )
+        let recoveryOutcome = try await gate.restoreInputQuarantineAndPlan()
         guard case let .chainReconciliationRequired(recoveredHash)
                 = recoveryOutcome else {
             Issue.record("Expected chain reconciliation after accepted broadcast")
@@ -284,9 +284,10 @@ struct AccountMosaicAttemptRecoveryValidator {
         let approvalProbe = MosaicBroadcastApprovalProbeActor()
         let coordinator = try OpalBase.Account.MosaicTransactionBroadcastCoordinator(
             candidate: prepared.candidate,
-            expectedNetwork: prepared.fixture.network,
             securityProfile: MosaicBroadcastApprovalTestSupport.securityProfile,
-            transactionClient: broadcastProbe.makeClient(),
+            transactionClient: broadcastProbe.makeClient(
+                testingNetwork: prepared.fixture.network
+            ),
             requestApproval: approvalProbe.makeRequester()
         )
 
@@ -335,13 +336,29 @@ struct AccountMosaicAttemptRecoveryValidator {
         let approvalProbe = MosaicBroadcastApprovalProbeActor(
             decisions: [.rejected, .approved]
         )
+        let independentlyRequestedCandidate = try await prepared.fixture.host
+            .makeCommittedBroadcastCandidate()
         let coordinator = try OpalBase.Account.MosaicTransactionBroadcastCoordinator(
             candidate: prepared.candidate,
-            expectedNetwork: prepared.fixture.network,
             securityProfile: MosaicBroadcastApprovalTestSupport.securityProfile,
-            transactionClient: broadcastProbe.makeClient(),
+            transactionClient: broadcastProbe.makeClient(
+                testingNetwork: prepared.fixture.network
+            ),
             requestApproval: approvalProbe.makeRequester()
         )
+        #expect(
+            throws: OpalBase.Account.MosaicHostFailure
+                .broadcastCandidateUnavailable
+        ) {
+            _ = try OpalBase.Account.MosaicTransactionBroadcastCoordinator(
+                candidate: independentlyRequestedCandidate,
+                securityProfile: MosaicBroadcastApprovalTestSupport.securityProfile,
+                transactionClient: broadcastProbe.makeClient(
+                    testingNetwork: prepared.fixture.network
+                ),
+                requestApproval: MosaicBroadcastApprovalTestSupport.approve
+            )
+        }
 
         await #expect(
             throws: OpalBase.Account.MosaicHostFailure.broadcastNotApproved
@@ -368,22 +385,24 @@ struct AccountMosaicAttemptRecoveryValidator {
         )) {
             _ = try OpalBase.Account.MosaicTransactionBroadcastCoordinator(
                 candidate: prepared.candidate,
-                expectedNetwork: prepared.fixture.network,
                 securityProfile: .init(
                     secretPersistencePolicy: .acceptProviderOutput,
                     networkAccess: .publicChainSync,
                     signingAccess: .inProcess
                 ),
-                transactionClient: broadcastProbe.makeClient(),
+                transactionClient: broadcastProbe.makeClient(
+                    testingNetwork: prepared.fixture.network
+                ),
                 requestApproval: MosaicBroadcastApprovalTestSupport.approve
             )
         }
         #expect(throws: OpalBase.Account.MosaicHostFailure.invalidNetworkBinding) {
             _ = try OpalBase.Account.MosaicTransactionBroadcastCoordinator(
                 candidate: prepared.candidate,
-                expectedNetwork: .mainnet,
                 securityProfile: MosaicBroadcastApprovalTestSupport.securityProfile,
-                transactionClient: broadcastProbe.makeClient(),
+                transactionClient: broadcastProbe.makeClient(
+                    testingNetwork: .mainnet
+                ),
                 requestApproval: MosaicBroadcastApprovalTestSupport.approve
             )
         }
@@ -405,9 +424,10 @@ struct AccountMosaicAttemptRecoveryValidator {
         )
         let coordinator = try OpalBase.Account.MosaicTransactionBroadcastCoordinator(
             candidate: prepared.candidate,
-            expectedNetwork: prepared.fixture.network,
             securityProfile: MosaicBroadcastApprovalTestSupport.securityProfile,
-            transactionClient: broadcastProbe.makeClient(),
+            transactionClient: broadcastProbe.makeClient(
+                testingNetwork: prepared.fixture.network
+            ),
             requestApproval: approvalProbe.makeRequester()
         )
         let broadcast = Task {
@@ -446,9 +466,10 @@ struct AccountMosaicAttemptRecoveryValidator {
         let broadcastProbe = MosaicBroadcastProbeActor(journalProbe: journalProbe)
         let coordinator = try OpalBase.Account.MosaicTransactionBroadcastCoordinator(
             candidate: prepared.candidate,
-            expectedNetwork: prepared.fixture.network,
             securityProfile: MosaicBroadcastApprovalTestSupport.securityProfile,
-            transactionClient: broadcastProbe.makeClient(),
+            transactionClient: broadcastProbe.makeClient(
+                testingNetwork: prepared.fixture.network
+            ),
             requestApproval: approvalProbe.makeRequester()
         )
 
@@ -479,9 +500,10 @@ struct AccountMosaicAttemptRecoveryValidator {
         )
         let coordinator = try OpalBase.Account.MosaicTransactionBroadcastCoordinator(
             candidate: prepared.candidate,
-            expectedNetwork: prepared.fixture.network,
             securityProfile: MosaicBroadcastApprovalTestSupport.securityProfile,
-            transactionClient: broadcastProbe.makeClient(),
+            transactionClient: broadcastProbe.makeClient(
+                testingNetwork: prepared.fixture.network
+            ),
             requestApproval: { _ in
                 throw MosaicBroadcastProbeFailure.scripted
             }
@@ -499,7 +521,7 @@ struct AccountMosaicAttemptRecoveryValidator {
     @Test("A legacy broadcast intent still requires fresh durable approval")
     func requireApprovalForLegacyBroadcastIntent() async throws {
         let prepared = try await makeCommittedAttempt()
-        try await prepared.fixture.journalProbe.makeJournal().append(
+        try await prepared.candidate.journal.append(
             .broadcastIntent(
                 reference: prepared.lease.reference,
                 transaction: prepared.complete
@@ -516,13 +538,11 @@ struct AccountMosaicAttemptRecoveryValidator {
         )
 
         await prepared.fixture.addressBook.addUTXO(prepared.fixture.selectedInput)
-        let gate = OpalBase.Account.MosaicAttemptRecoveryGate(
+        let gate = try await makeRecoveryGate(
             addressBook: prepared.fixture.addressBook,
-            journal: prepared.fixture.journalProbe.makeJournal()
+            journalProbe: prepared.fixture.journalProbe
         )
-        let outcome = try await gate.restoreInputQuarantineAndPlan(
-            from: interruptedRecords
-        )
+        let outcome = try await gate.restoreInputQuarantineAndPlan()
         guard case let .broadcastApprovalRequired(candidate) = outcome else {
             Issue.record("Expected fresh approval for the legacy broadcast intent")
             return
@@ -536,16 +556,17 @@ struct AccountMosaicAttemptRecoveryValidator {
         )
         let coordinator = try OpalBase.Account.MosaicTransactionBroadcastCoordinator(
             candidate: candidate,
-            expectedNetwork: prepared.fixture.network,
             securityProfile: MosaicBroadcastApprovalTestSupport.securityProfile,
-            transactionClient: broadcastProbe.makeClient(),
+            transactionClient: broadcastProbe.makeClient(
+                testingNetwork: prepared.fixture.network
+            ),
             requestApproval: approvalProbe.makeRequester()
         )
 
         let hash = try await coordinator.broadcast()
         #expect(await approvalProbe.readRequests().count == 1)
         #expect(await broadcastProbe.readBroadcasts().count == 1)
-        #expect(await prepared.fixture.journalProbe.readRecords().count == 9)
+        #expect(await prepared.fixture.journalProbe.readRecords().count == 10)
         #expect(
             try Planner.plan(
                 for: await prepared.fixture.journalProbe.readRecords()
@@ -556,21 +577,18 @@ struct AccountMosaicAttemptRecoveryValidator {
     @Test("Recovered durable approval persists intent before network I/O")
     func resumeApprovalCheckpointInFreshCoordinator() async throws {
         let prepared = try await makeCommittedAttempt()
-        try await prepared.fixture.journalProbe.makeJournal().append(
+        try await prepared.candidate.journal.append(
             .broadcastApproved(
                 reference: prepared.lease.reference,
                 transaction: prepared.complete
             )
         )
-        let approvedRecords = await prepared.fixture.journalProbe.readRecords()
         await prepared.fixture.addressBook.addUTXO(prepared.fixture.selectedInput)
-        let gate = OpalBase.Account.MosaicAttemptRecoveryGate(
+        let gate = try await makeRecoveryGate(
             addressBook: prepared.fixture.addressBook,
-            journal: prepared.fixture.journalProbe.makeJournal()
+            journalProbe: prepared.fixture.journalProbe
         )
-        let outcome = try await gate.restoreInputQuarantineAndPlan(
-            from: approvedRecords
-        )
+        let outcome = try await gate.restoreInputQuarantineAndPlan()
         guard case let .resumeApprovedBroadcast(candidate) = outcome else {
             Issue.record("Expected a durable-approval recovery candidate")
             return
@@ -586,9 +604,10 @@ struct AccountMosaicAttemptRecoveryValidator {
         )
         let coordinator = try OpalBase.Account.MosaicTransactionBroadcastCoordinator(
             candidate: candidate,
-            expectedNetwork: prepared.fixture.network,
             securityProfile: MosaicBroadcastApprovalTestSupport.securityProfile,
-            transactionClient: broadcastProbe.makeClient(),
+            transactionClient: broadcastProbe.makeClient(
+                testingNetwork: prepared.fixture.network
+            ),
             requestApproval: approvalProbe.makeRequester()
         )
 
@@ -615,23 +634,23 @@ struct AccountMosaicAttemptRecoveryValidator {
         let firstCoordinator = try OpalBase.Account
             .MosaicTransactionBroadcastCoordinator(
                 candidate: prepared.candidate,
-                expectedNetwork: prepared.fixture.network,
                 securityProfile: MosaicBroadcastApprovalTestSupport.securityProfile,
-                transactionClient: failingBroadcast.makeClient(),
+                transactionClient: failingBroadcast.makeClient(
+                    testingNetwork: prepared.fixture.network
+                ),
                 requestApproval: firstApproval.makeRequester()
             )
         await #expect(throws: MosaicBroadcastProbeFailure.scripted) {
             _ = try await firstCoordinator.broadcast()
         }
 
-        let interruptedRecords = await prepared.fixture.journalProbe.readRecords()
         await prepared.fixture.addressBook.addUTXO(prepared.fixture.selectedInput)
-        let recoveryGate = OpalBase.Account.MosaicAttemptRecoveryGate(
+        let recoveryGate = try await makeRecoveryGate(
             addressBook: prepared.fixture.addressBook,
-            journal: prepared.fixture.journalProbe.makeJournal()
+            journalProbe: prepared.fixture.journalProbe
         )
         let recoveryOutcome = try await recoveryGate
-            .restoreInputQuarantineAndPlan(from: interruptedRecords)
+            .restoreInputQuarantineAndPlan()
         guard case let .resumeApprovedBroadcast(recoveredCandidate)
                 = recoveryOutcome else {
             Issue.record("Expected an approved exact-broadcast recovery candidate")
@@ -648,15 +667,107 @@ struct AccountMosaicAttemptRecoveryValidator {
         let recoveredCoordinator = try OpalBase.Account
             .MosaicTransactionBroadcastCoordinator(
                 candidate: recoveredCandidate,
-                expectedNetwork: prepared.fixture.network,
                 securityProfile: MosaicBroadcastApprovalTestSupport.securityProfile,
-                transactionClient: recoveredBroadcast.makeClient(),
+                transactionClient: recoveredBroadcast.makeClient(
+                    testingNetwork: prepared.fixture.network
+                ),
                 requestApproval: recoveredApproval.makeRequester()
             )
 
         _ = try await recoveredCoordinator.broadcast()
         #expect(await recoveredApproval.readRequests().isEmpty)
         #expect(await recoveredBroadcast.readBroadcasts().count == 1)
+    }
+
+    @Test("Stale recovery owner cannot reach network I/O")
+    func rejectStaleRecoveryOwnerBeforeBroadcast() async throws {
+        let prepared = try await makeCommittedAttempt()
+        await prepared.fixture.addressBook.addUTXO(prepared.fixture.selectedInput)
+
+        let firstGate = try await makeRecoveryGate(
+            addressBook: prepared.fixture.addressBook,
+            journalProbe: prepared.fixture.journalProbe
+        )
+        let secondGate = try await makeRecoveryGate(
+            addressBook: prepared.fixture.addressBook,
+            journalProbe: prepared.fixture.journalProbe
+        )
+        let firstOutcome = try await firstGate.restoreInputQuarantineAndPlan()
+        let secondOutcome = try await secondGate.restoreInputQuarantineAndPlan()
+        guard case let .broadcastApprovalRequired(firstCandidate) = firstOutcome,
+              case let .broadcastApprovalRequired(secondCandidate) = secondOutcome else {
+            Issue.record("Expected two authenticated recovery candidates")
+            return
+        }
+
+        let firstBroadcast = MosaicBroadcastProbeActor(
+            journalProbe: prepared.fixture.journalProbe
+        )
+        let firstCoordinator = try OpalBase.Account
+            .MosaicTransactionBroadcastCoordinator(
+                candidate: firstCandidate,
+                securityProfile: MosaicBroadcastApprovalTestSupport.securityProfile,
+                transactionClient: firstBroadcast.makeClient(
+                    testingNetwork: prepared.fixture.network
+                ),
+                requestApproval: MosaicBroadcastApprovalTestSupport.approve
+            )
+        _ = try await firstCoordinator.broadcast()
+
+        let staleBroadcast = MosaicBroadcastProbeActor(
+            journalProbe: prepared.fixture.journalProbe
+        )
+        let staleCoordinator = try OpalBase.Account
+            .MosaicTransactionBroadcastCoordinator(
+                candidate: secondCandidate,
+                securityProfile: MosaicBroadcastApprovalTestSupport.securityProfile,
+                transactionClient: staleBroadcast.makeClient(
+                    testingNetwork: prepared.fixture.network
+                ),
+                requestApproval: MosaicBroadcastApprovalTestSupport.approve
+            )
+        await #expect(
+            throws: OpalBase.Account.MosaicHostFailure
+                .journalPersistenceFailed
+        ) {
+            _ = try await staleCoordinator.broadcast()
+        }
+        #expect(await firstBroadcast.readBroadcasts().count == 1)
+        #expect(await staleBroadcast.readBroadcasts().isEmpty)
+    }
+
+    @Test(
+        "Reentrant journal writers cannot overwrite a newer snapshot",
+        .timeLimit(.minutes(1))
+    )
+    func rejectReentrantStaleJournalWrite() async throws {
+        let template = try await makeCommittedAttempt()
+        let firstRecord = try #require(
+            await template.fixture.journalProbe.readRecords().first
+        )
+        let suspension = MosaicOperationSuspensionProbeActor()
+        let journalProbe = MosaicAttemptJournalProbeActor(
+            suspendedAppendIndex: 0,
+            suspensionProbe: suspension
+        )
+        let journal = try await journalProbe.makeFreshJournalForTesting()
+
+        let firstAppend = Task {
+            try await journal.append(firstRecord)
+        }
+        await suspension.waitUntilSuspended()
+        let secondAppend = Task {
+            try await journal.append(firstRecord)
+        }
+        try await secondAppend.value
+        await suspension.resume()
+        await #expect(
+            throws: OpalBase.Account.MosaicAttemptJournalStore.Failure
+                .staleSnapshot
+        ) {
+            try await firstAppend.value
+        }
+        #expect(await journalProbe.readRecords() == [firstRecord])
     }
 
     @Test("Startup recovery re-quarantines exact journaled inputs")
@@ -669,13 +780,11 @@ struct AccountMosaicAttemptRecoveryValidator {
                 .contains(prepared.fixture.selectedInput)
         )
 
-        let gate = OpalBase.Account.MosaicAttemptRecoveryGate(
+        let gate = try await makeRecoveryGate(
             addressBook: prepared.fixture.addressBook,
-            journal: prepared.fixture.journalProbe.makeJournal()
+            journalProbe: prepared.fixture.journalProbe
         )
-        let candidateOutcome = try await gate.restoreInputQuarantineAndPlan(
-            from: records
-        )
+        let candidateOutcome = try await gate.restoreInputQuarantineAndPlan()
         guard case let .broadcastApprovalRequired(candidate) = candidateOutcome else {
             Issue.record("Expected a broadcast-approval candidate")
             return
@@ -693,9 +802,11 @@ struct AccountMosaicAttemptRecoveryValidator {
         await prepared.fixture.addressBook.releaseUTXOs(
             Set([prepared.fixture.selectedInput])
         )
-        let signingOutcome = try await gate.restoreInputQuarantineAndPlan(
-            from: Array(records.prefix(3))
+        let signingGate = try await makeRecoveryGate(
+            addressBook: prepared.fixture.addressBook,
+            records: Array(records.prefix(3))
         )
+        let signingOutcome = try await signingGate.restoreInputQuarantineAndPlan()
         guard case let .walletReconciliationRequired(signingPlan)
                 = signingOutcome else {
             Issue.record("Expected signing reconciliation")
@@ -717,14 +828,12 @@ struct AccountMosaicAttemptRecoveryValidator {
     func validateRecoveredSelectedInputPayload() async throws {
         let prepared = try await makeCommittedAttempt()
         let records = await prepared.fixture.journalProbe.readRecords()
-        let gate = OpalBase.Account.MosaicAttemptRecoveryGate(
+        let gate = try await makeRecoveryGate(
             addressBook: prepared.fixture.addressBook,
-            journal: prepared.fixture.journalProbe.makeJournal()
+            records: records
         )
 
-        let missingInputOutcome = try await gate.restoreInputQuarantineAndPlan(
-            from: records
-        )
+        let missingInputOutcome = try await gate.restoreInputQuarantineAndPlan()
         guard case let .walletReconciliationRequired(missingInputPlan)
                 = missingInputOutcome else {
             Issue.record("Expected missing-input reconciliation")
@@ -767,9 +876,11 @@ struct AccountMosaicAttemptRecoveryValidator {
             throws: OpalBase.Account.MosaicAttemptRecoveryGate.Failure
                 .selectedInputMismatch
         ) {
-            _ = try await gate.restoreInputQuarantineAndPlan(
-                from: substitutedRecords
+            let substitutedGate = try await makeRecoveryGate(
+                addressBook: prepared.fixture.addressBook,
+                records: substitutedRecords
             )
+            _ = try await substitutedGate.restoreInputQuarantineAndPlan()
         }
     }
 
@@ -777,17 +888,13 @@ struct AccountMosaicAttemptRecoveryValidator {
     func rejectInvalidRecoveryAuthority() async throws {
         let prepared = try await makeCommittedAttempt()
         let records = await prepared.fixture.journalProbe.readRecords()
-        let gate = OpalBase.Account.MosaicAttemptRecoveryGate(
-            addressBook: prepared.fixture.addressBook,
-            journal: prepared.fixture.journalProbe.makeJournal()
-        )
-
         await #expect(
-            throws: OpalBase.Account.MosaicAttemptRecoveryGate.Failure
+            throws: OpalBase.Account.MosaicAttemptJournalStore.Failure
                 .invalidJournal(.invalidTransition)
         ) {
-            _ = try await gate.restoreInputQuarantineAndPlan(
-                from: [records[0], records[4]]
+            _ = try await makeRecoveryGate(
+                addressBook: prepared.fixture.addressBook,
+                records: [records[0], records[4]]
             )
         }
 
@@ -811,9 +918,11 @@ struct AccountMosaicAttemptRecoveryValidator {
             throws: OpalBase.Account.MosaicAttemptRecoveryGate.Failure
                 .invalidSelectedInput
         ) {
-            _ = try await gate.restoreInputQuarantineAndPlan(
-                from: duplicateInputRecords
+            let duplicateInputGate = try await makeRecoveryGate(
+                addressBook: prepared.fixture.addressBook,
+                records: duplicateInputRecords
             )
+            _ = try await duplicateInputGate.restoreInputQuarantineAndPlan()
         }
 
         await prepared.fixture.addressBook.addUTXO(prepared.fixture.selectedInput)
@@ -841,9 +950,11 @@ struct AccountMosaicAttemptRecoveryValidator {
             throws: OpalBase.Account.MosaicAttemptRecoveryGate.Failure
                 .invalidBroadcastCandidate
         ) {
-            _ = try await gate.restoreInputQuarantineAndPlan(
-                from: futureVersionRecords
+            let futureVersionGate = try await makeRecoveryGate(
+                addressBook: prepared.fixture.addressBook,
+                records: futureVersionRecords
             )
+            _ = try await futureVersionGate.restoreInputQuarantineAndPlan()
         }
         #expect(
             !(await prepared.fixture.addressBook.listSpendableUTXOs())
@@ -855,14 +966,11 @@ struct AccountMosaicAttemptRecoveryValidator {
     func leaveTerminalOrUnstartedWalletStateUntouched() async throws {
         let policy = await MosaicPolicyProbeActor().transactionPolicy
         let fixture = try await MosaicHostFixture.make(transactionPolicy: policy)
-        let gate = OpalBase.Account.MosaicAttemptRecoveryGate(
-            addressBook: fixture.addressBook,
-            journal: fixture.journalProbe.makeJournal()
-        )
-        let emptyOutcome = try await gate.restoreInputQuarantineAndPlan(from: [])
-        guard case .noAction = emptyOutcome else {
-            Issue.record("Expected no recovery action")
-            return
+        await #expect(
+            throws: OpalBase.Account.MosaicAttemptJournalStore.Failure
+                .creationUncertain
+        ) {
+            _ = try await fixture.journalProbe.loadRecovery()
         }
         #expect(
             await fixture.addressBook.listSpendableUTXOs()
@@ -871,9 +979,12 @@ struct AccountMosaicAttemptRecoveryValidator {
 
         let lease = try await fixture.reserve()
         try await fixture.host.releaseMosaicReservation(lease.reference)
-        let releasedOutcome = try await gate.restoreInputQuarantineAndPlan(
-            from: await fixture.journalProbe.readRecords()
+        let releasedGate = try await makeRecoveryGate(
+            addressBook: fixture.addressBook,
+            journalProbe: fixture.journalProbe
         )
+        let releasedOutcome = try await releasedGate
+            .restoreInputQuarantineAndPlan()
         guard case .released = releasedOutcome else {
             Issue.record("Expected terminal release recovery")
             return
@@ -882,6 +993,145 @@ struct AccountMosaicAttemptRecoveryValidator {
             await fixture.addressBook.listSpendableUTXOs()
                 .contains(fixture.selectedInput)
         )
+    }
+
+    @Test("Journal snapshots authenticate every record and wallet scope")
+    func authenticateDurableJournalSnapshot() async throws {
+        let prepared = try await makeCommittedAttempt()
+        let committedRecords = await prepared.fixture.journalProbe.readRecords()
+        let transactionHash = OpalBase.Transaction.Hash(
+            naturalOrder: Data(repeating: 0x5a, count: 32)
+        )
+        let records = committedRecords + [
+            .broadcastApproved(
+                reference: prepared.lease.reference,
+                transaction: prepared.complete
+            ),
+            .broadcastIntent(
+                reference: prepared.lease.reference,
+                transaction: prepared.complete
+            ),
+            .broadcastAccepted(
+                reference: prepared.lease.reference,
+                transaction: prepared.complete,
+                transactionHash: transactionHash
+            ),
+            .releaseIntent(prepared.lease.reference),
+            .released(prepared.lease.reference)
+        ]
+        let key = SymmetricKey(data: Data(repeating: 0x41, count: 32))
+        let scope = OpalBase.Account.MosaicAttemptJournalCodec.Scope(
+            walletIdentifier: try #require(
+                UUID(uuidString: "00000000-0000-0000-0000-000000000041")
+            ),
+            journalIdentifier: try #require(
+                UUID(uuidString: "00000000-0000-0000-0000-000000000042")
+            )
+        )
+        let codec = try OpalBase.Account.MosaicAttemptJournalCodec(
+            authenticationKey: key,
+            scope: scope
+        )
+        let envelope = try codec.seal(records: records)
+        #expect(try codec.open(envelope) == records)
+
+        let wrongKeyCodec = try OpalBase.Account.MosaicAttemptJournalCodec(
+            authenticationKey: SymmetricKey(
+                data: Data(repeating: 0x42, count: 32)
+            ),
+            scope: scope
+        )
+        #expect(
+            throws: OpalBase.Account.MosaicAttemptJournalCodec.Failure
+                .authenticationFailed
+        ) {
+            _ = try wrongKeyCodec.open(envelope)
+        }
+
+        let wrongScopeCodec = try OpalBase.Account.MosaicAttemptJournalCodec(
+            authenticationKey: key,
+            scope: .init(
+                walletIdentifier: scope.walletIdentifier,
+                journalIdentifier: UUID()
+            )
+        )
+        #expect(
+            throws: OpalBase.Account.MosaicAttemptJournalCodec.Failure
+                .authenticationFailed
+        ) {
+            _ = try wrongScopeCodec.open(envelope)
+        }
+
+        var modified = envelope
+        modified[modified.index(before: modified.endIndex)] ^= 0x01
+        #expect(
+            throws: OpalBase.Account.MosaicAttemptJournalCodec.Failure
+                .authenticationFailed
+        ) {
+            _ = try codec.open(modified)
+        }
+        #expect(
+            throws: OpalBase.Account.MosaicAttemptJournalCodec.Failure
+                .authenticationFailed
+        ) {
+            _ = try codec.open(Data(envelope.dropLast()))
+        }
+
+        var futureVersion = envelope
+        futureVersion[8] = 2
+        #expect(
+            throws: OpalBase.Account.MosaicAttemptJournalCodec.Failure
+                .unsupportedVersion(2)
+        ) {
+            _ = try codec.open(futureVersion)
+        }
+    }
+
+    @Test("Restarted recovery cannot repeat wallet or network effects")
+    func recoverAuthenticatedSnapshotWithoutDuplicateEffects() async throws {
+        let prepared = try await makeCommittedAttempt()
+        let recordsBeforeRecovery = await prepared.fixture.journalProbe
+            .readRecords()
+        let envelopeBeforeRecovery = try #require(
+            await prepared.fixture.journalProbe.readPersistedEnvelope()
+        )
+        #expect(await prepared.fixture.host.readSigningInvocationCount() == 1)
+
+        await prepared.fixture.addressBook.addUTXO(prepared.fixture.selectedInput)
+        let restartedJournalProbe = try await prepared.fixture.journalProbe
+            .makeRestartedProbe()
+        let gate = try await makeRecoveryGate(
+            addressBook: prepared.fixture.addressBook,
+            journalProbe: restartedJournalProbe
+        )
+        let outcome = try await gate.restoreInputQuarantineAndPlan()
+        guard case .broadcastApprovalRequired = outcome else {
+            Issue.record("Expected an authenticated committed recovery boundary")
+            return
+        }
+
+        #expect(await prepared.fixture.host.readSigningInvocationCount() == 1)
+        #expect(
+            await restartedJournalProbe.readRecords()
+                == recordsBeforeRecovery
+        )
+        #expect(
+            await restartedJournalProbe.readPersistedEnvelope()
+                == envelopeBeforeRecovery
+        )
+        await #expect(
+            throws: OpalBase.Account.MosaicAttemptRecoveryGate.Failure
+                .outcomeAlreadyIssued
+        ) {
+            _ = try await gate.restoreInputQuarantineAndPlan()
+        }
+        await #expect(
+            throws: OpalBase.Account.MosaicAttemptJournalStore.Failure
+                .alreadyExists
+        ) {
+            _ = try await restartedJournalProbe
+                .makeFreshJournalForTesting()
+        }
     }
 
     @Test("Retry an exact commit after its terminal journal write fails")
@@ -953,6 +1203,29 @@ struct AccountMosaicAttemptRecoveryValidator {
         )
         let candidate = try await fixture.host.makeCommittedBroadcastCandidate()
         return (fixture, lease, request, finalized, complete, candidate)
+    }
+
+    private func makeRecoveryGate(
+        addressBook: OpalBase.Address.Book,
+        journalProbe: MosaicAttemptJournalProbeActor
+    ) async throws -> OpalBase.Account.MosaicAttemptRecoveryGate {
+        let recovery = try await journalProbe.loadRecovery()
+        return .init(addressBook: addressBook, recovery: recovery)
+    }
+
+    private func makeRecoveryGate(
+        addressBook: OpalBase.Address.Book,
+        records: [OpalBase.Account.MosaicAttemptJournal.Record]
+    ) async throws -> OpalBase.Account.MosaicAttemptRecoveryGate {
+        let journalProbe = MosaicAttemptJournalProbeActor()
+        let journal = try await journalProbe.makeFreshJournalForTesting()
+        for record in records {
+            try await journal.append(record)
+        }
+        return try await makeRecoveryGate(
+            addressBook: addressBook,
+            journalProbe: journalProbe
+        )
     }
 }
 #endif

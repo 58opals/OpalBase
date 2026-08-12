@@ -3,7 +3,6 @@
 #if os(macOS)
 extension _OpalBase.Account.MosaicAttemptRecoveryGate {
     enum Outcome: Sendable {
-        case noAction
         case released
         case walletReconciliationRequired(
             OpalBase.Account.MosaicAttemptRecoveryPlanner.Plan
@@ -19,9 +18,7 @@ extension _OpalBase.Account.MosaicAttemptRecoveryGate {
 
     enum Failure: Swift.Error, Sendable, Equatable {
         case recoveryInProgress
-        case invalidJournal(
-            OpalBase.Account.MosaicAttemptRecoveryPlanner.Error
-        )
+        case outcomeAlreadyIssued
         case invalidSelectedInput
         case selectedInputMismatch
         case inputQuarantineFailed

@@ -97,6 +97,7 @@ extension AccountMosaicTransactionHostValidator {
         let reservationIdentifier = try #require(
             UUID(uuidString: "00000000-0000-0000-0000-0000000000A2")
         )
+        let freshAttempt = try await journalProbe.makeFreshAttempt()
         let host = try OpalBase.Account.MosaicTransactionHostActor(
             addressBook: addressBook,
             profile: profile,
@@ -111,7 +112,7 @@ extension AccountMosaicTransactionHostValidator {
                 network: network,
                 transactionReader: transactionReader
             ),
-            attemptJournal: journalProbe.makeJournal(),
+            freshAttempt: freshAttempt,
             currentDate: { Date(timeIntervalSince1970: 1_800_000_000) },
             makeReservationIdentifier: { reservationIdentifier }
         )

@@ -35,6 +35,8 @@ extension _OpalBase.Account {
         let contributionPolicy: MosaicProfileContributionPolicy
         let transactionPolicy: MosaicTransactionPolicy
         let attemptJournal: MosaicAttemptJournal
+        let broadcastCoordinatorClaim = MosaicCommittedBroadcastCandidate
+            .CoordinatorClaim()
         let currentDate: @Sendable () -> Date
         let makeReservationIdentifier: @Sendable () -> UUID
         let reserveReceivingEntry: @Sendable (
@@ -63,7 +65,7 @@ extension _OpalBase.Account {
             selectedInputs: [OpalBase.Transaction.Output.Unspent],
             outputAmountsSatoshis: [UInt64],
             transactionPolicy: MosaicTransactionPolicy,
-            attemptJournal: MosaicAttemptJournal,
+            freshAttempt: consuming MosaicAttemptJournalStore.FreshAttempt,
             currentDate: @escaping @Sendable () -> Date = Date.init,
             makeReservationIdentifier: @escaping @Sendable () -> UUID = UUID.init,
             reserveReceivingEntry: @escaping @Sendable (
@@ -104,7 +106,7 @@ extension _OpalBase.Account {
             self.outputAmountsSatoshis = outputAmountsSatoshis
             self.contributionPolicy = contributionPolicy
             self.transactionPolicy = transactionPolicy
-            self.attemptJournal = attemptJournal
+            attemptJournal = freshAttempt.claimJournal()
             self.currentDate = currentDate
             self.makeReservationIdentifier = makeReservationIdentifier
             self.reserveReceivingEntry = reserveReceivingEntry

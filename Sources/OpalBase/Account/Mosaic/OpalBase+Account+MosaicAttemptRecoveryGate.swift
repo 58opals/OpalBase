@@ -5,10 +5,10 @@ import Foundation
 import OpalFusion
 
 extension _OpalBase.Account {
-    /// Re-establishes conservative input quarantine from already-loaded records.
+    /// Re-establishes conservative input quarantine from an authenticated loaded snapshot.
     ///
-    /// Loading, decoding, storage, output cleanup, signing, commit, chain reconciliation,
-    /// approval, and relay remain app-owned boundaries.
+    /// Key loading, storage, output cleanup, signing, commit, chain reconciliation, approval,
+    /// and relay remain app-owned boundaries.
     actor MosaicAttemptRecoveryGate {
         struct RecoveryAuthority: Sendable {
             fileprivate init() {}
@@ -31,37 +31,39 @@ extension _OpalBase.Account {
 
         let addressBook: OpalBase.Address.Book
         let journal: MosaicAttemptJournal
+        private let records: [MosaicAttemptJournal.Record]
+        private let plan: MosaicAttemptRecoveryPlanner.Plan
         private var recoveryInFlight = false
+        private var outcomeIssued = false
 
         init(
             addressBook: OpalBase.Address.Book,
-            journal: MosaicAttemptJournal
+            recovery: consuming MosaicAttemptJournalStore.LoadedRecovery
         ) {
+            let state = recovery.claim()
             self.addressBook = addressBook
-            self.journal = journal
+            journal = state.journal
+            records = state.records
+            plan = state.plan
         }
 
-        func restoreInputQuarantineAndPlan(
-            from records: [MosaicAttemptJournal.Record]
-        ) async throws -> Outcome {
+        func restoreInputQuarantineAndPlan() async throws -> Outcome {
+            guard !outcomeIssued else {
+                throw Failure.outcomeAlreadyIssued
+            }
             guard !recoveryInFlight else {
                 throw Failure.recoveryInProgress
             }
             recoveryInFlight = true
             defer { recoveryInFlight = false }
 
-            let plan: MosaicAttemptRecoveryPlanner.Plan
-            do {
-                plan = try MosaicAttemptRecoveryPlanner.plan(for: records)
-            } catch let error as MosaicAttemptRecoveryPlanner.Error {
-                throw Failure.invalidJournal(error)
-            }
-
             switch plan {
             case .noAction:
-                return .noAction
+                preconditionFailure(
+                    "Loaded recovery cannot contain an empty journal"
+                )
             case .released:
-                return .released
+                return issue(.released)
             default:
                 break
             }
@@ -78,22 +80,27 @@ extension _OpalBase.Account {
                  .reconcileLocallySignedTransaction,
                  .finishRelease,
                  .finishCommit:
-                return .walletReconciliationRequired(plan)
+                return issue(.walletReconciliationRequired(plan))
             case .broadcastApprovalRequired where !everySelectedInputIsPresent:
-                return .walletReconciliationRequired(plan)
+                return issue(.walletReconciliationRequired(plan))
             case .broadcastApprovalRequired:
-                return .broadcastApprovalRequired(
+                return issue(.broadcastApprovalRequired(
                     try makeBroadcastCandidate(from: records, plan: plan)
-                )
+                ))
             case .resumeApprovedBroadcast where !everySelectedInputIsPresent:
-                return .walletReconciliationRequired(plan)
+                return issue(.walletReconciliationRequired(plan))
             case .resumeApprovedBroadcast:
-                return .resumeApprovedBroadcast(
+                return issue(.resumeApprovedBroadcast(
                     try makeBroadcastCandidate(from: records, plan: plan)
-                )
+                ))
             case let .complete(hash):
-                return .chainReconciliationRequired(hash)
+                return issue(.chainReconciliationRequired(hash))
             }
+        }
+
+        private func issue(_ outcome: Outcome) -> Outcome {
+            outcomeIssued = true
+            return outcome
         }
 
         private func quarantineSelectedInputs(

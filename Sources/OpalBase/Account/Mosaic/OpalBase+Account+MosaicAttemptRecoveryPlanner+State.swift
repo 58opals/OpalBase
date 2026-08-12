@@ -90,6 +90,15 @@ extension _OpalBase.Account.MosaicAttemptRecoveryPlanner {
             case let (.approvedBroadcastIntent(
                           expectedReference,
                           expectedTransaction
+                      ), .broadcastIntent(reference, transaction)):
+                guard expectedReference == reference,
+                      expectedTransaction == transaction else {
+                    throw Error.conflictingTransaction
+                }
+                return .approvedBroadcastIntent(reference, transaction)
+            case let (.approvedBroadcastIntent(
+                          expectedReference,
+                          expectedTransaction
                       ), .broadcastAccepted(reference, transaction, hash)),
                      let (.unapprovedBroadcastIntent(
                           expectedReference,

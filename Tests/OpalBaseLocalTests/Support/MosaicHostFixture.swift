@@ -76,6 +76,7 @@ struct MosaicHostFixture {
         let identifier = try #require(
             UUID(uuidString: "00000000-0000-0000-0000-000000000007")
         )
+        let freshAttempt = try await journalProbe.makeFreshAttempt()
         let host = try OpalBase.Account.MosaicTransactionHostActor(
             addressBook: addressBook,
             profile: profile,
@@ -84,7 +85,7 @@ struct MosaicHostFixture {
             selectedInputs: [selectedInput],
             outputAmountsSatoshis: outputAmountsSatoshis,
             transactionPolicy: transactionPolicy,
-            attemptJournal: journalProbe.makeJournal(),
+            freshAttempt: freshAttempt,
             currentDate: currentDate,
             makeReservationIdentifier: { identifier },
             reserveReceivingEntry: reserveReceivingEntry,

@@ -564,9 +564,10 @@ extension AccountMosaicTransactionHostValidator {
         let broadcastProbe = MosaicBroadcastProbeActor(journalProbe: journalProbe)
         let coordinator = try OpalBase.Account.MosaicTransactionBroadcastCoordinator(
             candidate: candidate,
-            expectedNetwork: prepared.fixture.network,
             securityProfile: MosaicBroadcastApprovalTestSupport.securityProfile,
-            transactionClient: broadcastProbe.makeClient(),
+            transactionClient: broadcastProbe.makeClient(
+                testingNetwork: prepared.fixture.network
+            ),
             requestApproval: MosaicBroadcastApprovalTestSupport.approve
         )
         let firstBroadcast = Task {
@@ -606,9 +607,10 @@ extension AccountMosaicTransactionHostValidator {
         let broadcastProbe = MosaicBroadcastProbeActor(journalProbe: journalProbe)
         let coordinator = try OpalBase.Account.MosaicTransactionBroadcastCoordinator(
             candidate: candidate,
-            expectedNetwork: prepared.fixture.network,
             securityProfile: MosaicBroadcastApprovalTestSupport.securityProfile,
-            transactionClient: broadcastProbe.makeClient(),
+            transactionClient: broadcastProbe.makeClient(
+                testingNetwork: prepared.fixture.network
+            ),
             requestApproval: MosaicBroadcastApprovalTestSupport.approve
         )
         let broadcast = Task {
@@ -635,7 +637,7 @@ extension AccountMosaicTransactionHostValidator {
 
         _ = try await coordinator.broadcast()
         #expect(await broadcastProbe.readBroadcasts().count == 1)
-        #expect(await journalProbe.readRecords().count == 9)
+        #expect(await journalProbe.readRecords().count == 10)
     }
 
     @Test("Ambiguous intent failures retain exact operation pins")
@@ -755,9 +757,10 @@ private extension AccountMosaicTransactionHostValidator {
         let broadcastProbe = MosaicBroadcastProbeActor(journalProbe: journalProbe)
         let coordinator = try OpalBase.Account.MosaicTransactionBroadcastCoordinator(
             candidate: candidate,
-            expectedNetwork: prepared.fixture.network,
             securityProfile: MosaicBroadcastApprovalTestSupport.securityProfile,
-            transactionClient: broadcastProbe.makeClient(),
+            transactionClient: broadcastProbe.makeClient(
+                testingNetwork: prepared.fixture.network
+            ),
             requestApproval: MosaicBroadcastApprovalTestSupport.approve
         )
 
