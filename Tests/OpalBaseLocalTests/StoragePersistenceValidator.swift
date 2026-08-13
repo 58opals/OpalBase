@@ -103,7 +103,11 @@ struct StoragePersistenceValidator {
     @Test("mnemonic persistence does not require retaining a wallet instance")
     func persistMnemonicWithoutWalletRetention() async throws {
         let valueClient = OpalBase.Storage.ValueClient.makeInMemory()
-        let storage = try OpalBase.Storage(valueClient: valueClient)
+        let storage = try OpalBase.Storage(
+            valueClient: valueClient,
+            security: .makePlaintextOnly(),
+            secretPersistencePolicy: .legacyFallbackToPlaintext
+        )
 
         let mnemonic = OpalBase.Storage.StoredMnemonic(
             words: [
@@ -113,10 +117,16 @@ struct StoragePersistenceValidator {
             passphrase: "long form passphrase"
         )
 
-        let protectionMode = try await storage.saveMnemonic(mnemonic, fallbackToPlaintext: true)
+        let protectionMode = try await storage.saveMnemonic(
+            mnemonic
+        )
         #expect([OpalBase.Storage.Security.ProtectionMode.plaintext, .software, .secureEnclave].contains(protectionMode))
 
-        let restoredStorage = try OpalBase.Storage(valueClient: valueClient)
+        let restoredStorage = try OpalBase.Storage(
+            valueClient: valueClient,
+            security: .makePlaintextOnly(),
+            secretPersistencePolicy: .legacyFallbackToPlaintext
+        )
         let restored = try #require(try await restoredStorage.loadMnemonicState())
 
         #expect(restored.mnemonic.words == mnemonic.words)

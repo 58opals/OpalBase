@@ -8,13 +8,17 @@ extension OpalBase {
         let encoder: JSONEncoder
         let decoder: JSONDecoder
         let valueClient: ValueClient
-        
+        let secretPersistencePolicy: Security.PersistencePolicy
+
+        /// Creates one storage root with an immutable policy for all mnemonic writes.
         public init(
-            valueClient: ValueClient = .makeInMemory(),
-            security: Security = .makePlaintextOnly()
+            valueClient: ValueClient,
+            security: Security,
+            secretPersistencePolicy: Security.PersistencePolicy
         ) throws {
             self.valueClient = valueClient
             self.security = security
+            self.secretPersistencePolicy = secretPersistencePolicy
             self.encoder = JSONEncoder()
             self.decoder = JSONDecoder()
             self.encoder.dateEncodingStrategy = .iso8601

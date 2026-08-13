@@ -7,7 +7,11 @@ import Testing
 extension StoragePersistenceValidator {
     @Test("snapshot persistence values from one storage serialize operations")
     func serializeOperationsAcrossStorageSnapshotPersistenceValues() async throws {
-        let storage = try OpalBase.Storage(valueClient: .makeInMemory())
+        let storage = try OpalBase.Storage(
+            valueClient: .makeInMemory(),
+            security: .makePlaintextOnly(),
+            secretPersistencePolicy: .legacyFallbackToPlaintext
+        )
         let firstPersistence = await storage.makeSnapshotPersistence()
         let secondPersistence = await storage.makeSnapshotPersistence()
 
@@ -56,7 +60,9 @@ extension StoragePersistenceValidator {
 
         await snapshotState.blockNextWalletSnapshotSave()
         let sessionSave = Task {
-            try await session.save(wallet: sessionWallet)
+            try await session.save(
+                wallet: sessionWallet
+            )
         }
         await snapshotState.waitUntilWalletSnapshotSaveBlocks()
 
@@ -77,8 +83,7 @@ extension StoragePersistenceValidator {
             await operationState.recordOperationStart()
             _ = try await mnemonicPersistence.saveMnemonic(
                 publicMnemonic,
-                generation: "public-mnemonic",
-                policy: .acceptProviderOutput
+                generation: "public-mnemonic"
             )
             await operationState.recordOperationCompletion()
         }
@@ -109,7 +114,11 @@ extension StoragePersistenceValidator {
 
     @Test("wipeAll serializes with persistence operations")
     func serializeWipeAllWithPersistenceOperations() async throws {
-        let storage = try OpalBase.Storage(valueClient: .makeInMemory())
+        let storage = try OpalBase.Storage(
+            valueClient: .makeInMemory(),
+            security: .makePlaintextOnly(),
+            secretPersistencePolicy: .legacyFallbackToPlaintext
+        )
         let persistence = await storage.makeSnapshotPersistence()
         let barrier = PersistenceOperationBarrierState()
         let holdingOperation = Task {

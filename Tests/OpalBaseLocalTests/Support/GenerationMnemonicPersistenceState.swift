@@ -13,14 +13,15 @@ actor GenerationMnemonicPersistenceState {
     func saveMnemonic(
         _ mnemonic: OpalBase.Storage.StoredMnemonic,
         generation: String,
-        fallbackToPlaintext: Bool
+        policy: OpalBase.Storage.Security.PersistencePolicy
     ) throws -> OpalBase.Storage.Security.ProtectionMode {
         if shouldFailNextSave {
             shouldFailNextSave = false
             throw GenerationPersistenceError.simulatedFailure
         }
 
-        let mode: OpalBase.Storage.Security.ProtectionMode = fallbackToPlaintext ? .plaintext : .software
+        let mode: OpalBase.Storage.Security.ProtectionMode =
+            policy == .legacyFallbackToPlaintext ? .plaintext : .software
         mnemonicStates[generation] = (mnemonic, mode)
         return mode
     }

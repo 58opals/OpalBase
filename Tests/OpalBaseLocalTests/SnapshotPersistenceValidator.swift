@@ -9,7 +9,11 @@ import OpalBaseTestSupport
 struct SnapshotPersistenceValidator {
     @Test("address book snapshot encodes token fields")
     func addressBookSnapshotEncodesTokenFields() async throws {
-        let storage = try OpalBase.Storage()
+        let storage = try OpalBase.Storage(
+            valueClient: .makeInMemory(),
+            security: .makePlaintextOnly(),
+            secretPersistencePolicy: .acceptProviderOutput
+        )
         let tokenData = try makeTokenDataWithNonFungibleToken()
         let tokenCategory = tokenData.category.hexForDisplay
         let tokenAmount = tokenData.amount
@@ -51,7 +55,11 @@ struct SnapshotPersistenceValidator {
     
     @Test("address book snapshot decodes without token fields")
     func addressBookSnapshotDecodesWithoutTokenFields() async throws {
-        let storage = try OpalBase.Storage()
+        let storage = try OpalBase.Storage(
+            valueClient: .makeInMemory(),
+            security: .makePlaintextOnly(),
+            secretPersistencePolicy: .acceptProviderOutput
+        )
         let snapshotJSON = """
         {"receivingEntries":[],"changeEntries":[],"utxos":[{"value":1000,"lockingScript":"51","transactionHash":"abcd","outputIndex":0}],"transactions":[]}
         """

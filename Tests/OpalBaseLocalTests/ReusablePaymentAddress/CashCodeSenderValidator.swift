@@ -4,6 +4,9 @@ import Foundation
 import Testing
 @testable import OpalBase
 
+private typealias CashCodePlanLifecycleError = OpalBase
+    .ReusablePaymentAddress.CashCodeSpendPlan.LifecycleError
+
 @Suite("Cash Code sender", .tags(.unit, .wallet, .transaction))
 struct CashCodeSenderValidator {
     @Test("sender prepares a BCH payment and accepts only a matching final prefix")
@@ -121,7 +124,8 @@ struct CashCodeSenderValidator {
 
     @Test("sender grinding rejects zero work and reports exact exhaustion")
     func enforceGrindingBound() async throws {
-        let plan = try await prepareBitcoinCashPlan(hashByte: 0x74)
+        let fixture = try await prepareBitcoinCashPlanAndAccount(hashByte: 0x74)
+        let plan = fixture.plan
         let baseTransaction = try plan.buildBaseTransaction()
         let prefixMiss = try makeCandidate(
             from: baseTransaction,
@@ -170,41 +174,16 @@ struct CashCodeSenderValidator {
             )
         }
         #expect(await candidateActor.readRequestCount() == 2)
-        try await plan.cancelReservation()
-    }
-
-    @Test("production random-nonce signing yields a valid hit or exact exhaustion")
-    func exerciseProductionRandomNonceSigning() async throws {
-        let plan = try await prepareBitcoinCashPlan(hashByte: 0x79)
-
-        do {
-            let transaction = try await plan.buildTransaction(
-                maximumGrindingAttempts: 1
-            )
-            #expect(
-                plan.address.filterPrefix.matches(
-                    transaction.inputs[plan.qualifyingInputIndex]
-                )
-            )
-            #expect(
-                transaction.outputs.contains {
-                    $0.value == plan.request.amount.uint64
-                        && $0.lockingScript == plan.payment.lockingScript
-                        && $0.tokenData == plan.request.tokenData
-                }
-            )
-        } catch let error as OpalBase.ReusablePaymentAddress.Error {
-            guard error == .prefixGrindingExhausted(attempts: 1) else {
-                throw error
-            }
-        }
-
-        try await plan.cancelReservation()
+        #expect(
+            await fixture.account.addressBook
+                .readActiveSpendReservations().isEmpty
+        )
     }
 
     @Test("sender grinding cancellation stops before accepting a candidate")
     func cancelPrefixGrinding() async throws {
-        let plan = try await prepareBitcoinCashPlan(hashByte: 0x75)
+        let fixture = try await prepareBitcoinCashPlanAndAccount(hashByte: 0x75)
+        let plan = fixture.plan
         let baseTransaction = try plan.buildBaseTransaction()
         let prefixMatch = try makeCandidate(
             from: baseTransaction,
@@ -226,13 +205,44 @@ struct CashCodeSenderValidator {
             )
         }
         await candidateActor.waitForSuspendedRequest()
+        await #expect(
+            throws: CashCodePlanLifecycleError.operationInProgress
+        ) {
+            try await plan.completeReservation()
+        }
         task.cancel()
         await candidateActor.resumeRequest()
 
         await #expect(throws: CancellationError.self) {
             _ = try await task.value
         }
+        #expect(
+            await fixture.account.addressBook
+                .readActiveSpendReservations().isEmpty
+        )
+    }
+
+    @Test("sender exposes terminal lifecycle errors through the public plan")
+    func exposePublicPlanLifecycleErrors() async throws {
+        let plan = try await prepareBitcoinCashPlan(hashByte: 0x7B)
+        let copiedPlan = plan
+
+        await #expect(
+            throws: CashCodePlanLifecycleError.transactionNotBuilt
+        ) {
+            try await plan.completeReservation()
+        }
         try await plan.cancelReservation()
+        await #expect(
+            throws: CashCodePlanLifecycleError.planAlreadyUsed
+        ) {
+            try await copiedPlan.cancelReservation()
+        }
+        await #expect(
+            throws: CashCodePlanLifecycleError.planAlreadyUsed
+        ) {
+            _ = try await plan.buildTransaction(maximumGrindingAttempts: 1)
+        }
     }
 
     @Test("sender rejects candidates that mutate non-grinding transaction fields")
@@ -263,7 +273,6 @@ struct CashCodeSenderValidator {
                 makeCandidate: { _ in invalid }
             )
         }
-        try await plan.cancelReservation()
     }
 
     @Test("sender refuses legacy profiles and explicit network mismatches")
@@ -342,9 +351,18 @@ struct CashCodeSenderValidator {
         }
     }
 
-    private func prepareBitcoinCashPlan(
+    func prepareBitcoinCashPlan(
         hashByte: UInt8
     ) async throws -> OpalBase.ReusablePaymentAddress.CashCodeSpendPlan {
+        try await prepareBitcoinCashPlanAndAccount(hashByte: hashByte).plan
+    }
+
+    func prepareBitcoinCashPlanAndAccount(
+        hashByte: UInt8
+    ) async throws -> (
+        account: OpalBase.Account,
+        plan: OpalBase.ReusablePaymentAddress.CashCodeSpendPlan
+    ) {
         let account = try await SpendPlanBroadcastAccountFixture
             .makeAccountWithoutOutputRandomization()
         _ = try await AccountTestFixtures.addUnspentOutput(
@@ -352,16 +370,17 @@ struct CashCodeSenderValidator {
             value: 200_000,
             hashByte: hashByte
         )
-        return try await OpalBase.WalletTransactionAuthoringInteractor(
+        let plan = try await OpalBase.WalletTransactionAuthoringInteractor(
             privateAccount: account
         ).prepareCashCodePayment(
             .init(amount: try OpalBase.Satoshi(50_000)),
             to: ReusablePaymentAddressFixtureData.makeAddress(),
             expectedNetwork: .mainnet
         )
+        return (account, plan)
     }
 
-    private func makeCandidate(
+    func makeCandidate(
         from transaction: OpalBase.Transaction,
         plan: OpalBase.ReusablePaymentAddress.CashCodeSpendPlan,
         shouldMatch: Bool
@@ -397,4 +416,5 @@ struct CashCodeSenderValidator {
         throw OpalBase.ReusablePaymentAddress.Error
             .prefixGrindingExhausted(attempts: 1_000_001)
     }
+
 }

@@ -15,21 +15,9 @@ public extension OpalBase {
 
         @discardableResult
         public func saveWalletSecretsAndSnapshot(
-            from wallet: OpalBase.Wallet,
-            policy: OpalBase.Storage.Security.PersistencePolicy
+            from wallet: OpalBase.Wallet
         ) async throws -> OpalBase.Storage.Security.ProtectionMode {
-            try await persistenceSession.save(wallet: wallet, policy: policy)
-        }
-
-        @discardableResult
-        public func saveWalletSecretsAndSnapshot(
-            from wallet: OpalBase.Wallet,
-            profile: OpalBase.WalletSecurityProfile
-        ) async throws -> OpalBase.Storage.Security.ProtectionMode {
-            try await saveWalletSecretsAndSnapshot(
-                from: wallet,
-                policy: profile.secretPersistencePolicy
-            )
+            try await persistenceSession.save(wallet: wallet)
         }
 
         public func restoreWalletSecretsAndSnapshot() async throws -> OpalBase.Storage.PersistenceSession.RestoredState {

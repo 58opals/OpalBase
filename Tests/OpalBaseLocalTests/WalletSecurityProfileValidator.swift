@@ -48,14 +48,14 @@ struct WalletSecurityProfileValidator {
     func secretLaneSavesThroughWalletSecurityProfile() async throws {
         let storage = try OpalBase.Storage(
             valueClient: .makeInMemory(),
-            security: Self.makeSecureEnclaveModeSecurity()
+            security: Self.makeSecureEnclaveModeSecurity(),
+            secretPersistencePolicy: .requireSecureEnclave
         )
         let secrets = await OpalBase.WalletSecretAccessInteractor(storage: storage)
         let wallet = try await AccountTestFixtures.makeWallet(passphrase: "offline-savings")
 
         let protectionMode = try await secrets.saveWalletSecretsAndSnapshot(
-            from: wallet,
-            profile: .offlineSavingsSigner
+            from: wallet
         )
 
         #expect(protectionMode == .secureEnclave)
@@ -69,7 +69,8 @@ struct WalletSecurityProfileValidator {
                 protectedMaterialReset: {
                     throw SecretLaneProtectedMaterialResetFailure.resetInvoked
                 }
-            )
+            ),
+            secretPersistencePolicy: .acceptProviderOutput
         )
         let secrets = await OpalBase.WalletSecretAccessInteractor(storage: storage)
 
@@ -92,12 +93,13 @@ struct WalletSecurityProfileValidator {
                 protectedMaterialReset: {
                     resetProbe.recordReset()
                 }
-            )
+            ),
+            secretPersistencePolicy: .acceptProviderOutput
         )
         let secrets = await constructionCase.makeSecretAccessInteractor(storage: storage)
         let wallet = try await AccountTestFixtures.makeWallet(passphrase: "wipe-reset-\(constructionCase.slug)")
 
-        _ = try await secrets.saveWalletSecretsAndSnapshot(from: wallet, policy: .acceptProviderOutput)
+        _ = try await secrets.saveWalletSecretsAndSnapshot(from: wallet)
         try await secrets.wipeWalletSecretsAndSnapshots()
 
         #expect(resetProbe.wasReset)
@@ -113,12 +115,13 @@ struct WalletSecurityProfileValidator {
                 protectedMaterialReset: {
                     resetProbe.recordReset()
                 }
-            )
+            ),
+            secretPersistencePolicy: .acceptProviderOutput
         )
         let secrets = await OpalBase.WalletSecretAccessInteractor(storage: storage)
         let wallet = try await AccountTestFixtures.makeWallet(passphrase: "wipe-reset-after-delete-failure")
 
-        _ = try await secrets.saveWalletSecretsAndSnapshot(from: wallet, policy: .acceptProviderOutput)
+        _ = try await secrets.saveWalletSecretsAndSnapshot(from: wallet)
 
         try await Self.requireStoragePersistenceFailure(
             underlying: SecretLaneWipeFailure.committedGenerationDeleteFailed

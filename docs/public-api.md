@@ -2,6 +2,10 @@
 
 Opal Base exposes a workflow-shaped API under the `OpalBase.*` namespace. Builder-facing integrations should start from the public facades in `Sources/OpalBase/Public` and only drop lower when custom storage, networking, transaction handling, or protocol research requires it.
 
+## Unreleased Source Migration
+
+The construction-bound secret-persistence cleanup is a source-breaking change intended for the next explicitly breaking pre-1.0 release; it is not a patch-release compatibility change. Replace defaulted `Storage` construction with an explicit `ValueClient`, `Security`, and `secretPersistencePolicy`. Replace defaulted `Security` construction with `makePlaintextOnly()` only for an intentional plaintext provider, or provide concrete encrypt/decrypt closures. Bind `WalletSecurityProfile.secretPersistencePolicy` when constructing the storage or custom `StoredMnemonicPersistence` root, then call save methods without policy, profile, or fallback overrides. A custom `StoredMnemonicPersistence` save closure receives that already-bound policy so the backend can implement the selected provider or legacy-fallback behavior.
+
 ## How To Read The API
 
 - Prefer facade names over internal domain types when wiring app features.
@@ -59,9 +63,9 @@ Typical tasks: broadcast a prepared transaction, fetch confirmation status for a
 
 ### `WalletSecretAccessInteractor`
 
-Secret-loading and wipe lane for mnemonic, Keychain, Secure Enclave, migration, and recovery flows.
+Secret-loading and wipe lane for mnemonic, Keychain, Secure Enclave, migration, and recovery flows. Its storage or custom mnemonic-persistence root binds one immutable secret-persistence policy; save calls cannot silently select a different fallback.
 
-Typical tasks: save wallet secrets and snapshot, restore wallet secrets and snapshot, wipe wallet secrets and snapshots, and apply a `WalletSecurityProfile` secret persistence policy.
+Typical tasks: construct storage with an explicit backend, security provider, and `WalletSecurityProfile.secretPersistencePolicy`; save wallet secrets and snapshot; restore wallet secrets and snapshot; and wipe wallet secrets and snapshots. `OpalBase.Storage.makeSecureEnclaveBacked` binds `.requireSecureEnclave`; `.legacyFallbackToPlaintext` remains an explicitly selected migration policy, never a default.
 
 ### `WalletSnapshotInteractor`
 
@@ -134,6 +138,7 @@ Typical tasks: read recent diagnostics records filtered by category, level, trac
 - Call `confirmUnspentOutput(for:using:)` with an explicit `Network.AddressReader` before treating a match as spendable. `prepareSpend(spending:recipientOutputs:changeOutput:feeRate:shouldAllowDustDonation:)` signs through rederived opaque capabilities without exporting private-key bytes and requires exact token-payload conservation.
 - Prepare sending through `WalletTransactionAuthoringInteractor.prepareCashCodePayment(_:to:expectedNetwork:)`. The returned `CashCodeSpendPlan` uses normal account selection and reservation, chooses a qualifying compressed-P2PKH input among final positions 0 through 29, derives the exact destination, and exposes `buildTransaction(maximumGrindingAttempts:)`, `completeReservation()`, and `cancelReservation()`.
 - `CashCodeSpendPlan.buildTransaction(maximumGrindingAttempts:)` fee-corrects and signs first, then varies only the designated fixed-size Schnorr signature with random nonces. It checks cancellation, yields during long work, enforces the hard attempt bound, and re-verifies the final serialized prefix, selected outpoint/public key, unchanged transaction fields, requested satoshi value, and complete CashToken data.
+- Catch `CashCodeSpendPlan.LifecycleError` to distinguish a concurrent operation, use before build, terminal reuse, and an uncertain reservation disposition. A disposition failure is terminal because its backend may have applied the address-book effect before throwing.
 
 Typical receiver composition:
 

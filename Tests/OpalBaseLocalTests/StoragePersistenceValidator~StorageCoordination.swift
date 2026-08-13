@@ -10,7 +10,11 @@ extension StoragePersistenceValidator {
         .timeLimit(.minutes(1))
     )
     func serializeDirectStoragePrimitivesWithPersistenceOperations() async throws {
-        let storage = try OpalBase.Storage(valueClient: .makeInMemory())
+        let storage = try OpalBase.Storage(
+            valueClient: .makeInMemory(),
+            security: .makePlaintextOnly(),
+            secretPersistencePolicy: .acceptProviderOutput
+        )
         let persistence = await storage.makeSnapshotPersistence()
         let barrier = PersistenceOperationBarrierState()
         let wallet = try await AccountTestFixtures.makeWallet(passphrase: "storage-primitives")
@@ -40,8 +44,7 @@ extension StoragePersistenceValidator {
         let mnemonicSave = Task {
             await operationState.recordOperationStart()
             _ = try await storage.saveMnemonic(
-                mnemonic,
-                policy: .acceptProviderOutput
+                mnemonic
             )
             await operationState.recordOperationCompletion()
         }

@@ -60,11 +60,14 @@ extension StoragePersistenceValidator {
                 ciphertext.payload
             }
         )
-        let storage = try OpalBase.Storage(valueClient: valueClient, security: security)
+        let storage = try OpalBase.Storage(
+            valueClient: valueClient,
+            security: security,
+            secretPersistencePolicy: .acceptProviderOutput
+        )
 
         let protectionMode = try await storage.saveMnemonic(
-            Self.makeStoredMnemonic(passphrase: "software-mode"),
-            policy: .acceptProviderOutput
+            Self.makeStoredMnemonic(passphrase: "software-mode")
         )
 
         #expect(protectionMode == .software)
@@ -77,12 +80,15 @@ extension StoragePersistenceValidator {
     @Test("requireSecureEnclave fails closed when only plaintext protection is available")
     func requireSecureEnclaveFailsClosedForPlaintextSecurity() async throws {
         let valueClient = OpalBase.Storage.ValueClient.makeInMemory()
-        let storage = try OpalBase.Storage(valueClient: valueClient, security: .makePlaintextOnly())
+        let storage = try OpalBase.Storage(
+            valueClient: valueClient,
+            security: .makePlaintextOnly(),
+            secretPersistencePolicy: .requireSecureEnclave
+        )
 
         do {
             _ = try await storage.saveMnemonic(
-                Self.makeStoredMnemonic(passphrase: "fail-closed"),
-                policy: .requireSecureEnclave
+                Self.makeStoredMnemonic(passphrase: "fail-closed")
             )
             Issue.record("Expected requireSecureEnclave to reject plaintext protection.")
         } catch {
@@ -103,11 +109,14 @@ extension StoragePersistenceValidator {
                 ciphertext.payload
             }
         )
-        let storage = try OpalBase.Storage(valueClient: valueClient, security: security)
+        let storage = try OpalBase.Storage(
+            valueClient: valueClient,
+            security: security,
+            secretPersistencePolicy: .legacyFallbackToPlaintext
+        )
 
         let protectionMode = try await storage.saveMnemonic(
-            Self.makeStoredMnemonic(passphrase: "wrapped-protection"),
-            policy: .legacyFallbackToPlaintext
+            Self.makeStoredMnemonic(passphrase: "wrapped-protection")
         )
 
         #expect(protectionMode == .plaintext)
@@ -116,13 +125,56 @@ extension StoragePersistenceValidator {
         #expect(restored.protectionMode == .plaintext)
     }
 
-    @Test("persistState(policy: .requireSecureEnclave) leaves no committed artifacts when protection fails")
+    @Test("custom mnemonic persistence passes its construction policy to the backend")
+    func customMnemonicPersistenceBindsEveryPolicy() async throws {
+        typealias Policy = OpalBase.Storage.Security.PersistencePolicy
+        typealias ProtectionMode = OpalBase.Storage.Security.ProtectionMode
+        let cases: [(policy: Policy, expectedMode: ProtectionMode)] = [
+            (.acceptProviderOutput, .software),
+            (.legacyFallbackToPlaintext, .plaintext),
+            (.requireSecureEnclave, .secureEnclave)
+        ]
+
+        for testCase in cases {
+            let probe = CustomMnemonicPolicyProbe()
+            let persistence = OpalBase.Storage.StoredMnemonicPersistence(
+                secretPersistencePolicy: testCase.policy,
+                saveMnemonic: { _, _, policy in
+                    await probe.record(policy)
+                    switch policy {
+                    case .acceptProviderOutput:
+                        return .software
+                    case .legacyFallbackToPlaintext:
+                        return .plaintext
+                    case .requireSecureEnclave:
+                        return .secureEnclave
+                    }
+                },
+                loadMnemonicState: { _ in nil },
+                deleteMnemonic: { _ in }
+            )
+
+            let protectionMode = try await persistence.saveMnemonic(
+                Self.makeStoredMnemonic(passphrase: "custom-policy"),
+                generation: "custom-policy-generation"
+            )
+
+            #expect(await probe.receivedPolicy == testCase.policy)
+            #expect(protectionMode == testCase.expectedMode)
+        }
+    }
+
+    @Test("construction-bound Secure Enclave policy leaves no committed artifacts when protection fails")
     func persistStateRequireSecureEnclaveRollsBackStagedArtifacts() async throws {
-        let storage = try OpalBase.Storage(valueClient: .makeInMemory(), security: .makePlaintextOnly())
+        let storage = try OpalBase.Storage(
+            valueClient: .makeInMemory(),
+            security: .makePlaintextOnly(),
+            secretPersistencePolicy: .requireSecureEnclave
+        )
         let wallet = try await AccountTestFixtures.makeWallet(passphrase: "rollback")
 
         do {
-            _ = try await storage.persistState(for: wallet, policy: .requireSecureEnclave)
+            _ = try await storage.persistState(for: wallet)
             Issue.record("Expected strict Secure Enclave persistence to fail with plaintext-only security.")
         } catch {
             Self.expectInsufficientProtection(error)
@@ -133,22 +185,31 @@ extension StoragePersistenceValidator {
         #expect(try await storage.loadWalletSnapshot() == nil)
     }
 
-    @Test(
-        "mnemonic persistence rolls back weaker writes for strict Secure Enclave policy",
-        arguments: WeakProtectionPersistenceAdapterCase.allCases
-    )
-    fileprivate func mnemonicPersistenceRollsBackWeakerWritesForStrictSecureEnclavePolicy(
-        _ adapterCase: WeakProtectionPersistenceAdapterCase
-    ) async throws {
+    @Test("mnemonic persistence rolls back weaker writes for strict Secure Enclave policy")
+    func mnemonicPersistenceRollsBackWeakerWritesForStrictSecureEnclavePolicy() async throws {
         let state = LegacyStoredMnemonicPersistenceState()
-        let persistence = adapterCase.makePersistence(state: state)
-        let generation = "strict-\(adapterCase.slug)-generation"
+        let persistence = OpalBase.Storage.StoredMnemonicPersistence(
+            secretPersistencePolicy: .requireSecureEnclave,
+            saveMnemonic: { mnemonic, generation, _ in
+                await state.saveMnemonic(
+                    mnemonic,
+                    generation: generation,
+                    protectionMode: .software
+                )
+            },
+            loadMnemonicState: { generation in
+                await state.loadMnemonicState(generation: generation)
+            },
+            deleteMnemonic: { generation in
+                await state.deleteMnemonic(generation: generation)
+            }
+        )
+        let generation = "strict-policy-generation"
 
         do {
             _ = try await persistence.saveMnemonic(
-                Self.makeStoredMnemonic(passphrase: "strict-\(adapterCase.slug)"),
-                generation: generation,
-                policy: .requireSecureEnclave
+                Self.makeStoredMnemonic(passphrase: "strict-policy"),
+                generation: generation
             )
             Issue.record("Expected strict Secure Enclave policy to reject software protection.")
         } catch OpalBase.Storage.Security.Error.insufficientProtection(
@@ -166,7 +227,8 @@ extension StoragePersistenceValidator {
     func strictSecureEnclavePolicySurfacesRollbackFailure() async throws {
         let state = LegacyStoredMnemonicPersistenceState()
         let persistence = OpalBase.Storage.StoredMnemonicPersistence(
-            saveMnemonicWithPolicy: { mnemonic, generation, _ in
+            secretPersistencePolicy: .requireSecureEnclave,
+            saveMnemonic: { mnemonic, generation, _ in
                 await state.saveMnemonic(
                     mnemonic,
                     generation: generation,
@@ -185,8 +247,7 @@ extension StoragePersistenceValidator {
         await #expect(throws: StrictPolicyRollbackFailure.deleteFailed) {
             _ = try await persistence.saveMnemonic(
                 Self.makeStoredMnemonic(passphrase: "rollback-failure"),
-                generation: generation,
-                policy: .requireSecureEnclave
+                generation: generation
             )
         }
 
@@ -202,12 +263,13 @@ extension StoragePersistenceValidator {
                 protectedMaterialReset: {
                     resetProbe.recordReset()
                 }
-            )
+            ),
+            secretPersistencePolicy: .acceptProviderOutput
         )
         let session = await OpalBase.Storage.PersistenceSession(storage: storage)
         let wallet = try await AccountTestFixtures.makeWallet(passphrase: "session-wipe-reset")
 
-        _ = try await session.save(wallet: wallet, policy: .acceptProviderOutput)
+        _ = try await session.save(wallet: wallet)
         try await session.wipe()
 
         #expect(resetProbe.wasReset)
@@ -230,7 +292,8 @@ extension StoragePersistenceValidator {
                 protectedMaterialReset: {
                     resetProbe.recordReset()
                 }
-            )
+            ),
+            secretPersistencePolicy: .acceptProviderOutput
         )
 
         do {
@@ -254,7 +317,8 @@ extension StoragePersistenceValidator {
                 protectedMaterialReset: {
                     resetProbe.recordReset()
                 }
-            )
+            ),
+            secretPersistencePolicy: .acceptProviderOutput
         )
 
         try await storage.wipeAll()
@@ -272,10 +336,13 @@ extension StoragePersistenceValidator {
         do {
             let security = try OpalBase.Storage.Security.makeSecureEnclaveBacked(configuration: configuration)
             #expect(try SecureEnclaveAdapter.findPrivateKey(applicationTag: applicationTag) != nil)
-            let storage = try OpalBase.Storage(valueClient: .makeInMemory(), security: security)
+            let storage = try OpalBase.Storage(
+                valueClient: .makeInMemory(),
+                security: security,
+                secretPersistencePolicy: .requireSecureEnclave
+            )
             let protectionMode = try await storage.saveMnemonic(
-                Self.makeStoredMnemonic(passphrase: "secure-enclave"),
-                policy: .requireSecureEnclave
+                Self.makeStoredMnemonic(passphrase: "secure-enclave")
             )
             #expect(protectionMode == .secureEnclave)
             try await storage.wipeAll()
@@ -353,6 +420,14 @@ extension StoragePersistenceValidator {
     }
 }
 
+private actor CustomMnemonicPolicyProbe {
+    private(set) var receivedPolicy: OpalBase.Storage.Security.PersistencePolicy?
+
+    func record(_ policy: OpalBase.Storage.Security.PersistencePolicy) {
+        receivedPolicy = policy
+    }
+}
+
 private extension StoragePersistenceValidator {
     enum StrictPolicyRollbackFailure: Swift.Error, Equatable {
         case deleteFailed
@@ -381,63 +456,6 @@ private extension StoragePersistenceValidator {
                 errSecDecode
             case .invalidParameter:
                 errSecParam
-            }
-        }
-    }
-
-    enum WeakProtectionPersistenceAdapterCase: CaseIterable, CustomStringConvertible, Sendable {
-        case legacy
-        case policyAware
-
-        var description: String {
-            slug
-        }
-
-        var slug: String {
-            switch self {
-            case .legacy:
-                "legacy"
-            case .policyAware:
-                "policy-aware"
-            }
-        }
-
-        func makePersistence(
-            state: LegacyStoredMnemonicPersistenceState
-        ) -> OpalBase.Storage.StoredMnemonicPersistence {
-            switch self {
-            case .legacy:
-                OpalBase.Storage.StoredMnemonicPersistence(
-                    saveMnemonic: { mnemonic, generation, _ in
-                        await state.saveMnemonic(
-                            mnemonic,
-                            generation: generation,
-                            protectionMode: .software
-                        )
-                    },
-                    loadMnemonicState: { generation in
-                        await state.loadMnemonicState(generation: generation)
-                    },
-                    deleteMnemonic: { generation in
-                        await state.deleteMnemonic(generation: generation)
-                    }
-                )
-            case .policyAware:
-                OpalBase.Storage.StoredMnemonicPersistence(
-                    saveMnemonicWithPolicy: { mnemonic, generation, _ in
-                        await state.saveMnemonic(
-                            mnemonic,
-                            generation: generation,
-                            protectionMode: .software
-                        )
-                    },
-                    loadMnemonicState: { generation in
-                        await state.loadMnemonicState(generation: generation)
-                    },
-                    deleteMnemonic: { generation in
-                        await state.deleteMnemonic(generation: generation)
-                    }
-                )
             }
         }
     }

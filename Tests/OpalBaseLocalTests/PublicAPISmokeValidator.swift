@@ -307,7 +307,11 @@ struct PublicAPISmokeValidator {
         let transactions = OpalBase.Network.TransactionReader { _ in
             Data()
         }
-        let storage = try OpalBase.Storage()
+        let storage = try OpalBase.Storage(
+            valueClient: .makeInMemory(),
+            security: .makePlaintextOnly(),
+            secretPersistencePolicy: .acceptProviderOutput
+        )
         let persistence = await storage
             .makeReusablePaymentAddressStatePersistence(
                 identifier: Data("cash-code-smoke".utf8)
@@ -524,7 +528,9 @@ struct PublicAPISmokeValidator {
             storedMnemonicPersistence: makeSmokeStoredMnemonicPersistence(state: mnemonicState)
         )
 
-        let protectionMode = try await session.save(wallet: wallet)
+        let protectionMode = try await session.save(
+            wallet: wallet
+        )
         #expect(protectionMode == .plaintext)
 
         let restored = try await session.restore()
@@ -669,8 +675,12 @@ struct PublicAPISmokeValidator {
 
     private func makeSmokeStoredMnemonicPersistence(state: SmokeStoredMnemonicPersistenceState) -> OpalBase.Storage.StoredMnemonicPersistence {
         OpalBase.Storage.StoredMnemonicPersistence(
-            saveMnemonic: { mnemonic, _, fallbackToPlaintext in
-                await state.saveMnemonic(mnemonic, fallbackToPlaintext: fallbackToPlaintext)
+            secretPersistencePolicy: .legacyFallbackToPlaintext,
+            saveMnemonic: { mnemonic, _, policy in
+                await state.saveMnemonic(
+                    mnemonic,
+                    policy: policy
+                )
             },
             loadMnemonicState: { _ in
                 await state.loadMnemonicState()

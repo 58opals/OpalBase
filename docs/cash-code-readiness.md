@@ -16,7 +16,7 @@ This page is the source of truth for the current implementation and release read
 
 - Strict `cashcode:` and `cashcodetest:` encoding and decoding bind the profile, network, fixed 16-bit filter prefix, compressed public keys, child index zero, and zero expiration.
 - Legacy Electron Cash `paycode:` and `paycodetest:` values remain strict read-only migration data and cannot be generated, sent to, or matched as Cash Code v1.
-- Sender preparation derives the exact payment from a qualifying compressed-P2PKH input, preserves BCH and complete CashToken data, fee-corrects the transaction, and performs bounded cancellable Schnorr prefix grinding.
+- Sender preparation derives the exact payment from a qualifying compressed-P2PKH input, preserves BCH and complete CashToken data, fee-corrects the transaction, and performs bounded cancellable Schnorr prefix grinding. Every plan copy retains one actor-owned lifecycle, so one valid build and one terminal reservation disposition are the maximum.
 - Receiver matching independently validates raw transaction hashes, derives exact compressed-P2PKH locking bytecode, retains matching transaction outputs, and rederives opaque spending capabilities only after authorized key access.
 - Durable restoration uses bounded confirmed windows, atomic cursor advancement, deterministic mempool snapshot replacement, trusted reorganization rollback and replay, revision checks, and generation-staged public-only state.
 - Public deterministic positive and negative vectors cover identifiers, derivation intermediates, matching, sender construction, and strict rejection cases.
@@ -29,7 +29,7 @@ This page is the source of truth for the current implementation and release read
 | Receiver restoration | Deterministic tests cover bounded confirmed windows, cancellation, restart, mempool replacement, reorganization replay, persistence failures, exact transaction hashes, UTXO confirmation, and CashToken preservation. | Exercise the real Fulcrum RPA reader, raw-transaction reader, restoration actor, and production storage path against a controlled RPA-capable Fulcrum lifecycle. |
 | Historical performance | The production-shaped restoration path exists, while local test doubles intentionally avoid making performance claims. | Run the representative release benchmark defined by the [RPA Historical Scan Benchmark Gate](rpa-historical-scan-benchmark-gate.md), including incremental, maximum-window, restart, mempool, and reorganization workloads. |
 | Sender grinding | Bounded random-nonce signing, cancellation, prefix validation, mutation rejection, BCH payments, CashToken payments, and the first-30-input rule are implemented. | Demonstrate a successful grind through the real random-nonce path, verify the resulting transaction with a Bitcoin Cash virtual machine, and measure representative Apple-device performance before selecting any hot-path optimization. |
-| Sender lifecycle | Account selection and reservation integrate with explicit transaction building, completion, and cancellation operations. | Serialize the plan as a single-use operation so repeated or concurrent builds cannot produce competing candidates, and make reservation finalization deterministic across success, failure, and cancellation. |
+| Sender lifecycle | One actor shared by every plan copy admits one build, automatically cancels after build failure or task cancellation, admits exactly one completion-or-cancellation disposition after success, and terminalizes uncertain disposition failures without retry. The fixture-light `CashCodeSpendPlanLifecycleValidator` covers this without random-nonce signing. | No separate implementation gate remains. Re-run the focused lifecycle suite in release validation and keep application broadcast acceptance separate from reservation completion. |
 
 ## Opal Base Release Readiness
 
@@ -44,7 +44,7 @@ These Cash Code release gates are intentionally stricter than the branch-based d
 
 ## Wallet Integration Boundaries
 
-Opal Base owns the Cash Code profile, derivation, matching, restoration state contract, persistence boundary, sender preparation, and received-output spending primitives. Integrating wallet and application code still owns secret storage and authorization, exact key-origin recovery metadata, stable registration identity, scheduling, trusted chain-event detection, consent, migration UX, broadcast policy, reservation completion after an accepted transaction lifecycle, and application lifecycle.
+Opal Base owns the Cash Code profile, derivation, matching, restoration state contract, persistence boundary, sender preparation, single-use plan lifecycle, and received-output spending primitives. Integrating wallet and application code still owns secret storage and authorization, exact key-origin recovery metadata, stable registration identity, scheduling, trusted chain-event detection, consent, migration UX, broadcast policy, the decision to complete or cancel a successfully built plan, and application lifecycle.
 
 These responsibilities are integration boundaries rather than missing Cash Code wire-profile features. The profile does not assign a portable mnemonic derivation path, and seed-only recovery must not be advertised as portable.
 

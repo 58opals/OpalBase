@@ -8,11 +8,17 @@ extension StoragePersistenceValidator {
     @Test("restore tolerates a missing committed wallet snapshot while still restoring mnemonic state")
     func tolerateMissingWalletSnapshotDuringRestore() async throws {
         let valueClient = OpalBase.Storage.ValueClient.makeInMemory()
-        let storage = try OpalBase.Storage(valueClient: valueClient)
+        let storage = try OpalBase.Storage(
+            valueClient: valueClient,
+            security: .makePlaintextOnly(),
+            secretPersistencePolicy: .legacyFallbackToPlaintext
+        )
 
         let wallet = try await AccountTestFixtures.makeWallet(passphrase: "passphrase")
 
-        _ = try await storage.persistState(for: wallet)
+        _ = try await storage.persistState(
+            for: wallet
+        )
 
         let committedGeneration = try #require(
             try await storage.loadCommittedWalletSnapshotGeneration()
@@ -29,11 +35,17 @@ extension StoragePersistenceValidator {
     @Test("restore tolerates missing mnemonic ciphertext (e.g., keychain cleared) while still restoring snapshots")
     func tolerateMissingMnemonicCiphertextDuringRestore() async throws {
         let valueClient = OpalBase.Storage.ValueClient.makeInMemory()
-        let storage = try OpalBase.Storage(valueClient: valueClient)
+        let storage = try OpalBase.Storage(
+            valueClient: valueClient,
+            security: .makePlaintextOnly(),
+            secretPersistencePolicy: .legacyFallbackToPlaintext
+        )
 
         let wallet = try await AccountTestFixtures.makeWallet(passphrase: "passphrase")
 
-        _ = try await storage.persistState(for: wallet)
+        _ = try await storage.persistState(
+            for: wallet
+        )
 
         let committedGeneration = try #require(
             try await storage.loadCommittedWalletSnapshotGeneration()
@@ -69,13 +81,13 @@ extension StoragePersistenceValidator {
         )
         let storingStorage = try OpalBase.Storage(
             valueClient: valueClient,
-            security: storingSecurity
+            security: storingSecurity,
+            secretPersistencePolicy: .acceptProviderOutput
         )
         let wallet = try await AccountTestFixtures.makeWallet(passphrase: failureCase.passphrase)
 
         _ = try await storingStorage.persistState(
-            for: wallet,
-            policy: .acceptProviderOutput
+            for: wallet
         )
 
         let restoringSecurity = OpalBase.Storage.Security(
@@ -91,7 +103,8 @@ extension StoragePersistenceValidator {
         )
         let restoringStorage = try OpalBase.Storage(
             valueClient: valueClient,
-            security: restoringSecurity
+            security: restoringSecurity,
+            secretPersistencePolicy: .acceptProviderOutput
         )
         let committedGeneration = try #require(
             try await restoringStorage.loadCommittedWalletSnapshotGeneration()
@@ -114,11 +127,17 @@ extension StoragePersistenceValidator {
     @Test("wipeAll removes persisted wallet artifacts")
     func removePersistedArtifactsWithWipeAll() async throws {
         let valueClient = OpalBase.Storage.ValueClient.makeInMemory()
-        let storage = try OpalBase.Storage(valueClient: valueClient)
+        let storage = try OpalBase.Storage(
+            valueClient: valueClient,
+            security: .makePlaintextOnly(),
+            secretPersistencePolicy: .legacyFallbackToPlaintext
+        )
 
         let wallet = try await AccountTestFixtures.makeWallet(passphrase: "wipe-passphrase")
 
-        _ = try await storage.persistState(for: wallet)
+        _ = try await storage.persistState(
+            for: wallet
+        )
         try await storage.wipeAll()
 
         let session = await OpalBase.Storage.PersistenceSession(storage: storage)

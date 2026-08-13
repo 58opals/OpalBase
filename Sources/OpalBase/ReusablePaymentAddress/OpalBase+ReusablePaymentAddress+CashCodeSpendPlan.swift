@@ -6,6 +6,15 @@ import OpalCrypto
 extension _OpalBase.ReusablePaymentAddress {
     /// Reserved account spend prepared for Cash Code v1 prefix grinding.
     public struct CashCodeSpendPlan: Sendable {
+        /// Errors produced by the plan's single-use build and reservation lifecycle.
+        public enum LifecycleError: Swift.Error, Sendable, Equatable {
+            case operationInProgress
+            case planAlreadyUsed
+            case transactionNotBuilt
+            /// The reservation disposition may have been applied before its backend failed.
+            case reservationDispositionFailed
+        }
+
         /// The default and hard maximum for production random-nonce grinding.
         public static let defaultMaximumGrindingAttempts = 1_000_000
 
@@ -27,7 +36,7 @@ extension _OpalBase.ReusablePaymentAddress {
         private let changeOutput: OpalBase.Transaction.Output
         private let shouldAllowDustDonation: Bool
         private let shouldRandomizeRecipientOrdering: Bool
-        private let reservationHandle: OpalBase.Account.SpendReservation
+        private let lifecycle: CashCodeSpendPlanLifecycle
 
         init(
             request: CashCodePaymentRequest,
@@ -134,7 +143,9 @@ extension _OpalBase.ReusablePaymentAddress {
             self.shouldAllowDustDonation = shouldAllowDustDonation
             self.shouldRandomizeRecipientOrdering =
                 shouldRandomizeRecipientOrdering
-            self.reservationHandle = reservationHandle
+            self.lifecycle = CashCodeSpendPlanLifecycle(
+                reservationHandle: reservationHandle
+            )
         }
 
         /// Builds, fee-corrects, signs, and boundedly grinds the designated
@@ -142,30 +153,54 @@ extension _OpalBase.ReusablePaymentAddress {
         public func buildTransaction(
             maximumGrindingAttempts: Int = defaultMaximumGrindingAttempts
         ) async throws -> OpalBase.Transaction {
-            let baseTransaction = try buildBaseTransaction()
-            return try await buildTransaction(
-                baseTransaction: baseTransaction,
-                maximumGrindingAttempts: maximumGrindingAttempts,
-                makeCandidate: { _ in
-                    try makeRandomNonceCandidate(
-                        from: baseTransaction
-                    )
-                }
+            try CashCodePrefixGrindingEngine.validateMaximumAttempts(
+                maximumGrindingAttempts
             )
+            return try await lifecycle.build {
+                let baseTransaction = try buildBaseTransaction()
+                return try await grindTransaction(
+                    baseTransaction: baseTransaction,
+                    maximumGrindingAttempts: maximumGrindingAttempts,
+                    makeCandidate: { _ in
+                        try makeRandomNonceCandidate(
+                            from: baseTransaction
+                        )
+                    }
+                )
+            }
         }
 
         /// Completes the underlying account reservation after an accepted
         /// transaction lifecycle.
         public func completeReservation() async throws {
-            try await reservationHandle.complete()
+            try await lifecycle.completeReservation()
         }
 
         /// Releases the underlying account reservation without broadcasting.
         public func cancelReservation() async throws {
-            try await reservationHandle.cancel()
+            try await lifecycle.cancelReservation()
         }
 
         func buildTransaction(
+            baseTransaction: OpalBase.Transaction,
+            maximumGrindingAttempts: Int,
+            makeCandidate: @escaping @Sendable (
+                Int
+            ) async throws -> OpalBase.Transaction
+        ) async throws -> OpalBase.Transaction {
+            try CashCodePrefixGrindingEngine.validateMaximumAttempts(
+                maximumGrindingAttempts
+            )
+            return try await lifecycle.build {
+                try await grindTransaction(
+                    baseTransaction: baseTransaction,
+                    maximumGrindingAttempts: maximumGrindingAttempts,
+                    makeCandidate: makeCandidate
+                )
+            }
+        }
+
+        private func grindTransaction(
             baseTransaction: OpalBase.Transaction,
             maximumGrindingAttempts: Int,
             makeCandidate: @escaping @Sendable (
@@ -321,6 +356,111 @@ extension _OpalBase.ReusablePaymentAddress {
                 return (index, input, signingKey)
             }
             throw Error.noQualifyingSenderInput
+        }
+    }
+}
+
+actor CashCodeSpendPlanLifecycle {
+    typealias ReservationDisposition = @Sendable () async throws -> Void
+    typealias LifecycleError = OpalBase.ReusablePaymentAddress
+        .CashCodeSpendPlan.LifecycleError
+
+    private enum State {
+        case ready
+        case building
+        case built
+        case disposing
+        case terminal
+    }
+
+    private let completeReservationOperation: ReservationDisposition
+    private let cancelReservationOperation: ReservationDisposition
+    private var state = State.ready
+
+    init(reservationHandle: OpalBase.Account.SpendReservation) {
+        self.init(
+            completeReservation: {
+                try await reservationHandle.complete()
+            },
+            cancelReservation: {
+                try await reservationHandle.cancel()
+            }
+        )
+    }
+
+    init(
+        completeReservation: @escaping ReservationDisposition,
+        cancelReservation: @escaping ReservationDisposition
+    ) {
+        self.completeReservationOperation = completeReservation
+        self.cancelReservationOperation = cancelReservation
+    }
+
+    func build(
+        _ operation: @Sendable () async throws -> OpalBase.Transaction
+    ) async throws -> OpalBase.Transaction {
+        switch state {
+        case .ready:
+            state = .building
+        case .building, .disposing:
+            throw LifecycleError.operationInProgress
+        case .built, .terminal:
+            throw LifecycleError.planAlreadyUsed
+        }
+
+        do {
+            try Task.checkCancellation()
+            let transaction = try await operation()
+            try Task.checkCancellation()
+            state = .built
+            return transaction
+        } catch {
+            let buildError = error
+            try await dispose(using: cancelReservationOperation)
+            throw buildError
+        }
+    }
+
+    func completeReservation() async throws {
+        switch state {
+        case .built:
+            break
+        case .ready:
+            throw LifecycleError.transactionNotBuilt
+        case .building, .disposing:
+            throw LifecycleError.operationInProgress
+        case .terminal:
+            throw LifecycleError.planAlreadyUsed
+        }
+
+        try await dispose(using: completeReservationOperation)
+    }
+
+    func cancelReservation() async throws {
+        switch state {
+        case .ready, .built:
+            break
+        case .building, .disposing:
+            throw LifecycleError.operationInProgress
+        case .terminal:
+            throw LifecycleError.planAlreadyUsed
+        }
+
+        try await dispose(using: cancelReservationOperation)
+    }
+
+    private func dispose(
+        using operation: @escaping ReservationDisposition
+    ) async throws {
+        state = .disposing
+        do {
+            try await Task {
+                try await operation()
+            }.value
+            state = .terminal
+        } catch {
+            state = .terminal
+            throw LifecycleError.reservationDispositionFailed
         }
     }
 }

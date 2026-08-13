@@ -8,7 +8,11 @@ extension StoragePersistenceValidator {
     @Test("persistState(for:) + restore() round-trips wallet snapshots and mnemonic state")
     func persistAndRestoreWalletArtifacts() async throws {
         let valueClient = OpalBase.Storage.ValueClient.makeInMemory()
-        let storage = try OpalBase.Storage(valueClient: valueClient)
+        let storage = try OpalBase.Storage(
+            valueClient: valueClient,
+            security: .makePlaintextOnly(),
+            secretPersistencePolicy: .legacyFallbackToPlaintext
+        )
 
         let wallet = try await AccountTestFixtures.makeWallet(passphrase: "session-passphrase")
         let account = try await wallet.fetchAccount(at: 0)
@@ -16,10 +20,16 @@ extension StoragePersistenceValidator {
         _ = try await account.reserveNextReceivingAddress()
         let expectedSnapshot = await wallet.makeSnapshot()
 
-        let protectionMode = try await storage.persistState(for: wallet)
+        let protectionMode = try await storage.persistState(
+            for: wallet
+        )
         #expect([OpalBase.Storage.Security.ProtectionMode.plaintext, .software, .secureEnclave].contains(protectionMode))
 
-        let restoredStorage = try OpalBase.Storage(valueClient: valueClient)
+        let restoredStorage = try OpalBase.Storage(
+            valueClient: valueClient,
+            security: .makePlaintextOnly(),
+            secretPersistencePolicy: .legacyFallbackToPlaintext
+        )
         let session = await OpalBase.Storage.PersistenceSession(storage: restoredStorage)
         let restored = try await session.restore()
 
@@ -52,7 +62,11 @@ extension StoragePersistenceValidator {
     @Test("restore returns an empty state for a fresh install")
     func restoreEmptyStateWhenNothingPersisted() async throws {
         let valueClient = OpalBase.Storage.ValueClient.makeInMemory()
-        let storage = try OpalBase.Storage(valueClient: valueClient)
+        let storage = try OpalBase.Storage(
+            valueClient: valueClient,
+            security: .makePlaintextOnly(),
+            secretPersistencePolicy: .legacyFallbackToPlaintext
+        )
         let session = await OpalBase.Storage.PersistenceSession(storage: storage)
 
         let restored = try await session.restore()
@@ -75,7 +89,9 @@ extension StoragePersistenceValidator {
         let initialAccount = try await initialWallet.fetchAccount(at: 0)
         _ = try await initialAccount.reserveNextReceivingAddress()
 
-        let initialProtectionMode = try await session.save(wallet: initialWallet)
+        let initialProtectionMode = try await session.save(
+            wallet: initialWallet
+        )
         #expect(initialProtectionMode == .plaintext)
 
         let replacementWallet = try await AccountTestFixtures.makeWallet(
@@ -85,7 +101,9 @@ extension StoragePersistenceValidator {
         await mnemonicState.failNextSave()
 
         try await expectGenerationPersistenceSimulatedFailure {
-            _ = try await session.save(wallet: replacementWallet)
+            _ = try await session.save(
+                wallet: replacementWallet
+            )
         }
 
         let restored = try await session.restore()
@@ -111,7 +129,9 @@ extension StoragePersistenceValidator {
         let initialAccount = try await initialWallet.fetchAccount(at: 0)
         _ = try await initialAccount.reserveNextReceivingAddress()
 
-        _ = try await session.save(wallet: initialWallet)
+        _ = try await session.save(
+            wallet: initialWallet
+        )
         let initialCommittedGeneration = try #require(await snapshotState.loadCommittedGeneration())
 
         let replacementWallet = try await AccountTestFixtures.makeWallet(
@@ -121,7 +141,9 @@ extension StoragePersistenceValidator {
         await snapshotState.failNextCommittedGenerationSaveAfterMutation()
 
         try await expectGenerationPersistenceSimulatedFailure {
-            _ = try await session.save(wallet: replacementWallet)
+            _ = try await session.save(
+                wallet: replacementWallet
+            )
         }
 
         #expect(await snapshotState.loadCommittedGeneration() == initialCommittedGeneration)
@@ -146,7 +168,9 @@ extension StoragePersistenceValidator {
         )
 
         let initialWallet = try await AccountTestFixtures.makeWallet(passphrase: "first-passphrase")
-        _ = try await session.save(wallet: initialWallet)
+        _ = try await session.save(
+            wallet: initialWallet
+        )
         let initialCommittedGeneration = try #require(await snapshotState.loadCommittedGeneration())
 
         let replacementWallet = try await AccountTestFixtures.makeWallet(
@@ -157,7 +181,9 @@ extension StoragePersistenceValidator {
         await snapshotState.failNextCommittedGenerationSaveBeforeMutation()
 
         try await expectGenerationPersistenceSimulatedFailure {
-            _ = try await session.save(wallet: replacementWallet)
+            _ = try await session.save(
+                wallet: replacementWallet
+            )
         }
 
         let stagedGeneration = try #require(await snapshotState.loadCommittedGeneration())
@@ -177,11 +203,12 @@ extension StoragePersistenceValidator {
         let snapshotState = GenerationSnapshotPersistenceState()
         let mnemonicState = GenerationMnemonicPersistenceState()
         let storedMnemonicPersistence = OpalBase.Storage.StoredMnemonicPersistence(
-            saveMnemonic: { mnemonic, generation, fallbackToPlaintext in
+            secretPersistencePolicy: .legacyFallbackToPlaintext,
+            saveMnemonic: { mnemonic, generation, policy in
                 try await mnemonicState.saveMnemonic(
                     mnemonic,
                     generation: generation,
-                    fallbackToPlaintext: fallbackToPlaintext
+                    policy: policy
                 )
             },
             loadMnemonicState: { _ in
@@ -200,7 +227,9 @@ extension StoragePersistenceValidator {
         )
         let wallet = try await AccountTestFixtures.makeWallet(passphrase: "manual-recoverable-load")
 
-        _ = try await session.save(wallet: wallet)
+        _ = try await session.save(
+            wallet: wallet
+        )
         let restored = try await session.restore()
 
         #expect(restored.walletSnapshot != nil)
@@ -222,7 +251,9 @@ extension StoragePersistenceValidator {
         )
 
         let wallet = try await AccountTestFixtures.makeWallet(passphrase: "wipe-failure")
-        _ = try await session.save(wallet: wallet)
+        _ = try await session.save(
+            wallet: wallet
+        )
         await mnemonicState.failNextDelete()
 
         try await expectGenerationPersistenceSimulatedFailure {
@@ -280,11 +311,12 @@ extension StoragePersistenceValidator {
         state: GenerationMnemonicPersistenceState
     ) -> OpalBase.Storage.StoredMnemonicPersistence {
         OpalBase.Storage.StoredMnemonicPersistence(
-            saveMnemonic: { mnemonic, generation, fallbackToPlaintext in
+            secretPersistencePolicy: .legacyFallbackToPlaintext,
+            saveMnemonic: { mnemonic, generation, policy in
                 try await state.saveMnemonic(
                     mnemonic,
                     generation: generation,
-                    fallbackToPlaintext: fallbackToPlaintext
+                    policy: policy
                 )
             },
             loadMnemonicState: { generation in

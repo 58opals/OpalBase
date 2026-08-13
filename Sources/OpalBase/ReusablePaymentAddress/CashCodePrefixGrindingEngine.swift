@@ -6,13 +6,7 @@ enum CashCodePrefixGrindingEngine {
         makeCandidate: @Sendable (Int) async throws -> OpalBase.Transaction,
         validateCandidate: @Sendable (OpalBase.Transaction) throws -> Bool
     ) async throws -> OpalBase.Transaction {
-        guard maximumAttempts > 0,
-              maximumAttempts <= OpalBase.ReusablePaymentAddress
-                .CashCodeSpendPlan.defaultMaximumGrindingAttempts
-        else {
-            throw OpalBase.ReusablePaymentAddress.Error
-                .invalidPrefixGrindingAttemptLimit
-        }
+        try validateMaximumAttempts(maximumAttempts)
 
         for attempt in 0..<maximumAttempts {
             try Task.checkCancellation()
@@ -29,5 +23,15 @@ enum CashCodePrefixGrindingEngine {
 
         throw OpalBase.ReusablePaymentAddress.Error
             .prefixGrindingExhausted(attempts: maximumAttempts)
+    }
+
+    static func validateMaximumAttempts(_ maximumAttempts: Int) throws {
+        guard maximumAttempts > 0,
+              maximumAttempts <= OpalBase.ReusablePaymentAddress
+                .CashCodeSpendPlan.defaultMaximumGrindingAttempts
+        else {
+            throw OpalBase.ReusablePaymentAddress.Error
+                .invalidPrefixGrindingAttemptLimit
+        }
     }
 }

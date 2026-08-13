@@ -10,9 +10,10 @@ actor SmokeStoredMnemonicPersistenceState {
 
     func saveMnemonic(
         _ mnemonic: OpalBase.Storage.StoredMnemonic,
-        fallbackToPlaintext: Bool
+        policy: OpalBase.Storage.Security.PersistencePolicy
     ) -> OpalBase.Storage.Security.ProtectionMode {
-        let mode: OpalBase.Storage.Security.ProtectionMode = fallbackToPlaintext ? .plaintext : .software
+        let mode: OpalBase.Storage.Security.ProtectionMode =
+            policy == .legacyFallbackToPlaintext ? .plaintext : .software
         state = (mnemonic, mode)
         return mode
     }

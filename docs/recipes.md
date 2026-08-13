@@ -27,12 +27,17 @@ Review with: `Tests/OpalBaseLocalTests/PublicAPISmokeValidator.swift`.
 Use `WalletSecretAccessInteractor` for mnemonic-bearing save, restore, and wipe flows:
 
 ```swift
+let storage = try OpalBase.Storage(
+    valueClient: applicationValueClient,
+    security: applicationSecurity,
+    secretPersistencePolicy: securityProfile.secretPersistencePolicy
+)
 let session = await OpalBase.Storage.PersistenceSession(storage: storage)
 let secrets = OpalBase.WalletSecretAccessInteractor(persistenceSession: session)
 let restored = try await secrets.restoreWalletSecretsAndSnapshot()
 ```
 
-Use this when: the component is allowed to handle mnemonic material and storage protection policy.
+Use this when: the component is allowed to handle mnemonic material and bind the storage protection policy for the lifetime of that persistence root. Save calls do not override this policy. Use the explicitly named `.legacyFallbackToPlaintext` only for migration; it is never selected by default.
 
 Do not use this when: the component only needs public-chain balance, history, UTXOs, or confirmations.
 

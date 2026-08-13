@@ -21,7 +21,9 @@ extension StoragePersistenceValidator {
             storedMnemonicPersistence: mnemonicPersistence
         )
         let initialWallet = try await AccountTestFixtures.makeWallet(passphrase: "initial")
-        _ = try await firstSession.save(wallet: initialWallet)
+        _ = try await firstSession.save(
+            wallet: initialWallet
+        )
         let initialGeneration = try #require(await snapshotState.loadCommittedGeneration())
 
         let firstReplacement = try await AccountTestFixtures.makeWallet(
@@ -36,7 +38,9 @@ extension StoragePersistenceValidator {
 
         let firstSave = Task {
             do {
-                _ = try await firstSession.save(wallet: firstReplacement)
+                _ = try await firstSession.save(
+                    wallet: firstReplacement
+                )
                 return false
             } catch GenerationPersistenceError.simulatedFailure {
                 return true
@@ -49,7 +53,9 @@ extension StoragePersistenceValidator {
         let hasCompetingSaveStarted = Mutex(false)
         let secondSave = Task {
             hasCompetingSaveStarted.withLock { $0 = true }
-            return try await secondSession.save(wallet: secondReplacement)
+            return try await secondSession.save(
+                wallet: secondReplacement
+            )
         }
         while !hasCompetingSaveStarted.withLock({ $0 }) {
             await Task.yield()
@@ -73,7 +79,11 @@ extension StoragePersistenceValidator {
         .timeLimit(.minutes(1))
     )
     func allowProgressCallbacksToReenterAfterExclusivePersistenceWork() async throws {
-        let storage = try OpalBase.Storage(valueClient: .makeInMemory())
+        let storage = try OpalBase.Storage(
+            valueClient: .makeInMemory(),
+            security: .makePlaintextOnly(),
+            secretPersistencePolicy: .legacyFallbackToPlaintext
+        )
         let snapshotPersistence = await storage.makeSnapshotPersistence()
         let mnemonicPersistence = await storage.makeStoredMnemonicPersistence()
         let reentrantSession = OpalBase.Storage.PersistenceSession(
@@ -97,7 +107,9 @@ extension StoragePersistenceValidator {
         )
         let wallet = try await AccountTestFixtures.makeWallet(passphrase: "reentrant-progress")
 
-        let protectionMode = try await session.save(wallet: wallet)
+        let protectionMode = try await session.save(
+            wallet: wallet
+        )
 
         #expect(protectionMode == .plaintext)
         #expect(restoredPassphrase.withLock { $0 } == "reentrant-progress")
@@ -123,7 +135,9 @@ extension StoragePersistenceValidator {
         await mnemonicState.failNextSave()
 
         do {
-            _ = try await session.save(wallet: wallet)
+            _ = try await session.save(
+                wallet: wallet
+            )
             Issue.record("Expected the mnemonic save to fail.")
         } catch GenerationPersistenceError.simulatedFailure {
         }

@@ -327,7 +327,9 @@ struct ReusablePaymentAddressRestorationValidator {
         )
         let valueActor = ReusablePaymentAddressStorageValueActor()
         let storage = try OpalBase.Storage(
-            valueClient: await valueActor.makeValueClient()
+            valueClient: await valueActor.makeValueClient(),
+            security: .makePlaintextOnly(),
+            secretPersistencePolicy: .acceptProviderOutput
         )
         let persistence = await storage
             .makeReusablePaymentAddressStatePersistence(
@@ -395,7 +397,9 @@ struct ReusablePaymentAddressRestorationValidator {
         let transportActor = ReusablePaymentAddressRestorationTransportActor()
         let valueActor = ReusablePaymentAddressStorageValueActor()
         let storage = try OpalBase.Storage(
-            valueClient: await valueActor.makeValueClient()
+            valueClient: await valueActor.makeValueClient(),
+            security: .makePlaintextOnly(),
+            secretPersistencePolicy: .acceptProviderOutput
         )
         let persistence = await storage
             .makeReusablePaymentAddressStatePersistence(
@@ -433,7 +437,9 @@ struct ReusablePaymentAddressRestorationValidator {
         let transportActor = ReusablePaymentAddressRestorationTransportActor()
         let valueActor = ReusablePaymentAddressStorageValueActor()
         let storage = try OpalBase.Storage(
-            valueClient: await valueActor.makeValueClient()
+            valueClient: await valueActor.makeValueClient(),
+            security: .makePlaintextOnly(),
+            secretPersistencePolicy: .acceptProviderOutput
         )
         let persistence = await storage
             .makeReusablePaymentAddressStatePersistence(

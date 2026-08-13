@@ -17,7 +17,7 @@ Opal Base owns the app-facing orchestration above those packages. It should not 
 ## Builder Integration Lanes
 
 - Wallet management lane: `WalletManagementInteractor` works around an existing `OpalBase.Wallet` for account creation, account lookup, and snapshot composition.
-- Secret lane: `WalletSecretAccessInteractor` owns mnemonic-bearing save, restore, and wipe flows through `OpalBase.Storage.PersistenceSession`.
+- Secret lane: `WalletSecretAccessInteractor` owns mnemonic-bearing save, restore, and wipe flows through `OpalBase.Storage.PersistenceSession`; the storage or custom mnemonic-persistence root owns one immutable write policy.
 - Snapshot lane: `WalletSnapshotInteractor` moves `OpalBase.Wallet.Snapshot` values without retaining secrets, transport clients, or raw transactions.
 - Public-chain lane: `WalletAccountPublicDescriptor`, `WalletPublicChainOperations`, `WalletTransportInteractor`, and `WalletBlockchainSyncInteractor` refresh BCH balances, transaction history, UTXOs, and confirmations from public account data.
 - Receive lane: `WalletReceiveAddressInteractor` reserves CashAddr receive addresses and keeps reservation/cache mutation separate from generic sync.
@@ -50,7 +50,7 @@ The first flow can run without mnemonic authority after descriptor construction.
 
 ## State And Persistence
 
-Wallet and account objects are actor-isolated so mutation stays serialized. Snapshot persistence is intentionally separate from secret persistence: `WalletSnapshotInteractor` handles snapshot values, while `WalletSecretAccessInteractor` handles mnemonic-bearing state and storage protection policy.
+Wallet and account objects are actor-isolated so mutation stays serialized. Snapshot persistence is intentionally separate from secret persistence: `WalletSnapshotInteractor` handles snapshot values, while `WalletSecretAccessInteractor` handles mnemonic-bearing state. `Storage` requires an explicit backend, security provider, and construction-bound secret policy; manually composed mnemonic persistence likewise binds the policy once. Existing plaintext and historical Secure Enclave envelopes remain readable. New plaintext writes remain possible when `.legacyFallbackToPlaintext` is explicitly selected or when an explicitly supplied provider returns `.plaintext` under `.acceptProviderOutput`; only `.requireSecureEnclave` fails closed on weaker output.
 
 Secure Enclave-backed persistence protects stored mnemonic material at rest. It does not move BCH secp256k1 signing into the Secure Enclave; apps that need external signing review should use `WalletUnsignedSpendPlan` and keep review, signature verification policy, and relay outside the signing boundary.
 

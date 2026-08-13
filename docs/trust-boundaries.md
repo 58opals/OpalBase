@@ -21,7 +21,7 @@ Opal Base is designed around narrow integration lanes. The important rule for bu
 
 `OpalBase.Wallet` and `OpalBase.Account` are actor-isolated domain objects. A wallet created from a mnemonic and an account fetched from that wallet should be treated as secret-bearing authority because they can derive addresses, reserve wallet-owned value, and participate in signing paths.
 
-Use `WalletSecretAccessInteractor` when code is allowed to save, restore, or wipe mnemonic-bearing state. Use `OpalBase.Storage.makeSecureEnclaveBacked` and `.requireSecureEnclave` when a flow must fail closed instead of falling back to weaker secret persistence.
+Use `WalletSecretAccessInteractor` when code is allowed to save, restore, or wipe mnemonic-bearing state. Bind one `Storage.Security.PersistencePolicy` when constructing storage or custom mnemonic persistence; save calls cannot change it. `OpalBase.Storage.makeSecureEnclaveBacked` binds `.requireSecureEnclave` and fails closed instead of falling back to weaker secret persistence. `.legacyFallbackToPlaintext` exists only for an explicitly selected migration lane.
 
 Secure Enclave-backed storage protects persisted mnemonic material at rest. It does not move BCH secp256k1 transaction signing into the Secure Enclave; once wallet authority is restored, signing still happens through Opal Base and OpalCrypto in process memory unless the app chooses an external signing boundary.
 

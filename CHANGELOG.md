@@ -10,6 +10,8 @@ All notable public-facing changes to Opal Base are tracked here.
 
 ### Changed
 
+- Made secret-persistence policy construction-bound for the next explicitly breaking pre-1.0 release. `Storage`, `Security`, custom `StoredMnemonicPersistence`, persistence sessions, and the secret interactor now require or inherit one explicit root policy instead of defaulting or accepting per-save fallback overrides; migration guidance is in the public API guide.
+- Made Cash Code spend-plan build and reservation disposition single-use across every plan copy and exposed catchable lifecycle errors, including terminal uncertain disposition failure.
 - Added a public [Cash Code v1 readiness](docs/cash-code-readiness.md) source of truth that separates implementation completeness, production readiness, stable release availability, and ecosystem standardization.
 - Moved `OpalDiagnostics` to its public `0.2.0` SemVer requirement and refreshed the tracked public `develop` revisions for `SwiftFulcrum`, `OpalCrypto`, and `OpalFusion`.
 - Replaced the experimental reusable-payment-address closure scaffold with

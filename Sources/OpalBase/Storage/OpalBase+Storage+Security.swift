@@ -46,13 +46,13 @@ extension _OpalBase.Storage {
         public typealias RecoverableSecureFailure = @Sendable (Swift.Error) -> Bool
         typealias ProtectedMaterialReset = @Sendable () throws -> Void
         
-        private let encryptor: Encrypt?
-        private let decryptor: Decrypt?
+        private let encryptor: Encrypt
+        private let decryptor: Decrypt
         private let isSecureFailureRecoverable: RecoverableSecureFailure
         private let protectedMaterialReset: ProtectedMaterialReset?
         
-        public init(encrypt: Encrypt? = nil,
-                    decrypt: Decrypt? = nil,
+        public init(encrypt: @escaping Encrypt,
+                    decrypt: @escaping Decrypt,
                     checkSecureEnclaveErrorRecoverability: @escaping RecoverableSecureFailure = { _ in false }) {
             self.init(
                 encrypt: encrypt,
@@ -62,23 +62,15 @@ extension _OpalBase.Storage {
             )
         }
 
-        init(encrypt: Encrypt? = nil,
-             decrypt: Decrypt? = nil,
+        init(encrypt: @escaping Encrypt,
+             decrypt: @escaping Decrypt,
              checkSecureEnclaveErrorRecoverability: @escaping RecoverableSecureFailure = { _ in false },
             protectedMaterialReset: ProtectedMaterialReset? = nil) {
-            if let encrypt {
-                self.encryptor = { value in
-                    try encrypt(Data(value))
-                }
-            } else {
-                self.encryptor = nil
+            self.encryptor = { value in
+                try encrypt(Data(value))
             }
-            if let decrypt {
-                self.decryptor = { ciphertext in
-                    try Data(decrypt(ciphertext))
-                }
-            } else {
-                self.decryptor = nil
+            self.decryptor = { ciphertext in
+                try Data(decrypt(ciphertext))
             }
             self.isSecureFailureRecoverable = checkSecureEnclaveErrorRecoverability
             self.protectedMaterialReset = protectedMaterialReset
@@ -96,7 +88,6 @@ extension _OpalBase.Storage {
         }
         
         public func encrypt(_ value: Data) throws -> Ciphertext {
-            guard let encryptor else { throw Error.protectionUnavailable }
             do {
                 return try encryptor(value)
             } catch {
@@ -105,7 +96,6 @@ extension _OpalBase.Storage {
         }
         
         public func decrypt(_ ciphertext: Ciphertext) throws -> Data {
-            guard let decryptor else { throw Error.protectionUnavailable }
             do {
                 return try decryptor(ciphertext)
             } catch {

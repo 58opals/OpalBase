@@ -132,6 +132,7 @@ Opal Base is available under the [Apache License 2.0](LICENSE). Copyright 2026 5
 - [Trust Boundaries](docs/trust-boundaries.md)
 - [Public API Guide](docs/public-api.md)
 - [Architecture](docs/architecture.md)
+- [Architecture Complexity Audit](docs/architecture-complexity-audit.md)
 - [Cash Code v1 Candidate Profile](docs/cash-code-v1.md)
 - [Cash Code v1 Readiness](docs/cash-code-readiness.md)
 - [Cash Code v1 Conformance Vectors](docs/cash-code-v1-vectors.json)

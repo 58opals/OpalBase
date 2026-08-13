@@ -63,6 +63,9 @@ What you have now: `wallet` carries mnemonic-backed authority, `account` carries
 For mnemonic-bearing restore flows, use `WalletSecretAccessInteractor` with `OpalBase.Storage.PersistenceSession`:
 
 ```swift
+let storage = try OpalBase.Storage.makeSecureEnclaveBacked(
+    valueClient: applicationValueClient
+)
 let session = await OpalBase.Storage.PersistenceSession(storage: storage)
 let secrets = OpalBase.WalletSecretAccessInteractor(persistenceSession: session)
 let restored = try await secrets.restoreWalletSecretsAndSnapshot()
@@ -80,7 +83,7 @@ if let storedMnemonic = restored.mnemonic,
 }
 ```
 
-What you have now: a restored wallet can include mnemonic words, passphrase, wallet snapshot, and the protection mode that was used for secret persistence. Apps decide whether missing snapshot or mnemonic material is recoverable for their flow.
+What you have now: a restored wallet can include mnemonic words, passphrase, wallet snapshot, and the protection mode that was used for secret persistence. `Storage` binds one write policy at construction, while restore remains compatible with existing plaintext and historical Secure Enclave envelopes. Apps decide whether missing snapshot or mnemonic material is recoverable for their flow.
 
 For public-chain sync without mnemonic authority, persist and pass a `WalletAccountPublicDescriptor`:
 
@@ -181,7 +184,7 @@ What you have now: a `WalletUnsignedSpendPlan` that reserves selected UTXOs and 
 ## 8. Keep Secret-Handling And Signing Boundaries Explicit
 
 - Use `WalletSecretAccessInteractor` for mnemonic-bearing save, restore, and wipe flows.
-- Use `OpalBase.Storage.makeSecureEnclaveBacked` plus `.requireSecureEnclave` or `WalletSecurityProfile.offlineSavingsSigner` when the app must fail closed on weaker secret persistence.
+- Use `OpalBase.Storage.makeSecureEnclaveBacked` when the app must fail closed on weaker secret persistence; it binds `.requireSecureEnclave`. For a custom security provider, pass `WalletSecurityProfile.secretPersistencePolicy` to `Storage` construction. Use `.legacyFallbackToPlaintext` only for an explicit migration lane.
 - Secure Enclave storage protects persisted mnemonic material at rest; it does not move BCH secp256k1 transaction signing into the Secure Enclave.
 - Use `OpalBase.Key.SigningKey` for scoped in-process secp256k1 signing when raw private-key import is intentional.
 - Keep QR exchange, file exchange, hardware-device policy, offline review UI, signature verification policy, and final relay boundaries in the application layer.

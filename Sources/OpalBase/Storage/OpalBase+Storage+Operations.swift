@@ -37,22 +37,14 @@ extension _OpalBase.Storage {
         return try decodeSnapshot(OpalBase.Address.Book.Snapshot.self, from: data)
     }
 
-    public func saveMnemonic(_ mnemonic: OpalBase.Storage.StoredMnemonic, fallbackToPlaintext: Bool = false) async throws -> Security.ProtectionMode {
-        try await saveMnemonic(
-            mnemonic,
-            policy: fallbackToPlaintext ? .legacyFallbackToPlaintext : .acceptProviderOutput
-        )
-    }
-
     public func saveMnemonic(
-        _ mnemonic: OpalBase.Storage.StoredMnemonic,
-        policy: Security.PersistencePolicy
+        _ mnemonic: OpalBase.Storage.StoredMnemonic
     ) async throws -> Security.ProtectionMode {
         try await PersistenceOperationCoordinator.processWideCoordinator.performExclusively {
             try await saveMnemonic(
                 mnemonic,
                 key: .mnemonicCiphertext,
-                policy: policy
+                policy: secretPersistencePolicy
             )
         }
     }
@@ -74,16 +66,11 @@ extension _OpalBase.Storage {
         return state.mnemonic
     }
 
-    public func persistState(for wallet: OpalBase.Wallet) async throws -> Security.ProtectionMode {
-        try await persistState(for: wallet, policy: .legacyFallbackToPlaintext)
-    }
-
     public func persistState(
-        for wallet: OpalBase.Wallet,
-        policy: Security.PersistencePolicy
+        for wallet: OpalBase.Wallet
     ) async throws -> Security.ProtectionMode {
         let session = await PersistenceSession(storage: self)
-        return try await session.save(wallet: wallet, policy: policy)
+        return try await session.save(wallet: wallet)
     }
 
     public func delete(key: String) async throws {
@@ -155,25 +142,12 @@ extension _OpalBase.Storage {
 
     func saveMnemonic(
         _ mnemonic: OpalBase.Storage.StoredMnemonic,
-        generation: String,
-        fallbackToPlaintext: Bool = false
-    ) async throws -> Security.ProtectionMode {
-        try await saveMnemonic(
-            mnemonic,
-            generation: generation,
-            policy: fallbackToPlaintext ? .legacyFallbackToPlaintext : .acceptProviderOutput
-        )
-    }
-
-    func saveMnemonic(
-        _ mnemonic: OpalBase.Storage.StoredMnemonic,
-        generation: String,
-        policy: Security.PersistencePolicy
+        generation: String
     ) async throws -> Security.ProtectionMode {
         try await saveMnemonic(
             mnemonic,
             key: .mnemonicCiphertextGeneration(generation),
-            policy: policy
+            policy: secretPersistencePolicy
         )
     }
 
