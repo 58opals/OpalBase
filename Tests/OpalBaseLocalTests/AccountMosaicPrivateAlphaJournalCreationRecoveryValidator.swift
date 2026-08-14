@@ -25,10 +25,12 @@ struct AccountMosaicPrivateAlphaJournalCreationRecoveryValidator {
         switch consume loadResult {
         case let .abandonedFreshAttempt(disposition):
             await fixture.persistenceActor
-                .scheduleCancellationForNextDeletion()
+                .scheduleCancellationForNextAuthorization()
             do {
-                try await Journal.eraseJournal(authorizedBy: disposition)
-                Issue.record("Expected recovered erasure cancellation")
+                _ = try await Journal.authorizeJournalErasure(
+                    authorizedBy: disposition
+                )
+                Issue.record("Expected recovered authorization cancellation")
             } catch is CancellationError {
             } catch {
                 Issue.record("Expected CancellationError to remain unmapped")
@@ -38,7 +40,20 @@ struct AccountMosaicPrivateAlphaJournalCreationRecoveryValidator {
                     == fixture.envelope
             )
 
-            try await Journal.eraseJournal(authorizedBy: disposition)
+            let cleanupRequirement = try await Journal
+                .authorizeJournalErasure(authorizedBy: disposition)
+            #expect(
+                await fixture.persistenceActor.readPersistedEnvelope()
+                    == fixture.envelope
+            )
+
+            try await Journal.completeJournalErasure(
+                requiredBy: cleanupRequirement,
+                confirmOuterCleanup: { context in
+                    try await fixture.persistenceActor
+                        .removeOuterMaterialAndConfirmCleanup(matching: context)
+                }
+            )
             #expect(
                 await fixture.persistenceActor.readPersistedEnvelope() == nil
             )
@@ -47,8 +62,8 @@ struct AccountMosaicPrivateAlphaJournalCreationRecoveryValidator {
         }
     }
 
-    @Test("Preserve replacement bytes from recovered empty-journal erasure")
-    func preserveReplacementWhenRecoveredErasureIsStale() async throws {
+    @Test("Preserve replacement bytes from recovered erasure authorization")
+    func preserveReplacementWhenRecoveredAuthorizationIsStale() async throws {
         let fixture = try await makeRestartedEmptyJournal()
         let loadResult = try await Journal.loadAuthenticatedRecovery(
             fieldDerivedJournalKey: fixture.fieldDerivedJournalKey,
@@ -63,8 +78,10 @@ struct AccountMosaicPrivateAlphaJournalCreationRecoveryValidator {
         switch consume loadResult {
         case let .abandonedFreshAttempt(disposition):
             do {
-                try await Journal.eraseJournal(authorizedBy: disposition)
-                Issue.record("Expected recovered erasure to reject replacement bytes")
+                _ = try await Journal.authorizeJournalErasure(
+                    authorizedBy: disposition
+                )
+                Issue.record("Expected authorization to reject replacement bytes")
             } catch let failure as Journal.Failure {
                 #expect(failure == .stalePersistenceState)
             } catch {
@@ -77,6 +94,76 @@ struct AccountMosaicPrivateAlphaJournalCreationRecoveryValidator {
         case .loadedRecovery:
             Issue.record("Expected authenticated empty-journal erasure authority")
         }
+    }
+
+    @Test("Resume authorized outer cleanup without reconstructing the journal key")
+    func resumeAuthorizedOuterCleanupWithoutJournalKey() async throws {
+        let fixture = try await makeRestartedEmptyJournal()
+        let loadResult = try await Journal.loadAuthenticatedRecovery(
+            fieldDerivedJournalKey: fixture.fieldDerivedJournalKey,
+            scope: fixture.scope,
+            persistence: fixture.persistenceActor.makePersistence()
+        )
+        switch consume loadResult {
+        case let .abandonedFreshAttempt(disposition):
+            _ = try await Journal.authorizeJournalErasure(
+                authorizedBy: disposition
+            )
+        case .loadedRecovery:
+            Issue.record("Expected authenticated empty-journal authority")
+            return
+        }
+
+        do {
+            _ = try await Journal.loadAuthenticatedRecovery(
+                fieldDerivedJournalKey: fixture.fieldDerivedJournalKey,
+                scope: fixture.scope,
+                persistence: fixture.persistenceActor.makePersistence()
+            )
+            Issue.record("Expected active recovery to reject terminal authorization")
+        } catch let failure as Journal.Failure {
+            #expect(failure == .journalCleanupRequired)
+        } catch {
+            Issue.record("Expected a mapped journal failure")
+        }
+
+        guard let cleanupRequirement = try await Journal
+            .loadAuthorizedJournalCleanup(
+                scope: fixture.scope,
+                persistence: fixture.persistenceActor.makePersistence()
+            ) else {
+            Issue.record("Expected durable cleanup authority after restart")
+            return
+        }
+        await fixture.persistenceActor.scheduleFailureForNextCleanup()
+        do {
+            try await Journal.completeJournalErasure(
+                requiredBy: cleanupRequirement,
+                confirmOuterCleanup: { context in
+                    try await fixture.persistenceActor
+                        .removeOuterMaterialAndConfirmCleanup(matching: context)
+                }
+            )
+            Issue.record("Expected incomplete outer cleanup")
+        } catch let failure as Journal.Failure {
+            #expect(failure == .outerCleanupIncomplete)
+        } catch {
+            Issue.record("Expected a mapped journal failure")
+        }
+        #expect(
+            await fixture.persistenceActor.readPersistedEnvelope()
+                == fixture.envelope
+        )
+
+        try await Journal.completeJournalErasure(
+            requiredBy: cleanupRequirement,
+            confirmOuterCleanup: { context in
+                try await fixture.persistenceActor
+                    .removeOuterMaterialAndConfirmCleanup(matching: context)
+            }
+        )
+        #expect(await fixture.persistenceActor.readPersistedEnvelope() == nil)
+        #expect(!(await fixture.persistenceActor.hasRetainedOuterKeyMaterial))
     }
 
     private func makeRestartedEmptyJournal() async throws -> (

@@ -1,16 +1,25 @@
 // MosaicPrivateAlphaJournalPersistenceActor.swift
 
 #if os(macOS)
+import CryptoKit
 import Foundation
 @_spi(MosaicPrivateAlpha) import OpalBase
 
 actor MosaicPrivateAlphaJournalPersistenceActor {
     private var persistedEnvelope: Data?
-    private var shouldCancelNextDeletion = false
-    private var shouldFailNextDeletion = false
+    private var erasureAuthorizationContext:
+        OpalBase.Account.MosaicPrivateAlphaJournal.CleanupContext?
+    private var retainsOuterKeyMaterial: Bool
+    private var shouldCancelNextAuthorization = false
+    private var shouldFailNextAuthorization = false
+    private var shouldCommitThenCancelNextAuthorization = false
+    private var shouldCommitThenFailNextAuthorization = false
+    private var shouldCancelNextCleanup = false
+    private var shouldFailNextCleanup = false
 
     init(persistedEnvelope: Data? = nil) {
         self.persistedEnvelope = persistedEnvelope.map(Data.init)
+        retainsOuterKeyMaterial = persistedEnvelope != nil
     }
 
     nonisolated func makePersistence(
@@ -19,9 +28,9 @@ actor MosaicPrivateAlphaJournalPersistenceActor {
     )
         -> OpalBase.Account.MosaicPrivateAlphaJournal.Persistence {
         .init(
-            loadEnvelope: {
+            loadJournalState: {
                 await lifetimeProbe?.recordAccess()
-                return await self.loadEnvelope()
+                return await self.loadJournalState()
             },
             createEnvelopeDurably: { envelope in
                 await lifetimeProbe?.recordAccess()
@@ -34,38 +43,101 @@ actor MosaicPrivateAlphaJournalPersistenceActor {
                     replacement: replacement
                 )
             },
-            compareAndDeleteEnvelopeDurably: { expected in
+            compareAndAuthorizeJournalErasureDurably: { expected, context in
                 await lifetimeProbe?.recordAccess()
-                return try await self.compareAndDeleteEnvelopeDurably(
-                    expected: expected
-                )
+                return try await self
+                    .compareAndAuthorizeJournalErasureDurably(
+                        expected: expected,
+                        context: context
+                    )
             }
         )
+    }
+
+    func readJournalState()
+        -> OpalBase.Account.MosaicPrivateAlphaJournal.PersistedState {
+        loadJournalState()
     }
 
     func readPersistedEnvelope() -> Data? {
         persistedEnvelope.map(Data.init)
     }
 
+    var hasRetainedOuterKeyMaterial: Bool {
+        retainsOuterKeyMaterial
+    }
+
     func replacePersistedEnvelope(_ replacement: Data) {
         persistedEnvelope = Data(replacement)
+        erasureAuthorizationContext = nil
+        retainsOuterKeyMaterial = true
     }
 
-    func scheduleCancellationForNextDeletion() {
-        shouldCancelNextDeletion = true
+    func scheduleCancellationForNextAuthorization() {
+        shouldCancelNextAuthorization = true
     }
 
-    func scheduleFailureForNextDeletion() {
-        shouldFailNextDeletion = true
+    func scheduleFailureForNextAuthorization() {
+        shouldFailNextAuthorization = true
     }
 
-    private func loadEnvelope() -> Data? {
-        persistedEnvelope.map(Data.init)
+    func scheduleCommitThenCancellationForNextAuthorization() {
+        shouldCommitThenCancelNextAuthorization = true
+    }
+
+    func scheduleCommitThenFailureForNextAuthorization() {
+        shouldCommitThenFailNextAuthorization = true
+    }
+
+    func scheduleCancellationForNextCleanup() {
+        shouldCancelNextCleanup = true
+    }
+
+    func scheduleFailureForNextCleanup() {
+        shouldFailNextCleanup = true
+    }
+
+    func removeOuterMaterialAndConfirmCleanup(
+        matching context:
+            OpalBase.Account.MosaicPrivateAlphaJournal.CleanupContext
+    ) throws {
+        if shouldCancelNextCleanup {
+            shouldCancelNextCleanup = false
+            throw CancellationError()
+        }
+        if shouldFailNextCleanup {
+            shouldFailNextCleanup = false
+            throw CocoaError(.fileWriteUnknown)
+        }
+        guard erasureAuthorizationContext == context,
+              let persistedEnvelope,
+              context.expectedEnvelopeSHA256
+                == Data(SHA256.hash(data: persistedEnvelope)) else {
+            throw CocoaError(.fileReadCorruptFile)
+        }
+        self.persistedEnvelope = nil
+        retainsOuterKeyMaterial = false
+        erasureAuthorizationContext = nil
+    }
+
+    private func loadJournalState()
+        -> OpalBase.Account.MosaicPrivateAlphaJournal.PersistedState {
+        if let erasureAuthorizationContext {
+            return .journalErasureAuthorized(erasureAuthorizationContext)
+        }
+        guard let persistedEnvelope else {
+            return .absent
+        }
+        return .encryptedEnvelope(Data(persistedEnvelope))
     }
 
     private func createEnvelopeDurably(_ envelope: Data) -> Bool {
-        guard persistedEnvelope == nil else { return false }
+        guard persistedEnvelope == nil,
+              erasureAuthorizationContext == nil else {
+            return false
+        }
         persistedEnvelope = Data(envelope)
+        retainsOuterKeyMaterial = true
         return true
     }
 
@@ -73,24 +145,43 @@ actor MosaicPrivateAlphaJournalPersistenceActor {
         expected: Data,
         replacement: Data
     ) -> Bool {
-        guard persistedEnvelope == expected else { return false }
+        guard erasureAuthorizationContext == nil,
+              persistedEnvelope == expected else {
+            return false
+        }
         persistedEnvelope = Data(replacement)
         return true
     }
 
-    private func compareAndDeleteEnvelopeDurably(
-        expected: Data
+    private func compareAndAuthorizeJournalErasureDurably(
+        expected: Data,
+        context: OpalBase.Account.MosaicPrivateAlphaJournal.CleanupContext
     ) throws -> Bool {
-        if shouldCancelNextDeletion {
-            shouldCancelNextDeletion = false
+        let expectedEnvelopeSHA256 = Data(SHA256.hash(data: expected))
+        guard context.expectedEnvelopeSHA256 == expectedEnvelopeSHA256 else {
+            return false
+        }
+        if let erasureAuthorizationContext {
+            return erasureAuthorizationContext == context
+        }
+        if shouldCancelNextAuthorization {
+            shouldCancelNextAuthorization = false
             throw CancellationError()
         }
-        if shouldFailNextDeletion {
-            shouldFailNextDeletion = false
+        if shouldFailNextAuthorization {
+            shouldFailNextAuthorization = false
             throw CocoaError(.fileWriteUnknown)
         }
         guard persistedEnvelope == expected else { return false }
-        persistedEnvelope = nil
+        erasureAuthorizationContext = context
+        if shouldCommitThenCancelNextAuthorization {
+            shouldCommitThenCancelNextAuthorization = false
+            throw CancellationError()
+        }
+        if shouldCommitThenFailNextAuthorization {
+            shouldCommitThenFailNextAuthorization = false
+            throw CocoaError(.fileWriteUnknown)
+        }
         return true
     }
 }

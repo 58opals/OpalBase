@@ -91,7 +91,16 @@ struct AccountMosaicPrivateAlphaJournalRecoveryValidator {
         }
 
         let disposition = try await Journal.abandonFreshAttempt(freshAttempt)
-        try await Journal.eraseJournal(authorizedBy: disposition)
+        let cleanupRequirement = try await Journal.authorizeJournalErasure(
+            authorizedBy: disposition
+        )
+        try await Journal.completeJournalErasure(
+            requiredBy: cleanupRequirement,
+            confirmOuterCleanup: { context in
+                try await persistenceActor
+                    .removeOuterMaterialAndConfirmCleanup(matching: context)
+            }
+        )
     }
 
     @Test("Load authenticated recovery from fresh-process inputs")

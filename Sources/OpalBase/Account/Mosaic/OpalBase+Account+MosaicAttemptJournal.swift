@@ -27,39 +27,50 @@ extension _OpalBase.Account {
     actor MosaicAttemptJournalStore {
         /// App-owned durable persistence operations.
         ///
-        /// `createDurably` must be exclusive and return `false` without replacing an existing value.
+        /// `loadState` must report a durable erasure authorization instead of its retained envelope.
+        /// `createDurably` must be exclusive and return `false` without replacing an existing value or
+        /// erasure authorization.
         /// `compareAndReplaceDurably` must atomically compare the exact current envelope, synchronize the
         /// replacement, rename it over that envelope, and synchronize the containing directory before
-        /// returning `true`. `compareAndDeleteDurably` must atomically compare the exact current envelope,
-        /// delete it, and synchronize the containing directory before returning `true`. A mismatch returns
-        /// `false` without mutation. A thrown replacement or deletion must leave the prior snapshot
-        /// authoritative. Rollback and unexpected deletion detection remain app-owned.
+        /// returning `true`. `compareAndAuthorizeErasureDurably` must atomically compare the exact current
+        /// envelope and durably commit a terminal marker bound to that envelope's SHA-256 and scope before
+        /// returning `true`; it must not report physical ciphertext or key-material cleanup. The exact same
+        /// context must return `true` idempotently when its marker is already authoritative, including after
+        /// an earlier commit-then-throw or commit-then-cancel outcome. A mismatched context returns `false`
+        /// without mutation. A thrown replacement must leave the prior envelope authoritative, while a
+        /// thrown authorization is outcome-uncertain and must be resolved by retry or `loadState` read-back.
+        /// Rollback, unexpected deletion detection, and outer cleanup remain app-owned.
         struct Persistence: Sendable {
-            let load: @Sendable () async throws -> Data?
+            let loadState: @Sendable () async throws
+                -> MosaicPrivateAlphaJournal.PersistedState
             let createDurably: @Sendable (Data) async throws -> Bool
             let compareAndReplaceDurably: @Sendable (
                 _ expected: Data,
                 _ replacement: Data
             ) async throws -> Bool
-            let compareAndDeleteDurably: @Sendable (
-                _ expected: Data
+            let compareAndAuthorizeErasureDurably: @Sendable (
+                _ expectedEnvelope: Data,
+                _ context: MosaicPrivateAlphaJournal.CleanupContext
             ) async throws -> Bool
 
             init(
-                load: @escaping @Sendable () async throws -> Data?,
+                loadState: @escaping @Sendable () async throws
+                    -> MosaicPrivateAlphaJournal.PersistedState,
                 createDurably: @escaping @Sendable (Data) async throws -> Bool,
                 compareAndReplaceDurably: @escaping @Sendable (
                     _ expected: Data,
                     _ replacement: Data
                 ) async throws -> Bool,
-                compareAndDeleteDurably: @escaping @Sendable (
-                    _ expected: Data
+                compareAndAuthorizeErasureDurably: @escaping @Sendable (
+                    _ expectedEnvelope: Data,
+                    _ context: MosaicPrivateAlphaJournal.CleanupContext
                 ) async throws -> Bool
             ) {
-                self.load = load
+                self.loadState = loadState
                 self.createDurably = createDurably
                 self.compareAndReplaceDurably = compareAndReplaceDurably
-                self.compareAndDeleteDurably = compareAndDeleteDurably
+                self.compareAndAuthorizeErasureDurably =
+                    compareAndAuthorizeErasureDurably
             }
         }
 
@@ -70,9 +81,10 @@ extension _OpalBase.Account {
             case loadFailed
             case createFailed
             case replaceFailed
-            case deleteFailed
+            case erasureAuthorizationFailed
             case staleSnapshot
             case erasureNotAuthorized
+            case cleanupRequired
             case journalErased
             case codec(MosaicAttemptJournalCodec.Failure)
             case invalidJournal(MosaicAttemptRecoveryPlanner.Error)
@@ -131,17 +143,20 @@ extension _OpalBase.Account {
         private var persistence: Persistence?
         private var records: [MosaicAttemptJournal.Record]
         private var currentEnvelope: Data?
+        private let scope: MosaicAttemptJournalCodec.Scope
 
         private init(
             codec: MosaicAttemptJournalCodec,
             persistence: Persistence,
             records: [MosaicAttemptJournal.Record],
-            currentEnvelope: Data
+            currentEnvelope: Data,
+            scope: MosaicAttemptJournalCodec.Scope
         ) {
             self.codec = codec
             self.persistence = persistence
             self.records = records
             self.currentEnvelope = currentEnvelope
+            self.scope = scope
         }
 
         static func createNew(
@@ -178,7 +193,8 @@ extension _OpalBase.Account {
                     codec: codec,
                     persistence: persistence,
                     records: [],
-                    currentEnvelope: initialEnvelope
+                    currentEnvelope: initialEnvelope,
+                    scope: scope
                 )
             )
         }
@@ -206,18 +222,28 @@ extension _OpalBase.Account {
             scope: MosaicAttemptJournalCodec.Scope,
             persistence: Persistence
         ) async throws -> MosaicAttemptJournalAuthenticationOutcome {
-            let envelope: Data
+            let persistedState: MosaicPrivateAlphaJournal.PersistedState
             do {
-                guard let loaded = try await persistence.load() else {
-                    throw Failure.notFound
-                }
-                envelope = loaded
+                persistedState = try await persistence.loadState()
             } catch let failure as Failure {
                 throw failure
             } catch let cancellation as CancellationError {
                 throw cancellation
             } catch {
                 throw Failure.loadFailed
+            }
+
+            let envelope: Data
+            switch persistedState {
+            case .absent:
+                throw Failure.notFound
+            case let .encryptedEnvelope(loadedEnvelope):
+                envelope = loadedEnvelope
+            case let .journalErasureAuthorized(context):
+                guard context.scope.journalScope == scope else {
+                    throw Failure.staleSnapshot
+                }
+                throw Failure.cleanupRequired
             }
 
             let codec: MosaicAttemptJournalCodec
@@ -236,13 +262,13 @@ extension _OpalBase.Account {
                 codec: codec,
                 persistence: persistence,
                 records: records,
-                currentEnvelope: envelope
+                currentEnvelope: envelope,
+                scope: scope
             )
             guard !records.isEmpty else {
                 return .abandonedFreshAttempt(
                     .init(
-                        store: store,
-                        expectedEnvelope: envelope
+                        store: store
                     )
                 )
             }
@@ -301,39 +327,41 @@ extension _OpalBase.Account {
             -> MosaicAttemptJournalErasureAuthorization {
             guard records.isEmpty,
                   persistence != nil,
-                  let currentEnvelope else {
+                  currentEnvelope != nil else {
                 throw Failure.erasureNotAuthorized
             }
             return .init(
-                store: self,
-                expectedEnvelope: currentEnvelope
+                store: self
             )
         }
 
-        func eraseJournal(
-            matching expectedEnvelope: Data
-        ) async throws {
-            guard let currentEnvelope else {
-                return
-            }
-            guard currentEnvelope == expectedEnvelope else {
-                throw Failure.staleSnapshot
+        func authorizeJournalErasure() async throws
+            -> MosaicAttemptJournalCleanupRequirement {
+            guard records.isEmpty, let currentEnvelope else {
+                throw Failure.erasureNotAuthorized
             }
             guard let persistence else {
                 throw Failure.journalErased
             }
 
-            let deleted: Bool
+            let envelopeSHA256 = Data(SHA256.hash(data: currentEnvelope))
+            let context = MosaicPrivateAlphaJournal.CleanupContext(
+                validatedScope: .init(journalScope: scope),
+                expectedEnvelopeSHA256: envelopeSHA256
+            )
+            let authorized: Bool
             do {
-                deleted = try await persistence.compareAndDeleteDurably(
-                    expectedEnvelope
-                )
+                authorized = try await persistence
+                    .compareAndAuthorizeErasureDurably(
+                        currentEnvelope,
+                        context
+                    )
             } catch let cancellation as CancellationError {
                 throw cancellation
             } catch {
-                throw Failure.deleteFailed
+                throw Failure.erasureAuthorizationFailed
             }
-            guard deleted else {
+            guard authorized else {
                 throw Failure.staleSnapshot
             }
 
@@ -341,6 +369,31 @@ extension _OpalBase.Account {
             self.currentEnvelope = nil
             codec = nil
             self.persistence = nil
+            return .init(context: context)
+        }
+
+        static func loadAuthorizedJournalCleanup(
+            scope: MosaicAttemptJournalCodec.Scope,
+            persistence: Persistence
+        ) async throws -> MosaicAttemptJournalCleanupRequirement? {
+            let persistedState: MosaicPrivateAlphaJournal.PersistedState
+            do {
+                persistedState = try await persistence.loadState()
+            } catch let cancellation as CancellationError {
+                throw cancellation
+            } catch {
+                throw Failure.loadFailed
+            }
+
+            switch persistedState {
+            case .absent, .encryptedEnvelope:
+                return nil
+            case let .journalErasureAuthorized(context):
+                guard context.scope.journalScope == scope else {
+                    throw Failure.staleSnapshot
+                }
+                return .init(context: context)
+            }
         }
     }
 }

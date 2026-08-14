@@ -9,29 +9,39 @@ extension OpalBase.Account.MosaicPrivateAlphaJournal {
     public struct Persistence: Sendable {
         let journalPersistence: OpalBase.Account.MosaicAttemptJournalStore.Persistence
 
-        /// Creates persistence operations with exact compare-and-swap replacement and deletion.
+        /// Creates persistence operations with exact replacement and terminal-erasure authorization.
         ///
-        /// Creation must not replace an existing value. Replacement and deletion must compare every byte
-        /// of the expected envelope atomically. A mismatch returns `false` without mutation. A thrown
-        /// operation must leave the prior value authoritative. Every successful mutation must be durable
-        /// before returning. The closures must not log or otherwise disclose envelope bytes.
+        /// `loadJournalState` must report a durable erasure authorization instead of its retained envelope.
+        /// Creation must reject both an existing envelope and an erasure authorization. Replacement and
+        /// authorization must compare every byte of the expected envelope atomically. Authorization must
+        /// verify that its context contains the matching envelope SHA-256 and durably install that context as
+        /// the terminal marker without claiming that outer ciphertext or key material was removed. The exact
+        /// same expected envelope and context must return `true` idempotently when already authorized,
+        /// including after commit-then-throw or commit-then-cancel. A different envelope or context returns
+        /// `false` without mutation. Creation and replacement must fail while the marker exists. A thrown
+        /// authorization is outcome-uncertain and must be resolved by exact retry or state read-back. Every
+        /// successful mutation must be durable before returning. The closures must not log or otherwise
+        /// disclose envelope bytes or cleanup context.
         @_spi(MosaicPrivateAlpha)
         public init(
-            loadEnvelope: @escaping @Sendable () async throws -> Data?,
+            loadJournalState: @escaping @Sendable () async throws
+                -> PersistedState,
             createEnvelopeDurably: @escaping @Sendable (Data) async throws -> Bool,
             compareAndReplaceEnvelopeDurably: @escaping @Sendable (
                 _ expected: Data,
                 _ replacement: Data
             ) async throws -> Bool,
-            compareAndDeleteEnvelopeDurably: @escaping @Sendable (
-                _ expected: Data
+            compareAndAuthorizeJournalErasureDurably: @escaping @Sendable (
+                _ expectedEnvelope: Data,
+                _ context: CleanupContext
             ) async throws -> Bool
         ) {
             journalPersistence = .init(
-                load: loadEnvelope,
+                loadState: loadJournalState,
                 createDurably: createEnvelopeDurably,
                 compareAndReplaceDurably: compareAndReplaceEnvelopeDurably,
-                compareAndDeleteDurably: compareAndDeleteEnvelopeDurably
+                compareAndAuthorizeErasureDurably:
+                    compareAndAuthorizeJournalErasureDurably
             )
         }
     }

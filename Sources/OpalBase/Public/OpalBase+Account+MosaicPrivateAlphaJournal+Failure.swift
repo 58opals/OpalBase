@@ -12,6 +12,8 @@ extension OpalBase.Account.MosaicPrivateAlphaJournal {
         case invalidJournalKey
         case journalVersionUnsupported
         case journalIntegrityFailed
+        case journalCleanupRequired
+        case outerCleanupIncomplete
         case journalOperationFailed
 
         init(_ failure: OpalBase.Account.MosaicAttemptJournalStore.Failure) {
@@ -22,10 +24,13 @@ extension OpalBase.Account.MosaicPrivateAlphaJournal {
                 self = .attemptAlreadyExists
             case .creationUncertain:
                 self = .journalOperationFailed
-            case .loadFailed, .createFailed, .replaceFailed, .deleteFailed:
+            case .loadFailed, .createFailed, .replaceFailed,
+                 .erasureAuthorizationFailed:
                 self = .persistenceUnavailable
             case .staleSnapshot:
                 self = .stalePersistenceState
+            case .cleanupRequired:
+                self = .journalCleanupRequired
             case .erasureNotAuthorized, .journalErased:
                 self = .journalOperationFailed
             case let .codec(codecFailure):

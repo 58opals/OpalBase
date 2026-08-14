@@ -90,21 +90,85 @@ extension OpalBase.Account {
             }
         }
 
-        /// Erases only the exact encrypted snapshot authorized by an abandoned-attempt disposition.
+        /// Durably authorizes erasure of the exact abandoned-attempt envelope.
         ///
-        /// The disposition is borrowed so a caller can retry after cancellation or a persistence failure.
+        /// A successful return means the app-owned persistence boundary committed its scope-bound terminal
+        /// authorization and OpalBase discarded its retained codec, derived key, plaintext records, encrypted
+        /// envelope, and persistence closures. It does not mean app-owned ciphertext, root or field-key
+        /// material, or related private attempt artifacts were removed. The returned requirement must reach
+        /// `completeJournalErasure(requiredBy:confirmOuterCleanup:)` before the app reports terminal cleanup.
+        /// An authorization error or cancellation may occur after the marker commits; the disposition is
+        /// borrowed so the caller can make the required idempotent retry or use durable read-back after restart.
         @_spi(MosaicPrivateAlpha)
-        public static func eraseJournal(
+        public static func authorizeJournalErasure(
             authorizedBy disposition: borrowing AttemptDisposition
-        ) async throws {
+        ) async throws -> CleanupRequirement {
             do {
-                try await disposition.eraseJournal()
+                return .init(
+                    try await disposition.authorizeJournalErasure()
+                )
             } catch let cancellation as CancellationError {
                 throw cancellation
             } catch let failure as MosaicAttemptJournalStore.Failure {
                 throw Failure(failure)
             } catch {
                 throw Failure.journalOperationFailed
+            }
+        }
+
+        /// Loads cleanup authority from an app-owned durable terminal-erasure marker without a journal key.
+        ///
+        /// Returns `nil` for an absent or still-active journal. Call during exclusive startup recovery before
+        /// deriving or loading the field journal key. A scope mismatch fails closed. The app must keep its
+        /// durable marker authoritative until outer cleanup is confirmed or terminal completion is otherwise
+        /// durably recorded by the application.
+        @_spi(MosaicPrivateAlpha)
+        public static func loadAuthorizedJournalCleanup(
+            scope: Scope,
+            persistence: Persistence
+        ) async throws -> CleanupRequirement? {
+            do {
+                guard let requirement = try await MosaicAttemptJournalStore
+                    .loadAuthorizedJournalCleanup(
+                        scope: scope.journalScope,
+                        persistence: persistence.journalPersistence
+                    ) else {
+                    return nil
+                }
+                return .init(requirement)
+            } catch let cancellation as CancellationError {
+                throw cancellation
+            } catch let failure as MosaicAttemptJournalStore.Failure {
+                throw Failure(failure)
+            } catch {
+                throw Failure.journalOperationFailed
+            }
+        }
+
+        /// Completes journal erasure only after the application confirms all outer cleanup.
+        ///
+        /// The confirmation closure receives immutable scope and expected-envelope SHA-256 correlation. It
+        /// must match that context against the app's durable terminal anchor, then durably remove and verify
+        /// the absence of the encrypted envelope, field and root key material, salts, nonces, blind-request
+        /// state, and related private attempt artifacts. It must throw if the context differs or any cleanup
+        /// is incomplete or unverifiable. OpalBase cannot independently inspect those app-owned locations.
+        /// Cancellation remains `CancellationError`; every other confirmation error maps to
+        /// `Failure.outerCleanupIncomplete`. The requirement is borrowed so a caller can retry either outcome.
+        @_spi(MosaicPrivateAlpha)
+        public static func completeJournalErasure(
+            requiredBy requirement: borrowing CleanupRequirement,
+            confirmOuterCleanup: @Sendable (
+                CleanupContext
+            ) async throws -> Void
+        ) async throws {
+            do {
+                try await requirement.confirmOuterCleanup(
+                    using: confirmOuterCleanup
+                )
+            } catch let cancellation as CancellationError {
+                throw cancellation
+            } catch {
+                throw Failure.outerCleanupIncomplete
             }
         }
     }

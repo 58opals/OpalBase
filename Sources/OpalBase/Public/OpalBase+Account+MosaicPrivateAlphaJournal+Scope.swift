@@ -22,6 +22,13 @@ extension OpalBase.Account.MosaicPrivateAlphaJournal {
             self.journalIdentifier = journalIdentifier
         }
 
+        init(
+            journalScope: OpalBase.Account.MosaicAttemptJournalCodec.Scope
+        ) {
+            walletIdentifier = journalScope.walletIdentifier
+            journalIdentifier = journalScope.journalIdentifier
+        }
+
         var journalScope: OpalBase.Account.MosaicAttemptJournalCodec.Scope {
             .init(
                 walletIdentifier: walletIdentifier,

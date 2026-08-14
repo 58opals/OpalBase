@@ -3,7 +3,7 @@
 #if os(macOS)
 import CryptoKit
 import Foundation
-@testable import OpalBase
+@_spi(MosaicPrivateAlpha) @testable import OpalBase
 
 actor MosaicAttemptJournalProbeActor {
     private static let authenticationKeyData = Data(repeating: 0x7a, count: 32)
@@ -145,7 +145,7 @@ actor MosaicAttemptJournalProbeActor {
     private nonisolated func makePersistence()
         -> OpalBase.Account.MosaicAttemptJournalStore.Persistence {
         .init(
-            load: { await self.load() },
+            loadState: { await self.loadState() },
             createDurably: { envelope in
                 try await self.createDurably(envelope)
             },
@@ -155,18 +155,22 @@ actor MosaicAttemptJournalProbeActor {
                     replacement: replacement
                 )
             },
-            compareAndDeleteDurably: { expected in
-                await self.compareAndDeleteDurably(expected: expected)
-            }
+            compareAndAuthorizeErasureDurably: { _, _ in false }
         )
     }
 
-    private func load() -> Data? {
-        persistedEnvelope
+    private func loadState()
+        -> OpalBase.Account.MosaicPrivateAlphaJournal.PersistedState {
+        guard let persistedEnvelope else {
+            return .absent
+        }
+        return .encryptedEnvelope(persistedEnvelope)
     }
 
     private func createDurably(_ envelope: Data) throws -> Bool {
-        guard persistedEnvelope == nil else { return false }
+        guard persistedEnvelope == nil else {
+            return false
+        }
         let decoded = try codec.open(envelope)
         guard decoded.isEmpty else {
             throw MosaicAttemptJournalProbeFailure.scripted
@@ -196,18 +200,14 @@ actor MosaicAttemptJournalProbeActor {
         if failingAppendIndices.remove(index) != nil {
             throw MosaicAttemptJournalProbeFailure.scripted
         }
-        guard persistedEnvelope == expected else { return false }
+        guard persistedEnvelope == expected else {
+            return false
+        }
         let decoded = try codec.open(replacement)
         persistedEnvelope = replacement
         records = decoded
         return true
     }
 
-    private func compareAndDeleteDurably(expected: Data) -> Bool {
-        guard persistedEnvelope == expected else { return false }
-        persistedEnvelope = nil
-        records.removeAll(keepingCapacity: false)
-        return true
-    }
 }
 #endif
