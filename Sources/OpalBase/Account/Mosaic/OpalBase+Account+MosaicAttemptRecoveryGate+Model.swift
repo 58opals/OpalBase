@@ -21,7 +21,6 @@ extension _OpalBase.Account.MosaicAttemptRecoveryGate {
         case outcomeAlreadyIssued
         case invalidSelectedInput
         case selectedInputMismatch
-        case inputQuarantineFailed
         case invalidBroadcastCandidate
     }
 }

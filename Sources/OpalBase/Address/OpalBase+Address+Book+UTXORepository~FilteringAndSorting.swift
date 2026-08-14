@@ -40,7 +40,21 @@ extension _OpalBase.Address.Book.UTXORepository {
     var spendableUTXOs: Set<OpalBase.Transaction.Output.Unspent> {
         var spendable = allUTXOs
         spendable.subtract(reservedUTXOs)
-        return spendable
+        let quarantinedOutpoints = allMosaicQuarantinedOutpoints
+        return Set(spendable.filter {
+            !quarantinedOutpoints.contains(Outpoint($0))
+        })
+    }
+
+    var allMosaicQuarantinedOutpoints: Set<Outpoint> {
+        mosaicQuarantinedOutpointsByOwnerIdentifier.values.reduce(
+            into: Set<Outpoint>()
+        ) { result, quarantinedOutpointsByGeneration in
+            for quarantinedOutpoints
+                    in quarantinedOutpointsByGeneration.values {
+                result.formUnion(quarantinedOutpoints)
+            }
+        }
     }
     
     func filterUTXOs(_ utxos: Set<OpalBase.Transaction.Output.Unspent>,

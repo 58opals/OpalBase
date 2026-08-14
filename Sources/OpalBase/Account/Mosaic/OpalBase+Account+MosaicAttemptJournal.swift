@@ -30,14 +30,19 @@ extension _OpalBase.Account {
         /// `createDurably` must be exclusive and return `false` without replacing an existing value.
         /// `compareAndReplaceDurably` must atomically compare the exact current envelope, synchronize the
         /// replacement, rename it over that envelope, and synchronize the containing directory before
-        /// returning `true`. A mismatch returns `false` without mutation, and a thrown replacement leaves
-        /// the prior snapshot authoritative. Rollback and deletion detection remain app-owned.
+        /// returning `true`. `compareAndDeleteDurably` must atomically compare the exact current envelope,
+        /// delete it, and synchronize the containing directory before returning `true`. A mismatch returns
+        /// `false` without mutation. A thrown replacement or deletion must leave the prior snapshot
+        /// authoritative. Rollback and unexpected deletion detection remain app-owned.
         struct Persistence: Sendable {
             let load: @Sendable () async throws -> Data?
             let createDurably: @Sendable (Data) async throws -> Bool
             let compareAndReplaceDurably: @Sendable (
                 _ expected: Data,
                 _ replacement: Data
+            ) async throws -> Bool
+            let compareAndDeleteDurably: @Sendable (
+                _ expected: Data
             ) async throws -> Bool
 
             init(
@@ -46,11 +51,15 @@ extension _OpalBase.Account {
                 compareAndReplaceDurably: @escaping @Sendable (
                     _ expected: Data,
                     _ replacement: Data
+                ) async throws -> Bool,
+                compareAndDeleteDurably: @escaping @Sendable (
+                    _ expected: Data
                 ) async throws -> Bool
             ) {
                 self.load = load
                 self.createDurably = createDurably
                 self.compareAndReplaceDurably = compareAndReplaceDurably
+                self.compareAndDeleteDurably = compareAndDeleteDurably
             }
         }
 
@@ -61,7 +70,10 @@ extension _OpalBase.Account {
             case loadFailed
             case createFailed
             case replaceFailed
+            case deleteFailed
             case staleSnapshot
+            case erasureNotAuthorized
+            case journalErased
             case codec(MosaicAttemptJournalCodec.Failure)
             case invalidJournal(MosaicAttemptRecoveryPlanner.Error)
         }
@@ -76,6 +88,11 @@ extension _OpalBase.Account {
 
             consuming func claimJournal() -> MosaicAttemptJournal {
                 .init(store: store)
+            }
+
+            consuming func authorizeAbandonment() async throws
+                -> MosaicAttemptJournalErasureAuthorization {
+                try await store.authorizeFreshAttemptAbandonment()
             }
         }
 
@@ -110,10 +127,10 @@ extension _OpalBase.Account {
             let plan: MosaicAttemptRecoveryPlanner.Plan
         }
 
-        private let codec: MosaicAttemptJournalCodec
-        private let persistence: Persistence
+        private var codec: MosaicAttemptJournalCodec?
+        private var persistence: Persistence?
         private var records: [MosaicAttemptJournal.Record]
-        private var currentEnvelope: Data
+        private var currentEnvelope: Data?
 
         private init(
             codec: MosaicAttemptJournalCodec,
@@ -171,6 +188,24 @@ extension _OpalBase.Account {
             scope: MosaicAttemptJournalCodec.Scope,
             persistence: Persistence
         ) async throws -> LoadedRecovery {
+            let outcome = try await authenticateExisting(
+                authenticationKey: authenticationKey,
+                scope: scope,
+                persistence: persistence
+            )
+            switch consume outcome {
+            case .abandonedFreshAttempt:
+                throw Failure.creationUncertain
+            case let .loadedRecovery(recovery):
+                return recovery
+            }
+        }
+
+        static func authenticateExisting(
+            authenticationKey: SymmetricKey,
+            scope: MosaicAttemptJournalCodec.Scope,
+            persistence: Persistence
+        ) async throws -> MosaicAttemptJournalAuthenticationOutcome {
             let envelope: Data
             do {
                 guard let loaded = try await persistence.load() else {
@@ -196,8 +231,20 @@ extension _OpalBase.Account {
             } catch let failure as MosaicAttemptJournalCodec.Failure {
                 throw Failure.codec(failure)
             }
+
+            let store = MosaicAttemptJournalStore(
+                codec: codec,
+                persistence: persistence,
+                records: records,
+                currentEnvelope: envelope
+            )
             guard !records.isEmpty else {
-                throw Failure.creationUncertain
+                return .abandonedFreshAttempt(
+                    .init(
+                        store: store,
+                        expectedEnvelope: envelope
+                    )
+                )
             }
 
             let plan: MosaicAttemptRecoveryPlanner.Plan
@@ -207,18 +254,17 @@ extension _OpalBase.Account {
                 throw Failure.invalidJournal(error)
             }
 
-            let store = MosaicAttemptJournalStore(
-                codec: codec,
-                persistence: persistence,
-                records: records,
-                currentEnvelope: envelope
+            return .loadedRecovery(
+                .init(store: store, records: records, plan: plan)
             )
-            return .init(store: store, records: records, plan: plan)
         }
 
         fileprivate func append(
             _ record: MosaicAttemptJournal.Record
         ) async throws {
+            guard let codec, let persistence, let currentEnvelope else {
+                throw Failure.journalErased
+            }
             let candidateRecords = records + [record]
             do {
                 _ = try MosaicAttemptRecoveryPlanner.plan(for: candidateRecords)
@@ -248,7 +294,53 @@ extension _OpalBase.Account {
                 throw Failure.staleSnapshot
             }
             records = candidateRecords
-            currentEnvelope = envelope
+            self.currentEnvelope = envelope
+        }
+
+        fileprivate func authorizeFreshAttemptAbandonment() throws
+            -> MosaicAttemptJournalErasureAuthorization {
+            guard records.isEmpty,
+                  persistence != nil,
+                  let currentEnvelope else {
+                throw Failure.erasureNotAuthorized
+            }
+            return .init(
+                store: self,
+                expectedEnvelope: currentEnvelope
+            )
+        }
+
+        func eraseJournal(
+            matching expectedEnvelope: Data
+        ) async throws {
+            guard let currentEnvelope else {
+                return
+            }
+            guard currentEnvelope == expectedEnvelope else {
+                throw Failure.staleSnapshot
+            }
+            guard let persistence else {
+                throw Failure.journalErased
+            }
+
+            let deleted: Bool
+            do {
+                deleted = try await persistence.compareAndDeleteDurably(
+                    expectedEnvelope
+                )
+            } catch let cancellation as CancellationError {
+                throw cancellation
+            } catch {
+                throw Failure.deleteFailed
+            }
+            guard deleted else {
+                throw Failure.staleSnapshot
+            }
+
+            records.removeAll(keepingCapacity: false)
+            self.currentEnvelope = nil
+            codec = nil
+            self.persistence = nil
         }
     }
 }

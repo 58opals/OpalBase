@@ -15,6 +15,28 @@ extension _OpalBase.Address.Book {
     func releaseUTXOs(_ utxos: Set<OpalBase.Transaction.Output.Unspent>) {
         utxoStore.release(utxos)
     }
+
+    func quarantineMosaicOutpoints(
+        _ outpoints: Set<UTXORepository.Outpoint>,
+        ownerIdentifier: UUID,
+        ownerGeneration: UInt64
+    ) {
+        utxoStore.quarantineMosaicOutpoints(
+            outpoints,
+            ownerIdentifier: ownerIdentifier,
+            ownerGeneration: ownerGeneration
+        )
+    }
+
+    func releaseMosaicOutpointQuarantine(
+        ownerIdentifier: UUID,
+        ownerGeneration: UInt64
+    ) {
+        utxoStore.releaseMosaicOutpointQuarantine(
+            ownerIdentifier: ownerIdentifier,
+            ownerGeneration: ownerGeneration
+        )
+    }
     
     func addUTXO(_ utxo: OpalBase.Transaction.Output.Unspent) {
         utxoStore.add(utxo)

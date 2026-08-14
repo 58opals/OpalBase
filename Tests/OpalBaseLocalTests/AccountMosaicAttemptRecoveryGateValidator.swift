@@ -86,6 +86,11 @@ struct AccountMosaicAttemptRecoveryGateValidator {
         )
 
         await prepared.fixture.addressBook.addUTXO(prepared.fixture.selectedInput)
+        #expect(
+            !(await prepared.fixture.addressBook.listSpendableUTXOs())
+                .contains(prepared.fixture.selectedInput)
+        )
+        await prepared.fixture.addressBook.replaceUTXOs(with: [])
         let substitutedInput = OpalBase.Transaction.Output.Unspent(
             value: prepared.fixture.selectedInput.value + 1,
             lockingScript: prepared.fixture.selectedInput.lockingScript,
@@ -94,21 +99,12 @@ struct AccountMosaicAttemptRecoveryGateValidator {
             previousTransactionOutputIndex:
                 prepared.fixture.selectedInput.previousTransactionOutputIndex
         )
-        guard case let .reservationIntent(
-            reference,
-            request,
-            _,
-            outputAmountsSatoshis
-        ) = records[0] else {
-            Issue.record("Expected reservation intent")
-            return
-        }
-        var substitutedRecords = records
-        substitutedRecords[0] = .reservationIntent(
-            reference: reference,
-            request: request,
-            selectedInputs: [.init(substitutedInput)],
-            outputAmountsSatoshis: outputAmountsSatoshis
+        await prepared.fixture.addressBook.replaceUTXOs(
+            with: Set([substitutedInput])
+        )
+        #expect(
+            !(await prepared.fixture.addressBook.listSpendableUTXOs())
+                .contains(substitutedInput)
         )
         await #expect(
             throws: OpalBase.Account.MosaicAttemptRecoveryGate.Failure
@@ -116,10 +112,80 @@ struct AccountMosaicAttemptRecoveryGateValidator {
         ) {
             let substitutedGate = try await makeRecoveryGate(
                 addressBook: prepared.fixture.addressBook,
-                records: substitutedRecords
+                records: records
             )
             _ = try await substitutedGate.restoreInputQuarantineAndPlan()
         }
+    }
+
+    @Test("Release only the exact Mosaic quarantine owner")
+    func releaseOnlyMatchingMosaicInputQuarantineOwner() async throws {
+        let prepared = try await makeCommittedAttempt()
+        let gate = try await makeRecoveryGate(
+            addressBook: prepared.fixture.addressBook,
+            journalProbe: prepared.fixture.journalProbe
+        )
+        _ = try await gate.restoreInputQuarantineAndPlan()
+        let overlappingReference = OpalFusion.Host.MosaicReservationReference(
+            identifier: prepared.lease.reference.identifier,
+            generation: prepared.lease.reference.generation + 1
+        )
+        await prepared.fixture.addressBook.quarantineMosaicInputs(
+            [.init(prepared.fixture.selectedInput)],
+            ownedBy: overlappingReference
+        )
+        await prepared.fixture.addressBook.addUTXO(prepared.fixture.selectedInput)
+
+        await #expect(
+            throws: OpalBase.Address.Book.Error.utxoAlreadyReserved(
+                prepared.fixture.selectedInput
+            )
+        ) {
+            try await prepared.fixture.addressBook.reserveUTXOs(
+                Set([prepared.fixture.selectedInput])
+            )
+        }
+        await prepared.fixture.addressBook.releaseMosaicInputQuarantine(
+            ownedBy: prepared.lease.reference
+        )
+        #expect(
+            !(await prepared.fixture.addressBook.listSpendableUTXOs())
+                .contains(prepared.fixture.selectedInput)
+        )
+
+        await prepared.fixture.addressBook.releaseMosaicInputQuarantine(
+            ownedBy: overlappingReference
+        )
+        #expect(
+            await prepared.fixture.addressBook.listSpendableUTXOs()
+                .contains(prepared.fixture.selectedInput)
+        )
+    }
+
+    @Test("Quarantine authenticated inputs before observing cancellation")
+    func quarantineRecoveredInputsBeforeCancellation() async throws {
+        let prepared = try await makeCommittedAttempt()
+        let gate = try await makeRecoveryGate(
+            addressBook: prepared.fixture.addressBook,
+            journalProbe: prepared.fixture.journalProbe
+        )
+        let suspension = MosaicOperationSuspensionProbeActor()
+        let recovery = Task {
+            await suspension.suspend()
+            return try await gate.restoreInputQuarantineAndPlan()
+        }
+        await suspension.waitUntilSuspended()
+        recovery.cancel()
+        await suspension.resume()
+
+        await #expect(throws: CancellationError.self) {
+            _ = try await recovery.value
+        }
+        await prepared.fixture.addressBook.addUTXO(prepared.fixture.selectedInput)
+        #expect(
+            !(await prepared.fixture.addressBook.listSpendableUTXOs())
+                .contains(prepared.fixture.selectedInput)
+        )
     }
 
     @Test("Recovery rejects invalid journals, inputs, and broadcast candidates")

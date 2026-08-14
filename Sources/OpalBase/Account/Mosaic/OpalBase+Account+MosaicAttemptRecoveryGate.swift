@@ -117,7 +117,12 @@ extension _OpalBase.Account {
         private func quarantineSelectedInputs(
             from records: [MosaicAttemptJournal.Record]
         ) async throws -> Bool {
-            guard case let .reservationIntent(_, _, selectedInputs, _)?
+            guard case let .reservationIntent(
+                reservationReference,
+                _,
+                selectedInputs,
+                _
+            )?
                     = records.first,
                   !selectedInputs.isEmpty else {
                 throw Failure.invalidSelectedInput
@@ -132,15 +137,17 @@ extension _OpalBase.Account {
                 }
             }
 
+            await addressBook.quarantineMosaicInputs(
+                selectedInputs,
+                ownedBy: reservationReference
+            )
             try Task.checkCancellation()
             let storedInputs = await addressBook.listUTXOs()
-            let spendableInputs = await addressBook.listSpendableUTXOs()
+            try Task.checkCancellation()
             let storedByOutpoint = Dictionary(
                 uniqueKeysWithValues: storedInputs.map { (Outpoint($0), $0) }
             )
-            let spendableOutpoints = Set(spendableInputs.map(Outpoint.init))
 
-            var inputsToQuarantine: Set<OpalBase.Transaction.Output.Unspent> = []
             var everySelectedInputIsPresent = true
             for selectedInput in selectedInputs {
                 let outpoint = Outpoint(selectedInput)
@@ -153,24 +160,6 @@ extension _OpalBase.Account {
                       storedInput.tokenData == nil else {
                     throw Failure.selectedInputMismatch
                 }
-                if spendableOutpoints.contains(outpoint) {
-                    inputsToQuarantine.insert(storedInput)
-                }
-            }
-
-            if !inputsToQuarantine.isEmpty {
-                try Task.checkCancellation()
-                do {
-                    try await addressBook.reserveUTXOs(
-                        inputsToQuarantine,
-                        tokenSelectionPolicy: .excludeTokenUTXOs
-                    )
-                } catch let cancellation as CancellationError {
-                    throw cancellation
-                } catch {
-                    throw Failure.inputQuarantineFailed
-                }
-                try Task.checkCancellation()
             }
             return everySelectedInputIsPresent
         }

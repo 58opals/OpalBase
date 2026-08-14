@@ -7,26 +7,40 @@ extension _OpalBase.Address.Book {
         struct Outpoint: Hashable, Sendable {
             let transactionHash: OpalBase.Transaction.Hash
             let outputIndex: UInt32
+
+            init(
+                transactionHash: OpalBase.Transaction.Hash,
+                outputIndex: UInt32
+            ) {
+                self.transactionHash = transactionHash
+                self.outputIndex = outputIndex
+            }
             
             init(_ input: OpalBase.Transaction.Input) {
-                self.transactionHash = input.previousTransactionHash
-                self.outputIndex = input.previousTransactionOutputIndex
+                self.init(
+                    transactionHash: input.previousTransactionHash,
+                    outputIndex: input.previousTransactionOutputIndex
+                )
             }
             
             init(_ utxo: OpalBase.Transaction.Output.Unspent) {
-                self.transactionHash = utxo.previousTransactionHash
-                self.outputIndex = utxo.previousTransactionOutputIndex
+                self.init(
+                    transactionHash: utxo.previousTransactionHash,
+                    outputIndex: utxo.previousTransactionOutputIndex
+                )
             }
         }
         
         var utxosByLockingScript: [Data: Set<OpalBase.Transaction.Output.Unspent>]
         var utxosByOutpoint: [Outpoint: OpalBase.Transaction.Output.Unspent]
         var reservedUTXOs: Set<OpalBase.Transaction.Output.Unspent>
+        var mosaicQuarantinedOutpointsByOwnerIdentifier: [UUID: [UInt64: Set<Outpoint>]]
         
         init() {
             self.utxosByLockingScript = .init()
             self.utxosByOutpoint = .init()
             self.reservedUTXOs = .init()
+            self.mosaicQuarantinedOutpointsByOwnerIdentifier = .init()
         }
         
         mutating func add(_ utxo: OpalBase.Transaction.Output.Unspent) {
@@ -98,6 +112,45 @@ extension _OpalBase.Address.Book {
             utxosByLockingScript.removeAll()
             utxosByOutpoint.removeAll()
             reservedUTXOs.removeAll()
+            mosaicQuarantinedOutpointsByOwnerIdentifier.removeAll()
+        }
+
+        mutating func quarantineMosaicOutpoints(
+            _ outpoints: Set<Outpoint>,
+            ownerIdentifier: UUID,
+            ownerGeneration: UInt64
+        ) {
+            guard !outpoints.isEmpty else { return }
+            var quarantinedOutpointsByGeneration =
+                mosaicQuarantinedOutpointsByOwnerIdentifier[ownerIdentifier]
+                ?? [:]
+            quarantinedOutpointsByGeneration[ownerGeneration, default: []]
+                .formUnion(outpoints)
+            mosaicQuarantinedOutpointsByOwnerIdentifier[ownerIdentifier] =
+                quarantinedOutpointsByGeneration
+        }
+
+        mutating func releaseMosaicOutpointQuarantine(
+            ownerIdentifier: UUID,
+            ownerGeneration: UInt64
+        ) {
+            guard var quarantinedOutpointsByGeneration =
+                    mosaicQuarantinedOutpointsByOwnerIdentifier[ownerIdentifier]
+            else {
+                return
+            }
+
+            quarantinedOutpointsByGeneration.removeValue(
+                forKey: ownerGeneration
+            )
+            if quarantinedOutpointsByGeneration.isEmpty {
+                mosaicQuarantinedOutpointsByOwnerIdentifier.removeValue(
+                    forKey: ownerIdentifier
+                )
+            } else {
+                mosaicQuarantinedOutpointsByOwnerIdentifier[ownerIdentifier] =
+                    quarantinedOutpointsByGeneration
+            }
         }
         
         mutating func reserve(_ utxos: Set<OpalBase.Transaction.Output.Unspent>) throws {
@@ -111,6 +164,12 @@ extension _OpalBase.Address.Book {
             }
             
             if let conflict = reservedUTXOs.intersection(utxos).first {
+                throw OpalBase.Address.Book.Error.utxoAlreadyReserved(conflict)
+            }
+            let quarantinedOutpoints = allMosaicQuarantinedOutpoints
+            if let conflict = utxos.first(where: {
+                quarantinedOutpoints.contains(Outpoint($0))
+            }) {
                 throw OpalBase.Address.Book.Error.utxoAlreadyReserved(conflict)
             }
             

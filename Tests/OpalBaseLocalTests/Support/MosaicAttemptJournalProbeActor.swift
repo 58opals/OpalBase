@@ -46,6 +46,12 @@ actor MosaicAttemptJournalProbeActor {
         self.cancellationSensitiveAppendIndices = cancellationSensitiveAppendIndices
     }
 
+    static func makeAuthenticatedForPrivateAlphaTesting() async throws
+        -> MosaicAttemptJournalProbeActor {
+        let prepared = try await makeCommittedAttempt()
+        return prepared.fixture.journalProbe
+    }
+
     private init(
         scope: OpalBase.Account.MosaicAttemptJournalCodec.Scope,
         persistedEnvelope: Data
@@ -102,6 +108,20 @@ actor MosaicAttemptJournalProbeActor {
         persistedEnvelope
     }
 
+    func readFieldDerivedJournalKey() -> SymmetricKey {
+        authenticationKey
+    }
+
+    func readJournalScopeIdentifiers() -> (
+        walletIdentifier: UUID,
+        journalIdentifier: UUID
+    ) {
+        (
+            scope.walletIdentifier,
+            scope.journalIdentifier
+        )
+    }
+
     /// Reconstructs a process-equivalent persistence owner from durable bytes and key scope only.
     func makeRestartedProbe() throws -> MosaicAttemptJournalProbeActor {
         guard let persistedEnvelope else {
@@ -134,6 +154,9 @@ actor MosaicAttemptJournalProbeActor {
                     expected: expected,
                     replacement: replacement
                 )
+            },
+            compareAndDeleteDurably: { expected in
+                await self.compareAndDeleteDurably(expected: expected)
             }
         )
     }
@@ -177,6 +200,13 @@ actor MosaicAttemptJournalProbeActor {
         let decoded = try codec.open(replacement)
         persistedEnvelope = replacement
         records = decoded
+        return true
+    }
+
+    private func compareAndDeleteDurably(expected: Data) -> Bool {
+        guard persistedEnvelope == expected else { return false }
+        persistedEnvelope = nil
+        records.removeAll(keepingCapacity: false)
         return true
     }
 }
