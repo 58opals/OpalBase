@@ -10,6 +10,12 @@ extension _OpalBase.Account {
     /// Key loading, storage, output cleanup, signing, commit, chain reconciliation, approval,
     /// and relay remain app-owned boundaries.
     actor MosaicAttemptRecoveryGate {
+        private enum Lifecycle {
+            case ready
+            case recovering
+            case issued
+        }
+
         struct RecoveryAuthority: Sendable {
             fileprivate init() {}
         }
@@ -33,8 +39,7 @@ extension _OpalBase.Account {
         let journal: MosaicAttemptJournal
         private let records: [MosaicAttemptJournal.Record]
         private let plan: MosaicAttemptRecoveryPlanner.Plan
-        private var recoveryInFlight = false
-        private var outcomeIssued = false
+        private var lifecycle = Lifecycle.ready
 
         init(
             addressBook: OpalBase.Address.Book,
@@ -48,14 +53,20 @@ extension _OpalBase.Account {
         }
 
         func restoreInputQuarantineAndPlan() async throws -> Outcome {
-            guard !outcomeIssued else {
+            switch lifecycle {
+            case .ready:
+                lifecycle = .recovering
+            case .recovering:
+                throw Failure.recoveryInProgress
+            case .issued:
                 throw Failure.outcomeAlreadyIssued
             }
-            guard !recoveryInFlight else {
-                throw Failure.recoveryInProgress
+
+            defer {
+                if case .recovering = lifecycle {
+                    lifecycle = .ready
+                }
             }
-            recoveryInFlight = true
-            defer { recoveryInFlight = false }
 
             switch plan {
             case .noAction:
@@ -99,7 +110,7 @@ extension _OpalBase.Account {
         }
 
         private func issue(_ outcome: Outcome) -> Outcome {
-            outcomeIssued = true
+            lifecycle = .issued
             return outcome
         }
 
