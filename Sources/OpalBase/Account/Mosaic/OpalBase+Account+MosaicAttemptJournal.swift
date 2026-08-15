@@ -21,6 +21,11 @@ extension _OpalBase.Account {
         func append(_ record: Record) async throws {
             try await store.append(record)
         }
+
+        func authorizeTerminalDisposition() async throws
+            -> MosaicAttemptJournalErasureAuthorization {
+            try await store.authorizeTerminalDisposition()
+        }
     }
 
     /// The sole mutable owner of one journal's authenticated whole-snapshot state.
@@ -111,15 +116,18 @@ extension _OpalBase.Account {
         /// One-use authenticated restart state. It cannot create a fresh wallet host.
         struct LoadedRecovery: ~Copyable, Sendable {
             fileprivate let store: MosaicAttemptJournalStore
+            fileprivate let binding: MosaicAttemptBinding
             fileprivate let records: [MosaicAttemptJournal.Record]
             fileprivate let plan: MosaicAttemptRecoveryPlanner.Plan
 
             fileprivate init(
                 store: MosaicAttemptJournalStore,
+                binding: MosaicAttemptBinding,
                 records: [MosaicAttemptJournal.Record],
                 plan: MosaicAttemptRecoveryPlanner.Plan
             ) {
                 self.store = store
+                self.binding = binding
                 self.records = records
                 self.plan = plan
             }
@@ -127,6 +135,7 @@ extension _OpalBase.Account {
             consuming func claim() -> RecoveryState {
                 .init(
                     journal: .init(store: store),
+                    binding: binding,
                     records: records,
                     plan: plan
                 )
@@ -135,6 +144,7 @@ extension _OpalBase.Account {
 
         struct RecoveryState: Sendable {
             let journal: MosaicAttemptJournal
+            let binding: MosaicAttemptBinding
             let records: [MosaicAttemptJournal.Record]
             let plan: MosaicAttemptRecoveryPlanner.Plan
         }
@@ -268,20 +278,35 @@ extension _OpalBase.Account {
             guard !records.isEmpty else {
                 return .abandonedFreshAttempt(
                     .init(
-                        store: store
+                        store: store,
+                        expectedEnvelopeSHA256: Data(
+                            SHA256.hash(data: envelope)
+                        )
                     )
                 )
             }
 
             let plan: MosaicAttemptRecoveryPlanner.Plan
+            let binding: MosaicAttemptBinding
             do {
                 plan = try MosaicAttemptRecoveryPlanner.plan(for: records)
+                guard let resolvedBinding = try MosaicAttemptRecoveryPlanner
+                    .binding(for: records) else {
+                    throw MosaicAttemptRecoveryPlanner.Error
+                        .attemptBindingMismatch
+                }
+                binding = resolvedBinding
             } catch let error as MosaicAttemptRecoveryPlanner.Error {
                 throw Failure.invalidJournal(error)
             }
 
             return .loadedRecovery(
-                .init(store: store, records: records, plan: plan)
+                .init(
+                    store: store,
+                    binding: binding,
+                    records: records,
+                    plan: plan
+                )
             )
         }
 
@@ -327,27 +352,57 @@ extension _OpalBase.Account {
             -> MosaicAttemptJournalErasureAuthorization {
             guard records.isEmpty,
                   persistence != nil,
-                  currentEnvelope != nil else {
+                  let currentEnvelope else {
                 throw Failure.erasureNotAuthorized
             }
             return .init(
-                store: self
+                store: self,
+                expectedEnvelopeSHA256: Data(
+                    SHA256.hash(data: currentEnvelope)
+                )
             )
         }
 
-        func authorizeJournalErasure() async throws
-            -> MosaicAttemptJournalCleanupRequirement {
-            guard records.isEmpty, let currentEnvelope else {
+        fileprivate func authorizeTerminalDisposition() throws
+            -> MosaicAttemptJournalErasureAuthorization {
+            guard let currentEnvelope,
+                  persistence != nil,
+                  case .terminal = try MosaicAttemptRecoveryPlanner.plan(
+                    for: records
+                  ) else {
                 throw Failure.erasureNotAuthorized
+            }
+            return .init(
+                store: self,
+                expectedEnvelopeSHA256: Data(
+                    SHA256.hash(data: currentEnvelope)
+                )
+            )
+        }
+
+        func authorizeJournalErasure(
+            expectedEnvelopeSHA256: Data
+        ) async throws
+            -> MosaicAttemptJournalCleanupRequirement {
+            guard let currentEnvelope,
+                  Data(SHA256.hash(data: currentEnvelope))
+                    == expectedEnvelopeSHA256 else {
+                throw Failure.erasureNotAuthorized
+            }
+            if !records.isEmpty {
+                guard case .terminal = try MosaicAttemptRecoveryPlanner.plan(
+                    for: records
+                ) else {
+                    throw Failure.erasureNotAuthorized
+                }
             }
             guard let persistence else {
                 throw Failure.journalErased
             }
 
-            let envelopeSHA256 = Data(SHA256.hash(data: currentEnvelope))
             let context = MosaicPrivateAlphaJournal.CleanupContext(
                 validatedScope: .init(journalScope: scope),
-                expectedEnvelopeSHA256: envelopeSHA256
+                expectedEnvelopeSHA256: expectedEnvelopeSHA256
             )
             let authorized: Bool
             do {

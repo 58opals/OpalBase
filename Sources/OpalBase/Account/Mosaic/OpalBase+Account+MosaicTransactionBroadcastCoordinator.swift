@@ -12,6 +12,7 @@ extension _OpalBase.Account {
         let requestApproval: RequestApproval
 
         private var approvalPersisted: Bool
+        private var broadcastIntentPersisted: Bool
         private var broadcastInFlight = false
         private var acceptedTransactionHash: OpalBase.Transaction.Hash?
 
@@ -37,6 +38,7 @@ extension _OpalBase.Account {
             self.transactionClient = transactionClient
             self.requestApproval = requestApproval
             approvalPersisted = candidate.approvalPersisted
+            broadcastIntentPersisted = candidate.broadcastIntentPersisted
         }
 
         func broadcast() async throws -> OpalBase.Transaction.Hash {
@@ -48,7 +50,7 @@ extension _OpalBase.Account {
             broadcastInFlight = true
             defer { broadcastInFlight = false }
             try Task.checkCancellation()
-            let transaction = try decodeExactTransaction(
+            let exactTransaction = try MosaicExactTransaction(
                 candidate.completeTransaction
             )
 
@@ -84,16 +86,44 @@ extension _OpalBase.Account {
                 approvalPersisted = true
             }
 
-            try Task.checkCancellation()
-            try await persist(
-                .broadcastIntent(
-                    reference: candidate.reservationReference,
-                    transaction: candidate.completeTransaction
+            if broadcastIntentPersisted {
+                switch try await transactionClient.presence(
+                    of: exactTransaction
+                ) {
+                case let .present(observation):
+                    try await persist(
+                        .broadcastAccepted(
+                            reference: candidate.reservationReference,
+                            transaction: candidate.completeTransaction,
+                            transactionHash: observation.transactionHash
+                        )
+                    )
+                    acceptedTransactionHash = observation.transactionHash
+                    return observation.transactionHash
+                case .authoritativeAbsence:
+                    break
+                case .unknown:
+                    throw OpalBase.Account.MosaicHostFailure
+                        .reconciliationRequired
+                }
+            } else {
+                try Task.checkCancellation()
+                try await persist(
+                    .broadcastIntent(
+                        reference: candidate.reservationReference,
+                        transaction: candidate.completeTransaction
+                    )
                 )
-            )
-            try Task.checkCancellation()
+                broadcastIntentPersisted = true
+                try Task.checkCancellation()
+            }
 
-            let hash = try await transactionClient.broadcast(transaction: transaction)
+            let hash = try await transactionClient.broadcast(
+                transaction: exactTransaction.transaction
+            )
+            guard hash == exactTransaction.hash else {
+                throw OpalBase.Account.MosaicHostFailure.reconciliationRequired
+            }
             try await persist(
                 .broadcastAccepted(
                     reference: candidate.reservationReference,
@@ -103,24 +133,6 @@ extension _OpalBase.Account {
             )
             acceptedTransactionHash = hash
             return hash
-        }
-
-        private func decodeExactTransaction(
-            _ completeTransaction: OpalFusion.Host.MosaicCompleteTransaction
-        ) throws -> OpalBase.Transaction {
-            do {
-                let encoded = Data(completeTransaction.transactionBytes)
-                let decoded = try OpalBase.Transaction.decode(from: encoded)
-                guard decoded.bytesRead == encoded.count,
-                      try decoded.transaction.encode() == encoded else {
-                    throw OpalBase.Account.MosaicHostFailure.invalidCompleteTransaction
-                }
-                return decoded.transaction
-            } catch let hostFailure as OpalBase.Account.MosaicHostFailure {
-                throw hostFailure
-            } catch {
-                throw OpalBase.Account.MosaicHostFailure.invalidCompleteTransaction
-            }
         }
 
         private func persist(

@@ -39,12 +39,12 @@ extension AccountMosaicTransactionHostValidator {
         await suspension.resume()
         let lease = try await firstReservation.value
         let records = await journalProbe.readRecords()
-        #expect(records.count == 2)
-        if case .reservationIntent(let reference, let request, _, _)? = records.first {
-            #expect(reference == lease.reference)
+        #expect(records.count == 3)
+        if case let .reservationPrepared(request, _, _, preparedLease) = records[1] {
+            #expect(preparedLease.reference == lease.reference)
             #expect(request == fixture.reservationRequest)
         } else {
-            Issue.record("Expected one pinned reservation intent")
+            Issue.record("Expected one pinned prepared reservation")
         }
         try await fixture.host.releaseMosaicReservation(lease.reference)
     }
@@ -80,8 +80,8 @@ extension AccountMosaicTransactionHostValidator {
         }
         #expect(await fixture.addressBook.listSpendableUTXOs().contains(fixture.selectedInput))
         let records = await journalProbe.readRecords()
-        #expect(records.count == 4)
-        if case .released = records[3] {
+        #expect(records.count == 5)
+        if case .released = records[4] {
             // The expired lease was cleaned up before it could be returned.
         } else {
             Issue.record("Expected expired reservation cleanup to reach released state")
@@ -118,8 +118,8 @@ extension AccountMosaicTransactionHostValidator {
         }
         #expect(await fixture.addressBook.listSpendableUTXOs().contains(fixture.selectedInput))
         let records = await journalProbe.readRecords()
-        #expect(records.count == 4)
-        if case .released = records[3] {
+        #expect(records.count == 5)
+        if case .released = records[4] {
             // Cancellation reached conservative cleanup before any lease escaped.
         } else {
             Issue.record("Expected canceled reservation to finish release cleanup")
@@ -152,7 +152,12 @@ extension AccountMosaicTransactionHostValidator {
             _ = try await reservation.value
         }
         #expect(await fixture.addressBook.listSpendableUTXOs().contains(fixture.selectedInput))
-        #expect(await journalProbe.readRecords().count == 1)
+        #expect(await journalProbe.readRecords().count == 4)
+        #expect(
+            try OpalBase.Account.MosaicAttemptRecoveryPlanner.plan(
+                for: await journalProbe.readRecords()
+            ) == .released
+        )
         await #expect(throws: OpalBase.Account.MosaicHostFailure.reconciliationRequired) {
             _ = try await fixture.reserve()
         }
@@ -223,8 +228,8 @@ extension AccountMosaicTransactionHostValidator {
         #expect(await fixture.host.readSigningInvocationCount() == 0)
         #expect(await fixture.addressBook.listSpendableUTXOs().contains(fixture.selectedInput))
         let records = await fixture.journalProbe.readRecords()
-        #expect(records.count == 4)
-        if case .releaseIntent(let reference) = records[2] {
+        #expect(records.count == 5)
+        if case .releaseIntent(let reference) = records[3] {
             #expect(reference == lease.reference)
         } else {
             Issue.record("Expected expiry to persist release intent before cleanup")
@@ -255,7 +260,7 @@ extension AccountMosaicTransactionHostValidator {
             _ = try await finalization.value
         }
         #expect(await fixture.host.readSigningInvocationCount() == 0)
-        #expect(await fixture.journalProbe.readRecords().count == 2)
+        #expect(await fixture.journalProbe.readRecords().count == 3)
         try await fixture.host.releaseMosaicReservation(lease.reference)
     }
 
@@ -288,12 +293,12 @@ extension AccountMosaicTransactionHostValidator {
             _ = try await fixture.host.finalizeMosaicTransaction(for: request)
         }
         #expect(await fixture.host.readSigningInvocationCount() == 0)
-        #expect(await journalProbe.readRecords().count == 2)
+        #expect(await journalProbe.readRecords().count == 3)
 
         await suspension.resume()
         _ = try await firstFinalization.value
         #expect(await fixture.host.readSigningInvocationCount() == 1)
-        #expect(await journalProbe.readRecords().count == 4)
+        #expect(await journalProbe.readRecords().count == 5)
     }
 
     @Test(
@@ -326,7 +331,7 @@ extension AccountMosaicTransactionHostValidator {
             _ = try await finalization.value
         }
         #expect(await fixture.host.readSigningInvocationCount() == 0)
-        #expect(await journalProbe.readRecords().count == 3)
+        #expect(await journalProbe.readRecords().count == 4)
         await #expect(throws: OpalBase.Account.MosaicHostFailure.reconciliationRequired) {
             try await fixture.host.releaseMosaicReservation(lease.reference)
         }
@@ -363,7 +368,7 @@ extension AccountMosaicTransactionHostValidator {
             _ = try await finalization.value
         }
         #expect(await fixture.host.readSigningInvocationCount() == 0)
-        #expect(await journalProbe.readRecords().count == 3)
+        #expect(await journalProbe.readRecords().count == 4)
         await #expect(throws: OpalBase.Account.MosaicHostFailure.reconciliationRequired) {
             try await fixture.host.releaseMosaicReservation(lease.reference)
         }
@@ -406,7 +411,7 @@ extension AccountMosaicTransactionHostValidator {
         await #expect(throws: OpalBase.Account.MosaicHostFailure.reconciliationRequired) {
             try await fixture.host.releaseMosaicReservation(lease.reference)
         }
-        #expect(await journalProbe.readRecords().count == 3)
+        #expect(await journalProbe.readRecords().count == 4)
 
         await suspension.resume()
         let finalized = try await firstFinalization.value
@@ -417,7 +422,7 @@ extension AccountMosaicTransactionHostValidator {
             lease.reference,
             completeTransaction: complete
         )
-        #expect(await journalProbe.readRecords().count == 6)
+        #expect(await journalProbe.readRecords().count == 7)
     }
 
     @Test(
@@ -461,13 +466,13 @@ extension AccountMosaicTransactionHostValidator {
         await suspension.resume()
         try await firstCommit.value
         let records = await journalProbe.readRecords()
-        #expect(records.count == 6)
-        if case .commitIntent(_, let transaction) = records[4] {
+        #expect(records.count == 7)
+        if case .commitIntent(_, let transaction) = records[5] {
             #expect(transaction == prepared.complete)
         } else {
             Issue.record("Expected one pinned commit intent")
         }
-        if case .committed(_, let transaction) = records[5] {
+        if case .committed(_, let transaction) = records[6] {
             #expect(transaction == prepared.complete)
         } else {
             Issue.record("Expected one committed transaction")
@@ -510,7 +515,7 @@ extension AccountMosaicTransactionHostValidator {
         await suspension.resume()
         try await firstRelease.value
         try await fixture.host.releaseMosaicReservation(lease.reference)
-        #expect(await journalProbe.readRecords().count == 4)
+        #expect(await journalProbe.readRecords().count == 5)
     }
 
     @Test(
@@ -536,8 +541,8 @@ extension AccountMosaicTransactionHostValidator {
         )
         #expect(!wasCancelled)
         let records = await journalProbe.readRecords()
-        #expect(records.count == 4)
-        if case .released(let reference) = records[3] {
+        #expect(records.count == 5)
+        if case .released(let reference) = records[4] {
             #expect(reference == lease.reference)
         } else {
             Issue.record("Expected scheduled expiry to persist terminal release")
@@ -584,7 +589,7 @@ extension AccountMosaicTransactionHostValidator {
         let duplicateHash = try await coordinator.broadcast()
         #expect(duplicateHash == hash)
         #expect(await broadcastProbe.readBroadcasts().count == 1)
-        #expect(await journalProbe.readRecords().count == 9)
+        #expect(await journalProbe.readRecords().count == 10)
     }
 
     @Test(
@@ -625,7 +630,7 @@ extension AccountMosaicTransactionHostValidator {
         }
         #expect(await broadcastProbe.readBroadcasts().isEmpty)
         let interruptedRecords = await journalProbe.readRecords()
-        #expect(interruptedRecords.count == 8)
+        #expect(interruptedRecords.count == 9)
         #expect(
             try OpalBase.Account.MosaicAttemptRecoveryPlanner.plan(for: interruptedRecords)
                 == .resumeApprovedBroadcast(
@@ -715,7 +720,7 @@ private extension AccountMosaicTransactionHostValidator {
         await #expect(throws: OpalBase.Account.MosaicHostFailure.inPlaceRetryNotPermitted) {
             _ = try await fixture.host.reserveMosaicContribution(for: replacement)
         }
-        #expect(await journalProbe.readRecords().isEmpty)
+        #expect(await journalProbe.readRecords().count == 1)
         #expect(await fixture.addressBook.listSpendableUTXOs().contains(fixture.selectedInput))
     }
 
@@ -742,7 +747,7 @@ private extension AccountMosaicTransactionHostValidator {
             prepared.lease.reference,
             completeTransaction: prepared.complete
         )
-        #expect(await journalProbe.readRecords().count == 6)
+        #expect(await journalProbe.readRecords().count == 7)
     }
 
     func verifyBroadcastIntentFailurePin() async throws {
@@ -769,7 +774,7 @@ private extension AccountMosaicTransactionHostValidator {
         }
         _ = try await coordinator.broadcast()
         #expect(await broadcastProbe.readBroadcasts().count == 1)
-        #expect(await journalProbe.readRecords().count == 9)
+        #expect(await journalProbe.readRecords().count == 10)
     }
 }
 #endif

@@ -17,6 +17,11 @@ extension OpalBase.Account.MosaicPrivateAlphaJournal {
             -> OpalBase.Account.MosaicAttemptJournalErasureAuthorization {
             try await attempt.authorizeAbandonment()
         }
+
+        consuming func claimAttempt()
+            -> OpalBase.Account.MosaicAttemptJournalStore.FreshAttempt {
+            consume attempt
+        }
     }
 }
 #endif

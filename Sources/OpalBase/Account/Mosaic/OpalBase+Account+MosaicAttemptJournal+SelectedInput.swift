@@ -4,7 +4,7 @@
 import Foundation
 
 extension _OpalBase.Account.MosaicAttemptJournal {
-    struct SelectedInput: Sendable, Equatable {
+    struct SelectedInput: Sendable, Equatable, Hashable {
         let transactionHash: Data
         let outputIndex: UInt32
         let amountSatoshis: UInt64

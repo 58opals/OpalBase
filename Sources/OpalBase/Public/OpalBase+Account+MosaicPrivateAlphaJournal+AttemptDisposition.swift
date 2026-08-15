@@ -2,7 +2,7 @@
 
 #if os(macOS)
 extension OpalBase.Account.MosaicPrivateAlphaJournal {
-    /// Opaque, nonforgeable proof that one fresh attempt is eligible for exact erasure authorization.
+    /// Opaque, nonforgeable proof that one abandoned fresh attempt is eligible for exact erasure authorization.
     @_spi(MosaicPrivateAlpha)
     public struct AttemptDisposition: ~Copyable, Sendable {
         private let authorization: OpalBase.Account.MosaicAttemptJournalErasureAuthorization

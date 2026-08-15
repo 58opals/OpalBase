@@ -75,7 +75,7 @@ extension _OpalBase.Account {
         }
 
         init(
-            recoveryAuthority _: MosaicAttemptRecoveryGate.RecoveryAuthority,
+            authorizedBy _: isolated MosaicPrivateAlphaRecoveryOwner,
             reservationRequest: OpalFusion.Host.MosaicReservationRequest,
             reservationReference: OpalFusion.Host.MosaicReservationReference,
             completeTransaction: OpalFusion.Host.MosaicCompleteTransaction,

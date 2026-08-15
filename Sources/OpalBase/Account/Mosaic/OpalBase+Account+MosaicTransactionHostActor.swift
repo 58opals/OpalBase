@@ -9,7 +9,7 @@ extension _OpalBase.Account {
     actor MosaicTransactionHostActor: OpalFusion.Host.MosaicCompleteTransactionHost {
         enum Lifecycle: Sendable, Equatable {
             case idle
-            case reservationIntent
+            case reservationPrepared
             case reserved
             case finalizationPending
             case validating
@@ -29,7 +29,7 @@ extension _OpalBase.Account {
         let addressBook: OpalBase.Address.Book
         let expectedNetworkGenesisHash: [UInt8]
         let profile: OpalFusion.Mosaic.Profile
-        let generation: UInt64
+        let attemptBinding: MosaicAttemptBinding
         let selectedInputs: [OpalBase.Transaction.Output.Unspent]
         let outputAmountsSatoshis: [UInt64]
         let contributionPolicy: MosaicProfileContributionPolicy
@@ -38,9 +38,9 @@ extension _OpalBase.Account {
         let broadcastCoordinatorClaim = MosaicCommittedBroadcastCandidate
             .CoordinatorClaim()
         let currentDate: @Sendable () -> Date
-        let makeReservationIdentifier: @Sendable () -> UUID
         let reserveReceivingEntry: @Sendable (
-            OpalBase.Address.Book
+            OpalBase.Address.Book,
+            OpalBase.Address.Book.Entry
         ) async throws -> OpalBase.Address.Book.Entry
         let sleepUntilDate: @Sendable (Date) async throws -> Void
 
@@ -61,17 +61,21 @@ extension _OpalBase.Account {
             addressBook: OpalBase.Address.Book,
             profile: OpalFusion.Mosaic.Profile,
             network: OpalBase.Network.Environment,
-            generation: UInt64,
+            attemptBinding: MosaicAttemptBinding,
             selectedInputs: [OpalBase.Transaction.Output.Unspent],
             outputAmountsSatoshis: [UInt64],
             transactionPolicy: MosaicTransactionPolicy,
-            freshAttempt: consuming MosaicAttemptJournalStore.FreshAttempt,
+            attemptJournal: MosaicAttemptJournal,
             currentDate: @escaping @Sendable () -> Date = Date.init,
-            makeReservationIdentifier: @escaping @Sendable () -> UUID = UUID.init,
             reserveReceivingEntry: @escaping @Sendable (
-                OpalBase.Address.Book
-            ) async throws -> OpalBase.Address.Book.Entry = { addressBook in
-                try await addressBook.reserveMosaicReceivingEntry()
+                OpalBase.Address.Book,
+                OpalBase.Address.Book.Entry
+            ) async throws -> OpalBase.Address.Book.Entry = {
+                addressBook,
+                plannedEntry in
+                try await addressBook.reserveMosaicReceivingEntry(
+                    plannedEntry
+                )
             },
             sleepUntilDate: @escaping @Sendable (Date) async throws -> Void = { deadline in
                 let interval = deadline.timeIntervalSinceNow
@@ -101,14 +105,13 @@ extension _OpalBase.Account {
             self.addressBook = addressBook
             self.expectedNetworkGenesisHash = network.mosaicGenesisHash
             self.profile = profile
-            self.generation = generation
+            self.attemptBinding = attemptBinding
             self.selectedInputs = selectedInputs
             self.outputAmountsSatoshis = outputAmountsSatoshis
             self.contributionPolicy = contributionPolicy
             self.transactionPolicy = transactionPolicy
-            attemptJournal = freshAttempt.claimJournal()
+            self.attemptJournal = attemptJournal
             self.currentDate = currentDate
-            self.makeReservationIdentifier = makeReservationIdentifier
             self.reserveReceivingEntry = reserveReceivingEntry
             self.sleepUntilDate = sleepUntilDate
         }

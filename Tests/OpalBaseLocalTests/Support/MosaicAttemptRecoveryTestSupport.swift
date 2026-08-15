@@ -5,7 +5,9 @@ import OpalFusion
 @testable import OpalBase
 
 func makeCommittedAttempt(
-    journalProbe: MosaicAttemptJournalProbeActor = .init()
+    journalProbe: MosaicAttemptJournalProbeActor = .init(),
+    profile: OpalFusion.Mosaic.Profile = .opalV0,
+    network: OpalBase.Network.Environment = .chipnet
 ) async throws -> (
     fixture: MosaicHostFixture,
     lease: OpalFusion.Host.MosaicReservationLease,
@@ -14,9 +16,14 @@ func makeCommittedAttempt(
     complete: OpalFusion.Host.MosaicCompleteTransaction,
     candidate: OpalBase.Account.MosaicCommittedBroadcastCandidate
 ) {
-    let policy = await MosaicPolicyProbeActor().transactionPolicy
+    let policy = await MosaicPolicyProbeActor().makeTransactionPolicy(
+        profile: profile,
+        network: network
+    )
     let fixture = try await MosaicHostFixture.make(
         transactionPolicy: policy,
+        network: network,
+        profile: profile,
         journalProbe: journalProbe
     )
     let lease = try await fixture.reserve()
@@ -33,26 +40,14 @@ func makeCommittedAttempt(
     return (fixture, lease, request, finalized, complete, candidate)
 }
 
-func makeRecoveryGate(
+func makePrivateAlphaRecoveryOwner(
     addressBook: OpalBase.Address.Book,
     journalProbe: MosaicAttemptJournalProbeActor
-) async throws -> OpalBase.Account.MosaicAttemptRecoveryGate {
+) async throws -> OpalBase.Account.MosaicPrivateAlphaRecoveryOwner {
     let recovery = try await journalProbe.loadRecovery()
-    return .init(addressBook: addressBook, recovery: recovery)
-}
-
-func makeRecoveryGate(
-    addressBook: OpalBase.Address.Book,
-    records: [OpalBase.Account.MosaicAttemptJournal.Record]
-) async throws -> OpalBase.Account.MosaicAttemptRecoveryGate {
-    let journalProbe = MosaicAttemptJournalProbeActor()
-    let journal = try await journalProbe.makeFreshJournalForTesting()
-    for record in records {
-        try await journal.append(record)
-    }
-    return try await makeRecoveryGate(
+    return try .init(
         addressBook: addressBook,
-        journalProbe: journalProbe
+        recovery: recovery
     )
 }
 #endif

@@ -1,11 +1,14 @@
 // OpalBase+Account+MosaicAttemptRecoveryPlanner+State.swift
 
 #if os(macOS)
+import Foundation
 import OpalFusion
 
 extension _OpalBase.Account.MosaicAttemptRecoveryPlanner {
     enum State {
+        case attemptBound(OpalBase.Account.MosaicAttemptBinding)
         case reservationIntent(OpalFusion.Host.MosaicReservationReference)
+        case reservationPrepared(OpalFusion.Host.MosaicReservationLease)
         case reserved(OpalFusion.Host.MosaicReservationReference)
         case signingIntent(OpalFusion.Host.MosaicTransactionSigningRequest)
         case locallySigned(
@@ -13,7 +16,7 @@ extension _OpalBase.Account.MosaicAttemptRecoveryPlanner {
             OpalFusion.Host.FinalizedTransaction
         )
         case releaseIntent(OpalFusion.Host.MosaicReservationReference)
-        case released
+        case released(OpalFusion.Host.MosaicReservationReference)
         case commitIntent(
             OpalFusion.Host.MosaicReservationReference,
             OpalFusion.Host.MosaicCompleteTransaction
@@ -34,16 +37,49 @@ extension _OpalBase.Account.MosaicAttemptRecoveryPlanner {
             OpalFusion.Host.MosaicReservationReference,
             OpalFusion.Host.MosaicCompleteTransaction
         )
-        case broadcastAccepted(OpalBase.Transaction.Hash)
+        case broadcastAccepted(
+            OpalFusion.Host.MosaicReservationReference,
+            OpalFusion.Host.MosaicCompleteTransaction,
+            OpalBase.Transaction.Hash
+        )
+        case chainTracking(OpalBase.Account.MosaicAttemptChainState)
+        case terminal(OpalBase.Account.MosaicAttemptTerminalDisposition)
 
         func applying(
             _ record: _OpalBase.Account.MosaicAttemptJournal.Record
         ) throws -> State {
             switch (self, record) {
+            case let (.attemptBound(binding), .reservationIntent(
+                reference,
+                _,
+                _,
+                _
+            )) where binding.walletReservationReference == reference:
+                return .reservationIntent(reference)
+            case let (.attemptBound(binding), .releaseIntent(reference))
+                where binding.walletReservationReference == reference:
+                return .releaseIntent(reference)
+            case let (.attemptBound(binding), .reservationPrepared(
+                request,
+                _,
+                _,
+                lease
+            )) where binding.walletReservationReference == lease.reference
+                    && Data(request.attemptIdentifier)
+                        == binding.attemptIdentifier:
+                return .reservationPrepared(lease)
+            case let (.reservationPrepared(expected), .reserved(lease)):
+                guard expected == lease else {
+                    throw Error.invalidRecord
+                }
+                return .reserved(lease.reference)
             case let (.reservationIntent, .reserved(lease)):
+                // Authenticated legacy snapshots already contain exact output identities.
                 return .reserved(lease.reference)
             case let (.reservationIntent, .releaseIntent(reference)),
-                 let (.reserved, .releaseIntent(reference)):
+                 let (.reservationPrepared, .releaseIntent(reference)),
+                 let (.reserved, .releaseIntent(reference)),
+                 let (.signingIntent, .releaseIntent(reference)):
                 return .releaseIntent(reference)
             case let (.reserved, .signingIntent(request)):
                 return .signingIntent(request)
@@ -54,7 +90,18 @@ extension _OpalBase.Account.MosaicAttemptRecoveryPlanner {
                 return .commitIntent(reference, transaction)
             case let (.releaseIntent(expected), .released(reference))
                 where expected == reference:
-                return .released
+                return .released(reference)
+            case let (.released(expected), .terminalDisposition(
+                reference,
+                transaction,
+                disposition
+            )):
+                guard expected == reference,
+                      transaction == nil,
+                      disposition == .walletReleased else {
+                    throw Error.invalidTransition
+                }
+                return .terminal(disposition)
             case let (.commitIntent(expectedReference, expectedTransaction),
                       .committed(reference, transaction)):
                 guard expectedReference == reference,
@@ -77,30 +124,13 @@ extension _OpalBase.Account.MosaicAttemptRecoveryPlanner {
                 }
                 return .unapprovedBroadcastIntent(reference, transaction)
             case let (.broadcastApproved(expectedReference, expectedTransaction),
-                      .broadcastIntent(reference, transaction)),
-                     let (.unapprovedBroadcastIntent(
-                         expectedReference,
-                         expectedTransaction
-                     ), .broadcastApproved(reference, transaction)):
+                      .broadcastIntent(reference, transaction)):
                 guard expectedReference == reference,
                       expectedTransaction == transaction else {
                     throw Error.conflictingTransaction
                 }
                 return .approvedBroadcastIntent(reference, transaction)
             case let (.approvedBroadcastIntent(
-                          expectedReference,
-                          expectedTransaction
-                      ), .broadcastIntent(reference, transaction)):
-                guard expectedReference == reference,
-                      expectedTransaction == transaction else {
-                    throw Error.conflictingTransaction
-                }
-                return .approvedBroadcastIntent(reference, transaction)
-            case let (.approvedBroadcastIntent(
-                          expectedReference,
-                          expectedTransaction
-                      ), .broadcastAccepted(reference, transaction, hash)),
-                     let (.unapprovedBroadcastIntent(
                           expectedReference,
                           expectedTransaction
                       ), .broadcastAccepted(reference, transaction, hash)):
@@ -108,7 +138,65 @@ extension _OpalBase.Account.MosaicAttemptRecoveryPlanner {
                       expectedTransaction == transaction else {
                     throw Error.conflictingTransaction
                 }
-                return .broadcastAccepted(hash)
+                return .broadcastAccepted(reference, transaction, hash)
+            case let (.broadcastAccepted(
+                expectedReference,
+                expectedTransaction,
+                expectedHash
+            ), .chainObservation(reference, transaction, observation)):
+                guard expectedReference == reference,
+                      expectedTransaction == transaction,
+                      expectedHash == observation.transactionHash else {
+                    throw Error.conflictingTransaction
+                }
+                return .chainTracking(
+                    Self.updatedChainState(
+                        previous: nil,
+                        reference: reference,
+                        transaction: transaction,
+                        transactionHash: expectedHash,
+                        observation: observation
+                    )
+                )
+            case let (.chainTracking(previous), .chainObservation(
+                reference,
+                transaction,
+                observation
+            )):
+                guard previous.reference == reference,
+                      previous.transaction == transaction,
+                      previous.transactionHash == observation.transactionHash else {
+                    throw Error.conflictingTransaction
+                }
+                return .chainTracking(
+                    Self.updatedChainState(
+                        previous: previous,
+                        reference: reference,
+                        transaction: transaction,
+                        transactionHash: observation.transactionHash,
+                        observation: observation
+                    )
+                )
+            case let (.chainTracking(chainState), .terminalDisposition(
+                reference,
+                transaction,
+                disposition
+            )):
+                guard chainState.reference == reference,
+                      chainState.transaction == transaction,
+                      case let .chainFinalized(
+                          transactionHash,
+                          blockHash,
+                          confirmations
+                      ) = disposition,
+                      transactionHash == chainState.transactionHash,
+                      let confirmed = chainState.latestObservation?
+                        .confirmedIdentity,
+                      confirmed.blockHash == blockHash,
+                      confirmed.confirmations == confirmations else {
+                    throw Error.invalidTransition
+                }
+                return .terminal(disposition)
             default:
                 throw Error.invalidTransition
             }
@@ -116,7 +204,13 @@ extension _OpalBase.Account.MosaicAttemptRecoveryPlanner {
 
         var plan: Plan {
             switch self {
-            case let .reservationIntent(reference), let .reserved(reference):
+            case let .attemptBound(binding):
+                .releaseBeforeSigning(binding.walletReservationReference)
+            case let .reservationIntent(reference):
+                .walletReconciliationHeld(reference)
+            case let .reservationPrepared(lease):
+                .releaseBeforeSigning(lease.reference)
+            case let .reserved(reference):
                 .releaseBeforeSigning(reference)
             case let .signingIntent(request):
                 .reconcileSigningIntent(
@@ -141,10 +235,9 @@ extension _OpalBase.Account.MosaicAttemptRecoveryPlanner {
                     broadcastIntentPersisted: false
                 )
             case let .unapprovedBroadcastIntent(reference, transaction):
-                .broadcastApprovalRequired(
+                .broadcastReconciliationHeld(
                     reference: reference,
-                    transaction: transaction,
-                    broadcastIntentPersisted: true
+                    transaction: transaction
                 )
             case let .broadcastApproved(reference, transaction):
                 .resumeApprovedBroadcast(
@@ -158,9 +251,65 @@ extension _OpalBase.Account.MosaicAttemptRecoveryPlanner {
                     transaction: transaction,
                     broadcastIntentPersisted: true
                 )
-            case let .broadcastAccepted(hash):
-                .complete(hash)
+            case let .broadcastAccepted(reference, transaction, hash):
+                .reconcileChain(
+                    .init(
+                        reference: reference,
+                        transaction: transaction,
+                        transactionHash: hash,
+                        latestObservation: nil,
+                        holdReason: nil
+                    )
+                )
+            case let .chainTracking(chainState):
+                .reconcileChain(chainState)
+            case let .terminal(disposition):
+                .terminal(disposition)
             }
+        }
+
+        private static func updatedChainState(
+            previous: OpalBase.Account.MosaicAttemptChainState?,
+            reference: OpalFusion.Host.MosaicReservationReference,
+            transaction: OpalFusion.Host.MosaicCompleteTransaction,
+            transactionHash: OpalBase.Transaction.Hash,
+            observation: OpalBase.Account.MosaicAttemptChainObservation
+        ) -> OpalBase.Account.MosaicAttemptChainState {
+            var holdReason = previous?.holdReason
+            let priorPresentObservation: OpalBase.Account
+                .MosaicAttemptChainObservation? = {
+                    guard let latestObservation = previous?.latestObservation,
+                          case .present = latestObservation.presence else {
+                        return nil
+                    }
+                    return latestObservation
+                }()
+
+            switch observation.presence {
+            case .authoritativeAbsence:
+                holdReason = holdReason ?? .transactionDisappeared
+            case .present:
+                if let priorIdentity = priorPresentObservation?.confirmedIdentity {
+                    guard let currentIdentity = observation.confirmedIdentity else {
+                        holdReason = holdReason ?? .confirmationDepthRetreated
+                        break
+                    }
+                    if currentIdentity.blockHash != priorIdentity.blockHash {
+                        holdReason = holdReason ?? .blockIdentityChanged
+                    } else if currentIdentity.confirmations
+                                < priorIdentity.confirmations {
+                        holdReason = holdReason ?? .confirmationDepthRetreated
+                    }
+                }
+            }
+
+            return .init(
+                reference: reference,
+                transaction: transaction,
+                transactionHash: transactionHash,
+                latestObservation: observation,
+                holdReason: holdReason
+            )
         }
     }
 }

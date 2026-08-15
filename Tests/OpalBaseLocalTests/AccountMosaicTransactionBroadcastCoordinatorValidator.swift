@@ -12,7 +12,10 @@ struct AccountMosaicTransactionBroadcastCoordinatorValidator {
 
     @Test("Persist broadcast intent before I/O and retry only exact bytes")
     func persistBroadcastIntentBeforeIO() async throws {
-        let prepared = try await makeCommittedAttempt()
+        let prepared = try await makeCommittedAttempt(
+            profile: .opalMainnetAlpha,
+            network: .mainnet
+        )
         let broadcastProbe = MosaicBroadcastProbeActor(
             journalProbe: prepared.fixture.journalProbe,
             failuresRemaining: 1
@@ -47,23 +50,21 @@ struct AccountMosaicTransactionBroadcastCoordinatorValidator {
         #expect(await approvalProbe.readRequests().count == 1)
         #expect(await broadcastProbe.readBroadcasts().count == 2)
         let completedRecords = await prepared.fixture.journalProbe.readRecords()
-        #expect(
-            try Planner.plan(for: completedRecords) == .complete(hash)
-        )
-        let gate = try await makeRecoveryGate(
+        #expect(try isChainReconciliationPlan(completedRecords, hash: hash))
+        let owner = try await makePrivateAlphaRecoveryOwner(
             addressBook: prepared.fixture.addressBook,
             journalProbe: prepared.fixture.journalProbe
         )
-        let recoveryOutcome = try await gate.restoreInputQuarantineAndPlan()
-        guard case let .chainReconciliationRequired(recoveredHash)
+        let recoveryOutcome = try await owner.resume()
+        guard case let .chainReconciliationRequired(recoveredState)
                 = recoveryOutcome else {
             Issue.record("Expected chain reconciliation after accepted broadcast")
             return
         }
-        #expect(recoveredHash == hash)
+        #expect(recoveredState.transactionHash == hash)
     }
 
-    @Test("Retry exact broadcast after accepted-result persistence fails")
+    @Test("Reconcile exact presence after accepted-result persistence fails")
     func retryBroadcastAfterAcceptedPersistenceFailure() async throws {
         let journalProbe = MosaicAttemptJournalProbeActor(
             failingAppendIndices: [8]
@@ -95,11 +96,74 @@ struct AccountMosaicTransactionBroadcastCoordinatorValidator {
         )
 
         let hash = try await coordinator.broadcast()
-        #expect(await broadcastProbe.readBroadcasts().count == 2)
+        #expect(await broadcastProbe.readBroadcasts().count == 1)
         #expect(await approvalProbe.readRequests().count == 1)
         #expect(
-            try Planner.plan(for: await journalProbe.readRecords())
-                == .complete(hash)
+            try isChainReconciliationPlan(
+                await journalProbe.readRecords(),
+                hash: hash
+            )
+        )
+    }
+
+    @Test("Ambiguous exact-byte mismatch after intent never dispatches")
+    func holdPayloadMismatchAfterBroadcastIntent() async throws {
+        let prepared = try await makeCommittedAttempt(
+            profile: .opalMainnetAlpha,
+            network: .mainnet
+        )
+        try await prepared.candidate.journal.append(
+            .broadcastApproved(
+                reference: prepared.lease.reference,
+                transaction: prepared.complete
+            )
+        )
+        try await prepared.candidate.journal.append(
+            .broadcastIntent(
+                reference: prepared.lease.reference,
+                transaction: prepared.complete
+            )
+        )
+        let interruptedRecords = await prepared.fixture.journalProbe
+            .readRecords()
+        let owner = try await makePrivateAlphaRecoveryOwner(
+            addressBook: prepared.fixture.addressBook,
+            journalProbe: prepared.fixture.journalProbe
+        )
+        let outcome = try await owner.resume()
+        guard case let .resumeApprovedBroadcast(candidate) = outcome else {
+            Issue.record("Expected approved intent recovery")
+            return
+        }
+
+        var mismatchedBytes = Data(prepared.complete.transactionBytes)
+        mismatchedBytes[mismatchedBytes.index(before: mismatchedBytes.endIndex)]
+            ^= 0x01
+        let broadcastProbe = MosaicBroadcastProbeActor(
+            journalProbe: prepared.fixture.journalProbe,
+            presenceTransactionDataOverride: mismatchedBytes
+        )
+        let coordinator = try OpalBase.Account
+            .MosaicTransactionBroadcastCoordinator(
+                candidate: candidate,
+                securityProfile: MosaicBroadcastApprovalTestSupport
+                    .securityProfile,
+                transactionClient: broadcastProbe.makeClient(
+                    testingNetwork: prepared.fixture.network
+                ),
+                requestApproval: MosaicBroadcastApprovalTestSupport.approve
+            )
+
+        await #expect(
+            throws: OpalBase.Account.MosaicHostFailure
+                .reconciliationRequired
+        ) {
+            _ = try await coordinator.broadcast()
+        }
+        #expect(await broadcastProbe.readBroadcasts().isEmpty)
+        #expect(
+            await prepared.fixture.journalProbe.readRecords()
+                == interruptedRecords
         )
     }
 
@@ -154,7 +218,7 @@ struct AccountMosaicTransactionBroadcastCoordinatorValidator {
         ) {
             _ = try await coordinator.broadcast()
         }
-        #expect(await prepared.fixture.journalProbe.readRecords().count == 6)
+        #expect(await prepared.fixture.journalProbe.readRecords().count == 7)
         #expect(await broadcastProbe.readBroadcasts().isEmpty)
 
         _ = try await coordinator.broadcast()
@@ -229,7 +293,7 @@ struct AccountMosaicTransactionBroadcastCoordinatorValidator {
         await #expect(throws: CancellationError.self) {
             _ = try await broadcast.value
         }
-        #expect(await prepared.fixture.journalProbe.readRecords().count == 6)
+        #expect(await prepared.fixture.journalProbe.readRecords().count == 7)
         #expect(await broadcastProbe.readBroadcasts().isEmpty)
 
         _ = try await coordinator.broadcast()
@@ -272,13 +336,13 @@ struct AccountMosaicTransactionBroadcastCoordinatorValidator {
         await #expect(throws: CancellationError.self) {
             _ = try await broadcast.value
         }
-        #expect(await journalProbe.readRecords().count == 6)
+        #expect(await journalProbe.readRecords().count == 7)
         #expect(await broadcastProbe.readBroadcasts().isEmpty)
 
         _ = try await coordinator.broadcast()
         #expect(await approvalProbe.readRequests().count == 2)
         #expect(await broadcastProbe.readBroadcasts().count == 1)
-        #expect(await journalProbe.readRecords().count == 9)
+        #expect(await journalProbe.readRecords().count == 10)
     }
 
     @Test("Approval provider failures stop before journal or network I/O")
@@ -303,13 +367,16 @@ struct AccountMosaicTransactionBroadcastCoordinatorValidator {
         ) {
             _ = try await coordinator.broadcast()
         }
-        #expect(await prepared.fixture.journalProbe.readRecords().count == 6)
+        #expect(await prepared.fixture.journalProbe.readRecords().count == 7)
         #expect(await broadcastProbe.readBroadcasts().isEmpty)
     }
 
-    @Test("A legacy broadcast intent still requires fresh durable approval")
-    func requireApprovalForLegacyBroadcastIntent() async throws {
-        let prepared = try await makeCommittedAttempt()
+    @Test("A legacy unapproved broadcast intent remains held without dispatch")
+    func holdLegacyUnapprovedBroadcastIntent() async throws {
+        let prepared = try await makeCommittedAttempt(
+            profile: .opalMainnetAlpha,
+            network: .mainnet
+        )
         try await prepared.candidate.journal.append(
             .broadcastIntent(
                 reference: prepared.lease.reference,
@@ -319,65 +386,52 @@ struct AccountMosaicTransactionBroadcastCoordinatorValidator {
         let interruptedRecords = await prepared.fixture.journalProbe.readRecords()
         #expect(
             try Planner.plan(for: interruptedRecords)
-                == .broadcastApprovalRequired(
+                == .broadcastReconciliationHeld(
                     reference: prepared.lease.reference,
-                    transaction: prepared.complete,
-                    broadcastIntentPersisted: true
+                    transaction: prepared.complete
                 )
         )
 
-        await prepared.fixture.addressBook.addUTXO(prepared.fixture.selectedInput)
-        let gate = try await makeRecoveryGate(
+        let owner = try await makePrivateAlphaRecoveryOwner(
             addressBook: prepared.fixture.addressBook,
             journalProbe: prepared.fixture.journalProbe
         )
-        let outcome = try await gate.restoreInputQuarantineAndPlan()
-        guard case let .broadcastApprovalRequired(candidate) = outcome else {
-            Issue.record("Expected fresh approval for the legacy broadcast intent")
+        let outcome = try await owner.resume()
+        guard case .broadcastReconciliationHeld = outcome else {
+            Issue.record("Expected a permanent no-dispatch recovery hold")
             return
         }
-        #expect(!candidate.approvalPersisted)
-        #expect(candidate.broadcastIntentPersisted)
-
-        let approvalProbe = MosaicBroadcastApprovalProbeActor()
-        let broadcastProbe = MosaicBroadcastProbeActor(
-            journalProbe: prepared.fixture.journalProbe
-        )
-        let coordinator = try OpalBase.Account.MosaicTransactionBroadcastCoordinator(
-            candidate: candidate,
-            securityProfile: MosaicBroadcastApprovalTestSupport.securityProfile,
-            transactionClient: broadcastProbe.makeClient(
-                testingNetwork: prepared.fixture.network
-            ),
-            requestApproval: approvalProbe.makeRequester()
-        )
-
-        let hash = try await coordinator.broadcast()
-        #expect(await approvalProbe.readRequests().count == 1)
-        #expect(await broadcastProbe.readBroadcasts().count == 1)
-        #expect(await prepared.fixture.journalProbe.readRecords().count == 10)
-        #expect(
-            try Planner.plan(
-                for: await prepared.fixture.journalProbe.readRecords()
-            ) == .complete(hash)
-        )
+        await #expect(
+            throws: OpalBase.Account.MosaicAttemptJournalStore.Failure
+                .invalidJournal(.invalidTransition)
+        ) {
+            try await prepared.candidate.journal.append(
+                .broadcastApproved(
+                    reference: prepared.lease.reference,
+                    transaction: prepared.complete
+                )
+            )
+        }
+        #expect(await prepared.fixture.journalProbe.readRecords() == interruptedRecords)
     }
 
     @Test("Recovered durable approval persists intent before network I/O")
     func resumeApprovalCheckpointInFreshCoordinator() async throws {
-        let prepared = try await makeCommittedAttempt()
+        let prepared = try await makeCommittedAttempt(
+            profile: .opalMainnetAlpha,
+            network: .mainnet
+        )
         try await prepared.candidate.journal.append(
             .broadcastApproved(
                 reference: prepared.lease.reference,
                 transaction: prepared.complete
             )
         )
-        await prepared.fixture.addressBook.addUTXO(prepared.fixture.selectedInput)
-        let gate = try await makeRecoveryGate(
+        let owner = try await makePrivateAlphaRecoveryOwner(
             addressBook: prepared.fixture.addressBook,
             journalProbe: prepared.fixture.journalProbe
         )
-        let outcome = try await gate.restoreInputQuarantineAndPlan()
+        let outcome = try await owner.resume()
         guard case let .resumeApprovedBroadcast(candidate) = outcome else {
             Issue.record("Expected a durable-approval recovery candidate")
             return
@@ -404,17 +458,21 @@ struct AccountMosaicTransactionBroadcastCoordinatorValidator {
         #expect(await approvalProbe.readRequests().isEmpty)
         #expect(await broadcastProbe.readObservedPersistedIntent())
         #expect(await broadcastProbe.readBroadcasts().count == 1)
-        #expect(await prepared.fixture.journalProbe.readRecords().count == 9)
+        #expect(await prepared.fixture.journalProbe.readRecords().count == 10)
         #expect(
-            try Planner.plan(
-                for: await prepared.fixture.journalProbe.readRecords()
-            ) == .complete(hash)
+            try isChainReconciliationPlan(
+                await prepared.fixture.journalProbe.readRecords(),
+                hash: hash
+            )
         )
     }
 
     @Test("Recovered approved intent retries exact bytes without new approval")
     func resumeApprovedIntentInFreshCoordinator() async throws {
-        let prepared = try await makeCommittedAttempt()
+        let prepared = try await makeCommittedAttempt(
+            profile: .opalMainnetAlpha,
+            network: .mainnet
+        )
         let failingBroadcast = MosaicBroadcastProbeActor(
             journalProbe: prepared.fixture.journalProbe,
             failuresRemaining: 1
@@ -433,13 +491,11 @@ struct AccountMosaicTransactionBroadcastCoordinatorValidator {
             _ = try await firstCoordinator.broadcast()
         }
 
-        await prepared.fixture.addressBook.addUTXO(prepared.fixture.selectedInput)
-        let recoveryGate = try await makeRecoveryGate(
+        let recoveryOwner = try await makePrivateAlphaRecoveryOwner(
             addressBook: prepared.fixture.addressBook,
             journalProbe: prepared.fixture.journalProbe
         )
-        let recoveryOutcome = try await recoveryGate
-            .restoreInputQuarantineAndPlan()
+        let recoveryOutcome = try await recoveryOwner.resume()
         guard case let .resumeApprovedBroadcast(recoveredCandidate)
                 = recoveryOutcome else {
             Issue.record("Expected an approved exact-broadcast recovery candidate")
@@ -470,19 +526,21 @@ struct AccountMosaicTransactionBroadcastCoordinatorValidator {
 
     @Test("Stale recovery owner cannot reach network I/O")
     func rejectStaleRecoveryOwnerBeforeBroadcast() async throws {
-        let prepared = try await makeCommittedAttempt()
-        await prepared.fixture.addressBook.addUTXO(prepared.fixture.selectedInput)
+        let prepared = try await makeCommittedAttempt(
+            profile: .opalMainnetAlpha,
+            network: .mainnet
+        )
 
-        let firstGate = try await makeRecoveryGate(
+        let firstOwner = try await makePrivateAlphaRecoveryOwner(
             addressBook: prepared.fixture.addressBook,
             journalProbe: prepared.fixture.journalProbe
         )
-        let secondGate = try await makeRecoveryGate(
+        let secondOwner = try await makePrivateAlphaRecoveryOwner(
             addressBook: prepared.fixture.addressBook,
             journalProbe: prepared.fixture.journalProbe
         )
-        let firstOutcome = try await firstGate.restoreInputQuarantineAndPlan()
-        let secondOutcome = try await secondGate.restoreInputQuarantineAndPlan()
+        let firstOutcome = try await firstOwner.resume()
+        let secondOutcome = try await secondOwner.resume()
         guard case let .broadcastApprovalRequired(firstCandidate) = firstOutcome,
               case let .broadcastApprovalRequired(secondCandidate) = secondOutcome else {
             Issue.record("Expected two authenticated recovery candidates")
@@ -523,6 +581,15 @@ struct AccountMosaicTransactionBroadcastCoordinatorValidator {
         }
         #expect(await firstBroadcast.readBroadcasts().count == 1)
         #expect(await staleBroadcast.readBroadcasts().isEmpty)
+    }
+
+    private func isChainReconciliationPlan(
+        _ records: [OpalBase.Account.MosaicAttemptJournal.Record],
+        hash: OpalBase.Transaction.Hash
+    ) throws -> Bool {
+        guard case let .reconcileChain(state) = try Planner.plan(for: records)
+        else { return false }
+        return state.transactionHash == hash
     }
 }
 #endif

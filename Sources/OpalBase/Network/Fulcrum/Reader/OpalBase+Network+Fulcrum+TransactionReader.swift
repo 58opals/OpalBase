@@ -117,6 +117,15 @@ extension _OpalBase.Network.Fulcrum {
                 return detailed
             }
         }
+
+        /// Performs an uncached exact read for recovery and reorganization decisions.
+        func fetchFreshDetailedTransaction(
+            for transactionHash: OpalBase.Transaction.Hash
+        ) async throws -> OpalBase.Transaction.Detail {
+            try await fetchDetailedTransactionUsingVerboseResponse(
+                for: transactionHash
+            )
+        }
         
         public func fetchRawTransaction(for transactionHash: OpalBase.Transaction.Hash) async throws -> Data {
             if let cached = await cache.loadTransaction(at: transactionHash) {

@@ -6,6 +6,9 @@ import OpalFusion
 extension _OpalBase.Account.MosaicAttemptRecoveryPlanner {
     enum Plan: Sendable, Equatable {
         case noAction
+        case walletReconciliationHeld(
+            OpalFusion.Host.MosaicReservationReference
+        )
         case releaseBeforeSigning(OpalFusion.Host.MosaicReservationReference)
         case reconcileSigningIntent(
             reference: OpalFusion.Host.MosaicReservationReference,
@@ -26,12 +29,17 @@ extension _OpalBase.Account.MosaicAttemptRecoveryPlanner {
             transaction: OpalFusion.Host.MosaicCompleteTransaction,
             broadcastIntentPersisted: Bool
         )
+        case broadcastReconciliationHeld(
+            reference: OpalFusion.Host.MosaicReservationReference,
+            transaction: OpalFusion.Host.MosaicCompleteTransaction
+        )
         case resumeApprovedBroadcast(
             reference: OpalFusion.Host.MosaicReservationReference,
             transaction: OpalFusion.Host.MosaicCompleteTransaction,
             broadcastIntentPersisted: Bool
         )
-        case complete(OpalBase.Transaction.Hash)
+        case reconcileChain(OpalBase.Account.MosaicAttemptChainState)
+        case terminal(OpalBase.Account.MosaicAttemptTerminalDisposition)
     }
 }
 #endif

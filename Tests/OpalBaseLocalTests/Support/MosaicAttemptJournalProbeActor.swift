@@ -18,6 +18,13 @@ actor MosaicAttemptJournalProbeActor {
     private let suspendedAppendIndex: Int?
     private let suspensionProbe: MosaicOperationSuspensionProbeActor?
     private let cancellationSensitiveAppendIndices: Set<Int>
+    private let authorizesErasure: Bool
+    private let erasureAuthorizationSuspensionProbe:
+        MosaicOperationSuspensionProbeActor?
+    private var commitThenThrowErasureAuthorizationOnce: Bool
+    private var erasureAuthorizationAttemptCount = 0
+    private var authorizedCleanupContext:
+        OpalBase.Account.MosaicPrivateAlphaJournal.CleanupContext?
     private var cancellationObservations: [Int: Bool] = [:]
     private var cancellationObservationWaiters: [
         Int: [CheckedContinuation<Bool, Never>]
@@ -27,7 +34,11 @@ actor MosaicAttemptJournalProbeActor {
         failingAppendIndices: Set<Int> = [],
         suspendedAppendIndex: Int? = nil,
         suspensionProbe: MosaicOperationSuspensionProbeActor? = nil,
-        cancellationSensitiveAppendIndices: Set<Int> = []
+        cancellationSensitiveAppendIndices: Set<Int> = [],
+        authorizesErasure: Bool = false,
+        erasureAuthorizationSuspensionProbe:
+            MosaicOperationSuspensionProbeActor? = nil,
+        commitThenThrowErasureAuthorizationOnce: Bool = false
     ) {
         let authenticationKey = SymmetricKey(data: Self.authenticationKeyData)
         let scope = OpalBase.Account.MosaicAttemptJournalCodec.Scope(
@@ -44,11 +55,19 @@ actor MosaicAttemptJournalProbeActor {
         self.suspendedAppendIndex = suspendedAppendIndex
         self.suspensionProbe = suspensionProbe
         self.cancellationSensitiveAppendIndices = cancellationSensitiveAppendIndices
+        self.authorizesErasure = authorizesErasure
+        self.erasureAuthorizationSuspensionProbe =
+            erasureAuthorizationSuspensionProbe
+        self.commitThenThrowErasureAuthorizationOnce =
+            commitThenThrowErasureAuthorizationOnce
     }
 
     static func makeAuthenticatedForPrivateAlphaTesting() async throws
         -> MosaicAttemptJournalProbeActor {
-        let prepared = try await makeCommittedAttempt()
+        let prepared = try await makeCommittedAttempt(
+            profile: .opalMainnetAlpha,
+            network: .mainnet
+        )
         return prepared.fixture.journalProbe
     }
 
@@ -72,6 +91,9 @@ actor MosaicAttemptJournalProbeActor {
         suspendedAppendIndex = nil
         suspensionProbe = nil
         cancellationSensitiveAppendIndices = []
+        authorizesErasure = false
+        erasureAuthorizationSuspensionProbe = nil
+        commitThenThrowErasureAuthorizationOnce = false
     }
 
     func makeFreshAttempt() async throws
@@ -89,6 +111,14 @@ actor MosaicAttemptJournalProbeActor {
         -> OpalBase.Account.MosaicAttemptJournal {
         let freshAttempt = try await makeFreshAttempt()
         return freshAttempt.claimJournal()
+    }
+
+    func makeBoundJournalForTesting(
+        _ binding: OpalBase.Account.MosaicAttemptBinding
+    ) async throws -> OpalBase.Account.MosaicAttemptJournal {
+        let journal = try await makeFreshJournalForTesting()
+        try await journal.append(.attemptBinding(binding))
+        return journal
     }
 
     func loadRecovery() async throws
@@ -110,6 +140,10 @@ actor MosaicAttemptJournalProbeActor {
 
     func readFieldDerivedJournalKey() -> SymmetricKey {
         authenticationKey
+    }
+
+    func readErasureAuthorizationAttemptCount() -> Int {
+        erasureAuthorizationAttemptCount
     }
 
     func readJournalScopeIdentifiers() -> (
@@ -155,12 +189,20 @@ actor MosaicAttemptJournalProbeActor {
                     replacement: replacement
                 )
             },
-            compareAndAuthorizeErasureDurably: { _, _ in false }
+            compareAndAuthorizeErasureDurably: { expected, context in
+                try await self.compareAndAuthorizeErasureDurably(
+                    expected: expected,
+                    context: context
+                )
+            }
         )
     }
 
     private func loadState()
         -> OpalBase.Account.MosaicPrivateAlphaJournal.PersistedState {
+        if let authorizedCleanupContext {
+            return .journalErasureAuthorized(authorizedCleanupContext)
+        }
         guard let persistedEnvelope else {
             return .absent
         }
@@ -184,6 +226,14 @@ actor MosaicAttemptJournalProbeActor {
         expected: Data,
         replacement: Data
     ) async throws -> Bool {
+        let decoded = try codec.open(replacement)
+        if decoded.count == 1,
+           case .attemptBinding = decoded[0] {
+            guard persistedEnvelope == expected else { return false }
+            persistedEnvelope = replacement
+            records = decoded
+            return true
+        }
         let index = appendAttemptIndex
         appendAttemptIndex += 1
         if index == suspendedAppendIndex, let suspensionProbe {
@@ -203,9 +253,30 @@ actor MosaicAttemptJournalProbeActor {
         guard persistedEnvelope == expected else {
             return false
         }
-        let decoded = try codec.open(replacement)
         persistedEnvelope = replacement
         records = decoded
+        return true
+    }
+
+    private func compareAndAuthorizeErasureDurably(
+        expected: Data,
+        context: OpalBase.Account.MosaicPrivateAlphaJournal.CleanupContext
+    ) async throws -> Bool {
+        let index = erasureAuthorizationAttemptCount
+        erasureAuthorizationAttemptCount += 1
+        if index == 0, let erasureAuthorizationSuspensionProbe {
+            await erasureAuthorizationSuspensionProbe.suspend()
+        }
+        guard authorizesErasure else { return false }
+        if let authorizedCleanupContext {
+            return authorizedCleanupContext == context
+        }
+        guard persistedEnvelope == expected else { return false }
+        authorizedCleanupContext = context
+        if commitThenThrowErasureAuthorizationOnce {
+            commitThenThrowErasureAuthorizationOnce = false
+            throw MosaicAttemptJournalProbeFailure.scripted
+        }
         return true
     }
 

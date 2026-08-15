@@ -97,12 +97,20 @@ extension AccountMosaicTransactionHostValidator {
         let reservationIdentifier = try #require(
             UUID(uuidString: "00000000-0000-0000-0000-0000000000A2")
         )
-        let freshAttempt = try await journalProbe.makeFreshAttempt()
+        let attemptBinding = try #require(
+            MosaicHostFixture.makeAttemptBinding(
+                walletGeneration: 2,
+                walletReservationIdentifier: reservationIdentifier,
+                attemptIdentifierByte: 0xA2
+            )
+        )
+        let attemptJournal = try await journalProbe
+            .makeBoundJournalForTesting(attemptBinding)
         let host = try OpalBase.Account.MosaicTransactionHostActor(
             addressBook: addressBook,
             profile: profile,
             network: network,
-            generation: 2,
+            attemptBinding: attemptBinding,
             selectedInputs: [selectedInput],
             outputAmountsSatoshis: [
                 localPreviousOutput.value - 141 - 34 - localRequiredExcessFeeSatoshis
@@ -112,12 +120,11 @@ extension AccountMosaicTransactionHostValidator {
                 network: network,
                 transactionReader: transactionReader
             ),
-            freshAttempt: freshAttempt,
-            currentDate: { Date(timeIntervalSince1970: 1_800_000_000) },
-            makeReservationIdentifier: { reservationIdentifier }
+            attemptJournal: attemptJournal,
+            currentDate: { Date(timeIntervalSince1970: 1_800_000_000) }
         )
         let reservationRequest = try OpalFusion.Host.MosaicReservationRequest(
-            attemptIdentifier: [0xA2],
+            attemptIdentifier: Array(repeating: 0xA2, count: 32),
             networkGenesisHash: network.mosaicGenesisHash,
             roundIdentifier: Array(repeating: 0xA3, count: 32),
             expiresAt: Date(timeIntervalSince1970: 1_900_000_000),
@@ -316,7 +323,7 @@ extension AccountMosaicTransactionHostValidator {
         }
         #expect(await probe.readInvocationCount() == 0)
         #expect(await fixture.host.readSigningInvocationCount() == 0)
-        #expect(await fixture.journalProbe.readRecords().count == 2)
+        #expect(await fixture.journalProbe.readRecords().count == 3)
 
         try await fixture.host.releaseMosaicReservation(lease.reference)
     }

@@ -62,6 +62,15 @@ extension _OpalBase.Network.Fulcrum {
             }
         }
 
+        func fetchFreshDetailedTransaction(
+            for transactionHash: OpalBase.Transaction.Hash
+        ) async throws -> OpalBase.Transaction.Detail {
+            try await OpalBase.Network.Fulcrum.TransactionReader(
+                client: client,
+                timeouts: timeouts
+            ).fetchFreshDetailedTransaction(for: transactionHash)
+        }
+
         static func makeConfirmationStatus<Height: BinaryInteger>(
             transactionHash: OpalBase.Transaction.Hash,
             transactionHeight: Height?,

@@ -18,7 +18,7 @@ extension _OpalBase.Account.MosaicTransactionHostActor {
         case .commitPending, .commitIntentPersisting, .commitRecovery,
              .committing, .committed:
             throw OpalBase.Account.MosaicHostFailure.terminalReservation
-        case .idle, .reservationIntent:
+        case .idle, .reservationPrepared:
             throw OpalBase.Account.MosaicHostFailure.reconciliationRequired
         case .reserved, .finalizationPending:
             break
@@ -94,7 +94,7 @@ extension _OpalBase.Account.MosaicTransactionHostActor {
             _ = try validateCompleteTransaction(requestedTransaction)
             pendingCompleteTransaction = requestedTransaction
             lifecycle = .commitPending
-        case .idle, .reservationIntent:
+        case .idle, .reservationPrepared:
             throw OpalBase.Account.MosaicHostFailure.reconciliationRequired
         }
 

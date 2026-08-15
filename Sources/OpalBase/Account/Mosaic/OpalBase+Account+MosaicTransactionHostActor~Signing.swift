@@ -16,7 +16,7 @@ extension _OpalBase.Account.MosaicTransactionHostActor {
         case .commitPending, .commitIntentPersisting, .commitRecovery,
              .committing, .committed, .releaseIntent, .released:
             throw OpalBase.Account.MosaicHostFailure.terminalReservation
-        case .idle, .reservationIntent, .reserved, .finalizationPending,
+        case .idle, .reservationPrepared, .reserved, .finalizationPending,
              .validating, .signingIntent, .localSignaturePending,
              .localSignaturePersisting, .locallySigned:
             break
@@ -81,7 +81,7 @@ extension _OpalBase.Account.MosaicTransactionHostActor {
                 throw OpalBase.Account.MosaicHostFailure.conflictingFinalization
             }
             throw OpalBase.Account.MosaicHostFailure.reconciliationRequired
-        case .idle, .reservationIntent:
+        case .idle, .reservationPrepared:
             throw OpalBase.Account.MosaicHostFailure.reconciliationRequired
         case .commitPending, .commitIntentPersisting, .commitRecovery,
              .committing, .committed, .releaseIntent, .released:

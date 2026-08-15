@@ -36,11 +36,49 @@ extension _OpalBase.Address.Book {
         )
     }
 
+    /// Reads wallet reservation state without treating Mosaic quarantine as a reservation effect.
+    func hasReservedMosaicInputs(
+        _ inputs: [OpalBase.Transaction.Output.Unspent]
+    ) -> Bool {
+        !utxoStore.reservedUTXOs.isDisjoint(with: Set(inputs))
+    }
+
+    /// Selects exact unused receiving identities without reserving them.
+    func prepareMosaicReceivingEntries(
+        count: Int
+    ) async throws -> [Entry] {
+        guard count > 0 else { return [] }
+        try await generateEntriesIfNeeded(for: .receiving)
+        var candidates = listEntries(for: .receiving).filter {
+            !$0.isUsed && !$0.isReserved
+        }
+        if candidates.count < count {
+            try await generateEntries(
+                for: .receiving,
+                entryCount: count - candidates.count,
+                isUsed: false
+            )
+            candidates = listEntries(for: .receiving).filter {
+                !$0.isUsed && !$0.isReserved
+            }
+        }
+        guard candidates.count >= count else { throw Error.entryNotFound }
+        return Array(candidates.prefix(count))
+    }
+
+    /// Reserves only one exact previously planned receiving identity.
     func reserveMosaicReceivingEntry(
+        _ plannedEntry: Entry,
         maintainingGapWith maintainGap: (@Sendable () async throws -> Void)? = nil
     ) async throws -> Entry {
-        let candidateEntry = try await selectNextEntry(for: .receiving)
-        let reservedEntry = try reserveEntry(address: candidateEntry.address)
+        guard let currentEntry = findEntry(for: plannedEntry.address),
+              currentEntry.derivationPath == plannedEntry.derivationPath,
+              currentEntry.derivationPath.usage == .receiving,
+              !currentEntry.isUsed,
+              !currentEntry.isReserved else {
+            throw Error.entryNotFound
+        }
+        let reservedEntry = try reserveEntry(address: plannedEntry.address)
         do {
             if let maintainGap {
                 try await maintainGap()
@@ -55,6 +93,20 @@ extension _OpalBase.Address.Book {
             )
             throw error
         }
+    }
+
+    /// Convenience for non-recovery callers that do not need a pre-effect plan.
+    func reserveMosaicReceivingEntry(
+        maintainingGapWith maintainGap: (@Sendable () async throws -> Void)? = nil
+    ) async throws -> Entry {
+        guard let planned = try await prepareMosaicReceivingEntries(count: 1)
+            .first else {
+            throw Error.entryNotFound
+        }
+        return try await reserveMosaicReceivingEntry(
+            planned,
+            maintainingGapWith: maintainGap
+        )
     }
 }
 #endif

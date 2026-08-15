@@ -2,6 +2,7 @@
 
 #if os(macOS)
 import Foundation
+import OpalCrypto
 import OpalFusion
 import Testing
 @testable import OpalBase
@@ -30,7 +31,8 @@ extension AccountMosaicTransactionHostValidator {
         ]
         for binding in mismatchedPolicyBindings {
             let journalProbe = MosaicAttemptJournalProbeActor()
-            let freshAttempt = try await journalProbe.makeFreshAttempt()
+            let attemptJournal = try await journalProbe
+                .makeFreshJournalForTesting()
             let policy = OpalBase.Account.MosaicTransactionPolicy(
                 profile: binding.policyProfile,
                 network: binding.policyNetwork
@@ -40,11 +42,15 @@ extension AccountMosaicTransactionHostValidator {
                     addressBook: addressBook,
                     profile: binding.hostProfile,
                     network: binding.hostNetwork,
-                    generation: 1,
+                    attemptBinding: try #require(
+                        MosaicHostFixture.makeAttemptBinding(
+                            walletGeneration: 1
+                        )
+                    ),
                     selectedInputs: [input],
                     outputAmountsSatoshis: [90_000],
                     transactionPolicy: policy,
-                    freshAttempt: freshAttempt
+                    attemptJournal: attemptJournal
                 )
                 Issue.record("Expected invalid profile-network binding")
             } catch let failure as OpalBase.Account.MosaicHostFailure {
@@ -62,7 +68,8 @@ extension AccountMosaicTransactionHostValidator {
         ]
         for (profile, network) in unsupportedPairs {
             let journalProbe = MosaicAttemptJournalProbeActor()
-            let freshAttempt = try await journalProbe.makeFreshAttempt()
+            let attemptJournal = try await journalProbe
+                .makeFreshJournalForTesting()
             let policy = OpalBase.Account.MosaicTransactionPolicy(
                 profile: profile,
                 network: network
@@ -72,11 +79,15 @@ extension AccountMosaicTransactionHostValidator {
                     addressBook: addressBook,
                     profile: profile,
                     network: network,
-                    generation: 1,
+                    attemptBinding: try #require(
+                        MosaicHostFixture.makeAttemptBinding(
+                            walletGeneration: 1
+                        )
+                    ),
                     selectedInputs: [input],
                     outputAmountsSatoshis: [90_000],
                     transactionPolicy: policy,
-                    freshAttempt: freshAttempt
+                    attemptJournal: attemptJournal
                 )
                 Issue.record("Expected unsupported profile-network binding")
             } catch let failure as OpalBase.Account.MosaicHostFailure {
@@ -86,18 +97,22 @@ extension AccountMosaicTransactionHostValidator {
 
         let policy = await MosaicPolicyProbeActor().transactionPolicy
         let malformedJournalProbe = MosaicAttemptJournalProbeActor()
-        let malformedFreshAttempt = try await malformedJournalProbe
-            .makeFreshAttempt()
+        let malformedAttemptJournal = try await malformedJournalProbe
+            .makeFreshJournalForTesting()
         do {
             _ = try OpalBase.Account.MosaicTransactionHostActor(
                 addressBook: addressBook,
                 profile: .opalV0,
                 network: .chipnet,
-                generation: 1,
+                attemptBinding: try #require(
+                    MosaicHostFixture.makeAttemptBinding(
+                        walletGeneration: 1
+                    )
+                ),
                 selectedInputs: [],
                 outputAmountsSatoshis: [90_000],
                 transactionPolicy: policy,
-                freshAttempt: malformedFreshAttempt
+                attemptJournal: malformedAttemptJournal
             )
             Issue.record("Expected malformed contribution rejection")
         } catch let failure as OpalBase.Account.MosaicHostFailure {
@@ -130,6 +145,32 @@ extension AccountMosaicTransactionHostValidator {
         )
         #expect(await fixture.host.readSigningInvocationCount() == 0)
         try await fixture.host.releaseMosaicReservation(lease.reference)
+    }
+
+    @Test("Prepared outputs exceed a custom small receiving gap exactly")
+    func prepareMultipleOutputsBeyondSmallGap() async throws {
+        let rootExtendedPrivateKey = try OpalCrypto.Key.ExtendedPrivate.root(
+            seed: AccountTestFixtures.makeMnemonic().deriveSeed()
+        )
+        let account = try OpalBase.Key.DerivationPath.Account(
+            rawIndexInteger: 0
+        )
+        let addressBook = try await OpalBase.Address.Book(
+            rootExtendedPrivateKey: rootExtendedPrivateKey,
+            purpose: .bip44,
+            coinType: .bitcoinCash,
+            account: account,
+            gapLimit: 1
+        )
+
+        let entries = try await addressBook.prepareMosaicReceivingEntries(
+            count: 3
+        )
+
+        #expect(entries.count == 3)
+        #expect(Set(entries.map(\.address)).count == 3)
+        #expect(entries.allSatisfy { !$0.isUsed && !$0.isReserved })
+        #expect(await addressBook.countEntries(for: .receiving) == 3)
     }
 
     @Test("Profile-incompatible reservation terms fail before wallet mutation")
@@ -197,7 +238,7 @@ extension AccountMosaicTransactionHostValidator {
             }
         }
         #expect(await fixture.addressBook.listSpendableUTXOs().contains(fixture.selectedInput))
-        #expect(await fixture.journalProbe.readRecords().isEmpty)
+        #expect(await fixture.journalProbe.readRecords().count == 1)
 
         let lease = try await fixture.reserve()
         try await fixture.host.releaseMosaicReservation(lease.reference)
@@ -266,7 +307,7 @@ extension AccountMosaicTransactionHostValidator {
             _ = try await fixture.host.reserveMosaicContribution(for: substitutedShare)
         }
 
-        #expect(await fixture.journalProbe.readRecords().isEmpty)
+        #expect(await fixture.journalProbe.readRecords().count == 1)
         #expect(await fixture.addressBook.listSpendableUTXOs().contains(fixture.selectedInput))
         let unchangedReceivingEntry = try #require(
             await fixture.addressBook.findEntry(for: firstReceivingEntry.address)
@@ -324,7 +365,7 @@ extension AccountMosaicTransactionHostValidator {
         ) {
             _ = try await fixture.reserve()
         }
-        #expect(await fixture.journalProbe.readRecords().isEmpty)
+        #expect(await fixture.journalProbe.readRecords().count == 1)
         #expect(await fixture.addressBook.listSpendableUTXOs().contains(fixture.selectedInput))
     }
 
@@ -347,7 +388,8 @@ extension AccountMosaicTransactionHostValidator {
         )
         let addressBook = await account.addressBook
         let journalProbe = MosaicAttemptJournalProbeActor()
-        let freshAttempt = try await journalProbe.makeFreshAttempt()
+        let attemptJournal = try await journalProbe
+            .makeFreshJournalForTesting()
         let policy = OpalBase.Account.MosaicTransactionPolicy(
             profile: profile,
             network: network
@@ -358,11 +400,15 @@ extension AccountMosaicTransactionHostValidator {
                 addressBook: addressBook,
                 profile: profile,
                 network: network,
-                generation: 1,
+                attemptBinding: try #require(
+                    MosaicHostFixture.makeAttemptBinding(
+                        walletGeneration: 1
+                    )
+                ),
                 selectedInputs: [firstInput, secondInput],
                 outputAmountsSatoshis: [1],
                 transactionPolicy: policy,
-                freshAttempt: freshAttempt
+                attemptJournal: attemptJournal
             )
             Issue.record("Expected contribution overflow rejection")
         } catch let failure as OpalBase.Account.MosaicHostFailure {

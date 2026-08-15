@@ -17,7 +17,7 @@ struct MosaicHostFixture {
     let network: OpalBase.Network.Environment
 
     static func make(
-        generation: UInt64 = 7,
+        walletGeneration: UInt64 = 7,
         transactionPolicy: OpalBase.Account.MosaicTransactionPolicy,
         network: OpalBase.Network.Environment = .chipnet,
         profile: OpalFusion.Mosaic.Profile = .opalV0,
@@ -30,9 +30,12 @@ struct MosaicHostFixture {
             Date(timeIntervalSince1970: 1_800_000_000)
         },
         reserveReceivingEntry: @escaping @Sendable (
-            OpalBase.Address.Book
-        ) async throws -> OpalBase.Address.Book.Entry = { addressBook in
-            try await addressBook.reserveMosaicReceivingEntry()
+            OpalBase.Address.Book,
+            OpalBase.Address.Book.Entry
+        ) async throws -> OpalBase.Address.Book.Entry = {
+            addressBook,
+            plannedEntry in
+            try await addressBook.reserveMosaicReceivingEntry(plannedEntry)
         },
         sleepUntilDate: @escaping @Sendable (Date) async throws -> Void = { deadline in
             let interval = deadline.timeIntervalSinceNow
@@ -76,23 +79,29 @@ struct MosaicHostFixture {
         let identifier = try #require(
             UUID(uuidString: "00000000-0000-0000-0000-000000000007")
         )
-        let freshAttempt = try await journalProbe.makeFreshAttempt()
+        let attemptBinding = try #require(
+            makeAttemptBinding(
+                walletGeneration: walletGeneration,
+                walletReservationIdentifier: identifier
+            )
+        )
+        let attemptJournal = try await journalProbe
+            .makeBoundJournalForTesting(attemptBinding)
         let host = try OpalBase.Account.MosaicTransactionHostActor(
             addressBook: addressBook,
             profile: profile,
             network: network,
-            generation: generation,
+            attemptBinding: attemptBinding,
             selectedInputs: [selectedInput],
             outputAmountsSatoshis: outputAmountsSatoshis,
             transactionPolicy: transactionPolicy,
-            freshAttempt: freshAttempt,
+            attemptJournal: attemptJournal,
             currentDate: currentDate,
-            makeReservationIdentifier: { identifier },
             reserveReceivingEntry: reserveReceivingEntry,
             sleepUntilDate: sleepUntilDate
         )
         let request = try OpalFusion.Host.MosaicReservationRequest(
-            attemptIdentifier: [0x11],
+            attemptIdentifier: [UInt8](attemptBinding.attemptIdentifier),
             networkGenesisHash: network.mosaicGenesisHash,
             roundIdentifier: Array(repeating: 0x33, count: 32),
             expiresAt: expirationDate,
@@ -112,6 +121,33 @@ struct MosaicHostFixture {
             journalProbe: journalProbe,
             profile: profile,
             network: network
+        )
+    }
+
+    static func makeAttemptBinding(
+        walletGeneration: UInt64 = 7,
+        walletReservationIdentifier: UUID = UUID(),
+        attemptIdentifierByte: UInt8 = 0x11,
+        generationIdentifierByte: UInt8 = 0x22,
+        materialIdentifierByte: UInt8 = 0x33
+    ) -> OpalBase.Account.MosaicAttemptBinding? {
+        .init(
+            attemptIdentifier: Data(
+                repeating: attemptIdentifierByte,
+                count: 32
+            ),
+            generationIdentifier: Data(
+                repeating: generationIdentifierByte,
+                count: 32
+            ),
+            materialIdentifier: Data(
+                repeating: materialIdentifierByte,
+                count: 32
+            ),
+            walletReservationReference: .init(
+                identifier: walletReservationIdentifier,
+                generation: walletGeneration
+            )
         )
     }
 

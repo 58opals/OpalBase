@@ -72,7 +72,8 @@ extension OpalBase.Account {
 
         /// Permanently abandons an unclaimed fresh attempt and returns the only proof that may erase it.
         ///
-        /// A claimed, nonempty, recovered, broadcast-accepted, or completed attempt cannot reach this API.
+        /// A claimed or nonempty attempt cannot reach this API. A nonempty attempt may authorize exact
+        /// erasure only through its recovery owner's package-proven terminal disposition.
         @_spi(MosaicPrivateAlpha)
         public static func abandonFreshAttempt(
             _ freshAttempt: consuming FreshAttempt

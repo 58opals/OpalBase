@@ -41,12 +41,14 @@ extension _OpalBase.Account {
         }
 
         private static let magic = Data("OPMJRN01".utf8)
-        private static let formatVersion: UInt8 = 1
+        /// Version 1 predates exact cross-package binding and prepared wallet-effect identities.
+        /// It is deliberately unsupported because it cannot satisfy private-alpha recovery authority.
+        private static let formatVersion: UInt8 = 2
         private static let keyDerivationDomain = Data(
-            "OpalBase/MosaicAttemptJournal/key/v1".utf8
+            "OpalBase/MosaicAttemptJournal/key/v2".utf8
         )
         private static let authenticationDomain = Data(
-            "OpalBase/MosaicAttemptJournal/snapshot/v1".utf8
+            "OpalBase/MosaicAttemptJournal/snapshot/v2".utf8
         )
         private static let maximumEnvelopeByteCount = 8 * 1_024 * 1_024
         private static let maximumPlaintextByteCount = 8 * 1_024 * 1_024
@@ -181,13 +183,19 @@ extension _OpalBase.Account {
                 throw Failure.invalidSnapshot
             }
 
-            return try snapshot.records.enumerated().map { index, record in
+            let records = try snapshot.records.enumerated().map { index, record in
                 do {
                     return try record.makeRecord()
                 } catch {
                     throw Failure.invalidRecord(index: index)
                 }
             }
+            do {
+                _ = try MosaicAttemptRecoveryPlanner.plan(for: records)
+            } catch {
+                throw Failure.invalidSnapshot
+            }
+            return records
         }
 
         private static func appendLengthPrefixed(
@@ -204,7 +212,7 @@ extension _OpalBase.Account {
     }
 }
 
-private extension _OpalBase.Account.MosaicAttemptJournalCodec {
+extension _OpalBase.Account.MosaicAttemptJournalCodec {
     static let maximumByteFieldCount = 1_024 * 1_024
     static let maximumCollectionCount = 512
     static let maximumTextByteCount = 4_096
@@ -558,7 +566,9 @@ private extension _OpalBase.Account.MosaicAttemptJournalCodec {
 
     struct RecordDTO: Codable {
         enum Kind: String, Codable {
+            case attemptBinding
             case reservationIntent
+            case reservationPrepared
             case reserved
             case signingIntent
             case locallySigned
@@ -569,9 +579,12 @@ private extension _OpalBase.Account.MosaicAttemptJournalCodec {
             case broadcastApproved
             case broadcastIntent
             case broadcastAccepted
+            case chainObservation
+            case terminalDisposition
         }
 
         let kind: Kind
+        let attemptBinding: AttemptBindingDTO?
         let reference: ReferenceDTO?
         let request: ReservationRequestDTO?
         let selectedInputs: [SelectedInputDTO]?
@@ -581,9 +594,12 @@ private extension _OpalBase.Account.MosaicAttemptJournalCodec {
         let finalizedTransaction: Data?
         let completeTransaction: Data?
         let transactionHash: Data?
+        let chainObservation: ChainObservationDTO?
+        let terminalDisposition: TerminalDispositionDTO?
 
         init(_ record: _OpalBase.Account.MosaicAttemptJournal.Record) throws {
             var kind: Kind
+            var attemptBinding: AttemptBindingDTO?
             var reference: ReferenceDTO?
             var request: ReservationRequestDTO?
             var selectedInputs: [SelectedInputDTO]?
@@ -593,8 +609,13 @@ private extension _OpalBase.Account.MosaicAttemptJournalCodec {
             var finalizedTransaction: Data?
             var completeTransaction: Data?
             var transactionHash: Data?
+            var chainObservation: ChainObservationDTO?
+            var terminalDisposition: TerminalDispositionDTO?
 
             switch record {
+            case let .attemptBinding(value):
+                kind = .attemptBinding
+                attemptBinding = .init(value)
             case let .reservationIntent(
                 valueReference,
                 valueRequest,
@@ -606,6 +627,17 @@ private extension _OpalBase.Account.MosaicAttemptJournalCodec {
                 request = try .init(valueRequest)
                 selectedInputs = valueInputs.map(SelectedInputDTO.init)
                 outputAmountsSatoshis = valueAmounts
+            case let .reservationPrepared(
+                valueRequest,
+                valueInputs,
+                valueAmounts,
+                valueLease
+            ):
+                kind = .reservationPrepared
+                request = try .init(valueRequest)
+                selectedInputs = valueInputs.map(SelectedInputDTO.init)
+                outputAmountsSatoshis = valueAmounts
+                lease = .init(valueLease)
             case let .reserved(value):
                 kind = .reserved
                 lease = .init(value)
@@ -649,9 +681,30 @@ private extension _OpalBase.Account.MosaicAttemptJournalCodec {
                 reference = .init(valueReference)
                 completeTransaction = Data(transaction.transactionBytes)
                 transactionHash = hash.naturalOrder
+            case let .chainObservation(
+                valueReference,
+                transaction,
+                observation
+            ):
+                kind = .chainObservation
+                reference = .init(valueReference)
+                completeTransaction = Data(transaction.transactionBytes)
+                chainObservation = .init(observation)
+            case let .terminalDisposition(
+                valueReference,
+                transaction,
+                disposition
+            ):
+                kind = .terminalDisposition
+                reference = .init(valueReference)
+                completeTransaction = transaction.map {
+                    Data($0.transactionBytes)
+                }
+                terminalDisposition = .init(disposition)
             }
 
             self.kind = kind
+            self.attemptBinding = attemptBinding
             self.reference = reference
             self.request = request
             self.selectedInputs = selectedInputs
@@ -661,13 +714,32 @@ private extension _OpalBase.Account.MosaicAttemptJournalCodec {
             self.finalizedTransaction = finalizedTransaction
             self.completeTransaction = completeTransaction
             self.transactionHash = transactionHash
+            self.chainObservation = chainObservation
+            self.terminalDisposition = terminalDisposition
         }
 
         func makeRecord() throws
             -> _OpalBase.Account.MosaicAttemptJournal.Record {
             switch kind {
+            case .attemptBinding:
+                guard let attemptBinding,
+                      reference == nil,
+                      request == nil,
+                      selectedInputs == nil,
+                      outputAmountsSatoshis == nil,
+                      lease == nil,
+                      signingRequest == nil,
+                      finalizedTransaction == nil,
+                      completeTransaction == nil,
+                      transactionHash == nil,
+                      chainObservation == nil,
+                      terminalDisposition == nil else {
+                    throw Failure.decodingFailed
+                }
+                return .attemptBinding(try attemptBinding.makeValue())
             case .reservationIntent:
-                guard let reference,
+                guard attemptBinding == nil,
+                      let reference,
                       let request,
                       let selectedInputs,
                       let outputAmountsSatoshis,
@@ -676,6 +748,8 @@ private extension _OpalBase.Account.MosaicAttemptJournalCodec {
                       finalizedTransaction == nil,
                       completeTransaction == nil,
                       transactionHash == nil,
+                      chainObservation == nil,
+                      terminalDisposition == nil,
                       !selectedInputs.isEmpty,
                       selectedInputs.count
                         <= _OpalBase.Account.MosaicAttemptJournalCodec
@@ -695,8 +769,41 @@ private extension _OpalBase.Account.MosaicAttemptJournalCodec {
                     },
                     outputAmountsSatoshis: outputAmountsSatoshis
                 )
+            case .reservationPrepared:
+                guard attemptBinding == nil,
+                      reference == nil,
+                      let request,
+                      let selectedInputs,
+                      let outputAmountsSatoshis,
+                      let lease,
+                      signingRequest == nil,
+                      finalizedTransaction == nil,
+                      completeTransaction == nil,
+                      transactionHash == nil,
+                      chainObservation == nil,
+                      terminalDisposition == nil,
+                      !selectedInputs.isEmpty,
+                      selectedInputs.count
+                        <= _OpalBase.Account.MosaicAttemptJournalCodec
+                            .maximumCollectionCount,
+                      !outputAmountsSatoshis.isEmpty,
+                      outputAmountsSatoshis.count
+                        <= _OpalBase.Account.MosaicAttemptJournalCodec
+                            .maximumCollectionCount,
+                      outputAmountsSatoshis.allSatisfy({ $0 > 0 }) else {
+                    throw Failure.decodingFailed
+                }
+                return .reservationPrepared(
+                    request: try request.makeValue(),
+                    selectedInputs: try selectedInputs.map {
+                        try $0.makeValue()
+                    },
+                    outputAmountsSatoshis: outputAmountsSatoshis,
+                    lease: try lease.makeValue()
+                )
             case .reserved:
-                guard reference == nil,
+                guard attemptBinding == nil,
+                      reference == nil,
                       request == nil,
                       selectedInputs == nil,
                       outputAmountsSatoshis == nil,
@@ -704,12 +811,15 @@ private extension _OpalBase.Account.MosaicAttemptJournalCodec {
                       signingRequest == nil,
                       finalizedTransaction == nil,
                       completeTransaction == nil,
-                      transactionHash == nil else {
+                      transactionHash == nil,
+                      chainObservation == nil,
+                      terminalDisposition == nil else {
                     throw Failure.decodingFailed
                 }
                 return .reserved(try lease.makeValue())
             case .signingIntent:
-                guard reference == nil,
+                guard attemptBinding == nil,
+                      reference == nil,
                       request == nil,
                       selectedInputs == nil,
                       outputAmountsSatoshis == nil,
@@ -717,12 +827,15 @@ private extension _OpalBase.Account.MosaicAttemptJournalCodec {
                       let signingRequest,
                       finalizedTransaction == nil,
                       completeTransaction == nil,
-                      transactionHash == nil else {
+                      transactionHash == nil,
+                      chainObservation == nil,
+                      terminalDisposition == nil else {
                     throw Failure.decodingFailed
                 }
                 return .signingIntent(try signingRequest.makeValue())
             case .locallySigned:
-                guard let reference,
+                guard attemptBinding == nil,
+                      let reference,
                       request == nil,
                       selectedInputs == nil,
                       outputAmountsSatoshis == nil,
@@ -733,7 +846,9 @@ private extension _OpalBase.Account.MosaicAttemptJournalCodec {
                         <= _OpalBase.Account.MosaicAttemptJournalCodec
                             .maximumByteFieldCount,
                       completeTransaction == nil,
-                      transactionHash == nil else {
+                      transactionHash == nil,
+                      chainObservation == nil,
+                      terminalDisposition == nil else {
                     throw Failure.decodingFailed
                 }
                 return .locallySigned(
@@ -775,7 +890,8 @@ private extension _OpalBase.Account.MosaicAttemptJournalCodec {
                         .broadcastIntent
                 )
             case .broadcastAccepted:
-                guard let reference,
+                guard attemptBinding == nil,
+                      let reference,
                       request == nil,
                       selectedInputs == nil,
                       outputAmountsSatoshis == nil,
@@ -789,7 +905,9 @@ private extension _OpalBase.Account.MosaicAttemptJournalCodec {
                             .maximumByteFieldCount,
                       let transactionHash,
                       transactionHash.count
-                        == OpalBase.Transaction.Hash.expectedByteCount else {
+                        == OpalBase.Transaction.Hash.expectedByteCount,
+                      chainObservation == nil,
+                      terminalDisposition == nil else {
                     throw Failure.decodingFailed
                 }
                 return .broadcastAccepted(
@@ -799,6 +917,66 @@ private extension _OpalBase.Account.MosaicAttemptJournalCodec {
                     ),
                     transactionHash: .init(naturalOrder: transactionHash)
                 )
+            case .chainObservation:
+                guard attemptBinding == nil,
+                      let reference,
+                      request == nil,
+                      selectedInputs == nil,
+                      outputAmountsSatoshis == nil,
+                      lease == nil,
+                      signingRequest == nil,
+                      finalizedTransaction == nil,
+                      let completeTransaction,
+                      !completeTransaction.isEmpty,
+                      completeTransaction.count
+                        <= _OpalBase.Account.MosaicAttemptJournalCodec
+                            .maximumByteFieldCount,
+                      transactionHash == nil,
+                      let chainObservation,
+                      terminalDisposition == nil else {
+                    throw Failure.decodingFailed
+                }
+                return .chainObservation(
+                    reference: try reference.makeValue(),
+                    transaction: try .init(
+                        transactionBytes: [UInt8](completeTransaction)
+                    ),
+                    observation: try chainObservation.makeValue()
+                )
+            case .terminalDisposition:
+                guard attemptBinding == nil,
+                      let reference,
+                      request == nil,
+                      selectedInputs == nil,
+                      outputAmountsSatoshis == nil,
+                      lease == nil,
+                      signingRequest == nil,
+                      finalizedTransaction == nil,
+                      transactionHash == nil,
+                      chainObservation == nil,
+                      let terminalDisposition else {
+                    throw Failure.decodingFailed
+                }
+                let disposition = try terminalDisposition.makeValue()
+                let transaction: OpalFusion.Host.MosaicCompleteTransaction?
+                if let completeTransaction {
+                    guard !completeTransaction.isEmpty,
+                          completeTransaction.count
+                            <= _OpalBase.Account.MosaicAttemptJournalCodec
+                                .maximumByteFieldCount else {
+                        throw Failure.decodingFailed
+                    }
+                    transaction = try .init(
+                        transactionBytes: [UInt8](completeTransaction)
+                    )
+                } else {
+                    transaction = nil
+                }
+                return .terminalDisposition(
+                    reference: try reference.makeValue(),
+                    transaction: transaction,
+                    disposition: disposition
+                )
             }
         }
 
@@ -807,7 +985,8 @@ private extension _OpalBase.Account.MosaicAttemptJournalCodec {
                 OpalFusion.Host.MosaicReservationReference
             ) -> _OpalBase.Account.MosaicAttemptJournal.Record
         ) throws -> _OpalBase.Account.MosaicAttemptJournal.Record {
-            guard let reference,
+            guard attemptBinding == nil,
+                  let reference,
                   request == nil,
                   selectedInputs == nil,
                   outputAmountsSatoshis == nil,
@@ -815,7 +994,9 @@ private extension _OpalBase.Account.MosaicAttemptJournalCodec {
                   signingRequest == nil,
                   finalizedTransaction == nil,
                   completeTransaction == nil,
-                  transactionHash == nil else {
+                  transactionHash == nil,
+                  chainObservation == nil,
+                  terminalDisposition == nil else {
                 throw Failure.decodingFailed
             }
             return constructor(try reference.makeValue())
@@ -827,7 +1008,8 @@ private extension _OpalBase.Account.MosaicAttemptJournalCodec {
                 OpalFusion.Host.MosaicCompleteTransaction
             ) -> _OpalBase.Account.MosaicAttemptJournal.Record
         ) throws -> _OpalBase.Account.MosaicAttemptJournal.Record {
-            guard let reference,
+            guard attemptBinding == nil,
+                  let reference,
                   request == nil,
                   selectedInputs == nil,
                   outputAmountsSatoshis == nil,
@@ -839,7 +1021,9 @@ private extension _OpalBase.Account.MosaicAttemptJournalCodec {
                   completeTransaction.count
                     <= _OpalBase.Account.MosaicAttemptJournalCodec
                         .maximumByteFieldCount,
-                  transactionHash == nil else {
+                  transactionHash == nil,
+                  chainObservation == nil,
+                  terminalDisposition == nil else {
                 throw Failure.decodingFailed
             }
             return constructor(

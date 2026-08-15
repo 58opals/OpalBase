@@ -12,6 +12,11 @@ extension OpalBase.Account.MosaicPrivateAlphaJournal {
         ) {
             self.recovery = recovery
         }
+
+        consuming func claimRecoveryState()
+            -> OpalBase.Account.MosaicAttemptJournalStore.RecoveryState {
+            recovery.claim()
+        }
     }
 }
 #endif
