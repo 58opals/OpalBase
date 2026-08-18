@@ -285,8 +285,8 @@ struct AccountMosaicPrivateAlphaRuntimeAdapterValidator {
         )
     }
 
-    @Test("Recovered complete commit reconciles crash cuts and exact retries")
-    func reconcileCompleteCommitCrashCut() async throws {
+    @Test("Recovered commit intent fails closed when its exact input is missing")
+    func rejectMissingInputAtRecoveredCommitIntent() async throws {
         let journalProbe = MosaicAttemptJournalProbeActor(
             failingAppendIndices: [5]
         )
@@ -347,19 +347,60 @@ struct AccountMosaicPrivateAlphaRuntimeAdapterValidator {
             !(await prepared.fixture.addressBook.listUTXOs())
                 .contains(prepared.fixture.selectedInput)
         )
-
-        try await owner.commitMosaicReservation(
-            prepared.lease.reference,
-            completeTransaction: prepared.complete
+        let recoveredOwner = try await makePrivateAlphaRecoveryOwner(
+            addressBook: prepared.fixture.addressBook,
+            journalProbe: journalProbe
         )
-        let committedRecords = await journalProbe.readRecords()
+
+        await #expect(
+            throws: OpalBase.Account.MosaicPrivateAlphaRecoveryOwner.Failure
+                .walletStateMismatch
+        ) {
+            _ = try await recoveredOwner.resume()
+        }
+        #expect(await journalProbe.readRecords() == recordsAtCrash)
+
+        await prepared.fixture.addressBook.addUTXO(
+            prepared.fixture.selectedInput
+        )
+        #expect(
+            !(await prepared.fixture.addressBook.listSpendableUTXOs())
+                .contains(prepared.fixture.selectedInput)
+        )
+    }
+
+    @Test("Recovered commit intent completes only from every exact wallet input")
+    func completeRecoveredCommitIntentFromExactInputs() async throws {
+        let prepared = try await makeLocallySignedAttempt()
+        let journal = await prepared.fixture.host.attemptJournal
+        try await journal.append(
+            .commitIntent(
+                reference: prepared.lease.reference,
+                transaction: prepared.complete
+            )
+        )
+        let owner = try await makePrivateAlphaRecoveryOwner(
+            addressBook: prepared.fixture.addressBook,
+            journalProbe: prepared.fixture.journalProbe
+        )
+
+        guard case .broadcastApprovalRequired = try await owner.resume()
+        else {
+            Issue.record("Expected exact recovered commit completion")
+            return
+        }
+        let committedRecords = await prepared.fixture.journalProbe.readRecords()
         guard case .committed(
             prepared.lease.reference,
             prepared.complete
         ) = committedRecords.last else {
-            Issue.record("Expected exact commit reconciliation")
+            Issue.record("Expected exact committed recovery record")
             return
         }
+        #expect(
+            !(await prepared.fixture.addressBook.listUTXOs())
+                .contains(prepared.fixture.selectedInput)
+        )
 
         try await owner.commitMosaicReservation(
             prepared.lease.reference,
@@ -369,8 +410,14 @@ struct AccountMosaicPrivateAlphaRuntimeAdapterValidator {
             prepared.lease.reference,
             finalizedTransaction: prepared.finalized
         )
-        #expect(await journalProbe.readRecords() == committedRecords)
+        #expect(
+            await prepared.fixture.journalProbe.readRecords()
+                == committedRecords
+        )
 
+        let malformed = try OpalFusion.Host.MosaicCompleteTransaction(
+            transactionBytes: [0x01]
+        )
         await #expect(
             throws: OpalBase.Account.MosaicHostFailure
                 .conflictingCompleteTransaction
@@ -391,7 +438,50 @@ struct AccountMosaicPrivateAlphaRuntimeAdapterValidator {
                 )
             )
         }
-        #expect(await journalProbe.readRecords() == committedRecords)
+        #expect(
+            await prepared.fixture.journalProbe.readRecords()
+                == committedRecords
+        )
+    }
+
+    @Test("Recovered locally signed commit rejects absence before its intent")
+    func rejectMissingInputBeforeRecoveredCommitIntent() async throws {
+        let prepared = try await makeLocallySignedAttempt()
+        await prepared.fixture.addressBook.removeUTXO(
+            prepared.fixture.selectedInput
+        )
+        let owner = try await makePrivateAlphaRecoveryOwner(
+            addressBook: prepared.fixture.addressBook,
+            journalProbe: prepared.fixture.journalProbe
+        )
+        guard case .locallySignedContinuation = try await owner.resume()
+        else {
+            Issue.record("Expected exact locally signed continuation")
+            return
+        }
+        let recordsBeforeCommit = await prepared.fixture.journalProbe
+            .readRecords()
+
+        await #expect(
+            throws: OpalBase.Account.MosaicPrivateAlphaRecoveryOwner.Failure
+                .walletStateMismatch
+        ) {
+            _ = try await owner.commitRecoveredLocallySignedTransaction(
+                prepared.complete
+            )
+        }
+        #expect(
+            await prepared.fixture.journalProbe.readRecords()
+                == recordsBeforeCommit
+        )
+
+        await prepared.fixture.addressBook.addUTXO(
+            prepared.fixture.selectedInput
+        )
+        #expect(
+            !(await prepared.fixture.addressBook.listSpendableUTXOs())
+                .contains(prepared.fixture.selectedInput)
+        )
     }
 
     @Test("Chain-terminal replay remains historical and cannot reopen wallet state")

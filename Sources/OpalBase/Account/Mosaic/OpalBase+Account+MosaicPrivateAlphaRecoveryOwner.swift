@@ -209,6 +209,7 @@ extension _OpalBase.Account {
             do {
                 switch plan {
                 case .reconcileLocallySignedTransaction:
+                    try await requireExactInputsPresentForCommit()
                     try await append(
                         .commitIntent(
                             reference: reservationReference,
@@ -253,6 +254,7 @@ extension _OpalBase.Account {
                     from: locallySignedTransaction,
                     signingRequest: signingRequest
                 )
+                try await requireExactInputsPresentForCommit()
                 try await append(
                     .commitIntent(
                         reference: reference,
@@ -731,13 +733,23 @@ extension _OpalBase.Account {
             }
             let storedInputs = try await exactStoredInputs(
                 matching: selectedInputs,
-                absenceAllowed: true
+                absenceAllowed: false
             )
             for input in storedInputs {
                 await addressBook.removeUTXO(input)
             }
             try await retireRecordedReceivingEntries()
             try await requireCommittedWalletState()
+        }
+
+        private func requireExactInputsPresentForCommit() async throws {
+            guard let selectedInputs = recordedSelectedInputs else {
+                throw Failure.invalidRecoveryState
+            }
+            _ = try await exactStoredInputs(
+                matching: selectedInputs,
+                absenceAllowed: false
+            )
         }
 
         private func requireCommittedWalletState() async throws {
@@ -909,7 +921,8 @@ extension _OpalBase.Account {
 
         private var recordedSigningRequest:
             OpalFusion.Host.MosaicTransactionSigningRequest? {
-            records.compactMap { record in
+            records.compactMap { record
+                -> OpalFusion.Host.MosaicTransactionSigningRequest? in
                 guard case let .signingIntent(request) = record else {
                     return nil
                 }
@@ -919,7 +932,8 @@ extension _OpalBase.Account {
 
         private var recordedLocallySignedTransaction:
             OpalFusion.Host.FinalizedTransaction? {
-            records.compactMap { record in
+            records.compactMap { record
+                -> OpalFusion.Host.FinalizedTransaction? in
                 guard case let .locallySigned(_, transaction) = record else {
                     return nil
                 }
@@ -929,7 +943,8 @@ extension _OpalBase.Account {
 
         private var recordedCompleteTransaction:
             OpalFusion.Host.MosaicCompleteTransaction? {
-            records.compactMap { record in
+            records.compactMap { record
+                -> OpalFusion.Host.MosaicCompleteTransaction? in
                 guard case let .commitIntent(_, transaction) = record else {
                     return nil
                 }

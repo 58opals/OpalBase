@@ -18,7 +18,7 @@ actor MosaicPrivateAlphaJournalPersistenceActor {
     private var shouldFailNextCleanup = false
 
     init(persistedEnvelope: Data? = nil) {
-        self.persistedEnvelope = persistedEnvelope.map(Data.init)
+        self.persistedEnvelope = persistedEnvelope.map { Data($0) }
         retainsOuterKeyMaterial = persistedEnvelope != nil
     }
 
@@ -60,7 +60,7 @@ actor MosaicPrivateAlphaJournalPersistenceActor {
     }
 
     func readPersistedEnvelope() -> Data? {
-        persistedEnvelope.map(Data.init)
+        persistedEnvelope.map { Data($0) }
     }
 
     var hasRetainedOuterKeyMaterial: Bool {

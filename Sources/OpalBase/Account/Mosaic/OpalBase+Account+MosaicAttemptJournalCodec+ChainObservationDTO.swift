@@ -15,7 +15,7 @@ extension _OpalBase.Account.MosaicAttemptJournalCodec {
             switch observation.presence {
             case let .present(valueBlockHash, valueConfirmations):
                 presenceKind = "present"
-                blockHash = valueBlockHash.map(Data.init)
+                blockHash = valueBlockHash.map { Data($0) }
                 confirmations = valueConfirmations
             case .authoritativeAbsence:
                 presenceKind = "authoritativeAbsence"
@@ -37,7 +37,7 @@ extension _OpalBase.Account.MosaicAttemptJournalCodec {
                     throw Failure.decodingFailed
                 }
                 presence = .present(
-                    blockHash: blockHash.map(Data.init),
+                    blockHash: blockHash.map { Data($0) },
                     confirmations: confirmations
                 )
             case "authoritativeAbsence":

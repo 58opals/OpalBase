@@ -341,7 +341,7 @@ extension _OpalBase.Account.MosaicAttemptJournalCodec {
             outputIndex = input.outpointIndex
             amountSatoshis = input.amountSatoshis
             lockingScript = Data(input.lockingScriptBytes)
-            publicKey = input.publicKey.map(Data.init)
+            publicKey = input.publicKey.map { Data($0) }
         }
 
         func makeValue() throws -> OpalFusion.Host.ParticipantInput {

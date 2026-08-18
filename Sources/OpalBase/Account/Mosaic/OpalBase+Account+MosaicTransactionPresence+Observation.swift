@@ -28,7 +28,7 @@ extension _OpalBase.Account.MosaicTransactionPresence {
             }
             self.transactionHash = transactionHash
             self.transactionBytes = Data(transactionBytes)
-            self.blockHash = blockHash.map(Data.init)
+            self.blockHash = blockHash.map { Data($0) }
             self.confirmations = confirmations
         }
     }

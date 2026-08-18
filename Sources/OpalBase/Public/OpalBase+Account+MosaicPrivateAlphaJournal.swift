@@ -8,6 +8,9 @@ extension OpalBase.Account {
     ///
     /// This SPI does not enable a public Mosaic session. The app remains responsible for deriving and
     /// retaining the field-specific key, supplying durable storage, and detecting rollback or deletion.
+    /// The journal alone cannot authorize a missing selected input at a locally signed or commit-intent
+    /// recovery prefix; any future durable inventory or tombstone proof remains part of the app-owned,
+    /// atomically composed outer attempt record.
     @_spi(MosaicPrivateAlpha)
     public enum MosaicPrivateAlphaJournal {
         /// Exclusively creates the authenticated empty journal for a new attempt.

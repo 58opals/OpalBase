@@ -86,7 +86,7 @@ extension AccountMosaicTransactionHostValidator {
         await expirationProbe.release()
         for _ in 0 ..< 1_000 {
             if host == nil { break }
-            await Task.yield()
+            try await Task.sleep(for: .milliseconds(1))
         }
 
         #expect(host == nil)
