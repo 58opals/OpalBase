@@ -27,13 +27,23 @@ See [Trust Boundaries](docs/trust-boundaries.md) for the full integration model.
 
 ## Requirements
 
-- Swift tools version: `6.2`
+- Swift tools version: `6.4`
 - Platforms: `macOS 26`, `iOS 26`, `watchOS 26`, `tvOS 26`, `visionOS 26`
 - Xcode's Metal Toolchain component, required by the `OpalCrypto` Metal verification target. If it is not installed, run `xcodebuild -downloadComponent MetalToolchain`.
 
 ## Installation
 
-For released-package consumers, use the latest tag:
+For the current Swift 6.4 package stack, use the public `develop` branch:
+
+```swift
+dependencies: [
+    .package(url: "https://github.com/58opals/OpalBase.git", branch: "develop")
+]
+```
+
+The current manifest follows `SwiftFulcrum`, `OpalCrypto`, `OpalFusion`, and `OpalDiagnostics` on their public `develop` branches. No new SemVer tag is prepared by this migration.
+
+For released-package consumers, the latest published tag remains available:
 
 ```swift
 dependencies: [
@@ -46,14 +56,6 @@ targets: [
             .product(name: "OpalBase", package: "OpalBase")
         ]
     )
-]
-```
-
-For public review of unreleased APIs, use the public `develop` branch or a specific public revision:
-
-```swift
-dependencies: [
-    .package(url: "https://github.com/58opals/OpalBase.git", branch: "develop")
 ]
 ```
 
