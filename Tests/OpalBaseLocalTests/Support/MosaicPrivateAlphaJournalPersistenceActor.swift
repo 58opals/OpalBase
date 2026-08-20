@@ -1,8 +1,8 @@
 // MosaicPrivateAlphaJournalPersistenceActor.swift
 
 #if os(macOS)
-import CryptoKit
 import Foundation
+import OpalCrypto
 @_spi(MosaicPrivateAlpha) import OpalBase
 
 actor MosaicPrivateAlphaJournalPersistenceActor {
@@ -112,7 +112,7 @@ actor MosaicPrivateAlphaJournalPersistenceActor {
         guard erasureAuthorizationContext == context,
               let persistedEnvelope,
               context.expectedEnvelopeSHA256
-                == Data(SHA256.hash(data: persistedEnvelope)) else {
+                == OpalCrypto.Hashing.sha256(persistedEnvelope) else {
             throw CocoaError(.fileReadCorruptFile)
         }
         self.persistedEnvelope = nil
@@ -157,7 +157,7 @@ actor MosaicPrivateAlphaJournalPersistenceActor {
         expected: Data,
         context: OpalBase.Account.MosaicPrivateAlphaJournal.CleanupContext
     ) throws -> Bool {
-        let expectedEnvelopeSHA256 = Data(SHA256.hash(data: expected))
+        let expectedEnvelopeSHA256 = OpalCrypto.Hashing.sha256(expected)
         guard context.expectedEnvelopeSHA256 == expectedEnvelopeSHA256 else {
             return false
         }

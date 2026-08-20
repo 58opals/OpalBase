@@ -1,11 +1,10 @@
 // AccountMosaicAttemptRecoveryPlannerValidator.swift
 
 #if os(macOS)
-import CryptoKit
 import Foundation
 import OpalFusion
 import Testing
-@testable import OpalBase
+@_spi(MosaicPrivateAlpha) @testable import OpalBase
 
 @Suite("OpalBase.Account Mosaic attempt recovery planner", .tags(.unit, .wallet))
 struct AccountMosaicAttemptRecoveryPlannerValidator {
@@ -261,8 +260,8 @@ struct AccountMosaicAttemptRecoveryPlannerValidator {
             _ = try Planner.plan(for: contradictoryRecords)
         }
         let codec = try OpalBase.Account.MosaicAttemptJournalCodec(
-            authenticationKey: SymmetricKey(
-                data: Data(repeating: 0x71, count: 32)
+            authenticationKey: try .init(
+                fieldDerivedKeyMaterial: Data(repeating: 0x71, count: 32)
             ),
             scope: .init(
                 walletIdentifier: UUID(),

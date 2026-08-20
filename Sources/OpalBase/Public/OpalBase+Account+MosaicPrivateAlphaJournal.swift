@@ -1,8 +1,6 @@
 // OpalBase+Account+MosaicPrivateAlphaJournal.swift
 
 #if os(macOS)
-import CryptoKit
-
 extension OpalBase.Account {
     /// Deliberately private-alpha access to app-owned Mosaic journal persistence.
     ///
@@ -19,7 +17,7 @@ extension OpalBase.Account {
         /// by OpalBase, so callers must not pass a wallet master key or other reusable secret directly.
         @_spi(MosaicPrivateAlpha)
         public static func createFreshAttempt(
-            fieldDerivedJournalKey: SymmetricKey,
+            fieldDerivedJournalKey: JournalKey,
             scope: Scope,
             persistence: Persistence
         ) async throws -> FreshAttempt {
@@ -47,7 +45,7 @@ extension OpalBase.Account {
         /// Call only during exclusive startup recovery, before retaining a fresh attempt for the same scope.
         @_spi(MosaicPrivateAlpha)
         public static func loadAuthenticatedRecovery(
-            fieldDerivedJournalKey: SymmetricKey,
+            fieldDerivedJournalKey: JournalKey,
             scope: Scope,
             persistence: Persistence
         ) async throws -> LoadResult {

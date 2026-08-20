@@ -1,7 +1,6 @@
 // AccountMosaicPrivateAlphaJournalCorrelationValidator.swift
 
 #if os(macOS)
-import CryptoKit
 import Foundation
 import Testing
 @_spi(MosaicPrivateAlpha) import OpalBase
@@ -83,8 +82,12 @@ struct AccountMosaicPrivateAlphaJournalCorrelationValidator {
         )
     }
 
-    private func makeFieldDerivedJournalKey(byte: UInt8) -> SymmetricKey {
-        SymmetricKey(data: Data(repeating: byte, count: 32))
+    private func makeFieldDerivedJournalKey(
+        byte: UInt8
+    ) -> MosaicPrivateAlphaJournalFacade.JournalKey {
+        try! .init(
+            fieldDerivedKeyMaterial: Data(repeating: byte, count: 32)
+        )
     }
 
     private func makeScope() -> MosaicPrivateAlphaJournalFacade.Scope {

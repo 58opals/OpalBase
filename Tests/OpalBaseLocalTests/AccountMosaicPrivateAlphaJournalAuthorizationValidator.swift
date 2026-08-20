@@ -1,8 +1,8 @@
 // AccountMosaicPrivateAlphaJournalAuthorizationValidator.swift
 
 #if os(macOS)
-import CryptoKit
 import Foundation
+import OpalCrypto
 import Testing
 @_spi(MosaicPrivateAlpha) import OpalBase
 
@@ -40,9 +40,8 @@ struct AccountMosaicPrivateAlphaJournalAuthorizationValidator {
             expectedContext = try #require(
                 MosaicPrivateAlphaJournalFacade.CleanupContext(
                     scope: scope,
-                    expectedEnvelopeSHA256: Data(
-                        SHA256.hash(data: envelope)
-                    )
+                    expectedEnvelopeSHA256:
+                        OpalCrypto.Hashing.sha256(envelope)
                 )
             )
             disposition = try await MosaicPrivateAlphaJournalFacade
@@ -108,9 +107,8 @@ struct AccountMosaicPrivateAlphaJournalAuthorizationValidator {
             expectedContext = try #require(
                 MosaicPrivateAlphaJournalFacade.CleanupContext(
                     scope: scope,
-                    expectedEnvelopeSHA256: Data(
-                        SHA256.hash(data: envelope)
-                    )
+                    expectedEnvelopeSHA256:
+                        OpalCrypto.Hashing.sha256(envelope)
                 )
             )
             let disposition = try await MosaicPrivateAlphaJournalFacade
@@ -171,8 +169,10 @@ struct AccountMosaicPrivateAlphaJournalAuthorizationValidator {
 
     private func makeFieldDerivedJournalKey(
         byte: UInt8 = 0x5c
-    ) -> SymmetricKey {
-        SymmetricKey(data: Data(repeating: byte, count: 32))
+    ) -> MosaicPrivateAlphaJournalFacade.JournalKey {
+        try! .init(
+            fieldDerivedKeyMaterial: Data(repeating: byte, count: 32)
+        )
     }
 
     private func makeScope(

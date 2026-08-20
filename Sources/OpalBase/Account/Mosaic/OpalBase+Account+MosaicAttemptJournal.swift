@@ -1,8 +1,8 @@
 // OpalBase+Account+MosaicAttemptJournal.swift
 
 #if os(macOS)
-import CryptoKit
 import Foundation
+import OpalCrypto
 import OpalFusion
 
 extension _OpalBase.Account {
@@ -170,7 +170,7 @@ extension _OpalBase.Account {
         }
 
         static func createNew(
-            authenticationKey: SymmetricKey,
+            authenticationKey: MosaicPrivateAlphaJournal.JournalKey,
             scope: MosaicAttemptJournalCodec.Scope,
             persistence: Persistence
         ) async throws -> FreshAttempt {
@@ -210,7 +210,7 @@ extension _OpalBase.Account {
         }
 
         static func loadExisting(
-            authenticationKey: SymmetricKey,
+            authenticationKey: MosaicPrivateAlphaJournal.JournalKey,
             scope: MosaicAttemptJournalCodec.Scope,
             persistence: Persistence
         ) async throws -> LoadedRecovery {
@@ -228,7 +228,7 @@ extension _OpalBase.Account {
         }
 
         static func authenticateExisting(
-            authenticationKey: SymmetricKey,
+            authenticationKey: MosaicPrivateAlphaJournal.JournalKey,
             scope: MosaicAttemptJournalCodec.Scope,
             persistence: Persistence
         ) async throws -> MosaicAttemptJournalAuthenticationOutcome {
@@ -279,9 +279,8 @@ extension _OpalBase.Account {
                 return .abandonedFreshAttempt(
                     .init(
                         store: store,
-                        expectedEnvelopeSHA256: Data(
-                            SHA256.hash(data: envelope)
-                        )
+                        expectedEnvelopeSHA256:
+                            OpalCrypto.Hashing.sha256(envelope)
                     )
                 )
             }
@@ -357,9 +356,8 @@ extension _OpalBase.Account {
             }
             return .init(
                 store: self,
-                expectedEnvelopeSHA256: Data(
-                    SHA256.hash(data: currentEnvelope)
-                )
+                expectedEnvelopeSHA256:
+                    OpalCrypto.Hashing.sha256(currentEnvelope)
             )
         }
 
@@ -374,9 +372,8 @@ extension _OpalBase.Account {
             }
             return .init(
                 store: self,
-                expectedEnvelopeSHA256: Data(
-                    SHA256.hash(data: currentEnvelope)
-                )
+                expectedEnvelopeSHA256:
+                    OpalCrypto.Hashing.sha256(currentEnvelope)
             )
         }
 
@@ -385,7 +382,7 @@ extension _OpalBase.Account {
         ) async throws
             -> MosaicAttemptJournalCleanupRequirement {
             guard let currentEnvelope,
-                  Data(SHA256.hash(data: currentEnvelope))
+                  OpalCrypto.Hashing.sha256(currentEnvelope)
                     == expectedEnvelopeSHA256 else {
                 throw Failure.erasureNotAuthorized
             }

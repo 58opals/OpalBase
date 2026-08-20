@@ -1,5 +1,5 @@
 {
-  "originHash" : "35ff12ae0440d54338458e678269b0b88453b6ab56564e6e1bf6ce5e642b7477",
+  "originHash" : "d880eb1e0bc741a4875cb308e963f410bad93605693a16468d77817977e1a3df",
   "pins" : [
     {
       "identity" : "opalcrypto",
@@ -7,7 +7,7 @@
       "location" : "https://github.com/58opals/OpalCrypto.git",
       "state" : {
         "branch" : "develop",
-        "revision" : "246584961096b38b8303a39e66ffb3951f6efcc7"
+        "revision" : "8db85b6853c360105f2baf37fc83be48a0ef92da"
       }
     },
     {
@@ -25,7 +25,7 @@
       "location" : "https://github.com/58opals/OpalFusion.git",
       "state" : {
         "branch" : "develop",
-        "revision" : "c4ba44e1782eb431972fa4189a739f047f182315"
+        "revision" : "14819481cdc76535bbb89130a96ae5e148dba2e0"
       }
     },
     {

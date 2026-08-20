@@ -1,14 +1,14 @@
 // MosaicAttemptJournalProbeActor.swift
 
 #if os(macOS)
-import CryptoKit
 import Foundation
 @_spi(MosaicPrivateAlpha) @testable import OpalBase
 
 actor MosaicAttemptJournalProbeActor {
     private static let authenticationKeyData = Data(repeating: 0x7a, count: 32)
 
-    private let authenticationKey: SymmetricKey
+    private let authenticationKey:
+        OpalBase.Account.MosaicPrivateAlphaJournal.JournalKey
     private let scope: OpalBase.Account.MosaicAttemptJournalCodec.Scope
     private let codec: OpalBase.Account.MosaicAttemptJournalCodec
     private var persistedEnvelope: Data?
@@ -40,7 +40,10 @@ actor MosaicAttemptJournalProbeActor {
             MosaicOperationSuspensionProbeActor? = nil,
         commitThenThrowErasureAuthorizationOnce: Bool = false
     ) {
-        let authenticationKey = SymmetricKey(data: Self.authenticationKeyData)
+        let authenticationKey = try! OpalBase.Account
+            .MosaicPrivateAlphaJournal.JournalKey(
+                fieldDerivedKeyMaterial: Self.authenticationKeyData
+            )
         let scope = OpalBase.Account.MosaicAttemptJournalCodec.Scope(
             walletIdentifier: UUID(),
             journalIdentifier: UUID()
@@ -75,7 +78,10 @@ actor MosaicAttemptJournalProbeActor {
         scope: OpalBase.Account.MosaicAttemptJournalCodec.Scope,
         persistedEnvelope: Data
     ) throws {
-        let authenticationKey = SymmetricKey(data: Self.authenticationKeyData)
+        let authenticationKey = try OpalBase.Account
+            .MosaicPrivateAlphaJournal.JournalKey(
+                fieldDerivedKeyMaterial: Self.authenticationKeyData
+            )
         let codec = try OpalBase.Account.MosaicAttemptJournalCodec(
             authenticationKey: authenticationKey,
             scope: scope
@@ -138,7 +144,8 @@ actor MosaicAttemptJournalProbeActor {
         persistedEnvelope
     }
 
-    func readFieldDerivedJournalKey() -> SymmetricKey {
+    func readFieldDerivedJournalKey()
+        -> OpalBase.Account.MosaicPrivateAlphaJournal.JournalKey {
         authenticationKey
     }
 

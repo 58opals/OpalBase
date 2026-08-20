@@ -1,7 +1,6 @@
 // AccountMosaicPrivateAlphaJournalCleanupValidator.swift
 
 #if os(macOS)
-import CryptoKit
 import Foundation
 import Testing
 @_spi(MosaicPrivateAlpha) import OpalBase
@@ -136,8 +135,11 @@ struct AccountMosaicPrivateAlphaJournalCleanupValidator {
         #expect(await persistenceActor.readPersistedEnvelope() == nil)
     }
 
-    private func makeFieldDerivedJournalKey() -> SymmetricKey {
-        SymmetricKey(data: Data(repeating: 0x5c, count: 32))
+    private func makeFieldDerivedJournalKey()
+        -> MosaicPrivateAlphaJournalFacade.JournalKey {
+        try! .init(
+            fieldDerivedKeyMaterial: Data(repeating: 0x5c, count: 32)
+        )
     }
 
     private func makeScope() -> MosaicPrivateAlphaJournalFacade.Scope {

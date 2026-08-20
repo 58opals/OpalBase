@@ -1,11 +1,10 @@
 // AccountMosaicAttemptJournalValidator.swift
 
 #if os(macOS)
-import CryptoKit
 import Foundation
 import OpalFusion
 import Testing
-@testable import OpalBase
+@_spi(MosaicPrivateAlpha) @testable import OpalBase
 
 @Suite("OpalBase.Account Mosaic attempt journal", .tags(.unit, .wallet))
 struct AccountMosaicAttemptJournalValidator {
@@ -95,7 +94,7 @@ struct AccountMosaicAttemptJournalValidator {
                 )
             )
         ]
-        let key = SymmetricKey(data: Data(repeating: 0x41, count: 32))
+        let key = makeJournalKey(byte: 0x41)
         let scope = OpalBase.Account.MosaicAttemptJournalCodec.Scope(
             walletIdentifier: try #require(
                 UUID(uuidString: "00000000-0000-0000-0000-000000000041")
@@ -112,9 +111,7 @@ struct AccountMosaicAttemptJournalValidator {
         #expect(try codec.open(envelope) == records)
 
         let wrongKeyCodec = try OpalBase.Account.MosaicAttemptJournalCodec(
-            authenticationKey: SymmetricKey(
-                data: Data(repeating: 0x42, count: 32)
-            ),
+            authenticationKey: makeJournalKey(byte: 0x42),
             scope: scope
         )
         #expect(
@@ -165,7 +162,7 @@ struct AccountMosaicAttemptJournalValidator {
 
     @Test("Pre-binding version-one snapshots are explicitly unsupported")
     func rejectPreBindingVersionOneSnapshot() throws {
-        let key = SymmetricKey(data: Data(repeating: 0x41, count: 32))
+        let key = makeJournalKey(byte: 0x41)
         let scope = OpalBase.Account.MosaicAttemptJournalCodec.Scope(
             walletIdentifier: try #require(
                 UUID(uuidString: "00000000-0000-0000-0000-000000000041")
@@ -196,6 +193,40 @@ struct AccountMosaicAttemptJournalValidator {
         let versionTwoEnvelope = try codec.seal(records: [])
         #expect(versionTwoEnvelope[8] == 2)
         #expect(try codec.open(versionTwoEnvelope).isEmpty)
+    }
+
+    @Test("Open a frozen pre-OpalCrypto version-two snapshot")
+    func openFrozenVersionTwoSnapshot() throws {
+        let scope = OpalBase.Account.MosaicAttemptJournalCodec.Scope(
+            walletIdentifier: try #require(
+                UUID(uuidString: "00000000-0000-0000-0000-000000000041")
+            ),
+            journalIdentifier: try #require(
+                UUID(uuidString: "00000000-0000-0000-0000-000000000042")
+            )
+        )
+        let codec = try OpalBase.Account.MosaicAttemptJournalCodec(
+            authenticationKey: makeJournalKey(byte: 0x41),
+            scope: scope
+        )
+        // Sealed by the former CryptoKit implementation with nonce bytes 0x00...0x0b.
+        let frozenVersionTwoEnvelope = try #require(
+            Data(
+                base64Encoded:
+                    "T1BNSlJOMDECAAECAwQFBgcICQoLVzTRDoA53DvzSYOQLqygydlNrI3Fh/Hld6j4LhcjGG8KUrvMuF7A8jQPxw=="
+            )
+        )
+
+        #expect(frozenVersionTwoEnvelope[8] == 2)
+        #expect(try codec.open(frozenVersionTwoEnvelope).isEmpty)
+    }
+
+    private func makeJournalKey(
+        byte: UInt8
+    ) -> OpalBase.Account.MosaicPrivateAlphaJournal.JournalKey {
+        try! .init(
+            fieldDerivedKeyMaterial: Data(repeating: byte, count: 32)
+        )
     }
 }
 #endif

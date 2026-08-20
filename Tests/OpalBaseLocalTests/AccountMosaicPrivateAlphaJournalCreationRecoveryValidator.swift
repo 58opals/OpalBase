@@ -1,7 +1,6 @@
 // AccountMosaicPrivateAlphaJournalCreationRecoveryValidator.swift
 
 #if os(macOS)
-import CryptoKit
 import Foundation
 import Testing
 @_spi(MosaicPrivateAlpha) import OpalBase
@@ -168,13 +167,13 @@ struct AccountMosaicPrivateAlphaJournalCreationRecoveryValidator {
 
     private func makeRestartedEmptyJournal() async throws -> (
         persistenceActor: MosaicPrivateAlphaJournalPersistenceActor,
-        fieldDerivedJournalKey: SymmetricKey,
+        fieldDerivedJournalKey: Journal.JournalKey,
         scope: Journal.Scope,
         envelope: Data
     ) {
         let originalPersistenceActor = MosaicPrivateAlphaJournalPersistenceActor()
-        let fieldDerivedJournalKey = SymmetricKey(
-            data: Data(repeating: 0x73, count: 32)
+        let fieldDerivedJournalKey = try Journal.JournalKey(
+            fieldDerivedKeyMaterial: Data(repeating: 0x73, count: 32)
         )
         let scope = Journal.Scope(
             walletIdentifier: UUID(

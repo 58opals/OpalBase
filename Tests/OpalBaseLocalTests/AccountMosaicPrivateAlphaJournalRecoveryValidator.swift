@@ -1,7 +1,6 @@
 // AccountMosaicPrivateAlphaJournalRecoveryValidator.swift
 
 #if os(macOS)
-import CryptoKit
 import Foundation
 import Testing
 @_spi(MosaicPrivateAlpha) import OpalBase
@@ -76,18 +75,10 @@ struct AccountMosaicPrivateAlphaJournalRecoveryValidator {
             Issue.record("Expected a mapped journal failure")
         }
 
-        do {
-            _ = try await Journal.createFreshAttempt(
-                fieldDerivedJournalKey: makeFieldDerivedJournalKey(byteCount: 16),
-                scope: makeScope(journalIdentifierLastByte: 0x02),
-                persistence: MosaicPrivateAlphaJournalPersistenceActor()
-                    .makePersistence()
+        #expect(throws: Journal.Failure.invalidJournalKey) {
+            _ = try Journal.JournalKey(
+                fieldDerivedKeyMaterial: Data(repeating: 0x5c, count: 16)
             )
-            Issue.record("Expected a non-256-bit field key to be rejected")
-        } catch let failure as Journal.Failure {
-            #expect(failure == .invalidJournalKey)
-        } catch {
-            Issue.record("Expected a mapped journal failure")
         }
 
         let disposition = try await Journal.abandonFreshAttempt(freshAttempt)
@@ -101,6 +92,29 @@ struct AccountMosaicPrivateAlphaJournalRecoveryValidator {
                     .removeOuterMaterialAndConfirmCleanup(matching: context)
             }
         )
+    }
+
+    @Test("Journal keys validate exact length and redact descriptions")
+    func validateJournalKeyBoundary() throws {
+        let keyMaterial = Data(repeating: 0xa7, count: 32)
+        let key = try Journal.JournalKey(
+            fieldDerivedKeyMaterial: keyMaterial
+        )
+
+        #expect(
+            key.description
+                == "OpalBase.Account.MosaicPrivateAlphaJournal.JournalKey(redacted, byteCount: 32)"
+        )
+        #expect(key.debugDescription == key.description)
+        #expect(!key.description.contains(keyMaterial.base64EncodedString()))
+        #expect(throws: Journal.Failure.invalidJournalKey) {
+            _ = try Journal.JournalKey(fieldDerivedKeyMaterial: Data())
+        }
+        #expect(throws: Journal.Failure.invalidJournalKey) {
+            _ = try Journal.JournalKey(
+                fieldDerivedKeyMaterial: Data(repeating: 0xa7, count: 33)
+            )
+        }
     }
 
     @Test("Load authenticated recovery from fresh-process inputs")
@@ -135,10 +149,11 @@ struct AccountMosaicPrivateAlphaJournalRecoveryValidator {
     }
 
     private func makeFieldDerivedJournalKey(
-        byte: UInt8 = 0x5c,
-        byteCount: Int = 32
-    ) -> SymmetricKey {
-        SymmetricKey(data: Data(repeating: byte, count: byteCount))
+        byte: UInt8 = 0x5c
+    ) -> Journal.JournalKey {
+        try! .init(
+            fieldDerivedKeyMaterial: Data(repeating: byte, count: 32)
+        )
     }
 
     private func makeScope(

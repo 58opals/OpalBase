@@ -45,6 +45,7 @@ let package = Package(
             dependencies: [
                 "OpalBase",
                 "OpalBaseTestSupport",
+                .product(name: "OpalCrypto", package: "OpalCrypto"),
                 .product(
                     name: "OpalFusion",
                     package: "OpalFusion",

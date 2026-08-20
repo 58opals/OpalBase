@@ -1,8 +1,8 @@
 // OpalBase+Account+MosaicAttemptJournalCodec.swift
 
 #if os(macOS)
-import CryptoKit
 import Foundation
+import OpalCrypto
 import OpalFusion
 
 extension _OpalBase.Account {
@@ -54,19 +54,27 @@ extension _OpalBase.Account {
         private static let maximumPlaintextByteCount = 8 * 1_024 * 1_024
         private static let maximumRecordCount = 64
 
-        private let encryptionKey: SymmetricKey
+        private let encryptionKey:
+            OpalCrypto.AuthenticatedEncryption.AES256GCM.Key
         private let authenticatedContext: Data
 
-        init(authenticationKey: SymmetricKey, scope: Scope) throws {
-            guard authenticationKey.bitCount == 256 else {
+        init(
+            authenticationKey: MosaicPrivateAlphaJournal.JournalKey,
+            scope: Scope
+        ) throws {
+            do {
+                let derivedKey = try OpalCrypto.KeyDerivation
+                    .deriveHKDFSHA256Key(
+                        inputKeyMaterial:
+                            authenticationKey.encryptionKey.rawRepresentation,
+                        salt: Self.keyDerivationDomain,
+                        information: scope.encoded,
+                        outputByteCount: 32
+                    )
+                encryptionKey = try .init(derivedKey: derivedKey)
+            } catch {
                 throw Failure.invalidKeyMaterial
             }
-            encryptionKey = HKDF<SHA256>.deriveKey(
-                inputKeyMaterial: authenticationKey,
-                salt: Self.keyDerivationDomain,
-                info: scope.encoded,
-                outputByteCount: 32
-            )
             var context = Self.authenticationDomain
             context.append(Self.formatVersion)
             Self.appendLengthPrefixed(scope.encoded, to: &context)
@@ -113,17 +121,15 @@ extension _OpalBase.Account {
             }
 
             do {
-                let sealed = try AES.GCM.seal(
+                let sealed = try OpalCrypto.AuthenticatedEncryption.AES256GCM
+                    .seal(
                     plaintext,
                     using: encryptionKey,
                     authenticating: authenticatedContext
                 )
-                guard let combined = sealed.combined else {
-                    throw Failure.encodingFailed
-                }
                 var envelope = Self.magic
                 envelope.append(Self.formatVersion)
-                envelope.append(combined)
+                envelope.append(sealed.combinedRepresentation)
                 guard envelope.count <= Self.maximumEnvelopeByteCount else {
                     throw Failure.invalidSnapshot
                 }
@@ -156,8 +162,16 @@ extension _OpalBase.Account {
 
             let plaintext: Data
             do {
-                let sealed = try AES.GCM.SealedBox(combined: combined)
-                plaintext = try AES.GCM.open(
+                let sealed = try OpalCrypto.AuthenticatedEncryption.AES256GCM
+                    .SealedBox(
+                        combinedRepresentation: Data(combined),
+                        maximumCombinedByteCount:
+                            Self.maximumEnvelopeByteCount
+                                - Self.magic.count
+                                - 1
+                    )
+                plaintext = try OpalCrypto.AuthenticatedEncryption.AES256GCM
+                    .open(
                     sealed,
                     using: encryptionKey,
                     authenticating: authenticatedContext
