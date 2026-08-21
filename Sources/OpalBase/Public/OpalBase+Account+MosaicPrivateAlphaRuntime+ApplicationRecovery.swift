@@ -62,5 +62,33 @@ extension OpalBase.Account.MosaicPrivateAlphaRuntime {
             return .loadedSessionOwner(owner)
         }
     }
+
+    /// Authenticates an interrupted fresh attempt and authorizes its exact
+    /// empty-journal envelope for cleanup without exposing journal recovery
+    /// storage to the application target. A nonempty journal returns `nil` and
+    /// remains available for normal session recovery.
+    @_spi(MosaicPrivateAlpha)
+    public static func authorizeApplicationAbandonedFreshAttemptCleanup(
+        journalKey: OpalBase.Account.MosaicPrivateAlphaJournal.JournalKey,
+        journalScope: OpalBase.Account.MosaicPrivateAlphaJournal.Scope,
+        journalPersistence: OpalBase.Account.MosaicPrivateAlphaJournal.Persistence
+    ) async throws
+        -> OpalBase.Account.MosaicPrivateAlphaJournal.CleanupRequirement? {
+        let loadResult = try await OpalBase.Account
+            .MosaicPrivateAlphaJournal.loadAuthenticatedRecovery(
+                fieldDerivedJournalKey: journalKey,
+                scope: journalScope,
+                persistence: journalPersistence
+            )
+        switch consume loadResult {
+        case let .abandonedFreshAttempt(disposition):
+            return try await OpalBase.Account
+                .MosaicPrivateAlphaJournal.authorizeJournalErasure(
+                    authorizedBy: disposition
+                )
+        case .loadedRecovery:
+            return nil
+        }
+    }
 }
 #endif

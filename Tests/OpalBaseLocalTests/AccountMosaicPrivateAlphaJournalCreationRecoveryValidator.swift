@@ -199,6 +199,31 @@ struct AccountMosaicPrivateAlphaJournalCreationRecoveryValidator {
         }
     }
 
+    @Test("Application cleanup authorizes only an abandoned fresh attempt")
+    func authorizeApplicationAbandonedFreshAttemptCleanup() async throws {
+        typealias Runtime = OpalBase.Account.MosaicPrivateAlphaRuntime
+        let fixture = try await makeRestartedEmptyJournal()
+
+        let cleanup = try await Runtime
+            .authorizeApplicationAbandonedFreshAttemptCleanup(
+                journalKey: fixture.fieldDerivedJournalKey,
+                journalScope: fixture.scope,
+                journalPersistence: fixture.persistenceActor.makePersistence()
+            )
+
+        switch consume cleanup {
+        case let .some(requirement):
+            #expect(requirement.context.scope == fixture.scope)
+            #expect(requirement.context.expectedEnvelopeSHA256.count == 32)
+            #expect(
+                await fixture.persistenceActor.readPersistedEnvelope()
+                    == fixture.envelope
+            )
+        case .none:
+            Issue.record("Expected abandoned fresh-attempt cleanup authority")
+        }
+    }
+
     private func makeRestartedEmptyJournal() async throws -> (
         persistenceActor: MosaicPrivateAlphaJournalPersistenceActor,
         fieldDerivedJournalKey: Journal.JournalKey,
