@@ -262,6 +262,7 @@ extension OpalBase.Account.MosaicPrivateAlphaRuntime {
         @_spi(MosaicPrivateAlpha) public let recipientEventIdentity: Data?
         @_spi(MosaicPrivateAlpha) public let phase: PostManifestPhase
         @_spi(MosaicPrivateAlpha) public let sequence: UInt64
+        @_spi(MosaicPrivateAlpha) public let phaseStartUnixSeconds: UInt64
         @_spi(MosaicPrivateAlpha) public let expiryUnixSeconds: UInt64
 
         init(
@@ -271,6 +272,7 @@ extension OpalBase.Account.MosaicPrivateAlphaRuntime {
             recipientEventIdentity = request.recipientEventIdentity
             phase = .init(request.phase)
             sequence = request.sequence
+            phaseStartUnixSeconds = request.phaseStartUnixSeconds
             expiryUnixSeconds = request.expiryUnixSeconds
         }
     }

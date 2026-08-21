@@ -317,7 +317,7 @@ struct AccountMosaicPrivateAlphaApplicationFacadeValidator {
             currentUnixSeconds: { 1_800_000_000 },
             makeLayerTimestamps: { request in
                 .init(
-                    phaseStartUnixSeconds: 1_800_000_000,
+                    phaseStartUnixSeconds: request.phaseStartUnixSeconds,
                     currentUnixSeconds: 1_800_000_001,
                     sealCreatedAt: request.expiryUnixSeconds - 2,
                     giftWrapCreatedAt: request.expiryUnixSeconds - 1

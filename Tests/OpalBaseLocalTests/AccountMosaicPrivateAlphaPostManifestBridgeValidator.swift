@@ -45,8 +45,12 @@ struct AccountMosaicPrivateAlphaPostManifestBridgeValidator {
                 currentUnixSeconds: { 1_800_000_000 },
                 makeLayerTimestamps: { request in
                     #expect(request.phase == .walletReservation)
+                    #expect(
+                        request.phaseStartUnixSeconds == 1_800_000_000
+                    )
                     return .init(
-                        phaseStartUnixSeconds: 1_800_000_000,
+                        phaseStartUnixSeconds:
+                            request.phaseStartUnixSeconds,
                         currentUnixSeconds: 1_800_000_001,
                         sealCreatedAt: request.expiryUnixSeconds - 2,
                         giftWrapCreatedAt: request.expiryUnixSeconds - 1
@@ -132,6 +136,7 @@ struct AccountMosaicPrivateAlphaPostManifestBridgeValidator {
             recipientEventIdentity: nil,
             phase: .walletReservation,
             sequence: 1,
+            phaseStartUnixSeconds: 1_800_000_000,
             expiryUnixSeconds: 1_800_000_010
         ))
         #expect(timestamps.currentUnixSeconds == 1_800_000_001)
