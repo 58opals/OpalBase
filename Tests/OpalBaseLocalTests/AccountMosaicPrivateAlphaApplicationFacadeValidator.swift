@@ -100,22 +100,23 @@ struct AccountMosaicPrivateAlphaApplicationFacadeValidator {
         let persistence = MosaicFusionRecoveryPersistenceProbe(
             blockedTransitionNumber: 2
         )
-        let host = try await Runtime.createFreshApplicationHost(
-            account: account,
-            binding: binding,
-            discoveryEpochStartUnixSeconds: 1_800_000_000,
-            walletReservationIdentifier: walletIdentifier,
-            walletGeneration: 43,
-            selectedInputs: [selectedInput],
-            outputAmountsSatoshis: [99_823],
-            transactionReader: transactionReader,
-            recoveryPersistence: .init { transition in
-                try await persistence.persist(transition)
-            },
-            journalAttempt: .init(
-                try await journalProbe.makeFreshAttempt()
+        let sessionOwner = try await Runtime
+            .createFreshApplicationSessionOwner(
+                account: account,
+                binding: binding,
+                discoveryEpochStartUnixSeconds: 1_800_000_000,
+                walletReservationIdentifier: walletIdentifier,
+                walletGeneration: 43,
+                selectedInputs: [selectedInput],
+                outputAmountsSatoshis: [99_823],
+                transactionReader: transactionReader,
+                recoveryPersistence: .init { transition in
+                    try await persistence.persist(transition)
+                },
+                journalAttempt: .init(
+                    try await journalProbe.makeFreshAttempt()
+                )
             )
-        )
         let relayProbe = MosaicPrivateDeploymentRelayProbe()
         let capabilities = Runtime.PrivateDeploymentCapabilities(
             recoveryPersistence: .init { transition in
@@ -126,8 +127,6 @@ struct AccountMosaicPrivateAlphaApplicationFacadeValidator {
             })
         )
         let documents = try MosaicPrivateDeploymentDocumentFixture.make()
-        let sessionOwner = try await host.makeSessionOwner()
-
         let beginTask = Task {
             try await sessionOwner.beginPrivateDeployment(
                 opaquePoolDocument: documents.opaquePoolDocument,
@@ -183,20 +182,21 @@ struct AccountMosaicPrivateAlphaApplicationFacadeValidator {
             )
         }
 
-        let recoveryOwner = try await Runtime.loadApplicationRecoveryOwner(
-            account: account,
-            binding: binding,
-            expectedWalletReservationIdentifier: walletIdentifier,
-            expectedWalletGeneration: 43,
-            transactionReader: transactionReader,
-            fusionRecoverySnapshot: try #require(
-                await persistence.readSnapshot()
-            ),
-            journalRecovery: .init(
-                try await journalProbe.loadRecovery()
+        let recoveredSessionOwner = try await Runtime
+            .loadApplicationRecoverySessionOwner(
+                account: account,
+                binding: binding,
+                expectedWalletReservationIdentifier: walletIdentifier,
+                expectedWalletGeneration: 43,
+                transactionReader: transactionReader,
+                fusionRecoverySnapshot: try #require(
+                    await persistence.readSnapshot()
+                ),
+                journalRecovery: .init(
+                    try await journalProbe.loadRecovery()
+                )
             )
-        )
-        let recoveredProgress = try await recoveryOwner.makeSessionOwner()
+        let recoveredProgress = try await recoveredSessionOwner
             .resumePrivateDeployment(capabilities: capabilities)
 
         #expect(recoveredProgress == .awaitingInput(.discovery))

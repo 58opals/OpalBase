@@ -159,6 +159,37 @@ extension OpalBase.Account.MosaicPrivateAlphaRuntime {
         }
     }
 
+    /// Creates and claims the sole application-facing session owner without returning
+    /// a value whose hidden storage contains OpalFusion types to the app target.
+    @_spi(MosaicPrivateAlpha)
+    public static func createFreshApplicationSessionOwner(
+        account: OpalBase.Account,
+        binding: Binding,
+        discoveryEpochStartUnixSeconds: UInt64,
+        walletReservationIdentifier: UUID,
+        walletGeneration: UInt64,
+        selectedInputs: [OpalBase.Transaction.Output.Unspent],
+        outputAmountsSatoshis: [UInt64],
+        transactionReader: OpalBase.Network.TransactionReader,
+        recoveryPersistence: FusionRecoveryPersistence,
+        journalAttempt: consuming OpalBase.Account
+            .MosaicPrivateAlphaJournal.FreshAttempt
+    ) async throws -> SessionOwner {
+        let host = try await createFreshApplicationHost(
+            account: account,
+            binding: binding,
+            discoveryEpochStartUnixSeconds: discoveryEpochStartUnixSeconds,
+            walletReservationIdentifier: walletReservationIdentifier,
+            walletGeneration: walletGeneration,
+            selectedInputs: selectedInputs,
+            outputAmountsSatoshis: outputAmountsSatoshis,
+            transactionReader: transactionReader,
+            recoveryPersistence: recoveryPersistence,
+            journalAttempt: journalAttempt
+        )
+        return try await host.makeSessionOwner()
+    }
+
     /// Claims one authenticated recovery only when all protocol and wallet identities match exactly.
     static func loadRecoveryOwner(
         account: OpalBase.Account,
@@ -241,6 +272,32 @@ extension OpalBase.Account.MosaicPrivateAlphaRuntime {
         } catch {
             throw Failure.invalidRecoveryState
         }
+    }
+
+    /// Restores and claims the sole application-facing session owner while keeping
+    /// OpalFusion-backed recovery storage entirely inside OpalBase.
+    @_spi(MosaicPrivateAlpha)
+    public static func loadApplicationRecoverySessionOwner(
+        account: OpalBase.Account,
+        binding: Binding,
+        expectedWalletReservationIdentifier: UUID,
+        expectedWalletGeneration: UInt64,
+        transactionReader: OpalBase.Network.TransactionReader,
+        fusionRecoverySnapshot: Data,
+        journalRecovery: consuming OpalBase.Account
+            .MosaicPrivateAlphaJournal.LoadedRecovery
+    ) async throws -> SessionOwner {
+        let recoveryOwner = try await loadApplicationRecoveryOwner(
+            account: account,
+            binding: binding,
+            expectedWalletReservationIdentifier:
+                expectedWalletReservationIdentifier,
+            expectedWalletGeneration: expectedWalletGeneration,
+            transactionReader: transactionReader,
+            fusionRecoverySnapshot: fusionRecoverySnapshot,
+            journalRecovery: journalRecovery
+        )
+        return try await recoveryOwner.makeSessionOwner()
     }
 }
 #endif
