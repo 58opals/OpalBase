@@ -1,0 +1,707 @@
+// OpalBase+Account+MosaicPrivateAlphaRuntime+PostManifestOwner.swift
+
+#if os(macOS)
+import Foundation
+import OpalCrypto
+@_spi(MosaicPrivateAlpha) import OpalFusion
+
+extension OpalBase.Account.MosaicPrivateAlphaRuntime.FreshHost {
+    /// Returns the Base-owned facade over this host's sole Fusion owner.
+    @_spi(MosaicPrivateAlpha)
+    public func makePostManifestOwner() -> OpalBase.Account
+        .MosaicPrivateAlphaRuntime.PostManifestOwner {
+        .init(
+            binding: binding,
+            owner: privateDeploymentOwner,
+            transactionHost: transactionHost,
+            previousOutputSource: previousOutputSource
+        )
+    }
+}
+
+extension OpalBase.Account.MosaicPrivateAlphaRuntime.RecoveryOwner {
+    /// Returns the Base-owned facade over this recovery bundle's sole Fusion owner.
+    @_spi(MosaicPrivateAlpha)
+    public func makePostManifestOwner() -> OpalBase.Account
+        .MosaicPrivateAlphaRuntime.PostManifestOwner {
+        .init(
+            binding: binding,
+            owner: privateDeploymentOwner,
+            transactionHost: transactionHost,
+            previousOutputSource: previousOutputSource
+        )
+    }
+}
+
+extension OpalBase.Account.MosaicPrivateAlphaRuntime {
+    /// Sole application-facing owner for the selected post-manifest runtime.
+    ///
+    /// This actor retains both Base wallet authority and previous-output authority while
+    /// keeping every OpalFusion type behind the OpalBase boundary.
+    @_spi(MosaicPrivateAlpha)
+    public actor PostManifestOwner {
+        typealias FusionRuntime = OpalFusion.MosaicPrivateAlphaRuntime
+
+        @_spi(MosaicPrivateAlpha) public nonisolated let binding: Binding
+
+        private let owner: FusionRuntime.Owner
+        private let transactionHost:
+            any OpalFusion.Host.MosaicCompleteTransactionHost
+        private let previousOutputSource:
+            OpalBase.Network.TransactionReader
+        private var execution: FusionRuntime.PostManifestExecution?
+        private var constructionIsInProgress = false
+        private var mustValidateRecoveredTerminal = false
+
+        init(
+            binding: Binding,
+            owner: FusionRuntime.Owner,
+            transactionHost:
+                any OpalFusion.Host.MosaicCompleteTransactionHost,
+            previousOutputSource: OpalBase.Network.TransactionReader
+        ) {
+            self.binding = binding
+            self.owner = owner
+            self.transactionHost = transactionHost
+            self.previousOutputSource = previousOutputSource
+        }
+
+        /// Restores authenticated mailbox state, initializes exact companion journals when
+        /// needed, and constructs the contributor execution exactly once.
+        @_spi(MosaicPrivateAlpha)
+        public func makeContributorExecution(
+            mailboxArchive: PostManifestContributorMailboxArchive,
+            runtimeCapabilities: PostManifestRuntimeCapabilities,
+            recoveryPersistence: FusionRecoveryPersistence,
+            privateDeploymentRelays: PrivateDeploymentRelayCapabilities,
+            controlSigningKey: OpalCrypto.Secp256k1.SigningKey,
+            controlEventSigningKey: OpalCrypto.Secp256k1.SigningKey,
+            loadSlotSecrets: @escaping @Sendable (
+                Binding,
+                PostManifestReservationLease
+            ) async throws -> [PostManifestComponentSlotSecrets]
+        ) async throws {
+            guard execution == nil,
+                  !constructionIsInProgress else {
+                throw Failure.operationInProgress
+            }
+            constructionIsInProgress = true
+            defer { constructionIsInProgress = false }
+            do {
+                try await normalizeLoadedOwner(
+                    recoveryPersistence: recoveryPersistence,
+                    privateDeploymentRelays: privateDeploymentRelays
+                )
+                let distribution = try await restoreContributorMailboxes(
+                    mailboxArchive,
+                    currentUnixSeconds:
+                        runtimeCapabilities.timing.currentUnixSeconds()
+                )
+                guard !distribution.isConductor else {
+                    throw Failure.invalidRecoveryState
+                }
+                let capabilities = runtimeCapabilities.fusionCapabilities(
+                    mailboxes: distribution.fusionDistribution
+                        .mailboxCapabilities
+                )
+                let construction = try await prepareConstruction(
+                    distribution: distribution,
+                    capabilities: capabilities,
+                    recoveryPersistence: recoveryPersistence
+                )
+                let binding = binding
+                execution = try await construction.makeContributorExecution(
+                    host: .init(
+                        transactionHost: transactionHost,
+                        previousOutputSource: previousOutputSource,
+                        controlSigningKey: controlSigningKey,
+                        controlEventSigningKey: controlEventSigningKey,
+                        loadSlotSecrets: { _, lease in
+                            try await loadSlotSecrets(
+                                binding,
+                                .init(lease)
+                            ).map(\.fusionSecrets)
+                        }
+                    ),
+                    capabilities: capabilities
+                )
+            } catch let cancellation as CancellationError {
+                throw cancellation
+            } catch let failure as Failure {
+                throw failure
+            } catch {
+                throw Failure(error)
+            }
+        }
+
+        /// Restores authenticated mailbox and purpose-separated RSA state, then constructs
+        /// the conductor execution exactly once.
+        @_spi(MosaicPrivateAlpha)
+        public func makeConductorExecution(
+            mailboxArchive: PostManifestConductorMailboxArchive,
+            runtimeCapabilities: PostManifestRuntimeCapabilities,
+            recoveryPersistence: FusionRecoveryPersistence,
+            privateDeploymentRelays: PrivateDeploymentRelayCapabilities,
+            authorizationKeys: PostManifestConductorAuthorizationKeys,
+            controlSigningKey: OpalCrypto.Secp256k1.SigningKey,
+            controlEventSigningKey: OpalCrypto.Secp256k1.SigningKey
+        ) async throws {
+            guard execution == nil,
+                  !constructionIsInProgress else {
+                throw Failure.operationInProgress
+            }
+            constructionIsInProgress = true
+            defer { constructionIsInProgress = false }
+            do {
+                try await normalizeLoadedOwner(
+                    recoveryPersistence: recoveryPersistence,
+                    privateDeploymentRelays: privateDeploymentRelays
+                )
+                let distribution = try await restoreConductorMailboxes(
+                    mailboxArchive,
+                    currentUnixSeconds:
+                        runtimeCapabilities.timing.currentUnixSeconds()
+                )
+                guard distribution.isConductor else {
+                    throw Failure.invalidRecoveryState
+                }
+                let capabilities = runtimeCapabilities.fusionCapabilities(
+                    mailboxes: distribution.fusionDistribution
+                        .mailboxCapabilities
+                )
+                let construction = try await prepareConstruction(
+                    distribution: distribution,
+                    capabilities: capabilities,
+                    recoveryPersistence: recoveryPersistence
+                )
+                execution = try await construction.makeConductorExecution(
+                    host: .init(
+                        componentAuthorizationSecurityKey:
+                            authorizationKeys.component,
+                        bchSignatureAuthorizationSecurityKey:
+                            authorizationKeys.bchSignature,
+                        previousOutputSource: previousOutputSource,
+                        controlSigningKey: controlSigningKey,
+                        controlEventSigningKey: controlEventSigningKey
+                    ),
+                    capabilities: capabilities
+                )
+            } catch let cancellation as CancellationError {
+                throw cancellation
+            } catch let failure as Failure {
+                throw failure
+            } catch {
+                throw Failure(error)
+            }
+        }
+
+        @_spi(MosaicPrivateAlpha)
+        public func start() async throws {
+            guard let execution else { throw Failure.invalidRecoveryState }
+            do {
+                try await execution.start()
+            } catch let cancellation as CancellationError {
+                throw cancellation
+            } catch {
+                throw Failure(error)
+            }
+        }
+
+        @_spi(MosaicPrivateAlpha)
+        public func acceptReceivedAbort(
+            _ event: PostManifestEvent
+        ) async throws {
+            guard let execution else { throw Failure.invalidRecoveryState }
+            do {
+                try await execution.acceptReceivedAbort(event.fusionEvent)
+            } catch let cancellation as CancellationError {
+                throw cancellation
+            } catch {
+                throw Failure(error)
+            }
+        }
+
+        @_spi(MosaicPrivateAlpha)
+        public func acceptReceivedCompletion(
+            _ event: PostManifestEvent
+        ) async throws {
+            guard let execution else { throw Failure.invalidRecoveryState }
+            do {
+                try await execution.acceptReceivedCompletion(
+                    event.fusionEvent
+                )
+            } catch let cancellation as CancellationError {
+                throw cancellation
+            } catch {
+                throw Failure(error)
+            }
+        }
+
+        @_spi(MosaicPrivateAlpha)
+        public func requestTimeoutAbort(
+            currentUnixSeconds: UInt64,
+            signing: PostManifestSigningMaterial
+        ) async throws {
+            guard let execution else { throw Failure.invalidRecoveryState }
+            do {
+                try await execution.requestTimeoutAbort(
+                    currentUnixSeconds: currentUnixSeconds,
+                    signing: signing.fusionCapability
+                )
+            } catch let cancellation as CancellationError {
+                throw cancellation
+            } catch {
+                throw Failure(error)
+            }
+        }
+
+        @_spi(MosaicPrivateAlpha)
+        public func stop() async {
+            await execution?.stop()
+        }
+
+        /// Claims one runtime termination. Non-protocol failures remain recovery-required;
+        /// only package-authenticated completion or abort can mint cleanup evidence.
+        @_spi(MosaicPrivateAlpha)
+        public func waitForDisposition(
+            createdAtUnixSeconds: UInt64,
+            signing: PostManifestSigningMaterial?,
+            recoveryPersistence: FusionRecoveryPersistence,
+            privateDeploymentRelays: PrivateDeploymentRelayCapabilities
+        ) async throws -> PostManifestDisposition {
+            guard let execution else { throw Failure.invalidRecoveryState }
+            do {
+                guard let termination = try await execution
+                    .waitForTermination() else {
+                    return .alreadyClaimed
+                }
+                let reference = termination.reservationReference.map(
+                    PostManifestReservationReference.init
+                )
+                switch termination.kind {
+                case .recoveryRequired:
+                    return .recoveryRequired(
+                        .walletState,
+                        reservationReference: reference
+                    )
+                case .failed:
+                    return .recoveryRequired(
+                        .runtimeFailure,
+                        reservationReference: reference
+                    )
+                case .transportFailed:
+                    return .recoveryRequired(
+                        .transportUnavailable,
+                        reservationReference: reference
+                    )
+                case .completed, .aborted:
+                    break
+                }
+
+                let step: FusionRuntime.Step
+                if mustValidateRecoveredTerminal {
+                    step = try await owner
+                        .validateRecoveredPostManifestTerminal(
+                            consuming: termination
+                        )
+                    mustValidateRecoveredTerminal = false
+                } else if let signing {
+                    step = try await owner.preparePostManifestTermination(
+                        consuming: termination,
+                        createdAtUnixSeconds: createdAtUnixSeconds,
+                        signing: signing.fusionCapability
+                    )
+                } else {
+                    step = try await owner.preparePostManifestTermination(
+                        consuming: termination,
+                        createdAtUnixSeconds: createdAtUnixSeconds,
+                        signing: nil
+                    )
+                }
+                return try await finishTerminalStep(
+                    step,
+                    recoveryPersistence: recoveryPersistence,
+                    privateDeploymentRelays: privateDeploymentRelays
+                )
+            } catch let cancellation as CancellationError {
+                throw cancellation
+            } catch let failure as Failure {
+                throw failure
+            } catch {
+                throw Failure(error)
+            }
+        }
+
+        private func prepareConstruction(
+            distribution: PostManifestMailboxDistribution,
+            capabilities: FusionRuntime.PostManifestRuntimeCapabilities,
+            recoveryPersistence: FusionRecoveryPersistence
+        ) async throws -> FusionRuntime.PostManifestConstruction {
+            guard distribution.binding == binding,
+                  distribution.localControlIdentity.count == 32 else {
+                throw Failure.invalidBinding
+            }
+            do {
+                let step = try await owner.preparePostManifestRuntime(
+                    localControlIdentity:
+                        distribution.localControlIdentity,
+                    capabilities: capabilities
+                )
+                let next = try await persistOnlyStep(
+                    step,
+                    recoveryPersistence: recoveryPersistence
+                )
+                guard case .awaitingInput = next else {
+                    throw Failure.invalidRecoveryState
+                }
+            } catch FusionRuntime.Failure.invalidStateTransition {
+                // An already initialized recovery proceeds directly to the
+                // one-use construction. Every other invalid state is rejected
+                // again by the construction guard without journal mutation.
+            }
+            return try await owner.makePostManifestConstruction(
+                localControlIdentity: distribution.localControlIdentity
+            )
+        }
+
+        private func normalizeLoadedOwner(
+            recoveryPersistence: FusionRecoveryPersistence,
+            privateDeploymentRelays: PrivateDeploymentRelayCapabilities
+        ) async throws {
+            var step = try await owner.nextStep()
+            while true {
+                switch step {
+                case let .persist(transition):
+                    step = try await persist(
+                        transition,
+                        recoveryPersistence: recoveryPersistence
+                    )
+                case let .publishPrivateDeployment(publication):
+                    step = try await publish(
+                        publication,
+                        privateDeploymentRelays: privateDeploymentRelays
+                    )
+                case let .recover(directive):
+                    switch directive {
+                    case let .resumePrivateDeployment(continuation):
+                        step = try await owner.resumePrivateDeployment(
+                            continuation
+                        )
+                    case let .validatePostManifestTerminal(continuation):
+                        mustValidateRecoveredTerminal = true
+                        step = try await owner.resumePrivateDeployment(
+                            continuation
+                        )
+                    case let .publishPrivateDeployment(publication):
+                        step = try await publish(
+                            publication,
+                            privateDeploymentRelays:
+                                privateDeploymentRelays
+                        )
+                    case .terminal:
+                        throw Failure.terminalDispositionRequired
+                    }
+                case .awaitingInput:
+                    return
+                case .ignoredDuplicate,
+                     .awaitingPreManifestAbortSignature:
+                    throw Failure.invalidRecoveryState
+                case .terminal:
+                    throw Failure.terminalDispositionRequired
+                }
+            }
+        }
+
+        private func persistOnlyStep(
+            _ step: FusionRuntime.Step,
+            recoveryPersistence: FusionRecoveryPersistence
+        ) async throws -> FusionRuntime.Step {
+            guard case let .persist(transition) = step else {
+                throw Failure.invalidRecoveryState
+            }
+            return try await persist(
+                transition,
+                recoveryPersistence: recoveryPersistence
+            )
+        }
+
+        private func persist(
+            _ transition: FusionRuntime.RecoveryTransition,
+            recoveryPersistence: FusionRecoveryPersistence
+        ) async throws -> FusionRuntime.Step {
+            let readback = try await recoveryPersistence.persist(
+                .init(transition)
+            )
+            return try await owner.acknowledgePersistence(
+                transition,
+                exactReadback: readback
+            )
+        }
+
+        private func publish(
+            _ publication: consuming FusionRuntime
+                .PrivateDeploymentPublication,
+            privateDeploymentRelays: PrivateDeploymentRelayCapabilities
+        ) async throws -> FusionRuntime.Step {
+            let receipt = try await publication.publish(
+                using: privateDeploymentRelays.fusionCapabilities()
+            )
+            return try await owner.acknowledgePrivateDeploymentPublication(
+                consuming: receipt
+            )
+        }
+
+        private func finishTerminalStep(
+            _ initial: FusionRuntime.Step,
+            recoveryPersistence: FusionRecoveryPersistence,
+            privateDeploymentRelays: PrivateDeploymentRelayCapabilities
+        ) async throws -> PostManifestDisposition {
+            var step = initial
+            while true {
+                switch step {
+                case let .persist(transition):
+                    step = try await persist(
+                        transition,
+                        recoveryPersistence: recoveryPersistence
+                    )
+                case let .publishPrivateDeployment(publication):
+                    step = try await publish(
+                        publication,
+                        privateDeploymentRelays: privateDeploymentRelays
+                    )
+                case let .recover(.publishPrivateDeployment(publication)):
+                    step = try await publish(
+                        publication,
+                        privateDeploymentRelays: privateDeploymentRelays
+                    )
+                case let .recover(.terminal(disposition)),
+                     let .terminal(disposition):
+                    return try await terminalDisposition(disposition)
+                case .recover,
+                     .ignoredDuplicate,
+                     .awaitingPreManifestAbortSignature,
+                     .awaitingInput:
+                    throw Failure.invalidRecoveryState
+                }
+            }
+        }
+
+        private func terminalDisposition(
+            _ disposition: FusionRuntime.TerminalDisposition
+        ) async throws -> PostManifestDisposition {
+            guard case let .cleanupAuthorized(
+                reason,
+                evidenceIdentifier,
+                recoveryRevision
+            ) = disposition else {
+                throw Failure.invalidRecoveryState
+            }
+            let evidence = try await owner.claimTerminalEvidence()
+            guard evidence.evidenceIdentifier == evidenceIdentifier,
+                  evidence.recoveryRevision == recoveryRevision,
+                  Binding(evidence.binding) == binding else {
+                throw Failure.invalidRecoveryState
+            }
+            return .terminal(.init(
+                binding: binding,
+                reason: .init(reason),
+                evidenceIdentifier: evidence.evidenceIdentifier,
+                recoveryRevision: evidence.recoveryRevision,
+                recoverySnapshotDigest: evidence.recoverySnapshotDigest
+            ))
+        }
+
+        private func restoreContributorMailboxes(
+            _ archive: PostManifestContributorMailboxArchive,
+            currentUnixSeconds: UInt64
+        ) async throws -> PostManifestMailboxDistribution {
+            let proof = try await owner
+                .makeTransportBootstrapPrivateDeploymentProof()
+            let documents = try Self.loadCommonMailboxDocuments(
+                archive.documents,
+                proof: proof,
+                currentUnixSeconds: currentUnixSeconds
+            )
+            let registration = try FusionRuntime
+                .loadTransportBootstrapAnonymousMailboxRegistration(
+                    from: archive.registration,
+                    proof: proof,
+                    authorizationKey: documents.authorizationKey,
+                    claimSet: documents.claimSet,
+                    responseSet: documents.responseSet,
+                    currentUnixSeconds: currentUnixSeconds
+                )
+            let assignment = try FusionRuntime
+                .loadTransportBootstrapAnonymousMailboxAssignment(
+                    from: archive.assignment,
+                    proof: proof,
+                    authorizationKey: documents.authorizationKey,
+                    claimSet: documents.claimSet,
+                    responseSet: documents.responseSet,
+                    registration: registration,
+                    currentUnixSeconds: currentUnixSeconds
+                )
+            let distribution = try FusionRuntime
+                .makeContributorTransportBootstrapMailboxDistribution(
+                    proof: proof,
+                    authorizationKey: documents.authorizationKey,
+                    claimSet: documents.claimSet,
+                    responseSet: documents.responseSet,
+                    registration: registration,
+                    assignment: assignment,
+                    registrationSet: documents.registrationSet,
+                    acknowledgementSet: documents.acknowledgementSet,
+                    contributorControlIdentity:
+                        archive.contributorControlIdentity,
+                    localControlRecipientSigningKey:
+                        archive.localControlRecipientSigningKey,
+                    currentUnixSeconds: currentUnixSeconds
+                )
+            return .init(
+                binding: binding,
+                localControlIdentity:
+                    archive.contributorControlIdentity,
+                isConductor: false,
+                distribution: distribution
+            )
+        }
+
+        private func restoreConductorMailboxes(
+            _ archive: PostManifestConductorMailboxArchive,
+            currentUnixSeconds: UInt64
+        ) async throws -> PostManifestMailboxDistribution {
+            let proof = try await owner
+                .makeTransportBootstrapPrivateDeploymentProof()
+            let documents = try Self.loadCommonMailboxDocuments(
+                archive.documents,
+                proof: proof,
+                currentUnixSeconds: currentUnixSeconds
+            )
+            var registrations: [
+                FusionRuntime.TransportBootstrapAnonymousMailboxRegistration
+            ] = []
+            var assignments: [
+                FusionRuntime.TransportBootstrapConductorMailboxAssignment
+            ] = []
+            for archiveAssignment in archive.assignments {
+                let registration = try FusionRuntime
+                    .loadTransportBootstrapAnonymousMailboxRegistration(
+                        from: archiveAssignment.registration,
+                        proof: proof,
+                        authorizationKey: documents.authorizationKey,
+                        claimSet: documents.claimSet,
+                        responseSet: documents.responseSet,
+                        currentUnixSeconds: currentUnixSeconds
+                    )
+                registrations.append(registration)
+                assignments.append(
+                    try FusionRuntime
+                        .restoreTransportBootstrapConductorMailboxAssignment(
+                            from: archiveAssignment.assignment,
+                            proof: proof,
+                            authorizationKey: documents.authorizationKey,
+                            claimSet: documents.claimSet,
+                            responseSet: documents.responseSet,
+                            registration: registration,
+                            recipientPrivateKeys:
+                                archiveAssignment.recipientPrivateKeys,
+                            currentUnixSeconds: currentUnixSeconds
+                        )
+                )
+            }
+            let distribution = try FusionRuntime
+                .makeConductorTransportBootstrapMailboxDistribution(
+                    proof: proof,
+                    authorizationKey: documents.authorizationKey,
+                    claimSet: documents.claimSet,
+                    responseSet: documents.responseSet,
+                    registrations: registrations,
+                    conductorAssignments: assignments,
+                    registrationSet: documents.registrationSet,
+                    acknowledgementSet: documents.acknowledgementSet,
+                    localControlRecipientSigningKey:
+                        archive.localControlRecipientSigningKey,
+                    currentUnixSeconds: currentUnixSeconds
+                )
+            let localVerificationKey = archive
+                .localControlRecipientSigningKey
+                .bip340VerificationKey
+            guard let localControlIdentity = distribution
+                .mailboxCapabilities.controlMailboxes.first(where: {
+                    $0.eventVerificationKey == localVerificationKey
+                })?.controlIdentity else {
+                throw Failure.invalidBinding
+            }
+            return .init(
+                binding: binding,
+                localControlIdentity: localControlIdentity,
+                isConductor: true,
+                distribution: distribution
+            )
+        }
+
+        private static func loadCommonMailboxDocuments(
+            _ archive: PostManifestMailboxDocuments,
+            proof: FusionRuntime.PrivateDeploymentProof,
+            currentUnixSeconds: UInt64
+        ) throws -> (
+            authorizationKey:
+                FusionRuntime.TransportBootstrapAuthorizationKeyDocument,
+            claimSet: FusionRuntime.TransportBootstrapControlMailboxClaimSet,
+            responseSet: FusionRuntime.TransportBootstrapBlindResponseSet,
+            registrationSet: FusionRuntime
+                .TransportBootstrapAnonymousMailboxRegistrationSet,
+            acknowledgementSet: FusionRuntime
+                .TransportBootstrapRegistrationSetAcknowledgementSet
+        ) {
+            let authorizationKey = try FusionRuntime
+                .loadTransportBootstrapAuthorizationKeyDocument(
+                    from: archive.authorizationKey,
+                    proof: proof,
+                    currentUnixSeconds: currentUnixSeconds
+                )
+            let claimSet = try FusionRuntime
+                .loadTransportBootstrapControlMailboxClaimSet(
+                    from: archive.controlClaimSet,
+                    proof: proof,
+                    authorizationKey: authorizationKey,
+                    currentUnixSeconds: currentUnixSeconds
+                )
+            let responseSet = try FusionRuntime
+                .loadTransportBootstrapBlindResponseSet(
+                    from: archive.blindResponseSet,
+                    proof: proof,
+                    authorizationKey: authorizationKey,
+                    claimSet: claimSet,
+                    currentUnixSeconds: currentUnixSeconds
+                )
+            let registrationSet = try FusionRuntime
+                .loadTransportBootstrapAnonymousMailboxRegistrationSet(
+                    from: archive.registrationSet,
+                    proof: proof,
+                    authorizationKey: authorizationKey,
+                    claimSet: claimSet,
+                    responseSet: responseSet,
+                    currentUnixSeconds: currentUnixSeconds
+                )
+            let acknowledgementSet = try FusionRuntime
+                .loadTransportBootstrapRegistrationSetAcknowledgementSet(
+                    from: archive.acknowledgementSet,
+                    proof: proof,
+                    authorizationKey: authorizationKey,
+                    claimSet: claimSet,
+                    responseSet: responseSet,
+                    registrationSet: registrationSet,
+                    currentUnixSeconds: currentUnixSeconds
+                )
+            return (
+                authorizationKey,
+                claimSet,
+                responseSet,
+                registrationSet,
+                acknowledgementSet
+            )
+        }
+    }
+}
+#endif

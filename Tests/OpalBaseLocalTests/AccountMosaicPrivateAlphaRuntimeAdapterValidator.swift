@@ -134,10 +134,13 @@ struct AccountMosaicPrivateAlphaRuntimeAdapterValidator {
                     .walletReservationReference.identifier,
                 expectedWalletGeneration: baseBinding
                     .walletReservationReference.generation,
+                transactionReader: .init(
+                    fetchRawTransaction: { _ in Data() }
+                ),
                 fusionRecovery: fusionRecovery,
                 journalRecovery: journalRecovery
             )
-        #expect(recovery.binding == fusionBinding)
+        #expect(recovery.binding == .init(fusionBinding))
         #expect(
             !(await prepared.fixture.addressBook.listSpendableUTXOs())
                 .contains(prepared.fixture.selectedInput)
@@ -649,6 +652,9 @@ struct AccountMosaicPrivateAlphaRuntimeAdapterValidator {
                     expectedWalletGeneration: changesWalletGeneration
                         ? baseBinding.walletReservationReference.generation + 1
                         : baseBinding.walletReservationReference.generation,
+                    transactionReader: .init(
+                        fetchRawTransaction: { _ in Data() }
+                    ),
                     fusionRecovery: fusionRecovery,
                     journalRecovery: journalRecovery
                 )

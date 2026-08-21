@@ -85,6 +85,9 @@ struct AccountMosaicPrivateAlphaRecoveryOwnerValidator {
                         .walletReservationReference.identifier,
                     expectedWalletGeneration: internalBinding
                         .walletReservationReference.generation,
+                    transactionReader: .init(
+                        fetchRawTransaction: { _ in Data() }
+                    ),
                     fusionRecovery: fusionRecovery,
                     journalRecovery: recovery
                 )

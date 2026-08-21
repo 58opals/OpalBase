@@ -7,36 +7,40 @@ import Foundation
 extension OpalBase.Account.MosaicPrivateAlphaRuntime {
     /// Exact Fusion and wallet-recovery capabilities claimed from one authenticated binding.
     ///
-    /// Give ``transactionHost`` to Fusion deterministic replay before calling ``resume()``.
-    /// The fallback resumes Base-only recovery and may terminalize a pre-sign wallet state.
+    /// Use ``makePostManifestOwner()`` for Fusion replay. The fallback ``resume()`` path
+    /// continues Base-only recovery and may terminalize a pre-sign wallet state.
     @_spi(MosaicPrivateAlpha)
     public struct RecoveryOwner: Sendable {
         /// Exact protocol identity used to correlate Fusion evidence with Base cleanup authority.
         @_spi(MosaicPrivateAlpha)
-        public let binding: OpalFusion.MosaicPrivateAlphaRuntime.Binding
+        public let binding: Binding
 
         /// The sole Fusion transition owner restored from the matching snapshot.
-        @_spi(MosaicPrivateAlpha)
-        public let privateDeploymentOwner: OpalFusion
+        let privateDeploymentOwner: OpalFusion
             .MosaicPrivateAlphaRuntime.Owner
 
         private let walletRecoveryOwner: OpalBase.Account
             .MosaicPrivateAlphaRecoveryOwner
+        let previousOutputSource: OpalBase.Network.TransactionReader
 
         init(
             binding: OpalFusion.MosaicPrivateAlphaRuntime.Binding,
             privateDeploymentOwner: OpalFusion.MosaicPrivateAlphaRuntime.Owner,
             walletRecoveryOwner: OpalBase.Account
-                .MosaicPrivateAlphaRecoveryOwner
+                .MosaicPrivateAlphaRecoveryOwner,
+            previousOutputSource: OpalBase.Network.TransactionReader
         ) {
-            self.binding = binding
+            self.binding = .init(binding)
+            fusionBinding = binding
             self.privateDeploymentOwner = privateDeploymentOwner
             self.walletRecoveryOwner = walletRecoveryOwner
+            self.previousOutputSource = previousOutputSource
         }
 
+        let fusionBinding: OpalFusion.MosaicPrivateAlphaRuntime.Binding
+
         /// Recovery-only wallet callbacks for Fusion's deterministic admission replay.
-        @_spi(MosaicPrivateAlpha)
-        public var transactionHost:
+        var transactionHost:
             any OpalFusion.Host.MosaicCompleteTransactionHost {
             walletRecoveryOwner
         }
