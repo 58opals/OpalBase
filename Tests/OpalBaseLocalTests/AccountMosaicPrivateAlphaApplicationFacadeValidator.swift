@@ -54,6 +54,12 @@ struct AccountMosaicPrivateAlphaApplicationFacadeValidator {
         #expect(await persistence.transitionCount() == 1)
         let sessionOwner = try await host.makeSessionOwner()
         #expect(sessionOwner.binding == binding)
+        await #expect(throws: Runtime.Failure.invalidRecoveryState) {
+            _ = try await sessionOwner.resumeWalletRecovery()
+        }
+        await #expect(throws: Runtime.Failure.invalidRecoveryState) {
+            _ = try await sessionOwner.authorizeWalletJournalErasure()
+        }
         await #expect(
             throws: Runtime.Failure.oneTimeCapabilityAlreadyClaimed
         ) {
@@ -76,7 +82,7 @@ struct AccountMosaicPrivateAlphaApplicationFacadeValidator {
         #expect(recorded.walletReservationReference.generation == 42)
     }
 
-    @Test("Session owner starts, publishes, and resumes through Base-only types")
+    @Test("Session owner gates wallet cleanup on exact protocol terminality")
     func runFreshPrivateDeploymentBoundary() async throws {
         let account = try await AccountTestFixtures.makeAccount()
         let selectedInput = try await AccountTestFixtures.addUnspentOutput(
@@ -85,7 +91,9 @@ struct AccountMosaicPrivateAlphaApplicationFacadeValidator {
             usage: .change,
             hashByte: 0xd2
         )
-        let journalProbe = MosaicAttemptJournalProbeActor()
+        let journalProbe = MosaicAttemptJournalProbeActor(
+            authorizesErasure: true
+        )
         let binding = try #require(Runtime.Binding(
             attemptIdentifier: Data(repeating: 0x51, count: 32),
             generationIdentifier: Data(repeating: 0x52, count: 32),
@@ -182,6 +190,58 @@ struct AccountMosaicPrivateAlphaApplicationFacadeValidator {
             )
         }
 
+        let applicationRecoveryBeforeTerminal = try await Runtime
+            .loadApplicationSessionRecovery(
+                account: account,
+                binding: binding,
+                expectedWalletReservationIdentifier: walletIdentifier,
+                expectedWalletGeneration: 43,
+                transactionReader: transactionReader,
+                fusionRecoverySnapshot: await persistence.readSnapshot(),
+                journalKey: await journalProbe
+                    .readFieldDerivedJournalKey(),
+                journalScope: await journalProbe.readApplicationScope(),
+                journalPersistence: journalProbe
+                    .makeApplicationPersistence()
+            )
+        let recoveredOwnerBeforeTerminal: Runtime.SessionOwner
+        switch consume applicationRecoveryBeforeTerminal {
+        case let .loadedSessionOwner(owner):
+            recoveredOwnerBeforeTerminal = owner
+        case .abandonedFreshAttempt:
+            Issue.record("Expected a nonempty application recovery")
+            return
+        }
+        let progressBeforeTerminal = try await recoveredOwnerBeforeTerminal
+            .resumePrivateDeployment(capabilities: capabilities)
+        #expect(progressBeforeTerminal == .awaitingInput(.discovery))
+        await #expect(throws: Runtime.Failure.invalidRecoveryState) {
+            _ = try await recoveredOwnerBeforeTerminal.resumeWalletRecovery()
+        }
+
+        let abortSigning = Runtime.PrivateDeploymentSigningMaterial(
+            signingKey: try .init(
+                rawRepresentation:
+                    Data(repeating: 0, count: 31) + Data([1])
+            ),
+            documentAuxiliaryRandomness: try .init(
+                rawRepresentation: Data(repeating: 0xa6, count: 32)
+            ),
+            eventAuxiliaryRandomness: try .init(
+                rawRepresentation: Data(repeating: 0x21, count: 32)
+            )
+        )
+        guard case let .terminal(terminalEvidence) = try await
+            recoveredOwnerBeforeTerminal
+            .preparePreManifestAbort(
+                currentUnixSeconds: 1_800_000_060,
+                signing: abortSigning,
+                capabilities: capabilities
+            ) else {
+            Issue.record("Expected authenticated pre-manifest abort evidence")
+            return
+        }
+
         let applicationRecovery = try await Runtime
             .loadApplicationSessionRecovery(
                 account: account,
@@ -207,8 +267,28 @@ struct AccountMosaicPrivateAlphaApplicationFacadeValidator {
         let recoveredProgress = try await recoveredSessionOwner
             .resumePrivateDeployment(capabilities: capabilities)
 
-        #expect(recoveredProgress == .awaitingInput(.discovery))
-        #expect(await persistence.transitionCount() == 4)
+        guard case let .terminal(recoveredEvidence) = recoveredProgress else {
+            Issue.record("Expected recovered terminal protocol evidence")
+            return
+        }
+        #expect(recoveredEvidence == terminalEvidence)
+        await #expect(throws: Runtime.Failure.invalidRecoveryState) {
+            _ = try await recoveredSessionOwner
+                .authorizeWalletJournalErasure()
+        }
+
+        let walletOutcome = try await recoveredSessionOwner
+            .resumeWalletRecovery()
+        guard case .terminal(.walletReleased) = walletOutcome else {
+            Issue.record("Expected exact wallet-release disposition")
+            return
+        }
+        let cleanupRequirement = try await recoveredSessionOwner
+            .authorizeWalletJournalErasure()
+        let expectedScope = await journalProbe.readApplicationScope()
+        #expect(
+            cleanupRequirement.context.scope == expectedScope
+        )
     }
 
     @Test("App-owned capability surface contains no raw Fusion type")

@@ -15,7 +15,8 @@ extension OpalBase.Account.MosaicPrivateAlphaRuntime.FreshHost {
             binding: binding,
             owner: privateDeploymentOwner,
             transactionHost: transactionHost,
-            previousOutputSource: previousOutputSource
+            previousOutputSource: previousOutputSource,
+            walletRecoveryOwner: nil
         )
     }
 }
@@ -30,7 +31,8 @@ extension OpalBase.Account.MosaicPrivateAlphaRuntime.RecoveryOwner {
             binding: binding,
             owner: privateDeploymentOwner,
             transactionHost: transactionHost,
-            previousOutputSource: previousOutputSource
+            previousOutputSource: previousOutputSource,
+            walletRecoveryOwner: walletRecoveryOwner
         )
     }
 }
@@ -51,22 +53,95 @@ extension OpalBase.Account.MosaicPrivateAlphaRuntime {
             any OpalFusion.Host.MosaicCompleteTransactionHost
         private let previousOutputSource:
             OpalBase.Network.TransactionReader
+        private let walletRecoveryOwner: OpalBase.Account
+            .MosaicPrivateAlphaRecoveryOwner?
         var execution: FusionRuntime.PostManifestExecution?
         var sessionOperationIsInProgress = false
         var constructionIsInProgress = false
         var mustValidateRecoveredTerminal = false
+        var protocolTerminalEvidenceWasObserved = false
+        var walletTerminalDispositionWasObserved = false
 
         init(
             binding: Binding,
             owner: FusionRuntime.Owner,
             transactionHost:
                 any OpalFusion.Host.MosaicCompleteTransactionHost,
-            previousOutputSource: OpalBase.Network.TransactionReader
+            previousOutputSource: OpalBase.Network.TransactionReader,
+            walletRecoveryOwner: OpalBase.Account
+                .MosaicPrivateAlphaRecoveryOwner?
         ) {
             self.binding = binding
             self.owner = owner
             self.transactionHost = transactionHost
             self.previousOutputSource = previousOutputSource
+            self.walletRecoveryOwner = walletRecoveryOwner
+        }
+
+        /// Continues the exact authenticated wallet recovery retained by this recovered session.
+        ///
+        /// This operation is available only after this owner returns exact terminal Fusion
+        /// evidence. Fresh sessions must then cross the durable application-recovery boundary
+        /// before calling it. A terminal return proves only the Base-owned wallet disposition;
+        /// the application must separately retain both terminal records and complete outer cleanup
+        /// before reporting the attempt as cleaned.
+        @_spi(MosaicPrivateAlpha)
+        public func resumeWalletRecovery() async throws -> Outcome {
+            guard protocolTerminalEvidenceWasObserved,
+                  let walletRecoveryOwner else {
+                throw Failure.invalidRecoveryState
+            }
+            guard !sessionOperationIsInProgress,
+                  !constructionIsInProgress else {
+                throw Failure.operationInProgress
+            }
+            sessionOperationIsInProgress = true
+            defer { sessionOperationIsInProgress = false }
+            do {
+                let outcome = Outcome(
+                    try await walletRecoveryOwner.resume()
+                )
+                if case .terminal = outcome {
+                    walletTerminalDispositionWasObserved = true
+                }
+                return outcome
+            } catch let cancellation as CancellationError {
+                throw cancellation
+            } catch let failure as OpalBase.Account
+                .MosaicPrivateAlphaRecoveryOwner.Failure {
+                throw Failure(failure)
+            } catch {
+                throw Failure.invalidRecoveryState
+            }
+        }
+
+        /// Durably authorizes exact-envelope erasure after this owner observes both terminal proofs.
+        @_spi(MosaicPrivateAlpha)
+        public func authorizeWalletJournalErasure() async throws
+            -> OpalBase.Account.MosaicPrivateAlphaJournal.CleanupRequirement {
+            guard protocolTerminalEvidenceWasObserved,
+                  walletTerminalDispositionWasObserved,
+                  let walletRecoveryOwner else {
+                throw Failure.invalidRecoveryState
+            }
+            guard !sessionOperationIsInProgress,
+                  !constructionIsInProgress else {
+                throw Failure.operationInProgress
+            }
+            sessionOperationIsInProgress = true
+            defer { sessionOperationIsInProgress = false }
+            do {
+                return .init(
+                    try await walletRecoveryOwner.authorizeJournalErasure()
+                )
+            } catch let cancellation as CancellationError {
+                throw cancellation
+            } catch let failure as OpalBase.Account
+                .MosaicPrivateAlphaRecoveryOwner.Failure {
+                throw Failure(failure)
+            } catch {
+                throw Failure.invalidRecoveryState
+            }
         }
 
         /// Restores authenticated mailbox state, initializes exact companion journals when
@@ -513,6 +588,7 @@ extension OpalBase.Account.MosaicPrivateAlphaRuntime {
                   Binding(evidence.binding) == binding else {
                 throw Failure.invalidRecoveryState
             }
+            protocolTerminalEvidenceWasObserved = true
             return .init(
                 binding: binding,
                 reason: .init(reason),

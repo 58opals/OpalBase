@@ -19,7 +19,7 @@ extension OpalBase.Account.MosaicPrivateAlphaRuntime {
         let privateDeploymentOwner: OpalFusion
             .MosaicPrivateAlphaRuntime.Owner
 
-        private let walletRecoveryOwner: OpalBase.Account
+        let walletRecoveryOwner: OpalBase.Account
             .MosaicPrivateAlphaRecoveryOwner
         let previousOutputSource: OpalBase.Network.TransactionReader
         let sessionOwnerClaim = MosaicPrivateAlphaOneTimeClaim()
