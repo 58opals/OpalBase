@@ -30,6 +30,7 @@ struct AccountMosaicPrivateAlphaApplicationFacadeValidator {
         let walletIdentifier = try #require(
             UUID(uuidString: "00000000-0000-0000-0000-0000000000d1")
         )
+        let persistence = MosaicFusionRecoveryPersistenceProbe()
 
         let host = try await Runtime.createFreshApplicationHost(
             account: account,
@@ -42,10 +43,15 @@ struct AccountMosaicPrivateAlphaApplicationFacadeValidator {
             transactionReader: .init(
                 fetchRawTransaction: { _ in Data() }
             ),
+            recoveryPersistence: .init { transition in
+                #expect(await journalProbe.readRecords().isEmpty)
+                return try await persistence.persist(transition)
+            },
             journalAttempt: journalAttempt
         )
 
         #expect(host.binding == binding)
+        #expect(await persistence.transitionCount() == 1)
         let sessionOwner = try await host.makeSessionOwner()
         #expect(sessionOwner.binding == binding)
         await #expect(
@@ -91,6 +97,9 @@ struct AccountMosaicPrivateAlphaApplicationFacadeValidator {
         let transactionReader = OpalBase.Network.TransactionReader(
             fetchRawTransaction: { _ in Data() }
         )
+        let persistence = MosaicFusionRecoveryPersistenceProbe(
+            blockedTransitionNumber: 2
+        )
         let host = try await Runtime.createFreshApplicationHost(
             account: account,
             binding: binding,
@@ -100,12 +109,12 @@ struct AccountMosaicPrivateAlphaApplicationFacadeValidator {
             selectedInputs: [selectedInput],
             outputAmountsSatoshis: [99_823],
             transactionReader: transactionReader,
+            recoveryPersistence: .init { transition in
+                try await persistence.persist(transition)
+            },
             journalAttempt: .init(
                 try await journalProbe.makeFreshAttempt()
             )
-        )
-        let persistence = MosaicFusionRecoveryPersistenceProbe(
-            blockFirstTransition: true
         )
         let relayProbe = MosaicPrivateDeploymentRelayProbe()
         let capabilities = Runtime.PrivateDeploymentCapabilities(
@@ -126,13 +135,13 @@ struct AccountMosaicPrivateAlphaApplicationFacadeValidator {
                 capabilities: capabilities
             )
         }
-        await persistence.waitUntilFirstTransitionIsBlocked()
+        await persistence.waitUntilTransitionIsBlocked()
         await #expect(throws: Runtime.Failure.operationInProgress) {
             _ = try await sessionOwner.resumePrivateDeployment(
                 capabilities: capabilities
             )
         }
-        await persistence.releaseFirstTransition()
+        await persistence.releaseBlockedTransition()
         let progress = try await beginTask.value
 
         #expect(progress == .awaitingInput(.discovery))
@@ -246,20 +255,23 @@ private actor MosaicFusionRecoveryPersistenceProbe {
     typealias Transition = OpalBase.Account.MosaicPrivateAlphaRuntime
         .FusionRecoveryTransition
 
-    private let blockFirstTransition: Bool
+    private let blockedTransitionNumber: Int?
     private var snapshot: Data?
     private var transitions: [Transition] = []
-    private var didBlockFirstTransition = false
+    private var attemptedTransitionCount = 0
+    private var didBlockTransition = false
     private var blockedWaiters: [CheckedContinuation<Void, Never>] = []
     private var releaseContinuation: CheckedContinuation<Void, Never>?
 
-    init(blockFirstTransition: Bool = false) {
-        self.blockFirstTransition = blockFirstTransition
+    init(blockedTransitionNumber: Int? = nil) {
+        self.blockedTransitionNumber = blockedTransitionNumber
     }
 
     func persist(_ transition: Transition) async throws -> Data {
-        if blockFirstTransition, !didBlockFirstTransition {
-            didBlockFirstTransition = true
+        attemptedTransitionCount += 1
+        if attemptedTransitionCount == blockedTransitionNumber,
+           !didBlockTransition {
+            didBlockTransition = true
             let waiters = blockedWaiters
             blockedWaiters.removeAll()
             waiters.forEach { $0.resume() }
@@ -280,14 +292,16 @@ private actor MosaicFusionRecoveryPersistenceProbe {
 
     func readSnapshot() -> Data? { snapshot }
 
-    func waitUntilFirstTransitionIsBlocked() async {
-        guard blockFirstTransition, !didBlockFirstTransition else { return }
+    func waitUntilTransitionIsBlocked() async {
+        guard blockedTransitionNumber != nil, !didBlockTransition else {
+            return
+        }
         await withCheckedContinuation { continuation in
             blockedWaiters.append(continuation)
         }
     }
 
-    func releaseFirstTransition() {
+    func releaseBlockedTransition() {
         releaseContinuation?.resume()
         releaseContinuation = nil
     }

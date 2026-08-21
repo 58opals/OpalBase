@@ -5,7 +5,7 @@ import Foundation
 @_spi(MosaicPrivateAlpha) import OpalFusion
 
 extension OpalBase.Account.MosaicPrivateAlphaRuntime.SessionOwner {
-    /// Persists the fresh Fusion snapshot, installs the authenticated discovery context,
+    /// Verifies the fresh Fusion snapshot is durable, installs the authenticated discovery context,
     /// and returns only after the resulting snapshot is durably read back.
     @_spi(MosaicPrivateAlpha)
     public func beginPrivateDeployment(
