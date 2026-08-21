@@ -8,6 +8,7 @@ public enum MosaicPrivateAlphaApplicationFacadeConsumer {
     public static func assertTransportBootstrapSurfaceCompiles() {
         typealias Runtime = OpalBase.Account.MosaicPrivateAlphaRuntime
 
+        _ = Runtime.PrivateDeploymentRole.self
         _ = Runtime.TransportBootstrapRoster.self
         _ = Runtime.TransportBootstrapAuthorizationKeyDocument.self
         _ = Runtime.TransportBootstrapAnonymousMailboxRequest.self

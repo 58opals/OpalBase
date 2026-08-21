@@ -5,6 +5,30 @@ import Foundation
 @_spi(MosaicPrivateAlpha) import OpalFusion
 
 extension OpalBase.Account.MosaicPrivateAlphaRuntime.SessionOwner {
+    /// Projects the package-authenticated role election result for one control identity.
+    @_spi(MosaicPrivateAlpha)
+    public func privateDeploymentRole(
+        controlIdentity: Data
+    ) async throws -> OpalBase.Account.MosaicPrivateAlphaRuntime
+        .PrivateDeploymentRole {
+        try claimPrivateDeploymentOperation()
+        defer { releasePrivateDeploymentOperation() }
+        do {
+            return .init(
+                try await owner.privateDeploymentRole(
+                    controlIdentity: controlIdentity
+                )
+            )
+        } catch let cancellation as CancellationError {
+            throw cancellation
+        } catch let failure
+            as OpalBase.Account.MosaicPrivateAlphaRuntime.Failure {
+            throw failure
+        } catch {
+            throw OpalBase.Account.MosaicPrivateAlphaRuntime.Failure(error)
+        }
+    }
+
     /// Verifies the fresh Fusion snapshot is durable, installs the authenticated discovery context,
     /// and returns only after the resulting snapshot is durably read back.
     @_spi(MosaicPrivateAlpha)
