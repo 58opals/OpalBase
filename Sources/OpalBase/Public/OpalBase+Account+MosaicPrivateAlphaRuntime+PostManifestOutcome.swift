@@ -56,14 +56,14 @@ extension OpalBase.Account.MosaicPrivateAlphaRuntime {
     }
 
     @_spi(MosaicPrivateAlpha)
-    public enum PostManifestRecoveryCause: Sendable, Equatable {
+    public enum RecoveryCause: Sendable, Equatable {
         case walletState
         case runtimeFailure
         case transportUnavailable
     }
 
     @_spi(MosaicPrivateAlpha)
-    public enum PostManifestTerminalReason: Sendable, Equatable {
+    public enum TerminalReason: Sendable, Equatable {
         case completed
         case aborted
 
@@ -77,10 +77,10 @@ extension OpalBase.Account.MosaicPrivateAlphaRuntime {
 
     /// Exact protocol cleanup evidence. Wallet disposition remains a separate authority.
     @_spi(MosaicPrivateAlpha)
-    public struct PostManifestTerminalEvidence: Sendable, Equatable {
+    public struct TerminalEvidence: Sendable, Equatable {
         @_spi(MosaicPrivateAlpha) public let binding: Binding
         @_spi(MosaicPrivateAlpha) public let reason:
-            PostManifestTerminalReason
+            TerminalReason
         @_spi(MosaicPrivateAlpha) public let evidenceIdentifier: Data
         @_spi(MosaicPrivateAlpha) public let recoveryRevision: UInt64
         @_spi(MosaicPrivateAlpha) public let recoverySnapshotDigest: Data
@@ -88,15 +88,14 @@ extension OpalBase.Account.MosaicPrivateAlphaRuntime {
 
     /// Application disposition after the sole runtime termination has been claimed.
     @_spi(MosaicPrivateAlpha)
-    public enum PostManifestDisposition: Sendable, Equatable {
-        case terminal(PostManifestTerminalEvidence)
+    public enum Disposition: Sendable, Equatable {
+        case terminal(TerminalEvidence)
         case recoveryRequired(
-            PostManifestRecoveryCause,
+            RecoveryCause,
             reservationReference: PostManifestReservationReference?
         )
         case alreadyClaimed
     }
-
     /// Exact public-event relay capability used for formation or terminal publication.
     @_spi(MosaicPrivateAlpha)
     public struct PrivateDeploymentRouteRequest: Sendable, Equatable {

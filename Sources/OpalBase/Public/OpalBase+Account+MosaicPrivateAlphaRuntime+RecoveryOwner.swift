@@ -7,7 +7,7 @@ import Foundation
 extension OpalBase.Account.MosaicPrivateAlphaRuntime {
     /// Exact Fusion and wallet-recovery capabilities claimed from one authenticated binding.
     ///
-    /// Use ``makePostManifestOwner()`` for Fusion replay. The fallback ``resume()`` path
+    /// Use ``makeSessionOwner()`` for Fusion replay. The fallback ``resume()`` path
     /// continues Base-only recovery and may terminalize a pre-sign wallet state.
     @_spi(MosaicPrivateAlpha)
     public struct RecoveryOwner: Sendable {
@@ -22,6 +22,7 @@ extension OpalBase.Account.MosaicPrivateAlphaRuntime {
         private let walletRecoveryOwner: OpalBase.Account
             .MosaicPrivateAlphaRecoveryOwner
         let previousOutputSource: OpalBase.Network.TransactionReader
+        let sessionOwnerClaim = MosaicPrivateAlphaOneTimeClaim()
 
         init(
             binding: OpalFusion.MosaicPrivateAlphaRuntime.Binding,

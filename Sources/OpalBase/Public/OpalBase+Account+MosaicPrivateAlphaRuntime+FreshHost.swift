@@ -16,6 +16,7 @@ extension OpalBase.Account.MosaicPrivateAlphaRuntime {
 
         private let hostActor: OpalBase.Account.MosaicTransactionHostActor
         let previousOutputSource: OpalBase.Network.TransactionReader
+        let sessionOwnerClaim = MosaicPrivateAlphaOneTimeClaim()
 
         init(
             binding: Binding,

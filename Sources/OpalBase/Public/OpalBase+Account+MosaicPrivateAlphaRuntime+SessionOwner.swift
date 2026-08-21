@@ -1,4 +1,4 @@
-// OpalBase+Account+MosaicPrivateAlphaRuntime+PostManifestOwner.swift
+// OpalBase+Account+MosaicPrivateAlphaRuntime+SessionOwner.swift
 
 #if os(macOS)
 import Foundation
@@ -6,11 +6,12 @@ import OpalCrypto
 @_spi(MosaicPrivateAlpha) import OpalFusion
 
 extension OpalBase.Account.MosaicPrivateAlphaRuntime.FreshHost {
-    /// Returns the Base-owned facade over this host's sole Fusion owner.
+    /// Claims the Base-owned facade over this host's sole Fusion owner.
     @_spi(MosaicPrivateAlpha)
-    public func makePostManifestOwner() -> OpalBase.Account
-        .MosaicPrivateAlphaRuntime.PostManifestOwner {
-        .init(
+    public func makeSessionOwner() async throws -> OpalBase.Account
+        .MosaicPrivateAlphaRuntime.SessionOwner {
+        try await sessionOwnerClaim.claim()
+        return .init(
             binding: binding,
             owner: privateDeploymentOwner,
             transactionHost: transactionHost,
@@ -20,11 +21,12 @@ extension OpalBase.Account.MosaicPrivateAlphaRuntime.FreshHost {
 }
 
 extension OpalBase.Account.MosaicPrivateAlphaRuntime.RecoveryOwner {
-    /// Returns the Base-owned facade over this recovery bundle's sole Fusion owner.
+    /// Claims the Base-owned facade over this recovery bundle's sole Fusion owner.
     @_spi(MosaicPrivateAlpha)
-    public func makePostManifestOwner() -> OpalBase.Account
-        .MosaicPrivateAlphaRuntime.PostManifestOwner {
-        .init(
+    public func makeSessionOwner() async throws -> OpalBase.Account
+        .MosaicPrivateAlphaRuntime.SessionOwner {
+        try await sessionOwnerClaim.claim()
+        return .init(
             binding: binding,
             owner: privateDeploymentOwner,
             transactionHost: transactionHost,
@@ -34,24 +36,25 @@ extension OpalBase.Account.MosaicPrivateAlphaRuntime.RecoveryOwner {
 }
 
 extension OpalBase.Account.MosaicPrivateAlphaRuntime {
-    /// Sole application-facing owner for the selected post-manifest runtime.
+    /// Sole application-facing owner for formation, recovery, and post-manifest execution.
     ///
     /// This actor retains both Base wallet authority and previous-output authority while
     /// keeping every OpalFusion type behind the OpalBase boundary.
     @_spi(MosaicPrivateAlpha)
-    public actor PostManifestOwner {
+    public actor SessionOwner {
         typealias FusionRuntime = OpalFusion.MosaicPrivateAlphaRuntime
 
         @_spi(MosaicPrivateAlpha) public nonisolated let binding: Binding
 
-        private let owner: FusionRuntime.Owner
+        let owner: FusionRuntime.Owner
         private let transactionHost:
             any OpalFusion.Host.MosaicCompleteTransactionHost
         private let previousOutputSource:
             OpalBase.Network.TransactionReader
-        private var execution: FusionRuntime.PostManifestExecution?
-        private var constructionIsInProgress = false
-        private var mustValidateRecoveredTerminal = false
+        var execution: FusionRuntime.PostManifestExecution?
+        var sessionOperationIsInProgress = false
+        var constructionIsInProgress = false
+        var mustValidateRecoveredTerminal = false
 
         init(
             binding: Binding,
@@ -81,7 +84,10 @@ extension OpalBase.Account.MosaicPrivateAlphaRuntime {
                 PostManifestReservationLease
             ) async throws -> [PostManifestComponentSlotSecrets]
         ) async throws {
-            guard execution == nil,
+            guard execution == nil else {
+                throw Failure.invalidRecoveryState
+            }
+            guard !sessionOperationIsInProgress,
                   !constructionIsInProgress else {
                 throw Failure.operationInProgress
             }
@@ -146,7 +152,10 @@ extension OpalBase.Account.MosaicPrivateAlphaRuntime {
             controlSigningKey: OpalCrypto.Secp256k1.SigningKey,
             controlEventSigningKey: OpalCrypto.Secp256k1.SigningKey
         ) async throws {
-            guard execution == nil,
+            guard execution == nil else {
+                throw Failure.invalidRecoveryState
+            }
+            guard !sessionOperationIsInProgress,
                   !constructionIsInProgress else {
                 throw Failure.operationInProgress
             }
@@ -209,7 +218,7 @@ extension OpalBase.Account.MosaicPrivateAlphaRuntime {
 
         @_spi(MosaicPrivateAlpha)
         public func acceptReceivedAbort(
-            _ event: PostManifestEvent
+            _ event: PrivateDeploymentEvent
         ) async throws {
             guard let execution else { throw Failure.invalidRecoveryState }
             do {
@@ -223,7 +232,7 @@ extension OpalBase.Account.MosaicPrivateAlphaRuntime {
 
         @_spi(MosaicPrivateAlpha)
         public func acceptReceivedCompletion(
-            _ event: PostManifestEvent
+            _ event: PrivateDeploymentEvent
         ) async throws {
             guard let execution else { throw Failure.invalidRecoveryState }
             do {
@@ -240,13 +249,13 @@ extension OpalBase.Account.MosaicPrivateAlphaRuntime {
         @_spi(MosaicPrivateAlpha)
         public func requestTimeoutAbort(
             currentUnixSeconds: UInt64,
-            signing: PostManifestSigningMaterial
+            signing: PrivateDeploymentSigningMaterial
         ) async throws {
             guard let execution else { throw Failure.invalidRecoveryState }
             do {
                 try await execution.requestTimeoutAbort(
                     currentUnixSeconds: currentUnixSeconds,
-                    signing: signing.fusionCapability
+                    signing: try await signing.claimFusionCapability()
                 )
             } catch let cancellation as CancellationError {
                 throw cancellation
@@ -265,10 +274,10 @@ extension OpalBase.Account.MosaicPrivateAlphaRuntime {
         @_spi(MosaicPrivateAlpha)
         public func waitForDisposition(
             createdAtUnixSeconds: UInt64,
-            signing: PostManifestSigningMaterial?,
+            signing: PrivateDeploymentSigningMaterial?,
             recoveryPersistence: FusionRecoveryPersistence,
             privateDeploymentRelays: PrivateDeploymentRelayCapabilities
-        ) async throws -> PostManifestDisposition {
+        ) async throws -> Disposition {
             guard let execution else { throw Failure.invalidRecoveryState }
             do {
                 guard let termination = try await execution
@@ -309,7 +318,7 @@ extension OpalBase.Account.MosaicPrivateAlphaRuntime {
                     step = try await owner.preparePostManifestTermination(
                         consuming: termination,
                         createdAtUnixSeconds: createdAtUnixSeconds,
-                        signing: signing.fusionCapability
+                        signing: try await signing.claimFusionCapability()
                     )
                 } else {
                     step = try await owner.preparePostManifestTermination(
@@ -425,7 +434,7 @@ extension OpalBase.Account.MosaicPrivateAlphaRuntime {
             )
         }
 
-        private func persist(
+        func persist(
             _ transition: FusionRuntime.RecoveryTransition,
             recoveryPersistence: FusionRecoveryPersistence
         ) async throws -> FusionRuntime.Step {
@@ -438,7 +447,7 @@ extension OpalBase.Account.MosaicPrivateAlphaRuntime {
             )
         }
 
-        private func publish(
+        func publish(
             _ publication: consuming FusionRuntime
                 .PrivateDeploymentPublication,
             privateDeploymentRelays: PrivateDeploymentRelayCapabilities
@@ -455,7 +464,7 @@ extension OpalBase.Account.MosaicPrivateAlphaRuntime {
             _ initial: FusionRuntime.Step,
             recoveryPersistence: FusionRecoveryPersistence,
             privateDeploymentRelays: PrivateDeploymentRelayCapabilities
-        ) async throws -> PostManifestDisposition {
+        ) async throws -> Disposition {
             var step = initial
             while true {
                 switch step {
@@ -476,7 +485,9 @@ extension OpalBase.Account.MosaicPrivateAlphaRuntime {
                     )
                 case let .recover(.terminal(disposition)),
                      let .terminal(disposition):
-                    return try await terminalDisposition(disposition)
+                    return .terminal(
+                        try await claimTerminalEvidence(disposition)
+                    )
                 case .recover,
                      .ignoredDuplicate,
                      .awaitingPreManifestAbortSignature,
@@ -486,9 +497,9 @@ extension OpalBase.Account.MosaicPrivateAlphaRuntime {
             }
         }
 
-        private func terminalDisposition(
+        func claimTerminalEvidence(
             _ disposition: FusionRuntime.TerminalDisposition
-        ) async throws -> PostManifestDisposition {
+        ) async throws -> TerminalEvidence {
             guard case let .cleanupAuthorized(
                 reason,
                 evidenceIdentifier,
@@ -502,13 +513,13 @@ extension OpalBase.Account.MosaicPrivateAlphaRuntime {
                   Binding(evidence.binding) == binding else {
                 throw Failure.invalidRecoveryState
             }
-            return .terminal(.init(
+            return .init(
                 binding: binding,
                 reason: .init(reason),
                 evidenceIdentifier: evidence.evidenceIdentifier,
                 recoveryRevision: evidence.recoveryRevision,
                 recoverySnapshotDigest: evidence.recoverySnapshotDigest
-            ))
+            )
         }
 
         private func restoreContributorMailboxes(

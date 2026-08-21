@@ -105,7 +105,7 @@ extension OpalBase.Account.MosaicPrivateAlphaRuntime {
 
     /// Exact authenticated event bytes admitted by the package runtime.
     @_spi(MosaicPrivateAlpha)
-    public struct PostManifestEvent: Sendable, Equatable {
+    public struct PrivateDeploymentEvent: Sendable, Equatable {
         @_spi(MosaicPrivateAlpha) public let canonicalEventBytes: Data
         @_spi(MosaicPrivateAlpha) public let acceptedAtUnixSeconds: UInt64
 
@@ -129,14 +129,18 @@ extension OpalBase.Account.MosaicPrivateAlphaRuntime {
         }
     }
 
-    /// One-use-at-the-owner signing inputs for a package-constructed terminal event.
+    /// One-use signing inputs for one package-constructed private-deployment event.
+    ///
+    /// Copies share the same claim. A second use fails with
+    /// ``Failure/oneTimeCapabilityAlreadyClaimed`` before another signature is made.
     @_spi(MosaicPrivateAlpha)
-    public struct PostManifestSigningMaterial: Sendable {
+    public struct PrivateDeploymentSigningMaterial: Sendable {
         let signingKey: OpalCrypto.Secp256k1.SigningKey
         let documentAuxiliaryRandomness:
             OpalCrypto.Signature.BIP340.AuxiliaryRandomness
         let eventAuxiliaryRandomness:
             OpalCrypto.Signature.BIP340.AuxiliaryRandomness
+        private let oneTimeClaim = MosaicPrivateAlphaOneTimeClaim()
 
         @_spi(MosaicPrivateAlpha)
         public init(
@@ -152,9 +156,11 @@ extension OpalBase.Account.MosaicPrivateAlphaRuntime {
             self.eventAuxiliaryRandomness = eventAuxiliaryRandomness
         }
 
-        var fusionCapability: OpalFusion.MosaicPrivateAlphaRuntime
+        func claimFusionCapability() async throws -> OpalFusion
+            .MosaicPrivateAlphaRuntime
             .PrivateDeploymentSigningCapability {
-            .init(
+            try await oneTimeClaim.claim()
+            return .init(
                 signingKey: signingKey,
                 documentAuxiliaryRandomness:
                     documentAuxiliaryRandomness,

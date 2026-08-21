@@ -8,6 +8,7 @@ extension OpalBase.Account.MosaicPrivateAlphaRuntime {
         case invalidBinding
         case invalidNetworkBinding
         case invalidRecoveryState
+        case oneTimeCapabilityAlreadyClaimed
         case operationInProgress
         case walletStateMismatch
         case walletCleanupIncomplete
