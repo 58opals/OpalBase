@@ -727,7 +727,7 @@ extension OpalBase.Account.MosaicPrivateAlphaRuntime {
             )
         }
 
-        private static func loadCommonMailboxDocuments(
+        static func loadCommonMailboxDocuments(
             _ archive: PostManifestMailboxDocuments,
             proof: FusionRuntime.PrivateDeploymentProof,
             currentUnixSeconds: UInt64

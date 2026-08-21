@@ -3,6 +3,7 @@
 #if os(macOS)
 import Foundation
 import OpalCrypto
+import OpalBaseTestSupport
 import Testing
 @_spi(MosaicPrivateAlpha) @testable import OpalBase
 
@@ -328,6 +329,14 @@ struct AccountMosaicPrivateAlphaApplicationFacadeValidator {
             relays: relays,
             timing: timing,
             journals: journals
+        )
+        MosaicPrivateAlphaApplicationFacadeConsumer
+            .assertTransportBootstrapSurfaceCompiles()
+        _ = Runtime.TransportBootstrapLayerTimestamps(
+            currentUnixSeconds: 1_800_000_000,
+            rumorCreatedAt: 1_799_999_999,
+            sealCreatedAt: 1_799_999_998,
+            giftWrapCreatedAt: 1_799_999_997
         )
         #expect(
             Runtime.Binding(
