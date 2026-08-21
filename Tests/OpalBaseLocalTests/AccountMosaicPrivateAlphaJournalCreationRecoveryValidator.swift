@@ -165,6 +165,40 @@ struct AccountMosaicPrivateAlphaJournalCreationRecoveryValidator {
         #expect(!(await fixture.persistenceActor.hasRetainedOuterKeyMaterial))
     }
 
+    @Test("Application recovery returns cleanup without exposing journal recovery storage")
+    func loadApplicationAbandonedFreshAttempt() async throws {
+        typealias Runtime = OpalBase.Account.MosaicPrivateAlphaRuntime
+        let fixture = try await makeRestartedEmptyJournal()
+        let binding = try #require(Runtime.Binding(
+            attemptIdentifier: Data(repeating: 0x81, count: 32),
+            generationIdentifier: Data(repeating: 0x82, count: 32),
+            materialIdentifier: Data(repeating: 0x83, count: 32)
+        ))
+        let recovery = try await Runtime.loadApplicationSessionRecovery(
+            account: try await AccountTestFixtures.makeAccount(),
+            binding: binding,
+            expectedWalletReservationIdentifier: UUID(),
+            expectedWalletGeneration: 1,
+            transactionReader: .init(
+                fetchRawTransaction: { _ in Data() }
+            ),
+            fusionRecoverySnapshot: nil,
+            journalKey: fixture.fieldDerivedJournalKey,
+            journalScope: fixture.scope,
+            journalPersistence: fixture.persistenceActor.makePersistence()
+        )
+
+        switch consume recovery {
+        case let .abandonedFreshAttempt(requirement):
+            #expect(requirement.context.scope == fixture.scope)
+            #expect(
+                requirement.context.expectedEnvelopeSHA256.count == 32
+            )
+        case .loadedSessionOwner:
+            Issue.record("Expected authenticated empty-journal cleanup")
+        }
+    }
+
     private func makeRestartedEmptyJournal() async throws -> (
         persistenceActor: MosaicPrivateAlphaJournalPersistenceActor,
         fieldDerivedJournalKey: Journal.JournalKey,

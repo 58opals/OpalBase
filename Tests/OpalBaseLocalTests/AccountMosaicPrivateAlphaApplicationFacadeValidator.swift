@@ -182,20 +182,28 @@ struct AccountMosaicPrivateAlphaApplicationFacadeValidator {
             )
         }
 
-        let recoveredSessionOwner = try await Runtime
-            .loadApplicationRecoverySessionOwner(
+        let applicationRecovery = try await Runtime
+            .loadApplicationSessionRecovery(
                 account: account,
                 binding: binding,
                 expectedWalletReservationIdentifier: walletIdentifier,
                 expectedWalletGeneration: 43,
                 transactionReader: transactionReader,
-                fusionRecoverySnapshot: try #require(
-                    await persistence.readSnapshot()
-                ),
-                journalRecovery: .init(
-                    try await journalProbe.loadRecovery()
-                )
+                fusionRecoverySnapshot: await persistence.readSnapshot(),
+                journalKey: await journalProbe
+                    .readFieldDerivedJournalKey(),
+                journalScope: await journalProbe.readApplicationScope(),
+                journalPersistence: journalProbe
+                    .makeApplicationPersistence()
             )
+        let recoveredSessionOwner: Runtime.SessionOwner
+        switch consume applicationRecovery {
+        case let .loadedSessionOwner(owner):
+            recoveredSessionOwner = owner
+        case .abandonedFreshAttempt:
+            Issue.record("Expected a nonempty application recovery")
+            return
+        }
         let recoveredProgress = try await recoveredSessionOwner
             .resumePrivateDeployment(capabilities: capabilities)
 

@@ -163,6 +163,36 @@ actor MosaicAttemptJournalProbeActor {
         )
     }
 
+    func readApplicationScope()
+        -> OpalBase.Account.MosaicPrivateAlphaJournal.Scope {
+        .init(
+            walletIdentifier: scope.walletIdentifier,
+            journalIdentifier: scope.journalIdentifier
+        )
+    }
+
+    nonisolated func makeApplicationPersistence()
+        -> OpalBase.Account.MosaicPrivateAlphaJournal.Persistence {
+        .init(
+            loadJournalState: { await self.loadState() },
+            createEnvelopeDurably: { envelope in
+                try await self.createDurably(envelope)
+            },
+            compareAndReplaceEnvelopeDurably: { expected, replacement in
+                try await self.compareAndReplaceDurably(
+                    expected: expected,
+                    replacement: replacement
+                )
+            },
+            compareAndAuthorizeJournalErasureDurably: { expected, context in
+                try await self.compareAndAuthorizeErasureDurably(
+                    expected: expected,
+                    context: context
+                )
+            }
+        )
+    }
+
     /// Reconstructs a process-equivalent persistence owner from durable bytes and key scope only.
     func makeRestartedProbe() throws -> MosaicAttemptJournalProbeActor {
         guard let persistedEnvelope else {
