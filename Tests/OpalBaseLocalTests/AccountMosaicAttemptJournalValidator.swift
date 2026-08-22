@@ -221,6 +221,38 @@ struct AccountMosaicAttemptJournalValidator {
         #expect(try codec.open(frozenVersionTwoEnvelope).isEmpty)
     }
 
+    @Test(
+        "Deterministic mutations cover the authenticated journal root",
+        .timeLimit(.minutes(1))
+    )
+    func mutateAuthenticatedJournalRoot() throws {
+        let codec = try OpalBase.Account.MosaicAttemptJournalCodec(
+            authenticationKey: makeJournalKey(byte: 0x43),
+            scope: .init(
+                walletIdentifier: try #require(
+                    UUID(uuidString: "00000000-0000-0000-0000-000000000043")
+                ),
+                journalIdentifier: try #require(
+                    UUID(uuidString: "00000000-0000-0000-0000-000000000044")
+                )
+            )
+        )
+        let envelope = try codec.seal(records: [])
+        let vector = MosaicDeterministicParserMutationVector(
+            name: "OpalBase authenticated Mosaic journal",
+            seedBytes: envelope
+        ) { bytes in
+            let records = try codec.open(bytes)
+            return records.isEmpty
+        }
+
+        try MosaicDeterministicParserMutationCampaign.validate(
+            [vector],
+            seed: 0x3C6E_F372_FE94_F82B,
+            seededMutationCount: 32
+        )
+    }
+
     private func makeJournalKey(
         byte: UInt8
     ) -> OpalBase.Account.MosaicPrivateAlphaJournal.JournalKey {
