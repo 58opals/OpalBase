@@ -13,6 +13,26 @@ struct AccountMosaicPrivateAlphaPostManifestBridgeValidator {
     typealias BaseRuntime = OpalBase.Account.MosaicPrivateAlphaRuntime
     typealias FusionRuntime = OpalFusion.MosaicPrivateAlphaRuntime
 
+    @Test("Base preserves opaque contributor authorization recovery bytes")
+    func preserveAuthorizationRecoveryBytes() {
+        let component = Data([0x01]) + Data(repeating: 0x71, count: 400)
+        let bchSignature = Data([0x01]) + Data(repeating: 0x72, count: 400)
+        let baseState = BaseRuntime
+            .PostManifestComponentSlotAuthorizationRecoveryState(
+                componentRequest: component,
+                bchSignatureRequest: bchSignature
+            )
+
+        let fusionState = baseState.fusionRecoveryState
+        #expect(fusionState.componentRequest == component)
+        #expect(fusionState.bchSignatureRequest == bchSignature)
+        #expect(
+            BaseRuntime.PostManifestComponentSlotAuthorizationRecoveryState(
+                fusionState
+            ) == baseState
+        )
+    }
+
     @Test("Base-owned runtime capabilities preserve exact Fusion requests")
     func preserveExactCapabilityRequests() async throws {
         let binding = try FusionRuntime.Binding(

@@ -103,6 +103,46 @@ extension OpalBase.Account.MosaicPrivateAlphaRuntime {
         }
     }
 
+    /// Opaque app-authenticated authorization recovery for one contributor slot.
+    ///
+    /// The application must retain these bytes only in its authenticated attempt record and
+    /// erase them with the attempt's terminal secret material.
+    @_spi(MosaicPrivateAlpha)
+    public struct PostManifestComponentSlotAuthorizationRecoveryState:
+        Sendable,
+        Equatable
+    {
+        @_spi(MosaicPrivateAlpha) public let componentRequest: Data
+        @_spi(MosaicPrivateAlpha) public let bchSignatureRequest: Data
+
+        @_spi(MosaicPrivateAlpha)
+        public init(
+            componentRequest: Data,
+            bchSignatureRequest: Data
+        ) {
+            self.componentRequest = Data(componentRequest)
+            self.bchSignatureRequest = Data(bchSignatureRequest)
+        }
+
+        init(
+            _ state: OpalFusion.MosaicPrivateAlphaRuntime
+                .PostManifestComponentSlotAuthorizationRecoveryState
+        ) {
+            self.init(
+                componentRequest: state.componentRequest,
+                bchSignatureRequest: state.bchSignatureRequest
+            )
+        }
+
+        var fusionRecoveryState: OpalFusion.MosaicPrivateAlphaRuntime
+            .PostManifestComponentSlotAuthorizationRecoveryState {
+            .init(
+                componentRequest: componentRequest,
+                bchSignatureRequest: bchSignatureRequest
+            )
+        }
+    }
+
     /// Exact authenticated event bytes admitted by the package runtime.
     @_spi(MosaicPrivateAlpha)
     public struct PrivateDeploymentEvent: Sendable, Equatable {

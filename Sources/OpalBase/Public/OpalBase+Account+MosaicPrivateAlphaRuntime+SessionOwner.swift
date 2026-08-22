@@ -157,7 +157,14 @@ extension OpalBase.Account.MosaicPrivateAlphaRuntime {
             loadSlotSecrets: @escaping @Sendable (
                 Binding,
                 PostManifestReservationLease
-            ) async throws -> [PostManifestComponentSlotSecrets]
+            ) async throws -> [PostManifestComponentSlotSecrets],
+            installOrLoadAuthorizationRecoveryStates:
+                @escaping @Sendable (
+                    Binding,
+                    PostManifestReservationLease,
+                    [PostManifestComponentSlotAuthorizationRecoveryState]
+                ) async throws
+                    -> [PostManifestComponentSlotAuthorizationRecoveryState]
         ) async throws {
             guard execution == nil else {
                 throw Failure.invalidRecoveryState
@@ -202,6 +209,16 @@ extension OpalBase.Account.MosaicPrivateAlphaRuntime {
                                 binding,
                                 .init(lease)
                             ).map(\.fusionSecrets)
+                        },
+                        installOrLoadAuthorizationRecoveryStates: {
+                            _, lease, candidate in
+                            try await installOrLoadAuthorizationRecoveryStates(
+                                binding,
+                                .init(lease),
+                                candidate.map {
+                                    .init($0)
+                                }
+                            ).map(\.fusionRecoveryState)
                         }
                     ),
                     capabilities: capabilities
