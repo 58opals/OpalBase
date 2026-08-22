@@ -620,7 +620,7 @@ extension OpalBase.Account.MosaicPrivateAlphaRuntime {
             currentUnixSeconds: UInt64
         ) async throws -> PostManifestMailboxDistribution {
             let proof = try await owner
-                .makeTransportBootstrapPrivateDeploymentProof()
+                .makePostManifestExecutionPrivateDeploymentProof()
             let documents = try Self.loadCommonMailboxDocuments(
                 archive.documents,
                 proof: proof,
@@ -675,7 +675,7 @@ extension OpalBase.Account.MosaicPrivateAlphaRuntime {
             currentUnixSeconds: UInt64
         ) async throws -> PostManifestMailboxDistribution {
             let proof = try await owner
-                .makeTransportBootstrapPrivateDeploymentProof()
+                .makePostManifestExecutionPrivateDeploymentProof()
             let documents = try Self.loadCommonMailboxDocuments(
                 archive.documents,
                 proof: proof,
