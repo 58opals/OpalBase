@@ -11,6 +11,126 @@ import Testing
 struct AccountMosaicPrivateAlphaSessionOwnerChainValidator {
     typealias Runtime = OpalBase.Account.MosaicPrivateAlphaRuntime
 
+    @Test(
+        "Concrete chain client attests and tracks an exact transaction through an isolated Fulcrum process",
+        .tags(.integration, .network),
+        .enabled(if: MosaicFulcrumProcessFixture.isParentIntegrationEnabled)
+    )
+    func exerciseIsolatedFulcrumProcess() async throws {
+        let prepared = try await makeCommittedAttempt(
+            profile: .opalMainnetAlpha,
+            network: .mainnet
+        )
+        let exactTransaction = try OpalBase.Account.MosaicExactTransaction(
+            prepared.complete
+        )
+        let fixture = try MosaicFulcrumProcessFixture.launch(
+            transactionBytes: exactTransaction.bytes,
+            transactionIdentifier:
+                exactTransaction.hash.reverseOrder.hexadecimalString
+        )
+        defer { fixture.stop() }
+
+        let client = try await Runtime.makeAttestedChainClient(
+            configuration: .init(
+                serverURLs: [fixture.endpoint],
+                connectTimeout: .seconds(2),
+                reconnect: .init(
+                    maximumAttempts: 0,
+                    initialDelay: .milliseconds(10),
+                    maximumDelay: .milliseconds(10),
+                    jitterMultiplierRange: 1 ... 1
+                ),
+                network: .mainnet
+            )
+        )
+        #expect(client.attestation.network == .mainnet)
+        #expect(
+            client.attestation.genesisHash
+                == Data(OpalBase.Network.Environment.mainnet.mosaicGenesisHash)
+        )
+        #expect(client.attestation.serverURLs == [fixture.endpoint])
+
+        #expect(
+            try await client.networkClient.presence(of: exactTransaction)
+                == .authoritativeAbsence
+        )
+        #expect(
+            try await client.networkClient.broadcast(
+                transaction: exactTransaction.transaction
+            ) == exactTransaction.hash
+        )
+
+        try fixture.setPresence(.mempool)
+        let mempool = try await client.networkClient.presence(
+            of: exactTransaction
+        )
+        let expectedMempool = try #require(
+            OpalBase.Account.MosaicTransactionPresence.Observation(
+                transactionHash: exactTransaction.hash,
+                transactionBytes: exactTransaction.bytes,
+                blockHash: nil,
+                confirmations: 0
+            )
+        )
+        #expect(mempool == .present(expectedMempool))
+
+        let blockHash = Data(repeating: 0x91, count: 32)
+        try fixture.setPresence(
+            .confirmed(blockHash: blockHash, confirmations: 6)
+        )
+        let confirmed = try await client.networkClient.presence(
+            of: exactTransaction
+        )
+        let expectedConfirmed = try #require(
+            OpalBase.Account.MosaicTransactionPresence.Observation(
+                transactionHash: exactTransaction.hash,
+                transactionBytes: exactTransaction.bytes,
+                blockHash: blockHash,
+                confirmations: 6
+            )
+        )
+        #expect(confirmed == .present(expectedConfirmed))
+
+        try fixture.setPresence(.mempool)
+        let reorganized = try await client.networkClient.presence(
+            of: exactTransaction
+        )
+        let expectedReorganized = try #require(
+            OpalBase.Account.MosaicTransactionPresence.Observation(
+                transactionHash: exactTransaction.hash,
+                transactionBytes: exactTransaction.bytes,
+                blockHash: nil,
+                confirmations: 0
+            )
+        )
+        #expect(reorganized == .present(expectedReorganized))
+
+        try fixture.setPresence(.absent)
+        #expect(
+            try await client.networkClient.presence(of: exactTransaction)
+                == .authoritativeAbsence
+        )
+
+        let methods = try fixture.readRecordedMethods()
+        #expect(
+            methods.filter { $0 == "server.version" }.count == 1
+        )
+        #expect(
+            methods.filter { $0 == "server.features" }.count == 2
+        )
+        #expect(
+            methods.filter {
+                $0 == "blockchain.transaction.broadcast"
+            }.count == 1
+        )
+        #expect(
+            methods.filter {
+                $0 == "blockchain.transaction.get"
+            }.count == 5
+        )
+    }
+
     @Test("Sole session owner guards approval, dispatch, reconciliation, finality, and cleanup")
     func recoverThroughChainFinality() async throws {
         let journalProbe = MosaicAttemptJournalProbeActor(
