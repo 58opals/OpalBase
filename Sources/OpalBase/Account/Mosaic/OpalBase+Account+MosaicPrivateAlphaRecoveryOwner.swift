@@ -17,6 +17,17 @@ extension _OpalBase.Account {
         private var lifecycle = Lifecycle.ready
         private var issuedOutcome: Outcome?
 
+        private struct BroadcastContext {
+            let reference: OpalFusion.Host.MosaicReservationReference
+            let completeTransaction: OpalFusion.Host
+                .MosaicCompleteTransaction
+            let exactTransaction: MosaicExactTransaction
+            let approvalPersisted: Bool
+            let intentPersisted: Bool
+            let approvalRequest: MosaicTransactionBroadcastCoordinator
+                .ApprovalRequest
+        }
+
         init(
             addressBook: OpalBase.Address.Book,
             recovery: consuming MosaicAttemptJournalStore.LoadedRecovery
@@ -349,6 +360,24 @@ extension _OpalBase.Account {
             }
         }
 
+        /// Loads the exact recovered approval context without approving, journaling, or dispatching.
+        func loadBroadcastApprovalRequest(
+            using transactionClient: MosaicNetworkAttestedTransactionClient
+        ) async throws -> MosaicTransactionBroadcastCoordinator
+            .ApprovalRequest {
+            try beginOperation()
+            do {
+                let context = try await makeBroadcastContext(
+                    using: transactionClient
+                )
+                lifecycle = .ready
+                return context.approvalRequest
+            } catch {
+                resetOperationAfterFailure()
+                throw error
+            }
+        }
+
         /// Resumes one approved transaction with write-ahead, exact-presence reconciliation.
         func broadcastRecoveredTransaction(
             securityProfile: OpalBase.WalletSecurityProfile,
@@ -360,69 +389,21 @@ extension _OpalBase.Account {
             issuedOutcome = nil
             do {
                 try securityProfile.requireBroadcastingAllowed()
-                guard let reservationRequest = recordedReservationRequest,
-                      let profile = recordedProfile,
-                      transactionClient.network.supportsMosaicProfile(profile),
-                      reservationRequest.networkGenesisHash
-                        == transactionClient.network.mosaicGenesisHash else {
-                    throw Failure.invalidNetworkBinding
-                }
-
-                let reference: OpalFusion.Host.MosaicReservationReference
-                let completeTransaction: OpalFusion.Host
-                    .MosaicCompleteTransaction
-                var approvalPersisted: Bool
-                var intentPersisted: Bool
-                switch plan {
-                case let .broadcastApprovalRequired(
-                    valueReference,
-                    valueTransaction,
-                    valueIntentPersisted
-                ):
-                    reference = valueReference
-                    completeTransaction = valueTransaction
-                    approvalPersisted = false
-                    intentPersisted = valueIntentPersisted
-                case let .resumeApprovedBroadcast(
-                    valueReference,
-                    valueTransaction,
-                    valueIntentPersisted
-                ):
-                    reference = valueReference
-                    completeTransaction = valueTransaction
-                    approvalPersisted = true
-                    intentPersisted = valueIntentPersisted
-                case .broadcastReconciliationHeld:
-                    throw Failure.broadcastReconciliationRequired
-                default:
-                    throw Failure.invalidRecoveryState
-                }
-
-                try await requireCommittedWalletState()
-                let exactTransaction = try MosaicExactTransaction(
-                    completeTransaction
+                let context = try await makeBroadcastContext(
+                    using: transactionClient
                 )
+                let reference = context.reference
+                let completeTransaction = context.completeTransaction
+                let exactTransaction = context.exactTransaction
+                var approvalPersisted = context.approvalPersisted
+                var intentPersisted = context.intentPersisted
 
                 if !approvalPersisted {
-                    let approvalValues = try broadcastApprovalValues(
-                        exactTransaction: exactTransaction
-                    )
                     let decision: MosaicTransactionBroadcastCoordinator
                         .ApprovalDecision
                     do {
                         decision = try await requestApproval(
-                            .init(
-                                reservationRequest: reservationRequest,
-                                reservationReference: reference,
-                                completeTransaction: completeTransaction,
-                                profile: profile,
-                                network: transactionClient.network,
-                                totalInputSatoshis:
-                                    approvalValues.totalInputSatoshis,
-                                totalOutputSatoshis:
-                                    approvalValues.totalOutputSatoshis,
-                                feeSatoshis: approvalValues.feeSatoshis
-                            )
+                            context.approvalRequest
                         )
                     } catch let cancellation as CancellationError {
                         throw cancellation
@@ -963,6 +944,73 @@ extension _OpalBase.Account {
             default:
                 return false
             }
+        }
+
+        private func makeBroadcastContext(
+            using transactionClient: MosaicNetworkAttestedTransactionClient
+        ) async throws -> BroadcastContext {
+            guard let reservationRequest = recordedReservationRequest,
+                  let profile = recordedProfile,
+                  transactionClient.network.supportsMosaicProfile(profile),
+                  reservationRequest.networkGenesisHash
+                    == transactionClient.network.mosaicGenesisHash else {
+                throw Failure.invalidNetworkBinding
+            }
+
+            let reference: OpalFusion.Host.MosaicReservationReference
+            let completeTransaction: OpalFusion.Host
+                .MosaicCompleteTransaction
+            let approvalPersisted: Bool
+            let intentPersisted: Bool
+            switch plan {
+            case let .broadcastApprovalRequired(
+                valueReference,
+                valueTransaction,
+                valueIntentPersisted
+            ):
+                reference = valueReference
+                completeTransaction = valueTransaction
+                approvalPersisted = false
+                intentPersisted = valueIntentPersisted
+            case let .resumeApprovedBroadcast(
+                valueReference,
+                valueTransaction,
+                valueIntentPersisted
+            ):
+                reference = valueReference
+                completeTransaction = valueTransaction
+                approvalPersisted = true
+                intentPersisted = valueIntentPersisted
+            case .broadcastReconciliationHeld:
+                throw Failure.broadcastReconciliationRequired
+            default:
+                throw Failure.invalidRecoveryState
+            }
+
+            try await requireCommittedWalletState()
+            let exactTransaction = try MosaicExactTransaction(
+                completeTransaction
+            )
+            let approvalValues = try broadcastApprovalValues(
+                exactTransaction: exactTransaction
+            )
+            return BroadcastContext(
+                reference: reference,
+                completeTransaction: completeTransaction,
+                exactTransaction: exactTransaction,
+                approvalPersisted: approvalPersisted,
+                intentPersisted: intentPersisted,
+                approvalRequest: .init(
+                    reservationRequest: reservationRequest,
+                    reservationReference: reference,
+                    completeTransaction: completeTransaction,
+                    profile: profile,
+                    network: transactionClient.network,
+                    totalInputSatoshis: approvalValues.totalInputSatoshis,
+                    totalOutputSatoshis: approvalValues.totalOutputSatoshis,
+                    feeSatoshis: approvalValues.feeSatoshis
+                )
+            )
         }
 
         private func broadcastApprovalValues(

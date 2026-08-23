@@ -38,7 +38,14 @@ public enum MosaicPrivateAlphaApplicationFacadeConsumer {
             OpalBase.Network.Configuration
         ) async throws -> Runtime.ChainClient = Runtime
             .makeAttestedChainClient(configuration:)
+        let approvalPreview: @Sendable (
+            Runtime.SessionOwner,
+            Runtime.ChainClient
+        ) async throws -> Runtime.BroadcastApprovalRequest = { owner, client in
+            try await owner.loadBroadcastApprovalRequest(using: client)
+        }
         _ = chainClientFactory
+        _ = approvalPreview
     }
 }
 #endif

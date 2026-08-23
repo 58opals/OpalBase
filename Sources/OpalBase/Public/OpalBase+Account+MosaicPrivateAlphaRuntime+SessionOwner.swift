@@ -153,6 +153,41 @@ extension OpalBase.Account.MosaicPrivateAlphaRuntime {
             }
         }
 
+        /// Loads exact approval context without approving, journaling, or dispatching.
+        @_spi(MosaicPrivateAlpha)
+        public func loadBroadcastApprovalRequest(
+            using chainClient: ChainClient
+        ) async throws -> BroadcastApprovalRequest {
+            guard protocolTerminalEvidenceWasObserved,
+                  let walletRecoveryOwner else {
+                throw Failure.invalidRecoveryState
+            }
+            guard !sessionOperationIsInProgress,
+                  !constructionIsInProgress else {
+                throw Failure.operationInProgress
+            }
+            sessionOperationIsInProgress = true
+            defer { sessionOperationIsInProgress = false }
+            do {
+                let request = try await walletRecoveryOwner
+                    .loadBroadcastApprovalRequest(
+                        using: chainClient.networkClient
+                    )
+                guard let exactRequest = BroadcastApprovalRequest(request)
+                else {
+                    throw Failure.invalidRecoveryState
+                }
+                return exactRequest
+            } catch let cancellation as CancellationError {
+                throw cancellation
+            } catch let failure as OpalBase.Account
+                .MosaicPrivateAlphaRecoveryOwner.Failure {
+                throw Failure(failure)
+            } catch {
+                throw Failure(error)
+            }
+        }
+
         /// Persists approval and exact intent before dispatch through one attested chain client.
         @_spi(MosaicPrivateAlpha)
         public func broadcastRecoveredTransaction(

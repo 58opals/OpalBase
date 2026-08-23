@@ -136,6 +136,12 @@ struct AccountMosaicPrivateAlphaSessionOwnerChainValidator {
         let broadcastClient = makeChainClient(
             broadcastProbe.makeClient(testingNetwork: .mainnet)
         )
+        let recordsBeforePreview = await journalProbe.readRecords()
+        let preview = try await owner.loadBroadcastApprovalRequest(
+            using: broadcastClient
+        )
+        #expect(await journalProbe.readRecords() == recordsBeforePreview)
+        #expect(await broadcastProbe.readBroadcasts().isEmpty)
         let chainState = try await owner.broadcastRecoveredTransaction(
             securityProfile: .init(
                 secretPersistencePolicy: .acceptProviderOutput,
@@ -148,6 +154,7 @@ struct AccountMosaicPrivateAlphaSessionOwnerChainValidator {
             }
         )
         let approval = try #require(await approvalProbe.readRequest())
+        #expect(approval == preview)
         #expect(approval.profile == .opalMainnetAlpha)
         #expect(approval.network == .mainnet)
         #expect(chainState.transactionHash == approval.transactionHash.naturalOrder)
