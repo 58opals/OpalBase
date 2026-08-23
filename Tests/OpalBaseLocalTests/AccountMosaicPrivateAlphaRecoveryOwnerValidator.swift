@@ -717,6 +717,35 @@ struct AccountMosaicPrivateAlphaRecoveryOwnerValidator {
                     prepared.fixture.profile
                 )
         )
+        #expect(
+            request.walletReservationIdentifier
+                == prepared.lease.reference.identifier
+        )
+        #expect(
+            request.walletGeneration
+                == prepared.lease.reference.generation
+        )
+        #expect(
+            request.expectedNetworkGenesisHash
+                == Data(
+                    prepared.fixture.reservationRequest.networkGenesisHash
+                )
+        )
+        #expect(
+            request.reservationExpiresAt
+                == prepared.fixture.reservationRequest.expiresAt
+        )
+        #expect(
+            request.expectedOutputs.map(\.valueSatoshis)
+                == exactTransaction.transaction.outputs.map(\.value)
+        )
+        for (expected, output) in zip(
+            request.expectedOutputs,
+            exactTransaction.transaction.outputs
+        ) {
+            #expect(expected.lockingScript == output.lockingScript)
+            #expect(expected.serializedBytes == (try output.encode()))
+        }
         #expect(request.totalInputSatoshis == 100_000)
         #expect(request.totalOutputSatoshis == 99_823)
         #expect(request.feeSatoshis == 177)

@@ -7,6 +7,28 @@ extension OpalBase.Account.MosaicPrivateAlphaRuntime {
     /// Exact, reviewable transaction and value context for one recovered broadcast decision.
     @_spi(MosaicPrivateAlpha)
     public struct BroadcastApprovalRequest: Sendable, Equatable {
+        /// One canonical transaction output in exact transaction order.
+        @_spi(MosaicPrivateAlpha)
+        public struct ExpectedOutput: Sendable, Equatable {
+            @_spi(MosaicPrivateAlpha)
+            public let valueSatoshis: UInt64
+
+            @_spi(MosaicPrivateAlpha)
+            public let lockingScript: Data
+
+            @_spi(MosaicPrivateAlpha)
+            public let serializedBytes: Data
+
+            init?(_ output: OpalBase.Transaction.Output) {
+                guard let serializedBytes = try? output.encode() else {
+                    return nil
+                }
+                valueSatoshis = output.value
+                lockingScript = Data(output.lockingScript)
+                self.serializedBytes = serializedBytes
+            }
+        }
+
         @_spi(MosaicPrivateAlpha)
         public let transactionBytes: Data
 
@@ -23,7 +45,19 @@ extension OpalBase.Account.MosaicPrivateAlphaRuntime {
         public let profile: Profile
 
         @_spi(MosaicPrivateAlpha)
+        public let walletReservationIdentifier: UUID
+
+        @_spi(MosaicPrivateAlpha)
+        public let walletGeneration: UInt64
+
+        @_spi(MosaicPrivateAlpha)
+        public let expectedNetworkGenesisHash: Data
+
+        @_spi(MosaicPrivateAlpha)
         public let reservationExpiresAt: Date
+
+        @_spi(MosaicPrivateAlpha)
+        public let expectedOutputs: [ExpectedOutput]
 
         @_spi(MosaicPrivateAlpha)
         public let totalInputSatoshis: UInt64
@@ -60,8 +94,11 @@ extension OpalBase.Account.MosaicPrivateAlphaRuntime {
                   let transactionSizeBytes = UInt32(
                     exactly: exactTransaction.bytes.count
                   ),
+                  let expectedOutputs = Self.makeExpectedOutputs(
+                    exactTransaction.transaction.outputs
+                  ),
                   Self.sumSatoshis(
-                    exactTransaction.transaction.outputs.map(\.value)
+                    expectedOutputs.map(\.valueSatoshis)
                   ) == totalOutputSatoshis else {
                 return nil
             }
@@ -70,7 +107,14 @@ extension OpalBase.Account.MosaicPrivateAlphaRuntime {
             self.transactionSizeBytes = transactionSizeBytes
             network = request.network
             profile = .init(request.profile)
+            walletReservationIdentifier = request.reservationReference
+                .identifier
+            walletGeneration = request.reservationReference.generation
+            expectedNetworkGenesisHash = Data(
+                request.reservationRequest.networkGenesisHash
+            )
             reservationExpiresAt = request.reservationRequest.expiresAt
+            self.expectedOutputs = expectedOutputs
             self.totalInputSatoshis = totalInputSatoshis
             self.totalOutputSatoshis = totalOutputSatoshis
             self.feeSatoshis = feeSatoshis
@@ -82,6 +126,20 @@ extension OpalBase.Account.MosaicPrivateAlphaRuntime {
                 .maximumExcessFeeSatoshis
             requiredExcessFeeSatoshis = request.reservationRequest
                 .requiredExcessFeeSatoshis
+        }
+
+        private static func makeExpectedOutputs(
+            _ outputs: [OpalBase.Transaction.Output]
+        ) -> [ExpectedOutput]? {
+            var expectedOutputs: [ExpectedOutput] = []
+            expectedOutputs.reserveCapacity(outputs.count)
+            for output in outputs {
+                guard let expectedOutput = ExpectedOutput(output) else {
+                    return nil
+                }
+                expectedOutputs.append(expectedOutput)
+            }
+            return expectedOutputs
         }
 
         private static func sumSatoshis(

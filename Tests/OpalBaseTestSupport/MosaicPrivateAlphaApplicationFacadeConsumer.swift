@@ -31,6 +31,7 @@ public enum MosaicPrivateAlphaApplicationFacadeConsumer {
         _ = Runtime.TransportBootstrapLayerTimestamps.self
         _ = Runtime.Profile.self
         _ = Runtime.BroadcastApprovalRequest.self
+        _ = Runtime.BroadcastApprovalRequest.ExpectedOutput.self
         _ = Runtime.ChainAttestation.self
         _ = Runtime.ChainClient.self
         let chainClientFactory: @Sendable (
