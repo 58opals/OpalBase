@@ -115,6 +115,154 @@ extension OpalBase.Account.MosaicPrivateAlphaRuntime {
             }
         }
 
+        /// Continues only the complete transaction bytes retained by authenticated wallet recovery.
+        @_spi(MosaicPrivateAlpha)
+        public func commitRecoveredLocallySignedTransaction(
+            transactionBytes: Data
+        ) async throws -> Outcome {
+            guard protocolTerminalEvidenceWasObserved,
+                  let walletRecoveryOwner else {
+                throw Failure.invalidRecoveryState
+            }
+            guard !sessionOperationIsInProgress,
+                  !constructionIsInProgress else {
+                throw Failure.operationInProgress
+            }
+            sessionOperationIsInProgress = true
+            defer { sessionOperationIsInProgress = false }
+            do {
+                let transaction = try OpalFusion.Host
+                    .MosaicCompleteTransaction(
+                        transactionBytes: [UInt8](transactionBytes)
+                    )
+                let outcome = Outcome(
+                    try await walletRecoveryOwner
+                        .commitRecoveredLocallySignedTransaction(transaction)
+                )
+                if case .terminal = outcome {
+                    walletTerminalDispositionWasObserved = true
+                }
+                return outcome
+            } catch let cancellation as CancellationError {
+                throw cancellation
+            } catch let failure as OpalBase.Account
+                .MosaicPrivateAlphaRecoveryOwner.Failure {
+                throw Failure(failure)
+            } catch {
+                throw Failure(error)
+            }
+        }
+
+        /// Persists approval and exact intent before dispatch through one attested chain client.
+        @_spi(MosaicPrivateAlpha)
+        public func broadcastRecoveredTransaction(
+            securityProfile: OpalBase.WalletSecurityProfile,
+            using chainClient: ChainClient,
+            requestApproval: @escaping @Sendable (
+                BroadcastApprovalRequest
+            ) async throws -> Bool
+        ) async throws -> ChainState {
+            guard protocolTerminalEvidenceWasObserved,
+                  let walletRecoveryOwner else {
+                throw Failure.invalidRecoveryState
+            }
+            guard !sessionOperationIsInProgress,
+                  !constructionIsInProgress else {
+                throw Failure.operationInProgress
+            }
+            sessionOperationIsInProgress = true
+            defer { sessionOperationIsInProgress = false }
+            do {
+                let state = try await walletRecoveryOwner
+                    .broadcastRecoveredTransaction(
+                        securityProfile: securityProfile,
+                        using: chainClient.networkClient,
+                        requestApproval: { request in
+                            guard let exactRequest = BroadcastApprovalRequest(
+                                request
+                            ) else {
+                                return .rejected
+                            }
+                            return try await requestApproval(exactRequest)
+                                ? .approved : .rejected
+                        }
+                    )
+                return .init(state)
+            } catch let cancellation as CancellationError {
+                throw cancellation
+            } catch let failure as OpalBase.Account
+                .MosaicPrivateAlphaRecoveryOwner.Failure {
+                throw Failure(failure)
+            } catch {
+                throw Failure(error)
+            }
+        }
+
+        /// Records one uncached exact transaction observation through the attested client.
+        @_spi(MosaicPrivateAlpha)
+        public func reconcileChain(
+            using chainClient: ChainClient
+        ) async throws -> ChainOutcome {
+            guard protocolTerminalEvidenceWasObserved,
+                  let walletRecoveryOwner else {
+                throw Failure.invalidRecoveryState
+            }
+            guard !sessionOperationIsInProgress,
+                  !constructionIsInProgress else {
+                throw Failure.operationInProgress
+            }
+            sessionOperationIsInProgress = true
+            defer { sessionOperationIsInProgress = false }
+            do {
+                return .init(
+                    try await walletRecoveryOwner.reconcileChain(
+                        using: chainClient.networkClient
+                    )
+                )
+            } catch let cancellation as CancellationError {
+                throw cancellation
+            } catch let failure as OpalBase.Account
+                .MosaicPrivateAlphaRecoveryOwner.Failure {
+                throw Failure(failure)
+            } catch {
+                throw Failure(error)
+            }
+        }
+
+        /// Lets app policy finalize only the latest exact confirmed observation.
+        @_spi(MosaicPrivateAlpha)
+        public func authorizeChainFinality(
+            using authorize: @Sendable (ChainState) async throws -> Bool
+        ) async throws -> TerminalDisposition {
+            guard protocolTerminalEvidenceWasObserved,
+                  let walletRecoveryOwner else {
+                throw Failure.invalidRecoveryState
+            }
+            guard !sessionOperationIsInProgress,
+                  !constructionIsInProgress else {
+                throw Failure.operationInProgress
+            }
+            sessionOperationIsInProgress = true
+            defer { sessionOperationIsInProgress = false }
+            do {
+                let disposition = TerminalDisposition(
+                    try await walletRecoveryOwner
+                        .authorizeChainFinality { state in
+                            try await authorize(.init(state))
+                        }
+                )
+                walletTerminalDispositionWasObserved = true
+                return disposition
+            } catch let cancellation as CancellationError {
+                throw cancellation
+            } catch let failure as OpalBase.Account
+                .MosaicPrivateAlphaRecoveryOwner.Failure {
+                throw Failure(failure)
+            } catch {
+                throw Failure(error)
+            }
+        }
+
         /// Durably authorizes exact-envelope erasure after this owner observes both terminal proofs.
         @_spi(MosaicPrivateAlpha)
         public func authorizeWalletJournalErasure() async throws

@@ -711,7 +711,12 @@ struct AccountMosaicPrivateAlphaRecoveryOwnerValidator {
         #expect(request.transactionHash == exactTransaction.hash)
         #expect(request.transactionSizeBytes == exactTransaction.bytes.count)
         #expect(request.network == prepared.fixture.network)
-        #expect(request.profile == prepared.fixture.profile)
+        #expect(
+            request.profile
+                == OpalBase.Account.MosaicPrivateAlphaRuntime.Profile(
+                    prepared.fixture.profile
+                )
+        )
         #expect(request.totalInputSatoshis == 100_000)
         #expect(request.totalOutputSatoshis == 99_823)
         #expect(request.feeSatoshis == 177)

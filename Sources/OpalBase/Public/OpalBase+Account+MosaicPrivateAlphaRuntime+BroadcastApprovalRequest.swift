@@ -2,7 +2,6 @@
 
 #if os(macOS)
 import Foundation
-import OpalFusion
 
 extension OpalBase.Account.MosaicPrivateAlphaRuntime {
     /// Exact, reviewable transaction and value context for one recovered broadcast decision.
@@ -21,7 +20,7 @@ extension OpalBase.Account.MosaicPrivateAlphaRuntime {
         public let network: OpalBase.Network.Environment
 
         @_spi(MosaicPrivateAlpha)
-        public let profile: OpalFusion.Mosaic.Profile
+        public let profile: Profile
 
         @_spi(MosaicPrivateAlpha)
         public let reservationExpiresAt: Date
@@ -70,7 +69,7 @@ extension OpalBase.Account.MosaicPrivateAlphaRuntime {
             transactionHash = exactTransaction.hash
             self.transactionSizeBytes = transactionSizeBytes
             network = request.network
-            profile = request.profile
+            profile = .init(request.profile)
             reservationExpiresAt = request.reservationRequest.expiresAt
             self.totalInputSatoshis = totalInputSatoshis
             self.totalOutputSatoshis = totalOutputSatoshis

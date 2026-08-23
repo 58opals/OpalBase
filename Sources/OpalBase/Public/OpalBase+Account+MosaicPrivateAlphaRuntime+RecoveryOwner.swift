@@ -82,8 +82,7 @@ extension OpalBase.Account.MosaicPrivateAlphaRuntime {
         @_spi(MosaicPrivateAlpha)
         public func broadcastRecoveredTransaction(
             securityProfile: OpalBase.WalletSecurityProfile,
-            using transactionClient: OpalBase.Network.Fulcrum
-                .TransactionClient,
+            using chainClient: ChainClient,
             requestApproval: @escaping @Sendable (
                 BroadcastApprovalRequest
             ) async throws -> Bool
@@ -91,18 +90,18 @@ extension OpalBase.Account.MosaicPrivateAlphaRuntime {
             do {
                 let state = try await walletRecoveryOwner
                     .broadcastRecoveredTransaction(
-                    securityProfile: securityProfile,
-                    using: .init(transactionClient),
-                    requestApproval: { request in
-                        guard let exactRequest = BroadcastApprovalRequest(
-                            request
-                        ) else {
-                            return .rejected
+                        securityProfile: securityProfile,
+                        using: chainClient.networkClient,
+                        requestApproval: { request in
+                            guard let exactRequest = BroadcastApprovalRequest(
+                                request
+                            ) else {
+                                return .rejected
+                            }
+                            return try await requestApproval(exactRequest)
+                                ? .approved : .rejected
                         }
-                        return try await requestApproval(exactRequest)
-                            ? .approved : .rejected
-                    }
-                )
+                    )
                 return .init(state)
             } catch let cancellation as CancellationError {
                 throw cancellation
@@ -114,13 +113,12 @@ extension OpalBase.Account.MosaicPrivateAlphaRuntime {
         /// Records only exact present or authoritative-absence observations; unknown remains unjournaled.
         @_spi(MosaicPrivateAlpha)
         public func reconcileChain(
-            using transactionClient: OpalBase.Network.Fulcrum
-                .TransactionClient
+            using chainClient: ChainClient
         ) async throws -> ChainOutcome {
             do {
                 return .init(
                     try await walletRecoveryOwner.reconcileChain(
-                        using: .init(transactionClient)
+                        using: chainClient.networkClient
                     )
                 )
             } catch let cancellation as CancellationError {
@@ -139,8 +137,8 @@ extension OpalBase.Account.MosaicPrivateAlphaRuntime {
                 return .init(
                     try await walletRecoveryOwner
                         .authorizeChainFinality { state in
-                        try await authorize(.init(state))
-                    }
+                            try await authorize(.init(state))
+                        }
                 )
             } catch let cancellation as CancellationError {
                 throw cancellation

@@ -29,6 +29,15 @@ public enum MosaicPrivateAlphaApplicationFacadeConsumer {
             Runtime.TransportBootstrapAuthorizationKeyDocument
         >.self
         _ = Runtime.TransportBootstrapLayerTimestamps.self
+        _ = Runtime.Profile.self
+        _ = Runtime.BroadcastApprovalRequest.self
+        _ = Runtime.ChainAttestation.self
+        _ = Runtime.ChainClient.self
+        let chainClientFactory: @Sendable (
+            OpalBase.Network.Configuration
+        ) async throws -> Runtime.ChainClient = Runtime
+            .makeAttestedChainClient(configuration:)
+        _ = chainClientFactory
     }
 }
 #endif

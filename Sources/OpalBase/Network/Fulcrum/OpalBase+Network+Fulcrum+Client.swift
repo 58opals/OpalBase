@@ -12,7 +12,32 @@ extension _OpalBase.Network.Fulcrum {
             configuration: OpalBase.Network.Configuration
         ) async throws {
             self.configuration = configuration
-            
+
+            self.fulcrum = try await Self.makeStartedClient(
+                configuration: configuration,
+                serverCatalogLoader: configuration
+                    .makeFulcrumServerCatalogRepository()
+            )
+        }
+
+        /// Creates a client whose reconnect path cannot escape the reviewed endpoint set.
+        init(
+            privateAlphaConfiguration configuration:
+                OpalBase.Network.Configuration
+        ) async throws {
+            self.configuration = configuration
+
+            self.fulcrum = try await Self.makeStartedClient(
+                configuration: configuration,
+                serverCatalogLoader: configuration
+                    .makeExactFulcrumServerCatalogRepository()
+            )
+        }
+
+        private static func makeStartedClient(
+            configuration: OpalBase.Network.Configuration,
+            serverCatalogLoader: SwiftFulcrum.ServerCatalog.Repository
+        ) async throws -> SwiftFulcrum.Client {
             let reconnectConfiguration = SwiftFulcrum.Client.Configuration.ReconnectPolicy(
                 maximumReconnectionAttempts: configuration.reconnectConfiguration.maximumAttempts,
                 reconnectionDelay: configuration.reconnectConfiguration.initialDelay.totalSeconds,
@@ -26,11 +51,11 @@ extension _OpalBase.Network.Fulcrum {
                 connectionTimeout: configuration.connectTimeout.totalSeconds,
                 maximumMessageSize: configuration.maximumMessageSize,
                 bootstrapServers: bootstrapServers.isEmpty ? nil : bootstrapServers,
-                serverCatalogLoader: configuration.makeFulcrumServerCatalogRepository(),
+                serverCatalogLoader: serverCatalogLoader,
                 network: configuration.network.fulcrumNetwork
             )
-            
-            self.fulcrum = try await OpalDiagnostics.withTraceID {
+
+            return try await OpalDiagnostics.withTraceID {
                 do {
                     let fulcrum = try await SwiftFulcrum.Client(configuration: fulcrumConfiguration)
                     try await fulcrum.start()

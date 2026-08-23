@@ -29,6 +29,11 @@ extension _OpalBase.Network.Configuration {
         })
     }
 
+    /// Keeps the configured endpoint set exact by ignoring every provider fallback catalog.
+    func makeExactFulcrumServerCatalogRepository() -> SwiftFulcrum.ServerCatalog.Repository {
+        .makeConstant(serverURLs)
+    }
+
     private var primaryFulcrumServers: [URL] {
         if !serverURLs.isEmpty { return serverURLs }
         return serverCatalog.listServers(for: network)

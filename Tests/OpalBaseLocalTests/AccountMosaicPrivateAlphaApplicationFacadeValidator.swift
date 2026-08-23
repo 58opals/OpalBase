@@ -59,6 +59,15 @@ struct AccountMosaicPrivateAlphaApplicationFacadeValidator {
             _ = try await sessionOwner.resumeWalletRecovery()
         }
         await #expect(throws: Runtime.Failure.invalidRecoveryState) {
+            _ = try await sessionOwner
+                .commitRecoveredLocallySignedTransaction(
+                    transactionBytes: Data()
+                )
+        }
+        await #expect(throws: Runtime.Failure.invalidRecoveryState) {
+            _ = try await sessionOwner.authorizeChainFinality { _ in true }
+        }
+        await #expect(throws: Runtime.Failure.invalidRecoveryState) {
             _ = try await sessionOwner.authorizeWalletJournalErasure()
         }
         await #expect(
@@ -404,7 +413,7 @@ private actor MosaicFusionRecoveryPersistenceProbe {
     }
 }
 
-private actor MosaicPrivateDeploymentRelayProbe {
+actor MosaicPrivateDeploymentRelayProbe {
     typealias Runtime = OpalBase.Account.MosaicPrivateAlphaRuntime
 
     private var requests: [Runtime.PrivateDeploymentRouteRequest] = []
@@ -435,7 +444,7 @@ private actor MosaicPrivateDeploymentRelayProbe {
     func requestCount() -> Int { requests.count }
 }
 
-private actor MosaicAcknowledgingTorConnection:
+actor MosaicAcknowledgingTorConnection:
     OpalBase.Account.MosaicPrivateAlphaRuntime.TorWebSocketConnection {
     typealias Runtime = OpalBase.Account.MosaicPrivateAlphaRuntime
     typealias MessageStream = Runtime.TorWebSocketConnection.MessageStream
