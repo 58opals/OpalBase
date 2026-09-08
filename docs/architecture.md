@@ -55,6 +55,12 @@ Wallet and account objects are actor-isolated so mutation stays serialized. Snap
 
 Secure Enclave-backed persistence protects stored mnemonic material at rest. It does not move BCH secp256k1 signing into the Secure Enclave; apps that need external signing review should use `WalletUnsignedSpendPlan` and keep review, signature verification policy, and relay outside the signing boundary.
 
+## Cash Code Spend-Plan Lifecycle
+
+Every copy of a Cash Code spend plan retains one `CashCodeSpendPlanLifecycle` actor. It admits one valid build and one terminal reservation disposition. Invalid bounds fail before signing; construction failure and task cancellation release the reservation automatically. A failed disposition becomes uncertain instead of retrying a possibly applied address-book effect. Successful construction remains separate from relay acceptance and the integrating application's complete-or-cancel decision.
+
+The fixture-light `CashCodeSpendPlanLifecycleValidator` validates ownership without creating signing keys. `CashCodeSenderRealCryptoConformanceValidator` retains the explicitly slow random-nonce signing path; a successful grind plus Bitcoin Cash VM verification remains a release validation requirement. See the [local validation commands](../README.md#validation) and [public API guide](public-api.md) for commands and caller-visible behavior.
+
 ## Public-Chain Sync
 
 Descriptor-backed sync starts from `WalletAccountPublicDescriptor` and `WalletPublicChainOperations`. `WalletBlockchainSyncInteractor` can refresh BCH balances, transaction history, UTXOs, and confirmations without root private account authority. Confirmed and unconfirmed state should remain distinct in app UI and storage because unconfirmed state can change at the mempool level.
