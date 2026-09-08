@@ -110,6 +110,8 @@ You now have mnemonic-backed wallet authority, the first BCH account, and a rese
 
 ## Validation
 
+Tests own wallet orchestration, precise amounts, spend reservations, persistence contracts, and adaptation of dependency results. Keep exhaustive primitive and wire-format coverage in its owning dependency, while retaining Base-specific authority, error translation, cancellation, and integration checks. Use small local fixtures when production account capacity is not the behavior under test.
+
 Local validation:
 
 ```bash

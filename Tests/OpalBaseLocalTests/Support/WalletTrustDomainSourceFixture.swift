@@ -14,30 +14,6 @@ enum WalletTrustDomainSourceFixture {
         return String(source[..<markerRange.lowerBound])
     }
 
-    static func readPublicInteractorSources() throws -> String {
-        try [
-            "Sources/OpalBase/Public/OpalBase+WalletAccountPublicDescriptor.swift",
-            "Sources/OpalBase/Public/OpalBase+WalletPublicChainOperations.swift",
-            "Sources/OpalBase/Public/OpalBase+WalletSnapshotInteractor.swift",
-            "Sources/OpalBase/Public/OpalBase+WalletBlockchainSyncInteractor.swift",
-            "Sources/OpalBase/Public/OpalBase+WalletTransportInteractor.swift",
-            "Sources/OpalBase/Public/OpalBase+WalletReceiveAddressInteractor.swift",
-            "Sources/OpalBase/Public/OpalBase+WalletSecurityProfile.swift",
-            "Sources/OpalBase/Public/OpalBase+WalletSecretAccessInteractor.swift",
-            "Sources/OpalBase/Public/OpalBase+WalletUnsignedSpendPlan.swift",
-            "Sources/OpalBase/Public/OpalBase+WalletUnsignedTransactionEnvelope.swift",
-            "Sources/OpalBase/Public/OpalBase+WalletTransactionAuthoringInteractor.swift",
-            "Sources/OpalBase/Public/OpalBase+WalletBroadcastInteractor.swift",
-            "Sources/OpalBase/Public/OpalBase+WalletManagementInteractor.swift",
-            "Sources/OpalBase/Public/OpalBase+WalletAssetInteractor.swift",
-            "Sources/OpalBase/Public/OpalBase+ClaimableInteractor.swift",
-            "Sources/OpalBase/Public/OpalBase+WalletObservabilityInteractor.swift",
-            "Sources/OpalBase/Public/OpalBase+CashFusionInteractor.swift"
-        ]
-        .map(readSource)
-        .joined(separator: "\n")
-    }
-
     private static func readSource(_ relativePath: String) throws -> String {
         let fileURL = packageRootURL()
             .appendingPathComponent(relativePath)

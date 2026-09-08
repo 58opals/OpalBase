@@ -7,17 +7,14 @@ import OpalBaseTestSupport
 
 @Suite("OpalBase.CashTokens Token Prefix", .tags(.unit, .cashTokens))
 struct CashTokensTokenPrefixValidator {
-    @Test(
-        "decode returns nil token data when no prefix is present",
-        arguments: TokenPrefixAbsentInputCase.allCases
-    )
-    fileprivate func decodeWithoutPrefix(_ inputCase: TokenPrefixAbsentInputCase) throws {
+    @Test("decode returns nil token data when no prefix is present", arguments: [false, true])
+    func decodeWithoutPrefix(isSliced: Bool) throws {
         let lockingBytecode = Data([0x51, 0x21, 0x00])
-        let prefixPlusBytecode = inputCase.makePrefixPlusBytecode(from: lockingBytecode)
+        let prefixPlusBytecode = isSliced ? makeSlicedData(from: lockingBytecode) : lockingBytecode
 
         let result = try OpalBase.CashTokens.TokenPrefix.decode(prefixPlusBytecode: prefixPlusBytecode)
 
-        #expect(prefixPlusBytecode.startIndex == inputCase.expectedStartIndex)
+        #expect(prefixPlusBytecode.startIndex == (isSliced ? 1 : 0))
         #expect(result.tokenData == nil)
         #expect(result.lockingBytecode == lockingBytecode)
         #expect(result.lockingBytecode.startIndex == 0)
@@ -68,21 +65,6 @@ struct CashTokensTokenPrefixValidator {
         #expect(!TokenPrefixTestData.validVectors.isEmpty)
     }
 
-    @Test("valid token prefix vectors are internally consistent", arguments: TokenPrefixTestData.validVectors)
-    func validateFixtureConsistency(_ vector: TokenPrefixValidData) throws {
-        let expectedTokenData = try makeTokenData(from: vector.data)
-        let prefixData = try Data(hexadecimalString: vector.prefix)
-        let encoded = try OpalBase.CashTokens.TokenPrefix.encode(tokenData: expectedTokenData)
-        #expect(encoded == prefixData)
-
-        var combined = prefixData
-        combined.append(contentsOf: [0x6a, 0x01, 0x01])
-        let decoded = try OpalBase.CashTokens.TokenPrefix.decode(prefixPlusBytecode: combined)
-        let decodedTokenData = try #require(decoded.tokenData)
-        #expect(decodedTokenData.amount == expectedTokenData.amount)
-        #expect(decodedTokenData.nft == expectedTokenData.nft)
-    }
-
     @Test("decode rejects invalid token prefix vectors", arguments: TokenPrefixTestData.invalidVectors)
     func decodeInvalidVector(_ vector: TokenPrefixInvalidData) throws {
         let prefixData = try Data(hexadecimalString: vector.prefix)
@@ -115,28 +97,6 @@ struct CashTokensTokenPrefixValidator {
         #expect(result.lockingBytecode == trailingBytecode)
     }
 
-    private static let tokenDataRoundTripFixtures: [(
-        amount: UInt64?,
-        includesNonFungibleToken: Bool
-    )] = [
-        (1, false),
-        (nil, true),
-        (42, true)
-    ]
-
-    private static let invalidCategoryIdentifierCases = [
-        InvalidCategoryIdentifierCase(
-            description: "prefixed hex",
-            hexadecimalString: "0x\(String(repeating: "a", count: 64))",
-            expectedError: OpalBase.CashTokens.Error.invalidHexadecimalString
-        ),
-        InvalidCategoryIdentifierCase(
-            description: "oversized hex",
-            hexadecimalString: String(repeating: "a", count: 4_096),
-            expectedError: OpalBase.CashTokens.Error.categoryIdentifierLengthMismatch(expected: 32, actual: 2_048)
-        )
-    ]
-
     @Test("category bytes are encoded in transaction order")
     func encodeUsesTransactionOrderForCategory() throws {
         let category = try OpalBase.CashTokens.CategoryID(transactionOrderData: Data((0..<32).map { UInt8($0) }))
@@ -147,77 +107,23 @@ struct CashTokensTokenPrefixValidator {
         #expect(encodedCategoryBytes == category.transactionOrderData)
     }
 
-    @Test("category identifiers reject invalid RPC hex", arguments: invalidCategoryIdentifierCases)
-    fileprivate func categoryIdentifiersRejectInvalidRPCHex(_ invalidCase: InvalidCategoryIdentifierCase) {
-        #expect(throws: invalidCase.expectedError) {
-            _ = try OpalBase.CashTokens.CategoryID(hexFromRPC: invalidCase.hexadecimalString)
-        }
-    }
-
-    @Test("category identifiers normalize sliced transaction-order data")
-    func categoryIdentifiersNormalizeSlicedTransactionOrderData() throws {
-        let transactionOrderData = Data(repeating: 0x44, count: 32)
-        let paddedData = Data([0x00]) + transactionOrderData + Data([0xff])
-        let slicedData = paddedData[paddedData.index(after: paddedData.startIndex)..<paddedData.index(before: paddedData.endIndex)]
-
-        let category = try OpalBase.CashTokens.CategoryID(transactionOrderData: slicedData)
-
-        #expect(slicedData.startIndex != 0)
-        #expect(category.transactionOrderData == transactionOrderData)
-        #expect(category.transactionOrderData.startIndex == 0)
-    }
-
-    @Test("NFT decoder rejects prefixed commitment hex")
-    func nonFungibleTokenDecoderRejectsPrefixedCommitmentHex() {
-        let payload = Data(#"{"capability":"none","commitment":"0x12"}"#.utf8)
-
-        #expect(throws: OpalBase.CashTokens.Error.invalidHexadecimalString) {
-            _ = try JSONDecoder().decode(OpalBase.CashTokens.NFT.self, from: payload)
-        }
-    }
-
-    @Test("NFT coding round-trips empty commitments")
-    func nonFungibleTokenCodingRoundTripsEmptyCommitments() throws {
-        let token = try OpalBase.CashTokens.NFT(capability: .none, commitment: Data())
-        let encoded = try JSONEncoder().encode(token)
-        let decoded = try JSONDecoder().decode(OpalBase.CashTokens.NFT.self, from: encoded)
-
-        #expect(decoded == token)
-    }
-
-    @Test("NFTs normalize sliced commitments")
-    func nonFungibleTokensNormalizeSlicedCommitments() throws {
-        let commitment = Data([0x0a, 0x0b])
-        let paddedCommitment = Data([0x00]) + commitment + Data([0xff])
-        let slicedCommitment = paddedCommitment[paddedCommitment.index(after: paddedCommitment.startIndex)..<paddedCommitment.index(before: paddedCommitment.endIndex)]
-
-        let token = try OpalBase.CashTokens.NFT(capability: .mutable, commitment: slicedCommitment)
-
-        #expect(slicedCommitment.startIndex != 0)
-        #expect(token.commitment == commitment)
-        #expect(token.commitment.startIndex == 0)
-    }
-
-    @Test("valid commitment lengths are accepted", arguments: [0, 1, 40])
-    func validCommitmentLengthsAreAccepted(_ commitmentLength: Int) throws {
-        let commitment = Data(repeating: 0x01, count: commitmentLength)
-        let nonFungibleToken = try OpalBase.CashTokens.NFT(capability: .none, commitment: commitment)
-        #expect(nonFungibleToken.commitment.count == commitmentLength)
-    }
-
-    @Test("oversized commitment lengths are rejected")
-    func oversizedCommitmentLengthsAreRejected() throws {
-        let oversizedCommitment = Data(repeating: 0x02, count: 41)
-        #expect(throws: OpalBase.CashTokens.Error.commitmentLengthOutOfRange(minimum: 0, maximum: 40, actual: 41)) {
-            _ = try OpalBase.CashTokens.NFT(capability: .none, commitment: oversizedCommitment)
-        }
-
+    @Test("prefix decoder rejects oversized commitments")
+    func rejectOversizedPrefixCommitment() throws {
         let category = try makeCategoryIdentifier(using: 0x22)
         let oversizedPrefix = makeOversizedCommitmentPrefix(category: category, commitmentByteCount: 41)
         #expect(throws: OpalBase.CashTokens.Error.invalidTokenPrefixCommitmentLength) {
             _ = try OpalBase.CashTokens.TokenPrefix.decode(prefixPlusBytecode: oversizedPrefix)
         }
     }
+
+    private static let tokenDataRoundTripFixtures: [(
+        amount: UInt64?,
+        includesNonFungibleToken: Bool
+    )] = [
+        (1, false),
+        (nil, true),
+        (42, true)
+    ]
 
     private func makeTokenData(from fixture: TokenPrefixTokenData) throws -> OpalBase.CashTokens.TokenData {
         let category = try OpalBase.CashTokens.CategoryID(hexFromRPC: fixture.category)
@@ -274,45 +180,5 @@ struct CashTokensTokenPrefixValidator {
         var paddedData = Data([0x00])
         paddedData.append(data)
         return paddedData[paddedData.index(after: paddedData.startIndex)...]
-    }
-
-    enum TokenPrefixAbsentInputCase: CaseIterable, CustomStringConvertible, Sendable {
-        case base
-        case sliced
-
-        var description: String {
-            switch self {
-            case .base:
-                "base"
-            case .sliced:
-                "sliced"
-            }
-        }
-
-        var expectedStartIndex: Int {
-            switch self {
-            case .base:
-                0
-            case .sliced:
-                1
-            }
-        }
-
-        func makePrefixPlusBytecode(from lockingBytecode: Data) -> Data {
-            switch self {
-            case .base:
-                return lockingBytecode
-            case .sliced:
-                var paddedData = Data([0x00])
-                paddedData.append(lockingBytecode)
-                return paddedData[paddedData.index(after: paddedData.startIndex)...]
-            }
-        }
-    }
-
-    struct InvalidCategoryIdentifierCase: CustomStringConvertible, Sendable {
-        let description: String
-        let hexadecimalString: String
-        let expectedError: OpalBase.CashTokens.Error
     }
 }
