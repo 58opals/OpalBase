@@ -1,6 +1,6 @@
 // OpalDiagnostics+Event+OpalBase.swift
 
-@preconcurrency public import OpalDiagnostics
+public import OpalDiagnostics
 
 public extension OpalDiagnostics.Event {
     static let walletCreateStarted = Self(rawValue: "opalbase.wallet.create.started")

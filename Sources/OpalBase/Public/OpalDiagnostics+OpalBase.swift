@@ -1,7 +1,7 @@
 // OpalDiagnostics+OpalBase.swift
 
 import Foundation
-@preconcurrency public import OpalDiagnostics
+public import OpalDiagnostics
 
 public extension OpalDiagnostics {
     static func record(
@@ -48,21 +48,19 @@ public extension OpalDiagnostics {
 
     static nonisolated(nonsending) func withTraceID<Success>(
         _ traceID: TraceID,
-        operation: () async -> Success
+        operation: nonisolated(nonsending) () async -> Success
     ) async -> Success {
-        nonisolated(unsafe) let scopedOperation = operation
         return await withTraceID(Optional(traceID)) {
-            await scopedOperation()
+            await operation()
         }
     }
 
     static nonisolated(nonsending) func withTraceID<Success>(
         _ traceID: TraceID,
-        operation: () async throws -> Success
+        operation: nonisolated(nonsending) () async throws -> Success
     ) async throws -> Success {
-        nonisolated(unsafe) let scopedOperation = operation
         return try await withTraceID(Optional(traceID)) {
-            try await scopedOperation()
+            try await operation()
         }
     }
 
@@ -73,22 +71,20 @@ public extension OpalDiagnostics {
     }
 
     static nonisolated(nonsending) func withTraceID<Success>(
-        operation: () async -> Success
+        operation: nonisolated(nonsending) () async -> Success
     ) async -> Success {
         let traceID = resolveTraceID()
-        nonisolated(unsafe) let scopedOperation = operation
         return await withTraceID(traceID) {
-            await scopedOperation()
+            await operation()
         }
     }
 
     static nonisolated(nonsending) func withTraceID<Success>(
-        operation: () async throws -> Success
+        operation: nonisolated(nonsending) () async throws -> Success
     ) async throws -> Success {
         let traceID = resolveTraceID()
-        nonisolated(unsafe) let scopedOperation = operation
         return try await withTraceID(traceID) {
-            try await scopedOperation()
+            try await operation()
         }
     }
 
@@ -102,22 +98,20 @@ public extension OpalDiagnostics {
     }
 
     static nonisolated(nonsending) func withNewTraceID<Success>(
-        operation: (TraceID) async -> Success
+        operation: nonisolated(nonsending) (TraceID) async -> Success
     ) async -> Success {
         let traceID = TraceID()
-        nonisolated(unsafe) let scopedOperation = operation
         return await withTraceID(traceID) {
-            await scopedOperation(traceID)
+            await operation(traceID)
         }
     }
 
     static nonisolated(nonsending) func withNewTraceID<Success>(
-        operation: (TraceID) async throws -> Success
+        operation: nonisolated(nonsending) (TraceID) async throws -> Success
     ) async throws -> Success {
         let traceID = TraceID()
-        nonisolated(unsafe) let scopedOperation = operation
         return try await withTraceID(traceID) {
-            try await scopedOperation(traceID)
+            try await operation(traceID)
         }
     }
 }

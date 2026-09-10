@@ -1,6 +1,6 @@
 // OpalDiagnostics+Field+OpalBase.swift
 
-@preconcurrency public import OpalDiagnostics
+public import OpalDiagnostics
 
 public extension OpalDiagnostics.Field {
     enum Name {

@@ -157,9 +157,6 @@ struct WalletFulcrumAddressMonitorValidator {
             unspentByAddress: [targetEntry.address.string: [invalidUnspentOutput]],
             historyByAddress: [
                 targetEntry.address.string: [.init(transactionIdentifier: fundingHash.reverseOrder.hexadecimalString, blockHeight: 14, fee: nil)]
-            ],
-            updatesByAddress: [
-                targetEntry.address.string: [.init(kind: .initialSnapshot, address: targetEntry.address.string, status: "ready")]
             ]
         )
         let confirmationClient = TransactionConfirmationClientTestActor()
@@ -170,43 +167,28 @@ struct WalletFulcrumAddressMonitorValidator {
         )
         let monitor = await fulcrum.makeMonitor(
             for: account,
-            blockHeaderReader: headerReader,
-            retryDelay: .milliseconds(10)
+            blockHeaderReader: headerReader
         )
-        let stream = await monitor.makeEventStream(autoStart: true)
-        let recorder = WalletFulcrumAddressMonitorEventRecorderActor()
-        let collector = Task {
-            do {
-                for try await event in stream {
-                    await recorder.append(event)
-                }
-            } catch { }
-        }
-        do {
-            let events = try await WalletFulcrumAddressMonitorSupport.waitForEvents(
-                recorder,
-                description: "history before UTXO replacement failure",
-                timeout: .seconds(2)
-            ) { events in
-                WalletFulcrumAddressMonitorSupport.firstHistoryChangeIndex(events, containing: fundingHash) != nil &&
-                    WalletFulcrumAddressMonitorSupport.hasFailure(events, address: targetEntry.address)
-            }
-            let historyIndex = try #require(WalletFulcrumAddressMonitorSupport.firstHistoryChangeIndex(events, containing: fundingHash))
-            let failureIndex = try #require(events.firstIndex { if case .encounteredFailure = $0 { true } else { false } })
-            #expect(historyIndex < failureIndex)
+        let stream = await monitor.makeEventStream(autoStart: false)
+        await OpalBase.Wallet.Fulcrum.Monitor.handleAddressUpdate(
+            for: targetEntry.address,
+            dependencies: monitor.dependencies
+        )
+        await monitor.stop()
 
-            let records = await account.loadTransactionHistory()
-            #expect(records.contains { $0.transactionHash == fundingHash })
-
-            await monitor.stop()
-        } catch {
-            await monitor.stop(reason: .cancelled)
-            collector.cancel()
-            _ = await collector.result
-            throw error
+        var events: [OpalBase.Wallet.Fulcrum.Monitor.Event] = .init()
+        for try await event in stream {
+            events.append(event)
         }
-        collector.cancel()
-        _ = await collector.result
+        let historyIndex = try #require(WalletFulcrumAddressMonitorSupport.firstHistoryChangeIndex(events, containing: fundingHash))
+        let failureIndex = try #require(events.firstIndex {
+            guard case .encounteredFailure(let failure) = $0 else { return false }
+            return failure.address == targetEntry.address
+        })
+        #expect(historyIndex < failureIndex)
+
+        let records = await account.loadTransactionHistory()
+        #expect(records.contains { $0.transactionHash == fundingHash })
     }
 
     @Test("monitor falls back without partial UTXO event when history refresh fails")

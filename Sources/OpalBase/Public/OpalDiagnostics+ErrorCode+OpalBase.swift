@@ -1,6 +1,6 @@
 // OpalDiagnostics+ErrorCode+OpalBase.swift
 
-@preconcurrency public import OpalDiagnostics
+public import OpalDiagnostics
 import SwiftFulcrum
 
 public extension OpalDiagnostics.ErrorCode {

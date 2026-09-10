@@ -8,6 +8,79 @@ import SwiftFulcrum
 @testable import OpalBase
 
 extension DiagnosticsValidator {
+    @Test("trace convenience scopes preserve main actor captures")
+    @MainActor
+    func traceConvenienceScopesPreserveMainActorCaptures() async {
+        let capture = TraceCapture()
+        let explicitTraceID = OpalDiagnostics.TraceID()
+
+        let explicitResult = await OpalDiagnostics.withTraceID(explicitTraceID) {
+            await Task.yield()
+            MainActor.preconditionIsolated()
+            #expect(OpalDiagnostics.currentTraceID == explicitTraceID)
+            capture.count += 1
+            return capture
+        }
+        let generatedResult = await OpalDiagnostics.withTraceID {
+            await Task.yield()
+            MainActor.preconditionIsolated()
+            #expect(OpalDiagnostics.currentTraceID != nil)
+            capture.count += 1
+            return capture
+        }
+        let newResult = await OpalDiagnostics.withNewTraceID { traceID in
+            await Task.yield()
+            MainActor.preconditionIsolated()
+            #expect(OpalDiagnostics.currentTraceID == traceID)
+            capture.count += 1
+            return capture
+        }
+
+        #expect(explicitResult === capture)
+        #expect(generatedResult === capture)
+        #expect(newResult === capture)
+        #expect(capture.count == 3)
+        #expect(OpalDiagnostics.currentTraceID == nil)
+    }
+
+    @Test("throwing trace convenience scopes preserve main actor captures")
+    @MainActor
+    func throwingTraceConvenienceScopesPreserveMainActorCaptures() async throws {
+        let capture = TraceCapture()
+        let explicitTraceID = OpalDiagnostics.TraceID()
+
+        let explicitResult = try await OpalDiagnostics.withTraceID(explicitTraceID) {
+            try Task.checkCancellation()
+            await Task.yield()
+            MainActor.preconditionIsolated()
+            #expect(OpalDiagnostics.currentTraceID == explicitTraceID)
+            capture.count += 1
+            return capture
+        }
+        let generatedResult = try await OpalDiagnostics.withTraceID {
+            try Task.checkCancellation()
+            await Task.yield()
+            MainActor.preconditionIsolated()
+            #expect(OpalDiagnostics.currentTraceID != nil)
+            capture.count += 1
+            return capture
+        }
+        let newResult = try await OpalDiagnostics.withNewTraceID { traceID in
+            try Task.checkCancellation()
+            await Task.yield()
+            MainActor.preconditionIsolated()
+            #expect(OpalDiagnostics.currentTraceID == traceID)
+            capture.count += 1
+            return capture
+        }
+
+        #expect(explicitResult === capture)
+        #expect(generatedResult === capture)
+        #expect(newResult === capture)
+        #expect(capture.count == 3)
+        #expect(OpalDiagnostics.currentTraceID == nil)
+    }
+
     @Test("recent record filtering respects categories and trace identifiers")
     func recentRecordFilteringRespectsCategoriesAndTraceIdentifiers() async throws {
         let traceID = OpalDiagnostics.TraceID()
@@ -145,5 +218,11 @@ extension DiagnosticsValidator {
             OpalDiagnostics.Event.cashFusionSessionFinalized,
             category: OpalDiagnostics.Category.cashFusion
         )
+    }
+}
+
+private extension DiagnosticsValidator {
+    final class TraceCapture {
+        var count = 0
     }
 }

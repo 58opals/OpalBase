@@ -1,7 +1,7 @@
 // OpalBaseDiagnosticsPresentation.swift
 
 import Foundation
-@preconcurrency import OpalDiagnostics
+import OpalDiagnostics
 
 enum OpalBaseDiagnosticsPresentation {
     static func fields(

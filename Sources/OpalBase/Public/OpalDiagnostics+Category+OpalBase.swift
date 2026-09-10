@@ -1,6 +1,6 @@
 // OpalDiagnostics+Category+OpalBase.swift
 
-@preconcurrency public import OpalDiagnostics
+public import OpalDiagnostics
 
 public extension OpalDiagnostics.Category {
     static let wallet = Self(rawValue: "wallet")
