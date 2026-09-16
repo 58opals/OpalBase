@@ -6,7 +6,7 @@ Cash Code v1 is an unreleased Opal-owned candidate with an implemented reference
 
 Opal Base is a Swift package for building Bitcoin Cash wallet and transaction flows on Apple platforms. It gives BCH builders a curated app-facing layer for wallet/account orchestration, CashAddr receive-address reservation, Fulcrum-backed public-chain sync, BCH spend planning, transaction review boundaries, snapshot persistence, CashTokens metadata, CashFusion preparation, and redacted diagnostics.
 
-The internal Mosaic wallet-host alpha remains limited to the explicitly selected Opal-v0/chipnet and frozen mainnet-alpha.4/mainnet pairs. The macOS-only private-alpha facade accepts only the exact `Mosaic/0-opal-mainnet-alpha.4` and `bch-mainnet-p2pkh-schnorr/0-opal-mainnet-alpha.4` identifiers and binds Fusion's distinct attempt, generation, and material identifiers plus the wallet reservation UUID and wallet generation before wallet mutation. Its app-facing constructors accept Base-owned bindings and opaque recovery bytes, so an app target does not import or link OpalFusion directly. Fresh application creation persists and exactly reads back Fusion's mandatory initial recovery snapshot before claiming the wallet journal attempt or writing its binding, so a durable wallet journal record is never created without exact Fusion restart state. One Base-owned `SessionOwner` retains the sole Fusion owner, the exact transaction host, and the transaction reader used as previous-output authority across pre-manifest formation, recovery, bootstrap, and post-manifest execution. It centralizes exact persistence/readback and relay publication, exposes only Base-owned phase progress, bootstrap documents, NIP-59 envelopes, inbox events, publication receipts, and mailbox archives, shares one-use owner and signing claims across value copies, reconstructs only package-authenticated mailbox distributions, owns companion-journal and Tor capability adaptation, and treats runtime or route loss as recovery-required instead of manufacturing terminal evidence. One `MosaicPrivateAlphaRecoveryOwner` replays only authenticated reserve, finalize, commit, and release facts; reconciles approval-gated broadcast, tri-state chain presence, reorganization, disappearance, and finality; and authorizes exact-owner quarantine release and terminal journal cleanup without restoring signer access or creating an in-place retry. The journal accepts only an opaque exact-length field-derived key, while HKDF-SHA-256, AES-256-GCM, and envelope SHA-256 calculations cross OpalCrypto's typed facade without changing the version-two envelope. Mainnet coverage remains synthetic: the app still owns key protection, atomic durable storage, journal enumeration, cross-process exclusion, rollback and deletion detection, combined terminal storage, finality policy, and physical deletion. Durable missing-input tombstones remain application-owned and absent from the package; without exact authenticated app evidence, an ambiguous locally-signed or commit-intent absence stays quarantined and fails closed. Package validation does not establish application post-manifest supervision or live mainnet broadcast. The implementation remains behind private SPI against the tracked public Fusion and Crypto revisions. See the [architecture guide](docs/architecture.md), [public API guide](docs/public-api.md), and [local validation commands](#validation) for ownership, consumer contracts, and package checks. It remains unreleased and must not be presented as live Mosaic support.
+Mosaic remains an unreleased, macOS-only internal wallet-host alpha for the explicit Opal-v0/chipnet and frozen mainnet-alpha.4/mainnet profiles. Package tests cover synthetic contracts, not live Mosaic support, application durability, or privacy readiness. See the [architecture guide](docs/architecture.md#builder-integration-lanes) for ownership and recovery obligations and the [public API guide](docs/public-api.md) for the integration boundary.
 
 ## Why Builders Use It
 
@@ -33,21 +33,11 @@ See [Trust Boundaries](docs/trust-boundaries.md) for the full integration model.
 
 ## Installation
 
-For the current Swift 6.4 package stack, use the public `develop` branch:
+For reproducible review of the current Swift 6.4 / OS 27 stack, pin an inspected public `develop` revision. For example, this revision contains the OS 27 migration:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/58opals/OpalBase.git", branch: "develop")
-]
-```
-
-The current manifest follows `SwiftFulcrum`, `OpalCrypto`, `OpalFusion`, and `OpalDiagnostics` on their public `develop` branches. No new SemVer tag is prepared by this migration.
-
-For released-package consumers, the latest published tag remains available:
-
-```swift
-dependencies: [
-    .package(url: "https://github.com/58opals/OpalBase.git", from: "0.4.1")
+    .package(url: "https://github.com/58opals/OpalBase.git", revision: "4782c176b47b2d61764d2918e8f6dd12e032dee0")
 ],
 targets: [
     .target(
@@ -59,7 +49,9 @@ targets: [
 ]
 ```
 
-Do not treat the `develop` branch as a SemVer release. The `v0.4.1` release keeps sibling Opal dependencies on public `develop` branches with tracked revisions in `Package.resolved`; moving those dependencies to public SemVer tags is a separate maintainer-approved dependency change.
+The manifest follows `SwiftFulcrum`, `OpalCrypto`, `OpalFusion`, and `OpalDiagnostics` on public `develop` branches. Retain the consuming application's `Package.resolved` to record their resolved revisions; pinning Base alone does not freeze transitive branch heads. This is an integration snapshot, not a SemVer release.
+
+The published `v0.4.1` tag is **not usable as a SwiftPM version-based dependency** (`from: "0.4.1"` or `exact: "0.4.1"`): SwiftPM rejects its branch-based sibling requirements. Its own `Package.resolved` does not remove that restriction. A future version-consumable release needs a compatible stable dependency graph and an actual consumer-resolution check. See [Release Readiness](docs/release-readiness.md) for the known limitation and gates.
 
 ## 5-Minute Quick Start
 
@@ -105,7 +97,7 @@ You now have mnemonic-backed wallet authority, the first BCH account, and a rese
 - Cash Code v1 candidate identifiers, compressed-P2PKH derivation, durable confirmed and mempool restoration, reorganization rollback, public-only state, opaque-key spending integration, and bounded sender prefix grinding.
 - CashTokens vocabulary, BCMR metadata support, token holdings, token genesis, token mint, token spend, and token commitment mutation preparation.
 - Wallet-backed CashFusion pilot orchestration on macOS.
-- Internal Mosaic reservation for the explicit Opal-v0/chipnet and mainnet-alpha.4/mainnet pairs; distinct Fusion attempt, generation, and material binding plus wallet reservation UUID and generation; a Base-owned full-session facade for formation, recovery, transport bootstrap, and post-manifest execution; authoritative previous-output resolution; contributor signing; complete P2PKH Schnorr verification; OpalCrypto-owned HKDF-SHA-256, AES-256-GCM, and SHA-256 behind an opaque journal key and authenticated whole-journal snapshots; replay-only wallet recovery; guarded broadcast and chain reconciliation; exact-owner quarantine release; and terminal cleanup authority on macOS. Durable outer composition and missing-input tombstones remain app-owned. Application end-to-end bootstrap and post-manifest supervision, live external transport, and live broadcast require separate consumer evidence.
+- Internal Mosaic wallet reservation, session ownership, journal recovery, and guarded chain reconciliation on macOS; application durability and live-operation gates remain open. See [Architecture](docs/architecture.md#builder-integration-lanes).
 - Snapshot persistence, Secure Enclave-backed mnemonic persistence helpers, and redacted diagnostics surfaces.
 
 ## Validation

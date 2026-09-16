@@ -19,23 +19,9 @@ Use it when you want app-facing Bitcoin Cash wallet behavior on Apple platforms 
 
 ## 1. Install The Package
 
-For released-package consumers, depend on the latest tag:
+Use the revision-based dependency and target example in [Installation](../README.md#installation), then import `OpalBase` in the consuming target. Keep the application's resolved dependency revisions under version control for reproducible integration testing.
 
-```swift
-dependencies: [
-    .package(url: "https://github.com/58opals/OpalBase.git", from: "0.4.1")
-]
-```
-
-For public builder review of unreleased APIs, depend on the public `develop` branch or a specific public revision:
-
-```swift
-dependencies: [
-    .package(url: "https://github.com/58opals/OpalBase.git", branch: "develop")
-]
-```
-
-What you have now: your app target can import `OpalBase`. Branch-based dependency use is for review and integration testing; do not present `develop` as a SemVer release.
+The published `v0.4.1` tag cannot be consumed with a SwiftPM version requirement because it depends on sibling branches. The current public revision is a builder-review snapshot, not a stable release; see [Release Readiness](release-readiness.md).
 
 ## 2. Create A Wallet And First Account
 

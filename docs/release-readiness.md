@@ -1,13 +1,13 @@
 # Release Readiness
 
-This page tracks public-safe release posture for builders evaluating the Opal Base `v0.4.1` release line. It does not create a release, tag a release, or change dependency requirements.
+This page tracks the published Opal Base `v0.4.1` tag and the separate current `develop` integration surface. The tag is not resolvable as a SwiftPM version-based dependency. It does not create a release, tag a release, or change dependency requirements.
 
 ## Current Public Status
 
 - Release line: `v0.4.1`.
 - Previous public tag before this release line: `v0.4.0`.
 - Builder-review surface between tags: public `develop` branch.
-- Release source: annotated `v0.4.1` tag.
+- Published source: annotated `v0.4.1` tag; publication does not establish downstream version-based installability.
 - Package version constant: `OpalBase.version == "0.4.1"`.
 - License posture for release notes: Apache License 2.0, matching the repository `LICENSE` file.
 - Cash Code v1 status: tracked under `Unreleased` and not included in `v0.4.1`; see [Cash Code v1 Readiness](cash-code-readiness.md) for its separate feature and release gates.
@@ -16,7 +16,9 @@ This page tracks public-safe release posture for builders evaluating the Opal Ba
 
 The public `develop` branch is acceptable for builder review when all SwiftPM dependency URLs are public and the tracked `Package.resolved` file does not expose private-only topology. It is not a SemVer release.
 
-The `v0.4.1` release candidate uses public sibling package URLs with public `develop` branch requirements and tracked `Package.resolved` revisions. Moving sibling dependencies from public `develop` branches to public SemVer tags is a separate maintainer-approved dependency change because it changes `Package.swift` dependency requirements.
+The published `v0.4.1` manifest uses public sibling package URLs with `develop` branch requirements. SwiftPM rejects that graph when a consuming package requests a stable version of Base. A package's tracked `Package.resolved` is not a substitute for compatible version requirements. Use the [revision-based installation example](../README.md#installation) for current integration testing and retain the consumer's resolved revisions.
+
+A future version-consumable release requires compatible published sibling versions, approved version requirements in `Package.swift`, and a clean downstream consumer-resolution check against the proposed release graph. This work changes dependency contracts and release readiness; it cannot be satisfied by accepting the existing branch topology or retagging `v0.4.1`.
 
 ## Release Hardening Checklist
 
@@ -24,11 +26,15 @@ The `v0.4.1` release candidate uses public sibling package URLs with public `dev
 - Confirm `swift test` passes from a clean checkout.
 - Confirm optional live Fulcrum validation is either intentionally run or explicitly skipped: `OPAL_RUN_LIVE_NETWORK_TESTS=1 OPAL_FULCRUM_URL=<server> swift test --filter NetworkLiveSmokeValidator`.
 - Confirm `Package.swift` and `Package.resolved` use only public dependency URLs and do not expose private-only branch topology.
-- Confirm the branch-based sibling dependency posture is accepted for this release, or explicitly approve a `Package.swift` dependency requirement change before promotion.
+- For a SemVer-consumable release, require compatible stable sibling requirements and verify a fresh consumer resolves Base by version. Record the exact graph and result before promotion; public branch URLs alone are insufficient.
 - Treat the license posture change from the older README's MIT claim to Apache License 2.0 as explicit release-note material.
 - Confirm README, docs, changelog, package files, and license use strict Bitcoin Cash terminology and contain no private process artifacts.
 
-## Validation Status
+## Current Installability Evidence
+
+On 2026-09-16, a disposable consumer requesting exact `0.4.1` from a local clone of the published repository failed resolution: Base was required by stable version but depended on unstable-version `SwiftFulcrum`. No package build ran. This reproduces the manifest restriction independently of a network fetch and leaves the published tag unchanged. Other sibling branch requirements must also be removed for a future stable graph.
+
+## Historical Validation Status
 
 - `swift build`: passed on 2026-07-29.
 - `swift test`: passed on 2026-07-29 with 919 tests across 97 suites.
@@ -52,4 +58,4 @@ The `v0.4.1` release candidate uses public sibling package URLs with public `dev
 
 - Call out that Opal Base is Bitcoin Cash-specific and uses strict BCH terminology: Bitcoin Cash, BCH, CashAddr, satoshi/satoshis, transaction output, UTXO, confirmed, and unconfirmed.
 - Call out the Apache License 2.0 license posture if prior public-facing docs claimed MIT.
-- Call out dependency hardening status clearly if the release candidate still uses branch-based sibling package dependencies.
+- State the known version-consumer limitation for `v0.4.1`. Do not advertise a future tag as version-consumable until its stable dependency graph passes the downstream resolution gate.
