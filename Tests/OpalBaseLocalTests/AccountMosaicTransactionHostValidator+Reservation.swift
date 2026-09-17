@@ -8,6 +8,40 @@ import Testing
 @testable import OpalBase
 
 extension AccountMosaicTransactionHostValidator {
+    @Test("Ordinary release and snapshot refresh cannot clear Mosaic ownership")
+    func preserveMosaicOwnershipAcrossOrdinaryUpdates() async throws {
+        let policy = await MosaicPolicyProbeActor().transactionPolicy
+        let fixture = try await MosaicHostFixture.make(transactionPolicy: policy)
+        let book = fixture.addressBook
+        let snapshot = await book.makeSnapshot()
+        let lease = try await fixture.reserve()
+        let output = try #require(lease.participantReservation.outputs.first)
+        let address = try OpalBase.Address(script: OpalBase.Script.decode(
+            lockingScript: Data(output.lockingScriptBytes)
+        ))
+        await book.releaseUTXOs([fixture.selectedInput])
+        await book.clearSpendReservationState()
+        #expect(!(await book.listSpendableUTXOs()).contains(fixture.selectedInput))
+        await #expect(throws: (any Error).self) {
+            try await book.refresh(with: snapshot)
+        }
+        await #expect(throws: (any Error).self) {
+            _ = try await book.releaseReservation(address: address, shouldKeepUsed: false)
+        }
+        await #expect(throws: (any Error).self) {
+            try await book.mark(address: address, isUsed: false)
+        }
+        // Incoming chain observations must remain possible while preserving the lease.
+        try await book.mark(address: address, isUsed: true)
+        let observed = try #require(await book.findEntry(for: address))
+        #expect(observed.isReserved)
+        #expect(observed.isUsed)
+        #expect(!(await book.listSpendableUTXOs()).contains(fixture.selectedInput))
+        try await fixture.host.releaseMosaicReservation(lease.reference)
+        #expect(await book.listSpendableUTXOs().contains(fixture.selectedInput))
+        #expect(await book.findEntry(for: address)?.isReserved == false)
+    }
+
     @Test("Reject unsupported profile-network pairs and malformed contributions")
     func rejectUnsupportedBindingsAndMalformedContributions() async throws {
         let account = try await AccountTestFixtures.makeAccount()

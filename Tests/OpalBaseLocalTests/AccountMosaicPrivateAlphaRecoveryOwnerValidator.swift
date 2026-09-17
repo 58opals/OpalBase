@@ -176,6 +176,102 @@ struct AccountMosaicPrivateAlphaRecoveryOwnerValidator {
         )
     }
 
+    @Test("Prepared recovery preserves a foreign input reservation")
+    func preserveForeignPreparedInputReservation() async throws {
+        let prepared = try await makePreparedReservation()
+        let book = prepared.fixture.addressBook
+        let input = prepared.fixture.selectedInput
+        try await book.reserveUTXOs([input])
+        let owner = try await makePrivateAlphaRecoveryOwner(
+            addressBook: book, journalProbe: prepared.fixture.journalProbe
+        )
+        await #expect(throws: OpalBase.Account.MosaicPrivateAlphaRecoveryOwner.Failure.walletStateMismatch) {
+            _ = try await owner.resume()
+        }
+        #expect(await book.hasReservedMosaicInputs([input]))
+        #expect(!(await book.listSpendableUTXOs()).contains(input))
+        let records = await prepared.fixture.journalProbe.readRecords()
+        #expect(records.count == 3)
+        guard case .releaseIntent = records.last else {
+            Issue.record("Ambiguous ownership must retain release intent")
+            return
+        }
+        await book.releaseUTXOs([input])
+        #expect(!(await book.listSpendableUTXOs()).contains(input))
+        guard case .terminal(.walletReleased) = try await owner.resume() else {
+            Issue.record("Expected recovery after the foreign reservation ends")
+            return
+        }
+        #expect(await book.listSpendableUTXOs().contains(input))
+    }
+
+    @Test("Prepared recovery preserves foreign receiving ownership")
+    func preserveForeignPreparedReceivingReservation() async throws {
+        for useWrongGeneration in [false, true] {
+            let prepared = try await makePreparedReservation()
+            let book = prepared.fixture.addressBook
+            let entry = try #require(prepared.receivingEntries.first)
+            if useWrongGeneration {
+                let foreign = OpalFusion.Host.MosaicReservationReference(
+                    identifier: prepared.lease.reference.identifier,
+                    generation: prepared.lease.reference.generation + 1
+                )
+                _ = try await book.reserveMosaicReceivingEntry(entry, ownedBy: foreign)
+            } else {
+                _ = try await book.reserveEntry(address: entry.address)
+            }
+            let before = try #require(await book.findEntry(for: entry.address))
+            let owner = try await makePrivateAlphaRecoveryOwner(
+                addressBook: book, journalProbe: prepared.fixture.journalProbe
+            )
+            await #expect(throws: OpalBase.Account.MosaicPrivateAlphaRecoveryOwner.Failure.walletCleanupIncomplete) {
+                _ = try await owner.resume()
+            }
+            let after = try #require(await book.findEntry(for: entry.address))
+            #expect(after.isReserved == before.isReserved)
+            #expect(after.isUsed == before.isUsed)
+            #expect(after.isReserved)
+            #expect(!(await book.listSpendableUTXOs()).contains(prepared.fixture.selectedInput))
+            let records = await prepared.fixture.journalProbe.readRecords()
+            #expect(records.count == 3)
+            guard case .releaseIntent = records.last else {
+                Issue.record("Foreign output ownership must prevent terminal release")
+                continue
+            }
+        }
+    }
+
+    @Test("Prepared recovery reconstructs ownership after snapshot restart")
+    func recoverPreparedReservationAfterBookRestart() async throws {
+        let prepared = try await makePreparedReservation()
+        let originalBook = prepared.fixture.addressBook
+        try await originalBook.acquireMosaicInputs(
+            [prepared.fixture.selectedInput], ownedBy: prepared.lease.reference
+        )
+        for entry in prepared.receivingEntries {
+            _ = try await originalBook.reserveMosaicReceivingEntry(entry, ownedBy: prepared.lease.reference)
+        }
+        let snapshot = await originalBook.makeSnapshot()
+        let restartedAccount = try await AccountTestFixtures.makeAccount()
+        let restartedBook = await restartedAccount.addressBook
+        try await restartedBook.refresh(with: snapshot)
+        let restartedProbe = try await prepared.fixture.journalProbe.makeRestartedProbe()
+        let owner = try await makePrivateAlphaRecoveryOwner(
+            addressBook: restartedBook, journalProbe: restartedProbe
+        )
+        #expect(!(await restartedBook.hasReservedMosaicInputs([prepared.fixture.selectedInput])))
+        guard case .terminal(.walletReleased) = try await owner.resume() else {
+            Issue.record("Expected journal-owned recovery in a fresh book")
+            return
+        }
+        #expect(await restartedBook.listSpendableUTXOs().contains(prepared.fixture.selectedInput))
+        for entry in prepared.receivingEntries {
+            let restored = try #require(await restartedBook.findEntry(for: entry.address))
+            #expect(restored.isUsed)
+            #expect(!restored.isReserved)
+        }
+    }
+
     @Test("Prepared reservation crash cuts release only exact wallet effects")
     func recoverPreparedReservationCrashCuts() async throws {
         let crashCuts: [(reserveInput: Bool, reservedOutputCount: Int)] = [
@@ -195,15 +291,16 @@ struct AccountMosaicPrivateAlphaRecoveryOwnerValidator {
                 .reserveMosaicReceivingEntry(unrelatedEntry)
 
             if crashCut.reserveInput {
-                try await prepared.fixture.addressBook.reserveUTXOs(
-                    [prepared.fixture.selectedInput]
+                try await prepared.fixture.addressBook.acquireMosaicInputs(
+                    [prepared.fixture.selectedInput],
+                    ownedBy: prepared.lease.reference
                 )
             }
             for entry in prepared.receivingEntries.prefix(
                 crashCut.reservedOutputCount
             ) {
                 _ = try await prepared.fixture.addressBook
-                    .reserveMosaicReceivingEntry(entry)
+                    .reserveMosaicReceivingEntry(entry, ownedBy: prepared.lease.reference)
             }
 
             let recovery = try await prepared.fixture.journalProbe

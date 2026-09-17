@@ -38,9 +38,12 @@ extension _OpalBase.Account {
         let broadcastCoordinatorClaim = MosaicCommittedBroadcastCandidate
             .CoordinatorClaim()
         let currentDate: @Sendable () -> Date
+        let prepareReceivingEntries: @Sendable (OpalBase.Address.Book, Int) async throws
+            -> [OpalBase.Address.Book.Entry]
         let reserveReceivingEntry: @Sendable (
             OpalBase.Address.Book,
-            OpalBase.Address.Book.Entry
+            OpalBase.Address.Book.Entry,
+            OpalFusion.Host.MosaicReservationReference
         ) async throws -> OpalBase.Address.Book.Entry
         let sleepUntilDate: @Sendable (Date) async throws -> Void
 
@@ -67,14 +70,20 @@ extension _OpalBase.Account {
             transactionPolicy: MosaicTransactionPolicy,
             attemptJournal: MosaicAttemptJournal,
             currentDate: @escaping @Sendable () -> Date = Date.init,
+            prepareReceivingEntries: @escaping @Sendable (OpalBase.Address.Book, Int) async throws
+                -> [OpalBase.Address.Book.Entry] = { book, count in
+                    try await book.prepareMosaicReceivingEntries(count: count)
+                },
             reserveReceivingEntry: @escaping @Sendable (
                 OpalBase.Address.Book,
-                OpalBase.Address.Book.Entry
+                OpalBase.Address.Book.Entry,
+                OpalFusion.Host.MosaicReservationReference
             ) async throws -> OpalBase.Address.Book.Entry = {
                 addressBook,
-                plannedEntry in
+                plannedEntry, reference in
                 try await addressBook.reserveMosaicReceivingEntry(
-                    plannedEntry
+                    plannedEntry,
+                    ownedBy: reference
                 )
             },
             sleepUntilDate: @escaping @Sendable (Date) async throws -> Void = { deadline in
@@ -112,6 +121,7 @@ extension _OpalBase.Account {
             self.transactionPolicy = transactionPolicy
             self.attemptJournal = attemptJournal
             self.currentDate = currentDate
+            self.prepareReceivingEntries = prepareReceivingEntries
             self.reserveReceivingEntry = reserveReceivingEntry
             self.sleepUntilDate = sleepUntilDate
         }

@@ -698,7 +698,11 @@ extension _OpalBase.Account {
                 matching: selectedInputs,
                 absenceAllowed: false
             )
-            await addressBook.releaseUTXOs(Set(storedInputs))
+            // A prepared journal proves intent, not acquisition. Generic
+            // reservations in a surviving book belong to another operation.
+            guard !(await addressBook.hasReservedMosaicInputs(storedInputs)) else {
+                throw Failure.walletStateMismatch
+            }
             try await retireRecordedReceivingEntries()
 
             guard !(await addressBook.hasReservedMosaicInputs(storedInputs))
@@ -716,6 +720,9 @@ extension _OpalBase.Account {
                 matching: selectedInputs,
                 absenceAllowed: false
             )
+            guard !(await addressBook.hasReservedMosaicInputs(storedInputs)) else {
+                throw Failure.walletStateMismatch
+            }
             for input in storedInputs {
                 await addressBook.removeUTXO(input)
             }
@@ -789,9 +796,9 @@ extension _OpalBase.Account {
                     throw Failure.walletStateMismatch
                 }
                 do {
-                    _ = try await addressBook.releaseReservation(
-                        address: entry.address,
-                        shouldKeepUsed: true
+                    _ = try await addressBook.retireMosaicReceivingEntry(
+                        entry,
+                        ownedBy: binding.walletReservationReference
                     )
                 } catch {
                     throw Failure.walletCleanupIncomplete

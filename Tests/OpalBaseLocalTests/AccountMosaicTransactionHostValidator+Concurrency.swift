@@ -8,6 +8,33 @@ import Testing
 @testable import OpalBase
 
 extension AccountMosaicTransactionHostValidator {
+    @Test("Reservation ownership precedes asynchronous preparation", .timeLimit(.minutes(1)))
+    func pinReservationBeforePreparationSuspension() async throws {
+        let suspension = MosaicOperationSuspensionProbeActor()
+        let policy = await MosaicPolicyProbeActor().transactionPolicy
+        let fixture = try await MosaicHostFixture.make(
+            transactionPolicy: policy,
+            prepareReceivingEntries: { book, count in
+                await suspension.suspend()
+                return try await book.prepareMosaicReceivingEntries(count: count)
+            }
+        )
+        let firstReservation = Task { try await fixture.reserve() }
+        await suspension.waitUntilSuspended()
+        #expect(await fixture.journalProbe.readRecords().count == 1)
+        await #expect(throws: OpalBase.Account.MosaicHostFailure.reconciliationRequired) {
+            _ = try await fixture.reserve()
+        }
+        let replacement = try makeReplacementReservationRequest(for: fixture)
+        await #expect(throws: OpalBase.Account.MosaicHostFailure.inPlaceRetryNotPermitted) {
+            _ = try await fixture.host.reserveMosaicContribution(for: replacement)
+        }
+        await suspension.resume()
+        let lease = try await firstReservation.value
+        #expect(await fixture.journalProbe.readRecords().count == 3)
+        try await fixture.host.releaseMosaicReservation(lease.reference)
+    }
+
     @Test(
         "Reservation intent pins one exact request before suspension",
         .timeLimit(.minutes(1))

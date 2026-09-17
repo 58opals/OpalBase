@@ -27,7 +27,6 @@ extension _OpalBase.Account.MosaicTransactionHostActor {
         lifecycle = .releaseIntent
         try await persist(.releaseIntent(reservationReference))
         expirationTask?.cancel()
-        await addressBook.releaseUTXOs(Set(selectedInputs))
         do {
             try await retireReceivingEntries(reservedReceivingEntries)
         } catch {
@@ -38,6 +37,7 @@ extension _OpalBase.Account.MosaicTransactionHostActor {
         finalizedRequest = nil
         finalizedTransaction = nil
         try await persist(.released(reservationReference))
+        await addressBook.releaseMosaicInputQuarantine(ownedBy: reservationReference)
         lifecycle = .released
     }
 
@@ -171,9 +171,9 @@ extension _OpalBase.Account.MosaicTransactionHostActor {
         var didFail = false
         for entry in entries {
             do {
-                _ = try await addressBook.releaseReservation(
-                    address: entry.address,
-                    shouldKeepUsed: true
+                _ = try await addressBook.retireMosaicReceivingEntry(
+                    entry,
+                    ownedBy: attemptBinding.walletReservationReference
                 )
             } catch {
                 didFail = true

@@ -544,6 +544,21 @@ extension OpalBase.Account.MosaicPrivateAlphaRuntime {
             await execution?.stop()
         }
 
+        /// The signed final deadline for the prepared execution, when present.
+        @_spi(MosaicPrivateAlpha)
+        public var expiryUnixSeconds: UInt64? {
+            get async { await execution?.expiryUnixSeconds }
+        }
+
+        /// Stops after final expiry without minting protocol or wallet cleanup authority.
+        /// Claim `waitForDisposition` to verify drain and reconcile exact wallet state.
+        @_spi(MosaicPrivateAlpha)
+        @discardableResult
+        public func stopIfExpired(currentUnixSeconds: UInt64) async throws -> Bool {
+            guard let execution else { throw Failure.invalidRecoveryState }
+            return await execution.stopIfExpired(currentUnixSeconds: currentUnixSeconds)
+        }
+
         /// Claims one runtime termination. Non-protocol failures remain recovery-required;
         /// only package-authenticated completion or abort can mint cleanup evidence.
         @_spi(MosaicPrivateAlpha)
@@ -804,10 +819,16 @@ extension OpalBase.Account.MosaicPrivateAlphaRuntime {
         ) async throws -> PostManifestMailboxDistribution {
             let proof = try await owner
                 .makePostManifestExecutionPrivateDeploymentProof()
+            // A persisted terminal is historical evidence, not new admission.
+            // Revalidate its signed archive within the proof's original window;
+            // exact terminal companions still gate the zero-route reconstruction.
+            let validationUnixSeconds = mustValidateRecoveredTerminal
+                ? proof.phaseStartUnixSeconds
+                : currentUnixSeconds
             let documents = try Self.loadCommonMailboxDocuments(
                 archive.documents,
                 proof: proof,
-                currentUnixSeconds: currentUnixSeconds
+                currentUnixSeconds: validationUnixSeconds
             )
             let registration = try FusionRuntime
                 .loadTransportBootstrapAnonymousMailboxRegistration(
@@ -816,7 +837,7 @@ extension OpalBase.Account.MosaicPrivateAlphaRuntime {
                     authorizationKey: documents.authorizationKey,
                     claimSet: documents.claimSet,
                     responseSet: documents.responseSet,
-                    currentUnixSeconds: currentUnixSeconds
+                    currentUnixSeconds: validationUnixSeconds
                 )
             let assignment = try FusionRuntime
                 .loadTransportBootstrapAnonymousMailboxAssignment(
@@ -826,7 +847,7 @@ extension OpalBase.Account.MosaicPrivateAlphaRuntime {
                     claimSet: documents.claimSet,
                     responseSet: documents.responseSet,
                     registration: registration,
-                    currentUnixSeconds: currentUnixSeconds
+                    currentUnixSeconds: validationUnixSeconds
                 )
             let distribution = try FusionRuntime
                 .makeContributorTransportBootstrapMailboxDistribution(
@@ -842,7 +863,7 @@ extension OpalBase.Account.MosaicPrivateAlphaRuntime {
                         archive.contributorControlIdentity,
                     localControlRecipientSigningKey:
                         archive.localControlRecipientSigningKey,
-                    currentUnixSeconds: currentUnixSeconds
+                    currentUnixSeconds: validationUnixSeconds
                 )
             return .init(
                 binding: binding,
@@ -859,10 +880,16 @@ extension OpalBase.Account.MosaicPrivateAlphaRuntime {
         ) async throws -> PostManifestMailboxDistribution {
             let proof = try await owner
                 .makePostManifestExecutionPrivateDeploymentProof()
+            // A persisted terminal is historical evidence, not new admission.
+            // Revalidate its signed archive within the proof's original window;
+            // exact terminal companions still gate the zero-route reconstruction.
+            let validationUnixSeconds = mustValidateRecoveredTerminal
+                ? proof.phaseStartUnixSeconds
+                : currentUnixSeconds
             let documents = try Self.loadCommonMailboxDocuments(
                 archive.documents,
                 proof: proof,
-                currentUnixSeconds: currentUnixSeconds
+                currentUnixSeconds: validationUnixSeconds
             )
             var registrations: [
                 FusionRuntime.TransportBootstrapAnonymousMailboxRegistration
@@ -878,7 +905,7 @@ extension OpalBase.Account.MosaicPrivateAlphaRuntime {
                         authorizationKey: documents.authorizationKey,
                         claimSet: documents.claimSet,
                         responseSet: documents.responseSet,
-                        currentUnixSeconds: currentUnixSeconds
+                        currentUnixSeconds: validationUnixSeconds
                     )
                 registrations.append(registration)
                 assignments.append(
@@ -892,7 +919,7 @@ extension OpalBase.Account.MosaicPrivateAlphaRuntime {
                             registration: registration,
                             recipientPrivateKeys:
                                 archiveAssignment.recipientPrivateKeys,
-                            currentUnixSeconds: currentUnixSeconds
+                            currentUnixSeconds: validationUnixSeconds
                         )
                 )
             }
@@ -908,7 +935,7 @@ extension OpalBase.Account.MosaicPrivateAlphaRuntime {
                     acknowledgementSet: documents.acknowledgementSet,
                     localControlRecipientSigningKey:
                         archive.localControlRecipientSigningKey,
-                    currentUnixSeconds: currentUnixSeconds
+                    currentUnixSeconds: validationUnixSeconds
                 )
             let localVerificationKey = archive
                 .localControlRecipientSigningKey

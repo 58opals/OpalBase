@@ -431,7 +431,13 @@ struct AccountMosaicAttemptRecoveryPlannerValidator {
         let records = await journalProbe.readRecords()
         #expect(records.count == 4)
         #expect(try Planner.plan(for: records) == .finishRelease(lease.reference))
-        #expect(await fixture.addressBook.listSpendableUTXOs().contains(fixture.selectedInput))
+        #expect(!(await fixture.addressBook.listSpendableUTXOs()).contains(fixture.selectedInput))
+        // The live owner cannot retry past an ambiguous write; authenticated
+        // recovery must resolve the journal's exact release intent.
+        await #expect(throws: OpalBase.Account.MosaicHostFailure.reconciliationRequired) {
+            try await fixture.host.releaseMosaicReservation(lease.reference)
+        }
+        #expect(!(await fixture.addressBook.listSpendableUTXOs()).contains(fixture.selectedInput))
     }
 
     @Test("A pre-sign release is terminal and idempotently recoverable")

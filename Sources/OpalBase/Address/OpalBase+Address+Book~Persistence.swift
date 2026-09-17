@@ -90,6 +90,9 @@ extension _OpalBase.Address.Book {
     }
 
     func refresh(with snapshot: Snapshot) async throws {
+        // Snapshot data contains no live reservation authority. It may restore
+        // a fresh book, but cannot replace an active Mosaic output lease.
+        try inventory.requireNoMosaicReservations()
         let entrySnapshots = snapshot.receivingEntries + snapshot.changeEntries
         try validateEntryUsage(in: snapshot.receivingEntries, expected: .receiving)
         try validateEntryUsage(in: snapshot.changeEntries, expected: .change)

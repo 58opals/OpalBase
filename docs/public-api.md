@@ -2,6 +2,8 @@
 
 Opal Base exposes a workflow-shaped API under the `OpalBase.*` namespace. Builder-facing integrations should start from the public facades in `Sources/OpalBase/Public` and only drop lower when custom storage, networking, transaction handling, or protocol research requires it.
 
+For the experimental macOS Mosaic SPI, follow the [local wallet integration recipe](mosaic-local-integration.md). It covers scoped reservation ownership, expiry, durable disposition and restart obligations without enabling live operation.
+
 ## Unreleased Source Migration
 
 The construction-bound secret-persistence cleanup is a source-breaking change intended for the next explicitly breaking pre-1.0 release; it is not a patch-release compatibility change. Replace defaulted `Storage` construction with an explicit `ValueClient`, `Security`, and `secretPersistencePolicy`. Replace defaulted `Security` construction with `makePlaintextOnly()` only for an intentional plaintext provider, or provide concrete encrypt/decrypt closures. Bind `WalletSecurityProfile.secretPersistencePolicy` when constructing the storage or custom `StoredMnemonicPersistence` root, then call save methods without policy, profile, or fallback overrides. A custom `StoredMnemonicPersistence` save closure receives that already-bound policy so the backend can implement the selected provider or legacy-fallback behavior.

@@ -67,6 +67,10 @@ extension _OpalBase.Account.MosaicTransactionHostActor {
             throw OpalBase.Account.MosaicHostFailure.invalidReservationProfile
         }
 
+        // Claim before any actor suspension. Preparation has no wallet effects;
+        // failures before the write-ahead journal can safely return to idle.
+        reservationRequest = request
+        lifecycle = .reservationPrepared
         let reference = attemptBinding.walletReservationReference
         let inputEntries: [OpalBase.Address.Book.Entry]
         let plannedReceivingEntries: [OpalBase.Address.Book.Entry]
@@ -74,10 +78,9 @@ extension _OpalBase.Account.MosaicTransactionHostActor {
         let lease: OpalFusion.Host.MosaicReservationLease
         do {
             inputEntries = try await validateSelectedInputs()
-            plannedReceivingEntries = try await addressBook
-                .prepareMosaicReceivingEntries(
-                    count: outputAmountsSatoshis.count
-                )
+            plannedReceivingEntries = try await prepareReceivingEntries(
+                addressBook, outputAmountsSatoshis.count
+            )
             inputRecords = try await makeReservedInputRecords(
                 entries: inputEntries
             )
@@ -100,14 +103,15 @@ extension _OpalBase.Account.MosaicTransactionHostActor {
                     outputs: participantOutputs
                 )
             )
-        } catch let failure as OpalBase.Account.MosaicHostFailure {
-            throw failure
+            try Task.checkCancellation()
         } catch {
+            reservationRequest = nil
+            lifecycle = .idle
+            if let cancellation = error as? CancellationError { throw cancellation }
+            if let failure = error as? OpalBase.Account.MosaicHostFailure { throw failure }
             throw OpalBase.Account.MosaicHostFailure.reservationUnavailable
         }
 
-        reservationRequest = request
-        lifecycle = .reservationPrepared
         try await persist(
             .reservationPrepared(
                 request: request,
@@ -123,9 +127,9 @@ extension _OpalBase.Account.MosaicTransactionHostActor {
         var receivingEntries: [OpalBase.Address.Book.Entry] = []
         do {
             try Task.checkCancellation()
-            try await addressBook.reserveUTXOs(
-                Set(selectedInputs),
-                tokenSelectionPolicy: .excludeTokenUTXOs
+            try await addressBook.acquireMosaicInputs(
+                selectedInputs,
+                ownedBy: reference
             )
             didReserveInputs = true
             try Task.checkCancellation()
@@ -135,7 +139,8 @@ extension _OpalBase.Account.MosaicTransactionHostActor {
                 receivingEntries.append(
                     try await reserveReceivingEntry(
                         addressBook,
-                        plannedEntry
+                        plannedEntry,
+                        reference
                     )
                 )
                 try Task.checkCancellation()
@@ -163,15 +168,15 @@ extension _OpalBase.Account.MosaicTransactionHostActor {
                 throw error
             }
             lifecycle = .releaseIntent
-            if didReserveInputs {
-                await addressBook.releaseUTXOs(Set(selectedInputs))
-            }
             do {
                 try await retireReceivingEntries(plannedReceivingEntries)
             } catch {
                 throw OpalBase.Account.MosaicHostFailure.reservationCleanupFailed
             }
             try await persist(.released(reference))
+            if didReserveInputs {
+                await addressBook.releaseMosaicInputQuarantine(ownedBy: reference)
+            }
             lifecycle = .released
             if let cancellation = error as? CancellationError {
                 throw cancellation

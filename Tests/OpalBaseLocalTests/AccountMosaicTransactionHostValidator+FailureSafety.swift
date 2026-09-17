@@ -36,9 +36,10 @@ extension AccountMosaicTransactionHostValidator {
         let policy = await MosaicPolicyProbeActor().transactionPolicy
         let fixture = try await MosaicHostFixture.make(
             transactionPolicy: policy,
-            reserveReceivingEntry: { addressBook, plannedEntry in
+            reserveReceivingEntry: { addressBook, plannedEntry, reference in
                 try await addressBook.reserveMosaicReceivingEntry(
                     plannedEntry,
+                    ownedBy: reference,
                     maintainingGapWith: {
                         throw MosaicPolicyFixtureFailure.rejected
                     }

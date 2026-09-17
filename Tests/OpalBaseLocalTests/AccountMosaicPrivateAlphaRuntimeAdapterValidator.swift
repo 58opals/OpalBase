@@ -123,7 +123,7 @@ struct AccountMosaicPrivateAlphaRuntimeAdapterValidator {
             [prepared.fixture.selectedInput]
         )
         #expect(
-            await prepared.fixture.addressBook.listSpendableUTXOs()
+            !(await prepared.fixture.addressBook.listSpendableUTXOs())
                 .contains(prepared.fixture.selectedInput)
         )
 

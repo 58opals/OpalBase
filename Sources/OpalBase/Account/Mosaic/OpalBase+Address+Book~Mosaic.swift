@@ -4,6 +4,23 @@
 import OpalFusion
 
 extension _OpalBase.Address.Book {
+    /// Atomically acquires exact inputs under one Mosaic owner, excluding other reservations.
+    func acquireMosaicInputs(
+        _ inputs: [OpalBase.Transaction.Output.Unspent],
+        ownedBy reference: OpalFusion.Host.MosaicReservationReference
+    ) throws {
+        let selected = Set(inputs)
+        try utxoStore.reserve(selected, tokenSelectionPolicy: .excludeTokenUTXOs)
+        // Transfer immediately without suspension; ordinary release/refresh cannot
+        // clear the owner-scoped hold while signing or recovery is uncertain.
+        utxoStore.quarantineMosaicOutpoints(
+            Set(inputs.map(UTXORepository.Outpoint.init)),
+            ownerIdentifier: reference.identifier,
+            ownerGeneration: reference.generation
+        )
+        utxoStore.release(selected)
+    }
+
     /// Quarantines journal-authenticated selected inputs by outpoint identity.
     ///
     /// Every selected input must have a structurally valid transaction hash.
@@ -40,7 +57,8 @@ extension _OpalBase.Address.Book {
     func hasReservedMosaicInputs(
         _ inputs: [OpalBase.Transaction.Output.Unspent]
     ) -> Bool {
-        !utxoStore.reservedUTXOs.isDisjoint(with: Set(inputs))
+        !Set(utxoStore.reservedUTXOs.map(UTXORepository.Outpoint.init))
+            .isDisjoint(with: Set(inputs.map(UTXORepository.Outpoint.init)))
     }
 
     /// Selects exact unused receiving identities without reserving them.
@@ -69,6 +87,7 @@ extension _OpalBase.Address.Book {
     /// Reserves only one exact previously planned receiving identity.
     func reserveMosaicReceivingEntry(
         _ plannedEntry: Entry,
+        ownedBy reference: OpalFusion.Host.MosaicReservationReference? = nil,
         maintainingGapWith maintainGap: (@Sendable () async throws -> Void)? = nil
     ) async throws -> Entry {
         guard let currentEntry = findEntry(for: plannedEntry.address),
@@ -78,7 +97,15 @@ extension _OpalBase.Address.Book {
               !currentEntry.isReserved else {
             throw Error.entryNotFound
         }
-        let reservedEntry = try reserveEntry(address: plannedEntry.address)
+        let reservedEntry: Entry
+        if let reference {
+            reservedEntry = try inventory.reserveMosaicEntry(
+                address: plannedEntry.address,
+                ownedBy: .init(identifier: reference.identifier, generation: reference.generation)
+            )
+        } else {
+            reservedEntry = try reserveEntry(address: plannedEntry.address)
+        }
         do {
             if let maintainGap {
                 try await maintainGap()
@@ -87,12 +114,30 @@ extension _OpalBase.Address.Book {
             }
             return reservedEntry
         } catch {
-            _ = try? releaseReservation(
-                address: reservedEntry.address,
-                shouldKeepUsed: true
-            )
+            if let reference {
+                _ = try? retireMosaicReceivingEntry(reservedEntry, ownedBy: reference)
+            } else {
+                _ = try? releaseReservation(address: reservedEntry.address, shouldKeepUsed: true)
+            }
             throw error
         }
+    }
+
+    /// Retires a planned output only if unreserved or held by this exact attempt.
+    @discardableResult
+    func retireMosaicReceivingEntry(
+        _ entry: Entry,
+        ownedBy reference: OpalFusion.Host.MosaicReservationReference
+    ) throws -> Entry {
+        guard let current = findEntry(for: entry.address),
+              current.derivationPath == entry.derivationPath,
+              current.derivationPath.usage == .receiving else {
+            throw Error.entryNotFound
+        }
+        return try inventory.retireMosaicEntry(
+            address: entry.address,
+            ownedBy: .init(identifier: reference.identifier, generation: reference.generation)
+        )
     }
 
     /// Convenience for non-recovery callers that do not need a pre-effect plan.

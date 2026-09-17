@@ -4,6 +4,13 @@ import Foundation
 
 extension _OpalBase.Address.Book {
     struct Inventory {
+        struct MosaicReservationOwner: Equatable, Sendable {
+            let identifier: UUID
+            let generation: UInt64
+        }
+
+        // Process-local authority, discarded together with reservation flags on restore.
+        private var mosaicReservationOwners: [OpalBase.Address: MosaicReservationOwner] = [:]
         private var bucket: UsageBucket
         private var addressIndex: [OpalBase.Address: (usage: OpalBase.Key.DerivationPath.Usage, index: Int)]
         private var cacheValidityDurationValue: TimeInterval
@@ -81,13 +88,20 @@ extension _OpalBase.Address.Book {
         }
         
         mutating func mark(address: OpalBase.Address, isUsed: Bool) throws -> Entry {
-            try updateEntry(for: address) { entry in
+            if mosaicReservationOwners[address] != nil, isUsed {
+                // Chain observations may mark a leased address used, but do
+                // not possess authority to retire its reservation.
+                return try updateEntry(for: address) { $0.isUsed = true }
+            }
+            try requireNoMosaicReservation(address: address)
+            return try updateEntry(for: address) { entry in
                 entry.isUsed = isUsed
                 entry.isReserved = false
             }
         }
         
         mutating func reserve(address: OpalBase.Address) throws -> Entry {
+            try requireNoMosaicReservation(address: address)
             guard let currentEntry = findEntry(for: address) else { throw OpalBase.Address.Book.Error.addressNotFound }
             guard !currentEntry.isReserved else { throw OpalBase.Address.Book.Error.entryAlreadyReserved(currentEntry) }
             
@@ -98,9 +112,52 @@ extension _OpalBase.Address.Book {
         }
         
         mutating func releaseReservation(address: OpalBase.Address, shouldKeepUsed: Bool) throws -> Entry {
-            try updateEntry(for: address) { entry in
+            try requireNoMosaicReservation(address: address)
+            return try updateEntry(for: address) { entry in
                 entry.isUsed = shouldKeepUsed
                 entry.isReserved = false
+            }
+        }
+
+        mutating func reserveMosaicEntry(
+            address: OpalBase.Address,
+            ownedBy owner: MosaicReservationOwner
+        ) throws -> Entry {
+            try requireNoMosaicReservation(address: address)
+            let entry = try reserve(address: address)
+            mosaicReservationOwners[address] = owner
+            return entry
+        }
+
+        mutating func retireMosaicEntry(
+            address: OpalBase.Address,
+            ownedBy owner: MosaicReservationOwner
+        ) throws -> Entry {
+            guard let entry = findEntry(for: address) else {
+                throw OpalBase.Address.Book.Error.addressNotFound
+            }
+            let existingOwner = mosaicReservationOwners[address]
+            guard (!entry.isReserved && existingOwner == nil) || existingOwner == owner else {
+                throw OpalBase.Address.Book.Error.entryAlreadyReserved(entry)
+            }
+            let retired = try updateEntry(for: address) { entry in
+                entry.isUsed = true
+                entry.isReserved = false
+            }
+            mosaicReservationOwners[address] = nil
+            return retired
+        }
+
+        private func requireNoMosaicReservation(address: OpalBase.Address) throws {
+            if mosaicReservationOwners[address] != nil,
+               let entry = findEntry(for: address) {
+                throw OpalBase.Address.Book.Error.entryAlreadyReserved(entry)
+            }
+        }
+
+        func requireNoMosaicReservations() throws {
+            if let entry = allEntries.first(where: { mosaicReservationOwners[$0.address] != nil }) {
+                throw OpalBase.Address.Book.Error.entryAlreadyReserved(entry)
             }
         }
         

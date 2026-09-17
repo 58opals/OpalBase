@@ -29,13 +29,18 @@ struct MosaicHostFixture {
         currentDate: @escaping @Sendable () -> Date = {
             Date(timeIntervalSince1970: 1_800_000_000)
         },
+        prepareReceivingEntries: @escaping @Sendable (OpalBase.Address.Book, Int) async throws
+            -> [OpalBase.Address.Book.Entry] = { book, count in
+                try await book.prepareMosaicReceivingEntries(count: count)
+            },
         reserveReceivingEntry: @escaping @Sendable (
             OpalBase.Address.Book,
-            OpalBase.Address.Book.Entry
+            OpalBase.Address.Book.Entry,
+            OpalFusion.Host.MosaicReservationReference
         ) async throws -> OpalBase.Address.Book.Entry = {
             addressBook,
-            plannedEntry in
-            try await addressBook.reserveMosaicReceivingEntry(plannedEntry)
+            plannedEntry, reference in
+            try await addressBook.reserveMosaicReceivingEntry(plannedEntry, ownedBy: reference)
         },
         sleepUntilDate: @escaping @Sendable (Date) async throws -> Void = { deadline in
             let interval = deadline.timeIntervalSinceNow
@@ -97,6 +102,7 @@ struct MosaicHostFixture {
             transactionPolicy: transactionPolicy,
             attemptJournal: attemptJournal,
             currentDate: currentDate,
+            prepareReceivingEntries: prepareReceivingEntries,
             reserveReceivingEntry: reserveReceivingEntry,
             sleepUntilDate: sleepUntilDate
         )
