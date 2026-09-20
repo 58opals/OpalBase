@@ -491,6 +491,20 @@ extension OpalBase.Account.MosaicPrivateAlphaRuntime {
             }
         }
 
+        /// Fixed protocol progress for private orchestration, without wallet data.
+        @_spi(MosaicPrivateAlpha)
+        public var postManifestDiagnosticCounts: [String: Int] {
+            get async { await execution?.diagnosticCounts ?? [:] }
+        }
+
+        @_spi(MosaicPrivateAlpha)
+        public var postManifestPhase: Phase? {
+            get async {
+                guard let phase = await execution?.currentPhase else { return nil }
+                return .init(phase)
+            }
+        }
+
         @_spi(MosaicPrivateAlpha)
         public func acceptReceivedAbort(
             _ event: PrivateDeploymentEvent

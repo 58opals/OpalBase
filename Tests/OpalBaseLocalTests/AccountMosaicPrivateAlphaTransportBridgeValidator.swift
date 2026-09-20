@@ -11,6 +11,39 @@ struct AccountMosaicPrivateAlphaTransportBridgeValidator {
     typealias BaseRuntime = OpalBase.Account.MosaicPrivateAlphaRuntime
     typealias FusionRuntime = OpalFusion.MosaicPrivateAlphaRuntime
 
+    @Test("WebSocket bridge retains a bounded burst while its consumer starts")
+    func webSocketAdapterPreservesBurst() async throws {
+        let expected = (0 ..< 16).map { Data([UInt8($0)]) }
+        let connection = MosaicPrivateAlphaTransportBridgeConnectionProbe(messages: expected.map { .text($0) })
+        let adapter = MosaicPrivateAlphaTorWebSocketConnectionAdapter(connection)
+        let stream = try await adapter.open(maximumIncomingMessageByteCount: 512)
+        // Consumer scheduling may lag the source. The bridge must not insert
+        // a smaller queue than the source's already bounded receive buffer.
+        try await Task.sleep(for: .milliseconds(50))
+        var received: [Data] = []
+        for try await event in stream {
+            guard case let .text(bytes) = event else { Issue.record("Unexpected message kind"); continue }
+            received.append(bytes)
+        }
+        #expect(received == expected)
+        await adapter.close()
+    }
+
+    @Test("Canceling a blocked bridge read closes the app-owned connection")
+    func cancellationClosesPullRead() async throws {
+        let connection = MosaicPrivateAlphaTransportBridgeConnectionProbe(messages: [], holdsOpen: true)
+        let adapter = MosaicPrivateAlphaTorWebSocketConnectionAdapter(connection)
+        let stream = try await adapter.open(maximumIncomingMessageByteCount: 512)
+        let reader = Task {
+            var iterator = stream.makeAsyncIterator()
+            _ = try await iterator.next()
+        }
+        try await Task.sleep(for: .milliseconds(10))
+        reader.cancel()
+        await #expect(throws: CancellationError.self) { try await reader.value }
+        #expect(await connection.snapshot().closeCount >= 1)
+    }
+
     @Test("WebSocket adapter maps messages and lifecycle operations exactly")
     func webSocketAdapterMapsMessagesAndLifecycle() async throws {
         let expectedBytes = Data([0x11, 0x22])
@@ -141,13 +174,21 @@ private actor MosaicPrivateAlphaTransportBridgeConnectionProbe:
         let closeCount: Int
     }
 
-    private let message: Runtime.TorWebSocketMessage?
+    private let messages: [Runtime.TorWebSocketMessage]
+    private let holdsOpen: Bool
+    private var continuation: MessageStream.Continuation?
     private var maximumIncomingMessageByteCount: Int?
     private var sentTexts: [String] = []
     private var closeCount = 0
 
     init(message: Runtime.TorWebSocketMessage? = nil) {
-        self.message = message
+        messages = message.map { [$0] } ?? []
+        holdsOpen = false
+    }
+
+    init(messages: [Runtime.TorWebSocketMessage], holdsOpen: Bool = false) {
+        self.messages = messages
+        self.holdsOpen = holdsOpen
     }
 
     func open(
@@ -155,13 +196,12 @@ private actor MosaicPrivateAlphaTransportBridgeConnectionProbe:
     ) async throws -> MessageStream {
         self.maximumIncomingMessageByteCount =
             maximumIncomingMessageByteCount
-        let message = message
-        return AsyncThrowingStream { continuation in
-            if let message {
-                continuation.yield(message)
-            }
-            continuation.finish()
-        }
+        let messages = messages
+        let pair = MessageStream.makeStream(bufferingPolicy: .bufferingOldest(32))
+        continuation = pair.continuation
+        for message in messages { pair.continuation.yield(message) }
+        if !holdsOpen { pair.continuation.finish() }
+        return pair.stream
     }
 
     func send(text: String) async throws {
@@ -170,6 +210,7 @@ private actor MosaicPrivateAlphaTransportBridgeConnectionProbe:
 
     func close() async {
         closeCount += 1
+        continuation?.finish()
     }
 
     func snapshot() -> Snapshot {

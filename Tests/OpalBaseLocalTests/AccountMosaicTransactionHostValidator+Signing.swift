@@ -5,7 +5,7 @@ import Foundation
 import OpalCrypto
 import OpalFusion
 import Testing
-@testable import OpalBase
+@_spi(MosaicPrivateAlpha) @testable import OpalBase
 
 extension AccountMosaicTransactionHostValidator {
     @Test("Mainnet alpha reserves, signs, and commits exact synthetic bytes")
@@ -112,9 +112,9 @@ extension AccountMosaicTransactionHostValidator {
             network: network,
             attemptBinding: attemptBinding,
             selectedInputs: [selectedInput],
-            outputAmountsSatoshis: [
+            outputPlan: .exact([
                 localPreviousOutput.value - 141 - 34 - localRequiredExcessFeeSatoshis
-            ],
+            ]),
             transactionPolicy: try .init(
                 profile: profile,
                 network: network,

@@ -5,7 +5,7 @@ import Foundation
 import OpalCrypto
 import OpalFusion
 import Testing
-@testable import OpalBase
+@_spi(MosaicPrivateAlpha) @testable import OpalBase
 
 extension AccountMosaicTransactionHostValidator {
     @Test("Ordinary release and snapshot refresh cannot clear Mosaic ownership")
@@ -82,7 +82,7 @@ extension AccountMosaicTransactionHostValidator {
                         )
                     ),
                     selectedInputs: [input],
-                    outputAmountsSatoshis: [90_000],
+                    outputPlan: .exact([90_000]),
                     transactionPolicy: policy,
                     attemptJournal: attemptJournal
                 )
@@ -119,7 +119,7 @@ extension AccountMosaicTransactionHostValidator {
                         )
                     ),
                     selectedInputs: [input],
-                    outputAmountsSatoshis: [90_000],
+                    outputPlan: .exact([90_000]),
                     transactionPolicy: policy,
                     attemptJournal: attemptJournal
                 )
@@ -144,7 +144,7 @@ extension AccountMosaicTransactionHostValidator {
                     )
                 ),
                 selectedInputs: [],
-                outputAmountsSatoshis: [90_000],
+                outputPlan: .exact([90_000]),
                 transactionPolicy: policy,
                 attemptJournal: malformedAttemptJournal
             )
@@ -440,7 +440,7 @@ extension AccountMosaicTransactionHostValidator {
                     )
                 ),
                 selectedInputs: [firstInput, secondInput],
-                outputAmountsSatoshis: [1],
+                outputPlan: .exact([1]),
                 transactionPolicy: policy,
                 attemptJournal: attemptJournal
             )

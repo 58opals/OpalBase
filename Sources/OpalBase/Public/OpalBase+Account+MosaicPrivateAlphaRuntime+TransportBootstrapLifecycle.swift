@@ -85,11 +85,28 @@ extension OpalBase.Account.MosaicPrivateAlphaRuntime {
 
         @_spi(MosaicPrivateAlpha)
         public struct AsyncIterator: AsyncIteratorProtocol {
-            var iterator: OpalFusion.MosaicPrivateAlphaRuntime
-                .TransportBootstrapInbox.EventStream.Iterator
+            private let storage: IteratorStorage
+
+            fileprivate init(_ stream: FusionRuntime.TransportBootstrapInbox.EventStream) {
+                storage = IteratorStorage(stream.makeAsyncIterator())
+            }
 
             @_spi(MosaicPrivateAlpha)
             public mutating func next() async throws -> Element? {
+                try await storage.next()
+            }
+        }
+
+        // Keep the dependency's generic iterator layout inside this module.
+        // This preserves pull-based iteration without a forwarding task or buffer.
+        private final class IteratorStorage {
+            private var iterator: FusionRuntime.TransportBootstrapInbox.EventStream.Iterator
+
+            init(_ iterator: FusionRuntime.TransportBootstrapInbox.EventStream.Iterator) {
+                self.iterator = iterator
+            }
+
+            func next() async throws -> Element? {
                 do {
                     return try await iterator.next().map(Element.init)
                 } catch let cancellation as CancellationError {
@@ -101,19 +118,26 @@ extension OpalBase.Account.MosaicPrivateAlphaRuntime {
             }
         }
 
-        let stream: OpalFusion.MosaicPrivateAlphaRuntime
-            .TransportBootstrapInbox.EventStream
+        private final class StreamStorage: Sendable {
+            let stream: FusionRuntime.TransportBootstrapInbox.EventStream
+
+            init(_ stream: FusionRuntime.TransportBootstrapInbox.EventStream) {
+                self.stream = stream
+            }
+        }
+
+        private let storage: StreamStorage
 
         init(
             _ stream: OpalFusion.MosaicPrivateAlphaRuntime
                 .TransportBootstrapInbox.EventStream
         ) {
-            self.stream = stream
+            storage = StreamStorage(stream)
         }
 
         @_spi(MosaicPrivateAlpha)
         public func makeAsyncIterator() -> AsyncIterator {
-            .init(iterator: stream.makeAsyncIterator())
+            .init(storage.stream)
         }
     }
 

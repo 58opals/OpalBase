@@ -180,7 +180,7 @@ extension OpalBase.Account.MosaicPrivateAlphaRuntime {
                 PostManifestAnonymousPublicationRequest
             ) async throws -> Void = { _ in },
             maximumSubscriptionIdentifierByteCount: Int,
-            maximumPendingEventCount: Int = 256,
+            maximumPendingEventCount: Int = 1_024,
             maximumPendingRelayOutputCount: Int = 64
         ) {
             self.provisionRoutes = provisionRoutes
@@ -352,7 +352,7 @@ extension OpalBase.Account.MosaicPrivateAlphaRuntime {
             relays: PostManifestRelayCapabilities,
             timing: PostManifestTimingCapabilities,
             journals: PostManifestJournalPersistence,
-            maximumPendingInputCount: Int = 256
+            maximumPendingInputCount: Int = 1_024
         ) {
             self.relays = relays
             self.timing = timing

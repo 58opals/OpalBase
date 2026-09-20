@@ -31,9 +31,10 @@ extension _OpalBase.Account {
         let profile: OpalFusion.Mosaic.Profile
         let attemptBinding: MosaicAttemptBinding
         let selectedInputs: [OpalBase.Transaction.Output.Unspent]
-        let outputAmountsSatoshis: [UInt64]
+        let outputPlan: OpalBase.Account.MosaicPrivateAlphaRuntime.OutputPlan
         let contributionPolicy: MosaicProfileContributionPolicy
         let transactionPolicy: MosaicTransactionPolicy
+        let signingApproval: OpalBase.Account.MosaicPrivateAlphaRuntime.SigningApproval?
         let attemptJournal: MosaicAttemptJournal
         let broadcastCoordinatorClaim = MosaicCommittedBroadcastCandidate
             .CoordinatorClaim()
@@ -66,9 +67,10 @@ extension _OpalBase.Account {
             network: OpalBase.Network.Environment,
             attemptBinding: MosaicAttemptBinding,
             selectedInputs: [OpalBase.Transaction.Output.Unspent],
-            outputAmountsSatoshis: [UInt64],
+            outputPlan: OpalBase.Account.MosaicPrivateAlphaRuntime.OutputPlan,
             transactionPolicy: MosaicTransactionPolicy,
             attemptJournal: MosaicAttemptJournal,
+            signingApproval: OpalBase.Account.MosaicPrivateAlphaRuntime.SigningApproval? = nil,
             currentDate: @escaping @Sendable () -> Date = Date.init,
             prepareReceivingEntries: @escaping @Sendable (OpalBase.Address.Book, Int) async throws
                 -> [OpalBase.Address.Book.Entry] = { book, count in
@@ -104,9 +106,7 @@ extension _OpalBase.Account {
             guard !selectedInputs.isEmpty,
                   Set(selectedInputs).count == selectedInputs.count,
                   selectedInputs.allSatisfy({ $0.tokenData == nil }),
-                  !outputAmountsSatoshis.isEmpty,
-                  outputAmountsSatoshis.allSatisfy({ $0 > 0 }),
-                  Self.sum(outputAmountsSatoshis) != nil,
+                  outputPlan.isValid(for: contributionPolicy),
                   Self.sum(selectedInputs.map(\.value)) != nil else {
                 throw MosaicHostFailure.invalidContributionPolicy
             }
@@ -116,9 +116,10 @@ extension _OpalBase.Account {
             self.profile = profile
             self.attemptBinding = attemptBinding
             self.selectedInputs = selectedInputs
-            self.outputAmountsSatoshis = outputAmountsSatoshis
+            self.outputPlan = outputPlan
             self.contributionPolicy = contributionPolicy
             self.transactionPolicy = transactionPolicy
+            self.signingApproval = signingApproval
             self.attemptJournal = attemptJournal
             self.currentDate = currentDate
             self.prepareReceivingEntries = prepareReceivingEntries

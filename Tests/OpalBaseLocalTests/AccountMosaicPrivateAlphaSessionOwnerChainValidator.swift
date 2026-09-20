@@ -62,6 +62,12 @@ struct AccountMosaicPrivateAlphaSessionOwnerChainValidator {
         )
 
         try fixture.setPresence(.mempool)
+        // These reads must stay on the already-attested exact client; no
+        // independent client or provider fallback is supplied by this fixture.
+        #expect(try await client.transactionReader.fetchRawTransaction(for: exactTransaction.hash) == exactTransaction.bytes)
+        let address = "bitcoincash:qpm2qsznhks23z7629mms6s4cwef74vcwvy22gdx6a"
+        #expect(try await client.addressReader.fetchUnspentOutputs(for: address, tokenFilter: .include).isEmpty)
+        #expect(try await client.addressReader.fetchHistory(for: address, includeUnconfirmed: false).isEmpty)
         let mempool = try await client.networkClient.presence(
             of: exactTransaction
         )
@@ -127,8 +133,10 @@ struct AccountMosaicPrivateAlphaSessionOwnerChainValidator {
         #expect(
             methods.filter {
                 $0 == "blockchain.transaction.get"
-            }.count == 5
+            }.count == 6
         )
+        #expect(methods.filter { $0 == "blockchain.address.listunspent" }.count == 1)
+        #expect(methods.filter { $0 == "blockchain.address.get_history" }.count == 1)
     }
 
     @Test("Sole session owner guards approval, dispatch, reconciliation, finality, and cleanup")
@@ -339,6 +347,8 @@ struct AccountMosaicPrivateAlphaSessionOwnerChainValidator {
                 ),
                 serverURLs: [URL(string: "wss://fulcrum.example:50004")!]
             ),
+            addressReader: .init(PlaceholderAddressReader()),
+            transactionReader: .init(PlaceholderTransactionReader()),
             networkClient: client
         )
     }

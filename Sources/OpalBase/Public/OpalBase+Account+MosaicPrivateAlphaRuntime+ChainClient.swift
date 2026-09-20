@@ -27,21 +27,33 @@ extension OpalBase.Account.MosaicPrivateAlphaRuntime {
         }
     }
 
-    /// Opaque broadcast and exact-presence capability proven against one concrete Fulcrum client.
+    /// Chain capabilities bound to one freshly attested, exact-endpoint Fulcrum client.
     @_spi(MosaicPrivateAlpha)
     public struct ChainClient: Sendable {
         @_spi(MosaicPrivateAlpha)
         public let attestation: ChainAttestation
+
+        /// Funding inventory reads use the same endpoint set as reconciliation.
+        @_spi(MosaicPrivateAlpha)
+        public let addressReader: OpalBase.Network.AddressReader
+
+        /// Parent-transaction validation cannot silently fall back to another catalog.
+        @_spi(MosaicPrivateAlpha)
+        public let transactionReader: OpalBase.Network.TransactionReader
 
         let networkClient: OpalBase.Account
             .MosaicNetworkAttestedTransactionClient
 
         init(
             attestation: ChainAttestation,
+            addressReader: OpalBase.Network.AddressReader,
+            transactionReader: OpalBase.Network.TransactionReader,
             networkClient: OpalBase.Account
                 .MosaicNetworkAttestedTransactionClient
         ) {
             self.attestation = attestation
+            self.addressReader = addressReader
+            self.transactionReader = transactionReader
             self.networkClient = networkClient
         }
     }
@@ -80,6 +92,8 @@ extension OpalBase.Account.MosaicPrivateAlphaRuntime {
         )
         return .init(
             attestation: attestation,
+            addressReader: .init(OpalBase.Network.Fulcrum.AddressReader(client: fulcrumClient)),
+            transactionReader: .init(OpalBase.Network.Fulcrum.TransactionReader(client: fulcrumClient)),
             networkClient: .init(
                 OpalBase.Network.Fulcrum.TransactionClient(
                     client: fulcrumClient

@@ -11,6 +11,28 @@ import Testing
 struct AccountMosaicPrivateAlphaApplicationFacadeValidator {
     typealias Runtime = OpalBase.Account.MosaicPrivateAlphaRuntime
 
+    @Test("Discovery timing is explicit and does not change relay or admission policy")
+    func explicitDiscoveryTimingProfile() throws {
+        let relays: [Runtime.DiscoveryPreparation.Relay] = (1 ... 3).map {
+            .init(endpoint: "wss://relay-\($0).example/", reviewedOperatorLabel: "fixture-\($0)")
+        }
+        let pool = Data(repeating: 0x17, count: 32)
+        let frozen = try Runtime.DiscoveryPreparation(
+            epochStartUnixSeconds: 1_800_000_000, appGeneratedOpaquePoolIdentifier: pool, relays: relays)
+        let explicitFrozen = try Runtime.DiscoveryPreparation(
+            epochStartUnixSeconds: 1_800_000_000, appGeneratedOpaquePoolIdentifier: pool, relays: relays,
+            timingProfile: .frozen)
+        let candidate = try Runtime.DiscoveryPreparation(
+            epochStartUnixSeconds: 1_800_000_000, appGeneratedOpaquePoolIdentifier: pool, relays: relays,
+            timingProfile: .bootstrap180Candidate)
+        #expect(frozen.opaquePoolDocument == explicitFrozen.opaquePoolDocument)
+        #expect(frozen.opaquePoolDocument != candidate.opaquePoolDocument)
+        #expect(frozen.relaySetDocument == candidate.relaySetDocument)
+        #expect(frozen.relaySetDigest == candidate.relaySetDigest)
+        #expect(candidate.beaconCutoffUnixSeconds == 1_800_000_060)
+        #expect(Runtime.DiscoveryPreparation.TimingProfile(rawValue: "unrecognized-profile") == nil)
+    }
+
     @Test("App-only import creates the exact fresh owner and retains its binding")
     func createFreshOwnerWithoutImportingFusion() async throws {
         let account = try await AccountTestFixtures.makeAccount()

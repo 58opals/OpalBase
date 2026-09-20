@@ -52,6 +52,11 @@ extension _OpalBase.Account.MosaicTransactionHostActor {
               ) else {
             throw OpalBase.Account.MosaicHostFailure.invalidReservationProfile
         }
+        let outputAmountsSatoshis = try outputPlan.resolve(
+            inputAmountsSatoshis: selectedInputs.map(\.value),
+            policy: contributionPolicy,
+            requiredExcessFeeSatoshis: request.requiredExcessFeeSatoshis
+        )
         guard selectedInputs.count + outputAmountsSatoshis.count <= request.componentCount else {
             throw OpalBase.Account.MosaicHostFailure.invalidContributionPolicy
         }

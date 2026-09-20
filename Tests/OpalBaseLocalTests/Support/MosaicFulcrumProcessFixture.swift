@@ -510,6 +510,12 @@ extension MosaicFulcrumProcessFixture {
                         identifier: identifier,
                         connection: connection
                     )
+                case "blockchain.address.listunspent", "blockchain.address.get_history":
+                    guard parameters.first as? String
+                        == "bitcoincash:qpm2qsznhks23z7629mms6s4cwef74vcwvy22gdx6a" else {
+                        throw FixtureFailure.invalidConfiguration("Unexpected fixture address.")
+                    }
+                    send(result: [Any](), identifier: identifier, connection: connection)
                 default:
                     send(
                         errorCode: -32_601,
@@ -562,7 +568,7 @@ extension MosaicFulcrumProcessFixture {
             guard parameters.count == 2,
                   parameters[0] as? String
                     == state.transactionIdentifier,
-                  parameters[1] as? Bool == true else {
+                  parameters[1] is Bool else {
                 throw FixtureFailure.invalidConfiguration(
                     "Transaction lookup did not request the exact verbose transaction."
                 )
@@ -574,6 +580,11 @@ extension MosaicFulcrumProcessFixture {
                     identifier: identifier,
                     connection: connection
                 )
+                return
+            }
+
+            if parameters[1] as? Bool == false {
+                send(result: state.transactionHexadecimal, identifier: identifier, connection: connection)
                 return
             }
 

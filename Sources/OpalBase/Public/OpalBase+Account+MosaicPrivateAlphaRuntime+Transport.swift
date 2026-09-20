@@ -322,49 +322,9 @@ actor MosaicPrivateAlphaTorWebSocketConnectionAdapter:
             maximumIncomingMessageByteCount:
                 maximumIncomingMessageByteCount
         )
-        let (stream, continuation) = MessageStream.makeStream(
-            bufferingPolicy: .bufferingOldest(1)
-        )
-        let connection = connection
-        let forwardingTask = Task {
-            do {
-                for try await message in source {
-                    let result: MessageStream.Continuation.YieldResult
-                    switch message {
-                    case let .text(bytes):
-                        result = continuation.yield(.text(bytes))
-                    case let .binary(bytes):
-                        result = continuation.yield(.binary(bytes))
-                    }
-                    switch result {
-                    case .enqueued:
-                        break
-                    case .dropped:
-                        await connection.close()
-                        continuation.finish(
-                            throwing: Failure.boundedBufferExceeded
-                        )
-                        return
-                    case .terminated:
-                        return
-                    @unknown default:
-                        await connection.close()
-                        continuation.finish(
-                            throwing: Failure.boundedBufferExceeded
-                        )
-                        return
-                    }
-                }
-                continuation.finish()
-            } catch {
-                continuation.finish(throwing: error)
-            }
-        }
-        continuation.onTermination = { _ in
-            forwardingTask.cancel()
-            Task { await connection.close() }
-        }
-        return stream
+        let projection = MosaicPrivateAlphaWebSocketMessageProjection(
+            source: source, connection: connection)
+        return MessageStream(unfolding: { try await projection.next() })
     }
 
     func send(text: String) async throws {
@@ -375,8 +335,51 @@ actor MosaicPrivateAlphaTorWebSocketConnectionAdapter:
         await connection.close()
     }
 
-    private enum Failure: Error, Sendable {
-        case boundedBufferExceeded
+}
+
+/// Pulls directly from the app-owned bounded stream. Adding an eager forwarding
+/// task and a smaller queue here can lose a valid burst before Fusion reads it.
+private actor MosaicPrivateAlphaWebSocketMessageProjection {
+    typealias BaseRuntime = OpalBase.Account.MosaicPrivateAlphaRuntime
+    typealias Message = OpalFusion.MosaicPrivateAlphaRuntime.TorWebSocketMessage
+    private var iterator: BaseRuntime.TorWebSocketConnection.MessageStream.Iterator?
+    private let connection: any BaseRuntime.TorWebSocketConnection
+
+    init(source: BaseRuntime.TorWebSocketConnection.MessageStream,
+         connection: any BaseRuntime.TorWebSocketConnection) {
+        iterator = source.makeAsyncIterator()
+        self.connection = connection
+    }
+
+    deinit {
+        let connection = connection
+        Task { await connection.close() }
+    }
+
+    func next() async throws -> Message? {
+        guard var current = iterator else { throw BaseRuntime.Failure.operationInProgress }
+        iterator = nil
+        defer { iterator = current }
+        let connection = connection
+        do {
+            try Task.checkCancellation()
+            let message = try await withTaskCancellationHandler {
+                try await current.next(isolation: self)
+            } onCancel: {
+                Task { await connection.close() }
+            }
+            try Task.checkCancellation()
+            switch message {
+            case .text(let bytes): return .text(bytes)
+            case .binary(let bytes): return .binary(bytes)
+            case nil:
+                await connection.close()
+                return nil
+            }
+        } catch {
+            await connection.close()
+            throw error
+        }
     }
 }
 #endif

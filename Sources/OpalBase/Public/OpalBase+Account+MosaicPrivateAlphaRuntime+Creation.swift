@@ -17,6 +17,7 @@ extension OpalBase.Account.MosaicPrivateAlphaRuntime {
         selectedInputs: [OpalBase.Transaction.Output.Unspent],
         outputAmountsSatoshis: [UInt64],
         transactionReader: OpalBase.Network.TransactionReader,
+        signingApproval: SigningApproval? = nil,
         journalAttempt: consuming OpalBase.Account
             .MosaicPrivateAlphaJournal.FreshAttempt
     ) async throws -> FreshHost {
@@ -40,8 +41,9 @@ extension OpalBase.Account.MosaicPrivateAlphaRuntime {
             profile: profile,
             network: network,
             selectedInputs: selectedInputs,
-            outputAmountsSatoshis: outputAmountsSatoshis,
+            outputPlan: .exact(outputAmountsSatoshis),
             transactionReader: transactionReader,
+            signingApproval: signingApproval,
             journalAttempt: journalAttempt
         )
     }
@@ -55,8 +57,9 @@ extension OpalBase.Account.MosaicPrivateAlphaRuntime {
         profile: OpalFusion.Mosaic.Profile,
         network: OpalBase.Network.Environment,
         selectedInputs: [OpalBase.Transaction.Output.Unspent],
-        outputAmountsSatoshis: [UInt64],
+        outputPlan: OutputPlan,
         transactionReader: OpalBase.Network.TransactionReader,
+        signingApproval: SigningApproval? = nil,
         journalAttempt: consuming OpalBase.Account
             .MosaicPrivateAlphaJournal.FreshAttempt
     ) async throws -> FreshHost {
@@ -81,8 +84,9 @@ extension OpalBase.Account.MosaicPrivateAlphaRuntime {
                     network: network,
                     attemptBinding: attemptBinding,
                     selectedInputs: selectedInputs,
-                    outputAmountsSatoshis: outputAmountsSatoshis,
+                    outputPlan: outputPlan,
                     transactionReader: transactionReader,
+                    signingApproval: signingApproval,
                     freshAttempt: freshAttempt
                 ),
                 previousOutputSource: transactionReader
@@ -106,6 +110,38 @@ extension OpalBase.Account.MosaicPrivateAlphaRuntime {
         selectedInputs: [OpalBase.Transaction.Output.Unspent],
         outputAmountsSatoshis: [UInt64],
         transactionReader: OpalBase.Network.TransactionReader,
+        signingApproval: SigningApproval? = nil,
+        recoveryPersistence: FusionRecoveryPersistence,
+        journalAttempt: consuming OpalBase.Account
+            .MosaicPrivateAlphaJournal.FreshAttempt
+    ) async throws -> FreshHost {
+        try await createFreshApplicationHost(
+            account: account,
+            binding: binding,
+            discoveryEpochStartUnixSeconds: discoveryEpochStartUnixSeconds,
+            walletReservationIdentifier: walletReservationIdentifier,
+            walletGeneration: walletGeneration,
+            selectedInputs: selectedInputs,
+            outputPlan: .exact(outputAmountsSatoshis),
+            transactionReader: transactionReader,
+            signingApproval: signingApproval,
+            recoveryPersistence: recoveryPersistence,
+            journalAttempt: journalAttempt
+        )
+    }
+
+    /// Resolves an explicit output plan when the exact roster fee is available.
+    @_spi(MosaicPrivateAlpha)
+    public static func createFreshApplicationHost(
+        account: OpalBase.Account,
+        binding: Binding,
+        discoveryEpochStartUnixSeconds: UInt64,
+        walletReservationIdentifier: UUID,
+        walletGeneration: UInt64,
+        selectedInputs: [OpalBase.Transaction.Output.Unspent],
+        outputPlan: OutputPlan,
+        transactionReader: OpalBase.Network.TransactionReader,
+        signingApproval: SigningApproval? = nil,
         recoveryPersistence: FusionRecoveryPersistence,
         journalAttempt: consuming OpalBase.Account
             .MosaicPrivateAlphaJournal.FreshAttempt
@@ -146,8 +182,9 @@ extension OpalBase.Account.MosaicPrivateAlphaRuntime {
                 profile: .opalMainnetAlpha,
                 network: .mainnet,
                 selectedInputs: selectedInputs,
-                outputAmountsSatoshis: outputAmountsSatoshis,
+                outputPlan: outputPlan,
                 transactionReader: transactionReader,
+                signingApproval: signingApproval,
                 journalAttempt: journalAttempt
             )
         } catch let cancellation as CancellationError {
@@ -171,6 +208,38 @@ extension OpalBase.Account.MosaicPrivateAlphaRuntime {
         selectedInputs: [OpalBase.Transaction.Output.Unspent],
         outputAmountsSatoshis: [UInt64],
         transactionReader: OpalBase.Network.TransactionReader,
+        signingApproval: SigningApproval? = nil,
+        recoveryPersistence: FusionRecoveryPersistence,
+        journalAttempt: consuming OpalBase.Account
+            .MosaicPrivateAlphaJournal.FreshAttempt
+    ) async throws -> SessionOwner {
+        try await createFreshApplicationSessionOwner(
+            account: account,
+            binding: binding,
+            discoveryEpochStartUnixSeconds: discoveryEpochStartUnixSeconds,
+            walletReservationIdentifier: walletReservationIdentifier,
+            walletGeneration: walletGeneration,
+            selectedInputs: selectedInputs,
+            outputPlan: .exact(outputAmountsSatoshis),
+            transactionReader: transactionReader,
+            signingApproval: signingApproval,
+            recoveryPersistence: recoveryPersistence,
+            journalAttempt: journalAttempt
+        )
+    }
+
+    /// Resolves an explicit output plan when the exact roster fee is available.
+    @_spi(MosaicPrivateAlpha)
+    public static func createFreshApplicationSessionOwner(
+        account: OpalBase.Account,
+        binding: Binding,
+        discoveryEpochStartUnixSeconds: UInt64,
+        walletReservationIdentifier: UUID,
+        walletGeneration: UInt64,
+        selectedInputs: [OpalBase.Transaction.Output.Unspent],
+        outputPlan: OutputPlan,
+        transactionReader: OpalBase.Network.TransactionReader,
+        signingApproval: SigningApproval? = nil,
         recoveryPersistence: FusionRecoveryPersistence,
         journalAttempt: consuming OpalBase.Account
             .MosaicPrivateAlphaJournal.FreshAttempt
@@ -182,8 +251,9 @@ extension OpalBase.Account.MosaicPrivateAlphaRuntime {
             walletReservationIdentifier: walletReservationIdentifier,
             walletGeneration: walletGeneration,
             selectedInputs: selectedInputs,
-            outputAmountsSatoshis: outputAmountsSatoshis,
+            outputPlan: outputPlan,
             transactionReader: transactionReader,
+            signingApproval: signingApproval,
             recoveryPersistence: recoveryPersistence,
             journalAttempt: journalAttempt
         )

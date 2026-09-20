@@ -105,8 +105,24 @@ extension _OpalBase.Account.MosaicTransactionHostActor {
                     request: request,
                     feeSatoshis: proposal.feeSatoshis
                 )
+                try Task.checkCancellation()
+                guard currentDate() < reservationLease.expiresAt else {
+                    throw OpalBase.Account.MosaicHostFailure.reservationExpired
+                }
+                if let signingApproval {
+                    try await signingApproval.approve(.init(
+                        validated: request, transaction: proposal.transaction,
+                        lease: reservationLease, profile: profile,
+                        networkGenesisHash: expectedNetworkGenesisHash,
+                        feeSatoshis: proposal.feeSatoshis
+                    ))
+                }
             } catch let cancellation as CancellationError {
                 throw cancellation
+            } catch OpalBase.Account.MosaicHostFailure.reservationExpired {
+                lifecycle = .finalizationPending
+                try await releaseMosaicReservation(request.reservationReference)
+                throw OpalBase.Account.MosaicHostFailure.reservationExpired
             } catch {
                 throw OpalBase.Account.MosaicHostFailure.transactionPolicyRejected
             }

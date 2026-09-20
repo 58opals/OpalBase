@@ -4,7 +4,7 @@
 import Foundation
 import OpalFusion
 import Testing
-@testable import OpalBase
+@_spi(MosaicPrivateAlpha) @testable import OpalBase
 
 struct MosaicHostFixture {
     let account: OpalBase.Account
@@ -19,12 +19,14 @@ struct MosaicHostFixture {
     static func make(
         walletGeneration: UInt64 = 7,
         transactionPolicy: OpalBase.Account.MosaicTransactionPolicy,
+        signingApproval: OpalBase.Account.MosaicPrivateAlphaRuntime.SigningApproval? = nil,
         network: OpalBase.Network.Environment = .chipnet,
         profile: OpalFusion.Mosaic.Profile = .opalV0,
         minimumExcessFeeSatoshis: UInt64? = nil,
         maximumExcessFeeSatoshis: UInt64? = nil,
         requiredExcessFeeSatoshis: UInt64? = nil,
         outputAmountsSatoshis suppliedOutputAmountsSatoshis: [UInt64]? = nil,
+        outputPlan: OpalBase.Account.MosaicPrivateAlphaRuntime.OutputPlan? = nil,
         journalProbe: MosaicAttemptJournalProbeActor = .init(),
         currentDate: @escaping @Sendable () -> Date = {
             Date(timeIntervalSince1970: 1_800_000_000)
@@ -98,9 +100,10 @@ struct MosaicHostFixture {
             network: network,
             attemptBinding: attemptBinding,
             selectedInputs: [selectedInput],
-            outputAmountsSatoshis: outputAmountsSatoshis,
+            outputPlan: outputPlan ?? .exact(outputAmountsSatoshis),
             transactionPolicy: transactionPolicy,
             attemptJournal: attemptJournal,
+            signingApproval: signingApproval,
             currentDate: currentDate,
             prepareReceivingEntries: prepareReceivingEntries,
             reserveReceivingEntry: reserveReceivingEntry,

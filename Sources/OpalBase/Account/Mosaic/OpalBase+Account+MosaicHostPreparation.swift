@@ -9,8 +9,9 @@ extension _OpalBase.Account {
         network: OpalBase.Network.Environment,
         attemptBinding: MosaicAttemptBinding,
         selectedInputs: [OpalBase.Transaction.Output.Unspent],
-        outputAmountsSatoshis: [UInt64],
+        outputPlan: OpalBase.Account.MosaicPrivateAlphaRuntime.OutputPlan,
         transactionReader: OpalBase.Network.TransactionReader,
+        signingApproval: OpalBase.Account.MosaicPrivateAlphaRuntime.SigningApproval? = nil,
         freshAttempt: consuming MosaicAttemptJournalStore.FreshAttempt
     ) async throws -> MosaicTransactionHostActor {
         try requirePrivateKeyMaterial()
@@ -22,13 +23,14 @@ extension _OpalBase.Account {
             network: network,
             attemptBinding: attemptBinding,
             selectedInputs: selectedInputs,
-            outputAmountsSatoshis: outputAmountsSatoshis,
+            outputPlan: outputPlan,
             transactionPolicy: try .init(
                 profile: profile,
                 network: network,
                 transactionReader: transactionReader
             ),
-            attemptJournal: attemptJournal
+            attemptJournal: attemptJournal,
+            signingApproval: signingApproval
         )
     }
 
