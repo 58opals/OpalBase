@@ -19,6 +19,25 @@ extension _OpalBase.Wallet {
             try await account.prepareTokenSpend(transfer, feePolicy: feePolicy)
         }
     }
+
+    /// Prepares a token transfer from one account with BCH funding and change owned by another account in this wallet.
+    /// Passing the same index for both owners preserves the ordinary one-account path.
+    public func prepareTokenSpend(forAccountAt tokenAccountIndex: UInt32,
+                                  payingFeesFromAccountAt bchAccountIndex: UInt32,
+                                  transfer: OpalBase.Account.TokenTransfer,
+                                  feePolicy: FeePolicy = .init()) async throws -> OpalBase.Account.TokenSpendPlan {
+        let tokenAccount = try await fetchAccount(at: tokenAccountIndex)
+        if tokenAccountIndex == bchAccountIndex {
+            return try await tokenAccount.prepareTokenSpend(transfer, feePolicy: feePolicy)
+        }
+        let bchAccount = try await fetchAccount(at: bchAccountIndex)
+        return try await tokenAccount.prepareTokenSpend(
+            transfer,
+            feePolicy: feePolicy,
+            payingFeesFrom: bchAccount,
+            beforeReservation: nil
+        )
+    }
     
     public func prepareTokenGenesis(forAccountAt index: UInt32,
                                     genesis: OpalBase.Account.TokenGenesis,

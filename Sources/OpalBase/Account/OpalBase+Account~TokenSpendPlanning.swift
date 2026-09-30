@@ -8,6 +8,7 @@ extension _OpalBase.Account {
         try await prepareTokenSpend(
             transfer,
             feePolicy: feePolicy,
+            payingFeesFrom: nil,
             beforeReservation: nil
         )
     }
@@ -15,9 +16,15 @@ extension _OpalBase.Account {
     func prepareTokenSpend(
         _ transfer: TokenTransfer,
         feePolicy: OpalBase.Wallet.FeePolicy = .init(),
+        payingFeesFrom feePayer: OpalBase.Account? = nil,
         beforeReservation: (@Sendable (OpalBase.Address.Book.Entry) async throws -> Void)?
     ) async throws -> TokenSpendPlan {
         try requirePrivateKeyMaterial()
+        let fundingAccount = feePayer ?? self
+        let usesSeparatePayer = fundingAccount !== self
+        if usesSeparatePayer {
+            try await fundingAccount.requirePrivateKeyMaterial()
+        }
 
         guard !transfer.recipients.isEmpty || !transfer.burns.isEmpty else {
             throw Error.tokenTransferHasNoRecipients
@@ -31,8 +38,12 @@ extension _OpalBase.Account {
         
         let requirementsByCategory = try makeTokenRequirementsByCategory(for: transfer)
         let spendableOutputs = await addressBook.sortSpendableUTXOs(by: { $0.value > $1.value })
-        let changeEntry = try await addressBook.selectNextEntry(for: .change)
-        let tokenChangeAddress = try makeTokenAwareAddress(for: changeEntry)
+        let tokenChangeEntry = try await addressBook.selectNextEntry(for: .change)
+        let fundingBook = fundingAccount.addressBook
+        let bchChangeEntry = usesSeparatePayer
+            ? try await fundingBook.selectNextEntry(for: .change)
+            : tokenChangeEntry
+        let tokenChangeAddress = try makeTokenAwareAddress(for: tokenChangeEntry)
         var spendableTokenByCategory: [OpalBase.CashTokens.CategoryID: [OpalBase.Transaction.Output.Unspent]] = .init()
         for unspentOutput in spendableOutputs {
             guard let category = unspentOutput.tokenData?.category else { continue }
@@ -63,6 +74,44 @@ extension _OpalBase.Account {
                                                                                  changeAddress: tokenChangeAddress))
             }
         }
+
+        // BCH carried by token inputs remains with their account. The separate payer
+        // covers recipient BCH and network fees; it does not receive token-input residue.
+        var tokenOwnerBCHChangeOutput: OpalBase.Transaction.Output?
+        if usesSeparatePayer {
+            let tokenInputValue = try selectedTokenInputs.sumSatoshi(or: Error.paymentExceedsMaximumAmount) {
+                try OpalBase.Satoshi($0.value)
+            }.uint64
+            let tokenChangeValue = try tokenChangeOutputs.sumSatoshi(or: Error.paymentExceedsMaximumAmount) {
+                try OpalBase.Satoshi($0.value)
+            }.uint64
+            if tokenInputValue > tokenChangeValue {
+                let residue = tokenInputValue - tokenChangeValue
+                let candidate = OpalBase.Transaction.Output(value: residue, address: tokenChangeEntry.address)
+                let dustThreshold = try candidate.calculateDustThreshold(
+                    feeRate: OpalBase.Transaction.minimumRelayFeeRate
+                )
+                if residue >= dustThreshold {
+                    tokenOwnerBCHChangeOutput = candidate
+                } else if !tokenChangeOutputs.isEmpty {
+                    let original = tokenChangeOutputs[0]
+                    let retainedValue = try original.value.addOrThrow(
+                        residue,
+                        overflowError: Error.paymentExceedsMaximumAmount
+                    )
+                    tokenChangeOutputs[0] = OpalBase.Transaction.Output(
+                        value: retainedValue,
+                        address: tokenChangeAddress,
+                        tokenData: original.tokenData
+                    )
+                } else {
+                    tokenOwnerBCHChangeOutput = OpalBase.Transaction.Output(
+                        value: dustThreshold,
+                        address: tokenChangeEntry.address
+                    )
+                }
+            }
+        }
         
         let rawRecipientOutputs = transfer.recipients.map { recipient in
             OpalBase.Transaction.Output(value: recipient.amount.uint64,
@@ -75,57 +124,168 @@ extension _OpalBase.Account {
                 throw Error.tokenSelectionFailed(OpalBase.Transaction.Error.outputValueIsLessThanTheDustLimit)
             }
         }
-        let combinedTokenOutputs = rawRecipientOutputs + tokenChangeOutputs
+        let combinedTokenOutputs = rawRecipientOutputs + tokenChangeOutputs + [tokenOwnerBCHChangeOutput].compactMap { $0 }
         let organizedTokenOutputs = try await privacyShaper.organizeOutputs(combinedTokenOutputs)
         
         let feeRate = feePolicy.recommendFeeRate(for: transfer.feeContext, override: transfer.feeOverride)
-        let bchInputs = try selectBCHInputs(from: spendableOutputs,
+        let fundingOutputs = usesSeparatePayer
+            ? await fundingBook.sortSpendableUTXOs(by: { $0.value > $1.value })
+            : spendableOutputs
+        let bchInputs = try selectBCHInputs(from: fundingOutputs,
                                                             existingInputs: selectedTokenInputs,
                                                             outputs: organizedTokenOutputs,
                                                             feeRate: feeRate,
                                                             shouldAllowDustDonation: transfer.shouldAllowDustDonation,
-                                                            changeLockingScript: changeEntry.address.lockingScript.data)
-        
-        let inputs = selectedTokenInputs + bchInputs
-        let reservedSpendContext = try await reserveSpendContext(
-            inputs: inputs,
-            outputs: organizedTokenOutputs,
-            changeEntry: changeEntry,
-            tokenSelectionPolicy: .allowTokenUTXOs,
-            mapReservationError: { Error.tokenSelectionFailed($0) },
-            mapInsufficientFundsError: Error.transactionBuildFailed(OpalBase.Satoshi.Error.negativeResult),
-            beforeReservation: beforeReservation
-        )
-
-        let resolvedTokenChangeOutputs: [OpalBase.Transaction.Output]
-        let resolvedOrganizedTokenOutputs: [OpalBase.Transaction.Output]
-        let reservedTokenChangeAddress = try makeTokenAwareAddress(for: reservedSpendContext.changeEntry)
-        if reservedTokenChangeAddress == tokenChangeAddress {
-            resolvedTokenChangeOutputs = tokenChangeOutputs
-            resolvedOrganizedTokenOutputs = organizedTokenOutputs
-        } else {
-            resolvedTokenChangeOutputs = tokenChangeOutputs.map { output in
-                makeRetargetedOutput(output, for: reservedTokenChangeAddress)
+                                                            changeLockingScript: bchChangeEntry.address.lockingScript.data,
+                                                            minimumBCHInputCount: usesSeparatePayer ? 1 : 0)
+        if let duplicatedInput = bchInputs.first(where: { fundingInput in
+            selectedTokenInputs.contains { tokenInput in
+                tokenInput.previousTransactionHash == fundingInput.previousTransactionHash
+                    && tokenInput.previousTransactionOutputIndex == fundingInput.previousTransactionOutputIndex
             }
-            resolvedOrganizedTokenOutputs = replacePlannedOutputs(
-                in: organizedTokenOutputs,
-                originals: tokenChangeOutputs,
-                replacements: resolvedTokenChangeOutputs
-            )
+        }) {
+            throw Error.tokenSelectionFailed(OpalBase.Address.Book.Error.utxoDuplicated(duplicatedInput))
         }
         
-        return TokenSpendPlan(transfer: transfer,
-                              feeRate: feeRate,
-                              tokenInputs: selectedTokenInputs,
-                              bchInputs: bchInputs,
-                              tokenRecipientOutputs: rawRecipientOutputs,
-                              tokenChangeOutputs: resolvedTokenChangeOutputs,
-                              bchChangeOutput: reservedSpendContext.changeOutput,
-                              shouldAllowDustDonation: transfer.shouldAllowDustDonation,
-                              reservationHandle: reservedSpendContext.reservationHandle,
-                              signingKeys: reservedSpendContext.signingKeys,
-                              organizedTokenOutputs: resolvedOrganizedTokenOutputs,
-                              shouldRandomizeRecipientOrdering: privacyConfiguration.shouldRandomizeRecipientOrdering)
+        let inputs = selectedTokenInputs + bchInputs
+        let reservationHandles: [SpendReservation]
+        let signingKeys: [OpalBase.Transaction.Output.Unspent: OpalBase.Key.SigningKey]
+        let reservedTokenChangeEntry: OpalBase.Address.Book.Entry
+        let reservedBCHChangeEntry: OpalBase.Address.Book.Entry
+        let bchChangeOutput: OpalBase.Transaction.Output
+        if usesSeparatePayer {
+            let selectedAmount = try inputs.sumSatoshi(or: Error.paymentExceedsMaximumAmount) {
+                try OpalBase.Satoshi($0.value)
+            }
+            let outputAmount = try organizedTokenOutputs.sumSatoshi(or: Error.paymentExceedsMaximumAmount) {
+                try OpalBase.Satoshi($0.value)
+            }
+            let changeAmount = try selectedAmount - outputAmount
+            let tokenReservation = try await reserveSpendAndDeriveSigningKeys(
+                utxos: selectedTokenInputs,
+                changeEntry: tokenChangeEntry,
+                tokenSelectionPolicy: .allowTokenUTXOs,
+                reuseMatchingReservation: false,
+                mapReservationError: { Error.tokenSelectionFailed($0) }
+            )
+            let tokenHandle = SpendReservation(addressBook: addressBook, reservation: tokenReservation.reservation)
+            var payerHandle: SpendReservation?
+            do {
+                try Task.checkCancellation()
+                if let beforeReservation {
+                    try await beforeReservation(bchChangeEntry)
+                }
+                let payerReservation = try await fundingAccount.reserveSpendAndDeriveSigningKeys(
+                    utxos: bchInputs,
+                    changeEntry: bchChangeEntry,
+                    tokenSelectionPolicy: .excludeTokenUTXOs,
+                    reuseMatchingReservation: false,
+                    mapReservationError: { Error.tokenSelectionFailed($0) }
+                )
+                let reservedPayerHandle = SpendReservation(addressBook: fundingBook, reservation: payerReservation.reservation)
+                payerHandle = reservedPayerHandle
+                try Task.checkCancellation()
+                var combinedSigningKeys = tokenReservation.signingKeys
+                for (input, key) in payerReservation.signingKeys {
+                    guard combinedSigningKeys.updateValue(key, forKey: input) == nil else {
+                        throw Error.tokenSelectionFailed(OpalBase.Address.Book.Error.utxoDuplicated(input))
+                    }
+                }
+                reservationHandles = [tokenHandle, reservedPayerHandle]
+                signingKeys = combinedSigningKeys
+                reservedTokenChangeEntry = tokenReservation.reservedChangeEntry
+                reservedBCHChangeEntry = payerReservation.reservedChangeEntry
+                bchChangeOutput = OpalBase.Transaction.Output(
+                    value: changeAmount.uint64,
+                    address: payerReservation.reservedChangeEntry.address
+                )
+            } catch {
+                let preparationError = error
+                var cleanupError: Swift.Error?
+                if let payerHandle {
+                    do { try await payerHandle.cancel() }
+                    catch { cleanupError = error }
+                }
+                do { try await tokenHandle.cancel() }
+                catch { if cleanupError == nil { cleanupError = error } }
+                if let cleanupError { throw Error.transactionBuildFailed(cleanupError) }
+                throw preparationError
+            }
+        } else {
+            let context = try await reserveSpendContext(
+                inputs: inputs,
+                outputs: organizedTokenOutputs,
+                changeEntry: bchChangeEntry,
+                tokenSelectionPolicy: .allowTokenUTXOs,
+                reuseMatchingReservation: false,
+                mapReservationError: { Error.tokenSelectionFailed($0) },
+                mapInsufficientFundsError: Error.transactionBuildFailed(OpalBase.Satoshi.Error.negativeResult),
+                beforeReservation: beforeReservation
+            )
+            reservationHandles = [context.reservationHandle]
+            signingKeys = context.signingKeys
+            reservedTokenChangeEntry = context.changeEntry
+            reservedBCHChangeEntry = context.changeEntry
+            bchChangeOutput = context.changeOutput
+        }
+
+        do {
+            try Task.checkCancellation()
+            let resolvedTokenChangeOutputs: [OpalBase.Transaction.Output]
+            let resolvedTokenOwnerBCHChangeOutput: OpalBase.Transaction.Output?
+            let resolvedOrganizedTokenOutputs: [OpalBase.Transaction.Output]
+            let reservedTokenChangeAddress = try makeTokenAwareAddress(for: reservedTokenChangeEntry)
+            if reservedTokenChangeAddress == tokenChangeAddress {
+                resolvedTokenChangeOutputs = tokenChangeOutputs
+            } else {
+                resolvedTokenChangeOutputs = tokenChangeOutputs.map { output in
+                    makeRetargetedOutput(output, for: reservedTokenChangeAddress)
+                }
+            }
+            if let tokenOwnerBCHChangeOutput,
+               reservedTokenChangeEntry.address != tokenChangeEntry.address {
+                resolvedTokenOwnerBCHChangeOutput = makeRetargetedOutput(
+                    tokenOwnerBCHChangeOutput,
+                    for: reservedTokenChangeEntry.address
+                )
+            } else {
+                resolvedTokenOwnerBCHChangeOutput = tokenOwnerBCHChangeOutput
+            }
+            let originalChangeOutputs = tokenChangeOutputs + [tokenOwnerBCHChangeOutput].compactMap { $0 }
+            let resolvedChangeOutputs = resolvedTokenChangeOutputs + [resolvedTokenOwnerBCHChangeOutput].compactMap { $0 }
+            resolvedOrganizedTokenOutputs = replacePlannedOutputs(
+                in: organizedTokenOutputs,
+                originals: originalChangeOutputs,
+                replacements: resolvedChangeOutputs
+            )
+
+            return TokenSpendPlan(transfer: transfer,
+                                  tokenAccountIndex: unhardenedIndex,
+                                  bchFundingAccountIndex: await fundingAccount.unhardenedIndex,
+                                  feeRate: feeRate,
+                                  tokenInputs: selectedTokenInputs,
+                                  bchInputs: bchInputs,
+                                  tokenRecipientOutputs: rawRecipientOutputs,
+                                  tokenChangeOutputs: resolvedTokenChangeOutputs,
+                                  tokenOwnerBCHChangeOutput: resolvedTokenOwnerBCHChangeOutput,
+                                  bchChangeOutput: bchChangeOutput,
+                                  shouldAllowDustDonation: transfer.shouldAllowDustDonation,
+                                  reservationHandles: reservationHandles,
+                                  tokenOwnerChangeEntry: reservedTokenChangeEntry,
+                                  bchChangeEntry: reservedBCHChangeEntry,
+                                  signingKeys: signingKeys,
+                                  organizedTokenOutputs: resolvedOrganizedTokenOutputs,
+                                  shouldRandomizeRecipientOrdering: privacyConfiguration.shouldRandomizeRecipientOrdering)
+        } catch {
+            let preparationError = error
+            var cleanupError: Swift.Error?
+            for handle in reservationHandles {
+                do { try await handle.cancel() }
+                catch { if cleanupError == nil { cleanupError = error } }
+            }
+            if let cleanupError { throw Error.transactionBuildFailed(cleanupError) }
+            throw preparationError
+        }
     }
 
     private func validateTokenData(in transfer: TokenTransfer) throws {

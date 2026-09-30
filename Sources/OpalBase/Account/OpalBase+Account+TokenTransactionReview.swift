@@ -61,6 +61,7 @@ extension _OpalBase.Account.TokenSpendPlan {
         public let configuredFeeRate: UInt64
         public let effectiveFeeRate: Double?
         public let bchChange: TransactionResult.Change?
+        public let tokenOwnerBCHChange: TransactionResult.Change?
         public let tokenRecipientOutputs: [OpalBase.Account.TokenOutputReview]
         public let tokenChangeOutputs: [OpalBase.Account.TokenOutputReview]
         public let lockedBCHOutputValue: OpalBase.Satoshi
@@ -72,6 +73,7 @@ extension _OpalBase.Account.TokenSpendPlan {
                     configuredFeeRate: UInt64,
                     effectiveFeeRate: Double?,
                     bchChange: TransactionResult.Change?,
+                    tokenOwnerBCHChange: TransactionResult.Change? = nil,
                     tokenRecipientOutputs: [OpalBase.Account.TokenOutputReview],
                     tokenChangeOutputs: [OpalBase.Account.TokenOutputReview],
                     lockedBCHOutputValue: OpalBase.Satoshi) {
@@ -82,6 +84,7 @@ extension _OpalBase.Account.TokenSpendPlan {
             self.configuredFeeRate = configuredFeeRate
             self.effectiveFeeRate = effectiveFeeRate
             self.bchChange = bchChange
+            self.tokenOwnerBCHChange = tokenOwnerBCHChange
             self.tokenRecipientOutputs = tokenRecipientOutputs
             self.tokenChangeOutputs = tokenChangeOutputs
             self.lockedBCHOutputValue = lockedBCHOutputValue
@@ -112,6 +115,7 @@ extension _OpalBase.Account.TokenSpendPlan {
                       effectiveFeeRate: TokenTransactionReview.effectiveFeeRate(fee: result.fee,
                                                                                 byteCount: rawTransactionByteCount),
                       bchChange: result.bchChange,
+                      tokenOwnerBCHChange: result.tokenOwnerBCHChange,
                       tokenRecipientOutputs: resolvedRecipientOutputs,
                       tokenChangeOutputs: resolvedTokenChangeOutputs,
                       lockedBCHOutputValue: lockedBCHOutputValue)

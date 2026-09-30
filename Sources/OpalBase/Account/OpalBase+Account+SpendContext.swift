@@ -17,6 +17,7 @@ extension _OpalBase.Account {
         outputs: [OpalBase.Transaction.Output],
         changeEntry: OpalBase.Address.Book.Entry,
         tokenSelectionPolicy: OpalBase.Address.Book.CoinSelection.TokenSelectionPolicy,
+        reuseMatchingReservation: Bool = true,
         mapReservationError: @escaping @Sendable (Swift.Error) -> OpalBase.Account.Error,
         mapInsufficientFundsError: @autoclosure () -> OpalBase.Account.Error,
         beforeReservation: (@Sendable (OpalBase.Address.Book.Entry) async throws -> Void)? = nil
@@ -49,6 +50,7 @@ extension _OpalBase.Account {
             utxos: inputs,
             changeEntry: changeEntry,
             tokenSelectionPolicy: tokenSelectionPolicy,
+            reuseMatchingReservation: reuseMatchingReservation,
             mapReservationError: mapReservationError
         )
         let reservationHandle = OpalBase.Account.SpendReservation(addressBook: addressBook, reservation: reservation)

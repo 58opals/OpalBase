@@ -5,6 +5,23 @@ import Testing
 @testable import OpalBase
 
 extension SpendPlanBroadcastValidator {
+    @Test("token genesis preflight rejects a released review reservation")
+    func tokenGenesisPlanRequiresActiveReservation() async throws {
+        let plan = try await makeTokenGenesisPlan()
+
+        try await plan.requireActiveReservation()
+        try await plan.cancelReservation()
+
+        let error = try await captureAccountError {
+            try await plan.requireActiveReservation()
+        }
+        guard case .transactionBuildFailed(let underlying) = error,
+              let reservationError = underlying as? OpalBase.Address.Book.Error,
+              reservationError == .spendReservationNotFound else {
+            throw AccountErrorCaptureFailure.unexpected(error)
+        }
+    }
+
     @Test("token genesis buildAndBroadcast completes reservations on success")
     func tokenGenesisPlanBuildAndBroadcastCompletesReservationOnSuccess() async throws {
         let account = try await AccountTestFixtures.makeAccount()

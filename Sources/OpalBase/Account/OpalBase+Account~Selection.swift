@@ -82,7 +82,8 @@ extension _OpalBase.Account {
                                  outputs: [OpalBase.Transaction.Output],
                                  feeRate: UInt64,
                                  shouldAllowDustDonation: Bool,
-                                 changeLockingScript: Data) throws -> [OpalBase.Transaction.Output.Unspent] {
+                                 changeLockingScript: Data,
+                                 minimumBCHInputCount: Int = 0) throws -> [OpalBase.Transaction.Output.Unspent] {
         let existingInputSet = Set(existingInputs)
         let bchOnlyOutputs = unspentOutputs
             .filter { $0.tokenData == nil && !existingInputSet.contains($0) }
@@ -114,7 +115,8 @@ extension _OpalBase.Account {
             try partial.addOrThrow(output.value,
                                    overflowError: Error.paymentExceedsMaximumAmount)
         }
-        if try evaluate(total: total, inputCount: existingInputs.count) != nil {
+        if minimumBCHInputCount == 0,
+           try evaluate(total: total, inputCount: existingInputs.count) != nil {
             return selected
         }
         
@@ -122,9 +124,14 @@ extension _OpalBase.Account {
             selected.append(output)
             total = try total.addOrThrow(output.value,
                                          overflowError: Error.paymentExceedsMaximumAmount)
-            if try evaluate(total: total, inputCount: existingInputs.count + selected.count) != nil {
+            if selected.count >= minimumBCHInputCount,
+               try evaluate(total: total, inputCount: existingInputs.count + selected.count) != nil {
                 return selected
             }
+        }
+
+        if selected.count < minimumBCHInputCount {
+            throw Error.tokenTransferInsufficientFunds(required: 1)
         }
         
         let feeWithChange = try OpalBase.Transaction.estimateFee(inputCount: existingInputs.count + selected.count,

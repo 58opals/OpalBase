@@ -31,7 +31,8 @@ extension _OpalBase.Address.Book {
 extension _OpalBase.Address.Book {
     func reserveSpend(utxos: [OpalBase.Transaction.Output.Unspent],
                       changeEntry: Entry,
-                      tokenSelectionPolicy: OpalBase.Address.Book.CoinSelection.TokenSelectionPolicy) async throws -> SpendReservation {
+                      tokenSelectionPolicy: OpalBase.Address.Book.CoinSelection.TokenSelectionPolicy,
+                      reuseMatchingReservation: Bool = true) async throws -> SpendReservation {
         let utxoSet = Set(utxos)
         guard !utxoSet.isEmpty else {
             throw OpalBase.Address.Book.Error.utxoNotFound
@@ -43,6 +44,9 @@ extension _OpalBase.Address.Book {
         }
         
         if let existingReservation = findMatchingReservation(for: utxoSet) {
+            guard reuseMatchingReservation else {
+                throw OpalBase.Address.Book.Error.utxoNotFound
+            }
             guard utxoStore.containsExact(utxoSet, tokenSelectionPolicy: tokenSelectionPolicy) else {
                 throw OpalBase.Address.Book.Error.utxoNotFound
             }

@@ -95,6 +95,11 @@ extension _OpalBase.Account {
         public func cancelReservation() async throws {
             try await reservationHandle.cancel()
         }
+
+        /// Rejects a reviewed genesis plan after its spend reservation has expired or been cancelled.
+        public func requireActiveReservation() async throws {
+            try await reservationHandle.requireActive()
+        }
         
         public func buildAndBroadcast(via handler: OpalBase.Network.TransactionClient,
                                       signatureFormat: OpalBase.Transaction.SignatureFormat = .schnorr,

@@ -7,6 +7,7 @@ extension _OpalBase.Account {
         utxos: [OpalBase.Transaction.Output.Unspent],
         changeEntry: OpalBase.Address.Book.Entry,
         tokenSelectionPolicy: OpalBase.Address.Book.CoinSelection.TokenSelectionPolicy,
+        reuseMatchingReservation: Bool = true,
         mapReservationError: (Swift.Error) -> OpalBase.Account.Error
     ) async throws -> (
         reservation: OpalBase.Address.Book.SpendReservation,
@@ -19,7 +20,8 @@ extension _OpalBase.Account {
         do {
             reservation = try await addressBook.reserveSpend(utxos: utxos,
                                                              changeEntry: changeEntry,
-                                                             tokenSelectionPolicy: tokenSelectionPolicy)
+                                                             tokenSelectionPolicy: tokenSelectionPolicy,
+                                                             reuseMatchingReservation: reuseMatchingReservation)
         } catch {
             throw mapReservationError(error)
         }

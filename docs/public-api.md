@@ -89,6 +89,27 @@ User-triggered money-movement lane. Its initializer label is `privateAccount` be
 
 Typical tasks: prepare BCH spends, prepare external-review unsigned BCH spends, prepare token spends, prepare token genesis, prepare token mint, and prepare token commitment mutation.
 
+### Two-account CashToken transfers
+
+When a token-owning account and a BCH funding account differ, prepare through their common `OpalBase.Wallet` so both indices are resolved within one wallet:
+
+```swift
+let plan = try await wallet.prepareTokenSpend(
+    forAccountAt: tokenAccountIndex,
+    payingFeesFromAccountAt: bchAccountIndex,
+    transfer: transfer
+)
+let review = try plan.buildReview()
+// Present the exact token inputs, BCH inputs, recipients, token change,
+// token-owner BCH change, payer BCH change, and fee before confirmation.
+```
+
+The token account supplies token inputs and receives token change plus any BCH residue carried by its spent token outputs. The BCH account supplies at least one BCH-only input, covers BCH required beyond the token-input value (including recipient BCH and the network fee), and receives its own BCH change. A subdust token-owner residue is retained in a token change output or raised to a dust-safe BCH change output with payer funding. A plan reserves both owners' inputs and change entries, combines only the keys for those selected inputs, and signs one transaction. `plan.tokenAccountIndex`, `plan.bchFundingAccountIndex`, `plan.tokenInputs`, `plan.bchInputs`, `plan.tokenChangeOutputs`, `plan.tokenOwnerBCHChangeOutput`, `plan.bchChangeOutput`, and `review` expose the exact owners and values needed for account-aware review and aftermath. `review.tokenOwnerBCHChange` and `review.bchChange` identify the separate changes after transaction construction, including a full-token send with no token change output. The same index selects the existing one-account path with one reservation. An unknown account index fails before reserving inputs; the wallet method cannot select an account from another wallet.
+
+Call `cancelReservation()` if review is abandoned before submission. `broadcastReviewedTransactionWithOutcome(review.transaction, via: client)` checks both live reservations and the selected inputs and planned outputs, then submits the exact transaction displayed in review. It returns an accepted hash even if local reservation completion fails, with the failure in `reservationCompletionError`; reconcile and refresh both owners instead of preparing a new transfer. A network error during relay has an uncertain outcome until the caller reconciles the reviewed transaction hash. An app-owned relay can call `requireActiveReservations()` before submission and retain the reviewed transaction across that uncertainty. The plan's `buildAndBroadcastWithOutcome()` also returns an accepted hash and cleanup outcome, but builds a transaction at call time; the legacy `buildAndBroadcast()` tuple still throws on local completion failure. For new-category genesis, `prepareTokenGenesis` already accepts token-aware recipient addresses separate from the genesis input owner, so a BCH account can pay and send the minted output to a dedicated token account without a second genesis planner.
+
+For an exact reviewed genesis submission, call `TokenGenesisPlan.requireActiveReservation()` immediately before persisting the app's durable submission-started marker. It throws `Account.Error.transactionBuildFailed(Address.Book.Error.spendReservationNotFound)` if the reservation expired or was released, allowing the review to fail before the app marks relay as attempted.
+
 ### `WalletUnsignedSpendPlan`
 
 Reserved spend plan for external transaction review and signing without retained private-key material. It carries a `WalletUnsignedTransactionEnvelope`, selected UTXO/change reservation lifecycle, and completion/cancellation methods.
