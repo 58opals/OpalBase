@@ -18,7 +18,9 @@ extension _OpalBase.Account {
                 fields: fields
             )
             do {
-                let refresh = try await addressBook.refreshUTXOSet(using: service, usage: usage)
+                let refresh = try await addressBook.chainRefreshCoordinator.performExclusively {
+                    try await self.addressBook.refreshUTXOSet(using: service, usage: usage)
+                }
                 OpalDiagnostics.record(
                     OpalDiagnostics.Event.utxoRefreshSucceeded,
                     category: OpalDiagnostics.Category.addressBook,
@@ -41,7 +43,9 @@ extension _OpalBase.Account {
 
     func refreshAddressBookUTXOSet(using service: any OpalBase.Network.AddressReadable,
                                    usage: OpalBase.Key.DerivationPath.Usage? = nil) async throws -> OpalBase.Address.Book.UTXORefresh {
-        try await addressBook.refreshUTXOSet(using: service, usage: usage)
+        try await addressBook.chainRefreshCoordinator.performExclusively {
+            try await self.addressBook.refreshUTXOSet(using: service, usage: usage)
+        }
     }
 }
 
@@ -125,10 +129,12 @@ extension _OpalBase.Account {
             )
             do {
                 let changeSet = try await mapAddressBookError {
-                    try await addressBook.refreshTransactionHistory(using: service,
-                                                                    usage: usage,
-                                                                    includeUnconfirmed: includeUnconfirmed,
-                                                                    transactionReader: transactionReader)
+                    try await addressBook.chainRefreshCoordinator.performExclusively {
+                        try await self.addressBook.refreshTransactionHistory(using: service,
+                                                                             usage: usage,
+                                                                             includeUnconfirmed: includeUnconfirmed,
+                                                                             transactionReader: transactionReader)
+                    }
                 }
                 OpalDiagnostics.record(
                     OpalDiagnostics.Event.transactionHistoryRefreshSucceeded,
@@ -174,8 +180,10 @@ extension _OpalBase.Account {
             )
             do {
                 let changeSet = try await mapAddressBookError {
-                    try await addressBook.updateTransactionConfirmations(using: handler,
-                                                                         for: transactionHashes)
+                    try await addressBook.chainRefreshCoordinator.performExclusively {
+                        try await self.addressBook.updateTransactionConfirmations(using: handler,
+                                                                                  for: transactionHashes)
+                    }
                 }
                 OpalDiagnostics.record(
                     OpalDiagnostics.Event.transactionConfirmationRefreshSucceeded,

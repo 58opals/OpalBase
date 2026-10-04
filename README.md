@@ -49,7 +49,7 @@ targets: [
 ]
 ```
 
-The manifest follows `SwiftFulcrum`, `OpalCrypto`, `OpalFusion`, and `OpalDiagnostics` on public `develop` branches. Retain the consuming application's `Package.resolved` to record their resolved revisions; pinning Base alone does not freeze transitive branch heads. This is an integration snapshot, not a SemVer release.
+The manifest pins `SwiftFulcrum` to the exact public integration revision required for subscription recovery and follows `OpalCrypto`, `OpalFusion`, and `OpalDiagnostics` on public `develop` branches. Retain the consuming application's `Package.resolved` to record their resolved revisions; pinning Base alone does not freeze transitive branch heads. This is an integration snapshot, not a SemVer release.
 
 The published `v0.4.1` tag is **not usable as a SwiftPM version-based dependency** (`from: "0.4.1"` or `exact: "0.4.1"`): SwiftPM rejects its branch-based sibling requirements. Its own `Package.resolved` does not remove that restriction. A future version-consumable release needs a compatible stable dependency graph and an actual consumer-resolution check. See [Release Readiness](docs/release-readiness.md) for the known limitation and gates.
 

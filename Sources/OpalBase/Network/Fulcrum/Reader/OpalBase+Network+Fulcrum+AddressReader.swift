@@ -10,10 +10,12 @@ extension _OpalBase.Network.Fulcrum {
 
         private let client: Client
         private let timeouts: OpalBase.Network.FulcrumRequestTimeout
+        private let forwardsUnchangedSubscriptionStatuses: Bool
         
-        public init(client: Client, timeouts: OpalBase.Network.FulcrumRequestTimeout = .init()) {
+        public init(client: Client, timeouts: OpalBase.Network.FulcrumRequestTimeout = .init(), forwardsUnchangedSubscriptionStatuses: Bool = false) {
             self.client = client
             self.timeouts = timeouts
+            self.forwardsUnchangedSubscriptionStatuses = forwardsUnchangedSubscriptionStatuses
         }
         
         public func fetchBalance(for address: String, tokenFilter: OpalBase.Network.TokenFilter) async throws -> OpalBase.Network.AddressBalance {
@@ -142,6 +144,23 @@ extension _OpalBase.Network.Fulcrum {
         public func subscribeToAddress(_ address: String) async throws -> AsyncThrowingStream<OpalBase.Network.AddressSubscriptionUpdate, any Swift.Error> {
             try await OpalBase.Network.performWithFailureTranslation {
                 _ = try validateAddress(address)
+                if forwardsUnchangedSubscriptionStatuses {
+                    let (initial, updates, cancel) = try await client.subscribeObserved(
+                        SwiftFulcrum.API.blockchain.address.subscribe(address: address),
+                        options: .init(timeout: timeouts.addressSubscription))
+                    return OpalBase.Network.makeSubscriptionStream(
+                        initial: initial, updates: updates, cancel: cancel,
+                        makeInitialUpdates: { snapshot in
+                            [.init(kind: .initialSnapshot, address: address, status: snapshot.value.status,
+                                connectionGeneration: snapshot.generation)]
+                        },
+                        makeUpdates: { notification in
+                            guard address == notification.value.subscriptionIdentifier else { return [] }
+                            return [.init(kind: .change, address: address, status: notification.value.status,
+                                connectionGeneration: notification.generation)]
+                        },
+                        deduplicationKey: { $0.status }, deduplicatesUpdates: false)
+                }
                 let (initial, updates, cancel) = try await client.subscribe(
                     SwiftFulcrum.API.blockchain.address.subscribe(address: address),
                     options: .init(timeout: timeouts.addressSubscription)
@@ -173,7 +192,8 @@ extension _OpalBase.Network.Fulcrum {
                     },
                     deduplicationKey: { update in
                         update.status
-                    }
+                    },
+                    deduplicatesUpdates: !forwardsUnchangedSubscriptionStatuses
                 )
             }
         }

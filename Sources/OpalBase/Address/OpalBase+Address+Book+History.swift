@@ -19,7 +19,8 @@ extension _OpalBase.Address.Book {
     func refreshTransactionHistory(using service: OpalBase.Network.AddressReader,
                                           usage: OpalBase.Key.DerivationPath.Usage? = nil,
                                           includeUnconfirmed: Bool = true,
-                                          transactionReader: OpalBase.Network.TransactionReader? = nil) async throws -> OpalBase.Transaction.History.ChangeSet {
+                                          transactionReader: OpalBase.Network.TransactionReader? = nil,
+                                          mutationPermit: OpalBase.Network.ChainRefreshMutationPermit? = nil) async throws -> OpalBase.Transaction.History.ChangeSet {
         var aggregatedChangeSet = OpalBase.Transaction.History.ChangeSet()
         var tokenDeltaCache: [OpalBase.Transaction.Hash: OpalBase.Transaction.History.Record.TokenDelta] = .init()
         var entriesByTransactionHash: [OpalBase.Transaction.Hash: OpalBase.Transaction.History.Entry] = .init()
@@ -55,20 +56,25 @@ extension _OpalBase.Address.Book {
             }
         }
         
-        for usageResults in resultsByUsage {
-            for result in usageResults {
-                if !result.entries.isEmpty {
-                    try await mark(address: result.address, isUsed: true)
+        let usedUsages = try commitChainRefresh(using: mutationPermit) {
+            var usages: Set<OpalBase.Key.DerivationPath.Usage> = []
+            for usageResults in resultsByUsage {
+                for result in usageResults {
+                    if !result.entries.isEmpty {
+                        let entry = try inventory.mark(address: result.address, isUsed: true)
+                        usages.insert(entry.derivationPath.usage)
+                    }
+                    let changeSet = transactionLog.replaceHistory(for: result.scriptHash,
+                                                                  entries: result.entries,
+                                                                  tokenDeltasByHash: tokenDeltaCache,
+                                                                  timestamp: refreshTimestamp)
+                    aggregatedChangeSet.merge(changeSet)
                 }
-                
-                let changeSet = transactionLog.replaceHistory(for: result.scriptHash,
-                                                              entries: result.entries,
-                                                              tokenDeltasByHash: tokenDeltaCache,
-                                                              timestamp: refreshTimestamp)
-                aggregatedChangeSet.merge(changeSet)
             }
+            return usages
         }
-        
+        for usage in usedUsages { try await generateEntriesIfNeeded(for: usage) }
+
         return aggregatedChangeSet
     }
 
@@ -87,7 +93,8 @@ extension _OpalBase.Address.Book {
     func refreshTransactionHistory(for address: OpalBase.Address,
                                           using service: OpalBase.Network.AddressReader,
                                           includeUnconfirmed: Bool,
-                                          transactionReader: OpalBase.Network.TransactionReader? = nil) async throws -> OpalBase.Transaction.History.ChangeSet {
+                                          transactionReader: OpalBase.Network.TransactionReader? = nil,
+                                          mutationPermit: OpalBase.Network.ChainRefreshMutationPermit? = nil) async throws -> OpalBase.Transaction.History.ChangeSet {
         guard contains(address: address) else { throw Error.addressNotFound }
         
         let scriptHash = address.makeScriptHash().hexadecimalString
@@ -95,10 +102,6 @@ extension _OpalBase.Address.Book {
                                                        scriptHash: scriptHash,
                                                        using: service,
                                                        includeUnconfirmed: includeUnconfirmed)
-        if !result.entries.isEmpty {
-            try await mark(address: address, isUsed: true)
-        }
-        
         let timestamp = Date.now
         var tokenDeltaCache: [OpalBase.Transaction.Hash: OpalBase.Transaction.History.Record.TokenDelta] = .init()
         if let transactionReader {
@@ -108,10 +111,16 @@ extension _OpalBase.Address.Book {
                                             walletScriptHashes: walletScriptHashes,
                                             tokenDeltaCache: &tokenDeltaCache)
         }
-        return transactionLog.replaceHistory(for: result.scriptHash,
-                                             entries: result.entries,
-                                             tokenDeltasByHash: tokenDeltaCache,
-                                             timestamp: timestamp)
+        let (changeSet, usage) = try commitChainRefresh(using: mutationPermit) {
+            let entry = result.entries.isEmpty ? nil : try inventory.mark(address: address, isUsed: true)
+            let changeSet = transactionLog.replaceHistory(for: result.scriptHash,
+                                                         entries: result.entries,
+                                                         tokenDeltasByHash: tokenDeltaCache,
+                                                         timestamp: timestamp)
+            return (changeSet, entry?.derivationPath.usage)
+        }
+        if let usage { try await generateEntriesIfNeeded(for: usage) }
+        return changeSet
     }
 
     func refreshTransactionHistory(for address: OpalBase.Address,
@@ -196,7 +205,8 @@ private extension _OpalBase.Address.Book {
 
 extension _OpalBase.Address.Book {
     func updateTransactionConfirmations(using handler: OpalBase.Network.TransactionClient,
-                                               for transactionHashes: [OpalBase.Transaction.Hash]) async throws -> OpalBase.Transaction.History.ChangeSet {
+                                               for transactionHashes: [OpalBase.Transaction.Hash],
+                                               mutationPermit: OpalBase.Network.ChainRefreshMutationPermit? = nil) async throws -> OpalBase.Transaction.History.ChangeSet {
         guard !transactionHashes.isEmpty else { return .init() }
         
         let uniqueTransactionHashes = transactionHashes.deduplicate()
@@ -240,14 +250,16 @@ extension _OpalBase.Address.Book {
             }
         }
         
-        for (scriptHash, entries) in entriesByScriptHash {
-            let changeSet = transactionLog.mergeHistoryEntries(
-                for: scriptHash,
-                entries: entries,
-                tokenDeltasByHash: .init(),
-                timestamp: refreshTimestamp
-            )
-            aggregatedChangeSet.merge(changeSet)
+        try commitChainRefresh(using: mutationPermit) {
+            for (scriptHash, entries) in entriesByScriptHash {
+                let changeSet = transactionLog.mergeHistoryEntries(
+                    for: scriptHash,
+                    entries: entries,
+                    tokenDeltasByHash: .init(),
+                    timestamp: refreshTimestamp
+                )
+                aggregatedChangeSet.merge(changeSet)
+            }
         }
         
         return aggregatedChangeSet
@@ -258,11 +270,12 @@ extension _OpalBase.Address.Book {
         try await updateTransactionConfirmations(using: .init(confirmations: handler), for: transactionHashes)
     }
     
-    func refreshTransactionConfirmations(using handler: OpalBase.Network.TransactionClient) async throws -> OpalBase.Transaction.History.ChangeSet {
+    func refreshTransactionConfirmations(using handler: OpalBase.Network.TransactionClient,
+                                         mutationPermit: OpalBase.Network.ChainRefreshMutationPermit? = nil) async throws -> OpalBase.Transaction.History.ChangeSet {
         let records = transactionLog.listRecords()
         guard !records.isEmpty else { return .init() }
         let transactionHashes = records.map(\.transactionHash)
-        return try await updateTransactionConfirmations(using: handler, for: transactionHashes)
+        return try await updateTransactionConfirmations(using: handler, for: transactionHashes, mutationPermit: mutationPermit)
     }
 
     func refreshTransactionConfirmations(using handler: any OpalBase.Network.TransactionConfirmationClient) async throws -> OpalBase.Transaction.History.ChangeSet {

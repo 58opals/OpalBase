@@ -42,6 +42,9 @@ extension _OpalBase.Wallet.Fulcrum {
         var addressSubscriptions: [OpalBase.Address: Task<Void, Never>]
         var newEntryTask: Task<Void, Never>?
         var headerTask: Task<Void, Never>?
+        var connectionTask: Task<Void, Never>?
+        let connectionRecoveryStates: AsyncStream<OpalBase.Network.Fulcrum.Client.ConnectionRecoveryObservation>?
+        let monitorsBlockHeaders: Bool
         var activeEventStreamIdentifiers: Set<UUID>
         var isRunning: Bool
         var isFinished: Bool
@@ -53,9 +56,13 @@ extension _OpalBase.Wallet.Fulcrum {
                     transactionClient: OpalBase.Network.TransactionClient,
                     transactionReader: OpalBase.Network.TransactionReader? = nil,
                     includeUnconfirmed: Bool = true,
-                    retryDelay: Duration = .seconds(2)) {
-            let eventHub = EventHub()
+                    retryDelay: Duration = .seconds(2),
+                    monitorsBlockHeaders: Bool = true,
+                    connectionRecoveryStates: AsyncStream<OpalBase.Network.Fulcrum.Client.ConnectionRecoveryObservation>? = nil) {
+            let eventHub = EventHub(tracksConnectionRecovery: connectionRecoveryStates != nil)
             self.eventHub = eventHub
+            self.monitorsBlockHeaders = monitorsBlockHeaders
+            self.connectionRecoveryStates = connectionRecoveryStates
             self.dependencies = .init(
                 account: account,
                 addressReader: addressReader,
@@ -79,6 +86,7 @@ extension _OpalBase.Wallet.Fulcrum {
             }
             newEntryTask?.cancel()
             headerTask?.cancel()
+            connectionTask?.cancel()
             let eventHub = eventHub
             Task {
                 await eventHub.finishAll()
@@ -100,6 +108,8 @@ extension _OpalBase.Wallet.Fulcrum {
             isRunning = true
             isManagedByEventStreams = shouldStopWhenStreamsEnd
 
+            await startEntryObservation()
+            await startConnectionObservation()
             let existingEntries = await dependencies.account.listTrackedEntries()
             guard isRunning, !isFinished else { return }
 
@@ -108,10 +118,10 @@ extension _OpalBase.Wallet.Fulcrum {
                 guard isRunning, !isFinished else { return }
             }
 
-            await startEntryObservation()
-            guard isRunning, !isFinished else { return }
-
-            await startHeaderSubscription()
+            await eventHub.establishScope()
+            if monitorsBlockHeaders {
+                await startHeaderSubscription()
+            }
         }
 
         public func stop(reason: Termination.Reason = .stopped) async {
@@ -135,7 +145,7 @@ extension _OpalBase.Wallet.Fulcrum {
             )
         }
 
-        fileprivate func startIfStreamIsStillActive(identifier: UUID) async {
+        func startIfStreamIsStillActive(identifier: UUID) async {
             guard !isFinished,
                   activeEventStreamIdentifiers.contains(identifier) else {
                 return
@@ -144,9 +154,9 @@ extension _OpalBase.Wallet.Fulcrum {
             await start(shouldStopWhenStreamsEnd: true)
         }
 
-        fileprivate func handleEventStreamTermination(
+        func handleEventStreamTermination(
             identifier: UUID,
-            termination: AsyncThrowingStream<Event, Swift.Error>.Continuation.Termination
+            reason: Termination.Reason
         ) async {
             activeEventStreamIdentifiers.remove(identifier)
             await eventHub.removeContinuation(withIdentifier: identifier)
@@ -158,7 +168,7 @@ extension _OpalBase.Wallet.Fulcrum {
                 return
             }
 
-            switch termination {
+            switch reason {
             case .cancelled:
                 await tearDown(reason: .cancelled, shouldPublishTermination: false)
             default:
@@ -179,6 +189,8 @@ extension _OpalBase.Wallet.Fulcrum {
             cancelSubscriptions()
             cancelEntryTask()
             cancelHeaderTask()
+            connectionTask?.cancel()
+            connectionTask = nil
 
             if shouldPublishTermination {
                 await eventHub.publish(.terminated(.init(reason: reason)))
@@ -250,57 +262,5 @@ extension _OpalBase.Wallet.Fulcrum.Monitor {
         let shouldIncludeUnconfirmed: Bool
         let retryDelay: Duration
         let eventHub: EventHub
-    }
-}
-
-extension _OpalBase.Wallet.Fulcrum.Monitor {
-    actor EventHub {
-        typealias Event = OpalBase.Wallet.Fulcrum.Monitor.Event
-        typealias Continuation = AsyncThrowingStream<Event, Swift.Error>.Continuation
-
-        private var continuations: [UUID: Continuation] = .init()
-
-        func makeStream(
-            identifier: UUID,
-            autoStart: Bool,
-            monitor: OpalBase.Wallet.Fulcrum.Monitor
-        ) -> AsyncThrowingStream<Event, Swift.Error> {
-            AsyncThrowingStream { continuation in
-                continuations[identifier] = continuation
-
-                if autoStart {
-                    Task(priority: .userInitiated) {
-                        await monitor.startIfStreamIsStillActive(identifier: identifier)
-                    }
-                }
-
-                continuation.onTermination = { [monitor] termination in
-                    Task {
-                        await monitor.handleEventStreamTermination(
-                            identifier: identifier,
-                            termination: termination
-                        )
-                    }
-                }
-            }
-        }
-
-        func removeContinuation(withIdentifier identifier: UUID) {
-            continuations.removeValue(forKey: identifier)
-        }
-
-        func publish(_ event: Event) {
-            for continuation in continuations.values {
-                continuation.yield(event)
-            }
-        }
-
-        func finishAll() {
-            let activeContinuations = Array(continuations.values)
-            continuations.removeAll()
-            for continuation in activeContinuations {
-                continuation.finish()
-            }
-        }
     }
 }

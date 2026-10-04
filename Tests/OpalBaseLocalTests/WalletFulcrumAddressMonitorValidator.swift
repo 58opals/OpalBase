@@ -172,7 +172,8 @@ struct WalletFulcrumAddressMonitorValidator {
         let stream = await monitor.makeEventStream(autoStart: false)
         await OpalBase.Wallet.Fulcrum.Monitor.handleAddressUpdate(
             for: targetEntry.address,
-            dependencies: monitor.dependencies
+            dependencies: monitor.dependencies,
+            mutationPermit: await monitor.eventHub.makeMutationPermit()
         )
         await monitor.stop()
 

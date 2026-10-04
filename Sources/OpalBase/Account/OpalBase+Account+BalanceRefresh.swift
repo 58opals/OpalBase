@@ -15,8 +15,19 @@ extension _OpalBase.Account {
 }
 
 extension _OpalBase.Account {
+    /// Refreshes cached balances from address data reads under this account's chain refresh owner.
+    /// - Parameter loader: Reads the supplied address's balance. It must not start another refresh on the same account.
     public func refreshBalances(for usage: OpalBase.Key.DerivationPath.Usage? = nil,
                                 loader: @escaping @Sendable (OpalBase.Address) async throws -> OpalBase.Satoshi) async throws -> BalanceRefresh {
+        try await addressBook.chainRefreshCoordinator.performExclusively {
+            try await self.refreshBalancesWithinChainRefresh(for: usage, loader: loader)
+        }
+    }
+
+    private func refreshBalancesWithinChainRefresh(
+        for usage: OpalBase.Key.DerivationPath.Usage?,
+        loader: @escaping @Sendable (OpalBase.Address) async throws -> OpalBase.Satoshi
+    ) async throws -> BalanceRefresh {
         let targetUsages = OpalBase.Key.DerivationPath.Usage.resolveTargetUsages(for: usage)
         var balancesByUsage: [OpalBase.Key.DerivationPath.Usage: [OpalBase.Address: OpalBase.Satoshi]] = .init()
         let refreshTimestamp = Date.now

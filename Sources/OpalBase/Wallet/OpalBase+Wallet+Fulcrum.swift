@@ -111,14 +111,18 @@ extension _OpalBase.Wallet {
         
         public func makeMonitor(for account: OpalBase.Account,
                                 includeUnconfirmed: Bool = true,
-                                retryDelay: Duration = .seconds(2)) -> Monitor {
+                                retryDelay: Duration = .seconds(2),
+                                monitorsBlockHeaders: Bool = true,
+                                connectionRecoveryStates: AsyncStream<OpalBase.Network.Fulcrum.Client.ConnectionRecoveryObservation>? = nil) -> Monitor {
             Monitor(account: account,
                     addressReader: addressReader,
                     blockHeaderReader: blockHeaderReader,
                     transactionClient: transactionClient,
                     transactionReader: transactionReader,
                     includeUnconfirmed: includeUnconfirmed,
-                    retryDelay: retryDelay)
+                    retryDelay: retryDelay,
+                    monitorsBlockHeaders: monitorsBlockHeaders,
+                    connectionRecoveryStates: connectionRecoveryStates)
         }
         
         public func makeMonitor(forAccountAt unhardenedIndex: UInt32,

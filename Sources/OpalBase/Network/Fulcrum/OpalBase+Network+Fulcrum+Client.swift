@@ -89,6 +89,39 @@ extension _OpalBase.Network.Fulcrum {
             Task { await fulcrumClient.stop() }
         }
         
+        public struct ConnectionRecoveryObservation: Equatable, Sendable {
+            public enum State: Equatable, Sendable { case unavailable, recovering, ready }
+            public let generation: UInt64
+            public let sequence: UInt64
+            public let state: State
+            public init(generation: UInt64, sequence: UInt64, state: State) {
+                self.generation = generation
+                self.sequence = sequence
+                self.state = state
+            }
+        }
+
+        /// Producer-stamped protocol recovery. Account readiness additionally requires hydration.
+        public func makeConnectionRecoveryStream() async -> AsyncStream<ConnectionRecoveryObservation> {
+            let states = await fulcrum.makeConnectionRecoveryStream()
+            return AsyncStream { continuation in
+                let task = Task {
+                    for await state in states {
+                        guard !Task.isCancelled else { break }
+                        let phase: ConnectionRecoveryObservation.State
+                        switch state.state {
+                        case .unavailable: phase = .unavailable
+                        case .recovering: phase = .recovering
+                        case .ready: phase = .ready
+                        }
+                        continuation.yield(.init(generation: state.generation, sequence: state.sequence, state: phase))
+                    }
+                    continuation.finish()
+                }
+                continuation.onTermination = { _ in task.cancel() }
+            }
+        }
+
         public func stop() async {
             await fulcrum.stop()
         }
@@ -107,6 +140,18 @@ extension _OpalBase.Network.Fulcrum {
             )
         }
         
+        func subscribeObserved<Initial: Decodable & Sendable, Notification: Decodable & Sendable>(
+            _ endpoint: SwiftFulcrum.API.Subscription<Initial, Notification>,
+            options: SwiftFulcrum.Client.Call.Options = .init()
+        ) async throws -> (
+            SwiftFulcrum.Client.SubscriptionObservation<Initial>,
+            SwiftFulcrum.Client.Subscription<SwiftFulcrum.Client.SubscriptionObservation<Initial>, SwiftFulcrum.Client.SubscriptionObservation<Notification>>.Updates,
+            @Sendable () async -> Void
+        ) {
+            let subscription = try await fulcrum.subscribeObserved(endpoint, options: options)
+            return (subscription.initial, subscription.updates, { await subscription.cancel() })
+        }
+
         func subscribe<Initial: Decodable & Sendable, Notification: Decodable & Sendable>(
             _ endpoint: SwiftFulcrum.API.Subscription<Initial, Notification>,
             options: SwiftFulcrum.Client.Call.Options = .init()

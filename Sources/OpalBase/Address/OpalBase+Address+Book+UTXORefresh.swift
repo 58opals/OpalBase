@@ -15,9 +15,10 @@ extension _OpalBase.Address.Book.UTXORefresh: Equatable {}
 
 extension _OpalBase.Address.Book {
     func refreshUTXOSet(using service: OpalBase.Network.AddressReader,
-                               usage: OpalBase.Key.DerivationPath.Usage? = nil) async throws -> UTXORefresh {
+                               usage: OpalBase.Key.DerivationPath.Usage? = nil,
+                               mutationPermit: OpalBase.Network.ChainRefreshMutationPermit? = nil) async throws -> UTXORefresh {
         var refreshedUTXOs: [OpalBase.Address: [OpalBase.Transaction.Output.Unspent]] = .init()
-        var plannedRefreshes: [(address: OpalBase.Address, utxos: [OpalBase.Transaction.Output.Unspent], changeSet: UTXOChangeSet)] = .init()
+        var plannedRefreshes: [(address: OpalBase.Address, utxos: [OpalBase.Transaction.Output.Unspent])] = .init()
         var seenRefreshOutpoints: Set<UTXORepository.Outpoint> = .init()
         
         let refreshTimestamp = Date.now
@@ -41,23 +42,29 @@ extension _OpalBase.Address.Book {
                     }
                 }
                 refreshedUTXOs[address] = changeSet.updated
-                plannedRefreshes.append((address, changeSet.updated, changeSet))
+                plannedRefreshes.append((address, changeSet.updated))
             }
         }
         
-        let changeSets = plannedRefreshes.map(\.changeSet)
-        let totalBalance = try changeSets.sumSatoshi { $0.balance }
-
-        for refresh in plannedRefreshes {
-            replaceUTXOs(for: refresh.address, withValidated: refresh.utxos)
-            try updateCachedBalance(for: refresh.address,
-                                    balance: refresh.changeSet.balance,
-                                    timestamp: refreshTimestamp)
-
-            if !refresh.utxos.isEmpty {
-                try await mark(address: refresh.address, isUsed: true)
+        let (changeSets, totalBalance, usedUsages) = try commitChainRefresh(using: mutationPermit) {
+            let changeSets = try plannedRefreshes.map { refresh in
+                try makeUTXOChangeSet(for: refresh.address, with: refresh.utxos, timestamp: refreshTimestamp)
             }
+            let totalBalance = try changeSets.sumSatoshi { $0.balance }
+            var usages: Set<OpalBase.Key.DerivationPath.Usage> = []
+            for (refresh, changeSet) in zip(plannedRefreshes, changeSets) {
+                replaceUTXOs(for: refresh.address, withValidated: refresh.utxos)
+                try updateCachedBalance(for: refresh.address,
+                                        balance: changeSet.balance,
+                                        timestamp: refreshTimestamp)
+                if !refresh.utxos.isEmpty {
+                    let entry = try inventory.mark(address: refresh.address, isUsed: true)
+                    usages.insert(entry.derivationPath.usage)
+                }
+            }
+            return (changeSets, totalBalance, usages)
         }
+        for usage in usedUsages { try await generateEntriesIfNeeded(for: usage) }
 
         return UTXORefresh(utxosByAddress: refreshedUTXOs,
                            changeSets: changeSets,

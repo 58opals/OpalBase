@@ -128,3 +128,20 @@ extension _OpalBase.Address.Book {
                                      tokenSelectionPolicy: tokenSelectionPolicy)
     }
 }
+
+// A monitoring response commits UTXOs, balance cache, and usage in one actor turn.
+extension _OpalBase.Address.Book {
+    func applyMonitoringUTXOs(for address: OpalBase.Address,
+                              with utxos: [OpalBase.Transaction.Output.Unspent],
+                              timestamp: Date,
+                              mutationPermit: OpalBase.Network.ChainRefreshMutationPermit?) async throws -> UTXOChangeSet {
+        let (changeSet, usage) = try commitChainRefresh(using: mutationPermit) {
+            let changeSet = try replaceUTXOs(for: address, with: utxos, timestamp: timestamp)
+            let entry = changeSet.updated.isEmpty ? nil : try inventory.mark(address: address, isUsed: true)
+            try updateCachedBalance(for: address, balance: changeSet.balance, timestamp: timestamp)
+            return (changeSet, entry?.derivationPath.usage)
+        }
+        if let usage { try await generateEntriesIfNeeded(for: usage) }
+        return changeSet
+    }
+}

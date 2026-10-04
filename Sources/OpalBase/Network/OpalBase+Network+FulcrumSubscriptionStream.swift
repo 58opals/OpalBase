@@ -9,7 +9,8 @@ extension _OpalBase.Network {
         cancel: @escaping @Sendable () async -> Void,
         makeInitialUpdates: @escaping @Sendable (Initial) throws -> [Update],
         makeUpdates: @escaping @Sendable (Updates.Element) throws -> [Update],
-        deduplicationKey: @escaping @Sendable (Update) -> DeduplicationKey
+        deduplicationKey: @escaping @Sendable (Update) -> DeduplicationKey,
+        deduplicatesUpdates: Bool = true
     ) -> AsyncThrowingStream<Update, Swift.Error> where Updates.Element: Sendable {
         AsyncThrowingStream { continuation in
             var lastKey: DeduplicationKey?
@@ -36,7 +37,7 @@ extension _OpalBase.Network {
                     for try await notification in updatesStream {
                         for update in try buildUpdates(notification) {
                             let key = keyForDeduplication(update)
-                            guard key != lastKey else { continue }
+                            guard !deduplicatesUpdates || key != lastKey else { continue }
                             lastKey = key
                             continuation.yield(update)
                         }

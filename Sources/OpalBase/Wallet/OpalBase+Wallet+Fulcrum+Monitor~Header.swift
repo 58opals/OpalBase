@@ -20,11 +20,12 @@ extension _OpalBase.Wallet.Fulcrum.Monitor {
 
         return Task {
             while !Task.isCancelled {
+                let generation = await dependencies.eventHub.makeMutationPermit()
                 do {
                     let stream = try await reader.subscribeToTip()
                     await startupGate?.complete()
                     do {
-                        try await consumeHeaderStream(stream, dependencies: dependencies)
+                        try await consumeHeaderStream(stream, dependencies: dependencies, mutationPermit: generation)
                     } catch {
                         if error.isCancellationError { return }
                         guard !Task.isCancelled else { return }
@@ -32,11 +33,12 @@ extension _OpalBase.Wallet.Fulcrum.Monitor {
                         continue
                     }
                     guard !Task.isCancelled else { return }
+                    await dependencies.eventHub.publishFailure(.init(address: nil, message: "Block-header subscription ended."), mutationPermit: generation)
                     try? await Task.sleep(for: retryDelay)
                 } catch {
                     await startupGate?.complete()
                     if error.isCancellationError { return }
-                    await publishFailure(address: nil, error: error, eventHub: dependencies.eventHub)
+                    await publishFailure(address: nil, error: error, eventHub: dependencies.eventHub, mutationPermit: generation)
                     guard !Task.isCancelled else { return }
                     try? await Task.sleep(for: retryDelay)
                 }
@@ -47,7 +49,10 @@ extension _OpalBase.Wallet.Fulcrum.Monitor {
     }
 
     static func consumeHeaderStream(_ stream: AsyncThrowingStream<OpalBase.Network.BlockHeaderSnapshot, any Swift.Error>,
-                                    dependencies: WorkerDependencies) async throws {
+                                    dependencies: WorkerDependencies,
+                                    mutationPermit: OpalBase.Network.ChainRefreshMutationPermit? = nil) async throws {
+        let generation: OpalBase.Network.ChainRefreshMutationPermit
+        if let mutationPermit { generation = mutationPermit } else { generation = await dependencies.eventHub.makeMutationPermit() }
         do {
             for try await _ in stream {
                 try Task.checkCancellation()
@@ -57,19 +62,23 @@ extension _OpalBase.Wallet.Fulcrum.Monitor {
             if error.isCancellationError {
                 throw error
             }
-            await publishFailure(address: nil, error: error, eventHub: dependencies.eventHub)
+            await publishFailure(address: nil, error: error, eventHub: dependencies.eventHub, mutationPermit: generation)
             throw error
         }
     }
 
     static func handleHeaderSnapshot(dependencies: WorkerDependencies) async {
+        let generation = await dependencies.eventHub.makeMutationPermit()
         do {
-            let changeSet = try await dependencies.account.refreshTransactionConfirmations(using: dependencies.transactionClient)
+            let changeSet = try await dependencies.account.refreshMonitoringTransactionConfirmations(using: dependencies.transactionClient,
+                                                                                                      mutationPermit: generation)
             if !changeSet.isEmpty {
-                await dependencies.eventHub.publish(.confirmationsChanged(changeSet))
+                await dependencies.eventHub.publish(.confirmationsChanged(changeSet), mutationPermit: generation)
             }
+            await dependencies.eventHub.markHeaderSynchronized(mutationPermit: generation)
         } catch {
-            await publishFailure(address: nil, error: error, eventHub: dependencies.eventHub)
+            if error.isCancellationError { return }
+            await publishFailure(address: nil, error: error, eventHub: dependencies.eventHub, mutationPermit: generation)
         }
     }
 }

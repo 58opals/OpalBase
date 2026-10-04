@@ -38,6 +38,7 @@ extension _OpalBase.Address {
         var spendReservationStates: [UUID: SpendReservation.State]
         
         let entryPublisher = Entry.PublisherActor()
+        nonisolated let chainRefreshCoordinator = ChainRefreshCoordinator()
 
         init(rootExtendedPrivateKey: OpalCrypto.Key.ExtendedPrivate? = nil,
              accountExtendedPublicKey: OpalCrypto.Key.ExtendedPublic? = nil,
