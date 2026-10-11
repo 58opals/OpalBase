@@ -174,7 +174,7 @@ Review with: `Tests/OpalBaseLocalTests/StoragePersistenceValidator~SpendValidati
 
 ## Prepare And Broadcast An In-Process BCH Spend
 
-Use `prepareSpend(_:)` when the app intentionally signs in process, then use `WalletBroadcastInteractor` to relay and reconcile targeted confirmations:
+Use `prepareSpend(_:)` when the app intentionally signs in process, then use `WalletBroadcastInteractor` to relay. After relay acceptance, explicitly complete the plan's reservation and retain the accepted hash even if local completion fails:
 
 ```swift
 let plan = try await authoring.prepareSpend(payment)
@@ -182,8 +182,21 @@ let result = try plan.buildTransaction()
 
 let broadcast = OpalBase.WalletBroadcastInteractor(transactionClient: publicChain.transactionClient)
 let hash = try await broadcast.broadcast(result.transaction)
-_ = try await broadcast.reconcileConfirmations(for: [hash], in: account)
+
+// App boundary: durably record the accepted hash before local cleanup.
+let reservationCompletionError: (any Error)?
+do {
+    try await plan.completeReservation()
+    reservationCompletionError = nil
+} catch {
+    reservationCompletionError = error
+}
+let outcome = (hash: hash, reservationCompletionError: reservationCompletionError)
 ```
+
+Persist the accepted hash in application-owned durable transaction state before local reservation completion, and record `outcome.reservationCompletionError` if completion fails. The snippet shows the package calls; the application owns that persistence. Completion removes the spent inputs from the cached inventory and marks reserved change used. A completion failure does not undo relay acceptance: preserve the hash, report the local failure, and reconcile and refresh the account before another spend instead of rebroadcasting or preparing a replacement. Targeted confirmation reconciliation is a separate follow-up: `try await broadcast.reconcileConfirmations(for: [outcome.hash], in: account)` does not complete the reservation, and its failure does not mean the relay failed.
+
+A relay error, including cancellation during submission, can have an uncertain outcome. Retain the plan and reviewed transaction hash for reconciliation; do not cancel or release its reservation solely because relay threw.
 
 Use this when: the app policy allows in-process signing and online relay.
 

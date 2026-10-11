@@ -33,11 +33,11 @@ See [Trust Boundaries](docs/trust-boundaries.md) for the full integration model.
 
 ## Installation
 
-For reproducible review of the current Swift 6.4 / OS 27 stack, pin an inspected public `develop` revision. For example, this revision contains the OS 27 migration:
+For reproducible review of the current Swift 6.4 / OS 27 stack, pin an inspected public `develop` revision. This example includes the OS 27 migration, the two-account CashToken transfer and reviewed-genesis APIs in the [public API guide](docs/public-api.md#two-account-cashtoken-transfers), and the exact SwiftFulcrum integration pin described below:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/58opals/OpalBase.git", revision: "4782c176b47b2d61764d2918e8f6dd12e032dee0")
+    .package(url: "https://github.com/58opals/OpalBase.git", revision: "5af0fbc2b825146b67b99472e55f077d9fe1e007")
 ],
 targets: [
     .target(
