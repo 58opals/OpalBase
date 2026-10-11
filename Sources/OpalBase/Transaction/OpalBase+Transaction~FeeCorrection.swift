@@ -79,7 +79,18 @@ extension _OpalBase.Transaction {
                                                                   shouldAllowDustDonation: shouldAllowDustDonation,
                                                                   privacyOutputShuffle: privacyOutputShuffle)
             
-            guard correctedOutputs != correctedTransaction.outputs else { throw Error.cannotCreateTransaction }
+            if correctedOutputs == correctedTransaction.outputs {
+                let dustThreshold = try changeOutput.calculateDustThreshold(feeRate: minimumRelayFeeRate)
+                // No change output is the converged result when the actual
+                // excess fee is an explicitly permitted dust donation.
+                guard shouldAllowDustDonation,
+                      correctedOutputs.count == recipientOutputs.count,
+                      feePaid > requiredFee,
+                      feePaid - requiredFee < dustThreshold else {
+                    throw Error.cannotCreateTransaction
+                }
+                return correctedTransaction
+            }
             
             let unsignedTransaction = OpalBase.Transaction(version: correctedTransaction.version,
                                                   inputs: inputs,

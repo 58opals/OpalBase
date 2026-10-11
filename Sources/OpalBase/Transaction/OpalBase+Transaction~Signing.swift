@@ -24,12 +24,6 @@ extension _OpalBase.Transaction {
         
         let inputBeingSigned = inputs[index]
         
-        if hashType.mode == .single, index >= outputs.count {
-            var invalidIndexHash = Data(repeating: 0x00, count: 32)
-            invalidIndexHash[0] = 0x01
-            return invalidIndexHash
-        }
-        
         var preimage = Data()
         
         let transactionVersion = version.littleEndianData
@@ -81,11 +75,12 @@ extension _OpalBase.Transaction {
             .littleEndianData
         preimage.append(previousOutputIndex)
         
+        // The signing preimage commits the token prefix before the script-only length.
         let tokenPrefixData = try outputBeingSpent.makeTokenPrefixData()
-        let coveredLockingScript = tokenPrefixData + outputBeingSpent.lockingScript
-        let coveredLockingScriptLength = CompactSize(value: UInt64(coveredLockingScript.count)).encode()
-        preimage.append(coveredLockingScriptLength)
-        preimage.append(coveredLockingScript)
+        preimage.append(tokenPrefixData)
+        let lockingScriptLength = CompactSize(value: UInt64(outputBeingSpent.lockingScript.count)).encode()
+        preimage.append(lockingScriptLength)
+        preimage.append(outputBeingSpent.lockingScript)
         
         let previousOutputValue = outputBeingSpent.value.littleEndianData
         preimage.append(previousOutputValue)
@@ -104,8 +99,12 @@ extension _OpalBase.Transaction {
         case .none:
             transactionOutputsHash = Data(repeating: 0x00, count: 32)
         case .single:
-            let outputWithTheSameIndexAsTheInputBeingSigned = try outputs[index].encode()
-            transactionOutputsHash = OpalCryptoAdapter.hash256(outputWithTheSameIndexAsTheInputBeingSigned)
+            if outputs.indices.contains(index) {
+                transactionOutputsHash = OpalCryptoAdapter.hash256(try outputs[index].encode())
+            } else {
+                // FORKID commits the normal preimage with zero hashOutputs.
+                transactionOutputsHash = Data(repeating: 0x00, count: 32)
+            }
         }
         preimage.append(transactionOutputsHash)
         
@@ -209,11 +208,7 @@ extension _OpalBase.Transaction {
                 outputBeingSpent: outputBeingSpent,
                 spentOutputs: spentOutputs
             )
-            let signatureDigest = signingTransaction.makeSignatureDigest(
-                from: preimage,
-                inputIndex: index,
-                hashType: hashType
-            )
+            let signatureDigest = OpalCryptoAdapter.hash256(preimage)
             let typedSignatureDigest = try OpalCrypto.Signature.Digest(rawRepresentation: signatureDigest)
             let signature: Data = switch signatureFormat {
             case .ecdsa(let encoding):
@@ -335,17 +330,6 @@ extension _OpalBase.Transaction {
             outputs: self.outputs,
             lockTime: self.lockTime
         )
-    }
-
-    private func makeSignatureDigest(
-        from preimage: Data,
-        inputIndex: Int,
-        hashType: HashType
-    ) -> Data {
-        if hashType.mode == .single, inputIndex >= outputs.count {
-            return preimage
-        }
-        return OpalCryptoAdapter.hash256(preimage)
     }
 
     private func requireSigningInputIndex(

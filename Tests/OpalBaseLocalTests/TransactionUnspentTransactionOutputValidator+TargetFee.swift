@@ -138,7 +138,7 @@ extension TransactionUnspentTransactionOutputValidator {
         ])
         let transactionHash = OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0x00, count: 32))
         let unspent = OpalBase.Transaction.Output.Unspent(
-            value: 2_000,
+            value: 3_000,
             lockingScript: lockingScript,
             previousTransactionHash: transactionHash,
             previousTransactionOutputIndex: 0
@@ -160,8 +160,10 @@ extension TransactionUnspentTransactionOutputValidator {
         let signedTransaction = OpalBase.Transaction(version: 2, inputs: [input], outputs: recipientOutputs, lockTime: 0)
         let requiredFee = try signedTransaction.calculateRequiredFee(feePerByte: 1)
 
+        // The declared change pool understates actual available funds. Even if
+        // it implies dust, the actual overpayment exceeds the dust threshold.
         #expect(requiredFee < 1_000)
-        #expect(1_000 - requiredFee > 1)
+        #expect(2_000 - requiredFee > 546)
         #expect(throws: OpalBase.Transaction.Error.cannotCreateTransaction) {
             _ = try OpalBase.Transaction.correctFeeAfterSigning(
                 signedTransaction: signedTransaction,

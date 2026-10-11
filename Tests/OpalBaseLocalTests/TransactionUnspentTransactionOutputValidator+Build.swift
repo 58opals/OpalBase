@@ -366,31 +366,56 @@ extension TransactionUnspentTransactionOutputValidator {
         #expect(isValidThroughPublicKey)
     }
 
-    @Test("SIGHASH_SINGLE without matching output signs the fixed consensus digest")
-    func sighashSingleWithoutMatchingOutputSignsFixedConsensusDigest() throws {
+    @Test(
+        "FORKID SIGHASH_SINGLE without matching output signs the BCHN consensus digest",
+        arguments: [
+            (false, false, "f6d529a5c146127f2eda193241f03f3c9e57e0283e1c9760adc20417cf257407"),
+            (true, false, "d7320b1daf7570857207bac69d468140ab3481a4bc7d423845f58cb4743b642c"),
+            (false, true, "c918f3aff6212d07caaeaf2d66dcfa266547fe9c0d81af1e15ce524d5fdb8cd9"),
+        ]
+    )
+    func sighashSingleWithoutMatchingOutputSignsConsensusDigest(
+        anyoneCanPay: Bool,
+        includesUnspentTransactionOutputs: Bool,
+        expectedDigestHex: String
+    ) throws {
         let privateKey = Data(repeating: 0x02, count: 32)
         let publicKey = try OpalCrypto.Secp256k1.derivePublicKey(
             from: OpalCrypto.Secp256k1.PrivateKey(rawRepresentation: privateKey)
         )
-        let fixture = makeSighashSingleFixedDigestFixture()
-        let hashType = OpalBase.Transaction.HashType.makeSingle()
+        let fixture = makeSighashSingleMissingOutputFixture()
+        let hashType = OpalBase.Transaction.HashType.makeSingle(
+            anyoneCanPay: anyoneCanPay,
+            includesUnspentTransactionOutputs: includesUnspentTransactionOutputs
+        )
+        let spentOutputs = includesUnspentTransactionOutputs
+            ? [fixture.outputBeingSpent, fixture.outputBeingSpent] : nil
+        // Independent double-SHA256 vectors from BCHN's FORKID path: the missing
+        // corresponding output leaves hashOutputs zero, with the rest committed.
+        // https://github.com/bitcoin-cash-node/bitcoin-cash-node/blob/07576013c91ff4a3a74acd85f189c69121cdad1b/src/script/interpreter.cpp#L2478-L2549
+        let expectedDigest = try Data(hexadecimalString: expectedDigestHex)
+        let preimage = try fixture.transaction.generatePreimage(
+            for: fixture.signingInputIndex,
+            hashType: hashType,
+            outputBeingSpent: fixture.outputBeingSpent,
+            spentOutputs: spentOutputs
+        )
+        #expect(OpalCrypto.Hashing.hash256(preimage) == expectedDigest)
         let signed = try fixture.transaction.signInputInPlace(
             at: fixture.signingInputIndex,
             spending: fixture.outputBeingSpent,
             privateKey: privateKey,
             signatureFormat: OpalBase.Transaction.SignatureFormat.schnorr,
-            unlocker: OpalBase.Transaction.Unlocker.p2pkh_CheckSig(hashType: hashType)
+            unlocker: OpalBase.Transaction.Unlocker.p2pkh_CheckSig(hashType: hashType),
+            spentOutputs: spentOutputs
         )
         let decodedUnlockingScript = try decodeP2PKHUnlockingScript(
             signed.inputs[fixture.signingInputIndex].unlockingScript
         )
         let signatureWithHashType = decodedUnlockingScript.signatureWithHashType
         let signature = try #require(signatureWithHashType.dropLast().isEmpty ? nil : Data(signatureWithHashType.dropLast()))
-        var fixedDigest = Data(repeating: 0x00, count: 32)
-        fixedDigest[0] = 0x01
-
         let isValid = try OpalCrypto.Signature.Schnorr(rawRepresentation: signature).verify(
-            digest: OpalCrypto.Signature.Digest(rawRepresentation: fixedDigest),
+            digest: OpalCrypto.Signature.Digest(rawRepresentation: expectedDigest),
             publicKey: publicKey
         )
 
@@ -398,10 +423,10 @@ extension TransactionUnspentTransactionOutputValidator {
         #expect(isValid)
     }
 
-    @Test("scoped signing-key rejects missing UTXO coverage before SIGHASH_SINGLE fixed digest")
-    func scopedSigningKeyRejectsMissingUTXOCoverageBeforeSighashSingleFixedDigest() throws {
+    @Test("scoped signing-key rejects missing UTXO coverage for SIGHASH_SINGLE without matching output")
+    func scopedSigningKeyRejectsMissingUTXOCoverageForSighashSingle() throws {
         let signingKey = try OpalBase.Key.SigningKey(rawRepresentation: Data(repeating: 0x02, count: 32))
-        let fixture = makeSighashSingleFixedDigestFixture()
+        let fixture = makeSighashSingleMissingOutputFixture()
         let hashType = OpalBase.Transaction.HashType.makeSingle(
             includesUnspentTransactionOutputs: true
         )
@@ -608,6 +633,36 @@ extension TransactionUnspentTransactionOutputValidator {
         if feePaid >= requiredFee {
             let feeOverpayment = feePaid - requiredFee
             #expect(feeOverpayment <= 2)
+        }
+    }
+
+    @Test("build accepts a no-change dust donation only when allowed", arguments: [false, true])
+    func buildHandlesPermittedDustDonation(shouldAllowDustDonation: Bool) throws {
+        let components = try makeTransactionBuilderComponents(inputValue: 1_300, changeValue: 300)
+        let unspent = try #require(components.privateKeys.keys.first)
+        let recipient = OpalBase.Transaction.Output(value: 1_000, lockingScript: unspent.lockingScript)
+        let build = {
+            try OpalBase.Transaction.build(
+                utxoPrivateKeyPairs: components.privateKeys,
+                recipientOutputs: [recipient],
+                changeOutput: components.changeOutput,
+                outputOrderingStrategy: .canonicalBIP69,
+                signatureFormat: .schnorr,
+                feePerByte: 1,
+                shouldAllowDustDonation: shouldAllowDustDonation
+            )
+        }
+        if shouldAllowDustDonation {
+            let transaction = try build()
+            // One Schnorr P2PKH input and one P2PKH output occupy 185 bytes.
+            // The 300-satoshi fee includes a permitted 115-satoshi remainder.
+            #expect(transaction.outputs == [recipient])
+            #expect(try transaction.encode().count == 185)
+            #expect(components.inputTotal - transaction.outputs.reduce(0) { $0 + $1.value } == 300)
+        } else {
+            #expect(throws: OpalBase.Transaction.Error.outputValueIsLessThanTheDustLimit) {
+                _ = try build()
+            }
         }
     }
 
@@ -975,7 +1030,7 @@ extension TransactionUnspentTransactionOutputValidator {
         )
     }
 
-    private func makeSighashSingleFixedDigestFixture() -> (
+    private func makeSighashSingleMissingOutputFixture() -> (
         signingInputIndex: Int,
         outputBeingSpent: OpalBase.Transaction.Output,
         transaction: OpalBase.Transaction
