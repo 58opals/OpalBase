@@ -130,6 +130,9 @@ extension _OpalBase.Wallet {
                                                          coinType: coinType,
                                                          account: derivationPathAccount)
                 let index = await account.unhardenedIndex
+                guard accounts[index] == nil else {
+                    throw Error.accountAlreadyExists(index: index)
+                }
                 self.accounts[index] = account
                 OpalDiagnostics.record(
                     OpalDiagnostics.Event.walletAccountCreateSucceeded,

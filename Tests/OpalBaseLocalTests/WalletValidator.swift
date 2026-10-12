@@ -40,4 +40,48 @@ struct WalletValidator {
             try await wallet.addAccount(unhardenedIndex: 0)
         }
     }
+
+    @Test("concurrent addAccount calls preserve the first account and reject the duplicate")
+    func concurrentAddAccountRejectsDuplicateIndices() async throws {
+        let wallet = try OpalBase.Wallet(mnemonic: AccountTestFixtures.makeMnemonic())
+        let start = ConcurrentAccountCreationStart()
+
+        let createdAccounts = try await withThrowingTaskGroup(of: OpalBase.Account?.self) { group in
+            for _ in 0..<2 {
+                group.addTask {
+                    await start.arrive()
+                    do {
+                        try await wallet.addAccount(unhardenedIndex: 0)
+                        return try await wallet.fetchAccount(at: 0)
+                    } catch let error as OpalBase.Wallet.Error {
+                        guard error == .accountAlreadyExists(index: 0) else { throw error }
+                        return nil
+                    }
+                }
+            }
+
+            var createdAccounts: [OpalBase.Account] = []
+            for try await account in group {
+                if let account { createdAccounts.append(account) }
+            }
+            return createdAccounts
+        }
+
+        try #require(createdAccounts.count == 1)
+        #expect(await wallet.numberOfAccounts == 1)
+        #expect(try await wallet.fetchAccount(at: 0) === createdAccounts[0])
+    }
+}
+
+private actor ConcurrentAccountCreationStart {
+    private var firstArrival: CheckedContinuation<Void, Never>?
+
+    func arrive() async {
+        if let firstArrival {
+            self.firstArrival = nil
+            firstArrival.resume()
+        } else {
+            await withCheckedContinuation { firstArrival = $0 }
+        }
+    }
 }
