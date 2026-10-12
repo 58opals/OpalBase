@@ -37,6 +37,8 @@ extension _OpalBase.Account {
             if let reservedSupplyToSelf {
                 try TokenGenesisValidation.validateReservedSupply(reservedSupplyToSelf)
             }
+            try TokenGenesisValidation.validateFungibleSupply(recipients: recipients,
+                                                              reservedSupply: reservedSupplyToSelf)
             self.recipients = recipients
             self.reservedSupplyToSelf = reservedSupplyToSelf
             self.feeOverride = feeOverride

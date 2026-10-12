@@ -120,6 +120,8 @@ Call `cancelReservation()` if review is abandoned before submission. `broadcastR
 
 For an exact reviewed genesis submission, call `TokenGenesisPlan.requireActiveReservation()` immediately before persisting the app's durable submission-started marker. It throws `Account.Error.transactionBuildFailed(Address.Book.Error.spendReservationNotFound)` if the reservation expired or was released, allowing the review to fail before the app marks relay as attempted.
 
+`Account.TokenGenesis` requires the combined fungible amount across every recipient and `reservedSupplyToSelf` to be at most `9223372036854775807`. Its initializer rejects a larger or overflowing aggregate with `Account.Error.paymentExceedsMaximumAmount`, before selecting or reserving inputs.
+
 ### `WalletUnsignedSpendPlan`
 
 Reserved spend plan for external transaction review and signing without retained private-key material. It carries a `WalletUnsignedTransactionEnvelope`, selected UTXO/change reservation lifecycle, and completion/cancellation methods.

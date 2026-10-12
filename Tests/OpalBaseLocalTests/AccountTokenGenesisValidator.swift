@@ -32,6 +32,57 @@ struct AccountTokenGenesisValidator {
             _ = try OpalBase.Account.TokenGenesis.Recipient(address: recipientAddress)
         }
     }
+
+    @Test("genesis preserves the maximum aggregate fungible supply", arguments: [
+        ([UInt64(Int64.max)], nil),
+        ([UInt64(Int64.max) - 1, 1], nil),
+        ([UInt64(Int64.max) - 1], UInt64(1)),
+        ([], UInt64(Int64.max))
+    ] as [([UInt64], UInt64?)])
+    func genesisPreservesMaximumAggregateFungibleSupply(
+        recipientAmounts: [UInt64],
+        reservedAmount: UInt64?
+    ) throws {
+        let genesis = try makeGenesisWithSupply(recipientAmounts: recipientAmounts,
+                                                reservedAmount: reservedAmount)
+
+        #expect(genesis.recipients.map(\.fungibleAmount) == recipientAmounts.map(Optional.some))
+        #expect(genesis.reservedSupplyToSelf?.fungibleAmount == reservedAmount)
+    }
+
+    @Test("genesis rejects excessive aggregate fungible supply without overflow", arguments: [
+        ([UInt64(Int64.max), 1], nil),
+        ([UInt64(Int64.max)], UInt64(1)),
+        ([UInt64(Int64.max), UInt64(Int64.max), 2], nil),
+        ([UInt64(Int64.max), UInt64(Int64.max)], UInt64(2)),
+        ([UInt64(Int64.max) + 1], nil),
+        ([], UInt64(Int64.max) + 1)
+    ] as [([UInt64], UInt64?)])
+    func genesisRejectsExcessiveAggregateFungibleSupply(
+        recipientAmounts: [UInt64],
+        reservedAmount: UInt64?
+    ) throws {
+        #expect(throws: OpalBase.Account.Error.paymentExceedsMaximumAmount) {
+            _ = try makeGenesisWithSupply(recipientAmounts: recipientAmounts,
+                                          reservedAmount: reservedAmount)
+        }
+    }
+
+    private func makeGenesisWithSupply(
+        recipientAmounts: [UInt64],
+        reservedAmount: UInt64?
+    ) throws -> OpalBase.Account.TokenGenesis {
+        let address = try OpalBase.Address("bitcoincash:zpm2qsznhks23z7629mms6s4cwef74vcwvrqekrq9w")
+        let recipients = try recipientAmounts.map {
+            try OpalBase.Account.TokenGenesis.Recipient(address: address, fungibleAmount: $0)
+        }
+        let reservedSupply = try reservedAmount.map {
+            try OpalBase.Account.ReservedSupply(fungibleAmount: $0,
+                                               shouldIncludeMintingNonFungibleToken: false)
+        }
+        return try OpalBase.Account.TokenGenesis(recipients: recipients,
+                                                 reservedSupplyToSelf: reservedSupply)
+    }
     
     @Test("rejects genesis input with non-zero output index")
     func rejectsGenesisInputWithNonZeroOutputIndex() async throws {

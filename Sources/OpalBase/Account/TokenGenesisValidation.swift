@@ -14,6 +14,23 @@ enum TokenGenesisValidation {
         try validateCommitment(reservedSupply.commitment)
     }
 
+    static func validateFungibleSupply(
+        recipients: [OpalBase.Account.TokenGenesis.Recipient],
+        reservedSupply: OpalBase.Account.ReservedSupply?
+    ) throws {
+        let recipientSupply = try recipients.reduce(UInt64(0)) { total, recipient in
+            try total.addOrThrow(recipient.fungibleAmount ?? 0,
+                                 overflowError: OpalBase.Account.Error.paymentExceedsMaximumAmount)
+        }
+        let totalSupply = try recipientSupply.addOrThrow(
+            reservedSupply?.fungibleAmount ?? 0,
+            overflowError: OpalBase.Account.Error.paymentExceedsMaximumAmount
+        )
+        guard totalSupply <= OpalBase.CashTokens.TokenData.maximumFungibleAmount else {
+            throw OpalBase.Account.Error.paymentExceedsMaximumAmount
+        }
+    }
+
     static func validateRecipientPayload(fungibleAmount: UInt64?, nft: OpalBase.CashTokens.NFT?) throws {
         try validateTokenData(fungibleAmount: fungibleAmount, nft: nft)
         try validateFungibleAmount(fungibleAmount)
