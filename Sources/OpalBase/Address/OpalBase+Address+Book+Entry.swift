@@ -61,9 +61,12 @@ extension _OpalBase.Address.Book {
             entryCount: entryCount,
             isUsed: isUsed
         )
+        // Commit the whole derived batch before publishing can reenter the book.
         for newEntry in newEntries {
             inventory.append(newEntry, usage: usage)
-            if shouldNotifyNewEntries {
+        }
+        if shouldNotifyNewEntries {
+            for newEntry in newEntries {
                 await notifyNewEntry(newEntry)
             }
         }
