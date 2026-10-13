@@ -41,7 +41,10 @@ extension _OpalBase.Address.Book {
 // MARK: - Generate
 extension _OpalBase.Address.Book {
     func generateEntriesIfNeeded(for usage: OpalBase.Key.DerivationPath.Usage) async throws {
-        let numberOfRemainingUnusedEntries = inventory.countUnusedEntries(for: usage)
+        let numberOfRemainingUnusedEntries = inventory.listEntries(for: usage)
+            .reversed()
+            .prefix { !$0.isUsed }
+            .count
         guard numberOfRemainingUnusedEntries < gapLimit else { return }
         
         let numberOfMissingEntries = gapLimit - numberOfRemainingUnusedEntries

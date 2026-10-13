@@ -300,8 +300,14 @@ struct AddressValidator {
         }
     }
 
-    @Test("address book only replenishes the gap deficit")
-    func addressBookMaintainsGapLimit() async throws {
+    @Test(
+        "address book maintains a trailing gap after used entries",
+        arguments: OpalBase.Key.DerivationPath.Usage.allCases, [0, 4]
+    )
+    func addressBookMaintainsGapLimit(
+        usage: OpalBase.Key.DerivationPath.Usage,
+        usedIndex: Int
+    ) async throws {
         let rootExtendedPrivateKey = try OpalCrypto.Key.ExtendedPrivate.root(
             seed: AccountTestFixtures.makeMnemonic().deriveSeed()
         )
@@ -315,18 +321,26 @@ struct AddressValidator {
             gapLimit: gapLimit
         )
 
-        let initialTotal = await book.countEntries(for: OpalBase.Key.DerivationPath.Usage.receiving)
-        #expect(initialTotal == gapLimit)
+        let initialEntries = await book.listEntries(for: usage)
+        try #require(initialEntries.count == gapLimit)
+        let usedEntry = initialEntries[usedIndex]
+        try await book.mark(address: usedEntry.address, isUsed: true)
 
-        let entries = await book.listEntries(for: OpalBase.Key.DerivationPath.Usage.receiving)
-        let firstEntry = try #require(entries.first)
-        try await book.mark(address: firstEntry.address, isUsed: true)
+        let updatedEntries = await book.listEntries(for: usage)
+        let expectedEntryCount = usedIndex + 1 + gapLimit
+        #expect(updatedEntries.count == expectedEntryCount)
+        #expect(updatedEntries.map(\.derivationPath.index) == Array(0..<expectedEntryCount).map(UInt32.init))
+        #expect(updatedEntries.suffix(gapLimit).allSatisfy { !$0.isUsed && !$0.isReserved })
+        #expect(updatedEntries.prefix(usedIndex).allSatisfy { !$0.isUsed && !$0.isReserved })
+        #expect(updatedEntries.prefix(gapLimit).map(\.address) == initialEntries.map(\.address))
+        #expect(updatedEntries[usedIndex].isUsed)
+        #expect(!updatedEntries[usedIndex].isReserved)
 
-        let updatedTotal = await book.countEntries(for: OpalBase.Key.DerivationPath.Usage.receiving)
-        let updatedUnused = await book.countUnusedEntries(for: OpalBase.Key.DerivationPath.Usage.receiving)
+        try await book.mark(address: usedEntry.address, isUsed: true)
+        #expect(await book.listEntries(for: usage) == updatedEntries)
 
-        #expect(updatedTotal == initialTotal + 1)
-        #expect(updatedUnused == gapLimit)
+        let otherUsage: OpalBase.Key.DerivationPath.Usage = usage == .receiving ? .change : .receiving
+        #expect(await book.countEntries(for: otherUsage) == gapLimit)
     }
 
     @Test("address book uses distinct receiving and change addresses")
