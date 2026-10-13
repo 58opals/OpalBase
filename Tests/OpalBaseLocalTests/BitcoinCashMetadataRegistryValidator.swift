@@ -631,8 +631,8 @@ struct BitcoinCashMetadataRegistryValidator {
         #expect(metadataByCategory[historicalCategory]?.symbol == "TOKEN-OLD")
     }
 
-    @Test("historical category metadata keeps its latest revision after migration")
-    func historicalCategoryMetadataKeepsLatestRevisionAfterMigration() throws {
+    @Test("historical category metadata keeps its latest revision after migration", arguments: [false, true])
+    func historicalCategoryMetadataKeepsLatestRevisionAfterMigration(sharedMigrationDate: Bool) throws {
         let registries = BitcoinCashMetadataRegistryTestClient.makeRegistries()
         let historicalCategory = try makeCategoryIdentifier(byte: 0x51)
         let currentCategory = try makeCategoryIdentifier(byte: 0x61)
@@ -640,12 +640,14 @@ struct BitcoinCashMetadataRegistryValidator {
             snapshots: [
                 "2023-01-01T00:00:00Z": makeIdentitySnapshot(
                     name: "Historical Token v1",
+                    migrated: sharedMigrationDate ? "2024-06-01T00:00:00Z" : nil,
                     category: historicalCategory,
                     symbol: "OLD1",
                     decimals: 1
                 ),
                 "2024-01-01T00:00:00Z": makeIdentitySnapshot(
                     name: "Historical Token v2",
+                    migrated: sharedMigrationDate ? "2024-06-01T00:00:00Z" : nil,
                     category: historicalCategory,
                     symbol: "OLD2",
                     decimals: 5
@@ -671,7 +673,8 @@ struct BitcoinCashMetadataRegistryValidator {
         #expect(historicalMetadata.name == "Historical Token v2")
         #expect(historicalMetadata.symbol == "OLD2")
         #expect(historicalMetadata.decimals == 5)
-        #expect(historicalMetadata.lastUpdated == (try makeDate("2024-01-01T00:00:00Z")))
+        let expectedHistoricalDate = try makeDate(sharedMigrationDate ? "2024-06-01T00:00:00Z" : "2024-01-01T00:00:00Z")
+        #expect(historicalMetadata.lastUpdated == expectedHistoricalDate)
         #expect(currentMetadata.name == "Current Token")
         #expect(currentMetadata.symbol == "CURRENT")
         #expect(currentMetadata.decimals == 8)
@@ -686,6 +689,80 @@ struct BitcoinCashMetadataRegistryValidator {
         #expect(currentOnlyMetadata.count == 1)
         #expect(currentOnlyMetadata[historicalCategory] == nil)
         #expect(currentOnlyMetadata[currentCategory] == currentMetadata)
+    }
+
+    @Test("historical category metadata keeps its latest revision across identities", arguments: [false, true])
+    func historicalCategoryMetadataKeepsLatestRevisionAcrossIdentities(newerIdentitySortsFirst: Bool) throws {
+        let registries = BitcoinCashMetadataRegistryTestClient.makeRegistries()
+        let historicalCategory = try makeCategoryIdentifier(byte: 0x52)
+        let firstCurrentCategory = try makeCategoryIdentifier(byte: 0x62)
+        let secondCurrentCategory = try makeCategoryIdentifier(byte: 0x63)
+        let olderIdentity = newerIdentitySortsFirst ? "identity-b" : "identity-a"
+        let newerIdentity = newerIdentitySortsFirst ? "identity-a" : "identity-b"
+        let registry = OpalBase.CashTokens.BCMR.Client.Registry(
+            version: "1",
+            registryIdentity: nil,
+            identities: [
+                olderIdentity: [
+                    "2023-01-01T00:00:00Z": makeIdentitySnapshot(
+                        name: "Historical Token v1", category: historicalCategory,
+                        symbol: "OLD1", decimals: 1
+                    ),
+                    "2025-01-01T00:00:00Z": makeIdentitySnapshot(
+                        name: "First Current Token", category: firstCurrentCategory,
+                        symbol: "FIRST", decimals: 8
+                    )
+                ],
+                newerIdentity: [
+                    "2024-01-01T00:00:00Z": makeIdentitySnapshot(
+                        name: "Historical Token v2", category: historicalCategory,
+                        symbol: "OLD2", decimals: 5
+                    ),
+                    "2025-01-01T00:00:00Z": makeIdentitySnapshot(
+                        name: "Second Current Token", category: secondCurrentCategory,
+                        symbol: "SECOND", decimals: 6
+                    )
+                ]
+            ]
+        )
+        let asOf = try makeDate("2026-01-01T00:00:00Z")
+        let metadata = registries.extractTokenMetadata(from: registry, asOf: asOf)
+        let historicalMetadata = try #require(metadata[historicalCategory])
+
+        #expect(metadata.count == 3)
+        #expect(historicalMetadata.name == "Historical Token v2")
+        #expect(historicalMetadata.symbol == "OLD2")
+        #expect(historicalMetadata.decimals == 5)
+        #expect(historicalMetadata.lastUpdated == (try makeDate("2024-01-01T00:00:00Z")))
+        #expect(historicalMetadata.identity == newerIdentity)
+        #expect(metadata[firstCurrentCategory]?.name == "First Current Token")
+        #expect(metadata[secondCurrentCategory]?.name == "Second Current Token")
+
+        let currentOnly = registries.extractTokenMetadata(
+            from: registry, asOf: asOf, includeHistoricalCategories: false
+        )
+        #expect(currentOnly.count == 2)
+        #expect(currentOnly[historicalCategory] == nil)
+        #expect(currentOnly[firstCurrentCategory] == metadata[firstCurrentCategory])
+        #expect(currentOnly[secondCurrentCategory] == metadata[secondCurrentCategory])
+
+        var identitiesWithCurrentCategory = try #require(registry.identities)
+        identitiesWithCurrentCategory["zz-current.identity"] = [
+            "2022-01-01T00:00:00Z": makeIdentitySnapshot(
+                name: "Current Historical Token", category: historicalCategory,
+                symbol: "CURRENT", decimals: 8
+            )
+        ]
+        let currentRegistry = OpalBase.CashTokens.BCMR.Client.Registry(
+            version: "1", registryIdentity: nil, identities: identitiesWithCurrentCategory
+        )
+        let authoritativeCurrent = try #require(
+            registries.extractTokenMetadata(from: currentRegistry, asOf: asOf)[historicalCategory]
+        )
+        #expect(authoritativeCurrent.name == "Current Historical Token")
+        #expect(authoritativeCurrent.symbol == "CURRENT")
+        #expect(authoritativeCurrent.decimals == 8)
+        #expect(authoritativeCurrent.lastUpdated == (try makeDate("2022-01-01T00:00:00Z")))
     }
 
     @Test("current metadata ignores snapshots with future migration dates")

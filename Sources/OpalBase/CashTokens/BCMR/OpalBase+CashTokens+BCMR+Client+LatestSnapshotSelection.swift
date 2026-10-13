@@ -16,6 +16,7 @@ extension OpalBase.CashTokens.BCMR.Client {
         guard let identities = registry.identities else { return .init() }
         
         var metadataByCategory: [OpalBase.CashTokens.CategoryID: OpalBase.CashTokens.Metadata] = .init()
+        var historicalMetadataByCategory: [OpalBase.CashTokens.CategoryID: OpalBase.CashTokens.Metadata] = .init()
         
         for (identity, snapshots) in identities.sorted(by: { $0.key < $1.key }) {
             let timeline = makeSnapshotTimeline(from: snapshots)
@@ -39,11 +40,15 @@ extension OpalBase.CashTokens.BCMR.Client {
                       historicalMetadata.category != currentMetadata.category
                 else { continue }
 
-                metadataByCategory[historicalMetadata.category] = metadataByCategory[historicalMetadata.category] ?? historicalMetadata
+                if let existing = historicalMetadataByCategory[historicalMetadata.category],
+                   existing.lastUpdated >= historicalMetadata.lastUpdated {
+                    continue
+                }
+                historicalMetadataByCategory[historicalMetadata.category] = historicalMetadata
             }
         }
         
-        return metadataByCategory
+        return historicalMetadataByCategory.merging(metadataByCategory) { _, current in current }
     }
 }
 
