@@ -171,7 +171,10 @@ extension _OpalBase.Address.Book {
             shouldKeepUsed = true
         case .cancelled:
             utxoStore.release(state.utxos)
-            shouldKeepUsed = state.hasBeenUsedPreviously
+            let currentEntry = findEntry(for: state.entry.address)
+            let hasSubsequentlyObservedUse = currentEntry?.isUsed == true
+                && currentEntry?.isReserved == false
+            shouldKeepUsed = state.hasBeenUsedPreviously || hasSubsequentlyObservedUse
         }
         
         let updatedEntry = try releaseReservation(address: state.entry.address,

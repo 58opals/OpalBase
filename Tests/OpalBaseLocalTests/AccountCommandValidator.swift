@@ -339,6 +339,48 @@ struct AccountCommandValidator {
         try await reusablePlan.cancelReservation()
     }
 
+    @Test("cancelled spend preserves change-address usage observed after reservation")
+    func cancelSpendPreservesNewlyObservedChangeUsage() async throws {
+        let account = try await AccountTestFixtures.makeAccount()
+        let book = await account.addressBook
+        let input = try await AccountTestFixtures.addUnspentOutput(
+            to: account,
+            value: 25_000,
+            hashByte: 0x7D
+        )
+        let changeEntry = try await book.selectNextEntry(for: .change)
+        let reservation = try await book.reserveSpend(
+            utxos: [input],
+            changeEntry: changeEntry,
+            tokenSelectionPolicy: .excludeTokenUTXOs
+        )
+        let incomingOutput = OpalBase.Transaction.Output.Unspent(
+            value: 2_000,
+            lockingScript: reservation.changeEntry.address.lockingScript.data,
+            previousTransactionHash: AccountTestFixtures.makeHash(byte: 0x7E),
+            previousTransactionOutputIndex: 0
+        )
+
+        _ = try await book.applyMonitoringUTXOs(
+            for: reservation.changeEntry.address,
+            with: [incomingOutput],
+            timestamp: .now,
+            mutationPermit: nil
+        )
+        #expect(await book.findEntry(for: reservation.changeEntry.address)?.isUsed == true)
+
+        try await book.releaseSpendReservation(reservation, outcome: .cancelled)
+
+        let observedChange = try #require(await book.findEntry(for: reservation.changeEntry.address))
+        #expect(observedChange.isUsed)
+        #expect(!observedChange.isReserved)
+        #expect(await book.listUTXOs(for: observedChange.address) == [incomingOutput])
+        #expect(await book.listSpendableUTXOs().contains(input))
+        #expect(await book.readActiveSpendReservations().isEmpty)
+        let nextChange = try await book.selectNextEntry(for: .change)
+        #expect(nextChange.address != observedChange.address)
+    }
+
     @Test("snapshot restore clears stale reservation flags")
     func snapshotRestoreClearsStaleReservationFlags() async throws {
         let wallet = try await AccountTestFixtures.makeWallet()
