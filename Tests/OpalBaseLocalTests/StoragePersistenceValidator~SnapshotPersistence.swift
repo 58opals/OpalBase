@@ -5,6 +5,143 @@ import Testing
 @testable import OpalBase
 
 extension StoragePersistenceValidator {
+    @Test(
+        "snapshot-only persistence preserves fractional public timestamps",
+        arguments: [0.125, 0.1234567]
+    )
+    func snapshotOnlyPersistencePreservesFractionalTimestamps(_ fractionalSeconds: Double) async throws {
+        let storage = try OpalBase.Storage(
+            valueClient: .makeInMemory(),
+            security: .makePlaintextOnly(),
+            secretPersistencePolicy: .acceptProviderOutput
+        )
+        let snapshots = await OpalBase.WalletSnapshotInteractor(storage: storage)
+        let timestamp = Date(timeIntervalSince1970: 1_700_000_000 + fractionalSeconds)
+        let category = try OpalBase.CashTokens.CategoryID(hexFromRPC: String(repeating: "ab", count: 32))
+        let metadata = OpalBase.CashTokens.Metadata(
+            category: category,
+            name: "Fractional Token",
+            symbol: "FRACTION",
+            decimals: 2,
+            iconURL: nil,
+            lastUpdated: timestamp,
+            source: .embedded
+        )
+        let account = OpalBase.Account.Snapshot(
+            purpose: .bip44,
+            coinType: .bitcoinCash,
+            accountUnhardenedIndex: 0,
+            addressBook: OpalBase.Account.Snapshot.AddressBook(
+                receivingEntries: [
+                    .init(
+                        usage: .receiving,
+                        index: 0,
+                        isUsed: true,
+                        isReserved: false,
+                        balance: 1_234,
+                        lastUpdated: timestamp
+                    )
+                ],
+                changeEntries: [],
+                utxos: [],
+                transactions: [
+                    .init(
+                        transactionHash: String(repeating: "01", count: 32),
+                        height: 1,
+                        fee: 100,
+                        scriptHashes: [],
+                        firstSeenAt: timestamp,
+                        lastUpdatedAt: timestamp.addingTimeInterval(0.25),
+                        status: .confirmed,
+                        confirmationHeight: 1,
+                        confirmedAt: timestamp.addingTimeInterval(0.5),
+                        verificationStatus: .pending,
+                        merkleProof: nil,
+                        lastVerifiedHeight: nil,
+                        lastCheckedAt: timestamp.addingTimeInterval(0.75)
+                    )
+                ]
+            )
+        )
+        let snapshot = OpalBase.Wallet.Snapshot(
+            purpose: .bip44,
+            coinType: .bitcoinCash,
+            accounts: [account],
+            tokenMetadata: .init(byCategory: [category.hexForDisplay: metadata])
+        )
+
+        try await snapshots.saveSnapshot(snapshot, generation: "fractional-public-dates")
+        let restored = try #require(try await snapshots.loadSnapshot(generation: "fractional-public-dates"))
+        let restoredAccount = try #require(restored.accounts.first)
+        let restoredTransaction = try #require(restoredAccount.addressBook.transactions.first)
+        let expectedTransaction = try #require(account.addressBook.transactions.first)
+
+        #expect(restoredAccount.addressBook.receivingEntries.first?.lastUpdated == timestamp)
+        #expect(restoredTransaction.firstSeenAt == expectedTransaction.firstSeenAt)
+        #expect(restoredTransaction.lastUpdatedAt == expectedTransaction.lastUpdatedAt)
+        #expect(restoredTransaction.confirmedAt == expectedTransaction.confirmedAt)
+        #expect(restoredTransaction.lastCheckedAt == expectedTransaction.lastCheckedAt)
+        #expect(restored.tokenMetadata?.byCategory[category.hexForDisplay] == metadata)
+    }
+
+    @Test("snapshot-only persistence reads legacy ISO-8601 public timestamps")
+    func snapshotOnlyPersistenceReadsLegacyISOTimestamps() async throws {
+        let categoryHex = String(repeating: "ab", count: 32)
+        let transactionHash = String(repeating: "01", count: 32)
+        let legacySnapshotJSON = """
+        {
+          "purpose":2147483692,"coinType":2147483793,
+          "accounts":[{
+            "purpose":2147483692,"coinType":2147483793,"accountUnhardenedIndex":0,
+            "addressBook":{
+              "receivingEntries":[{
+                "usage":"receiving","index":0,"isUsed":true,"isReserved":false,
+                "balance":1234,"lastUpdated":"2023-11-14T22:13:20Z"
+              }],
+              "changeEntries":[],"utxos":[],
+              "transactions":[{
+                "transactionHash":"\(transactionHash)","height":1,"fee":100,"scriptHashes":[],
+                "firstSeenAt":"2023-11-14T22:13:20Z","lastUpdatedAt":"2023-11-14T22:13:21Z",
+                "status":"confirmed","confirmationHeight":1,"confirmedAt":"2023-11-14T22:13:22Z",
+                "verificationStatus":"pending","lastCheckedAt":"2023-11-14T22:13:23Z"
+              }]
+            }
+          }],
+          "tokenMetadata":{"byCategory":{
+            "\(categoryHex)":{
+              "category":"\(categoryHex)","name":"Legacy Token","symbol":"LEGACY","decimals":2,
+              "lastUpdated":"2023-11-14T22:13:20Z","source":{"embedded":{}}
+            }
+          }}
+        }
+        """
+        let legacySnapshotData = Data(legacySnapshotJSON.utf8)
+        let valueClient = OpalBase.Storage.ValueClient(
+            valueWriter: { _, _ in },
+            valueReader: { _ in legacySnapshotData },
+            valueDeleter: { _ in },
+            allValuesDeleter: {}
+        )
+        let storage = try OpalBase.Storage(
+            valueClient: valueClient,
+            security: .makePlaintextOnly(),
+            secretPersistencePolicy: .acceptProviderOutput
+        )
+        let snapshots = await OpalBase.WalletSnapshotInteractor(storage: storage)
+
+        let restored = try #require(try await snapshots.loadSnapshot(generation: "legacy-public-dates"))
+        let account = try #require(restored.accounts.first)
+        let transaction = try #require(account.addressBook.transactions.first)
+        let timestamp = Date(timeIntervalSince1970: 1_700_000_000)
+
+        #expect(account.addressBook.receivingEntries.first?.lastUpdated == timestamp)
+        #expect(transaction.firstSeenAt == timestamp)
+        #expect(transaction.lastUpdatedAt == timestamp.addingTimeInterval(1))
+        #expect(transaction.confirmedAt == timestamp.addingTimeInterval(2))
+        #expect(transaction.lastCheckedAt == timestamp.addingTimeInterval(3))
+        #expect(restored.tokenMetadata?.byCategory[categoryHex]?.lastUpdated == timestamp)
+    }
+
     @Test("persistState(for:) + restore() round-trips wallet snapshots and mnemonic state")
     func persistAndRestoreWalletArtifacts() async throws {
         let valueClient = OpalBase.Storage.ValueClient.makeInMemory()
