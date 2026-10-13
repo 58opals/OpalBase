@@ -28,9 +28,13 @@ extension _OpalBase.Address.Book {
             var usedEntries: [Entry] = .init()
             var consecutiveUnused = 0
             var currentIndex = 0
+            let highestKnownUsedIndex = listEntries(for: currentUsage)
+                .last(where: { $0.isUsed })?.derivationPath.index
+            let minimumScanCount = (highestKnownUsedIndex.map(Int.init) ?? -1) + gapLimit + 1
             
-            while consecutiveUnused < gapLimit {
-                let remainingGap = gapLimit - consecutiveUnused
+            while currentIndex < minimumScanCount || consecutiveUnused < gapLimit {
+                let remainingRequired = Swift.max(0, minimumScanCount - currentIndex)
+                let remainingGap = Swift.max(gapLimit - consecutiveUnused, remainingRequired)
                 let queryCount = Swift.min(batchSize, remainingGap)
                 let entries = try await loadEntries(for: currentUsage,
                                                     startIndex: currentIndex,
@@ -44,7 +48,7 @@ extension _OpalBase.Address.Book {
                 }
                 
                 for (entry, isUsed) in zip(entries, usageResults) {
-                    guard consecutiveUnused < gapLimit else { break }
+                    guard currentIndex < minimumScanCount || consecutiveUnused < gapLimit else { break }
                     
                     if isUsed {
                         consecutiveUnused = 0

@@ -7,6 +7,90 @@ import OpalBaseTestSupport
 
 @Suite("OpalBase.Wallet.Fulcrum", .tags(.unit, .wallet))
 struct WalletFulcrumAddressValidator {
+    @Test(
+        "refreshBalances discovers beyond the restored horizon after known used addresses",
+        arguments: [OpalBase.Key.DerivationPath.Usage.receiving, .change], [true, false]
+    )
+    func refreshBalancesContinuesDiscoveryPastKnownUsedAddresses(
+        usage: OpalBase.Key.DerivationPath.Usage,
+        knownUsedAddressHasHistory: Bool
+    ) async throws {
+        let accountPath = try OpalBase.Key.DerivationPath.Account(rawIndexInteger: 0)
+        let serializedPublicKey = try AccountReadOnlyRuntimeValidator.makeSerializedAccountExtendedPublicKey()
+        let accountPublicKey = try OpalCryptoAdapter.parseAccountExtendedPublicKey(
+            serializedPublicKey,
+            account: accountPath
+        )
+        let knownUsedEntry = OpalBase.Address.Book.Snapshot.Entry(
+            usage: usage,
+            index: 4,
+            isUsed: true,
+            isReserved: false,
+            balance: nil,
+            lastUpdated: nil
+        )
+        let restoredBook = try await OpalBase.Address.Book(
+            from: .init(
+                receivingEntries: usage == .receiving ? [knownUsedEntry] : [],
+                changeEntries: usage == .change ? [knownUsedEntry] : [],
+                utxos: [],
+                transactions: []
+            ),
+            accountExtendedPublicKey: accountPublicKey,
+            purpose: .bip44,
+            coinType: .bitcoinCash,
+            account: accountPath,
+            gapLimit: 3
+        )
+        let account = try OpalBase.Account(
+            rootExtendedPrivateKey: nil,
+            serializedAccountExtendedPublicKey: serializedPublicKey,
+            purpose: .bip44,
+            coinType: .bitcoinCash,
+            account: accountPath,
+            addressBook: restoredBook
+        )
+        let restoredEntries = await account.listEntries(for: usage)
+        #expect(restoredEntries.map(\.derivationPath.index) == Array(UInt32(0)...UInt32(7)))
+
+        let fixtureBook = try await OpalBase.Address.Book(
+            accountExtendedPublicKey: accountPublicKey,
+            purpose: .bip44,
+            coinType: .bitcoinCash,
+            account: accountPath,
+            gapLimit: 3
+        )
+        try await fixtureBook.generateEntries(for: usage, entryCount: 6, isUsed: false)
+        let fixtureEntries = await fixtureBook.listEntries(for: usage)
+        let lastRestoredAddress = try #require(fixtureEntries.first { $0.derivationPath.index == 7 }).address
+        let beyondRestoredAddress = try #require(fixtureEntries.first { $0.derivationPath.index == 8 }).address
+        let knownUsedAddress = try #require(fixtureEntries.first { $0.derivationPath.index == 4 }).address
+        let addressReader = WalletAddressReaderTestActor(
+            balancesByAddress: [
+                lastRestoredAddress.string: .init(confirmed: 5_000, unconfirmed: 0),
+                beyondRestoredAddress.string: .init(confirmed: 9_000, unconfirmed: 0)
+            ],
+            historyByAddress: [
+                knownUsedAddress.string: knownUsedAddressHasHistory
+                    ? [AccountTestFixtures.makeHistoryEntry(hashByte: 0x41)] : [],
+                lastRestoredAddress.string: [AccountTestFixtures.makeHistoryEntry(hashByte: 0x42)],
+                beyondRestoredAddress.string: [AccountTestFixtures.makeHistoryEntry(hashByte: 0x43)]
+            ]
+        )
+        let fulcrum = OpalBase.Wallet.Fulcrum(
+            addressReader: addressReader,
+            transactionHandler: TransactionConfirmationClientTestActor()
+        )
+
+        let refresh = try await fulcrum.refreshBalances(for: account, usage: usage)
+        let expectedBalance = try OpalBase.Satoshi(14_000)
+
+        #expect(refresh.total == expectedBalance)
+        #expect(await addressReader.readBalanceRequests().contains(beyondRestoredAddress.string))
+        let refreshedEntries = await account.listEntries(for: usage)
+        #expect(refreshedEntries.contains { $0.derivationPath.index == 8 && $0.isUsed })
+    }
+
     @Test("refreshBalances forwards usage and includeUnconfirmed flags")
     func refreshBalancesForwardsUsageAndIncludeUnconfirmed() async throws {
         let account = try await AccountTestFixtures.makeAccount()
