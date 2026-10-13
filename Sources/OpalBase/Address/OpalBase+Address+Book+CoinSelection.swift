@@ -125,7 +125,7 @@ extension _OpalBase.Address.Book.CoinSelection {
         guard total >= requiredWithChange else { return nil }
         
         let change = total - requiredWithChange
-        guard change == 0 || change >= changeDustThreshold else { return nil }
+        guard change >= changeDustThreshold else { return nil }
         
         return Evaluation(excess: change)
     }

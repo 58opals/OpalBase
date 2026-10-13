@@ -7,6 +7,55 @@ import OpalBaseTestSupport
 
 @Suite("OpalBase.Address.Book Coin Selector", .tags(.unit, .address))
 struct AddressBookCoinSelectorValidator {
+    @Test("Selection respects dust donation at the exact change-output fee boundary", arguments: ChangeFeeBoundaryCase.allCases)
+    fileprivate func selectAtChangeFeeBoundary(_ testCase: ChangeFeeBoundaryCase) throws {
+        let targetAmount: UInt64 = 10_000
+        let recipientOutputs = [OpalBase.Transaction.Output(
+            value: targetAmount,
+            lockingScript: Data(repeating: 0, count: 25)
+        )]
+        let configuration = OpalBase.Address.Book.CoinSelection.Configuration(
+            recipientOutputs: recipientOutputs,
+            changeLockingScript: Data(repeating: 0, count: 25),
+            shouldAllowDustDonation: testCase == .permittedDustDonation
+        )
+        let feeOutputs = testCase == .exactNoChange
+            ? recipientOutputs
+            : configuration.outputsWithChange
+        let fee = try OpalBase.Transaction.estimateFee(
+            inputCount: 1,
+            outputs: feeOutputs,
+            feePerByte: 1
+        )
+        let transactionHash = OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0x41, count: 32))
+        let values = [targetAmount + fee, 2_000]
+        let unspentOutputs = values.enumerated().map { index, value in
+            OpalBase.Transaction.Output.Unspent(
+                value: value,
+                lockingScript: Data(repeating: 0, count: 25),
+                previousTransactionHash: transactionHash,
+                previousTransactionOutputIndex: UInt32(index)
+            )
+        }
+        let selector = OpalBase.Address.Book.CoinSelector(
+            utxos: unspentOutputs,
+            configuration: configuration,
+            targetAmount: targetAmount,
+            feePerByte: 1,
+            minimumRelayFeeRate: 1
+        )
+
+        let selection = try selector.select()
+        let expectedIndices: [UInt32] = testCase == .forbiddenDustDonation ? [0, 1] : [0]
+        #expect(selection.map(\.previousTransactionOutputIndex) == expectedIndices)
+    }
+
+    enum ChangeFeeBoundaryCase: CaseIterable, Sendable {
+        case forbiddenDustDonation
+        case permittedDustDonation
+        case exactNoChange
+    }
+
     @Test("select throws when utxo accumulation overflows UInt64")
     func selectGreedyThrowsOnOverflow() async throws {
         let previousTransactionHash = OpalBase.Transaction.Hash(naturalOrder: Data(repeating: 0, count: 32))
