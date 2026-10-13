@@ -18,6 +18,7 @@ extension _OpalBase.Address.Book {
         case insufficientFunds
         case paymentExceedsMaximumAmount
         case spendReservationNotFound
+        case snapshotRefreshInProgress
         
         case utxoNotFound
         case utxoDuplicated(OpalBase.Transaction.Output.Unspent)
@@ -81,6 +82,7 @@ extension _OpalBase.Address.Book.Error: Equatable {
             (.insufficientFunds, .insufficientFunds),
             (.paymentExceedsMaximumAmount, .paymentExceedsMaximumAmount),
             (.spendReservationNotFound, .spendReservationNotFound),
+            (.snapshotRefreshInProgress, .snapshotRefreshInProgress),
             (.tokenDeltaOverflow, .tokenDeltaOverflow),
             (.invalidSnapshotVerificationState, .invalidSnapshotVerificationState),
             (.invalidSnapshotConfirmationState, .invalidSnapshotConfirmationState),

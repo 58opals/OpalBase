@@ -89,7 +89,27 @@ extension _OpalBase.Address.Book {
         }
     }
 
-    func refresh(with snapshot: Snapshot) async throws {
+    func acquireSnapshotRefresh() throws -> UUID {
+        try requireSnapshotRefreshAccess()
+        try inventory.requireNoMosaicReservations()
+        let owner = UUID()
+        snapshotRefreshOwner = owner
+        return owner
+    }
+
+    func releaseSnapshotRefresh(ownedBy owner: UUID) {
+        guard snapshotRefreshOwner == owner else { return }
+        snapshotRefreshOwner = nil
+    }
+
+    func requireSnapshotRefreshAccess(ownedBy owner: UUID? = nil) throws {
+        guard snapshotRefreshOwner == owner else {
+            throw Error.snapshotRefreshInProgress
+        }
+    }
+
+    func refresh(with snapshot: Snapshot, snapshotRefreshOwner: UUID? = nil) async throws {
+        try requireSnapshotRefreshAccess(ownedBy: snapshotRefreshOwner)
         // Snapshot data contains no live reservation authority. It may restore
         // a fresh book, but cannot replace an active Mosaic output lease.
         try inventory.requireNoMosaicReservations()

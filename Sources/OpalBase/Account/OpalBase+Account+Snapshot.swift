@@ -329,11 +329,18 @@ extension _OpalBase.Account {
     }
     
     public func refresh(with snapshot: Snapshot) async throws {
+        try await refresh(with: snapshot, snapshotRefreshOwner: nil)
+    }
+
+    func refresh(with snapshot: Snapshot, snapshotRefreshOwner: UUID?) async throws {
         guard snapshot.purpose == purpose,
               snapshot.coinType == coinType,
               snapshot.accountUnhardenedIndex == self.account.unhardenedIndex else {
             throw Error.snapshotDoesNotMatchAccount
         }
-        try await addressBook.refresh(with: snapshot.addressBook.addressBookSnapshot)
+        try await addressBook.refresh(
+            with: snapshot.addressBook.addressBookSnapshot,
+            snapshotRefreshOwner: snapshotRefreshOwner
+        )
     }
 }

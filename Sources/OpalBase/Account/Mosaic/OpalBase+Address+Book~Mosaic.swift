@@ -90,6 +90,7 @@ extension _OpalBase.Address.Book {
         ownedBy reference: OpalFusion.Host.MosaicReservationReference? = nil,
         maintainingGapWith maintainGap: (@Sendable () async throws -> Void)? = nil
     ) async throws -> Entry {
+        try requireSnapshotRefreshAccess()
         guard let currentEntry = findEntry(for: plannedEntry.address),
               currentEntry.derivationPath == plannedEntry.derivationPath,
               currentEntry.derivationPath.usage == .receiving,

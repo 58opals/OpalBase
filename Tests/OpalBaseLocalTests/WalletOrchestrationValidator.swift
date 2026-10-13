@@ -3,6 +3,9 @@
 import Foundation
 import Testing
 import OpalBaseTestSupport
+#if os(macOS)
+import OpalFusion
+#endif
 @testable import OpalBase
 
 @Suite("OpalBase.Wallet orchestration", .tags(.unit, .wallet))
@@ -255,6 +258,98 @@ struct WalletOrchestrationValidator {
             _ = try await targetWallet.fetchAccount(at: 3)
         }
     }
+
+    #if os(macOS)
+    @Test(
+        "applySnapshot preserves all existing accounts when an output lease blocks restoration",
+        arguments: [false, true]
+    )
+    func applySnapshotPreservesAccountsWithLiveOutputLease(omitsLeasedAccount: Bool) async throws {
+        let wallet = try await AccountTestFixtures.makeWallet(accountIndices: [0, 1])
+        let replacementSnapshot = await wallet.makeSnapshot()
+        let account0 = try await wallet.fetchAccount(at: 0)
+        let account1 = try await wallet.fetchAccount(at: 1)
+        _ = try await account0.reserveNextReceivingEntry()
+        let book1 = await account1.addressBook
+        let plannedEntry = try await book1.selectNextEntry(for: .receiving)
+        let reference = OpalFusion.Host.MosaicReservationReference(
+            identifier: UUID(),
+            generation: 1
+        )
+        let leasedEntry = try await book1.reserveMosaicReceivingEntry(
+            plannedEntry,
+            ownedBy: reference
+        )
+        let originalAccount0 = await account0.makeSnapshot()
+        let originalAccount1 = await account1.makeSnapshot()
+        let snapshot = OpalBase.Wallet.Snapshot(
+            purpose: replacementSnapshot.purpose,
+            coinType: replacementSnapshot.coinType,
+            accounts: replacementSnapshot.accounts.filter {
+                !omitsLeasedAccount || $0.accountUnhardenedIndex != 1
+            },
+            tokenMetadata: replacementSnapshot.tokenMetadata
+        )
+
+        await #expect(throws: OpalBase.Wallet.Error.snapshotDoesNotMatchWallet) {
+            try await wallet.applySnapshot(snapshot)
+        }
+
+        let retainedAccount0 = try? await wallet.fetchAccount(at: 0)
+        let retainedAccount1 = try? await wallet.fetchAccount(at: 1)
+        #expect(retainedAccount0 === account0)
+        #expect(retainedAccount1 === account1)
+        #expect(await wallet.numberOfAccounts == 2)
+        #expect(await account0.makeSnapshot().addressBook == originalAccount0.addressBook)
+        #expect(await account1.makeSnapshot().addressBook == originalAccount1.addressBook)
+        #expect(await book1.findEntry(for: leasedEntry.address)?.isReserved == true)
+
+        // Rejection must release the earlier book's snapshot admission too.
+        let book0 = await account0.addressBook
+        let nextEntry0 = try await book0.selectNextEntry(for: .receiving)
+        let reference0 = OpalFusion.Host.MosaicReservationReference(identifier: UUID(), generation: 1)
+        let leasedEntry0 = try await book0.reserveMosaicReceivingEntry(nextEntry0, ownedBy: reference0)
+        try await book0.retireMosaicReceivingEntry(leasedEntry0, ownedBy: reference0)
+        try await book1.retireMosaicReceivingEntry(leasedEntry, ownedBy: reference)
+
+        try await wallet.applySnapshot(snapshot)
+        let expectedAccount0 = try #require(snapshot.accounts.first { $0.accountUnhardenedIndex == 0 })
+        #expect(await account0.makeSnapshot().addressBook == expectedAccount0.addressBook)
+        #expect(await wallet.numberOfAccounts == snapshot.accounts.count)
+    }
+
+    @Test("snapshot admission blocks leases and direct refresh until the exact owner releases it")
+    func snapshotAdmissionRequiresExactOwnerUntilRelease() async throws {
+        let account = try await AccountTestFixtures.makeAccount()
+        let book = await account.addressBook
+        let plannedEntry = try await book.selectNextEntry(for: .receiving)
+        let snapshot = await book.makeSnapshot()
+        let reference = OpalFusion.Host.MosaicReservationReference(identifier: UUID(), generation: 1)
+        let owner = try await book.acquireSnapshotRefresh()
+
+        await #expect(throws: OpalBase.Address.Book.Error.snapshotRefreshInProgress) {
+            _ = try await book.reserveMosaicReceivingEntry(plannedEntry, ownedBy: reference)
+        }
+        await #expect(throws: OpalBase.Address.Book.Error.snapshotRefreshInProgress) {
+            try await book.refresh(with: snapshot)
+        }
+        try await book.refresh(with: snapshot, snapshotRefreshOwner: owner)
+        await book.releaseSnapshotRefresh(ownedBy: UUID())
+        await #expect(throws: OpalBase.Address.Book.Error.snapshotRefreshInProgress) {
+            _ = try await book.reserveMosaicReceivingEntry(plannedEntry, ownedBy: reference)
+        }
+        await book.releaseSnapshotRefresh(ownedBy: owner)
+
+        let nextOwner = try await book.acquireSnapshotRefresh()
+        await book.releaseSnapshotRefresh(ownedBy: owner)
+        await #expect(throws: OpalBase.Address.Book.Error.snapshotRefreshInProgress) {
+            try await book.refresh(with: snapshot)
+        }
+        await book.releaseSnapshotRefresh(ownedBy: nextOwner)
+        let leasedEntry = try await book.reserveMosaicReceivingEntry(plannedEntry, ownedBy: reference)
+        try await book.retireMosaicReceivingEntry(leasedEntry, ownedBy: reference)
+    }
+    #endif
 
     @Test("applySnapshot clears existing token metadata when snapshot omits it")
     func applySnapshotClearsExistingTokenMetadataForLegacySnapshots() async throws {

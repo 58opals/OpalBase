@@ -17,6 +17,8 @@ extension OpalBase {
         public let id: Data
         
         var accounts: [UInt32: OpalBase.Account] = .init()
+        private var accountMutationOwner: UUID?
+        private var accountMutationWaiters: [(owner: UUID, continuation: CheckedContinuation<Void, Never>)] = []
         
         public init(mnemonic: OpalBase.Key.Mnemonic,
                     passphrase: String = "",
@@ -106,6 +108,8 @@ extension _OpalBase.Wallet: Equatable {
 
 extension _OpalBase.Wallet {
     public func addAccount(unhardenedIndex: UInt32) async throws {
+        let mutationOwner = await acquireAccountMutation()
+        defer { releaseAccountMutation(ownedBy: mutationOwner) }
         try await OpalDiagnostics.withTraceID {
             let fields = [
                 OpalDiagnostics.Field.operation("wallet_account_create"),
@@ -179,12 +183,39 @@ extension _OpalBase.Wallet {
     public var numberOfAccounts: Int { accounts.count }
     
     func updateAccounts(_ accounts: [OpalBase.Account]) async {
+        let mutationOwner = await acquireAccountMutation()
+        defer { releaseAccountMutation(ownedBy: mutationOwner) }
         var updatedAccounts: [UInt32: OpalBase.Account] = .init(minimumCapacity: accounts.count)
         for account in accounts {
             let index = await account.unhardenedIndex
             updatedAccounts[index] = account
         }
         self.accounts = updatedAccounts
+    }
+}
+
+extension _OpalBase.Wallet {
+    func acquireAccountMutation() async -> UUID {
+        let owner = UUID()
+        if accountMutationOwner == nil {
+            accountMutationOwner = owner
+        } else {
+            await withCheckedContinuation { continuation in
+                accountMutationWaiters.append((owner, continuation))
+            }
+        }
+        return owner
+    }
+
+    func releaseAccountMutation(ownedBy owner: UUID) {
+        guard accountMutationOwner == owner else { return }
+        guard !accountMutationWaiters.isEmpty else {
+            accountMutationOwner = nil
+            return
+        }
+        let next = accountMutationWaiters.removeFirst()
+        accountMutationOwner = next.owner
+        next.continuation.resume()
     }
 }
 

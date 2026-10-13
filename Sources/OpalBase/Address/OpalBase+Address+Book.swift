@@ -36,6 +36,7 @@ extension _OpalBase.Address {
         let spendReservationExpirationInterval: TimeInterval
         var spendReservationReleaseTasks: [UUID: Task<Void, Never>]
         var spendReservationStates: [UUID: SpendReservation.State]
+        var snapshotRefreshOwner: UUID?
         
         let entryPublisher = Entry.PublisherActor()
         nonisolated let chainRefreshCoordinator = ChainRefreshCoordinator()

@@ -39,31 +39,50 @@ extension _OpalBase.Wallet {
     }
     
     public func applySnapshot(_ snapshot: Snapshot) async throws {
+        let mutationOwner = await acquireAccountMutation()
+        defer { releaseAccountMutation(ownedBy: mutationOwner) }
         guard snapshot.purpose == purpose,
               snapshot.coinType == coinType else {
             throw Error.snapshotDoesNotMatchWallet
         }
 
         let preparedAccounts = try await prepareSnapshotAccounts(snapshot.accounts)
-        var updatedAccounts: [UInt32: OpalBase.Account] = .init(minimumCapacity: preparedAccounts.count)
-        for preparedAccount in preparedAccounts {
-            let index = preparedAccount.snapshot.accountUnhardenedIndex
-
-            if let existingAccount = accounts[index] {
-                do {
-                    try await existingAccount.refresh(with: preparedAccount.snapshot)
-                } catch {
-                    throw Error.snapshotDoesNotMatchWallet
-                }
-                updatedAccounts[index] = existingAccount
-            } else {
-                updatedAccounts[index] = preparedAccount.validatedAccount
+        var heldBooks: [UInt32: (account: OpalBase.Account, book: OpalBase.Address.Book, owner: UUID)] = [:]
+        do {
+            // Hold omitted books too. Once all are held, no new output lease
+            // can invalidate the prevalidated, unsuspended book refreshes or
+            // enter before membership replacement.
+            for (index, account) in accounts.sorted(by: { $0.key < $1.key }) {
+                let book = account.addressBook
+                let owner = try await book.acquireSnapshotRefresh()
+                heldBooks[index] = (account, book, owner)
             }
-        }
-        self.accounts = updatedAccounts
+            var updatedAccounts: [UInt32: OpalBase.Account] = .init(minimumCapacity: preparedAccounts.count)
+            for preparedAccount in preparedAccounts {
+                let index = preparedAccount.snapshot.accountUnhardenedIndex
+                if let held = heldBooks[index] {
+                    try await held.account.refresh(
+                        with: preparedAccount.snapshot,
+                        snapshotRefreshOwner: held.owner
+                    )
+                    updatedAccounts[index] = held.account
+                } else {
+                    updatedAccounts[index] = preparedAccount.validatedAccount
+                }
+            }
+            self.accounts = updatedAccounts
 
-        let tokenMetadata = snapshot.tokenMetadata ?? .init(byCategory: .init())
-        await tokenMetadataStore.applySnapshot(tokenMetadata)
+            let tokenMetadata = snapshot.tokenMetadata ?? .init(byCategory: .init())
+            await tokenMetadataStore.applySnapshot(tokenMetadata)
+        } catch {
+            for held in heldBooks.values {
+                await held.book.releaseSnapshotRefresh(ownedBy: held.owner)
+            }
+            throw Error.snapshotDoesNotMatchWallet
+        }
+        for held in heldBooks.values {
+            await held.book.releaseSnapshotRefresh(ownedBy: held.owner)
+        }
     }
 }
 
