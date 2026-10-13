@@ -30,7 +30,7 @@ extension OpalBase.CashTokens.BCMR.Client {
             upsertCurrentMetadata(currentMetadata, into: &metadataByCategory)
 
             guard includeHistoricalCategories else { continue }
-            for historicalSnapshot in selectHistoricalSnapshots(from: timeline, before: currentSnapshot) {
+            for historicalSnapshot in selectHistoricalSnapshots(from: timeline, before: currentSnapshot).reversed() {
                 guard let historicalMetadata = makeTokenMetadata(
                     identity: identity,
                     selection: historicalSnapshot,

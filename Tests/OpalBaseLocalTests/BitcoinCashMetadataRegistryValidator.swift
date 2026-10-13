@@ -631,6 +631,63 @@ struct BitcoinCashMetadataRegistryValidator {
         #expect(metadataByCategory[historicalCategory]?.symbol == "TOKEN-OLD")
     }
 
+    @Test("historical category metadata keeps its latest revision after migration")
+    func historicalCategoryMetadataKeepsLatestRevisionAfterMigration() throws {
+        let registries = BitcoinCashMetadataRegistryTestClient.makeRegistries()
+        let historicalCategory = try makeCategoryIdentifier(byte: 0x51)
+        let currentCategory = try makeCategoryIdentifier(byte: 0x61)
+        let registry = makeRegistry(
+            snapshots: [
+                "2023-01-01T00:00:00Z": makeIdentitySnapshot(
+                    name: "Historical Token v1",
+                    category: historicalCategory,
+                    symbol: "OLD1",
+                    decimals: 1
+                ),
+                "2024-01-01T00:00:00Z": makeIdentitySnapshot(
+                    name: "Historical Token v2",
+                    category: historicalCategory,
+                    symbol: "OLD2",
+                    decimals: 5
+                ),
+                "2025-01-01T00:00:00Z": makeIdentitySnapshot(
+                    name: "Current Token",
+                    category: currentCategory,
+                    symbol: "CURRENT",
+                    decimals: 8
+                )
+            ]
+        )
+        let asOf = try makeDate("2026-01-01T00:00:00Z")
+
+        let metadataByCategory = registries.extractTokenMetadata(
+            from: registry,
+            asOf: asOf
+        )
+        let historicalMetadata = try #require(metadataByCategory[historicalCategory])
+        let currentMetadata = try #require(metadataByCategory[currentCategory])
+
+        #expect(metadataByCategory.count == 2)
+        #expect(historicalMetadata.name == "Historical Token v2")
+        #expect(historicalMetadata.symbol == "OLD2")
+        #expect(historicalMetadata.decimals == 5)
+        #expect(historicalMetadata.lastUpdated == (try makeDate("2024-01-01T00:00:00Z")))
+        #expect(currentMetadata.name == "Current Token")
+        #expect(currentMetadata.symbol == "CURRENT")
+        #expect(currentMetadata.decimals == 8)
+        #expect(currentMetadata.lastUpdated == (try makeDate("2025-01-01T00:00:00Z")))
+
+        let currentOnlyMetadata = registries.extractTokenMetadata(
+            from: registry,
+            asOf: asOf,
+            includeHistoricalCategories: false
+        )
+
+        #expect(currentOnlyMetadata.count == 1)
+        #expect(currentOnlyMetadata[historicalCategory] == nil)
+        #expect(currentOnlyMetadata[currentCategory] == currentMetadata)
+    }
+
     @Test("current metadata ignores snapshots with future migration dates")
     func currentMetadataIgnoresSnapshotsWithFutureMigrationDates() throws {
         let registries = BitcoinCashMetadataRegistryTestClient.makeRegistries()
