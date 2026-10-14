@@ -2,7 +2,8 @@
 
 #if os(macOS)
 import Foundation
-@_spi(MosaicPrivateAlpha) @testable import OpalFusion
+@_spi(MosaicPrivateAlpha) import OpalFusion
+@_spi(MosaicPrivateAlpha) @testable import MosaicEngine
 
 enum MosaicPrivateDeploymentDocumentFixture {
     typealias Alpha = OpalFusion.Mosaic.OpalMainnetAlpha

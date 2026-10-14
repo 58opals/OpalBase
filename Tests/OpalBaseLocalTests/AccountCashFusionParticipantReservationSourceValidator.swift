@@ -3,7 +3,8 @@
 #if os(macOS)
 import Foundation
 import OpalDiagnostics
-@testable import OpalFusion
+import OpalFusion
+@testable import CashFusionEngine
 import Testing
 @testable import OpalBase
 

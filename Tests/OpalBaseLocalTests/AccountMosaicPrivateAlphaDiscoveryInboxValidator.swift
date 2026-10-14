@@ -5,7 +5,8 @@ import Foundation
 import OpalCrypto
 import Testing
 @_spi(MosaicPrivateAlpha) @testable import OpalBase
-@_spi(MosaicPrivateAlpha) @testable import OpalFusion
+@_spi(MosaicPrivateAlpha) import OpalFusion
+@_spi(MosaicPrivateAlpha) @testable import MosaicEngine
 
 @Suite("Mosaic discovery inbox facade", .tags(.unit, .wallet), .timeLimit(.minutes(1)))
 struct AccountMosaicPrivateAlphaDiscoveryInboxValidator {

@@ -19,7 +19,7 @@ let package = Package(
     dependencies: [
         .package(url: "https://github.com/58opals/SwiftFulcrum.git", revision: "154c4b693a75ea746f2a792177f200b501aa4a99"),
         .package(url: "https://github.com/58opals/OpalCrypto.git", branch: "develop"),
-        .package(url: "https://github.com/58opals/OpalFusion.git", branch: "develop"),
+        .package(url: "https://github.com/58opals/OpalFusion.git", revision: "90db9362e5b79e1e30af3c824123ad42063e10ba"),
         .package(url: "https://github.com/58opals/OpalDiagnostics.git", branch: "develop")
     ],
     targets: [
@@ -48,6 +48,16 @@ let package = Package(
                 .product(name: "OpalCrypto", package: "OpalCrypto"),
                 .product(
                     name: "OpalFusion",
+                    package: "OpalFusion",
+                    condition: .when(platforms: [.macOS])
+                ),
+                .product(
+                    name: "CashFusionEngine",
+                    package: "OpalFusion",
+                    condition: .when(platforms: [.macOS])
+                ),
+                .product(
+                    name: "MosaicEngine",
                     package: "OpalFusion",
                     condition: .when(platforms: [.macOS])
                 )

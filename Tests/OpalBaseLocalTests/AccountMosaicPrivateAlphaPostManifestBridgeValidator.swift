@@ -3,7 +3,8 @@
 #if os(macOS)
 import Foundation
 import OpalCrypto
-@_spi(MosaicPrivateAlpha) @testable import OpalFusion
+@_spi(MosaicPrivateAlpha) import OpalFusion
+@_spi(MosaicPrivateAlpha) @testable import MosaicEngine
 import Synchronization
 import Testing
 @_spi(MosaicPrivateAlpha) @testable import OpalBase

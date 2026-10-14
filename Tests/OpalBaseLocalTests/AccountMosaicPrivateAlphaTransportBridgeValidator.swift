@@ -4,7 +4,8 @@
 import Foundation
 import Testing
 @_spi(MosaicPrivateAlpha) @testable import OpalBase
-@_spi(MosaicPrivateAlpha) @testable import OpalFusion
+@_spi(MosaicPrivateAlpha) import OpalFusion
+@_spi(MosaicPrivateAlpha) @testable import MosaicEngine
 
 @Suite("OpalBase.Account Mosaic private-alpha transport bridge")
 struct AccountMosaicPrivateAlphaTransportBridgeValidator {
