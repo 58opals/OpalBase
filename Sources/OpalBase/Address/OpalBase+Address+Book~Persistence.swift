@@ -22,8 +22,8 @@ extension _OpalBase.Address.Book {
                             account: account,
                             gapLimit: gapLimit,
                             cacheValidityDuration: cacheValidityDuration,
-                            spendReservationExpirationInterval: spendReservationExpirationInterval)
-        try await refresh(with: snapshot)
+                            spendReservationExpirationInterval: spendReservationExpirationInterval,
+                            restoring: snapshot)
     }
 
     func makeSnapshot() -> Snapshot {

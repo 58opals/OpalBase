@@ -48,7 +48,8 @@ extension _OpalBase.Address {
              account: OpalBase.Key.DerivationPath.Account,
              gapLimit: Int = 20,
              cacheValidityDuration: TimeInterval = 10 * 60,
-             spendReservationExpirationInterval: TimeInterval = 10 * 60) async throws {
+             spendReservationExpirationInterval: TimeInterval = 10 * 60,
+             restoring snapshot: Snapshot? = nil) async throws {
             guard gapLimit > 0 else { throw Error.indexOutOfBounds }
 
             if let extendedPrivateKey = rootExtendedPrivateKey {
@@ -74,7 +75,11 @@ extension _OpalBase.Address {
             self.usageDerivationCache = .init()
             
             try buildUsageDerivationCacheIfNeeded()
-            try await initializeEntries()
+            if let snapshot {
+                try await refresh(with: snapshot)
+            } else {
+                try await initializeEntries()
+            }
         }
         
         deinit {
