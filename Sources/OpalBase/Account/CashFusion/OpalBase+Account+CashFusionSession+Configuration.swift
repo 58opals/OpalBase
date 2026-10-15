@@ -84,6 +84,8 @@ extension _OpalBase.Account.CashFusionSession {
 
         public let coordinator: Coordinator
         public let covertChannel: CovertChannel
+        /// Required for session preparation. Missing or invalid proxy settings,
+        /// including disabled remote DNS, fail before private-key access or reservations.
         public let torSocks5: TorSocks5?
         public let genesisHash: [UInt8]?
         public let joinPools: JoinPools

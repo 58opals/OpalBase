@@ -30,6 +30,8 @@ extension _OpalBase.Account {
                 OpalDiagnostics.Field.publicValue(OpalDiagnostics.Field.Name.inputCount, request.selectedInputs.count)
             ]
             do {
+                let clientConfiguration = configuration.makeClientConfiguration()
+                try clientConfiguration.validate()
                 try requirePrivateKeyMaterial()
                 let reservation = try await prepareCashFusionReservation(request: request)
                 let participantReservationSource = CashFusionParticipantReservationSource(
@@ -41,7 +43,7 @@ extension _OpalBase.Account {
                 let observerSink = CashFusionObserverSink()
                 let reconnectPolicy = OpalFusion.Client.ReconnectPolicy.walletDefault
                 let wrappedSession = await sessionBuilder(
-                    configuration.makeClientConfiguration(),
+                    clientConfiguration,
                     configuration.genesisHash,
                     configuration.joinPools.makeJoinPools(),
                     participantReservationSource,

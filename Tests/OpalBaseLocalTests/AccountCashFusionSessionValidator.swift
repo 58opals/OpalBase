@@ -9,6 +9,42 @@ import Testing
 
 @Suite("OpalBase.Account CashFusion session", .tags(.unit, .wallet))
 struct AccountCashFusionSessionValidator {
+    @Test("Unsafe privacy transport is rejected before reserving inputs or outputs", arguments: [false, true])
+    func unsafeTransportRejectsBeforeReservation(disableRemoteDNS: Bool) async throws {
+        let account = try await AccountTestFixtures.makeAccount()
+        let input = try await CashFusionTestSupport.makeWalletOwnedUnspentOutput(
+            to: account, value: 170_000, usage: .change, hashByte: 0xD4
+        )
+        let baseline = CashFusionTestSupport.makeConfiguration()
+        let configuration = OpalBase.Account.CashFusionSession.Configuration(
+            coordinator: baseline.coordinator,
+            covertChannel: baseline.covertChannel,
+            torSocks5: disableRemoteDNS ? .init(
+                host: "127.0.0.1", port: 9050,
+                resolvesCoordinatorHostNameRemotely: false
+            ) : nil,
+            genesisHash: baseline.genesisHash,
+            joinPools: baseline.joinPools
+        )
+        let before = await account.listEntries(for: .receiving)
+        let capture = CashFusionWrappedSessionCapture()
+        var unexpectedSession: OpalBase.Account.CashFusionSession?
+        await #expect(throws: (any Error).self) {
+            unexpectedSession = try await makeSession(
+                account: account, selectedInput: input,
+                configuration: configuration, capture: capture
+            )
+        }
+        #expect(await capture.load() == nil)
+        let addressBook = await account.addressBook
+        #expect(await addressBook.listSpendableUTXOs().contains(input))
+        let after = await account.listEntries(for: .receiving)
+        #expect(after.map(\.address) == before.map(\.address))
+        #expect(after.map(\.isReserved) == before.map(\.isReserved))
+        #expect(after.map(\.isUsed) == before.map(\.isUsed))
+        await unexpectedSession?.stop()
+    }
+
     @Test("invalid configuration releases reservations before a round starts")
     func invalidConfigurationReleasesReservationsBeforeARoundStarts() async throws {
         try await assertPreRoundFatalFailureReleasesReservation(
@@ -975,7 +1011,7 @@ struct AccountCashFusionSessionValidator {
             torSocks5: .init(
                 host: "127.0.0.1",
                 port: 9150,
-                resolvesCoordinatorHostNameRemotely: false
+                resolvesCoordinatorHostNameRemotely: true
             ),
             genesisHash: genesisHash,
             joinPools: .init(
