@@ -4,7 +4,7 @@ import Foundation
 import OpalCrypto
 
 extension _OpalBase.Address {
-    actor Book {
+    package actor Book {
         struct UsageDerivationCache {
             let baseExtendedPrivateKey: OpalCrypto.Key.ExtendedPrivate
             let baseCompressedPublicKey: Data
@@ -27,8 +27,8 @@ extension _OpalBase.Address {
         let account: OpalBase.Key.DerivationPath.Account
         var usageDerivationCache: [OpalBase.Key.DerivationPath.Usage: UsageDerivationCache]
         
-        var inventory: Inventory
-        var utxoStore: UTXORepository
+        package var inventory: Inventory
+        package var utxoStore: UTXORepository
         var transactionLog: TransactionLog
         
         let gapLimit: Int
@@ -36,6 +36,13 @@ extension _OpalBase.Address {
         let spendReservationExpirationInterval: TimeInterval
         var spendReservationReleaseTasks: [UUID: Task<Void, Never>]
         var spendReservationStates: [UUID: SpendReservation.State]
+        var isConfirmedFrontierCurrent = false
+        var confirmedAddressFrontier: OpalBase.ConfirmedAddressFrontier?
+        var bchSpendReviews: [UUID: OpalBase.BCHSpendReview] = [:]
+        var boundedBCHFrontierRevisions: [UUID: UUID] = [:]
+        var finalizedBCHTransactions: [UUID: OpalBase.FinalizedBCHTransaction] = [:]
+        var claimedBCHReservations: Set<UUID> = []
+        var claimedBCHInvocations: [UUID: OpalBase.TransactionRelayAttempt] = [:]
         var snapshotRefreshOwner: UUID?
         
         let entryPublisher = Entry.PublisherActor()

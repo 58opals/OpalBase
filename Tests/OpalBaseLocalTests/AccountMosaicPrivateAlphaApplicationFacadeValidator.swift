@@ -6,6 +6,7 @@ import OpalCrypto
 import OpalBaseTestSupport
 import Testing
 @_spi(MosaicPrivateAlpha) @testable import OpalBase
+@testable import OpalBaseCore
 
 @Suite("OpalBase.Account Mosaic application facade", .tags(.unit, .wallet))
 struct AccountMosaicPrivateAlphaApplicationFacadeValidator {

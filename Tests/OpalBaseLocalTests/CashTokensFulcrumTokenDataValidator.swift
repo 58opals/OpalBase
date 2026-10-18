@@ -4,6 +4,7 @@ import Foundation
 import SwiftFulcrum
 import Testing
 @testable import OpalBase
+@testable import OpalBaseCore
 
 @Suite("OpalBase.CashTokens Fulcrum token data", .tags(.unit, .cashTokens))
 struct CashTokensFulcrumTokenDataValidator {

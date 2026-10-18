@@ -3,6 +3,7 @@
 import Foundation
 import SwiftFulcrum
 @testable import OpalBase
+@testable import OpalBaseCore
 
 actor MempoolClientTestActor: OpalBase.Network.Fulcrum.MempoolClient {
     private let infoResponse: SwiftFulcrum.Response.Mempool.Info

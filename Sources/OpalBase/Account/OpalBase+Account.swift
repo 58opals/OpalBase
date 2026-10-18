@@ -13,7 +13,7 @@ extension OpalBase {
         let account: OpalBase.Key.DerivationPath.Account
 
         public let id: Data
-        let addressBook: OpalBase.Address.Book
+        package let addressBook: OpalBase.Address.Book
 
         let privacyShaper: PrivacyShaperActor
         let privacyConfiguration: PrivacyShaperActor.Configuration
@@ -191,7 +191,7 @@ extension OpalBase {
             )
         }
 
-        func requirePrivateKeyMaterial() throws {
+        package func requirePrivateKeyMaterial() throws {
             guard rootExtendedPrivateKey != nil else {
                 throw Error.privateKeyMaterialUnavailable
             }

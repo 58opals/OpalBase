@@ -3,6 +3,7 @@
 import Foundation
 import Testing
 @testable import OpalBase
+@testable import OpalBaseCore
 
 @Suite("OpalBase.Transaction.History.Record", .tags(.unit, .wallet))
 struct TransactionHistoryRecordValidator {

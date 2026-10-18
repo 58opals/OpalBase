@@ -2,6 +2,7 @@ import Foundation
 import Testing
 import OpalBaseTestSupport
 @testable import OpalBase
+@testable import OpalBaseCore
 
 private typealias HydrationMonitor = OpalBase.Wallet.Fulcrum.Monitor
 private struct HydrationObservation: Sendable {

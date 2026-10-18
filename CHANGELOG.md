@@ -6,6 +6,9 @@ All notable public-facing changes to Opal Base are tracked here.
 
 ### Added
 
+- Added the `OpalBaseCore` product for ordinary Bitcoin Cash wallet APIs. The existing `OpalBase` product remains a source-compatible umbrella and owns the optional privacy integrations.
+- Added confirmed-address recovery frontiers and durable external BCH payment APIs for fixed transaction review, immutable finalized bytes, atomic reservation handoff and exact-claim reconciliation.
+
 - Added the Opal-owned Cash Code v1 candidate implementation: strict `cashcode:`/`cashcodetest:` codec, sender and receiver derivation, exact transaction matching, transport-neutral and Fulcrum candidate readers, deterministic public conformance vectors, bounded confirmed restoration, deterministic mempool replacement, trusted reorganization rollback and replay, generation-staged public-only state, authorized receiving-capability rederivation, exact UTXO confirmation, opaque-key spend plans, account-backed sender preparation, and cancellable bounded Schnorr prefix grinding.
 
 ### Changed
@@ -13,7 +16,7 @@ All notable public-facing changes to Opal Base are tracked here.
 - Made secret-persistence policy construction-bound for the next explicitly breaking pre-1.0 release. `Storage`, `Security`, custom `StoredMnemonicPersistence`, persistence sessions, and the secret interactor now require or inherit one explicit root policy instead of defaulting or accepting per-save fallback overrides; migration guidance is in the public API guide.
 - Made Cash Code spend-plan build and reservation disposition single-use across every plan copy and exposed catchable lifecycle errors, including terminal uncertain disposition failure.
 - Added a public [Cash Code v1 readiness](docs/cash-code-readiness.md) source of truth that separates implementation completeness, production readiness, stable release availability, and ecosystem standardization.
-- Returned `OpalDiagnostics` to its public `develop` branch requirement after the earlier `0.2.0` SemVer move. `SwiftFulcrum` now uses an exact public integration revision; `OpalCrypto`, `OpalFusion`, and `OpalDiagnostics` retain public `develop` requirements with tracked resolved revisions.
+- Pinned `SwiftFulcrum` and `OpalFusion` to exact public integration revisions. `OpalCrypto` and `OpalDiagnostics` continue to follow their public `develop` branches; consumers must retain their own `Package.resolved` revisions.
 - Replaced the experimental reusable-payment-address closure scaffold with
   profile-aware value APIs; legacy Electron Cash `paycode:` values are now
   strict read-only migration data and cannot be generated, sent to, or matched

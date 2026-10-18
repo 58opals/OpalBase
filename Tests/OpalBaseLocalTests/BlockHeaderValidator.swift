@@ -5,6 +5,7 @@ import OpalCrypto
 import Testing
 import OpalBaseTestSupport
 @testable import OpalBase
+@testable import OpalBaseCore
 
 @Suite("OpalBase.Block.Header", .tags(.unit, .block))
 struct BlockHeaderValidator {

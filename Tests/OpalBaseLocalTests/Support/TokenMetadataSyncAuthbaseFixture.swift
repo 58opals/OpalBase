@@ -2,6 +2,7 @@
 
 import Foundation
 @testable import OpalBase
+@testable import OpalBaseCore
 
 struct TokenMetadataSyncAuthbaseFixture: Sendable {
     let rawTransaction: Data

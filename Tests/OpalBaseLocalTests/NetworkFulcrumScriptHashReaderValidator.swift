@@ -4,6 +4,7 @@ import Foundation
 import Testing
 import OpalBaseTestSupport
 @testable import OpalBase
+@testable import OpalBaseCore
 
 @Suite("OpalBase.Network.Fulcrum.ScriptHashReader", .tags(.unit, .network))
 struct NetworkFulcrumScriptHashReaderValidator {

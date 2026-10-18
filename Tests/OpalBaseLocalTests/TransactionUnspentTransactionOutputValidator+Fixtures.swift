@@ -3,6 +3,7 @@
 import Foundation
 import OpalCrypto
 @testable import OpalBase
+@testable import OpalBaseCore
 
 extension TransactionUnspentTransactionOutputValidator {
     func makeTransactionBuilderComponents(

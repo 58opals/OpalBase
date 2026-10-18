@@ -3,6 +3,7 @@
 #if os(macOS)
 import OpalFusion
 @testable import OpalBase
+@testable import OpalBaseCore
 
 actor MosaicPolicyProbeActor {
     private let expectedFeeSatoshis: UInt64?

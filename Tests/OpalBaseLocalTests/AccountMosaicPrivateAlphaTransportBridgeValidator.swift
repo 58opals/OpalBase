@@ -4,6 +4,7 @@
 import Foundation
 import Testing
 @_spi(MosaicPrivateAlpha) @testable import OpalBase
+@testable import OpalBaseCore
 @_spi(MosaicPrivateAlpha) import OpalFusion
 @_spi(MosaicPrivateAlpha) @testable import MosaicEngine
 

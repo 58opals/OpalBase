@@ -8,7 +8,7 @@ extension _OpalBase.Address.Book {
 
 extension _OpalBase.Address.Book.History {
     struct QueryResult: Sendable {
-        let address: OpalBase.Address
+        package let address: OpalBase.Address
         let scriptHash: String
         let entries: [OpalBase.Transaction.History.Entry]
     }

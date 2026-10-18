@@ -4,7 +4,7 @@ import Foundation
 
 extension _OpalBase.Address.Book {
     struct UTXOChangeSet {
-        let address: OpalBase.Address
+        package let address: OpalBase.Address
         let previous: [OpalBase.Transaction.Output.Unspent]
         let updated: [OpalBase.Transaction.Output.Unspent]
         let inserted: [OpalBase.Transaction.Output.Unspent]

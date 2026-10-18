@@ -3,6 +3,7 @@
 import Foundation
 import SwiftFulcrum
 @testable import OpalBase
+@testable import OpalBaseCore
 
 actor ServerInfoClientTestActor: OpalBase.Network.Fulcrum.ServerInfoClient {
     private let pingError: Swift.Error?

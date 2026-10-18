@@ -6,6 +6,7 @@ import OpalCrypto
 import OpalFusion
 import Testing
 @_spi(MosaicPrivateAlpha) @testable import OpalBase
+@testable import OpalBaseCore
 
 extension AccountMosaicTransactionHostValidator {
     @Test("Ordinary release and snapshot refresh cannot clear Mosaic ownership")

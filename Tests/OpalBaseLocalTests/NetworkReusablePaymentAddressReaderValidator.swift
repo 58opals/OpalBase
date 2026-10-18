@@ -3,6 +3,7 @@
 import Foundation
 import Testing
 @testable import OpalBase
+@testable import OpalBaseCore
 
 @Suite("Transport-neutral reusable payment address reader", .tags(.unit, .network))
 struct NetworkReusablePaymentAddressReaderValidator {

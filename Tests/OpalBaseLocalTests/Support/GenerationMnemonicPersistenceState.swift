@@ -1,6 +1,7 @@
 // GenerationMnemonicPersistenceState.swift
 
 @testable import OpalBase
+@testable import OpalBaseCore
 
 actor GenerationMnemonicPersistenceState {
     private var mnemonicStates: [String: (

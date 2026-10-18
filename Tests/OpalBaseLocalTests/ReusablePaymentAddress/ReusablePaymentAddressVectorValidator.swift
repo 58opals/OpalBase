@@ -3,6 +3,7 @@
 import Foundation
 import Testing
 @testable import OpalBase
+@testable import OpalBaseCore
 
 @Suite("Cash Code conformance vector documents", .tags(.unit))
 struct ReusablePaymentAddressVectorValidator {

@@ -2,6 +2,7 @@
 
 import Foundation
 @testable import OpalBase
+@testable import OpalBaseCore
 
 actor ReusablePaymentAddressStorageValueActor {
     private var values: [String: Data] = .init()

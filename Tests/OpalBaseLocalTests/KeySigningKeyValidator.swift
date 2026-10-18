@@ -4,6 +4,7 @@ import Foundation
 import OpalCrypto
 import Testing
 @testable import OpalBase
+@testable import OpalBaseCore
 
 @Suite("OpalBase.Key.SigningKey", .tags(.unit))
 struct KeySigningKeyValidator {

@@ -3,6 +3,7 @@
 import Foundation
 import Testing
 @testable import OpalBase
+@testable import OpalBaseCore
 
 enum ClaimableTestSupport {
     static func makeClaimablePrivateKey(lastByte: UInt8) -> Data {

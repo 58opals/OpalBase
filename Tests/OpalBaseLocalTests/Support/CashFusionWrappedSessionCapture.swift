@@ -3,6 +3,7 @@
 #if os(macOS)
 import OpalFusion
 @testable import OpalBase
+@testable import OpalBaseCore
 
 actor CashFusionWrappedSessionCapture {
     private var session: CashFusionFakeWrappedSession?

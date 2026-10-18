@@ -32,7 +32,8 @@ extension _OpalBase.Address.Book {
     func reserveSpend(utxos: [OpalBase.Transaction.Output.Unspent],
                       changeEntry: Entry,
                       tokenSelectionPolicy: OpalBase.Address.Book.CoinSelection.TokenSelectionPolicy,
-                      reuseMatchingReservation: Bool = true) async throws -> SpendReservation {
+                      reuseMatchingReservation: Bool = true,
+                      requiresExactChangeEntry: Bool = false) async throws -> SpendReservation {
         let utxoSet = Set(utxos)
         guard !utxoSet.isEmpty else {
             throw OpalBase.Address.Book.Error.utxoNotFound
@@ -44,6 +45,7 @@ extension _OpalBase.Address.Book {
         }
         
         if let existingReservation = findMatchingReservation(for: utxoSet) {
+            guard !claimedBCHReservations.contains(existingReservation.identifier) else { throw OpalBase.BCHSubmissionError.reservationAlreadyClaimed }
             guard reuseMatchingReservation else {
                 throw OpalBase.Address.Book.Error.utxoNotFound
             }
@@ -74,7 +76,7 @@ extension _OpalBase.Address.Book {
         }
 
         do {
-            let changeReservation = try await reserveFreshChangeEntry(preferred: changeEntry)
+            let changeReservation = try await reserveFreshChangeEntry(preferred: changeEntry, requiresExact: requiresExactChangeEntry)
 
             spendReservationStates[identifier] = SpendReservation.State(
                 utxos: utxoSet,
@@ -97,6 +99,7 @@ extension _OpalBase.Address.Book {
     }
     
     func releaseSpendReservation(_ reservation: SpendReservation, outcome: SpendReservation.Outcome) async throws {
+        guard !claimedBCHReservations.contains(reservation.id) else { throw OpalBase.BCHSubmissionError.reservationAlreadyClaimed }
         guard let state = removeReservationState(matching: reservation) else {
             return
         }
@@ -105,6 +108,7 @@ extension _OpalBase.Address.Book {
     }
 
     func completeSpendReservation(_ reservation: SpendReservation) async throws {
+        guard !claimedBCHReservations.contains(reservation.id) else { throw OpalBase.BCHSubmissionError.reservationAlreadyClaimed }
         guard let state = removeReservationState(matching: reservation) else {
             throw OpalBase.Address.Book.Error.spendReservationNotFound
         }
@@ -119,6 +123,7 @@ extension _OpalBase.Address.Book {
     
     func forceReleaseSpendReservation(identifier: UUID,
                                       outcome: SpendReservation.Outcome = .cancelled) async throws -> SpendReservation? {
+        guard !claimedBCHReservations.contains(identifier) else { return nil }
         guard let state = removeReservationState(for: identifier) else {
             return nil
         }
@@ -134,14 +139,15 @@ extension _OpalBase.Address.Book {
     
     func releaseExpiredSpendReservations(olderThan tolerance: TimeInterval,
                                          currentDate: Date = Date.now) async throws -> [SpendReservation] {
-        let expiredStates = spendReservationStates.filter { _, state in
-            currentDate.timeIntervalSince(state.reservedAt) >= tolerance
+        let expiredStates = spendReservationStates.filter { identifier, state in
+            !claimedBCHReservations.contains(identifier) && currentDate.timeIntervalSince(state.reservedAt) >= tolerance
         }
         
         var releasedReservations: [SpendReservation] = .init()
         for (identifier, state) in expiredStates {
             _ = state
-            guard let removedState = removeReservationState(for: identifier) else { continue }
+            guard !claimedBCHReservations.contains(identifier),
+                  let removedState = removeReservationState(for: identifier) else { continue }
             
             let reservation = SpendReservation(id: identifier,
                                                changeEntry: removedState.entry,
@@ -185,7 +191,7 @@ extension _OpalBase.Address.Book {
         }
     }
 
-    private func removeReservationState(matching reservation: SpendReservation) -> SpendReservation.State? {
+    func removeReservationState(matching reservation: SpendReservation) -> SpendReservation.State? {
         guard let state = spendReservationStates[reservation.id],
               state.reservedAt == reservation.reservationDate else {
             return nil
@@ -195,9 +201,14 @@ extension _OpalBase.Address.Book {
     }
 
     private func reserveFreshChangeEntry(
-        preferred changeEntry: Entry
+        preferred changeEntry: Entry, requiresExact: Bool = false
     ) async throws -> (entry: Entry, hasBeenUsedPreviously: Bool) {
         let candidateEntry: Entry
+        if requiresExact {
+            guard let current = findEntry(for: changeEntry.address), !current.isReserved else { throw OpalBase.BCHSubmissionError.addressAllocationBlocked }
+            let reserved = try await reserveEntryMaintainingGap(current)
+            return (reserved, current.isUsed)
+        }
         if let currentEntry = findEntry(for: changeEntry.address),
            currentEntry.isUsed == false,
            currentEntry.isReserved == false {

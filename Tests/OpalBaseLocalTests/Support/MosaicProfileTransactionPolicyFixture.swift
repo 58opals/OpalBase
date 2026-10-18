@@ -5,6 +5,7 @@ import Foundation
 import OpalCrypto
 import OpalFusion
 @testable import OpalBase
+@testable import OpalBaseCore
 
 enum MosaicProfileTransactionPolicyFixture {
     struct InputMaterial {

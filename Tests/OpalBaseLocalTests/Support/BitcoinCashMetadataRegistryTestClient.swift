@@ -2,6 +2,7 @@
 
 import Foundation
 @testable import OpalBase
+@testable import OpalBaseCore
 
 enum BitcoinCashMetadataRegistryTestClient {
     static func makeRegistries() -> OpalBase.CashTokens.BCMR.Client {

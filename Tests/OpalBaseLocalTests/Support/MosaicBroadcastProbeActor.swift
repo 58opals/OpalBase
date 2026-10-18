@@ -3,6 +3,7 @@
 #if os(macOS)
 import Foundation
 @testable import OpalBase
+@testable import OpalBaseCore
 
 actor MosaicBroadcastProbeActor {
     private let journalProbe: MosaicAttemptJournalProbeActor

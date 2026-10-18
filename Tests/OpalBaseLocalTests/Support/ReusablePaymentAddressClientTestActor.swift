@@ -2,6 +2,7 @@
 
 import SwiftFulcrum
 @testable import OpalBase
+@testable import OpalBaseCore
 
 actor ReusablePaymentAddressClientTestActor:
     OpalBase.Network.Fulcrum.ReusablePaymentAddressClient

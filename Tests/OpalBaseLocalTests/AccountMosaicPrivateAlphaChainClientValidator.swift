@@ -5,6 +5,7 @@ import Foundation
 import SwiftFulcrum
 import Testing
 @_spi(MosaicPrivateAlpha) @testable import OpalBase
+@testable import OpalBaseCore
 
 @Suite("OpalBase.Account Mosaic private-alpha chain client", .tags(.unit, .wallet))
 struct AccountMosaicPrivateAlphaChainClientValidator {

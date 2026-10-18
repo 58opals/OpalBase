@@ -5,6 +5,7 @@ import Foundation
 @_spi(MosaicPrivateAlpha) import OpalFusion
 import Testing
 @_spi(MosaicPrivateAlpha) @testable import OpalBase
+@testable import OpalBaseCore
 
 @Suite("OpalBase.Account Mosaic private-alpha Fusion adapter", .tags(.unit, .wallet))
 struct AccountMosaicPrivateAlphaRuntimeAdapterValidator {

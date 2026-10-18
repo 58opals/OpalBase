@@ -4,6 +4,7 @@ import Foundation
 import Testing
 import OpalBaseTestSupport
 @testable import OpalBase
+@testable import OpalBaseCore
 
 @Suite("CashTokens category and non-fungible data", .tags(.unit, .cashTokens))
 struct CashTokensTokenDataValidator {

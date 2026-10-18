@@ -1,6 +1,7 @@
 // LegacyStoredMnemonicPersistenceState.swift
 
 @testable import OpalBase
+@testable import OpalBaseCore
 
 actor LegacyStoredMnemonicPersistenceState {
     private var states: [

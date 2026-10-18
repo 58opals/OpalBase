@@ -8,6 +8,7 @@ import OpalCrypto
 import Synchronization
 import Testing
 @_spi(MosaicPrivateAlpha) @testable import OpalBase
+@testable import OpalBaseCore
 
 @Suite("OpalBase.Account Mosaic post-manifest bridge", .tags(.unit, .wallet))
 struct AccountMosaicPrivateAlphaPostManifestBridgeValidator {

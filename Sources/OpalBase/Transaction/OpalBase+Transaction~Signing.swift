@@ -10,7 +10,7 @@ extension _OpalBase.Transaction {
     ///   - hashType: The hash type (e.g., SIGHASH_ALL).
     ///   - outputBeingSpent: The output being spent by this input.
     /// - Returns: The preimage data.
-    func generatePreimage(
+    package func generatePreimage(
         for index: Int,
         hashType: HashType,
         outputBeingSpent: Output,
@@ -129,7 +129,7 @@ private extension _OpalBase.Transaction {
 }
 
 extension _OpalBase.Transaction {
-    func signInputInPlace(
+    package func signInputInPlace(
         at index: Int,
         spending outputBeingSpent: Output,
         privateKey: Data,
@@ -157,7 +157,7 @@ extension _OpalBase.Transaction {
         )
     }
 
-    func signInputInPlace(
+    package func signInputInPlace(
         at index: Int,
         spending outputBeingSpent: Output,
         signingKey: OpalBase.Key.SigningKey,
@@ -251,7 +251,7 @@ extension _OpalBase.Transaction {
         }
     }
 
-    func signInputInPlace(
+    package func signInputInPlace(
         at index: Int,
         spending unspentOutput: OpalBase.Transaction.Output.Unspent,
         privateKey: Data,
@@ -275,7 +275,7 @@ extension _OpalBase.Transaction {
         )
     }
 
-    func signInputInPlace(
+    package func signInputInPlace(
         at index: Int,
         spending unspentOutput: OpalBase.Transaction.Output.Unspent,
         signingKey: OpalBase.Key.SigningKey,

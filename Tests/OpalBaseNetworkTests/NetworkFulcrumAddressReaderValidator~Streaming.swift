@@ -3,6 +3,7 @@
 import Foundation
 import Testing
 @testable import OpalBase
+@testable import OpalBaseCore
 
 extension NetworkFulcrumAddressReaderValidator {
     @Test("lists token-bearing outputs with parsed token data", .timeLimit(.minutes(1)))

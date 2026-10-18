@@ -3,6 +3,7 @@
 import Foundation
 import Testing
 @testable import OpalBase
+@testable import OpalBaseCore
 
 extension TransactionUnspentTransactionOutputValidator {
     @Test("estimate fee rejects negative input counts", arguments: NegativeInputCountEstimatorCase.allCases)

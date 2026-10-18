@@ -4,7 +4,7 @@ import Foundation
 
 extension _OpalBase.Address.Book.Snapshot {
     struct UTXO: Codable, Equatable, Hashable, Sendable {
-        let value: UInt64
+        package let value: UInt64
         let lockingScript: String
         let tokenCategory: String?
         let tokenAmount: UInt64?

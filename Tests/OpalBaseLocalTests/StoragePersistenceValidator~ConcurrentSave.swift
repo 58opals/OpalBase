@@ -4,6 +4,7 @@ import Foundation
 import Synchronization
 import Testing
 @testable import OpalBase
+@testable import OpalBaseCore
 
 extension StoragePersistenceValidator {
     @Test("concurrent save rollback preserves the later committed state")

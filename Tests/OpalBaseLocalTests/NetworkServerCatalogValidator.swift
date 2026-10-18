@@ -5,6 +5,7 @@ import SwiftFulcrum
 import Testing
 import OpalBaseTestSupport
 @testable import OpalBase
+@testable import OpalBaseCore
 
 @Suite("OpalBase.Network.ServerCatalog", .tags(.unit, .network))
 struct NetworkServerCatalogValidator {

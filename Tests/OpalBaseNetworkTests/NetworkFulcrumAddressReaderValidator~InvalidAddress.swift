@@ -2,6 +2,7 @@
 
 import Testing
 @testable import OpalBase
+@testable import OpalBaseCore
 
 extension NetworkFulcrumAddressReaderValidator {
     @Test("rejects invalid balance addresses before network usage", .timeLimit(.minutes(1)))

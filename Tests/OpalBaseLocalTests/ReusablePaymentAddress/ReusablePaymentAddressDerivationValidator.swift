@@ -3,6 +3,7 @@
 import Foundation
 import Testing
 @testable import OpalBase
+@testable import OpalBaseCore
 
 @Suite("Reusable payment address byte derivation", .tags(.unit))
 struct ReusablePaymentAddressDerivationValidator {

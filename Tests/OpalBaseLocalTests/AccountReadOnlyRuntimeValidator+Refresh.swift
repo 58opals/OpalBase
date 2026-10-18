@@ -4,6 +4,7 @@ import Foundation
 import Testing
 import OpalBaseTestSupport
 @testable import OpalBase
+@testable import OpalBaseCore
 
 extension AccountReadOnlyRuntimeValidator {
     @Test("read-only account refresh and monitor paths run from public descriptors")

@@ -2,6 +2,7 @@
 
 import Testing
 @testable import OpalBase
+@testable import OpalBaseCore
 
 extension SnapshotPersistenceValidator {
     @Test("rejects excessive sparse snapshot spans without mutating address state")

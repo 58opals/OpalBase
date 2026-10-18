@@ -7,7 +7,7 @@ extension _OpalBase.Network.Fulcrum {
     public struct TransactionClient: OpalBase.Network.TransactionBroadcastClient, OpalBase.Network.TransactionConfirmationClient {
         private let client: Client
         private let timeouts: OpalBase.Network.FulcrumRequestTimeout
-        let network: OpalBase.Network.Environment
+        package let network: OpalBase.Network.Environment
         
         public init(client: Client, timeouts: OpalBase.Network.FulcrumRequestTimeout = .init()) {
             self.client = client
@@ -62,7 +62,7 @@ extension _OpalBase.Network.Fulcrum {
             }
         }
 
-        func fetchFreshDetailedTransaction(
+        package func fetchFreshDetailedTransaction(
             for transactionHash: OpalBase.Transaction.Hash
         ) async throws -> OpalBase.Transaction.Detail {
             try await OpalBase.Network.Fulcrum.TransactionReader(

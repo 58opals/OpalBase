@@ -3,7 +3,7 @@
 import Foundation
 
 extension _OpalBase.Address.Book {
-    func listEntries(for usage: OpalBase.Key.DerivationPath.Usage) -> [Entry] {
+    package func listEntries(for usage: OpalBase.Key.DerivationPath.Usage) -> [Entry] {
         inventory.listEntries(for: usage)
     }
     
@@ -39,7 +39,7 @@ extension _OpalBase.Address.Book {
         inventory.countUnusedEntries(for: usage)
     }
 
-    func findEntry(for address: OpalBase.Address) -> Entry? {
+    package func findEntry(for address: OpalBase.Address) -> Entry? {
         inventory.findEntry(for: address)
     }
     
@@ -47,15 +47,15 @@ extension _OpalBase.Address.Book {
         inventory.contains(address: address)
     }
     
-    func listAllEntries() -> [Entry] {
+    package func listAllEntries() -> [Entry] {
         inventory.allEntries
     }
 
-    func reserveEntry(address: OpalBase.Address) throws -> Entry {
+    package func reserveEntry(address: OpalBase.Address) throws -> Entry {
         try inventory.reserve(address: address)
     }
     
-    func releaseReservation(address: OpalBase.Address, shouldKeepUsed: Bool) throws -> Entry {
+    package func releaseReservation(address: OpalBase.Address, shouldKeepUsed: Bool) throws -> Entry {
         try inventory.releaseReservation(address: address, shouldKeepUsed: shouldKeepUsed)
     }
 }

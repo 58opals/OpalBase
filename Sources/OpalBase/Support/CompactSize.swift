@@ -85,7 +85,7 @@ enum CompactSize {
     }
     
     /// Returns the UInt64 representation of the CompactSize.
-    var value: UInt64 {
+    package var value: UInt64 {
         switch self {
         case .uint8(let value): return UInt64(value)
         case .uint16(let value): return UInt64(value)

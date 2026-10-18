@@ -6,6 +6,7 @@ import Testing
 import OpalBaseTestSupport
 import SwiftFulcrum
 @testable import OpalBase
+@testable import OpalBaseCore
 
 extension DiagnosticsValidator {
     @Test("claimable envelope network mismatches record failure diagnostics")

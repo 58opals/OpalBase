@@ -3,6 +3,7 @@
 import Foundation
 import Testing
 @testable import OpalBase
+@testable import OpalBaseCore
 
 @Suite("Claimable share code", .tags(.unit))
 struct ClaimableShareCodeValidator {

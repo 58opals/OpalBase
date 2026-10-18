@@ -4,6 +4,7 @@
 import Foundation
 import Testing
 @_spi(MosaicPrivateAlpha) @testable import OpalBase
+@testable import OpalBaseCore
 
 @Suite("OpalBase.Account Mosaic private-alpha transport facade")
 struct AccountMosaicPrivateAlphaTransportFacadeValidator {

@@ -6,6 +6,7 @@ import OpalDiagnostics
 import OpalFusion
 import Testing
 @testable import OpalBase
+@testable import OpalBaseCore
 
 @Suite("OpalBase.Account CashFusion session", .tags(.unit, .wallet))
 struct AccountCashFusionSessionValidator {

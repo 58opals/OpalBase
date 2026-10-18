@@ -4,21 +4,15 @@ import Foundation
 
 extension _OpalBase.Account {
     struct SpendReservation: Sendable {
-        let addressBook: OpalBase.Address.Book
+        package let addressBook: OpalBase.Address.Book
         let reservation: OpalBase.Address.Book.SpendReservation
         
         var reservationDate: Date { reservation.reservationDate }
         var changeEntry: OpalBase.Address.Book.Entry { reservation.changeEntry }
 
         func requireActive() async throws {
-            let activeReservations = await addressBook.readActiveSpendReservations()
-            guard activeReservations.contains(where: {
-                $0.id == reservation.id && $0.reservationDate == reservation.reservationDate
-            }) else {
-                throw OpalBase.Account.Error.transactionBuildFailed(
-                    OpalBase.Address.Book.Error.spendReservationNotFound
-                )
-            }
+            do { try await addressBook.validateExactReservation(reservation) }
+            catch { throw OpalBase.Account.Error.transactionBuildFailed(OpalBase.Address.Book.Error.spendReservationNotFound) }
         }
         
         func complete() async throws {

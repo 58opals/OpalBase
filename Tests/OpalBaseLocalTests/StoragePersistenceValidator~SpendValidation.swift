@@ -3,6 +3,7 @@
 import Foundation
 import Testing
 @testable import OpalBase
+@testable import OpalBaseCore
 
 extension StoragePersistenceValidator {
     @Test("prepareSpend throws when payment has no recipients")

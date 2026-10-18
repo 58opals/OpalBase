@@ -5,6 +5,7 @@ import OpalCrypto
 import Testing
 import OpalBaseTestSupport
 @testable import OpalBase
+@testable import OpalBaseCore
 
 @Suite("OpalBase.Transaction history token deltas", .tags(.unit, .cashTokens))
 struct TransactionHistoryTokenDeltaValidator {

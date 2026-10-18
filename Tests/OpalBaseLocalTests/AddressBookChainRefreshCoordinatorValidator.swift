@@ -1,6 +1,7 @@
 import Testing
 import OpalBaseTestSupport
 @testable import OpalBase
+@testable import OpalBaseCore
 
 @Suite("Address book refresh ownership", .tags(.unit, .wallet))
 struct AddressBookChainRefreshCoordinatorValidator {

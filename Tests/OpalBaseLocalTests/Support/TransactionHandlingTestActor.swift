@@ -2,6 +2,7 @@
 
 import Foundation
 @testable import OpalBase
+@testable import OpalBaseCore
 
 actor TransactionHandlingTestActor: OpalBase.Network.TransactionHandling {
     private let broadcastHandler: @Sendable (String) async throws -> String

@@ -2,6 +2,7 @@
 
 import Testing
 @testable import OpalBase
+@testable import OpalBaseCore
 
 @Suite(
     "Cash Code sender real-crypto conformance",

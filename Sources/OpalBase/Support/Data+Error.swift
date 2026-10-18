@@ -18,7 +18,7 @@ extension Data {
         return unicodeScalars.count / 2
     }
 
-    init(hexadecimalString: String) throws {
+    package init(hexadecimalString: String) throws {
         var byteArray = [UInt8]()
         let unicodeScalars = hexadecimalString.unicodeScalars
         let hasHexadecimalPrefix = hexadecimalString.hasPrefix("0x") || hexadecimalString.hasPrefix("0X")
@@ -48,7 +48,7 @@ extension Data {
         self = Data(byteArray)
     }
     
-    var hexadecimalString: String {
+    package var hexadecimalString: String {
         return map { String(format: "%02x", $0) }.joined()
     }
     
@@ -56,7 +56,7 @@ extension Data {
         return self.map { String($0, radix: 2).padLeft(to: 8) }.joined()
     }
     
-    var reversedData: Data {
+    package var reversedData: Data {
         return Data(self.reversed())
     }
 }

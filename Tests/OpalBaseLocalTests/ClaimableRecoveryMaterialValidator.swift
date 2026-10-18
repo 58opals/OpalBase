@@ -3,6 +3,7 @@
 import Foundation
 import Testing
 @testable import OpalBase
+@testable import OpalBaseCore
 
 @Suite("Claimable recovery material", .tags(.unit))
 struct ClaimableRecoveryMaterialValidator {

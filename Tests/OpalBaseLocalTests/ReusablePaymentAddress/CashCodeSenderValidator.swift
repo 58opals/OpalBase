@@ -3,6 +3,7 @@
 import Foundation
 import Testing
 @testable import OpalBase
+@testable import OpalBaseCore
 
 private typealias CashCodePlanLifecycleError = OpalBase
     .ReusablePaymentAddress.CashCodeSpendPlan.LifecycleError

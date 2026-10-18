@@ -46,8 +46,12 @@ extension _OpalBase.Network {
 
 extension _OpalBase.Address.Book {
     func commitChainRefresh<Value>(using permit: OpalBase.Network.ChainRefreshMutationPermit?, mutation: () throws -> Value) throws -> Value {
-        if let permit { return try permit.commit(mutation) }
+        if let permit { return try permit.commit {
+            self.isConfirmedFrontierCurrent = false
+            return try mutation()
+        } }
         try Task.checkCancellation()
+        isConfirmedFrontierCurrent = false
         return try mutation()
     }
 }

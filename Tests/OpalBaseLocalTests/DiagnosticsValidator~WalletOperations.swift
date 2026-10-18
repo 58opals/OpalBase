@@ -6,6 +6,7 @@ import Testing
 import OpalBaseTestSupport
 import SwiftFulcrum
 @testable import OpalBase
+@testable import OpalBaseCore
 
 extension DiagnosticsValidator {
     @Test("wallet operations propagate trace IDs into lower diagnostics")

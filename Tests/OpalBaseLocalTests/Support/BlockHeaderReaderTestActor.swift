@@ -2,6 +2,7 @@
 
 import Foundation
 @testable import OpalBase
+@testable import OpalBaseCore
 
 actor BlockHeaderReaderTestActor: OpalBase.Network.BlockHeaderReadable {
     private let snapshots: [OpalBase.Network.BlockHeaderSnapshot]

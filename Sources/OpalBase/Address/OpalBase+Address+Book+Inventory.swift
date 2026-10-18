@@ -3,8 +3,13 @@
 import Foundation
 
 extension _OpalBase.Address.Book {
-    struct Inventory {
-        struct MosaicReservationOwner: Equatable, Sendable {
+    package struct Inventory {
+        package struct MosaicReservationOwner: Equatable, Sendable {
+            package init(identifier: UUID, generation: UInt64) {
+                self.identifier = identifier
+                self.generation = generation
+            }
+
             let identifier: UUID
             let generation: UInt64
         }
@@ -33,7 +38,7 @@ extension _OpalBase.Address.Book {
             cache.isValid(currentDate: currentDate, validityDuration: cacheValidityDurationValue)
         }
         
-        func listEntries(for usage: OpalBase.Key.DerivationPath.Usage) -> [Entry] {
+        package func listEntries(for usage: OpalBase.Key.DerivationPath.Usage) -> [Entry] {
             bucket.fetchEntries(for: usage)
         }
         
@@ -57,7 +62,7 @@ extension _OpalBase.Address.Book {
             locateEntry(for: address) != nil
         }
         
-        func findEntry(for address: OpalBase.Address) -> Entry? {
+        package func findEntry(for address: OpalBase.Address) -> Entry? {
             guard let location = locateEntry(for: address) else { return nil }
             return bucket.fetchEntry(at: location.index, usage: location.usage)
         }
@@ -111,7 +116,7 @@ extension _OpalBase.Address.Book {
             }
         }
         
-        mutating func releaseReservation(address: OpalBase.Address, shouldKeepUsed: Bool) throws -> Entry {
+        package mutating func releaseReservation(address: OpalBase.Address, shouldKeepUsed: Bool) throws -> Entry {
             try requireNoMosaicReservation(address: address)
             return try updateEntry(for: address) { entry in
                 entry.isUsed = shouldKeepUsed
@@ -119,7 +124,7 @@ extension _OpalBase.Address.Book {
             }
         }
 
-        mutating func reserveMosaicEntry(
+        package mutating func reserveMosaicEntry(
             address: OpalBase.Address,
             ownedBy owner: MosaicReservationOwner
         ) throws -> Entry {
@@ -129,7 +134,7 @@ extension _OpalBase.Address.Book {
             return entry
         }
 
-        mutating func retireMosaicEntry(
+        package mutating func retireMosaicEntry(
             address: OpalBase.Address,
             ownedBy owner: MosaicReservationOwner
         ) throws -> Entry {

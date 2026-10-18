@@ -2,6 +2,7 @@ import Foundation
 import Testing
 import OpalBaseTestSupport
 @testable import OpalBase
+@testable import OpalBaseCore
 
 private typealias ReadinessMonitor = OpalBase.Wallet.Fulcrum.Monitor
 private typealias ReadinessObservation = ReadinessMonitor.Observation

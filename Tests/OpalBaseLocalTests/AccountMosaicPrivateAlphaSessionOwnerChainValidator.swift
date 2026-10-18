@@ -6,6 +6,7 @@ import OpalCrypto
 @_spi(MosaicPrivateAlpha) import OpalFusion
 import Testing
 @_spi(MosaicPrivateAlpha) @testable import OpalBase
+@testable import OpalBaseCore
 
 @Suite("OpalBase.Account Mosaic session-owner chain recovery", .tags(.unit, .wallet))
 struct AccountMosaicPrivateAlphaSessionOwnerChainValidator {

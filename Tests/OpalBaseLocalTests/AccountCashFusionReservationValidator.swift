@@ -5,6 +5,7 @@ import Foundation
 import OpalFusion
 import Testing
 @testable import OpalBase
+@testable import OpalBaseCore
 
 @Suite("OpalBase.Account CashFusion preparation", .tags(.unit, .wallet))
 struct AccountCashFusionReservationValidator {

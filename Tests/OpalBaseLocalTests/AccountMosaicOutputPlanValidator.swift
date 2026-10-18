@@ -3,6 +3,7 @@
 #if os(macOS)
 import Testing
 @_spi(MosaicPrivateAlpha) @testable import OpalBase
+@testable import OpalBaseCore
 
 @Suite("Mosaic output planning", .tags(.unit, .wallet))
 struct AccountMosaicOutputPlanValidator {

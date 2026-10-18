@@ -4,13 +4,13 @@ import Foundation
 
 extension _OpalBase.Key.PublicKey {
     public struct Hash {
-        let data: Data
+        package let data: Data
         
-        init(_ data: Data) {
+        package init(_ data: Data) {
             self.data = Data(data)
         }
         
-        init(publicKey: OpalBase.Key.PublicKey) {
+        package init(publicKey: OpalBase.Key.PublicKey) {
             self.init(publicKey.hash)
         }
     }

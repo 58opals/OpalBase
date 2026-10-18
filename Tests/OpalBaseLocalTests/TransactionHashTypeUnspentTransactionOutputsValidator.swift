@@ -5,6 +5,7 @@ import OpalCrypto
 import Testing
 import OpalBaseTestSupport
 @testable import OpalBase
+@testable import OpalBaseCore
 
 @Suite("OpalBase.Transaction hash type unspent transaction outputs", .tags(.unit))
 struct TransactionHashTypeUnspentTransactionOutputsValidator {

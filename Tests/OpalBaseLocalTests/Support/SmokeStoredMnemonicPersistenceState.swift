@@ -1,6 +1,7 @@
 // SmokeStoredMnemonicPersistenceState.swift
 
 @testable import OpalBase
+@testable import OpalBaseCore
 
 actor SmokeStoredMnemonicPersistenceState {
     private var state: (

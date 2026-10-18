@@ -4,6 +4,7 @@ import Foundation
 import Testing
 import OpalBaseTestSupport
 @testable import OpalBase
+@testable import OpalBaseCore
 
 @Suite("Wallet trust-domain interactors", .tags(.unit, .wallet))
 struct WalletTrustDomainInteractorValidator {

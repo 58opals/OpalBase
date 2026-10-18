@@ -2,6 +2,7 @@
 
 import Foundation
 @testable import OpalBase
+@testable import OpalBaseCore
 
 struct AddressReaderClient: OpalBase.Network.AddressReadable {
     let unspentByAddress: [String: [OpalBase.Transaction.Output.Unspent]]

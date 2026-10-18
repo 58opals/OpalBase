@@ -6,6 +6,7 @@ import Testing
 import OpalBaseTestSupport
 import SwiftFulcrum
 @testable import OpalBase
+@testable import OpalBaseCore
 
 extension DiagnosticsValidator {
     @Test("recent diagnostics redact sensitive values and use safe field names")

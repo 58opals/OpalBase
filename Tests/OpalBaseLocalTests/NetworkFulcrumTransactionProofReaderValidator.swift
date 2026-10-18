@@ -5,6 +5,7 @@ import Testing
 import SwiftFulcrum
 import OpalBaseTestSupport
 @testable import OpalBase
+@testable import OpalBaseCore
 
 @Suite("OpalBase.Network.Fulcrum.TransactionProofReader", .tags(.unit, .network))
 struct NetworkFulcrumTransactionProofReaderValidator {

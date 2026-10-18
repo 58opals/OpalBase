@@ -7,6 +7,7 @@ import OpalFusion
 @testable import CashFusionEngine
 import Testing
 @testable import OpalBase
+@testable import OpalBaseCore
 
 @Suite("OpalBase.Account CashFusion participant reservation source", .tags(.unit, .wallet))
 struct AccountCashFusionParticipantReservationSourceValidator {

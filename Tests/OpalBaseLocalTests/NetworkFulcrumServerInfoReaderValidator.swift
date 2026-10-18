@@ -5,6 +5,7 @@ import Testing
 import SwiftFulcrum
 import OpalBaseTestSupport
 @testable import OpalBase
+@testable import OpalBaseCore
 
 @Suite("OpalBase.Network.Fulcrum.ServerInfoReader", .tags(.unit, .network))
 struct NetworkFulcrumServerInfoReaderValidator {

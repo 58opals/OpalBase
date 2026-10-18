@@ -3,7 +3,7 @@
 import Foundation
 
 extension _OpalBase.Address.Book {
-    enum Error: Swift.Error, Sendable {
+    package enum Error: Swift.Error, Sendable {
         case indexOutOfBounds
         
         case privateKeyNotFound
@@ -73,7 +73,7 @@ extension _OpalBase.Address.Book {
 }
 
 extension _OpalBase.Address.Book.Error: Equatable {
-    static func == (lhs: OpalBase.Address.Book.Error, rhs: OpalBase.Address.Book.Error) -> Bool {
+    package static func == (lhs: OpalBase.Address.Book.Error, rhs: OpalBase.Address.Book.Error) -> Bool {
         switch (lhs, rhs) {
         case (.indexOutOfBounds, .indexOutOfBounds),
             (.privateKeyNotFound, .privateKeyNotFound),

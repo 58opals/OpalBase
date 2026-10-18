@@ -3,7 +3,7 @@
 import Foundation
 
 extension _OpalBase.Transaction {
-    func calculateFee(feePerByte: UInt64 = 1) throws -> UInt64 {
+    package func calculateFee(feePerByte: UInt64 = 1) throws -> UInt64 {
         let size = try estimateSize()
         return try Self.makeFee(size: size, feePerByte: feePerByte)
     }

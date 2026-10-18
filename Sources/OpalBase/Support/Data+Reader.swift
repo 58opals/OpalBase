@@ -4,7 +4,7 @@ import Foundation
 
 extension Data {
     struct Reader {
-        let data: Data
+        package let data: Data
         private let startIndex: Data.Index
         private(set) var index: Data.Index
         

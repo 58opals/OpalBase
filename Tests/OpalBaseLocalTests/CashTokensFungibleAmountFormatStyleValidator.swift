@@ -2,6 +2,7 @@
 
 import Testing
 @testable import OpalBase
+@testable import OpalBaseCore
 
 @Suite("CashTokens fungible amount format style", .tags(.unit, .cashTokens))
 struct CashTokensFungibleAmountFormatStyleValidator {

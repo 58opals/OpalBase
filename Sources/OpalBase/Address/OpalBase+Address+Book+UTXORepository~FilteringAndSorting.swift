@@ -3,7 +3,7 @@
 import Foundation
 
 extension _OpalBase.Address.Book.UTXORepository {
-    func listUTXOs() -> Set<OpalBase.Transaction.Output.Unspent> {
+    package func listUTXOs() -> Set<OpalBase.Transaction.Output.Unspent> {
         allUTXOs
     }
     
@@ -11,7 +11,7 @@ extension _OpalBase.Address.Book.UTXORepository {
         spendableUTXOs.sorted { $0.compareOrder(before: $1) }
     }
     
-    func listUTXOs(for address: OpalBase.Address) -> [OpalBase.Transaction.Output.Unspent] {
+    package func listUTXOs(for address: OpalBase.Address) -> [OpalBase.Transaction.Output.Unspent] {
         let lockingScript = address.lockingScript.data
         guard let utxos = utxosByLockingScript[lockingScript] else {
             return .init()

@@ -6,6 +6,7 @@ import OpalDiagnostics
 import SwiftFulcrum
 import Testing
 @testable import OpalBase
+@testable import OpalBaseCore
 
 @Suite("Dependency upgrade compatibility", .tags(.unit))
 struct DependencyUpgradeCompatibilityValidator {

@@ -3,6 +3,7 @@
 import Foundation
 import Testing
 @testable import OpalBase
+@testable import OpalBaseCore
 
 @Suite("Collection concurrency", .tags(.unit))
 struct CollectionConcurrencyValidator {

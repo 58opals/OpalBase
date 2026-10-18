@@ -3,6 +3,7 @@
 import Foundation
 import Testing
 @testable import OpalBase
+@testable import OpalBaseCore
 
 @Suite("OpalBase.Transaction.Hash", .tags(.unit))
 struct TransactionHashValidator {

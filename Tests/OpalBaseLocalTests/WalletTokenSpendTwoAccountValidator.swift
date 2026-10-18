@@ -2,6 +2,7 @@ import Foundation
 import Testing
 import OpalBaseTestSupport
 @testable import OpalBase
+@testable import OpalBaseCore
 
 @Suite("Wallet two-account token spend", .tags(.unit, .wallet, .cashTokens))
 struct WalletTokenSpendTwoAccountValidator {

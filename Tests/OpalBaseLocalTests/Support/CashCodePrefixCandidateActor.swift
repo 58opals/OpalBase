@@ -1,6 +1,7 @@
 // CashCodePrefixCandidateActor.swift
 
 @testable import OpalBase
+@testable import OpalBaseCore
 
 actor CashCodePrefixCandidateActor {
     private let candidates: [OpalBase.Transaction]

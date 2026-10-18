@@ -10,7 +10,7 @@ extension OpalBase {
         case p2ms(numberOfRequiredSignatures: Int, publicKeys: [OpalBase.Key.PublicKey])
         case p2sh(scriptHash: Data)
         
-        var data: Data {
+        package var data: Data {
             switch self {
             case .p2pk(let publicKey):
                 var data = Data()

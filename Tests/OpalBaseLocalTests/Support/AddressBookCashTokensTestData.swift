@@ -4,6 +4,7 @@ import Foundation
 import OpalBaseTestSupport
 import Testing
 @testable import OpalBase
+@testable import OpalBaseCore
 
 enum AddressBookCashTokensTestData {
     static func makeAddressBook() async throws -> OpalBase.Address.Book {

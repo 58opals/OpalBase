@@ -6,6 +6,7 @@ import Testing
 import OpalBaseTestSupport
 import SwiftFulcrum
 @testable import OpalBase
+@testable import OpalBaseCore
 
 extension DiagnosticsValidator {
     @Test("public diagnostics catalog exposes stable names")

@@ -3,6 +3,7 @@
 import Foundation
 import Testing
 @testable import OpalBase
+@testable import OpalBaseCore
 
 @Suite("OpalBase.Account token transaction review", .tags(.unit, .wallet, .cashTokens))
 struct AccountTokenTransactionReviewValidator {

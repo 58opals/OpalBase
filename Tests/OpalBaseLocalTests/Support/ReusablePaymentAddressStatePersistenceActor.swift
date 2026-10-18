@@ -1,6 +1,7 @@
 // ReusablePaymentAddressStatePersistenceActor.swift
 
 @testable import OpalBase
+@testable import OpalBaseCore
 
 actor ReusablePaymentAddressStatePersistenceActor {
     private var state: OpalBase.ReusablePaymentAddress.RestorationState?

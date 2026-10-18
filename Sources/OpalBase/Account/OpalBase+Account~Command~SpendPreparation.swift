@@ -7,6 +7,11 @@ import OpalDiagnostics
 extension _OpalBase.Account {
     public func prepareSpend(_ payment: Payment,
                              feePolicy: OpalBase.Wallet.FeePolicy = .init()) async throws -> SpendPlan {
+        try await prepareSpend(payment, feePolicy: feePolicy, boundedChangeEntry: nil, boundedFrontier: nil)
+    }
+
+    func prepareSpend(_ payment: Payment, feePolicy: OpalBase.Wallet.FeePolicy,
+                      boundedChangeEntry: OpalBase.Address.Book.Entry?, boundedFrontier: OpalBase.ConfirmedAddressFrontier?) async throws -> SpendPlan {
         try await OpalDiagnostics.withTraceID {
             let fields = [
                 OpalDiagnostics.Field.operation("spend_prepare"),
@@ -28,15 +33,22 @@ extension _OpalBase.Account {
                 let fundingPreparation = try await prepareBCHSpendFunding(
                     for: payment,
                     outputPreparation: outputPreparation,
-                    feePolicy: feePolicy
+                    feePolicy: feePolicy,
+                    preferredChangeEntry: boundedChangeEntry
                 )
 
                 let (reservation, reservedChangeEntry, signingKeys) = try await reserveSpendAndDeriveSigningKeys(
                     utxos: fundingPreparation.inputs,
                     changeEntry: fundingPreparation.changeEntry,
                     tokenSelectionPolicy: .excludeTokenUTXOs,
+                    reuseMatchingReservation: boundedChangeEntry == nil,
+                    requiresExactChangeEntry: boundedChangeEntry != nil,
                     mapReservationError: { Error.coinSelectionFailed($0) }
                 )
+                if let boundedFrontier {
+                    do { try await addressBook.bindBoundedReservation(reservation, frontier: boundedFrontier) }
+                    catch { try await addressBook.releaseSpendReservation(reservation, outcome: .cancelled); throw error }
+                }
                 let reservationHandle = OpalBase.Account.SpendReservation(addressBook: addressBook, reservation: reservation)
                 let changeOutput = OpalBase.Transaction.Output(value: fundingPreparation.initialChangeValue, address: reservedChangeEntry.address)
 
@@ -213,12 +225,15 @@ private extension _OpalBase.Account {
     func prepareBCHSpendFunding(
         for payment: Payment,
         outputPreparation: BCHSpendOutputPreparation,
-        feePolicy: OpalBase.Wallet.FeePolicy
+        feePolicy: OpalBase.Wallet.FeePolicy,
+        preferredChangeEntry: OpalBase.Address.Book.Entry? = nil
     ) async throws -> BCHSpendFundingPreparation {
         let targetAmount = outputPreparation.targetAmount
         let feeRate = outputPreparation.feeRate
         let organizedRecipientOutputs = outputPreparation.recipientOutputs
-        let changeEntry = try await addressBook.selectNextEntry(for: .change)
+        let changeEntry: OpalBase.Address.Book.Entry
+        if let preferredChangeEntry { changeEntry = preferredChangeEntry }
+        else { changeEntry = try await addressBook.selectNextEntry(for: .change) }
 
         let coinSelectionConfiguration = OpalBase.Address.Book.CoinSelection.Configuration(
             recipientOutputs: organizedRecipientOutputs,

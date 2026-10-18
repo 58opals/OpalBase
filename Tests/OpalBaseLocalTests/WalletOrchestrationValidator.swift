@@ -7,6 +7,7 @@ import OpalBaseTestSupport
 import OpalFusion
 #endif
 @testable import OpalBase
+@testable import OpalBaseCore
 
 @Suite("OpalBase.Wallet orchestration", .tags(.unit, .wallet))
 struct WalletOrchestrationValidator {

@@ -2,6 +2,7 @@
 
 import Foundation
 @testable import OpalBase
+@testable import OpalBaseCore
 
 enum WalletFulcrumAddressMonitorSupport {
     private enum TimeoutError: Swift.Error, Sendable {

@@ -5,6 +5,7 @@ import Foundation
 import OpalFusion
 import Testing
 @testable import OpalBase
+@testable import OpalBaseCore
 
 extension AccountMosaicTransactionHostValidator {
     @Test("A network environment cannot accept another network's genesis hash")

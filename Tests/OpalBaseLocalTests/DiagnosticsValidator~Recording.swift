@@ -6,6 +6,7 @@ import Testing
 import OpalBaseTestSupport
 import SwiftFulcrum
 @testable import OpalBase
+@testable import OpalBaseCore
 
 extension DiagnosticsValidator {
     @Test("trace convenience scopes preserve main actor captures")

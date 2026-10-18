@@ -5,6 +5,7 @@ import Testing
 import SwiftFulcrum
 import OpalBaseTestSupport
 @testable import OpalBase
+@testable import OpalBaseCore
 
 @Suite("OpalBase.Network.Fulcrum.MempoolReader", .tags(.unit, .network))
 struct NetworkFulcrumMempoolReaderValidator {

@@ -5,6 +5,7 @@ import Foundation
 import OpalFusion
 import Testing
 @_spi(MosaicPrivateAlpha) @testable import OpalBase
+@testable import OpalBaseCore
 
 @Suite("OpalBase.Account Mosaic attempt journal", .tags(.unit, .wallet))
 struct AccountMosaicAttemptJournalValidator {

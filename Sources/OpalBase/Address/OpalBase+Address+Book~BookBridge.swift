@@ -3,20 +3,20 @@
 import Foundation
 
 extension _OpalBase.Address.Book {
-    func reserveUTXOs(_ utxos: Set<OpalBase.Transaction.Output.Unspent>) throws {
+    package func reserveUTXOs(_ utxos: Set<OpalBase.Transaction.Output.Unspent>) throws {
         try utxoStore.reserve(utxos)
     }
     
-    func reserveUTXOs(_ utxos: Set<OpalBase.Transaction.Output.Unspent>,
+    package func reserveUTXOs(_ utxos: Set<OpalBase.Transaction.Output.Unspent>,
                       tokenSelectionPolicy: OpalBase.Address.Book.CoinSelection.TokenSelectionPolicy) throws {
         try utxoStore.reserve(utxos, tokenSelectionPolicy: tokenSelectionPolicy)
     }
     
-    func releaseUTXOs(_ utxos: Set<OpalBase.Transaction.Output.Unspent>) {
+    package func releaseUTXOs(_ utxos: Set<OpalBase.Transaction.Output.Unspent>) {
         utxoStore.release(utxos)
     }
 
-    func quarantineMosaicOutpoints(
+    package func quarantineMosaicOutpoints(
         _ outpoints: Set<UTXORepository.Outpoint>,
         ownerIdentifier: UUID,
         ownerGeneration: UInt64
@@ -28,7 +28,7 @@ extension _OpalBase.Address.Book {
         )
     }
 
-    func releaseMosaicOutpointQuarantine(
+    package func releaseMosaicOutpointQuarantine(
         ownerIdentifier: UUID,
         ownerGeneration: UInt64
     ) {
@@ -46,15 +46,15 @@ extension _OpalBase.Address.Book {
         utxoStore.add(utxos)
     }
     
-    func listUTXOs() -> Set<OpalBase.Transaction.Output.Unspent> {
+    package func listUTXOs() -> Set<OpalBase.Transaction.Output.Unspent> {
         utxoStore.listUTXOs()
     }
     
-    func listSpendableUTXOs() -> [OpalBase.Transaction.Output.Unspent] {
+    package func listSpendableUTXOs() -> [OpalBase.Transaction.Output.Unspent] {
         utxoStore.listSpendableUTXOs()
     }
     
-    func listUTXOs(for address: OpalBase.Address) -> [OpalBase.Transaction.Output.Unspent] {
+    package func listUTXOs(for address: OpalBase.Address) -> [OpalBase.Transaction.Output.Unspent] {
         utxoStore.listUTXOs(for: address)
     }
     
@@ -106,7 +106,7 @@ extension _OpalBase.Address.Book {
         utxoStore.replace(for: address, with: utxos)
     }
 
-    func removeUTXO(_ utxo: OpalBase.Transaction.Output.Unspent) {
+    package func removeUTXO(_ utxo: OpalBase.Transaction.Output.Unspent) {
         utxoStore.remove(utxo)
     }
     

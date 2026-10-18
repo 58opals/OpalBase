@@ -58,7 +58,7 @@ extension _OpalBase.Address.Book {
         return try makeAddress(fromCompressedPublicKey: derivedPublicKey.publicKey.rawRepresentation)
     }
     
-    func generatePrivateKey(at index: UInt32, for usage: OpalBase.Key.DerivationPath.Usage) throws -> Data {
+    package func generatePrivateKey(at index: UInt32, for usage: OpalBase.Key.DerivationPath.Usage) throws -> Data {
         let derivationPath = try createDerivationPath(usage: usage, index: index)
 
         if let cachedUsageDerivation = usageDerivationCache[usage] {
@@ -71,7 +71,7 @@ extension _OpalBase.Address.Book {
         return privateKey.rawRepresentation
     }
 
-    func generateSigningKey(at index: UInt32, for usage: OpalBase.Key.DerivationPath.Usage) throws -> OpalBase.Key.SigningKey {
+    package func generateSigningKey(at index: UInt32, for usage: OpalBase.Key.DerivationPath.Usage) throws -> OpalBase.Key.SigningKey {
         let derivationPath = try createDerivationPath(usage: usage, index: index)
 
         if let cachedUsageDerivation = usageDerivationCache[usage] {

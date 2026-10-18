@@ -5,6 +5,7 @@ import Foundation
 import OpalFusion
 import Testing
 @testable import OpalBase
+@testable import OpalBaseCore
 
 @Suite("OpalBase.Account Mosaic transaction broadcast coordinator", .tags(.unit, .wallet))
 struct AccountMosaicTransactionBroadcastCoordinatorValidator {

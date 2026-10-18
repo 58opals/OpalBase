@@ -5,6 +5,7 @@ import OpalCrypto
 import Testing
 import OpalBaseTestSupport
 @testable import OpalBase
+@testable import OpalBaseCore
 
 @Suite("Bitcoin Cash Metadata Registry", .tags(.unit, .cashTokens), .serialized)
 struct BitcoinCashMetadataRegistryValidator {

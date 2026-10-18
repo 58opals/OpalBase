@@ -2,6 +2,7 @@
 
 import Foundation
 @testable import OpalBase
+@testable import OpalBaseCore
 
 actor WalletAddressReaderTestActor: OpalBase.Network.AddressReadable {
     private let balancesByAddress: [String: OpalBase.Network.AddressBalance]

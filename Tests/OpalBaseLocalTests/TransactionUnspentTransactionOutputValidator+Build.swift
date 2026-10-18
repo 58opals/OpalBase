@@ -4,6 +4,7 @@ import Foundation
 import OpalCrypto
 import Testing
 @testable import OpalBase
+@testable import OpalBaseCore
 
 extension TransactionUnspentTransactionOutputValidator {
     @Test("build rejects empty input set")

@@ -3,15 +3,15 @@
 import Foundation
 
 extension _OpalBase.Address.Book {
-    struct Entry {
-        let address: OpalBase.Address
-        let derivationPath: OpalBase.Key.DerivationPath
+    package struct Entry {
+        package let address: OpalBase.Address
+        package let derivationPath: OpalBase.Key.DerivationPath
         let createdAt: Date
-        var isUsed: Bool
-        var isReserved: Bool
+        package var isUsed: Bool
+        package var isReserved: Bool
         var cache: Cache
         
-        init(address: OpalBase.Address,
+        package init(address: OpalBase.Address,
              derivationPath: OpalBase.Key.DerivationPath,
              createdAt: Date = .init(),
              isUsed: Bool,
@@ -40,7 +40,7 @@ extension _OpalBase.Address.Book {
 
 // MARK: - Generate
 extension _OpalBase.Address.Book {
-    func generateEntriesIfNeeded(for usage: OpalBase.Key.DerivationPath.Usage) async throws {
+    package func generateEntriesIfNeeded(for usage: OpalBase.Key.DerivationPath.Usage) async throws {
         let numberOfRemainingUnusedEntries = inventory.listEntries(for: usage)
             .reversed()
             .prefix { !$0.isUsed }
@@ -55,7 +55,7 @@ extension _OpalBase.Address.Book {
                                   isUsed: false)
     }
     
-    func generateEntries(for usage: OpalBase.Key.DerivationPath.Usage,
+    package func generateEntries(for usage: OpalBase.Key.DerivationPath.Usage,
                          entryCount: Int,
                          isUsed: Bool,
                          shouldNotifyNewEntries: Bool = true) async throws {
@@ -176,7 +176,7 @@ extension _OpalBase.Address.Book {
         return nextEntry
     }
     
-    func reserveNextEntry(for usage: OpalBase.Key.DerivationPath.Usage) async throws -> Entry {
+    package func reserveNextEntry(for usage: OpalBase.Key.DerivationPath.Usage) async throws -> Entry {
         let nextEntry = try await selectNextEntry(for: usage)
         return try await reserveEntryMaintainingGap(nextEntry)
     }

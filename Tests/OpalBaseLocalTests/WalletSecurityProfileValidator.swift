@@ -3,6 +3,7 @@
 import Foundation
 import Testing
 @testable import OpalBase
+@testable import OpalBaseCore
 
 @Suite("Wallet security profile", .tags(.unit, .wallet))
 struct WalletSecurityProfileValidator {

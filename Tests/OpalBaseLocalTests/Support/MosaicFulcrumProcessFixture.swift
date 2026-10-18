@@ -5,6 +5,7 @@ import Foundation
 import Network
 import Testing
 @_spi(MosaicPrivateAlpha) @testable import OpalBase
+@testable import OpalBaseCore
 
 enum MosaicFulcrumProcessFixture {
     enum Presence: Equatable {

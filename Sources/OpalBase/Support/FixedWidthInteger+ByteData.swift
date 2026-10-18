@@ -3,7 +3,7 @@
 import Foundation
 
 extension FixedWidthInteger {
-    var data: Data {
+    package var data: Data {
         var value = self
         return withUnsafeBytes(of: &value) { Data($0) }
     }

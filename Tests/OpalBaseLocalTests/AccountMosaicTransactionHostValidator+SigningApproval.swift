@@ -6,6 +6,7 @@ import OpalFusion
 import Synchronization
 import Testing
 @_spi(MosaicPrivateAlpha) @testable import OpalBase
+@testable import OpalBaseCore
 
 extension AccountMosaicTransactionHostValidator {
     @Test("Application approval receives the validated proposal before any signature", .timeLimit(.minutes(1)))

@@ -4,6 +4,7 @@ import Foundation
 import Security
 import Testing
 @testable import OpalBase
+@testable import OpalBaseCore
 
 extension StoragePersistenceValidator {
     @Test("ciphertexts normalize sliced payload data")

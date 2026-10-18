@@ -1,6 +1,7 @@
 // GenerationSnapshotPersistenceState.swift
 
 @testable import OpalBase
+@testable import OpalBaseCore
 
 actor GenerationSnapshotPersistenceState {
     private var walletSnapshots: [String: OpalBase.Wallet.Snapshot] = .init()

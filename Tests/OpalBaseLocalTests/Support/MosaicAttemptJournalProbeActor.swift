@@ -3,6 +3,7 @@
 #if os(macOS)
 import Foundation
 @_spi(MosaicPrivateAlpha) @testable import OpalBase
+@testable import OpalBaseCore
 
 actor MosaicAttemptJournalProbeActor {
     private static let authenticationKeyData = Data(repeating: 0x7a, count: 32)

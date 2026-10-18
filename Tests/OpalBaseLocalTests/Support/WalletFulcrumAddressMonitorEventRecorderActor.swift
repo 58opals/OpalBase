@@ -2,6 +2,7 @@
 
 import Foundation
 @testable import OpalBase
+@testable import OpalBaseCore
 
 actor WalletFulcrumAddressMonitorEventRecorderActor {
     private var events: [OpalBase.Wallet.Fulcrum.Monitor.Event] = .init()

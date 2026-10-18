@@ -4,7 +4,7 @@ import Foundation
 
 extension _OpalBase.Transaction {
     public struct Hash {
-        static let expectedByteCount = 32
+        package static let expectedByteCount = 32
         public let originalData: Data
         
         // Initializer for data received in natural order (little-endian)

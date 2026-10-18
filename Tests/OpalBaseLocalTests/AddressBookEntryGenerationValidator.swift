@@ -7,6 +7,7 @@ import OpalBaseTestSupport
 import Synchronization
 import Testing
 @testable import OpalBase
+@testable import OpalBaseCore
 
 @Suite("OpalBase.Address.Book Entry Generation", .tags(.unit, .address))
 struct AddressBookEntryGenerationValidator {

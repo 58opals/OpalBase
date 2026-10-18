@@ -3,6 +3,7 @@
 import Foundation
 import Testing
 @testable import OpalBase
+@testable import OpalBaseCore
 
 @Suite("OpalBase.Network.TransactionReader", .tags(.unit, .network, .transaction))
 struct NetworkTransactionReaderValidator {

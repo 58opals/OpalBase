@@ -6,7 +6,7 @@ extension _OpalBase.Address.Book {
     typealias AddressBookSnapshotTransactionHistory = OpalBase.Transaction.History
 
     struct Snapshot: Codable, Equatable, Hashable, Sendable {
-        struct Entry: Codable, Equatable, Hashable, Sendable {
+        package struct Entry: Codable, Equatable, Hashable, Sendable {
             let usage: OpalBase.Key.DerivationPath.Usage
             let index: UInt32
             let isUsed: Bool
@@ -14,7 +14,7 @@ extension _OpalBase.Address.Book {
             let balance: UInt64?
             let lastUpdated: Date?
 
-            init(usage: OpalBase.Key.DerivationPath.Usage,
+            package init(usage: OpalBase.Key.DerivationPath.Usage,
                         index: UInt32,
                         isUsed: Bool,
                         isReserved: Bool,

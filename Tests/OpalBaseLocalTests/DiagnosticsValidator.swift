@@ -6,6 +6,7 @@ import Testing
 import OpalBaseTestSupport
 import SwiftFulcrum
 @testable import OpalBase
+@testable import OpalBaseCore
 
 @Suite("OpalBase diagnostics", .tags(.unit, .wallet))
 struct DiagnosticsValidator {

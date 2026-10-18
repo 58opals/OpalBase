@@ -3,6 +3,7 @@
 import Foundation
 import Testing
 @testable import OpalBase
+@testable import OpalBaseCore
 
 @Suite("Wallet token metadata sync", .tags(.unit, .cashTokens), .serialized)
 struct WalletTokenMetadataSyncValidator {

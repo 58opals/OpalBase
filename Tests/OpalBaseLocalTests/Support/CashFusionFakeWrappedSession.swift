@@ -4,6 +4,7 @@ import OpalDiagnostics
 #if os(macOS)
 import OpalFusion
 @testable import OpalBase
+@testable import OpalBaseCore
 
 actor CashFusionFakeWrappedSession: OpalBase.Account.CashFusionWrappedSession {
     private let stateObserver: (any OpalFusion.Client.StateObserver)?

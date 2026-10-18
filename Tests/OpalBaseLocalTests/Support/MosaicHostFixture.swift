@@ -5,6 +5,7 @@ import Foundation
 import OpalFusion
 import Testing
 @_spi(MosaicPrivateAlpha) @testable import OpalBase
+@testable import OpalBaseCore
 
 struct MosaicHostFixture {
     let account: OpalBase.Account

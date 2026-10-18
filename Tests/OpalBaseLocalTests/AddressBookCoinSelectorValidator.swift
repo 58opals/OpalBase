@@ -4,6 +4,7 @@ import Foundation
 import Testing
 import OpalBaseTestSupport
 @testable import OpalBase
+@testable import OpalBaseCore
 
 @Suite("OpalBase.Address.Book Coin Selector", .tags(.unit, .address))
 struct AddressBookCoinSelectorValidator {

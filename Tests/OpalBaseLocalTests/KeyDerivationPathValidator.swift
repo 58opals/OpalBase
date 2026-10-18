@@ -3,6 +3,7 @@
 import Testing
 import OpalBaseTestSupport
 @testable import OpalBase
+@testable import OpalBaseCore
 
 @Suite("OpalBase.Key.DerivationPath", .tags(.unit))
 struct KeyDerivationPathValidator {

@@ -4,6 +4,7 @@ import Foundation
 import OpalCrypto
 import Testing
 @testable import OpalBase
+@testable import OpalBaseCore
 
 @Suite("Claimable transaction builder", .tags(.unit))
 struct ClaimableTransactionBuilderValidator {

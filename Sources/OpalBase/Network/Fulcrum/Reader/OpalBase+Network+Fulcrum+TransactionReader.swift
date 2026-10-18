@@ -119,7 +119,7 @@ extension _OpalBase.Network.Fulcrum {
         }
 
         /// Performs an uncached exact read for recovery and reorganization decisions.
-        func fetchFreshDetailedTransaction(
+        package func fetchFreshDetailedTransaction(
             for transactionHash: OpalBase.Transaction.Hash
         ) async throws -> OpalBase.Transaction.Detail {
             try await fetchDetailedTransactionUsingVerboseResponse(

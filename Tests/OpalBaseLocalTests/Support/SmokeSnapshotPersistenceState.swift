@@ -1,6 +1,7 @@
 // SmokeSnapshotPersistenceState.swift
 
 @testable import OpalBase
+@testable import OpalBaseCore
 
 actor SmokeSnapshotPersistenceState {
     private var walletSnapshots: [String: OpalBase.Wallet.Snapshot] = [:]

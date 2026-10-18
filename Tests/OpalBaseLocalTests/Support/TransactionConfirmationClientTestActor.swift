@@ -2,6 +2,7 @@
 
 import Foundation
 @testable import OpalBase
+@testable import OpalBaseCore
 
 actor TransactionConfirmationClientTestActor: OpalBase.Network.TransactionConfirmationClient {
     private let confirmationsByIdentifier: [String: UInt?]

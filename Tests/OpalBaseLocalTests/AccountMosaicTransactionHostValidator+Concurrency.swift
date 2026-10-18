@@ -6,6 +6,7 @@ import Foundation
 import Synchronization
 import Testing
 @testable import OpalBase
+@testable import OpalBaseCore
 
 extension AccountMosaicTransactionHostValidator {
     @Test("Reservation ownership precedes asynchronous preparation", .timeLimit(.minutes(1)))

@@ -5,7 +5,7 @@ public import OpalDiagnostics
 public extension OpalDiagnostics.Category {
     static let wallet = Self(rawValue: "wallet")
     static let account = Self(rawValue: "account")
-    static let addressBook = Self(rawValue: "address_book")
+    package static let addressBook = Self(rawValue: "address_book")
     static let cashFusion = Self(rawValue: "cash_fusion")
     static let transaction = Self(rawValue: "transaction")
     static let claimable = Self(rawValue: "claimable")

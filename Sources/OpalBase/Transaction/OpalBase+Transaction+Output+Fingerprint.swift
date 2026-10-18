@@ -5,7 +5,7 @@ import Foundation
 extension _OpalBase.Transaction.Output {
     struct Fingerprint: Hashable {
         let lockingScript: Data
-        let value: UInt64
+        package let value: UInt64
         let tokenData: OpalBase.CashTokens.TokenData?
 
         init(

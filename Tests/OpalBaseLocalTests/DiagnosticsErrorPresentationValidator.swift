@@ -6,6 +6,7 @@ import OpalBaseTestSupport
 import SwiftFulcrum
 import Testing
 @testable import OpalBase
+@testable import OpalBaseCore
 
 @Suite("Diagnostics error presentation", .tags(.unit, .network))
 struct DiagnosticsErrorPresentationValidator {

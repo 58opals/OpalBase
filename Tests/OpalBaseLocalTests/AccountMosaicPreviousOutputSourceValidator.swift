@@ -6,6 +6,7 @@ import OpalCrypto
 import OpalFusion
 import Testing
 @testable import OpalBase
+@testable import OpalBaseCore
 
 @Suite(
     "OpalBase.Network Mosaic previous-output source",

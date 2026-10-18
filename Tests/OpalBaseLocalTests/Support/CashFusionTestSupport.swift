@@ -5,6 +5,7 @@ import Foundation
 import OpalFusion
 import Testing
 @testable import OpalBase
+@testable import OpalBaseCore
 
 enum CashFusionTestSupport {
     static func makeConfiguration(

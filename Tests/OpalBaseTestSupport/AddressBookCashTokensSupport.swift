@@ -3,6 +3,7 @@
 import Foundation
 import OpalCrypto
 @testable import OpalBase
+@testable import OpalBaseCore
 
 public enum AddressBookCashTokensSupport {
     public static func makeAddressBook() async throws -> OpalBase.Address.Book {

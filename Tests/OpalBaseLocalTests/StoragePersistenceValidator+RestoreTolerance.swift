@@ -3,6 +3,7 @@
 import Foundation
 import Testing
 @testable import OpalBase
+@testable import OpalBaseCore
 
 extension StoragePersistenceValidator {
     @Test("restore tolerates a missing committed wallet snapshot while still restoring mnemonic state")

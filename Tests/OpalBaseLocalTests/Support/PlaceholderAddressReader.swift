@@ -2,6 +2,7 @@
 
 import Foundation
 @testable import OpalBase
+@testable import OpalBaseCore
 
 struct PlaceholderAddressReader: OpalBase.Network.AddressReadable {
     func fetchBalance(

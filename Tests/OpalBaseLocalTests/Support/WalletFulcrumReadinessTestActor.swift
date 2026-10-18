@@ -1,5 +1,6 @@
 import Foundation
 @testable import OpalBase
+@testable import OpalBaseCore
 
 enum WalletFulcrumReadinessTestFailure: Swift.Error, Sendable {
     case forced(String)

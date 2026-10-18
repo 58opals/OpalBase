@@ -4,6 +4,7 @@ import Foundation
 import OpalBaseTestSupport
 import Testing
 @testable import OpalBase
+@testable import OpalBaseCore
 
 @Suite("OpalBase.Address.Book UTXO Refresh (OpalBase.Network)", .tags(.integration, .network, .cashTokens))
 struct AddressBookUnspentTransactionOutputRefreshNetworkValidator {

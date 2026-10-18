@@ -91,6 +91,7 @@ extension _OpalBase.Address.Book {
 
     func acquireSnapshotRefresh() throws -> UUID {
         try requireSnapshotRefreshAccess()
+        guard claimedBCHReservations.isEmpty else { throw OpalBase.BCHSubmissionError.reservationAlreadyClaimed }
         try inventory.requireNoMosaicReservations()
         let owner = UUID()
         snapshotRefreshOwner = owner
@@ -102,7 +103,7 @@ extension _OpalBase.Address.Book {
         snapshotRefreshOwner = nil
     }
 
-    func requireSnapshotRefreshAccess(ownedBy owner: UUID? = nil) throws {
+    package func requireSnapshotRefreshAccess(ownedBy owner: UUID? = nil) throws {
         guard snapshotRefreshOwner == owner else {
             throw Error.snapshotRefreshInProgress
         }
@@ -112,6 +113,7 @@ extension _OpalBase.Address.Book {
         try requireSnapshotRefreshAccess(ownedBy: snapshotRefreshOwner)
         // Snapshot data contains no live reservation authority. It may restore
         // a fresh book, but cannot replace an active Mosaic output lease.
+        guard claimedBCHReservations.isEmpty else { throw OpalBase.BCHSubmissionError.reservationAlreadyClaimed }
         try inventory.requireNoMosaicReservations()
         let entrySnapshots = snapshot.receivingEntries + snapshot.changeEntries
         try validateEntryUsage(in: snapshot.receivingEntries, expected: .receiving)
@@ -156,6 +158,8 @@ extension _OpalBase.Address.Book {
         }
 
         utxoStore.replace(with: Set(restoredUTXOs))
+        confirmedAddressFrontier = nil
+        finalizedBCHTransactions.removeAll()
         clearSpendReservationState()
         transactionLog.reset()
 

@@ -4,6 +4,7 @@ import Foundation
 import OpalCrypto
 import Testing
 @testable import OpalBase
+@testable import OpalBaseCore
 
 enum TokenMetadataSyncFixture {
     static func makeAuthbase(byte: UInt8) throws -> TokenMetadataSyncAuthbaseFixture {

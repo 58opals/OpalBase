@@ -4,6 +4,7 @@ import Foundation
 import Testing
 import OpalBaseTestSupport
 @testable import OpalBase
+@testable import OpalBaseCore
 
 @Suite("Claimable interactor composition", .tags(.unit, .wallet))
 struct ClaimableInteractorValidator {

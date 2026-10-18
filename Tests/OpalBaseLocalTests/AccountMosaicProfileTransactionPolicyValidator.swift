@@ -5,6 +5,7 @@ import Foundation
 import OpalFusion
 import Testing
 @testable import OpalBase
+@testable import OpalBaseCore
 
 @Suite("OpalBase.Account Mosaic profile transaction policy", .tags(.unit, .wallet, .transaction))
 struct AccountMosaicProfileTransactionPolicyValidator {

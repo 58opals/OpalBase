@@ -2,6 +2,7 @@
 
 import Foundation
 @testable import OpalBase
+@testable import OpalBaseCore
 
 actor ReusablePaymentAddressRestorationTransportActor {
     private var confirmedReferences: [

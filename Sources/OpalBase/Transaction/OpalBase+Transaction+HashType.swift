@@ -81,7 +81,7 @@ extension _OpalBase.Transaction {
                      isUnspentTransactionOutputsEnabled: includesUnspentTransactionOutputs)
         }
         
-        var value: UInt32 {
+        package var value: UInt32 {
             let base: UInt32
             switch mode {
             case .all:

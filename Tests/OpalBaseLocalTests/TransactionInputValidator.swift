@@ -3,6 +3,7 @@
 import Foundation
 import Testing
 @testable import OpalBase
+@testable import OpalBaseCore
 
 @Suite("OpalBase.Transaction.Input", .tags(.unit, .transaction))
 struct TransactionInputValidator {

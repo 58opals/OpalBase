@@ -2,6 +2,7 @@
 
 import SwiftFulcrum
 @testable import OpalBase
+@testable import OpalBaseCore
 
 actor TransactionReaderClientTestActor: OpalBase.Network.Fulcrum.TransactionReaderClient {
     private let rawTransactionHex: String

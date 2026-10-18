@@ -5,6 +5,7 @@ import OpalCrypto
 import Testing
 import OpalBaseTestSupport
 @testable import OpalBase
+@testable import OpalBaseCore
 
 @Suite("OpalBase.Account read-only account extended public key runtime", .tags(.unit, .wallet))
 struct AccountReadOnlyRuntimeValidator {

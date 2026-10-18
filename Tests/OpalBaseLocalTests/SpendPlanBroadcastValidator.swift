@@ -4,6 +4,7 @@ import Foundation
 import Testing
 import OpalBaseTestSupport
 @testable import OpalBase
+@testable import OpalBaseCore
 
 @Suite("Spend plan broadcast", .tags(.unit, .wallet, .transaction, .cashTokens))
 struct SpendPlanBroadcastValidator {

@@ -88,7 +88,7 @@ public extension OpalDiagnostics.Field {
         publicValue(Name.usage, diagnosticsName(for: usage))
     }
 
-    static func network(_ network: OpalBase.Network.Environment) -> Self {
+    package static func network(_ network: OpalBase.Network.Environment) -> Self {
         publicValue(Name.network, diagnosticsName(for: network))
     }
 

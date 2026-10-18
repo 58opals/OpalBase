@@ -3,6 +3,7 @@
 import Foundation
 import SwiftFulcrum
 @testable import OpalBase
+@testable import OpalBaseCore
 
 actor TransactionProofClientTestActor: OpalBase.Network.Fulcrum.TransactionProofClient {
     private let merkleResponse: SwiftFulcrum.Response.Blockchain.Transaction.Merkle

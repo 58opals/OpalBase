@@ -15,6 +15,7 @@ let package = Package(
         .library(
             name: "OpalBase",
             targets: ["OpalBase"]),
+        .library(name: "OpalBaseCore", targets: ["OpalBaseCore"]),
     ],
     dependencies: [
         .package(url: "https://github.com/58opals/SwiftFulcrum.git", revision: "154c4b693a75ea746f2a792177f200b501aa4a99"),
@@ -23,27 +24,25 @@ let package = Package(
         .package(url: "https://github.com/58opals/OpalDiagnostics.git", branch: "develop")
     ],
     targets: [
-        .target(name: "OpalBase",
+        .testTarget(name: "OpalBaseCoreTests", dependencies: ["OpalBaseCore"], path: "Tests/OpalBaseCoreTests"),
+        .target(name: "OpalBaseCore",
                 dependencies: [
                     .product(name: "SwiftFulcrum", package: "SwiftFulcrum"),
                     .product(name: "OpalCrypto", package: "OpalCrypto"),
-                    .product(
-                        name: "OpalFusion",
-                        package: "OpalFusion",
-                        condition: .when(platforms: [.macOS])
-                    ),
                     .product(name: "OpalDiagnostics", package: "OpalDiagnostics")
-                ]
+                ], path: "Sources/OpalBase"
                ),
+        .target(name: "OpalBase", dependencies: ["OpalBaseCore", .product(name: "OpalCrypto", package: "OpalCrypto"), .product(name: "OpalDiagnostics", package: "OpalDiagnostics"), .product(name: "OpalFusion", package: "OpalFusion", condition: .when(platforms: [.macOS]))], path: "Sources/OpalBaseCompatibility"),
         .testTarget(
             name: "OpalBaseTestSupport",
-            dependencies: ["OpalBase"],
+            dependencies: ["OpalBase", "OpalBaseCore"],
             path: "Tests/OpalBaseTestSupport"
         ),
         .testTarget(
             name: "OpalBaseLocalTests",
             dependencies: [
                 "OpalBase",
+                "OpalBaseCore",
                 "OpalBaseTestSupport",
                 .product(name: "OpalCrypto", package: "OpalCrypto"),
                 .product(

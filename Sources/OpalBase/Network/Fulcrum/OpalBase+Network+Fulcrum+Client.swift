@@ -21,7 +21,7 @@ extension _OpalBase.Network.Fulcrum {
         }
 
         /// Creates a client whose reconnect path cannot escape the reviewed endpoint set.
-        init(
+        package init(
             privateAlphaConfiguration configuration:
                 OpalBase.Network.Configuration
         ) async throws {

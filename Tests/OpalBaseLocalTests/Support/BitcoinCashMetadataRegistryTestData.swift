@@ -2,6 +2,7 @@
 
 import Foundation
 @testable import OpalBase
+@testable import OpalBaseCore
 
 enum BitcoinCashMetadataRegistryTestData {
     enum FixtureError: Error {

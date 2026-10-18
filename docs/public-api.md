@@ -15,6 +15,12 @@ The construction-bound secret-persistence cleanup is a source-breaking change in
 - Use descriptor-backed surfaces for public-chain sync whenever mnemonic/private account authority is not required.
 - Use [Recipes](recipes.md) for task-shaped examples and [Trust Boundaries](trust-boundaries.md) for security posture.
 
+## Durable ordinary BCH contracts
+
+Select the `OpalBaseCore` product and import `OpalBaseCore` for the ordinary BCH dependency boundary. Existing `import OpalBase` integrations retain the compatibility umbrella. `SpendPlan.review(network:)` freezes an unsigned Schnorr template; `finalize(network:)` signs those exact reviewed outputs once. `claimAndHandoff(_:using:admission:)` combines exact live reservation claim and synchronous transport ownership under caller middleware, while `TransactionRelayAttempt.value()` preserves accepted relay independently of cleanup failure. After affirmative public reconciliation, `completeClaimedReservationAfterReconciliation()` ends the exact claimed invocation and releases local ownership without deleting refreshed UTXOs; the caller retains its durable gate until disposal succeeds.
+
+`Account.refreshConfirmedAddressFrontier`, `boundedReceivingAddress(at:frontier:)`, and `prepareBoundedSpend` provide the fixed twenty-entry receive window and frontier-compatible change candidate. Applications own durable issuance, request identity, policy, continuity, spending restrictions and retained-byte recovery. See [Durable BCH integration](durable-bch.md) for the complete contract and its provider/reorganization limits.
+
 ## Wallet And Account Facades
 
 ### `WalletManagementInteractor`

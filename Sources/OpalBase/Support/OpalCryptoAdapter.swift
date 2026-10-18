@@ -3,7 +3,7 @@
 import Foundation
 import OpalCrypto
 
-enum OpalCryptoAdapter {
+package enum OpalCryptoAdapter {
     enum Error: Swift.Error, Equatable {
         case invalidSerializedExtendedKey
         case invalidSerializedAccountExtendedPublicKey
@@ -20,7 +20,7 @@ enum OpalCryptoAdapter {
         OpalCrypto.Hashing.hash160(data)
     }
 
-    static func hash256(_ data: Data) -> Data {
+    package static func hash256(_ data: Data) -> Data {
         OpalCrypto.Hashing.hash256(data)
     }
 

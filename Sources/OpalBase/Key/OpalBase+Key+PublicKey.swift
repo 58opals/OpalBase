@@ -17,7 +17,7 @@ extension _OpalBase.Key {
             }
         }
 
-        init(privateKeyData: Data) throws {
+        package init(privateKeyData: Data) throws {
             self.compressedData = try OpalCryptoAdapter.deriveCompressedPublicKey(from: privateKeyData)
         }
     }

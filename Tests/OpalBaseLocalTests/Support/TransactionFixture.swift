@@ -4,6 +4,7 @@ import Foundation
 import SwiftFulcrum
 import OpalBaseTestSupport
 @testable import OpalBase
+@testable import OpalBaseCore
 
 struct TransactionFixture {
     let transactionHash: OpalBase.Transaction.Hash

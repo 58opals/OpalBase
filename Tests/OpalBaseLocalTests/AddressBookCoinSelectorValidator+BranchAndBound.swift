@@ -3,6 +3,7 @@
 import Foundation
 import Testing
 @testable import OpalBase
+@testable import OpalBaseCore
 
 extension AddressBookCoinSelectorValidator {
     @Test("select branch and bound returns promptly for a zero target with many equal-value UTXOs")

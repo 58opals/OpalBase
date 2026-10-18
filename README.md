@@ -15,6 +15,10 @@ Mosaic remains an unreleased, macOS-only internal wallet-host alpha for the expl
 - Compose higher-level BCH features through Swift facades under `OpalBase.*` while lower-level packages keep their responsibilities: `OpalCrypto`, `SwiftFulcrum`, `OpalFusion`, and `OpalDiagnostics`.
 - Point reviewers to runnable public API examples in `Tests/OpalBaseLocalTests/PublicAPISmokeValidator.swift` and opt-in live Fulcrum examples in `Tests/OpalBaseNetworkTests/NetworkLiveSmokeValidator.swift`.
 
+## Ordinary BCH product
+
+The unreleased `OpalBaseCore` product supports ordinary BCH integration without linking the experimental privacy engines. The existing `OpalBase` product preserves its compatibility import and macOS integrations. See [Durable BCH integration](docs/durable-bch.md) for unsigned review, immutable finalization, atomic first-submission handoff and confirmed-history address bounds.
+
 ## Trust Boundaries
 
 - Secret-bearing authority stays in `OpalBase.Wallet`, `OpalBase.Account`, `WalletSecretAccessInteractor`, and `WalletTransactionAuthoringInteractor(privateAccount:)`.
@@ -49,7 +53,7 @@ targets: [
 ]
 ```
 
-The manifest pins `SwiftFulcrum` to the exact public integration revision required for subscription recovery and follows `OpalCrypto`, `OpalFusion`, and `OpalDiagnostics` on public `develop` branches. Retain the consuming application's `Package.resolved` to record their resolved revisions; pinning Base alone does not freeze transitive branch heads. This is an integration snapshot, not a SemVer release.
+The manifest pins `SwiftFulcrum` and `OpalFusion` to exact public integration revisions and follows `OpalCrypto` and `OpalDiagnostics` on public `develop` branches. Retain the consuming application's `Package.resolved` to record their resolved revisions; pinning Base alone does not freeze transitive branch heads. This is an integration snapshot, not a SemVer release.
 
 The published `v0.4.1` tag is **not usable as a SwiftPM version-based dependency** (`from: "0.4.1"` or `exact: "0.4.1"`): SwiftPM rejects its branch-based sibling requirements. Its own `Package.resolved` does not remove that restriction. A future version-consumable release needs a compatible stable dependency graph and an actual consumer-resolution check. See [Release Readiness](docs/release-readiness.md) for the known limitation and gates.
 

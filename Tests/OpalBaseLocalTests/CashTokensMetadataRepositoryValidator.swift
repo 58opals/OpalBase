@@ -3,6 +3,7 @@
 import Foundation
 import Testing
 @testable import OpalBase
+@testable import OpalBaseCore
 
 @Suite("CashTokens metadata repository", .tags(.unit, .cashTokens))
 struct CashTokensMetadataRepositoryValidator {

@@ -2,6 +2,7 @@
 
 #if os(macOS)
 @testable import OpalBase
+@testable import OpalBaseCore
 
 enum MosaicBroadcastApprovalTestSupport {
     static let securityProfile = OpalBase.WalletSecurityProfile(

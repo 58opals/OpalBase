@@ -3,6 +3,7 @@
 import OpalCrypto
 import OpalBaseTestSupport
 @testable import OpalBase
+@testable import OpalBaseCore
 
 enum SpendPlanBroadcastAccountFixture {
     static func makeAccountWithoutOutputRandomization() async throws -> OpalBase.Account {

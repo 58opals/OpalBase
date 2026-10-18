@@ -14,6 +14,10 @@ extension _OpalBase.Address.Book {
     }
     
     func removeReservationState(for identifier: UUID) -> SpendReservation.State? {
+        claimedBCHInvocations.removeValue(forKey: identifier)
+        bchSpendReviews.removeValue(forKey: identifier)
+        boundedBCHFrontierRevisions.removeValue(forKey: identifier)
+        finalizedBCHTransactions.removeValue(forKey: identifier)
         cancelAutomaticSpendReservationRelease(for: identifier)
         return spendReservationStates.removeValue(forKey: identifier)
     }

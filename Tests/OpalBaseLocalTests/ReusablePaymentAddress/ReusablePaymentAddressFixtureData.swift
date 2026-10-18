@@ -2,6 +2,7 @@
 
 import Foundation
 @testable import OpalBase
+@testable import OpalBaseCore
 
 enum ReusablePaymentAddressFixtureData {
     static let cashCodeMainnet =

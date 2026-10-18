@@ -3,12 +3,12 @@
 import Foundation
 
 extension _OpalBase.Address.Book {
-    struct UTXORepository {
-        struct Outpoint: Hashable, Sendable {
+    package struct UTXORepository {
+        package struct Outpoint: Hashable, Sendable {
             let transactionHash: OpalBase.Transaction.Hash
             let outputIndex: UInt32
 
-            init(
+            package init(
                 transactionHash: OpalBase.Transaction.Hash,
                 outputIndex: UInt32
             ) {
@@ -16,14 +16,14 @@ extension _OpalBase.Address.Book {
                 self.outputIndex = outputIndex
             }
             
-            init(_ input: OpalBase.Transaction.Input) {
+            package init(_ input: OpalBase.Transaction.Input) {
                 self.init(
                     transactionHash: input.previousTransactionHash,
                     outputIndex: input.previousTransactionOutputIndex
                 )
             }
             
-            init(_ utxo: OpalBase.Transaction.Output.Unspent) {
+            package init(_ utxo: OpalBase.Transaction.Output.Unspent) {
                 self.init(
                     transactionHash: utxo.previousTransactionHash,
                     outputIndex: utxo.previousTransactionOutputIndex
@@ -33,10 +33,10 @@ extension _OpalBase.Address.Book {
         
         var utxosByLockingScript: [Data: Set<OpalBase.Transaction.Output.Unspent>]
         var utxosByOutpoint: [Outpoint: OpalBase.Transaction.Output.Unspent]
-        var reservedUTXOs: Set<OpalBase.Transaction.Output.Unspent>
+        package var reservedUTXOs: Set<OpalBase.Transaction.Output.Unspent>
         var mosaicQuarantinedOutpointsByOwnerIdentifier: [UUID: [UInt64: Set<Outpoint>]]
         
-        init() {
+        package init() {
             self.utxosByLockingScript = .init()
             self.utxosByOutpoint = .init()
             self.reservedUTXOs = .init()
@@ -115,7 +115,7 @@ extension _OpalBase.Address.Book {
             mosaicQuarantinedOutpointsByOwnerIdentifier.removeAll()
         }
 
-        mutating func quarantineMosaicOutpoints(
+        package mutating func quarantineMosaicOutpoints(
             _ outpoints: Set<Outpoint>,
             ownerIdentifier: UUID,
             ownerGeneration: UInt64
@@ -130,7 +130,7 @@ extension _OpalBase.Address.Book {
                 quarantinedOutpointsByGeneration
         }
 
-        mutating func releaseMosaicOutpointQuarantine(
+        package mutating func releaseMosaicOutpointQuarantine(
             ownerIdentifier: UUID,
             ownerGeneration: UInt64
         ) {
@@ -153,11 +153,11 @@ extension _OpalBase.Address.Book {
             }
         }
         
-        mutating func reserve(_ utxos: Set<OpalBase.Transaction.Output.Unspent>) throws {
+        package mutating func reserve(_ utxos: Set<OpalBase.Transaction.Output.Unspent>) throws {
             try reserve(utxos, tokenSelectionPolicy: .allowTokenUTXOs)
         }
         
-        mutating func reserve(_ utxos: Set<OpalBase.Transaction.Output.Unspent>,
+        package mutating func reserve(_ utxos: Set<OpalBase.Transaction.Output.Unspent>,
                               tokenSelectionPolicy: OpalBase.Address.Book.CoinSelection.TokenSelectionPolicy) throws {
             guard containsExact(utxos, tokenSelectionPolicy: tokenSelectionPolicy) else {
                 throw OpalBase.Address.Book.Error.utxoNotFound
@@ -176,12 +176,12 @@ extension _OpalBase.Address.Book {
             reservedUTXOs.formUnion(utxos)
         }
         
-        mutating func release(_ utxos: Set<OpalBase.Transaction.Output.Unspent>) {
+        package mutating func release(_ utxos: Set<OpalBase.Transaction.Output.Unspent>) {
             guard !utxos.isEmpty else { return }
             reservedUTXOs.subtract(utxos)
         }
 
-        mutating func releaseAllReservations() {
+        package mutating func releaseAllReservations() {
             reservedUTXOs.removeAll()
         }
         

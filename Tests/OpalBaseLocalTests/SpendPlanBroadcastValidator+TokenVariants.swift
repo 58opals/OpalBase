@@ -3,6 +3,7 @@
 import Foundation
 import Testing
 @testable import OpalBase
+@testable import OpalBaseCore
 
 extension SpendPlanBroadcastValidator {
     @Test("token genesis preflight rejects a released review reservation")

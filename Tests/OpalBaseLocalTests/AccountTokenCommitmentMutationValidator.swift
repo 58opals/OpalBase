@@ -4,6 +4,7 @@ import Foundation
 import Testing
 import OpalBaseTestSupport
 @testable import OpalBase
+@testable import OpalBaseCore
 
 @Suite("OpalBase.Account Token Commitment Mutation", .tags(.unit, .wallet, .cashTokens))
 struct AccountTokenCommitmentMutationValidator {

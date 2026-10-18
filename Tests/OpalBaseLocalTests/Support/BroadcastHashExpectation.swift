@@ -3,6 +3,7 @@
 import Foundation
 import Testing
 @testable import OpalBase
+@testable import OpalBaseCore
 
 enum BroadcastHashExpectation {
     static func makeHash(from broadcasts: [String]) throws -> OpalBase.Transaction.Hash {

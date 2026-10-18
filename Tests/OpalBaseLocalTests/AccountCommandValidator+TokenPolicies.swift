@@ -3,6 +3,7 @@
 import Foundation
 import Testing
 @testable import OpalBase
+@testable import OpalBaseCore
 
 extension AccountCommandValidator {
     @Test("prepareSpend rejects token recipients")

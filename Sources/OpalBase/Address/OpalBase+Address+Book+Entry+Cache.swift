@@ -3,7 +3,7 @@
 import Foundation
 
 extension _OpalBase.Address.Book.Entry {
-    struct Cache {
+    package struct Cache {
         var balance: OpalBase.Satoshi?
         var lastUpdated: Date?
     }

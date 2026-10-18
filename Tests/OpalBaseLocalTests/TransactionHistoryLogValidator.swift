@@ -3,6 +3,7 @@
 import Foundation
 import Testing
 @testable import OpalBase
+@testable import OpalBaseCore
 
 @Suite("OpalBase.Address.Book.TransactionLog", .tags(.unit, .wallet))
 struct TransactionHistoryLogValidator {
