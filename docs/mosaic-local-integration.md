@@ -30,6 +30,14 @@ Experimental application host and session-owner creation optionally accept `Sign
 
 Applications that require owner review before signing must supply the callback and bind approval durably to the exact request. It does not grant broadcast authority or extend a phase deadline. The later exact signed-transaction broadcast review remains required. Recovery does not grant a new signing attempt.
 
+## Exact broadcast authorization
+
+For a new send, use the `broadcastRecoveredTransaction` overload requiring `BroadcastAuthorization`. Construct this immutable value from the exact `BroadcastApprovalRequest`, session binding, reviewed chain attestation, original operator confirmation time and expiration. Retain the original interval with the application approval; loading or retrying a retained approval must not renew it. Expiration must be finite, later than confirmation and no later than the reservation expiration. At dispatch, the complete request, protocol identity, endpoint attestation and reservation must still match, and the current time must be at or after confirmation and strictly before expiration. The optional synchronous `currentDate` provider lets an application use the same trusted clock throughout its policy and transport checks.
+
+The asynchronous `requestApproval` callback remains a separate fresh-review step. It is not called again for an already journaled approval and cannot replace immutable send authority. Base carries the same synchronous authorization through the guarded transaction client to the final WebSocket handoff, after preceding journal, chain-presence and actor waits. Rejection returns `broadcastNotApproved` and retains recovery records; it does not authorize absence, replacement signing, reservation release or erasure. A request handed to the operating system while authorized can still complete later; no revocation or recall of a previously handed-off send is claimed.
+
+The older SPI overload is deprecated and cannot make a new send. It may still record an exact transaction already present for a retained intent; unavailable or mismatched presence remains held for reconciliation even after approval expires. Migrate new-send callers to the authorization overload rather than supplying an always-allow callback. Unrelated unguarded `Network.TransactionClient` APIs retain their behavior. Custom transports opting into `authorizedBroadcastTransaction` must validate the provided `TransactionSendAuthorization` synchronously after their last await or actor queue, immediately before the concrete transport handoff. A client constructed only with the legacy broadcast closure has no guarded capability and cannot silently satisfy a guarded call.
+
 ## Reproduce locally
 
 Use Swift 6.4 and macOS 27 with the Metal toolchain. For an unpublished matching Fusion candidate, use SwiftPM edit mode before testing:

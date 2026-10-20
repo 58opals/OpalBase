@@ -1,6 +1,7 @@
 // NetworkTransactionClientBroadcastValidator.swift
 
 import Foundation
+import Synchronization
 import Testing
 import OpalBaseTestSupport
 @testable import OpalBase
@@ -8,6 +9,25 @@ import OpalBaseTestSupport
 
 @Suite("OpalBase.Network.TransactionClient broadcast", .tags(.unit, .network, .transaction))
 struct NetworkTransactionClientBroadcastValidator {
+    @Test("A legacy custom transport cannot satisfy a guarded broadcast")
+    func legacyTransportCannotSatisfyGuardedBroadcast() async throws {
+        let calls = Mutex(0)
+        let transaction = makeTransaction()
+        let bytes = try transaction.encode()
+        let hash = OpalBase.Transaction.Hash(naturalOrder: OpalCryptoAdapter.hash256(bytes))
+        let client = OpalBase.Network.TransactionClient(
+            broadcastTransaction: { _ in calls.withLock { $0 += 1 }; return hash.reverseOrder.hexadecimalString },
+            fetchConfirmations: { _ in nil },
+            fetchConfirmationStatus: { hash in .init(transactionHash: hash, transactionHeight: nil, tipHeight: 0, confirmations: nil) }
+        )
+        await #expect(throws: OpalBase.Network.TransactionSendAuthorization.Failure.unavailable) {
+            _ = try await client.broadcast(transaction: transaction, authorization: .init(isAuthorized: { true }))
+        }
+        #expect(calls.withLock { $0 } == 0)
+        #expect(try await client.broadcast(transaction: transaction) == hash)
+        #expect(calls.withLock { $0 } == 1)
+    }
+
     @Test("broadcast returns the hash derived from the submitted transaction", arguments: BroadcastInvocationKind.allCases)
     private func broadcastReturnsDerivedTransactionHash(kind: BroadcastInvocationKind) async throws {
         let transaction = makeTransaction()

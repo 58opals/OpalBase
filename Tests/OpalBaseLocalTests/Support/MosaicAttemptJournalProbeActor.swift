@@ -18,6 +18,7 @@ actor MosaicAttemptJournalProbeActor {
     private var failingAppendIndices: Set<Int>
     private let suspendedAppendIndex: Int?
     private let suspensionProbe: MosaicOperationSuspensionProbeActor?
+    private var nextAppendSuspensionProbe: MosaicOperationSuspensionProbeActor?
     private let cancellationSensitiveAppendIndices: Set<Int>
     private let authorizesErasure: Bool
     private let erasureAuthorizationSuspensionProbe:
@@ -126,6 +127,10 @@ actor MosaicAttemptJournalProbeActor {
         let journal = try await makeFreshJournalForTesting()
         try await journal.append(.attemptBinding(binding))
         return journal
+    }
+
+    func suspendNextAppend(using probe: MosaicOperationSuspensionProbeActor) {
+        nextAppendSuspensionProbe = probe
     }
 
     func loadRecovery() async throws
@@ -276,6 +281,10 @@ actor MosaicAttemptJournalProbeActor {
         appendAttemptIndex += 1
         if index == suspendedAppendIndex, let suspensionProbe {
             await suspensionProbe.suspend()
+        }
+        if let nextAppendSuspensionProbe {
+            self.nextAppendSuspensionProbe = nil
+            await nextAppendSuspensionProbe.suspend()
         }
         let wasCancelled = Task.isCancelled
         cancellationObservations[index] = wasCancelled

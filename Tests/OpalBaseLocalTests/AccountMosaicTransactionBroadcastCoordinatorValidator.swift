@@ -11,6 +11,24 @@ import Testing
 struct AccountMosaicTransactionBroadcastCoordinatorValidator {
     typealias Planner = OpalBase.Account.MosaicAttemptRecoveryPlanner
 
+    @Test("Legacy coordinator approval alone cannot authorize a new send")
+    func legacyCoordinatorRequiresSendAuthorization() async throws {
+        let prepared = try await makeCommittedAttempt()
+        let probe = MosaicBroadcastProbeActor(journalProbe: prepared.fixture.journalProbe)
+        let before = await prepared.fixture.journalProbe.readRecords()
+        let coordinator = try OpalBase.Account.MosaicTransactionBroadcastCoordinator(
+            candidate: prepared.candidate,
+            securityProfile: MosaicBroadcastApprovalTestSupport.securityProfile,
+            transactionClient: probe.makeClient(testingNetwork: prepared.fixture.network),
+            requestApproval: { _ in Issue.record("Missing send authority cannot renew consent"); return .approved }
+        )
+        await #expect(throws: OpalBase.Account.MosaicHostFailure.broadcastNotApproved) {
+            _ = try await coordinator.broadcast()
+        }
+        #expect(await probe.readBroadcasts().isEmpty)
+        #expect(await prepared.fixture.journalProbe.readRecords() == before)
+    }
+
     @Test("Persist broadcast intent before I/O and retry only exact bytes")
     func persistBroadcastIntentBeforeIO() async throws {
         let prepared = try await makeCommittedAttempt(
@@ -28,6 +46,7 @@ struct AccountMosaicTransactionBroadcastCoordinatorValidator {
             transactionClient: broadcastProbe.makeClient(
                 testingNetwork: prepared.fixture.network
             ),
+            authorizeSend: MosaicBroadcastApprovalTestSupport.sendAuthorizer(for: prepared.candidate),
             requestApproval: approvalProbe.makeRequester()
         )
 
@@ -79,6 +98,7 @@ struct AccountMosaicTransactionBroadcastCoordinatorValidator {
             transactionClient: broadcastProbe.makeClient(
                 testingNetwork: prepared.fixture.network
             ),
+            authorizeSend: MosaicBroadcastApprovalTestSupport.sendAuthorizer(for: prepared.candidate),
             requestApproval: approvalProbe.makeRequester()
         )
 
@@ -152,6 +172,7 @@ struct AccountMosaicTransactionBroadcastCoordinatorValidator {
                 transactionClient: broadcastProbe.makeClient(
                     testingNetwork: prepared.fixture.network
                 ),
+                authorizeSend: MosaicBroadcastApprovalTestSupport.sendAuthorizer(for: candidate),
                 requestApproval: MosaicBroadcastApprovalTestSupport.approve
             )
 
@@ -198,6 +219,7 @@ struct AccountMosaicTransactionBroadcastCoordinatorValidator {
             transactionClient: broadcastProbe.makeClient(
                 testingNetwork: prepared.fixture.network
             ),
+            authorizeSend: MosaicBroadcastApprovalTestSupport.sendAuthorizer(for: prepared.candidate),
             requestApproval: approvalProbe.makeRequester()
         )
         #expect(
@@ -210,6 +232,7 @@ struct AccountMosaicTransactionBroadcastCoordinatorValidator {
                 transactionClient: broadcastProbe.makeClient(
                     testingNetwork: prepared.fixture.network
                 ),
+                authorizeSend: MosaicBroadcastApprovalTestSupport.sendAuthorizer(for: independentlyRequestedCandidate),
                 requestApproval: MosaicBroadcastApprovalTestSupport.approve
             )
         }
@@ -247,6 +270,7 @@ struct AccountMosaicTransactionBroadcastCoordinatorValidator {
                 transactionClient: broadcastProbe.makeClient(
                     testingNetwork: prepared.fixture.network
                 ),
+                authorizeSend: MosaicBroadcastApprovalTestSupport.sendAuthorizer(for: prepared.candidate),
                 requestApproval: MosaicBroadcastApprovalTestSupport.approve
             )
         }
@@ -257,6 +281,7 @@ struct AccountMosaicTransactionBroadcastCoordinatorValidator {
                 transactionClient: broadcastProbe.makeClient(
                     testingNetwork: .mainnet
                 ),
+                authorizeSend: MosaicBroadcastApprovalTestSupport.sendAuthorizer(for: prepared.candidate),
                 requestApproval: MosaicBroadcastApprovalTestSupport.approve
             )
         }
@@ -282,6 +307,7 @@ struct AccountMosaicTransactionBroadcastCoordinatorValidator {
             transactionClient: broadcastProbe.makeClient(
                 testingNetwork: prepared.fixture.network
             ),
+            authorizeSend: MosaicBroadcastApprovalTestSupport.sendAuthorizer(for: prepared.candidate),
             requestApproval: approvalProbe.makeRequester()
         )
         let broadcast = Task {
@@ -324,6 +350,7 @@ struct AccountMosaicTransactionBroadcastCoordinatorValidator {
             transactionClient: broadcastProbe.makeClient(
                 testingNetwork: prepared.fixture.network
             ),
+            authorizeSend: MosaicBroadcastApprovalTestSupport.sendAuthorizer(for: prepared.candidate),
             requestApproval: approvalProbe.makeRequester()
         )
 
@@ -358,6 +385,7 @@ struct AccountMosaicTransactionBroadcastCoordinatorValidator {
             transactionClient: broadcastProbe.makeClient(
                 testingNetwork: prepared.fixture.network
             ),
+            authorizeSend: MosaicBroadcastApprovalTestSupport.sendAuthorizer(for: prepared.candidate),
             requestApproval: { _ in
                 throw MosaicBroadcastProbeFailure.scripted
             }
@@ -452,6 +480,7 @@ struct AccountMosaicTransactionBroadcastCoordinatorValidator {
             transactionClient: broadcastProbe.makeClient(
                 testingNetwork: prepared.fixture.network
             ),
+            authorizeSend: MosaicBroadcastApprovalTestSupport.sendAuthorizer(for: candidate),
             requestApproval: approvalProbe.makeRequester()
         )
 
@@ -486,6 +515,7 @@ struct AccountMosaicTransactionBroadcastCoordinatorValidator {
                 transactionClient: failingBroadcast.makeClient(
                     testingNetwork: prepared.fixture.network
                 ),
+                authorizeSend: MosaicBroadcastApprovalTestSupport.sendAuthorizer(for: prepared.candidate),
                 requestApproval: firstApproval.makeRequester()
             )
         await #expect(throws: MosaicBroadcastProbeFailure.scripted) {
@@ -517,6 +547,7 @@ struct AccountMosaicTransactionBroadcastCoordinatorValidator {
                 transactionClient: recoveredBroadcast.makeClient(
                     testingNetwork: prepared.fixture.network
                 ),
+                authorizeSend: MosaicBroadcastApprovalTestSupport.sendAuthorizer(for: recoveredCandidate),
                 requestApproval: recoveredApproval.makeRequester()
             )
 
@@ -558,6 +589,7 @@ struct AccountMosaicTransactionBroadcastCoordinatorValidator {
                 transactionClient: firstBroadcast.makeClient(
                     testingNetwork: prepared.fixture.network
                 ),
+                authorizeSend: MosaicBroadcastApprovalTestSupport.sendAuthorizer(for: firstCandidate),
                 requestApproval: MosaicBroadcastApprovalTestSupport.approve
             )
         _ = try await firstCoordinator.broadcast()
@@ -572,6 +604,7 @@ struct AccountMosaicTransactionBroadcastCoordinatorValidator {
                 transactionClient: staleBroadcast.makeClient(
                     testingNetwork: prepared.fixture.network
                 ),
+                authorizeSend: MosaicBroadcastApprovalTestSupport.sendAuthorizer(for: secondCandidate),
                 requestApproval: MosaicBroadcastApprovalTestSupport.approve
             )
         await #expect(

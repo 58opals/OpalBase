@@ -13,6 +13,41 @@ struct AccountMosaicPrivateAlphaSessionOwnerChainValidator {
     typealias Runtime = OpalBase.Account.MosaicPrivateAlphaRuntime
 
     @Test(
+        "Concrete raw guarded adapter rejects before any local server broadcast receipt",
+        .tags(.integration, .network),
+        .enabled(if: MosaicFulcrumProcessFixture.isParentIntegrationEnabled)
+    )
+    func guardedRawAdapterRejectsWithoutServerReceipt() async throws {
+        let prepared = try await makeCommittedAttempt(profile: .opalMainnetAlpha, network: .mainnet)
+        let exact = try OpalBase.Account.MosaicExactTransaction(prepared.complete)
+        let fixture = try MosaicFulcrumProcessFixture.launch(
+            transactionBytes: exact.bytes,
+            transactionIdentifier: exact.hash.reverseOrder.hexadecimalString
+        )
+        defer { fixture.stop() }
+        let client = try await OpalBase.Network.Fulcrum.Client(
+            privateAlphaConfiguration: .init(
+                serverURLs: [fixture.endpoint], connectTimeout: .seconds(2),
+                reconnect: .init(maximumAttempts: 0, initialDelay: .milliseconds(10), maximumDelay: .milliseconds(10), jitterMultiplierRange: 1 ... 1),
+                network: .mainnet
+            )
+        )
+        let adapter = OpalBase.Network.Fulcrum.TransactionClient(client: client)
+        await #expect(throws: OpalBase.Network.TransactionSendAuthorization.Failure.notAuthorized) {
+            // Enter the raw concrete adapter directly: an outer generic-client
+            // check cannot satisfy this final transport propagation regression.
+            _ = try await adapter.broadcastTransaction(
+                rawTransactionHexadecimal: exact.bytes.hexadecimalString,
+                authorization: .init(isAuthorized: { false })
+            )
+        }
+        await client.stop()
+        let methods = try fixture.readRecordedMethods()
+        #expect(methods.contains("server.version"))
+        #expect(methods.filter { $0 == "blockchain.transaction.broadcast" }.isEmpty)
+    }
+
+    @Test(
         "Concrete chain client attests and tracks an exact transaction through an isolated Fulcrum process",
         .tags(.integration, .network),
         .enabled(if: MosaicFulcrumProcessFixture.isParentIntegrationEnabled)
@@ -58,7 +93,11 @@ struct AccountMosaicPrivateAlphaSessionOwnerChainValidator {
         )
         #expect(
             try await client.networkClient.broadcast(
-                transaction: exactTransaction.transaction
+                transaction: exactTransaction.transaction,
+                authorization: .init(isAuthorized: {
+                    client.attestation.network == .mainnet
+                        && Date.now < prepared.fixture.reservationRequest.expiresAt
+                })
             ) == exactTransaction.hash
         )
 
@@ -278,6 +317,13 @@ struct AccountMosaicPrivateAlphaSessionOwnerChainValidator {
                 signingAccess: .inProcess
             ),
             using: broadcastClient,
+            authorization: try #require(Runtime.BroadcastAuthorization(
+                request: preview, binding: owner.binding,
+                attestation: broadcastClient.attestation,
+                operatorConfirmedAt: preview.reservationExpiresAt.addingTimeInterval(-60),
+                expiresAt: preview.reservationExpiresAt
+            )),
+            currentDate: { preview.reservationExpiresAt.addingTimeInterval(-30) },
             requestApproval: { request in
                 await approvalProbe.approve(request)
             }

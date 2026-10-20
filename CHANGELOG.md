@@ -31,6 +31,7 @@ All notable public-facing changes to Opal Base are tracked here.
 
 ### Fixed
 
+- Enforced immutable Mosaic broadcast approval through the final Fulcrum send handoff. Missing or expired authority cannot start a new send, while exact already-present transactions retain reconciliation after expiry. Custom transaction transports must explicitly provide the guarded-send capability.
 - Bounded branch-and-bound coin selection and added a deterministic fallback so adversarial UTXO sets cannot trigger exponential recursion.
 - Rejected snapshots with excessive implicit address spans and made address inventory restoration atomic on derivation failure.
 - Preserved duplicate non-fungible token occurrences when computing, netting, persisting, and restoring transaction history.

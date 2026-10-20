@@ -189,14 +189,44 @@ extension OpalBase.Account.MosaicPrivateAlphaRuntime {
             }
         }
 
-        /// Persists approval and exact intent before dispatch through one attested chain client.
+        /// Compatibility entry point for reconciliation of an existing exact intent.
+        /// A new send requires the overload accepting immutable authorization.
         @_spi(MosaicPrivateAlpha)
+        @available(*, deprecated, message: "Use the authorization overload for new sends; this overload only reconciles existing intent.")
         public func broadcastRecoveredTransaction(
             securityProfile: OpalBase.WalletSecurityProfile,
             using chainClient: ChainClient,
             requestApproval: @escaping @Sendable (
                 BroadcastApprovalRequest
             ) async throws -> Bool
+        ) async throws -> ChainState {
+            try await performBroadcastRecoveredTransaction(
+                securityProfile: securityProfile, using: chainClient,
+                authorization: nil, currentDate: { .now }, requestApproval: requestApproval
+            )
+        }
+
+        /// Requires original application authority again at the final transport send.
+        @_spi(MosaicPrivateAlpha)
+        public func broadcastRecoveredTransaction(
+            securityProfile: OpalBase.WalletSecurityProfile,
+            using chainClient: ChainClient,
+            authorization: BroadcastAuthorization,
+            currentDate: @escaping @Sendable () -> Date = { .now },
+            requestApproval: @escaping @Sendable (BroadcastApprovalRequest) async throws -> Bool
+        ) async throws -> ChainState {
+            try await performBroadcastRecoveredTransaction(
+                securityProfile: securityProfile, using: chainClient,
+                authorization: authorization, currentDate: currentDate, requestApproval: requestApproval
+            )
+        }
+
+        private func performBroadcastRecoveredTransaction(
+            securityProfile: OpalBase.WalletSecurityProfile,
+            using chainClient: ChainClient,
+            authorization: BroadcastAuthorization?,
+            currentDate: @escaping @Sendable () -> Date,
+            requestApproval: @escaping @Sendable (BroadcastApprovalRequest) async throws -> Bool
         ) async throws -> ChainState {
             guard protocolTerminalEvidenceWasObserved,
                   let walletRecoveryOwner else {
@@ -213,6 +243,14 @@ extension OpalBase.Account.MosaicPrivateAlphaRuntime {
                     .broadcastRecoveredTransaction(
                         securityProfile: securityProfile,
                         using: chainClient.networkClient,
+                        authorizeSend: { [binding] request in
+                            guard let authorization,
+                                  let exactRequest = BroadcastApprovalRequest(request) else { return false }
+                            return authorization.authorizes(
+                                exactRequest, binding: binding,
+                                attestation: chainClient.attestation, at: currentDate()
+                            )
+                        },
                         requestApproval: { request in
                             guard let exactRequest = BroadcastApprovalRequest(
                                 request

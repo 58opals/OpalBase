@@ -304,6 +304,8 @@ extension _OpalBase.Network {
                 return OpalBase.Network.Error(reason: .transport, message: "Duplicate response registration")
             case .cancelled:
                 return OpalBase.Network.Error(reason: .cancelled, message: "Operation cancelled")
+            case .sendNotAuthorized:
+                return OpalBase.Network.Error(reason: .protocolViolation, message: "Request send was not authorized")
             case .timeout(let duration):
                 return OpalBase.Network.Error(
                     reason: .timeout,

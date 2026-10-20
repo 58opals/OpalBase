@@ -383,6 +383,7 @@ extension _OpalBase.Account {
         func broadcastRecoveredTransaction(
             securityProfile: OpalBase.WalletSecurityProfile,
             using transactionClient: MosaicNetworkAttestedTransactionClient,
+            authorizeSend: (@Sendable (MosaicTransactionBroadcastCoordinator.ApprovalRequest) -> Bool)? = nil,
             requestApproval: @escaping MosaicTransactionBroadcastCoordinator
                 .RequestApproval
         ) async throws -> MosaicAttemptChainState {
@@ -396,33 +397,14 @@ extension _OpalBase.Account {
                 let reference = context.reference
                 let completeTransaction = context.completeTransaction
                 let exactTransaction = context.exactTransaction
-                var approvalPersisted = context.approvalPersisted
-                var intentPersisted = context.intentPersisted
-
-                if !approvalPersisted {
-                    let decision: MosaicTransactionBroadcastCoordinator
-                        .ApprovalDecision
-                    do {
-                        decision = try await requestApproval(
-                            context.approvalRequest
-                        )
-                    } catch let cancellation as CancellationError {
-                        throw cancellation
-                    } catch {
-                        throw Failure.broadcastNotApproved
-                    }
-                    guard decision == .approved else {
-                        throw Failure.broadcastNotApproved
-                    }
-                    try await append(
-                        .broadcastApproved(
-                            reference: reference,
-                            transaction: completeTransaction
-                        )
-                    )
-                    approvalPersisted = true
+                let approvalPersisted = context.approvalPersisted
+                let intentPersisted = context.intentPersisted
+                let sendAuthorization = OpalBase.Network.TransactionSendAuthorization {
+                    authorizeSend?(context.approvalRequest) == true
                 }
 
+                // Existing exact presence is evidence of an earlier effect, not
+                // authority for a new send. Expiry must not obstruct recording it.
                 if intentPersisted {
                     switch try await transactionClient.presence(
                         of: exactTransaction
@@ -447,18 +429,36 @@ extension _OpalBase.Account {
                     case .unknown:
                         throw Failure.broadcastReconciliationRequired
                     }
-                } else {
+                }
+
+                try sendAuthorization.requireAuthorized()
+                if !approvalPersisted {
+                    let decision: MosaicTransactionBroadcastCoordinator.ApprovalDecision
+                    do {
+                        decision = try await requestApproval(context.approvalRequest)
+                    } catch let cancellation as CancellationError {
+                        throw cancellation
+                    } catch {
+                        throw Failure.broadcastNotApproved
+                    }
+                    guard decision == .approved else { throw Failure.broadcastNotApproved }
+                    try sendAuthorization.requireAuthorized()
+                    try await append(.broadcastApproved(
+                        reference: reference, transaction: completeTransaction
+                    ))
+                }
+                if !intentPersisted {
                     try await append(
                         .broadcastIntent(
                             reference: reference,
                             transaction: completeTransaction
                         )
                     )
-                    intentPersisted = true
                 }
 
                 let transactionHash = try await transactionClient.broadcast(
-                    transaction: exactTransaction.transaction
+                    transaction: exactTransaction.transaction,
+                    authorization: sendAuthorization
                 )
                 guard transactionHash == exactTransaction.hash else {
                     throw Failure.broadcastReconciliationRequired
@@ -476,6 +476,9 @@ extension _OpalBase.Account {
                 let outcome = Outcome.chainReconciliationRequired(chainState)
                 finishOperation(with: outcome)
                 return chainState
+            } catch is OpalBase.Network.TransactionSendAuthorization.Failure {
+                resetOperationAfterFailure()
+                throw Failure.broadcastNotApproved
             } catch {
                 resetOperationAfterFailure()
                 throw error

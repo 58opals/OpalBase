@@ -601,6 +601,7 @@ extension AccountMosaicTransactionHostValidator {
             transactionClient: broadcastProbe.makeClient(
                 testingNetwork: prepared.fixture.network
             ),
+            authorizeSend: MosaicBroadcastApprovalTestSupport.sendAuthorizer(for: candidate),
             requestApproval: MosaicBroadcastApprovalTestSupport.approve
         )
         let firstBroadcast = Task {
@@ -644,6 +645,7 @@ extension AccountMosaicTransactionHostValidator {
             transactionClient: broadcastProbe.makeClient(
                 testingNetwork: prepared.fixture.network
             ),
+            authorizeSend: MosaicBroadcastApprovalTestSupport.sendAuthorizer(for: candidate),
             requestApproval: MosaicBroadcastApprovalTestSupport.approve
         )
         let broadcast = Task {
@@ -794,6 +796,7 @@ private extension AccountMosaicTransactionHostValidator {
             transactionClient: broadcastProbe.makeClient(
                 testingNetwork: prepared.fixture.network
             ),
+            authorizeSend: MosaicBroadcastApprovalTestSupport.sendAuthorizer(for: candidate),
             requestApproval: MosaicBroadcastApprovalTestSupport.approve
         )
 

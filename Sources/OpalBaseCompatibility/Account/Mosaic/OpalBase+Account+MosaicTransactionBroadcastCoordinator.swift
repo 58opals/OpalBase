@@ -11,6 +11,7 @@ extension _OpalBase.Account {
         let candidate: MosaicCommittedBroadcastCandidate
         let transactionClient: MosaicNetworkAttestedTransactionClient
         let requestApproval: RequestApproval
+        let authorizeSend: (@Sendable (ApprovalRequest) -> Bool)?
 
         private var approvalPersisted: Bool
         private var broadcastIntentPersisted: Bool
@@ -21,6 +22,7 @@ extension _OpalBase.Account {
             candidate: MosaicCommittedBroadcastCandidate,
             securityProfile: OpalBase.WalletSecurityProfile,
             transactionClient: MosaicNetworkAttestedTransactionClient,
+            authorizeSend: (@Sendable (ApprovalRequest) -> Bool)? = nil,
             requestApproval: @escaping RequestApproval
         ) throws {
             try securityProfile.requireBroadcastingAllowed()
@@ -38,6 +40,7 @@ extension _OpalBase.Account {
             self.candidate = candidate
             self.transactionClient = transactionClient
             self.requestApproval = requestApproval
+            self.authorizeSend = authorizeSend
             approvalPersisted = candidate.approvalPersisted
             broadcastIntentPersisted = candidate.broadcastIntentPersisted
         }
@@ -54,7 +57,19 @@ extension _OpalBase.Account {
             let exactTransaction = try MosaicExactTransaction(
                 candidate.completeTransaction
             )
+            let request = ApprovalRequest(
+                reservationRequest: candidate.reservationRequest,
+                reservationReference: candidate.reservationReference,
+                completeTransaction: candidate.completeTransaction,
+                profile: candidate.profile, network: transactionClient.network
+            )
+            let sendAuthorization = OpalBase.Network.TransactionSendAuthorization { [authorizeSend] in
+                authorizeSend?(request) == true
+            }
 
+            if !broadcastIntentPersisted && !sendAuthorization.isAuthorized() {
+                throw OpalBase.Account.MosaicHostFailure.broadcastNotApproved
+            }
             if !approvalPersisted {
                 let decision: ApprovalDecision
                 do {
@@ -77,6 +92,9 @@ extension _OpalBase.Account {
                 guard decision == .approved else {
                     throw OpalBase.Account.MosaicHostFailure
                         .broadcastNotApproved
+                }
+                guard sendAuthorization.isAuthorized() else {
+                    throw OpalBase.Account.MosaicHostFailure.broadcastNotApproved
                 }
                 try await persist(
                     .broadcastApproved(
@@ -119,9 +137,14 @@ extension _OpalBase.Account {
                 try Task.checkCancellation()
             }
 
-            let hash = try await transactionClient.broadcast(
-                transaction: exactTransaction.transaction
-            )
+            let hash: OpalBase.Transaction.Hash
+            do {
+                hash = try await transactionClient.broadcast(
+                    transaction: exactTransaction.transaction, authorization: sendAuthorization
+                )
+            } catch is OpalBase.Network.TransactionSendAuthorization.Failure {
+                throw OpalBase.Account.MosaicHostFailure.broadcastNotApproved
+            }
             guard hash == exactTransaction.hash else {
                 throw OpalBase.Account.MosaicHostFailure.reconciliationRequired
             }

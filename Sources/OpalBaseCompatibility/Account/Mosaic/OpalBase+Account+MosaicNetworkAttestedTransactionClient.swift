@@ -41,9 +41,12 @@ extension _OpalBase.Account {
         #endif
 
         func broadcast(
-            transaction: OpalBase.Transaction
+            transaction: OpalBase.Transaction,
+            authorization: OpalBase.Network.TransactionSendAuthorization
         ) async throws -> OpalBase.Transaction.Hash {
-            try await transactionClient.broadcast(transaction: transaction)
+            try await transactionClient.broadcast(
+                transaction: transaction, authorization: authorization
+            )
         }
 
         func presence(

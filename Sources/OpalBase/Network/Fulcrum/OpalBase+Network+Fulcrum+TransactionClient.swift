@@ -28,6 +28,30 @@ extension _OpalBase.Network.Fulcrum {
                 ).reverseOrder.hexadecimalString
             }
         }
+
+        public func broadcastTransaction(
+            rawTransactionHexadecimal: String,
+            authorization: OpalBase.Network.TransactionSendAuthorization
+        ) async throws -> String {
+            let bytes = try OpalBase.Network.decodeRawTransactionData(from: rawTransactionHexadecimal)
+            do {
+                let response = try await client.request(
+                    SwiftFulcrum.API.blockchain.transaction.broadcast(rawTransaction: rawTransactionHexadecimal),
+                    options: .init(
+                        timeout: timeouts.transactionBroadcast,
+                        sendAuthorization: .init(isAuthorized: authorization.isAuthorized)
+                    )
+                )
+                return try OpalBase.Network.decodeBroadcastTransactionHash(
+                    from: response.transactionHash.hexadecimalString,
+                    rawTransactionData: bytes
+                ).reverseOrder.hexadecimalString
+            } catch SwiftFulcrum.Client.Error.client(.sendNotAuthorized) {
+                throw OpalBase.Network.TransactionSendAuthorization.Failure.notAuthorized
+            } catch {
+                throw OpalBase.Network.FulcrumErrorTranslator.translate(error)
+            }
+        }
         
         public func fetchConfirmations(forTransactionIdentifier transactionIdentifier: String) async throws -> UInt? {
             let hash = try OpalBase.Network.decodeTransactionHash(from: transactionIdentifier)

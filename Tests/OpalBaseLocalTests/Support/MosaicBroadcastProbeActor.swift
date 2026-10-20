@@ -30,6 +30,9 @@ actor MosaicBroadcastProbeActor {
             broadcastTransaction: { rawTransaction in
                 try await self.broadcast(rawTransaction)
             },
+            authorizedBroadcastTransaction: { rawTransaction, authorization in
+                try await self.broadcast(rawTransaction, authorization: authorization)
+            },
             fetchConfirmations: { _ in nil },
             fetchConfirmationStatus: { transactionHash in
                 .init(
@@ -57,11 +60,15 @@ actor MosaicBroadcastProbeActor {
         observedPersistedIntent
     }
 
-    private func broadcast(_ rawTransaction: String) async throws -> String {
+    private func broadcast(
+        _ rawTransaction: String,
+        authorization: OpalBase.Network.TransactionSendAuthorization? = nil
+    ) async throws -> String {
         let records = await journalProbe.readRecords()
         if case .broadcastIntent? = records.last {
             observedPersistedIntent = true
         }
+        try authorization?.requireAuthorized()
         broadcasts.append(rawTransaction)
         if failuresRemaining > 0 {
             failuresRemaining -= 1

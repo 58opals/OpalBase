@@ -795,6 +795,12 @@ struct AccountMosaicPrivateAlphaRecoveryOwnerValidator {
                 using: broadcastProbe.makeClient(
                     testingNetwork: prepared.fixture.network
                 ),
+                authorizeSend: { request in
+                    request.reservationReference == prepared.lease.reference
+                        && request.completeTransaction == prepared.complete
+                        && request.network == prepared.fixture.network
+                        && Date.now < request.reservationRequest.expiresAt
+                },
                 requestApproval: approvalProbe.makeRequester()
             )
         }

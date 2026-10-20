@@ -1,6 +1,7 @@
 // MosaicBroadcastApprovalProbeActor.swift
 
 #if os(macOS)
+import Foundation
 @testable import OpalBase
 @testable import OpalBaseCore
 
@@ -15,6 +16,24 @@ enum MosaicBroadcastApprovalTestSupport {
         .MosaicTransactionBroadcastCoordinator.RequestApproval = { _ in
             .approved
         }
+
+    static func sendAuthorizer(
+        for candidate: OpalBase.Account.MosaicCommittedBroadcastCandidate
+    ) -> @Sendable (OpalBase.Account.MosaicTransactionBroadcastCoordinator.ApprovalRequest) -> Bool {
+        let expected = OpalBase.Account.MosaicTransactionBroadcastCoordinator.ApprovalRequest(
+            reservationRequest: candidate.reservationRequest,
+            reservationReference: candidate.reservationReference,
+            completeTransaction: candidate.completeTransaction,
+            profile: candidate.profile,
+            network: candidate.profile == .opalMainnetAlpha ? .mainnet : .chipnet
+        )
+        let confirmedAt = Date.now
+        let expiresAt = min(confirmedAt.addingTimeInterval(60), candidate.reservationRequest.expiresAt)
+        return { actual in
+            let now = Date.now
+            return actual == expected && confirmedAt <= now && now < expiresAt
+        }
+    }
 }
 
 actor MosaicBroadcastApprovalProbeActor {

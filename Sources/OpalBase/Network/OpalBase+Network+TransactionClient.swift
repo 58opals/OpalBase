@@ -5,6 +5,7 @@ import Foundation
 extension _OpalBase.Network {
     public struct TransactionClient: Sendable {
         private let performBroadcastTransaction: @Sendable (String) async throws -> String
+        private let performAuthorizedBroadcastTransaction: (@Sendable (String, OpalBase.Network.TransactionSendAuthorization) async throws -> String)?
         private let performFetchConfirmations: @Sendable (String) async throws -> UInt?
         private let performFetchConfirmationStatus: @Sendable (OpalBase.Transaction.Hash) async throws -> OpalBase.Network.TransactionConfirmationStatus
 
@@ -14,13 +15,30 @@ extension _OpalBase.Network {
             fetchConfirmationStatus: @escaping @Sendable (OpalBase.Transaction.Hash) async throws -> OpalBase.Network.TransactionConfirmationStatus
         ) {
             self.performBroadcastTransaction = broadcastTransaction
+            performAuthorizedBroadcastTransaction = nil
             self.performFetchConfirmations = fetchConfirmations
             self.performFetchConfirmationStatus = fetchConfirmationStatus
+        }
+
+        /// The guarded operation must revalidate synchronously after its last
+        /// await or actor queue, immediately before handing bytes to transport.
+        /// It must never substitute the unguarded operation when authorization fails.
+        public init(
+            broadcastTransaction: @escaping @Sendable (String) async throws -> String,
+            authorizedBroadcastTransaction: @escaping @Sendable (String, OpalBase.Network.TransactionSendAuthorization) async throws -> String,
+            fetchConfirmations: @escaping @Sendable (String) async throws -> UInt?,
+            fetchConfirmationStatus: @escaping @Sendable (OpalBase.Transaction.Hash) async throws -> OpalBase.Network.TransactionConfirmationStatus
+        ) {
+            performBroadcastTransaction = broadcastTransaction
+            performAuthorizedBroadcastTransaction = authorizedBroadcastTransaction
+            performFetchConfirmations = fetchConfirmations
+            performFetchConfirmationStatus = fetchConfirmationStatus
         }
 
         public init(_ client: OpalBase.Network.Fulcrum.TransactionClient) {
             self.init(
                 broadcastTransaction: client.broadcastTransaction(rawTransactionHexadecimal:),
+                authorizedBroadcastTransaction: client.broadcastTransaction(rawTransactionHexadecimal:authorization:),
                 fetchConfirmations: client.fetchConfirmations(forTransactionIdentifier:),
                 fetchConfirmationStatus: client.fetchConfirmationStatus(for:)
             )
@@ -70,6 +88,23 @@ extension _OpalBase.Network {
             return try await validatedBroadcast(
                 rawTransactionHexadecimal: rawHexadecimal,
                 rawTransactionData: rawTransactionData
+            )
+        }
+
+        public func broadcast(
+            transaction: OpalBase.Transaction,
+            authorization: OpalBase.Network.TransactionSendAuthorization
+        ) async throws -> OpalBase.Transaction.Hash {
+            try authorization.requireAuthorized()
+            guard let performAuthorizedBroadcastTransaction else {
+                throw OpalBase.Network.TransactionSendAuthorization.Failure.unavailable
+            }
+            let bytes = try transaction.encode()
+            let identifier = try await performAuthorizedBroadcastTransaction(
+                bytes.hexadecimalString, authorization
+            )
+            return try OpalBase.Network.decodeBroadcastTransactionHash(
+                from: identifier, rawTransactionData: bytes
             )
         }
 
