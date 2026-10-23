@@ -16,10 +16,6 @@ enum SpendPlanBroadcastAccountFixture {
             coinType: .bitcoinCash,
             account: .init(rawIndexInteger: 0),
             privacyConfiguration: .init(
-                batchingIntervalRange: 0 ... 0,
-                operationJitterRange: 0 ... 0,
-                decoyQueryRange: 0 ... 0,
-                decoyProbability: 0,
                 shouldRandomizeUTXOOrdering: false,
                 shouldRandomizeRecipientOrdering: false
             )

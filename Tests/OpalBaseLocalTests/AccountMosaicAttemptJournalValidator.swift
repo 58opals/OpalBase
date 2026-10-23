@@ -36,7 +36,13 @@ struct AccountMosaicAttemptJournalValidator {
         let secondAppend = Task {
             try await journal.append(concurrentRecord)
         }
-        try await secondAppend.value
+        do {
+            try await secondAppend.value
+        } catch {
+            await suspension.resume()
+            _ = await firstAppend.result
+            throw error
+        }
         await suspension.resume()
         await #expect(
             throws: OpalBase.Account.MosaicAttemptJournalStore.Failure

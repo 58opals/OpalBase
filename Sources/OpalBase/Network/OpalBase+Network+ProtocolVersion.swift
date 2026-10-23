@@ -69,6 +69,16 @@ extension _OpalBase.Network {
             return lhs.patch < rhs.patch
         }
 
+        public static func == (lhs: Self, rhs: Self) -> Bool {
+            lhs.major == rhs.major && lhs.minor == rhs.minor && lhs.patch == rhs.patch
+        }
+
+        public func hash(into hasher: inout Hasher) {
+            hasher.combine(major)
+            hasher.combine(minor)
+            hasher.combine(patch)
+        }
+
         private static func parseCanonicalDecimalComponent(_ component: Substring) -> Int? {
             guard !component.isEmpty else { return nil }
             if component.count > 1, component.first == "0" { return nil }

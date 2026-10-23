@@ -135,9 +135,17 @@ extension OpalBase.Account.MosaicPrivateAlphaRuntime {
             let provisionRoutes = provisionRoutes
             return .init(
                 provisionRoutes: { request in
-                    try await provisionRoutes(.init(request)).map {
-                        $0.fusionRoute()
+                    let routes = try await provisionRoutes(.init(request))
+                    guard Set(routes.map {
+                        ObjectIdentifier($0.connection as AnyObject)
+                    }).count == routes.count else {
+                        for route in routes {
+                            await route.connection.close()
+                        }
+                        throw OpalFusion.MosaicPrivateAlphaRuntime
+                            .Failure.invalidStateTransition
                     }
+                    return routes.map { $0.fusionRoute() }
                 },
                 maximumPendingRelayOutputCount:
                     maximumPendingRelayOutputCount

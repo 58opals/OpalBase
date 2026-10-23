@@ -98,7 +98,7 @@ extension _OpalBase.Block.Header.ChainActor {
     
     func apply(header: OpalBase.Block.Header, at height: UInt32) throws -> UpdateResult {
         guard header.isProofOfWorkSatisfied else { throw Error.invalidProofOfWork(height: height) }
-        let headerHash = header.proofOfWorkHash
+        let headerHash = header.proofOfWorkHash.reversedData
 
         guard height >= checkpointHeight else {
             throw Error.checkpointViolation(

@@ -8,7 +8,13 @@ import Testing
 
 enum AddressBookCashTokensTestData {
     static func makeAddressBook() async throws -> OpalBase.Address.Book {
-        try await AddressBookCashTokensSupport.makeAddressBook()
+        try await OpalBase.Address.Book(
+            rootExtendedPrivateKey: AddressBookCashTokensSupport.makeRootExtendedPrivateKey(),
+            purpose: .bip44,
+            coinType: .bitcoinCash,
+            account: .init(rawIndexInteger: 0),
+            gapLimit: 2
+        )
     }
 
     static func makeTokenData() throws -> OpalBase.CashTokens.TokenData {

@@ -28,29 +28,35 @@ extension AccountMosaicTransactionHostValidator {
         let before = await fixture.journalProbe.readRecords()
         let task = Task { try await fixture.host.finalizeMosaicTransaction(for: request) }
         await suspension.waitUntilSuspended()
-        #expect(await fixture.host.readSigningInvocationCount() == 0)
-        #expect(await fixture.journalProbe.readRecords() == before)
-        let review = try #require(captured.withLock { $0.first })
-        #expect(review.unsignedTransactionBytes == Data(request.unsignedTransactionBytes))
-        #expect(review.roundIdentifier == Data(request.roundIdentifier))
-        #expect(review.transcriptRoot == Data(request.transcriptRoot))
-        #expect(review.walletReservationIdentifier == lease.reference.identifier)
-        #expect(review.walletGeneration == lease.reference.generation)
-        #expect(review.reservationExpiresAt == lease.expiresAt)
-        #expect(review.expectedNetworkGenesisHash == Data(fixture.reservationRequest.networkGenesisHash))
-        #expect(review.localInputIndices == request.localInputIndices)
-        #expect(review.spentInputs.count == 1)
-        #expect(review.spentInputs.first?.transactionHash == fixture.selectedInput.previousTransactionHash)
-        #expect(review.spentInputs.first?.outputIndex == request.spentInputs[0].outpointIndex)
-        #expect(review.spentInputs.first?.valueSatoshis == fixture.selectedInput.value)
-        #expect(review.expectedLocalOutputs.first?.valueSatoshis == lease.participantReservation.outputs[0].amountSatoshis)
-        let proposal = try OpalBase.Transaction.decode(from: review.unsignedTransactionBytes).transaction
-        #expect(review.outputs.map(\.serializedBytes) == (try proposal.outputs.map { try $0.encode() }))
-        #expect(review.outputs.map(\.lockingScript) == proposal.outputs.map(\.lockingScript))
-        #expect(review.expectedLocalOutputs.allSatisfy { review.outputs.contains($0) })
-        #expect(review.feeSatoshis == 10_000)
-        await #expect(throws: OpalBase.Account.MosaicHostFailure.reconciliationRequired) {
-            _ = try await fixture.host.finalizeMosaicTransaction(for: request)
+        do {
+            #expect(await fixture.host.readSigningInvocationCount() == 0)
+            #expect(await fixture.journalProbe.readRecords() == before)
+            let review = try #require(captured.withLock { $0.first })
+            #expect(review.unsignedTransactionBytes == Data(request.unsignedTransactionBytes))
+            #expect(review.roundIdentifier == Data(request.roundIdentifier))
+            #expect(review.transcriptRoot == Data(request.transcriptRoot))
+            #expect(review.walletReservationIdentifier == lease.reference.identifier)
+            #expect(review.walletGeneration == lease.reference.generation)
+            #expect(review.reservationExpiresAt == lease.expiresAt)
+            #expect(review.expectedNetworkGenesisHash == Data(fixture.reservationRequest.networkGenesisHash))
+            #expect(review.localInputIndices == request.localInputIndices)
+            #expect(review.spentInputs.count == 1)
+            #expect(review.spentInputs.first?.transactionHash == fixture.selectedInput.previousTransactionHash)
+            #expect(review.spentInputs.first?.outputIndex == request.spentInputs[0].outpointIndex)
+            #expect(review.spentInputs.first?.valueSatoshis == fixture.selectedInput.value)
+            #expect(review.expectedLocalOutputs.first?.valueSatoshis == lease.participantReservation.outputs[0].amountSatoshis)
+            let proposal = try OpalBase.Transaction.decode(from: review.unsignedTransactionBytes).transaction
+            #expect(review.outputs.map(\.serializedBytes) == (try proposal.outputs.map { try $0.encode() }))
+            #expect(review.outputs.map(\.lockingScript) == proposal.outputs.map(\.lockingScript))
+            #expect(review.expectedLocalOutputs.allSatisfy { review.outputs.contains($0) })
+            #expect(review.feeSatoshis == 10_000)
+            await #expect(throws: OpalBase.Account.MosaicHostFailure.reconciliationRequired) {
+                _ = try await fixture.host.finalizeMosaicTransaction(for: request)
+            }
+        } catch {
+            await suspension.resume()
+            _ = await task.result
+            throw error
         }
         await suspension.resume()
         let signed = try await task.value

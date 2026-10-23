@@ -373,7 +373,6 @@ extension NetworkFulcrumTransactionReaderValidator {
     enum VerboseDecodingFallbackCase: CaseIterable, CustomStringConvertible, Sendable {
         case genericDecode
         case malformedBlockHash
-        case prefixedBlockHash
 
         var description: String {
             switch self {
@@ -381,8 +380,6 @@ extension NetworkFulcrumTransactionReaderValidator {
                 "generic decode"
             case .malformedBlockHash:
                 "malformed block hash"
-            case .prefixedBlockHash:
-                "prefixed block hash"
             }
         }
 
@@ -390,7 +387,7 @@ extension NetworkFulcrumTransactionReaderValidator {
             switch self {
             case .genericDecode:
                 return SwiftFulcrum.Client.Error.coding(.decode(nil))
-            case .malformedBlockHash, .prefixedBlockHash:
+            case .malformedBlockHash:
                 return NetworkFulcrumTransactionReaderValidator.makeDecodeError(
                     "Expected block hash to be exactly 64 hex characters"
                 )

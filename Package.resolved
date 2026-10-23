@@ -1,13 +1,12 @@
 {
-  "originHash" : "640d971a17e00a0f45176187751469e8707121e7381de65fe2e254b1db202fe5",
+  "originHash" : "ab0420b01cec21379a5d3010e0e6584d881ac14551c8679bc8b9745ecdd01d15",
   "pins" : [
     {
       "identity" : "opalcrypto",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/58opals/OpalCrypto.git",
       "state" : {
-        "branch" : "develop",
-        "revision" : "9a927b77aa97c16be81f64151bde17e8b053fda3"
+        "revision" : "51fc53c50a66779ca23d564168351da8ecd00faf"
       }
     },
     {
@@ -24,7 +23,7 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/58opals/OpalFusion.git",
       "state" : {
-        "revision" : "ff1c14934ee4b0562f4726eb81d7438cab4f0f85"
+        "revision" : "b144a6ee03d5951eede74b54a59e106f29b8f944"
       }
     },
     {
@@ -32,7 +31,7 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/58opals/SwiftFulcrum.git",
       "state" : {
-        "revision" : "e61640f3e7244e7414a7ed28ab60d673f9bdbac5"
+        "revision" : "43a1583270d8147111211f176d1d444db4a51aa9"
       }
     }
   ],

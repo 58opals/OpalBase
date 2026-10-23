@@ -15,7 +15,13 @@ struct AddressBookUnspentTransactionOutputRefreshNetworkValidator {
     @Test("listunspent token data reaches the UTXO store", .timeLimit(.minutes(1)))
     func ingestNetworkTokenUnspentTransactionOutputs() async throws {
         guard NetworkTestClient.isExtendedLiveNetworkEnabled else { return }
-        let book = try await AddressBookCashTokensSupport.makeAddressBook()
+        let book = try await OpalBase.Address.Book(
+            rootExtendedPrivateKey: AddressBookCashTokensSupport.makeRootExtendedPrivateKey(),
+            purpose: .bip44,
+            coinType: .bitcoinCash,
+            account: .init(rawIndexInteger: 0),
+            gapLimit: 2
+        )
         let address = try OpalBase.Address(Self.tokenCashAddr)
 
         let configuration = OpalBase.Network.Configuration(serverURLs: [Self.primaryServerAddress, Self.backupServerAddress])

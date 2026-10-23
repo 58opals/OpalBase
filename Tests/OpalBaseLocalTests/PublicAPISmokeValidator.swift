@@ -1,7 +1,6 @@
 // PublicAPISmokeValidator.swift
 
 import Foundation
-import OpalDiagnostics
 import Testing
 import OpalBaseTestSupport
 import OpalBase
@@ -691,20 +690,6 @@ struct PublicAPISmokeValidator {
         )
     }
 
-    private func smokeDiagnosticsConfiguration() -> OpalDiagnostics.Configuration {
-        OpalDiagnostics.Configuration(
-            minimumLevel: .debug,
-            categoryFilter: .all,
-            bufferPolicy: .enabled(capacity: 64)
-        )
-    }
-
-    private func recordsContain(
-        _ records: [OpalDiagnostics.Record],
-        event: OpalDiagnostics.Event
-    ) -> Bool {
-        records.contains { $0.event == event }
-    }
 }
 
 private extension PublicAPISmokeValidator {

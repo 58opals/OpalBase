@@ -64,6 +64,18 @@ struct AccountMosaicPrivateAlphaDiscoveryInboxValidator {
         }
     }
 
+    @Test("Base rejects a reused connection behind distinct endpoint and isolation identities")
+    func rejectsReusedConnection() async throws {
+        let (inbox, connections, _) = try makeInbox(sharedConnection: true)
+        await #expect(throws: Runtime.Failure.runtimeOperationFailed) {
+            _ = try await inbox.start()
+        }
+        let openCount = await connections[0].openCount
+        await inbox.stop()
+        #expect(openCount == 0)
+        #expect(await connections[0].closeCount == 1)
+    }
+
     @Test("Base preserves the inbox's finite event bounds", arguments: [0, 1_025])
     func rejectsInvalidBounds(maximum: Int) throws {
         #expect(throws: Runtime.Failure.runtimeOperationFailed) {
@@ -71,13 +83,14 @@ struct AccountMosaicPrivateAlphaDiscoveryInboxValidator {
         }
     }
 
-    private func makeInbox(maximum: Int = 32, sharedIsolation: UUID? = nil) throws
+    private func makeInbox(maximum: Int = 32, sharedIsolation: UUID? = nil, sharedConnection: Bool = false) throws
         -> (Runtime.PrivateDeploymentInbox, [MosaicDiscoveryInboxConnectionProbe], Runtime.DiscoveryPreparation) {
         let preparation = try Runtime.DiscoveryPreparation(
             epochStartUnixSeconds: 1_800_000_000,
             appGeneratedOpaquePoolIdentifier: Data(repeating: 0x31, count: 32),
             relays: (1 ... 3).map { .init(endpoint: "wss://relay-\($0).example/", reviewedOperatorLabel: "fixture operator \($0)") })
-        let connections = (0 ..< 3).map { _ in MosaicDiscoveryInboxConnectionProbe() }
+        let shared = sharedConnection ? MosaicDiscoveryInboxConnectionProbe() : nil
+        let connections = (0 ..< 3).map { _ in shared ?? MosaicDiscoveryInboxConnectionProbe() }
         let routes = zip(preparation.relayEndpointIdentifiers, connections).map {
             Runtime.PostManifestProvisionedRoute(relayEndpointIdentifier: $0, connection: $1,
                                                 isolationIdentifier: sharedIsolation ?? UUID())

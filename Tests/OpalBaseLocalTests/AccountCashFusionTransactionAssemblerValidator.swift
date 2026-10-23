@@ -338,6 +338,7 @@ struct AccountCashFusionTransactionAssemblerValidator {
         let assembler = OpalBase.Account.CashFusionTransactionAssembler(
             reservation: reservation
         )
+        let localOutput = try makeLocalOutput(for: reservation, value: 55_000)
         let mismatchedTransaction = OpalBase.Transaction(
             version: 2,
             inputs: [
@@ -347,7 +348,7 @@ struct AccountCashFusionTransactionAssemblerValidator {
                     unlockingScript: Data()
                 )
             ],
-            outputs: [.init(value: 80_000, lockingScript: Data([0x51]))],
+            outputs: [localOutput],
             lockTime: 0
         )
 
@@ -392,6 +393,7 @@ struct AccountCashFusionTransactionAssemblerValidator {
         let assembler = OpalBase.Account.CashFusionTransactionAssembler(
             reservation: reservation
         )
+        let localOutput = try makeLocalOutput(for: reservation, value: 50_000)
         let unsignedTransaction = OpalBase.Transaction(
             version: 2,
             inputs: [
@@ -401,7 +403,7 @@ struct AccountCashFusionTransactionAssemblerValidator {
                     unlockingScript: Data()
                 )
             ],
-            outputs: [.init(value: 80_000, lockingScript: Data([0x51]))],
+            outputs: [localOutput],
             lockTime: 0
         )
         let unsignedFusionTransactionBytes = [UInt8](try unsignedTransaction.encode())

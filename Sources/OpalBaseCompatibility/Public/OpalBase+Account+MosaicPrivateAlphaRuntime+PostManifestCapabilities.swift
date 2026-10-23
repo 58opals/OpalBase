@@ -202,9 +202,20 @@ extension OpalBase.Account.MosaicPrivateAlphaRuntime {
             let awaitPermit = awaitAnonymousPublicationPermit
             return .init(
                 provisionRoutes: { requests in
-                    try await provisionRoutes(
+                    let groups = try await provisionRoutes(
                         requests.map(PostManifestRouteRequest.init)
-                    ).map(\.fusionGroup)
+                    )
+                    let routes = groups.flatMap(\.routes)
+                    guard Set(routes.map {
+                        ObjectIdentifier($0.connection as AnyObject)
+                    }).count == routes.count else {
+                        for route in routes {
+                            await route.connection.close()
+                        }
+                        throw OpalFusion.MosaicPrivateAlphaRuntime
+                            .Failure.invalidStateTransition
+                    }
+                    return groups.map(\.fusionGroup)
                 },
                 makeSubscriptionIdentifier: { request, endpoint in
                     try makeSubscriptionIdentifier(

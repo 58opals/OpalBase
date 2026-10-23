@@ -70,6 +70,26 @@ struct NetworkFulcrumServerInfoReaderValidator {
         #expect(version.description == versionCase.expectedDescription)
     }
 
+    @Test("numeric-equivalent protocol versions share ordering and hash identity while preserving spelling")
+    func protocolVersionNumericIdentityPreservesSpelling() throws {
+        let implicitPatch = try #require(OpalBase.Network.ProtocolVersion(string: "1.4"))
+        let explicitPatch = try #require(OpalBase.Network.ProtocolVersion(string: "1.4.0"))
+
+        #expect(implicitPatch == explicitPatch)
+        #expect(!(implicitPatch < explicitPatch))
+        #expect(!(explicitPatch < implicitPatch))
+        #expect((implicitPatch...implicitPatch).contains(explicitPatch))
+        #expect(Set([implicitPatch, explicitPatch]).count == 1)
+        #expect(implicitPatch.description == "1.4")
+        #expect(explicitPatch.description == "1.4.0")
+
+        for version in [implicitPatch, explicitPatch] {
+            let encoded = try JSONEncoder().encode(version)
+            let decoded = try JSONDecoder().decode(OpalBase.Network.ProtocolVersion.self, from: encoded)
+            #expect(decoded.description == version.description)
+        }
+    }
+
     private static let canonicalZeroProtocolVersionCases = [
         (input: "0.0", expectedDescription: "0.0"),
         (input: "1.2.0", expectedDescription: "1.2.0")
