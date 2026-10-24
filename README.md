@@ -35,6 +35,8 @@ See [Trust Boundaries](docs/trust-boundaries.md) for the full integration model.
 - Platforms: `macOS 27`, `iOS 27`, `watchOS 27`, `tvOS 27`, `visionOS 27`
 - Xcode's Metal Toolchain component, required by the `OpalCrypto` Metal verification target. If it is not installed, run `xcodebuild -downloadComponent MetalToolchain`.
 
+Use the Xcode 27 family with a compiler supporting Swift tools 6.4 and Swift 6 language mode. The supported platform versions above are 27.0 deployment minimums; a newer selected 27.x SDK does not raise them. Before validation, record the active developer-directory selection and overrides, Xcode build, effective Swift compiler and each selected SDK version/path. Record the Metal compiler version and tool paths separately. After any of these inputs changes, use a new external scratch or derived-data lane and rerun the affected builds and tests against the existing dependency lock. Preserve earlier receipts and keep normal signing, security and plugin settings; selecting newer tools neither updates package pins nor renews earlier validation.
+
 ## Installation
 
 For reproducible review of the current Swift 6.4 / OS 27 stack, pin an inspected public `develop` revision. This example includes the OS 27 migration, the two-account CashToken transfer and reviewed-genesis APIs in the [public API guide](docs/public-api.md#two-account-cashtoken-transfers), and the exact SwiftFulcrum integration pin described below:

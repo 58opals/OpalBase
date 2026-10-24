@@ -18,9 +18,9 @@ let package = Package(
         .library(name: "OpalBaseCore", targets: ["OpalBaseCore"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/58opals/SwiftFulcrum.git", revision: "43a1583270d8147111211f176d1d444db4a51aa9"),
-        .package(url: "https://github.com/58opals/OpalCrypto.git", revision: "51fc53c50a66779ca23d564168351da8ecd00faf"),
-        .package(url: "https://github.com/58opals/OpalFusion.git", revision: "b144a6ee03d5951eede74b54a59e106f29b8f944"),
+        .package(url: "https://github.com/58opals/SwiftFulcrum.git", revision: "85f1f5f97c278619a6afb4af313d5dc84475d20f"),
+        .package(url: "https://github.com/58opals/OpalCrypto.git", revision: "3d81bb4d5931eff1bebc09014d4be0a8612eaf28"),
+        .package(url: "https://github.com/58opals/OpalFusion.git", revision: "fe5349d5c07f128558a59a8744720670695076b2"),
         .package(url: "https://github.com/58opals/OpalDiagnostics.git", branch: "develop")
     ],
     targets: [
