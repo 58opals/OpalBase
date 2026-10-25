@@ -39,11 +39,11 @@ Use the Xcode 27 family with a compiler supporting Swift tools 6.4 and Swift 6 l
 
 ## Installation
 
-For reproducible review of the current Swift 6.4 / OS 27 stack, pin an inspected public `develop` revision. This example includes the OS 27 migration, the two-account CashToken transfer and reviewed-genesis APIs in the [public API guide](docs/public-api.md#two-account-cashtoken-transfers), and the exact SwiftFulcrum integration pin described below:
+For reproducible review of the current Swift 6.4 / OS 27 stack, pin an inspected public `develop` revision. Replace the placeholder below with the full commit hash of the reviewed published candidate. The current integration includes the two-account CashToken transfer and reviewed-genesis APIs in the [public API guide](docs/public-api.md#two-account-cashtoken-transfers).
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/58opals/OpalBase.git", revision: "5af0fbc2b825146b67b99472e55f077d9fe1e007")
+    .package(url: "https://github.com/58opals/OpalBase.git", revision: "<reviewed-public-develop-commit>")
 ],
 targets: [
     .target(
@@ -55,7 +55,7 @@ targets: [
 ]
 ```
 
-The current manifest pins `SwiftFulcrum`, `OpalCrypto`, and `OpalFusion` to exact public integration revisions and follows `OpalDiagnostics` on its public `develop` branch. Retain the consuming application's `Package.resolved` to record their resolved revisions; pinning Base alone does not freeze transitive branch heads. This is an integration snapshot, not a SemVer release.
+The current manifest pins `SwiftFulcrum`, `OpalCrypto`, `OpalFusion`, and `OpalDiagnostics` to exact public integration revisions. Diagnostics uses revision `aa56dec5d6c8581beb2b3cef43b03dd577ccd9f1`. Retain the consuming application's `Package.resolved` to record the complete resolved graph. This is an integration snapshot, not a SemVer release.
 
 The published `v0.4.1` tag is **not usable as a SwiftPM version-based dependency** (`from: "0.4.1"` or `exact: "0.4.1"`): SwiftPM rejects its branch-based sibling requirements. Its own `Package.resolved` does not remove that restriction. A future version-consumable release needs a compatible stable dependency graph and an actual consumer-resolution check. See [Release Readiness](docs/release-readiness.md) for the known limitation and gates.
 
@@ -110,9 +110,11 @@ You now have mnemonic-backed wallet authority, the first BCH account, and a rese
 
 Tests own wallet orchestration, precise amounts, spend reservations, persistence contracts, and adaptation of dependency results. Keep exhaustive primitive and wire-format coverage in its owning dependency, while retaining Base-specific authority, error translation, cancellation, and integration checks. Use small local fixtures when production account capacity is not the behavior under test.
 
-Local validation:
+Resolve the published dependency graph and require the tracked lock to remain unchanged before compilation. The dependency-resolution CI job runs this inexpensive gate on pushes and pull requests.
 
 ```bash
+swift package resolve
+git diff --exit-code -- Package.resolved
 swift build
 swift test
 ```

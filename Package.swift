@@ -18,10 +18,10 @@ let package = Package(
         .library(name: "OpalBaseCore", targets: ["OpalBaseCore"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/58opals/SwiftFulcrum.git", revision: "85f1f5f97c278619a6afb4af313d5dc84475d20f"),
-        .package(url: "https://github.com/58opals/OpalCrypto.git", revision: "3d81bb4d5931eff1bebc09014d4be0a8612eaf28"),
-        .package(url: "https://github.com/58opals/OpalFusion.git", revision: "fe5349d5c07f128558a59a8744720670695076b2"),
-        .package(url: "https://github.com/58opals/OpalDiagnostics.git", branch: "develop")
+        .package(url: "https://github.com/58opals/SwiftFulcrum.git", revision: "6b4d062bb5ea6b61f2cc72f357427e5635c35128"),
+        .package(url: "https://github.com/58opals/OpalCrypto.git", revision: "06f9edcbd5b44c869e6f81f3da1ea147add1d8cf"),
+        .package(url: "https://github.com/58opals/OpalFusion.git", revision: "4c43ada607dc4a4cf52c0c3b5929bc201a535c57"),
+        .package(url: "https://github.com/58opals/OpalDiagnostics.git", revision: "aa56dec5d6c8581beb2b3cef43b03dd577ccd9f1")
     ],
     targets: [
         .testTarget(name: "OpalBaseCoreTests", dependencies: ["OpalBaseCore"], path: "Tests/OpalBaseCoreTests"),

@@ -36,8 +36,8 @@ This page is the source of truth for the current implementation and release read
 | Area | Current status | Remaining release gate |
 | --- | --- | --- |
 | Clean validation | Cash Code has deterministic local test coverage and Opal Base documents its Xcode and Metal Toolchain requirements. | Pass a clean-checkout release build and the full test suite under the supported toolchain after all Cash Code feature gates are closed. |
-| Automation | The repository does not currently contain repository-owned continuous integration configuration. | Add public continuous integration that enforces the clean build, full tests, and public-boundary checks required for release. |
-| Dependency requirements | Public sibling package URLs and resolved revisions are tracked, with `SwiftFulcrum`, `OpalCrypto`, and `OpalFusion` pinned to exact integration revisions and `OpalDiagnostics` still using a branch-based requirement. | Replace mutable sibling `develop` requirements with approved immutable tags or SemVer requirements before treating the Cash Code release as reproducible for package consumers. |
+| Automation | Dependency-resolution CI checks pushes and pull requests against the tracked lock. Automated full release builds, tests, and public-boundary validation remain open. | Add public continuous integration that enforces the clean build, full tests, and public-boundary checks required for release. |
+| Dependency requirements | Public sibling package URLs and resolved revisions are tracked; all four direct dependencies, including `OpalDiagnostics`, use exact public integration revisions. | Revalidate the complete resolved graph and select approved release tags or SemVer requirements before publishing a stable Cash Code release. Exact integration pins do not establish release readiness. |
 | Stable publication | Cash Code v1 remains under `Unreleased`. | Publish it only through a validated SemVer release after the feature, validation, automation, and dependency gates are closed. |
 
 These Cash Code release gates are intentionally stricter than the branch-based dependency posture accepted for the `v0.4.1` developer-preview release line.

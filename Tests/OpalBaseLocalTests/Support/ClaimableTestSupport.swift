@@ -119,12 +119,6 @@ enum ClaimableTestSupport {
         )
     }
 
-    static func makeClaimableFundingIdentifier(
-        for envelope: OpalBase.Claimable.Envelope
-    ) -> String {
-        envelope.fundingTransactionHash.reverseOrder.hexadecimalString
-    }
-
     static func makeClaimableHistoryEntry(
         transactionHash: OpalBase.Transaction.Hash,
         blockHeight: Int = 500

@@ -94,13 +94,6 @@ actor ReusablePaymentAddressRestorationTransportActor {
         mempoolReferences = references
     }
 
-    func storeRawTransaction(
-        _ transaction: Data,
-        for hash: OpalBase.Transaction.Hash
-    ) {
-        rawTransactions[hash] = Data(transaction)
-    }
-
     func suspendNextConfirmedRequest() {
         shouldSuspendConfirmedRequest = true
         hasBegunSuspendedConfirmedRequest = false
