@@ -191,9 +191,12 @@ What you have now: a `WalletUnsignedSpendPlan` that reserves selected UTXOs and 
 Run local validation with:
 
 ```bash
-swift build
-swift test
+scripts/validate.sh
+scripts/validate.sh focused PublicAPISmokeValidator
+scripts/validate.sh assurance
 ```
+
+The default is representative development feedback. Use `focused` for a literal identifier substring and `assurance` for the complete offline suite; see [the validation contract](../README.md#validation). A focused pass is not full package acceptance.
 
 Run live Fulcrum validation only when you intentionally want network access:
 

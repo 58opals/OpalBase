@@ -22,8 +22,7 @@ A future version-consumable release requires compatible published sibling versio
 
 ## Release Hardening Checklist
 
-- Confirm `swift build` passes from a clean checkout.
-- Confirm `swift test` passes from a clean checkout.
+- Confirm `scripts/validate.sh assurance` passes from a clean checkout. Discovery compiles the package and tests, then runs the complete offline suite using those same products; no redundant separate `swift build` is required. Retain any additional product/platform build checks required by the release.
 - Confirm optional live Fulcrum validation is either intentionally run or explicitly skipped: `OPAL_RUN_LIVE_NETWORK_TESTS=1 OPAL_FULCRUM_URL=<server> swift test --filter NetworkLiveSmokeValidator`.
 - Confirm `Package.swift` and `Package.resolved` use only public dependency URLs and do not expose private-only branch topology.
 - For a SemVer-consumable release, require compatible stable sibling requirements and verify a fresh consumer resolves Base by version. Record the exact graph and result before promotion; public branch URLs alone are insufficient.

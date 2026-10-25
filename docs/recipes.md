@@ -249,9 +249,12 @@ Review with: `Tests/OpalBaseLocalTests/DiagnosticsValidator.swift` and `Tests/Op
 ## Validation Commands
 
 ```bash
-swift build
-swift test
+scripts/validate.sh
+scripts/validate.sh focused SpendPlanBroadcastValidator
+scripts/validate.sh assurance
 ```
+
+The first command runs focused development contracts; `focused` selects a literal discovered identifier substring. The explicit `assurance` command runs the complete offline suite. See [the validation contract](../README.md#validation) for selection, build reuse and toolchain lanes.
 
 Live Fulcrum validation is intentionally opt-in:
 

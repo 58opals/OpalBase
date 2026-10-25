@@ -110,16 +110,21 @@ You now have mnemonic-backed wallet authority, the first BCH account, and a rese
 
 Tests own wallet orchestration, precise amounts, spend reservations, persistence contracts, and adaptation of dependency results. Keep exhaustive primitive and wire-format coverage in its owning dependency, while retaining Base-specific authority, error translation, cancellation, and integration checks. Use small local fixtures when production account capacity is not the behavior under test.
 
-Resolve the published dependency graph and require the tracked lock to remain unchanged before compilation. The dependency-resolution CI job runs this inexpensive gate on pushes and pull requests.
+Use the focused development lane for routine feedback and select the owning suite when changing a feature:
 
 ```bash
-swift package resolve
-git diff --exit-code -- Package.resolved
-swift build
-swift test
+scripts/validate.sh
+scripts/validate.sh focused SpendPlanBroadcastValidator
+scripts/validate.sh assurance
 ```
 
-Live Fulcrum smoke tests are opt-in:
+The default `develop` lane runs the public API, durable BCH and wallet security-profile contracts. It is a subset, not complete package assurance. `focused` accepts a literal substring of a discovered test identifier, rejects empty/no-match selections and reports selected/total definitions. Add leading `--list` to inspect any lane without executing tests. `assurance` keeps the complete offline suite, including the unchanged conditional cases. Live and extended live Fulcrum gates are disabled by these entrypoints; live validation remains separately opt-in below.
+
+Discovery compiles the test products once with the tracked `Package.resolved`; execution reuses those products in the same invocation. There is no separate `swift build` prerequisite. SwiftPM still checks incremental inputs on the next invocation, and the script rejects lock changes. The dependency-resolution CI job separately resolves the published graph and checks the lock on pushes and pull requests.
+
+Build products default to `.build/validation`. Set absolute `OPAL_VALIDATION_SCRATCH_PATH` to choose another lane, especially a fresh directory after toolchain changes. Do not reuse a prior `--skip-build` command independently after source, dependency or toolchain changes. Before publication or release, run the applicable full assurance and platform checks in [Release Readiness](docs/release-readiness.md); a focused pass does not replace them.
+
+Live Fulcrum smoke tests are opt-in and run outside these offline lanes:
 
 ```bash
 OPAL_RUN_LIVE_NETWORK_TESTS=1 OPAL_FULCRUM_URL=wss://your.fulcrum.example:50004 swift test --filter NetworkLiveSmokeValidator
