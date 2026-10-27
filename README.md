@@ -55,7 +55,7 @@ targets: [
 ]
 ```
 
-The current manifest pins `SwiftFulcrum`, `OpalCrypto`, `OpalFusion`, and `OpalDiagnostics` to exact public integration revisions. Diagnostics uses revision `aa56dec5d6c8581beb2b3cef43b03dd577ccd9f1`. Retain the consuming application's `Package.resolved` to record the complete resolved graph. This is an integration snapshot, not a SemVer release.
+The current [Package.swift](Package.swift) pins `SwiftFulcrum`, `OpalCrypto`, `OpalFusion`, and `OpalDiagnostics` to exact public integration revisions. Use those declarations when selecting direct requirements on the same packages, including Diagnostics, so the application resolves one compatible graph. Retain the consuming application's `Package.resolved` to record the complete resolved graph. This is an integration snapshot, not a SemVer release.
 
 The published `v0.4.1` tag is **not usable as a SwiftPM version-based dependency** (`from: "0.4.1"` or `exact: "0.4.1"`): SwiftPM rejects its branch-based sibling requirements. Its own `Package.resolved` does not remove that restriction. A future version-consumable release needs a compatible stable dependency graph and an actual consumer-resolution check. See [Release Readiness](docs/release-readiness.md) for the known limitation and gates.
 
