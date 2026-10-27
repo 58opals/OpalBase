@@ -31,6 +31,8 @@ Secure Enclave-backed storage protects persisted mnemonic material at rest. It d
 
 `WalletBlockchainSyncInteractor` takes a descriptor or read-only account plus `WalletPublicChainOperations`. Use it for BCH balances, transaction history, UTXOs, and confirmations. Confirmed and unconfirmed values must stay distinct because unconfirmed state can change at the mempool level.
 
+The [peer catalog snapshot](peer-catalogs.md) identifies the maintained default-provider inputs and their unqualified status. Source hashes and successful connections do not establish independent operators, canonical-chain selection, complete history or correct balances; applications own those trust and verification decisions.
+
 ## Receive-Address Reservation
 
 A CashAddr receive address should be reserved when it is handed out to a payer. `reserveNextReceivingDerivedAddress()` mutates reservation/cache state so concurrent receive flows do not reuse the same address. `selectNextDerivedAddress(for:)` is for inspection only.

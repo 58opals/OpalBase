@@ -9,7 +9,7 @@ import OpalBaseTestSupport
 
 @Suite("OpalBase.Network.ServerCatalog", .tags(.unit, .network))
 struct NetworkServerCatalogValidator {
-    @Test("opal defaults provide healthy per-environment catalogs")
+    @Test("opal defaults preserve the reviewed per-environment catalog inventory")
     func opalDefaultsProvidePerEnvironmentCatalogs() {
         let catalog = OpalBase.Network.ServerCatalog.opalDefault
         
@@ -24,6 +24,18 @@ struct NetworkServerCatalogValidator {
         #expect(chipnetServers == [URL(string: "wss://chipnet.imaginary.cash:50004")!])
         #expect(testnetServers.contains(URL(string: "wss://testnet.imaginary.cash:50004")!))
         #expect(!testnetServers.contains(where: { $0.host == "chipnet.imaginary.cash" }))
+        #expect(mainnetServers.map(\.absoluteString) == [
+            "wss://bch.imaginary.cash:50004",
+            "wss://bch.loping.net:50004",
+            "wss://fulcrum.greyh.at:50004",
+            "wss://cashnode.bch.ninja:50004",
+            "wss://electrum.imaginary.cash:50004",
+            "wss://electroncash.dk:50004"
+        ])
+        #expect(testnetServers.map(\.absoluteString) == [
+            "wss://testnet.imaginary.cash:50004",
+            "wss://testnet.bch.loping.net:51004"
+        ])
     }
 
     @Test("catalog URL mutation preserves normalization")

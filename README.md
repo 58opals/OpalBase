@@ -29,6 +29,8 @@ The unreleased `OpalBaseCore` product supports ordinary BCH integration without 
 
 See [Trust Boundaries](docs/trust-boundaries.md) for the full integration model.
 
+The [peer catalog snapshot](docs/peer-catalogs.md) records Base's distinct default URLs, source digest and provider-trust limits, and links SwiftFulcrum's authoritative qualification contract. Catalog inclusion is not live qualification.
+
 ## Requirements
 
 - Swift tools version: `6.4`
